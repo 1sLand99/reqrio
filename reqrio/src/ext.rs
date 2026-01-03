@@ -4,10 +4,11 @@ use crate::file::HttpFile;
 use crate::packet::*;
 use crate::timeout::Timeout;
 use crate::url::Url;
-use crate::{coder, Buffer, Proxy, ReqCallback, ALPN};
+use crate::*;
 use json::JsonValue;
 #[cfg(use_cls)]
 use reqtls::Fingerprint;
+#[cfg(anys)]
 use crate::coder::HackDecode;
 
 pub trait ReqExt: Sized {
@@ -62,6 +63,7 @@ pub trait ReqExt: Sized {
         self.set_alpn(alpn);
         self
     }
+    #[cfg(anys)]
     fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + 'static);
     #[cfg(use_cls)]
     fn set_fingerprint(&mut self, fingerprint: Fingerprint);
@@ -117,10 +119,13 @@ pub trait ReqExt: Sized {
 
 
 pub(crate) trait ReqPriExt: ReqExt {
+    #[cfg(anys)]
     fn callback(&mut self) -> &mut Option<ReqCallback>;
 
+    #[cfg(anys)]
     fn hack_decoder(&mut self) -> &mut HackDecode;
 
+    #[cfg(anys)]
     fn handle_h1_res(&mut self, buffer: &Buffer, response: &mut Response, rd: &mut usize) -> HlsResult<bool> {
         match self.callback() {
             None => response.extend(&buffer),
@@ -145,6 +150,7 @@ pub(crate) trait ReqPriExt: ReqExt {
         }
     }
 
+    #[cfg(anys)]
     fn handle_h2_res(&mut self, frame: Frame, response: &mut Response) -> HlsResult<bool> {
         if frame.frame_type() == &FrameType::Goaway { return Err("Connection reset by peer".into()); }
         match self.callback() {
@@ -183,22 +189,6 @@ pub(crate) trait ReqPriExt: ReqExt {
         }
         body.append(&mut format!("--{}--\r\n", md5).as_bytes().to_vec());
         Ok(body)
-    }
-
-    fn format_body(&mut self, md5: &str) -> HlsResult<Vec<u8>> {
-        match self.body_type() {
-            BodyType::Text(text) => Ok(text.as_bytes().to_vec()),
-            BodyType::Bytes(bytes) => Ok(bytes.to_vec()),
-            BodyType::Files(fds) => {
-                // let md5 = "abcde12345abcdebbeeaaccafeacb454";
-                let body_bytes = Self::format_file_body(fds, md5)?;
-                Ok(body_bytes)
-            }
-            BodyType::WwwForm(form) => Ok(form.entries().map(|(k, v)| {
-                format!("{}={}", k, coder::url_encode(v.dump()))
-            }).collect::<Vec<_>>().join("&").into_bytes()),
-            BodyType::Json(jd) => Ok(jd.dump().into_bytes()),
-        }
     }
 
     fn format_header(&mut self, md5: &str, body_len: usize) -> HlsResult<Vec<u8>> {
@@ -243,6 +233,22 @@ pub(crate) trait ReqPriExt: ReqExt {
 
 #[allow(private_bounds)]
 pub trait ReqGenExt: ReqPriExt {
+    fn format_body(&mut self, md5: &str) -> HlsResult<Vec<u8>> {
+        match self.body_type() {
+            BodyType::Text(text) => Ok(text.as_bytes().to_vec()),
+            BodyType::Bytes(bytes) => Ok(bytes.to_vec()),
+            BodyType::Files(fds) => {
+                // let md5 = "abcde12345abcdebbeeaaccafeacb454";
+                let body_bytes = Self::format_file_body(fds, md5)?;
+                Ok(body_bytes)
+            }
+            BodyType::WwwForm(form) => Ok(form.entries().map(|(k, v)| {
+                format!("{}={}", k, coder::url_encode(v.dump()))
+            }).collect::<Vec<_>>().join("&").into_bytes()),
+            BodyType::Json(jd) => Ok(jd.dump().into_bytes()),
+        }
+    }
+
     fn gen_h1(&mut self) -> HlsResult<Vec<u8>> {
         let host = self.url().addr().to_string().replace(":80", "").replace(":443", "");
         match self.header().host() {

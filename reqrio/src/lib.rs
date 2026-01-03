@@ -69,7 +69,6 @@
 pub use acq::AcReq;
 pub use alpn::ALPN;
 pub use buffer::Buffer;
-#[cfg(anys)]
 pub use ext::{ReqExt, ReqGenExt};
 pub use json;
 pub use packet::{
@@ -80,6 +79,7 @@ pub use packet::{
 pub use reqtls::Fingerprint;
 #[cfg(sync)]
 pub use scq::ScReq;
+pub use body::BodyType;
 pub use stream::Proxy;
 #[cfg(feature = "cls_async")]
 pub use stream::{TlsStream, TlsConnector};
@@ -103,9 +103,7 @@ pub mod coder;
 mod error;
 #[cfg(feature = "export")]
 mod export;
-#[cfg(anys)]
 mod ext;
-#[cfg(anys)]
 mod file;
 mod packet;
 #[cfg(sync)]
@@ -113,5 +111,4 @@ mod scq;
 mod stream;
 mod timeout;
 mod url;
-#[cfg(anys)]
 mod body;

@@ -22,6 +22,7 @@ string Cookie::getValue() {
 }
 
 Response::Response(string res) {
+    hexDecode(res);
 }
 
 int Response::length() const {

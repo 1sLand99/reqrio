@@ -45,9 +45,15 @@ impl Uri {
 
     pub fn params(&self) -> &Vec<Param> { &self.params }
 
+    pub fn params_mut(&mut self) -> &mut Vec<Param> {
+        &mut self.params
+    }
+
     pub fn clear_params(&mut self) {
         self.params.clear();
     }
+
+    pub fn without_param(&self) -> &str { &self.uri }
 }
 
 impl Display for Uri {

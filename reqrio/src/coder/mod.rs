@@ -1,8 +1,9 @@
 
 use crate::error::HlsResult;
-use flate2::read::{DeflateDecoder, GzDecoder};
+use flate2::read::{DeflateDecoder, GzDecoder, GzEncoder};
 pub use hpack::*;
 use std::io::{BufReader, Read};
+use flate2::Compression;
 
 mod hpack;
 
@@ -60,12 +61,12 @@ pub fn deflate_decode(ded: impl AsRef<[u8]>) -> HlsResult<Vec<u8>> {
     Ok(out)
 }
 
-// pub fn gzip_encode(ded: impl AsRef<[u8]>) -> HlsResult<Vec<u8>> {
-//     let mut ge = GzEncoder::new(ded.as_ref(), Compression::default());
-//     let mut out = vec![];
-//     ge.read_to_end(&mut out)?;
-//     Ok(out)
-// }
+pub fn gzip_encode(ded: impl AsRef<[u8]>) -> HlsResult<Vec<u8>> {
+    let mut ge = GzEncoder::new(ded.as_ref(), Compression::default());
+    let mut out = vec![];
+    ge.read_to_end(&mut out)?;
+    Ok(out)
+}
 
 pub fn gzip_decode(ded: impl AsRef<[u8]>) -> HlsResult<Vec<u8>> {
     if ded.as_ref().len() == 0 { return Ok(vec![]); }

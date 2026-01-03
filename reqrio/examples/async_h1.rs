@@ -1,25 +1,7 @@
-use std::collections::HashMap;
-use reqrio::{AcReq, Addr, Proxy, ReqExt, ALPN};
+use reqrio::{AcReq, ReqExt, ALPN};
 
 #[tokio::main]
 async fn main() {
-    //     let header = r#"GET /cgi-bin/luci/ HTTP/1.1
-    // Host: 192.168.15.1
-    // Connection: keep-alive
-    // Cache-Control: max-age=0
-    // Upgrade-Insecure-Requests: 1
-    // User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0
-    // Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
-    // Referer: http://192.168.15.1/
-    // Accept-Encoding: gzip, deflate
-    // Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6
-    //
-    // "#.replace("\n", "\r\n");
-    //     // let header=Header::try_from(header.to_string()).unwrap();
-    //     let mut resp = Response::new();
-    //     let res = resp.extend(&Buffer::new_bytes(header.as_bytes().to_vec())).unwrap();
-    //     println!("{} {}", header, res);
-    //     println!("{}", res);
     let mut req = AcReq::new().with_alpn(ALPN::Http20);
     let headers = json::object! {
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
