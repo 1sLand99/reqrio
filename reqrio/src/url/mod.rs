@@ -35,8 +35,8 @@ impl Url {
 
     pub fn into_uri(self) -> Uri { self.uri }
 
-    pub fn set_uri(&mut self, uri: String) -> HlsResult<()> {
-        let mut i = uri.split("?");
+    pub fn set_uri(&mut self, uri: impl AsRef<str>) -> HlsResult<()> {
+        let mut i = uri.as_ref().split("?");
         self.uri.set_uri(i.next().ok_or("Invalid uri")?);
         self.uri.parse_param(i.next().unwrap_or(""))
     }
