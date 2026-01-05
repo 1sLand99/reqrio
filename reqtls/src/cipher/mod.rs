@@ -1,6 +1,7 @@
 use super::record::RecordLayer;
 use crate::error::{RlsError, RlsResult};
-use aws_lc_rs::aead::{Aad, Nonce};
+// use aws_lc_rs::aead::{Aad, Nonce};
+use ring::aead::{Aad, Nonce};
 use iv::Iv;
 use key::Key;
 use crate::extend::Aead;
@@ -62,10 +63,10 @@ impl Cipher {
         let aad = Aad::from(&add_arr);
         let payload = record.messages[0].payload_mut().ok_or(RlsError::PayloadNone)?;
         self.iv.set_explicit(payload.explicit(aead).to_vec());
-        let nonce=match aead {
+        let nonce = match aead {
             Aead::AES_128_GCM | Aead::AES_256_GCM => Nonce::assume_unique_for_key(self.iv.as_ref()),
             Aead::ChaCha20_POLY1305 => Nonce::assume_unique_for_key(self.iv.as_array(self.seq)),
-            _=> return Err("gen nonce none".into())
+            _ => return Err("gen nonce none".into())
         };
         let len = self.key.decrypt(nonce, aad, payload.decrypting_payload(aead))?;
         self.seq += 1;

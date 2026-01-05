@@ -130,7 +130,7 @@ mod tests {
         let url = Url::try_from(url8).unwrap();
         println!("{:#?} {}", url, url.to_string() == url8);
 
-        let uri = Uri::try_from("/").unwrap();
+        let uri = Uri::try_from("http://114.132.98.40:45689/admin/index.html").unwrap();
         println!("{}", uri);
     }
 }

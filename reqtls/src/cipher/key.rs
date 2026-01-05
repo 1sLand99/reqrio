@@ -1,12 +1,15 @@
 use super::super::extend::Aead;
-use aws_lc_rs::aead::{Aad, LessSafeKey, Nonce, Tag, TlsProtocolId, TlsRecordOpeningKey, TlsRecordSealingKey, UnboundKey};
+use ring::aead::{Aad, LessSafeKey, Nonce, Tag, UnboundKey};
+// use aws_lc_rs::aead::{Aad, LessSafeKey, Nonce, Tag, TlsProtocolId, TlsRecordOpeningKey, TlsRecordSealingKey, UnboundKey};
 use crate::error::RlsResult;
 use crate::RlsError;
 
 pub enum Key {
     None,
-    AesGcmRead(TlsRecordOpeningKey),
-    AesGcmWrite(TlsRecordSealingKey),
+    // AesGcmRead(TlsRecordOpeningKey),
+    // AesGcmWrite(TlsRecordSealingKey),
+    AesGcmRead(LessSafeKey),
+    AesGcmWrite(LessSafeKey),
     ChaCha20Poly1305Read(LessSafeKey),
     ChaCha20Poly1305Write(LessSafeKey),
 }
@@ -29,22 +32,26 @@ impl Key {
     }
 
     fn aes_gcm_read(key: &[u8], aead: &Aead) -> RlsResult<Key> {
-        let key = TlsRecordOpeningKey::new(aead.as_aws_aead(), TlsProtocolId::TLS13, key)?;
+        let key = UnboundKey::new(aead.as_ring_aead(), key)?;
+        let key = LessSafeKey::new(key);
+        // let key = TlsRecordOpeningKey::new(aead.as_aws_aead(), TlsProtocolId::TLS13, key)?;
         Ok(Key::AesGcmRead(key))
     }
 
     fn aes_gcm_write(key: &[u8], aead: &Aead) -> RlsResult<Key> {
-        let key = TlsRecordSealingKey::new(aead.as_aws_aead(), TlsProtocolId::TLS13, key)?;
+        let key = UnboundKey::new(aead.as_ring_aead(), key)?;
+        let key = LessSafeKey::new(key);
+        // let key = TlsRecordSealingKey::new(aead.as_aws_aead(), TlsProtocolId::TLS13, key)?;
         Ok(Key::AesGcmWrite(key))
     }
 
     fn chacha20_poly1350_read(key: &[u8], aead: &Aead) -> RlsResult<Key> {
-        let unbound_key = UnboundKey::new(aead.as_aws_aead(), key)?;
+        let unbound_key = UnboundKey::new(aead.as_ring_aead(), key)?;
         Ok(Key::ChaCha20Poly1305Read(LessSafeKey::new(unbound_key)))
     }
 
     fn chacha20_poly1305_write(key: &[u8], aead: &Aead) -> RlsResult<Key> {
-        let unbound_key = UnboundKey::new(aead.as_aws_aead(), key)?;
+        let unbound_key = UnboundKey::new(aead.as_ring_aead(), key)?;
         Ok(Key::ChaCha20Poly1305Write(LessSafeKey::new(unbound_key)))
     }
 

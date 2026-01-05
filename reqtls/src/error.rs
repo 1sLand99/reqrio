@@ -5,7 +5,7 @@ use std::fmt::{Display, Formatter};
 use std::io;
 use std::num::ParseIntError;
 use std::string::FromUtf8Error;
-use aws_lc_rs::error::Unspecified;
+// use aws_lc_rs::error::Unspecified;
 use hex::FromHexError;
 use hmac::digest::InvalidLength;
 
@@ -34,8 +34,8 @@ impl Display for RlsError {
             RlsError::GenKeyFromAeadNone => f.write_str("get key from aead none"),
             RlsError::AeadNone => f.write_str("Aead none"),
             RlsError::HasherNone => f.write_str("Hasher none"),
-            RlsError::InvalidCipherSuite=>f.write_str("Invalid cipher suite"),
-            RlsError::MessageTooShort=>f.write_str("Message too short"),
+            RlsError::InvalidCipherSuite => f.write_str("Invalid cipher suite"),
+            RlsError::MessageTooShort => f.write_str("Message too short"),
             RlsError::StdError(e) => f.write_fmt(format_args!("{:?}", e)),
             RlsError::Currently(e) => f.write_str(e),
         }
@@ -78,9 +78,15 @@ impl From<InvalidLength> for RlsError {
     }
 }
 
-impl From<Unspecified> for RlsError {
-    fn from(value: Unspecified) -> Self {
-        RlsError::StdError(Box::new(value))
+// impl From<Unspecified> for RlsError {
+//     fn from(value: Unspecified) -> Self {
+//         RlsError::StdError(Box::new(value))
+//     }
+// }
+
+impl From<ring::error::Unspecified> for RlsError {
+    fn from(value: ring::error::Unspecified) -> Self {
+        RlsError::Currently(value.to_string())
     }
 }
 

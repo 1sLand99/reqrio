@@ -77,11 +77,20 @@ impl Aead {
         }
     }
 
-    pub fn as_aws_aead(&self) -> &'static aws_lc_rs::aead::Algorithm {
+    // pub fn as_aws_aead(&self) -> &'static aws_lc_rs::aead::Algorithm {
+    //     match self {
+    //         Aead::AES_128_GCM => &aws_lc_rs::aead::AES_128_GCM,
+    //         Aead::AES_256_GCM => &aws_lc_rs::aead::AES_256_GCM,
+    //         Aead::ChaCha20_POLY1305 => &aws_lc_rs::aead::CHACHA20_POLY1305,
+    //         _ => panic!("unknown aead"),
+    //     }
+    // }
+
+    pub fn as_ring_aead(&self) -> &'static ring::aead::Algorithm {
         match self {
-            Aead::AES_128_GCM => &aws_lc_rs::aead::AES_128_GCM,
-            Aead::AES_256_GCM => &aws_lc_rs::aead::AES_256_GCM,
-            Aead::ChaCha20_POLY1305 => &aws_lc_rs::aead::CHACHA20_POLY1305,
+            Aead::AES_128_GCM => &ring::aead::AES_128_GCM,
+            Aead::AES_256_GCM => &ring::aead::AES_256_GCM,
+            Aead::ChaCha20_POLY1305 => &ring::aead::CHACHA20_POLY1305,
             _ => panic!("unknown aead"),
         }
     }
