@@ -6,7 +6,7 @@ members = [
 ]
 
 [workspace.dependencies]
-reqtls = { path = "reqtls", version = "0.0.10" }
+reqtls = { path = "reqtls", version = "0.0.11" }
 
 [profile.release]
 opt-level = "z"
