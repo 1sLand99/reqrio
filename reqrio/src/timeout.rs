@@ -1,5 +1,5 @@
 use std::time::Duration;
-use json::JsonValue;
+use crate::json::JsonValue;
 use crate::error::HlsError;
 
 pub struct Timeout {

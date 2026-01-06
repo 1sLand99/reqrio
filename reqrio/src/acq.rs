@@ -9,7 +9,7 @@ use crate::stream::{ConnParam, Proxy, Stream};
 use crate::timeout::Timeout;
 use crate::url::Url;
 use crate::{Buffer, ReqCallback};
-use json::JsonValue;
+use crate::json::JsonValue;
 #[cfg(use_cls)]
 use reqtls::Fingerprint;
 use crate::body::BodyType;

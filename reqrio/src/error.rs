@@ -9,7 +9,7 @@ use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 use std::sync::PoisonError;
 use httlib_hpack::{DecoderError, EncoderError};
-use json::JsonError;
+use crate::json::JsonError;
 #[cfg(feature = "rustls")]
 use rustls::pki_types::InvalidDnsNameError;
 #[cfg(aync)]

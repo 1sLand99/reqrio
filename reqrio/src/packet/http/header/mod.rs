@@ -2,7 +2,7 @@ use crate::coder::HPack;
 use crate::error::{HlsError, HlsResult};
 #[cfg(anys)]
 use crate::ALPN;
-use json::JsonValue;
+use crate::json::JsonValue;
 pub use key::HeaderKey;
 pub use method::Method;
 pub use status::HttpStatus;

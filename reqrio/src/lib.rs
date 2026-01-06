@@ -70,7 +70,7 @@ pub use acq::AcReq;
 pub use alpn::ALPN;
 pub use buffer::Buffer;
 pub use ext::{ReqExt, ReqGenExt};
-pub use json;
+pub use reqrio_json as json;
 pub use packet::{
     Application, Body, ContentType, Cookie, Font, Frame, FrameFlag, FrameType, Header, HeaderValue,
     HttpStatus, Method, Response, Text, HeaderKey,
