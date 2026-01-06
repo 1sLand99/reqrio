@@ -5,9 +5,9 @@ use std::ops::{Index, IndexMut};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
-use crate::{JsonResult, JsonValue, NULL};
 use crate::number::Number;
-use crate::parser::JsonParser;
+use crate::object::Object;
+use crate::{JsonResult, JsonValue, NULL};
 
 impl Index<usize> for JsonValue {
     type Output = JsonValue;
@@ -94,33 +94,32 @@ impl<'a> IndexMut<&'a String> for JsonValue {
     }
 }
 
-impl Serialize for JsonValue {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let ser_str = match self {
-            JsonValue::String(s) => format!("\"{s}\""),
-            _ => { self.dump() }
-        };
-        let json_value: Value = serde_json::from_str(&ser_str).unwrap();
-        serializer.serialize_some(&json_value)
-    }
-}
+// impl Serialize for JsonValue {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         let ser_str = match self {
+//             JsonValue::String(s) => format!("\"{s}\""),
+//             _ => { self.dump() }
+//         };
+//         let json_value: Value = serde_json::from_str(&ser_str).unwrap();
+//         serializer.serialize_some(&json_value)
+//     }
+// }
 
-impl<'de> Deserialize<'de> for JsonValue {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let json_value: Value = Deserialize::deserialize(deserializer)?;
-        let json_str = serde_json::to_string(&json_value).unwrap();
-        Ok(JsonParser::new().parse_json(mh_json::parse(json_str.as_str()).unwrap()).unwrap())
-    }
-}
+// impl<'de> Deserialize<'de> for JsonValue {
+//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+//     where
+//         D: Deserializer<'de>,
+//     {
+//         let json_value: Value = Deserialize::deserialize(deserializer)?;
+//         let json_str = serde_json::to_string(&json_value).unwrap();
+//         Ok(JsonParser::new().parse_json(mh_json::parse(json_str.as_str()).unwrap()).unwrap())
+//     }
+// }
 
 impl JsonValue {
-
     pub fn is_string(&self) -> bool {
         match *self {
             JsonValue::String(_) => true,
@@ -492,33 +491,75 @@ impl Into<Box<dyn Error>> for JsonValue {
     }
 }
 
-
-impl Into<mh_json::JsonValue> for JsonValue {
-    fn into(self) -> mh_json::JsonValue {
+impl Serialize for JsonValue {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         match self {
-            JsonValue::Null => mh_json::Null,
-            JsonValue::String(s) => mh_json::JsonValue::String(s),
-            JsonValue::Number(n) => {
-                match n {
-                    Number::U8(v) => mh_json::JsonValue::Number(mh_json::number::Number::from(v)),
-                    Number::U16(v) => mh_json::JsonValue::Number(mh_json::number::Number::from(v)),
-                    Number::U32(v) => mh_json::JsonValue::Number(mh_json::number::Number::from(v)),
-                    Number::U64(v) => mh_json::JsonValue::Number(mh_json::number::Number::from(v)),
-                    Number::U128(v) => mh_json::JsonValue::Number(mh_json::number::Number::from(v as u64)),
-                    Number::Usize(v) => mh_json::JsonValue::Number(mh_json::number::Number::from(v)),
-                    Number::I8(v) => mh_json::JsonValue::Number(mh_json::number::Number::from(v)),
-                    Number::I16(v) => mh_json::JsonValue::Number(mh_json::number::Number::from(v)),
-                    Number::I32(v) => mh_json::JsonValue::Number(mh_json::number::Number::from(v)),
-                    Number::I64(v) => mh_json::JsonValue::Number(mh_json::number::Number::from(v)),
-                    Number::I128(v) => mh_json::JsonValue::Number(mh_json::number::Number::from(v as i64)),
-                    Number::Isize(v) => mh_json::JsonValue::Number(mh_json::number::Number::from(v)),
-                    Number::F32(v) => mh_json::JsonValue::Number(mh_json::number::Number::from(v)),
-                    Number::F64(v) => mh_json::JsonValue::Number(mh_json::number::Number::from(v))
-                }
-            }
-            JsonValue::Boolean(b) => mh_json::JsonValue::Boolean(b),
-            JsonValue::Object(o) => o.into(),
-            JsonValue::Array(a) => a.into()
+            JsonValue::Null => Value::Null.serialize(serializer),
+            JsonValue::String(v) => v.serialize(serializer),
+            JsonValue::Number(v) => v.serialize(serializer),
+            JsonValue::Boolean(v) => v.serialize(serializer),
+            JsonValue::Object(v) => v.serialize(serializer),
+            JsonValue::Array(v) => v.serialize(serializer),
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for JsonValue {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        Ok(JsonValue::try_from(value).or(Err(serde::de::Error::custom("to json value error")))?)
+    }
+}
+
+impl TryFrom<Value> for JsonValue {
+    type Error = serde::de::value::Error;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::Null => Ok(JsonValue::Null),
+            Value::Bool(v) => Ok(JsonValue::Boolean(v)),
+            Value::Number(v) => Ok(JsonValue::Number(Number::try_from(v).or(Err(serde::de::Error::custom("to number error")))?)),
+            Value::String(v) => Ok(JsonValue::String(v)),
+            Value::Array(v) => {
+                let mut array = JsonValue::new_array();
+                for value in v {
+                    array.push(JsonValue::try_from(value)?);
+                }
+                Ok(array)
+            }
+            Value::Object(v) => Ok(JsonValue::Object(Object::try_from(v)?))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::JsonValue;
+
+    #[test]
+    fn test_object() {
+        let jd = crate::object! {
+            "sdsd":"dffdf",
+            "dfdf":[1,2,3,4],
+            "dfdg":null,
+            "tf":1,
+            "fs":false,
+            "sf":1.23234,
+            "dffdfdf":{
+                "1":1,
+                "2":2,
+                "3":3,
+            }
+        };
+        let strs = serde_json::to_string_pretty(&jd).unwrap();
+        println!("{}", strs);
+        let v:JsonValue = serde_json::from_str(&strs).unwrap();
+        println!("{}",v.pretty())
     }
 }

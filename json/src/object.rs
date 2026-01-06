@@ -1,6 +1,9 @@
 use std::ops::{Index, IndexMut};
 use std::slice::{Iter, IterMut};
 use std::vec::IntoIter;
+use serde::{Serialize, Serializer};
+use serde::ser::Error;
+use serde_json::{Map, Value};
 use crate::{JsonValue, NULL};
 
 #[derive(Clone)]
@@ -13,7 +16,8 @@ impl Object {
         Object { store: vec![] }
     }
 
-    pub fn insert(&mut self, key: &str, value: JsonValue) {
+    pub fn insert(&mut self, key: impl ToString, value: JsonValue) {
+        let key = key.to_string();
         let res = self.store.iter_mut().find(|x| x.key == key);
         match res {
             None => self.store.push(Node { key: key.to_string(), value }),
@@ -93,15 +97,33 @@ impl<'a> IndexMut<&'a str> for Object {
     }
 }
 
-impl Into<mh_json::JsonValue> for Object {
-    fn into(self) -> mh_json::JsonValue {
-        let mut object = mh_json::object! {};
-        for store in self.store {
-            object.insert(store.key.as_str(), store.value).unwrap();
+impl Serialize for Object {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut object = serde_json::Map::new();
+        for node in &self.store {
+            let value = serde_json::to_value(node.value()).or(Err(S::Error::custom("failed to serialize value")))?;
+            object.insert(node.key.to_string(), value);
         }
-        object
+        object.serialize(serializer)
     }
 }
+
+impl TryFrom<Map<String, Value>> for Object {
+    type Error = serde::de::value::Error;
+
+    fn try_from(value: Map<String, Value>) -> Result<Self, Self::Error> {
+        let mut obj = Object::new();
+        for (key, value) in value {
+            obj.insert(key, JsonValue::try_from(value)?);
+        }
+        Ok(obj)
+    }
+}
+
+
 
 #[derive(Clone)]
 pub struct Node {

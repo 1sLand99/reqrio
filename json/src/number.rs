@@ -1,5 +1,4 @@
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::Value;
+use serde::{Serialize, Serializer};
 
 #[derive(Clone)]
 pub enum Number {
@@ -311,21 +310,17 @@ impl Serialize for Number {
     }
 }
 
-impl<'de> Deserialize<'de> for Number {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = Value::deserialize(deserializer)?;
-        match value {
-            Value::Number(number) => if number.is_f64() {
-                Ok(Number::F64(number.as_f64().ok_or(serde::de::Error::custom("Invalid number"))?))
-            } else if number.is_i64() {
-                Ok(Number::I64(number.as_i64().ok_or(serde::de::Error::custom("Invalid number"))?))
-            } else {
-                Ok(Number::U64(number.as_u64().ok_or(serde::de::Error::custom("Invalid number"))?))
-            }
-            _ => Err(serde::de::Error::custom("not number")),
+
+impl TryFrom<serde_json::Number> for Number {
+    type Error = serde_json::Error;
+
+    fn try_from(number: serde_json::Number) -> Result<Self, Self::Error> {
+        if number.is_f64() {
+            Ok(Number::F64(number.as_f64().ok_or(serde::de::Error::custom("Invalid number"))?))
+        } else if number.is_i64() {
+            Ok(Number::I64(number.as_i64().ok_or(serde::de::Error::custom("Invalid number"))?))
+        } else {
+            Ok(Number::U64(number.as_u64().ok_or(serde::de::Error::custom("Invalid number"))?))
         }
     }
 }
@@ -339,7 +334,7 @@ mod tests {
     fn test_number() {
         let n = Number::I32(4);
         println!("{}", serde_json::to_string_pretty(&n).unwrap());
-        let k: Number = serde_json::from_value(serde_json::Value::Number(serde_json::Number::from(4))).unwrap();
-        println!("{}", serde_json::to_string_pretty(&k).unwrap());
+        // let k: Number = serde_json::from_value(serde_json::Value::Number(serde_json::Number::from(4))).unwrap();
+        // println!("{}", serde_json::to_string_pretty(&k).unwrap());
     }
 }

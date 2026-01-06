@@ -9,14 +9,12 @@ use std::string::FromUtf8Error;
 use std::task::{Context, Poll};
 use std::vec::IntoIter;
 use serde::{Deserialize, Serialize};
-use serde_json::Error;
+use serde_json::{to_string_pretty, Error};
 use object::Object;
 use crate::number::Number;
 use crate::object::{ObjectIntoIter, ObjectIter, ObjectIterMut};
-use crate::parser::JsonParser;
 
 mod object;
-mod parser;
 mod json_impl;
 pub mod number;
 pub mod ext;
@@ -60,12 +58,6 @@ impl From<ParseFloatError> for JsonError {
     }
 }
 
-impl From<mh_json::Error> for JsonError {
-    fn from(err: mh_json::Error) -> Self {
-        JsonError { msg: err.to_string() }
-    }
-}
-
 impl From<io::Error> for JsonError {
     fn from(value: io::Error) -> Self {
         JsonError { msg: value.to_string() }
@@ -98,9 +90,7 @@ type JsonResult<T> = Result<T, JsonError>;
 static NULL: JsonValue = JsonValue::Null;
 
 pub fn parse(source: impl AsRef<str>) -> JsonResult<JsonValue> {
-    let parser = JsonParser::new();
-    let json_source = mh_json::parse(source.as_ref())?;
-    parser.parse_json(json_source)
+    Ok(serde_json::from_str(source.as_ref())?)
 }
 
 pub fn from_file(fp: impl AsRef<Path>) -> JsonResult<JsonValue> {
@@ -137,7 +127,7 @@ pub enum JsonValue {
 impl Display for JsonValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
-            f.write_str(&self.pretty(4))
+            f.write_str(&self.pretty())
         } else {
             f.write_str(self.dump().as_str())
         }
@@ -181,17 +171,12 @@ impl JsonValue {
         }
     }
 
-    pub fn pretty(&self, spaces: u16) -> String {
-        let res = <JsonValue as Into<mh_json::JsonValue>>::into(self.clone());
-        res.pretty(spaces)
+    pub fn pretty(&self) -> String {
+        to_string_pretty(self).unwrap()
     }
 
     pub fn dump(&self) -> String {
-        let res = <JsonValue as Into<mh_json::JsonValue>>::into(self.clone());
-        match res {
-            mh_json::JsonValue::String(s) => s,
-            _ => res.dump()
-        }
+        to_string(self).unwrap()
     }
 
     pub fn has_key(&self, key: &str) -> bool {
@@ -272,8 +257,8 @@ impl JsonValue {
         Ok(serde_json::from_str(s.as_str())?)
     }
 
-    pub fn write_file(&self, fp: impl AsRef<str>) -> JsonResult<()> {
-        std::fs::write(fp.as_ref(), self.pretty(2))?;
+    pub fn write_file(&self, fp: impl AsRef<Path>) -> JsonResult<()> {
+        std::fs::write(fp.as_ref(), self.pretty())?;
         Ok(())
     }
 
