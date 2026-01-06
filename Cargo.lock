@@ -558,7 +558,7 @@ dependencies = [
  "flate2",
  "hex",
  "httlib-hpack",
- "reqrio-json",
+ "reqrio-json 0.1.3",
  "reqtls",
  "rustls",
  "serde",
@@ -574,6 +574,15 @@ name = "reqrio-json"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22dbe51d28a96a98349d8738eb5109368582a7106e5e8ea0f2898887210fabe6"
+dependencies = [
+ "json",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "reqrio-json"
+version = "0.1.5"
 dependencies = [
  "json",
  "serde",

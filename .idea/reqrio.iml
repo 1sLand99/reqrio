@@ -10,6 +10,7 @@
       <sourceFolder url="file://$MODULE_DIR$/reqrio/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/reqrio/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/reqtls/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/json/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/reqtls/target" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>

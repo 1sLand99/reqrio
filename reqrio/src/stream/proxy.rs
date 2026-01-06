@@ -94,7 +94,7 @@ impl Proxy {
                 let mut buffer = Buffer::with_capacity(1024);
                 while !buffer.filled().ends_with(b"\r\n\r\n") {
                     stream.read(&mut buffer).await?;
-                    println!("{:?}", String::from_utf8_lossy(buffer.filled()));
+                    // println!("{:?}", String::from_utf8_lossy(buffer.filled()));
                 }
                 // let mut buf = [0; 1024];
 
