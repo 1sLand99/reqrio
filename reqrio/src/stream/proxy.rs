@@ -5,10 +5,9 @@ use crate::stream::astream::AsyncTcpStream;
 use crate::stream::astream::TimeoutRW;
 use crate::timeout::Timeout;
 use crate::url::{Addr, Protocol};
-use crate::Url;
+use crate::{HttpStatus, Response, Url};
 use std::fmt::{Display, Formatter};
 use std::net::{TcpStream, ToSocketAddrs};
-#[cfg(aync)]
 use crate::Buffer;
 
 #[derive(Clone, Debug)]
@@ -32,7 +31,7 @@ impl Proxy {
         let mut stream = AsyncTcpStream::connect_timeout(addr.as_ref(), timeout.connect()).await?;
         stream.set_read_timeout(timeout.read());
         stream.set_write_timeout(timeout.write());
-        return Ok(stream);
+        Ok(stream)
     }
 
     pub fn create_sync_stream(&self, peer_addr: &Addr, timeout: &Timeout) -> HlsResult<TcpStream> {
@@ -47,12 +46,17 @@ impl Proxy {
                     "".to_string(),
                     "".to_string()
                 ];
-                std::io::Write::write(&mut stream, context.join("\r\n").as_bytes())?;
-                std::io::Write::flush(&mut stream)?;
-                let mut buf = [0; 1024];
-                let len = std::io::Read::read(&mut stream, &mut buf)?;
-                let res = String::from_utf8(buf[..len].to_vec())?;
-                if !res.starts_with("HTTP/1.1 200") { return Err("connect to proxy error".into()); }
+                std::io::Write::write_all(&mut stream, context.join("\r\n").as_bytes())?;
+                let mut response = Response::new();
+                let mut buffer = Buffer::with_capacity(1024);
+                loop {
+                    buffer.reset();
+                    buffer.sync_read(&mut stream)?;
+                    if response.extend(&buffer)? { break; };
+                }
+                if response.header().status() != &HttpStatus::OK {
+                    return Err(format!("connect to proxy error-{}", response.header().status().status_num()).into());
+                }
                 Ok(stream)
             }
             Proxy::Socks5(addr) => {
@@ -91,15 +95,16 @@ impl Proxy {
                 ];
                 stream.write(context.join("\r\n").as_bytes()).await?;
                 stream.flush().await?;
+                let mut response = Response::new();
                 let mut buffer = Buffer::with_capacity(1024);
-                while !buffer.filled().ends_with(b"\r\n\r\n") {
-                    stream.read(&mut buffer).await?;
-                    // println!("{:?}", String::from_utf8_lossy(buffer.filled()));
+                loop {
+                    buffer.reset();
+                    buffer.async_read(&mut stream).await?;
+                    if response.extend(&buffer)? { break; };
                 }
-                // let mut buf = [0; 1024];
-
-                let res = String::from_utf8(buffer.filled().to_vec())?;
-                if !res.starts_with("HTTP/1.1 200") { return Err("connect to proxy error".into()); }
+                if response.header().status() != &HttpStatus::OK {
+                    return Err(format!("connect to proxy error-{}", response.header().status().status_num()).into());
+                }
                 Ok(stream)
             }
             Proxy::Socks5(addr) => {
@@ -107,8 +112,6 @@ impl Proxy {
                 stream.write(&[5, 1, 0]).await?;
                 stream.flush().await?;
                 let mut buffer = Buffer::with_capacity(256);
-                // buffer[0..2].copy_from_slice(&[0, 2]);
-                // let mut buf = [0; 2];
                 stream.read_limit(&mut buffer, 2).await?;
                 if buffer.len() != 2 { return Err("socks5 handshake fail".into()); }
                 let mut data = vec![5, 1, 0, 3];
@@ -118,7 +121,6 @@ impl Proxy {
                 stream.write(&data).await?;
                 stream.flush().await?;
                 buffer.reset();
-                // let mut buf = [0; 256];
                 stream.read(&mut buffer).await?;
                 if buffer.len() == 0 { return Err("connection closed by proxy".into()); }
                 Ok(stream)

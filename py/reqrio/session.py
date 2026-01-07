@@ -10,6 +10,11 @@ from reqrio.response import Response
 class Session:
     # alpn值是字符串['http/1.1','h2']
     def __init__(self, alpn: ALPN = ALPN.HTTP11, rand_tls=False):
+        """
+        :param
+        :param alpn: 版本
+        :param rand_tls:使用随机指纹，仅订阅版本
+        """
         self.dll = DLL
         self.callback = CALLBACK
 
@@ -70,11 +75,11 @@ class Session:
     def set_proxy(self, proxy: str):
         """设置代理，格式:http://127.0.0.1:10000、socks5://127.0.0.1:10001"""
         r = self.dll.set_proxy(self.hid, proxy.encode('utf-8'))
-        if r == -1: raise Exception('set proxy error')
+        if r == -1: raise Exception('set proxy error,proxy=' + proxy)
 
     def set_url(self, url: str):
         r = self.dll.set_url(self.hid, url.encode('utf-8'))
-        if r == -1: raise Exception('set url error')
+        if r == -1: raise Exception('set url error,url=' + url)
 
     def set_data(self, data: dict):
         r = self.dll.set_data(self.hid, json.dumps(data).encode('utf-8'))
@@ -84,8 +89,8 @@ class Session:
         r = self.dll.set_json(self.hid, json.dumps(data).encode('utf-8'))
         if r == -1: raise Exception('set json error')
 
-    def set_bytes(self, bytes: bytes):
-        r = self.dll.set_bytes(self.hid, bytes, len(bytes))
+    def set_bytes(self, bs: bytes):
+        r = self.dll.set_bytes(self.hid, bs, len(bs))
         if r == -1: raise Exception('set bytes error')
 
     def set_content_type(self, content_type: str):

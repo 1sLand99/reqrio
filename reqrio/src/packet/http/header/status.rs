@@ -1,7 +1,7 @@
 use crate::error::HlsError;
 use std::fmt::Display;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum HttpStatus {
     None,
     Continue = 100,
