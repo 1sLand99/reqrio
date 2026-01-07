@@ -9,14 +9,17 @@ from reqrio.response import Response
 
 class Session:
     # alpn值是字符串['http/1.1','h2']
-    def __init__(self, alpn: ALPN = ALPN.HTTP11):
+    def __init__(self, alpn: ALPN = ALPN.HTTP11, rand_tls=False):
         self.dll = DLL
-        self.callback=CALLBACK
+        self.callback = CALLBACK
 
         self.hid = self.dll.init_http()
         if self.hid == -1: raise Exception('init fail')
         r = self.dll.set_alpn(self.hid, alpn.value.encode('utf-8'))
         if r == -1: raise Exception('set alpn error')
+        if rand_tls:
+            r = self.dll.set_random_fingerprint(self.hid)
+            if r == -1: raise Exception('set rand tls error')
 
     def set_timeout(self, connect: int = 3, read: int = 3, write: int = 3, handle: int = 30, connect_times: int = 3,
                     handle_times: int = 3):

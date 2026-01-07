@@ -4,6 +4,7 @@ use crate::error::{RlsError, RlsResult};
 use crate::extend::formats::EcPointFormat;
 use crate::extend::group::GroupType;
 use crate::extend::{Extension, ExtensionType};
+use crate::{ClientHello, Message};
 use crate::version::Version;
 
 #[derive(Debug, Clone)]
@@ -20,6 +21,20 @@ impl Fingerprint {
             client_key_exchange: vec![],
             change_cipher_spec: vec![],
         }
+    }
+
+    pub fn new_ja3(ja3: impl AsRef<str>) -> RlsResult<Fingerprint> {
+        let mut res = Fingerprint::default();
+        res.set_ja3(ja3)?;
+        Ok(res)
+    }
+
+    pub fn random() -> RlsResult<Fingerprint> {
+        let mut res = Fingerprint::default();
+        let mut record = RecordLayer::from_bytes(&mut res.client_hello, false)?;
+        record.messages = vec![Message::ClientHello(ClientHello::random())];
+        res.client_hello = record.handshake_bytes();
+        Ok(res)
     }
 
     pub fn default() -> Fingerprint {
@@ -67,7 +82,7 @@ impl Fingerprint {
     }
 
     pub fn set_ja3(&mut self, ja3: impl AsRef<str>) -> RlsResult<()> {
-        let mut record = RecordLayer::new();
+        let mut record = RecordLayer::from_bytes(&mut self.client_hello, false)?;
         let client_hello = record.messages[0].client_mut().ok_or(RlsError::ClientHelloNone)?;
         let mut items = ja3.as_ref().split(",");
         let version = items.next().ok_or("version not found")?.parse::<u16>()?;
@@ -118,7 +133,7 @@ impl Fingerprint {
     pub fn change_cipher_spec(&self) -> &[u8] { &self.change_cipher_spec }
 
     pub fn to_hex(&self) -> String {
-        let data:Vec<u8> = [self.client_hello.as_slice(), self.client_key_exchange.as_slice(), self.change_cipher_spec.as_slice()].concat();
+        let data: Vec<u8> = [self.client_hello.as_slice(), self.client_key_exchange.as_slice(), self.change_cipher_spec.as_slice()].concat();
         hex::encode(data)
     }
 }

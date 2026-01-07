@@ -69,7 +69,7 @@ impl ALPS {
     }
 
     pub fn remove_h2_alpn(&mut self) {
-        if self.values.len() == 1 {
+        if self.values.len() <= 1 {
             self.values = vec![ALPN {
                 len: 8,
                 value: "http/1.1".to_string(),

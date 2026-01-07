@@ -1,7 +1,8 @@
 use crate::error::RlsResult;
+use crate::rand;
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SignatureAlgorithm {
     RSA_PKCS1_SHA1 = 0x0201,
     RSA_PKCS1_SHA256 = 0x0401,
@@ -60,6 +61,34 @@ impl SignatureAlgorithm {
         }
     }
 
+    pub fn all() -> Vec<SignatureAlgorithm> {
+        vec![
+            SignatureAlgorithm::RSA_PKCS1_SHA1,
+            SignatureAlgorithm::RSA_PKCS1_SHA256,
+            SignatureAlgorithm::RSA_PKCS1_SHA384,
+            SignatureAlgorithm::RSA_PKCS1_SHA512,
+            SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
+            SignatureAlgorithm::RSA_PSS_RSAE_SHA384,
+            SignatureAlgorithm::RSA_PSS_RSAE_SHA512,
+            SignatureAlgorithm::RSA_PSS_PSS_SHA256,
+            SignatureAlgorithm::RSA_PSS_PSS_SHA384,
+            SignatureAlgorithm::RSA_PSS_PSS_SHA512,
+            SignatureAlgorithm::ED25519,
+            SignatureAlgorithm::ED448,
+            SignatureAlgorithm::ECDSA_SHA1,
+            SignatureAlgorithm::ECDSA_SECP256R1_SHA256,
+            SignatureAlgorithm::ECDSA_SECP384R1_SHA384,
+            SignatureAlgorithm::ECDSA_SECP521R1_SHA512,
+            SignatureAlgorithm::SHA1_DSA,
+            SignatureAlgorithm::SHA224_RSA,
+            SignatureAlgorithm::SHA224_DSA,
+            SignatureAlgorithm::SHA224_ECDSA,
+            SignatureAlgorithm::SHA256_DSA,
+            SignatureAlgorithm::SHA384_DSA,
+            SignatureAlgorithm::SHA512_DSA,
+        ]
+    }
+
     pub fn as_bytes(&self) -> [u8; 2] {
         (*self as u16).to_be_bytes()
     }
@@ -96,6 +125,17 @@ impl SignatureAlgorithms {
         }
         let len = (res.len() - 2) as u16;
         res[0..2].copy_from_slice(len.to_be_bytes().as_ref());
+        res
+    }
+
+    pub fn random() -> SignatureAlgorithms {
+        let mut res = SignatureAlgorithms::new();
+        let all_sign = SignatureAlgorithm::all();
+        while res.hash.len() < 10 {
+            let index = rand::random::<usize>() % all_sign.len();
+            if res.hash.contains(&all_sign[index]) { continue; }
+            res.hash.push(all_sign[index]);
+        }
         res
     }
 }

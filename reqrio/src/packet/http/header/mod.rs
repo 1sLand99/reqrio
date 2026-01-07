@@ -421,7 +421,7 @@ impl Header {
 #[cfg(feature = "export")]
 impl From<&Header> for JsonValue {
     fn from(value: &Header) -> Self {
-        let mut header = json::object! {
+        let mut header = crate::json::object! {
             "uri":value.uri.to_string(),
             "method":value.method.to_string(),
             "status":value.status.status_num(),

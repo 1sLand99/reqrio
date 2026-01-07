@@ -1,5 +1,5 @@
 use crate::error::HlsResult;
-use crate::{ContentType, Cookie, Method, Proxy, ReqExt, ScReq, ALPN};
+use crate::{json, ContentType, Cookie, Method, Proxy, ReqExt, ScReq, ALPN};
 #[cfg(use_cls)]
 use crate::Fingerprint;
 use std::collections::HashMap;
@@ -33,6 +33,17 @@ pub extern "system" fn set_header_json(id: i32, header: *const c_char) -> i32 {
         let header = json::parse(header)?;
         let mut params = CONNECTIONS.lock()?;
         params.get_mut(&id).ok_or("id 不存在")?.set_headers_json(header)?;
+        Ok(0)
+    }().unwrap_or(-1)
+}
+
+#[cfg(use_cls)]
+#[unsafe(no_mangle)]
+pub extern "system" fn set_random_fingerprint(id: i32) -> i32 {
+    || -> HlsResult<i32> {
+        let mut params = CONNECTIONS.lock()?;
+        let fingerprint=Fingerprint::random()?;
+        params.get_mut(&id).ok_or("id 不存在")?.set_fingerprint(fingerprint);
         Ok(0)
     }().unwrap_or(-1)
 }
@@ -76,8 +87,7 @@ pub extern "system" fn set_fingerprint(id: i32, fingerprint: *const c_char) -> i
 pub extern "system" fn set_ja3(id: i32, ja3: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let ja3 = unsafe { CStr::from_ptr(ja3) }.to_str()?.to_string();
-        let mut fingerprint = Fingerprint::default()?;
-        fingerprint.set_ja3(&ja3)?;
+        let fingerprint = Fingerprint::new_ja3(ja3)?;
         let mut params = CONNECTIONS.lock()?;
         params.get_mut(&id).ok_or("id 不存在")?.set_fingerprint(fingerprint);
         Ok(0)
@@ -263,7 +273,6 @@ pub extern "system" fn trach(id: i32) -> *mut c_char {
 pub extern "C" fn destroy(id: i32) {
     if let Ok(mut acs) = CONNECTIONS.lock() {
         acs.remove(&id);
-        println!("remove {}", id);
     }
 }
 

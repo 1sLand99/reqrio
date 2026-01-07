@@ -1,4 +1,6 @@
 #[cfg(feature = "export")]
+use crate::json;
+#[cfg(feature = "export")]
 use json::JsonValue;
 use crate::error::HlsResult;
 

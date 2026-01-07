@@ -2,21 +2,21 @@ use crate::version::VersionKind;
 use super::super::version::Version;
 
 #[derive(Debug)]
-pub struct Versions {
+pub struct SupportVersions {
     len: u8,
     versions: Vec<Version>,
 }
 
-impl Versions {
+impl SupportVersions {
     pub fn new() -> Self {
-        Versions {
+        SupportVersions {
             len: 0,
             versions: vec![],
         }
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Self {
-        let mut res = Versions::new();
+        let mut res = SupportVersions::new();
         res.len = bytes[0];
         let mut index = 1;
         while index < bytes.len() {
@@ -40,5 +40,9 @@ impl Versions {
         if let Some(pos) = pos {
             self.versions.remove(pos);
         }
+    }
+
+    pub fn push(&mut self, version: Version) {
+        self.versions.push(version);
     }
 }

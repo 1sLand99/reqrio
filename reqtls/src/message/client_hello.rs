@@ -1,5 +1,9 @@
+use crate::cipher::suite::CipherSuiteKind;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
+use crate::extend::ExtensionType;
+use crate::rand;
+use crate::version::VersionKind;
 use super::super::bytes::Bytes;
 use super::super::cipher::suite::CipherSuite;
 use super::super::extend::Extension;
@@ -40,6 +44,42 @@ impl ClientHello {
             extend_len: 0,
             extensions: vec![],
         }
+    }
+
+    pub fn random() -> ClientHello {
+        let mut res = ClientHello::new();
+        res.random = Bytes::new(vec![0; 32]);
+        res.version = Version::new(VersionKind::TLS_1_0 as u16);
+        res.cipher_suites = vec![
+            CipherSuite::new(CipherSuiteKind::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 as u16),
+            CipherSuite::new(CipherSuiteKind::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 as u16),
+            CipherSuite::new(CipherSuiteKind::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 as u16),
+        ];
+        let suite_all = CipherSuiteKind::all();
+        // suite_all.remove(CipherSuiteKind::TLS_RSA_WITH_AES_128_CBC_SHA)
+        while res.cipher_suites.len() < 12 {
+            let index = rand::random::<usize>() % suite_all.len();
+            let suite = CipherSuite::new(suite_all[index].clone() as u16);
+            if res.cipher_suites.contains(&suite) { continue; }
+            res.cipher_suites.push(suite);
+        }
+        res.compress_method = Bytes::new(vec![0]);
+        res.extensions = vec![
+            Extension::from_type(ExtensionType::new(ExtensionKind::SignatureAlgorithms as u16)),
+            Extension::from_type(ExtensionType::new(ExtensionKind::SupportedGroup as u16)),
+            Extension::from_type(ExtensionType::new(ExtensionKind::CompressionCertificate as u16)),
+            Extension::from_type(ExtensionType::new(ExtensionKind::SupportedVersions as u16)),
+            Extension::from_type(ExtensionType::new(ExtensionKind::ApplicationLayerProtocolNegotiation as u16)),
+            Extension::from_type(ExtensionType::new(ExtensionKind::ServerName as u16)),
+        ];
+        // let ext_all = ExtensionKind::all();
+        // while res.extensions.len() < 9 {
+        //     let index = rand::random::<usize>() % ext_all.len();
+        //     let ext = ExtensionType::new(ext_all[index].clone() as u16);
+        //     if res.extensions.iter().find(|x| x.extension_type().as_u16() == ext.as_u16()).is_some() { continue; }
+        //     res.extensions.push(Extension::from_type(ext))
+        // }
+        res
     }
 
     pub fn from_bytes(ht: HandshakeType, bytes: &[u8]) -> RlsResult<ClientHello> {
@@ -153,8 +193,8 @@ impl ClientHello {
         Some(extension.server_name()?.value())
     }
 
-    pub fn alps(&self)->Option<&ALPS>{
-        let extension=self.extensions.iter().find(|x|x.extension_type().as_u16()==ExtensionKind::ApplicationLayerProtocolNegotiation as u16)?;
+    pub fn alps(&self) -> Option<&ALPS> {
+        let extension = self.extensions.iter().find(|x| x.extension_type().as_u16() == ExtensionKind::ApplicationLayerProtocolNegotiation as u16)?;
         extension.alps()
     }
 

@@ -8,6 +8,7 @@ use crate::packet::*;
 use crate::stream::{ConnParam, Proxy, Stream};
 use crate::timeout::Timeout;
 use crate::url::Url;
+use crate::json;
 use json::JsonValue;
 #[cfg(feature = "cls_sync")]
 use reqtls::Fingerprint;

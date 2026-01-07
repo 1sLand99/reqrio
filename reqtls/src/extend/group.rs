@@ -92,4 +92,15 @@ impl SupportedGroups {
     }
 
     pub fn values(&self) -> &Vec<GroupType> { &self.values }
+
+
+    pub fn random() -> SupportedGroups {
+        let mut res = SupportedGroups::new();
+        res.values = vec![
+            GroupType::new(GroupKind::X25519 as u16),
+            GroupType::new(GroupKind::SECP256r1 as u16),
+            GroupType::new(GroupKind::SECP384r1 as u16),
+        ];
+        res
+    }
 }

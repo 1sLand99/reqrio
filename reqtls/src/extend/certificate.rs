@@ -23,6 +23,10 @@ impl CompressionKind {
 pub struct CompressionType(u16);
 
 impl CompressionType {
+    pub fn new(value: u16) -> CompressionType {
+        CompressionType(value)
+    }
+
     pub fn as_bytes(&self) -> [u8; 2] {
         self.0.to_be_bytes()
     }
@@ -72,6 +76,10 @@ impl CompressionCertificate {
         }
         res[0] = (res.len() - 1) as u8;
         res
+    }
+
+    pub fn push(&mut self, ty: CompressionType) {
+        self.types.push(ty);
     }
 }
 

@@ -31,6 +31,9 @@ DLL.set_alpn.restype = c_int
 # DLL.set_ja3.argtypes = [c_int, c_char_p]
 # DLL.set_ja3.restype = c_int
 
+DLL.set_random_fingerprint.argtypes = [c_int]
+DLL.set_random_fingerprint.restype = c_int
+
 DLL.set_proxy.argtypes = [c_int, c_char_p]
 DLL.set_proxy.restype = c_int
 

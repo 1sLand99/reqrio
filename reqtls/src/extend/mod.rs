@@ -1,16 +1,16 @@
-use std::fmt::{Debug, Formatter};
-use key_share::KeyShare;
+use super::bytes::Bytes;
 use algorithm::SignatureAlgorithms;
-use formats::EcPointFormats;
-use server_name::ServerName;
-use status::StatusRequest;
-use group::SupportedGroups;
-use version::Versions;
 use alps::ALPS;
 use certificate::CompressionCertificate;
 use client_hello::EncryptClientHello;
+use formats::EcPointFormats;
+use group::SupportedGroups;
+use key_share::KeyShare;
 use psk_key::PskKey;
-use super::bytes::Bytes;
+use server_name::ServerName;
+use status::StatusRequest;
+use std::fmt::{Debug, Formatter};
+use version::SupportVersions;
 
 mod version;
 pub mod formats;
@@ -24,8 +24,11 @@ mod client_hello;
 mod certificate;
 mod psk_key;
 
-pub use client_hello::Aead;
 use crate::error::RlsResult;
+use crate::extend::certificate::{CompressionKind, CompressionType};
+use crate::version::VersionKind;
+use crate::Version;
+pub use client_hello::Aead;
 
 pub struct ExtensionType(u16);
 
@@ -66,7 +69,7 @@ pub enum ExtensionKind {
     ApplicationLayerProtocolNegotiation = 0x10,
     SignedCertificateTimestamp = 0x12,
     EncryptTheMac = 0x16,
-    MasterSecret = 0x17,
+    ExtendMasterSecret = 0x17,
     SessionTicket = 0x23,
     CompressionCertificate = 0x1b,
     SupportedVersions = 0x2b,
@@ -88,7 +91,7 @@ impl ExtensionKind {
             0x10 => Some(ExtensionKind::ApplicationLayerProtocolNegotiation),
             0x12 => Some(ExtensionKind::SignedCertificateTimestamp),
             0x16 => Some(ExtensionKind::EncryptTheMac),
-            0x17 => Some(ExtensionKind::MasterSecret),
+            0x17 => Some(ExtensionKind::ExtendMasterSecret),
             0x23 => Some(ExtensionKind::SessionTicket),
             0x1b => Some(ExtensionKind::CompressionCertificate),
             0x2b => Some(ExtensionKind::SupportedVersions),
@@ -105,22 +108,52 @@ impl ExtensionKind {
         match self {
             ExtensionKind::ServerName => ExtensionValue::ServerName(ServerName::new()),
             ExtensionKind::StatusRequest => ExtensionValue::StatusRequest(StatusRequest::new()),
-            ExtensionKind::SupportedGroup => ExtensionValue::SupportedGroups(SupportedGroups::new()),
+            ExtensionKind::SupportedGroup => ExtensionValue::SupportedGroups(SupportedGroups::random()),
             ExtensionKind::EcPointFormats => ExtensionValue::EcPointFormats(EcPointFormats::new()),
-            ExtensionKind::SignatureAlgorithms => ExtensionValue::SignatureAlgorithms(SignatureAlgorithms::new()),
+            ExtensionKind::SignatureAlgorithms => ExtensionValue::SignatureAlgorithms(SignatureAlgorithms::random()),
             ExtensionKind::ApplicationLayerProtocolNegotiation => ExtensionValue::ApplicationLayerProtocolNegotiation(ALPS::new()),
             ExtensionKind::SignedCertificateTimestamp => ExtensionValue::SignedCertificateTimestamp,
             ExtensionKind::EncryptTheMac => ExtensionValue::EncryptTheMac,
-            ExtensionKind::MasterSecret => ExtensionValue::MasterSecret,
+            ExtensionKind::ExtendMasterSecret => ExtensionValue::MasterSecret,
             ExtensionKind::SessionTicket => ExtensionValue::SessionTicket,
-            ExtensionKind::CompressionCertificate => ExtensionValue::CompressionCertificate(CompressionCertificate::new()),
-            ExtensionKind::SupportedVersions => ExtensionValue::SupportedVersions(Versions::new()),
+            ExtensionKind::CompressionCertificate => {
+                let mut cp_cer = CompressionCertificate::new();
+                cp_cer.push(CompressionType::new(CompressionKind::Null as u16));
+                ExtensionValue::CompressionCertificate(cp_cer)
+            }
+            ExtensionKind::SupportedVersions => {
+                let mut supported_versions = SupportVersions::new();
+                supported_versions.push(Version::new(VersionKind::TLS_1_2 as u16));
+                ExtensionValue::SupportedVersions(supported_versions)
+            }
             ExtensionKind::PskKeyExchangeMode => ExtensionValue::PskKeyExchangeMode(PskKey::new()),
             ExtensionKind::KeyShare => ExtensionValue::KeyShare(KeyShare::new()),
             ExtensionKind::RenegotiationInfo => ExtensionValue::RenegotiationInfo(RenegotiationInfo::new()),
             ExtensionKind::EncryptedClientHello => ExtensionValue::EncryptedClientHello(EncryptClientHello::new()),
             ExtensionKind::ApplicationSetting => ExtensionValue::ApplicationSetting(ALPS::new())
         }
+    }
+
+    pub fn all() -> Vec<ExtensionKind> {
+        vec![
+            ExtensionKind::ServerName,
+            ExtensionKind::StatusRequest,
+            ExtensionKind::SupportedGroup,
+            ExtensionKind::EcPointFormats,
+            ExtensionKind::SignatureAlgorithms,
+            ExtensionKind::ApplicationLayerProtocolNegotiation,
+            ExtensionKind::SignedCertificateTimestamp,
+            ExtensionKind::EncryptTheMac,
+            ExtensionKind::ExtendMasterSecret,
+            ExtensionKind::SessionTicket,
+            ExtensionKind::CompressionCertificate,
+            ExtensionKind::SupportedVersions,
+            ExtensionKind::PskKeyExchangeMode,
+            ExtensionKind::KeyShare,
+            ExtensionKind::RenegotiationInfo,
+            ExtensionKind::EncryptedClientHello,
+            ExtensionKind::ApplicationSetting,
+        ]
     }
 }
 
@@ -153,7 +186,7 @@ pub enum ExtensionValue {
     SignatureAlgorithms(SignatureAlgorithms),
     ServerName(ServerName),
     EcPointFormats(EcPointFormats),
-    SupportedVersions(Versions),
+    SupportedVersions(SupportVersions),
     RenegotiationInfo(RenegotiationInfo),
     ApplicationSetting(ALPS),
     EncryptedClientHello(EncryptClientHello),
@@ -175,10 +208,10 @@ impl ExtensionValue {
             Some(ExtensionKind::EcPointFormats) => Ok(ExtensionValue::EcPointFormats(EcPointFormats::from_bytes(bytes)?)),
             Some(ExtensionKind::SignatureAlgorithms) => Ok(ExtensionValue::SignatureAlgorithms(SignatureAlgorithms::from_bytes(bytes)?)),
             Some(ExtensionKind::EncryptTheMac) => Ok(ExtensionValue::EncryptTheMac),
-            Some(ExtensionKind::MasterSecret) => Ok(ExtensionValue::MasterSecret),
+            Some(ExtensionKind::ExtendMasterSecret) => Ok(ExtensionValue::MasterSecret),
             Some(ExtensionKind::SessionTicket) => Ok(ExtensionValue::SessionTicket),
             Some(ExtensionKind::RenegotiationInfo) => Ok(ExtensionValue::RenegotiationInfo(RenegotiationInfo::from_bytes(bytes))),
-            Some(ExtensionKind::SupportedVersions) => Ok(ExtensionValue::SupportedVersions(Versions::from_bytes(bytes))),
+            Some(ExtensionKind::SupportedVersions) => Ok(ExtensionValue::SupportedVersions(SupportVersions::from_bytes(bytes))),
             Some(ExtensionKind::PskKeyExchangeMode) => Ok(ExtensionValue::PskKeyExchangeMode(PskKey::from_bytes(bytes)?)),
             Some(ExtensionKind::CompressionCertificate) => Ok(ExtensionValue::CompressionCertificate(CompressionCertificate::from_bytes(bytes)?)),
             Some(ExtensionKind::EncryptedClientHello) => Ok(ExtensionValue::EncryptedClientHello(EncryptClientHello::from_bytes(bytes)?)),

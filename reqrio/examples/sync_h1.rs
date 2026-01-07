@@ -1,9 +1,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use reqrio::{ReqExt, ScReq, ALPN};
+use reqrio::{json, ReqExt, ScReq, ALPN};
+use reqtls::Fingerprint;
 
 fn main() {
-    let mut req = ScReq::new().with_alpn(ALPN::Http20).with_url("https://m.so.com").unwrap();
+    let mut req = ScReq::new().with_alpn(ALPN::Http11).with_fingerprint(Fingerprint::random().unwrap()).with_url("https://m.so.com").unwrap();
     let headers = json::object! {
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
         "Accept-Encoding": "gzip, deflate, br, zstd",

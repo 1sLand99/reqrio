@@ -55,7 +55,7 @@ impl ServerHello {
     }
 
     pub fn use_ems(&self) -> bool {
-        self.extensions.iter().find(|x| x.extension_type().as_u16() == ExtensionKind::MasterSecret as u16).is_some()
+        self.extensions.iter().find(|x| x.extension_type().as_u16() == ExtensionKind::ExtendMasterSecret as u16).is_some()
     }
 
     pub fn alpn(&self) -> Option<ALPN> {

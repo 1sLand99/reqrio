@@ -173,6 +173,15 @@ impl RandomValue for f64 {
     }
 }
 
+impl RandomValue for usize {
+    #[inline(always)]
+    fn random(rng: &mut CryptRand) -> usize {
+        let mut res = 0;
+        rng.fill_bytes(bytemuck::bytes_of_mut(&mut res));
+        res
+    }
+}
+
 
 impl<T, const N: usize> RandomValue for [T; N]
 where
