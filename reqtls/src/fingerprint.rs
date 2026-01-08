@@ -3,9 +3,10 @@ use crate::cipher::suite::CipherSuite;
 use crate::error::{RlsError, RlsResult};
 use crate::extend::formats::EcPointFormat;
 use crate::extend::group::GroupType;
-use crate::extend::{Extension, ExtensionType};
+use crate::extend::{Extension, ExtensionKind, ExtensionType};
 use crate::{ClientHello, Message};
-use crate::version::Version;
+use crate::extend::algorithm::SignatureAlgorithm;
+use crate::version::{Version, VersionKind};
 
 #[derive(Debug, Clone)]
 pub struct Fingerprint {
@@ -26,6 +27,12 @@ impl Fingerprint {
     pub fn new_ja3(ja3: impl AsRef<str>) -> RlsResult<Fingerprint> {
         let mut res = Fingerprint::default();
         res.set_ja3(ja3)?;
+        Ok(res)
+    }
+
+    pub fn new_ja4(ja4: impl AsRef<str>) -> RlsResult<Fingerprint> {
+        let mut res = Fingerprint::default();
+        res.set_ja4(ja4)?;
         Ok(res)
     }
 
@@ -117,11 +124,54 @@ impl Fingerprint {
     }
 
     pub fn set_ja4(&mut self, ja4: impl AsRef<str>) -> RlsResult<()> {
-        let mut record = RecordLayer::new();
+        let mut record = RecordLayer::from_bytes(&mut self.client_hello, false)?;
         let client_hello = record.messages[0].client_mut().ok_or(RlsError::ClientHelloNone)?;
-        let mut items = ja4.as_ref().split(",");
-        let version = items.next().ok_or("version not found")?.parse::<u16>()?;
-        client_hello.set_version(Version::new(version));
+        let items = ja4.as_ref().split("_").collect::<Vec<_>>();
+        if items.len() != 4 { return Err("ja4 is error".into()); }
+        let mut sign_algo = vec![];
+        for algo in items[3].split(",") {
+            sign_algo.push(SignatureAlgorithm::from_u16(u16::from_str_radix(algo, 16)?).ok_or("unsupported signature algorithm")?);
+        }
+
+        let mut exts = vec![];
+        for ext in items[2].split(",") {
+            exts.push(Extension::from_type(ExtensionType::new(u16::from_str_radix(ext, 16)?)));
+        }
+        exts.push(Extension::from_type(ExtensionType::new(ExtensionKind::ServerName as u16)));
+        exts.push(Extension::from_type(ExtensionType::new(ExtensionKind::ApplicationLayerProtocolNegotiation as u16)));
+        for ext in exts.iter_mut() {
+            if let Some(sign) = ext.signature_algorithms_mut() {
+                sign.clear();
+                for algo in sign_algo {
+                    sign.push_hash(algo)
+                }
+                break;
+            }
+        }
+        let mut suites = vec![];
+        for suite in items[1].split(",") {
+            suites.push(CipherSuite::new(u16::from_str_radix(suite, 16)?));
+        }
+        client_hello.set_cipher_suites(suites);
+
+        let ver = &items[0][1..3];
+        let ver_ext = exts.iter_mut().find(|x| x.supported_versions().is_some());
+        if let Some(ext) = ver_ext && let Some(vers) = ext.supported_versions_mut() {
+            match ver {
+                "13" => vers.push(Version::new(VersionKind::TLS_1_3 as u16)),
+                "12" => vers.push(Version::new(VersionKind::TLS_1_2 as u16)),
+                "11" => vers.push(Version::new(VersionKind::TLS_1_1 as u16)),
+                "10" => vers.push(Version::new(VersionKind::TLS_1_0 as u16)),
+                _ => return Err("unknown tls version".into()),
+            }
+        }
+        client_hello.set_extension(exts);
+        let alpn = &items[0][8..];
+        match alpn {
+            "h2" => client_hello.add_h2_alpn(),
+            _ => client_hello.remove_h2_alpn()
+        }
+        println!("{:#?}", record);
         self.client_hello = record.handshake_bytes();
         Ok(())
     }

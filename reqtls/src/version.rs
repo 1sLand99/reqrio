@@ -19,6 +19,15 @@ impl VersionKind {
             _ => None
         }
     }
+
+    pub fn as_ja4_str(&self) -> &'static str {
+        match self {
+            VersionKind::TLS_1_0 => "10",
+            VersionKind::TLS_1_1 => "11",
+            VersionKind::TLS_1_2 => "12",
+            VersionKind::TLS_1_3 => "13"
+        }
+    }
 }
 
 pub struct Version(u16);
@@ -34,6 +43,10 @@ impl Version {
 
     pub fn as_u16(&self) -> u16 {
         self.0
+    }
+
+    pub fn as_kind(&self) -> Option<VersionKind> {
+        VersionKind::from_u16(self.0)
     }
 }
 

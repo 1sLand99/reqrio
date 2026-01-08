@@ -59,8 +59,8 @@ impl ServerHello {
     }
 
     pub fn alpn(&self) -> Option<ALPN> {
-        let extend = self.extensions.iter().find(|x| x.extension_type().as_u16() == ExtensionKind::ApplicationLayerProtocolNegotiation as u16)?;
-        let protocol = extend.application_layer_protocol_negotiation()?;
+        let extend = self.extensions.iter().find(|x| x.alps().is_some())?;
+        let protocol = extend.alps()?;
         let alpn = protocol.values().get(0)?.clone();
         Some(alpn)
     }

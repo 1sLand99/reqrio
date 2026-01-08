@@ -182,6 +182,15 @@ impl RandomValue for usize {
     }
 }
 
+impl RandomValue for u32 {
+    #[inline(always)]
+    fn random(rng: &mut CryptRand) -> Self {
+        let mut res = 0;
+        rng.fill_bytes(bytemuck::bytes_of_mut(&mut res));
+        res
+    }
+}
+
 
 impl<T, const N: usize> RandomValue for [T; N]
 where
@@ -195,6 +204,8 @@ where
         res
     }
 }
+
+
 
 #[cfg(test)]
 mod tests {

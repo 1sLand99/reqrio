@@ -99,7 +99,7 @@ impl Proxy {
                 let mut buffer = Buffer::with_capacity(1024);
                 loop {
                     buffer.reset();
-                    buffer.async_read(&mut stream).await?;
+                    stream.read(&mut buffer).await?;
                     if response.extend(&buffer)? { break; };
                 }
                 if response.header().status() != &HttpStatus::OK {

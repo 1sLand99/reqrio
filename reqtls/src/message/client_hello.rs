@@ -100,7 +100,8 @@ impl ClientHello {
         let index = index + res.compress_method_len as usize + 1;
         res.extend_len = u16::from_be_bytes([bytes[index], bytes[index + 1]].try_into()?);
         res.extensions = Extension::from_bytes(&bytes[index + 2..index + 2 + res.extend_len as usize])?;
-        // println!("{}", res.ja3());
+        println!("{}", res.ja3());
+        println!("{}", res.ja4());
         Ok(res)
     }
 
@@ -157,13 +158,55 @@ impl ClientHello {
         hex::encode(md5::compute(ja3_str.as_bytes()).as_slice())
     }
 
+    ///### ja4计算方式为
+    /// 't'+version+'d'+len(cipher_suites)+len(extensions)+alpn+'_'+cipher_suite(u16)+','+ec_point_format(u8)
+    /// tls1.3中移除了ec_point_format
+    pub fn ja4(&self) -> String {
+        let ver = self.extensions.iter().find(|x| x.extension_type().as_u16() == ExtensionKind::SupportedVersions as u16);
+        let ver = ver.map(|ext| {
+            let versions = ext.supported_versions()?.versions();
+            let vers = versions.iter().filter(|x| x.as_kind().is_some()).next()?;
+            Some(vers.as_kind()?.as_ja4_str())
+        }).unwrap_or(Some("00")).unwrap_or("00");
+        let mut suite = self.cipher_suites.iter().filter_map(|x| if x.is_reserved() {
+            None
+        } else {
+            Some(x.as_u16())
+        }).collect::<Vec<_>>();
+        suite.sort();
+        let mut exts = self.extensions.iter().filter_map(|x| if x.extension_type().is_reserved() {
+            None
+        } else if x.alps().is_some() {
+            None
+        } else if x.server_name().is_some() {
+            None
+        } else {
+            Some(x.extension_type().as_u16())
+        }).collect::<Vec<_>>();
+        exts.sort();
+        let ext = self.extensions.iter().find(|x| x.alps().is_some());
+        let alps = ext.map(|ext| Some(ext.alps()?.values().get(0)?.value())).unwrap_or(Some("00")).unwrap_or("00");
+        let ext = self.extensions.iter().find(|x| x.signature_algorithms().is_some());
+        let sign_algo = ext.map(|x| Some(x.signature_algorithms()?.hashes().iter().map(|x| *x as u16).collect::<Vec<_>>()));
+        let sign_algo = sign_algo.unwrap_or(Some(vec![])).unwrap_or(vec![]);
+        let mut hash = sha2::Sha256::default();
+        let suite_str = suite.iter().map(|x| hex::encode(x.to_be_bytes())).collect::<Vec<_>>().join(",");
+        println!("{}", suite_str);
+        sha2::Digest::update(&mut hash, suite_str);
+        let suit_hash = hex::encode(sha2::Digest::finalize(hash).to_vec());
+        let c = format!("{}_{}", exts.iter().map(|x| hex::encode(x.to_be_bytes())).collect::<Vec<_>>().join(","),
+                        sign_algo.iter().map(|x| hex::encode(x.to_be_bytes())).collect::<Vec<_>>().join(","));
+        println!("{}", c);
+        let mut hash = sha2::Sha256::default();
+        sha2::Digest::update(&mut hash, c.as_bytes());
+        let c_hash = hex::encode(sha2::Digest::finalize(hash).to_vec());
+
+        format!("t{}d{:.2}{:02}{}_{}_{}", ver, suite.len(), exts.len(), alps, &suit_hash[..12], &c_hash[..12])
+    }
+
     pub fn set_random(&mut self, random: [u8; 32]) {
         self.random = Bytes::new(random.to_vec());
     }
-
-    // pub fn random(&self) -> &Bytes {
-    //     &self.random
-    // }
 
     pub fn set_session_id(&mut self, session_id: [u8; 32]) {
         self.session_id = Bytes::new(session_id.to_vec());
@@ -210,6 +253,30 @@ impl ClientHello {
     }
 
     pub fn remove_tls13(&mut self) {
+        let pos = self.extensions.iter().position(|x| x.extension_type().as_u16() == ExtensionKind::PreSharedKey as u16);
+        if let Some(pos) = pos {
+            self.extensions.remove(pos);
+        }
+        // let pos = self.extensions.iter().position(|x| x.extension_type().as_u16() == ExtensionKind::KeyShare as u16);
+        // if let Some(pos) = pos {
+        //     self.extensions.remove(pos);
+        // }
+        // let pos = self.extensions.iter().position(|x| x.extension_type().as_u16() == ExtensionKind::PskKeyExchangeMode as u16);
+        // if let Some(pos) = pos {
+        //     self.extensions.remove(pos);
+        // }
+        // let pos = self.extensions.iter().position(|x| x.extension_type().as_u16() == ExtensionKind::SessionTicket as u16);
+        // if let Some(pos) = pos {
+        //     self.extensions.remove(pos);
+        // }
+        // let pos = self.extensions.iter().position(|x| x.extension_type().as_u16() == ExtensionKind::SignedCertificateTimestamp as u16);
+        // if let Some(pos) = pos {
+        //     self.extensions.remove(pos);
+        // }
+        let pos = self.extensions.iter().position(|x| x.extension_type().as_u16() == ExtensionKind::EcPointFormats as u16);
+        if let Some(pos) = pos {
+            self.extensions.remove(pos);
+        }
         let extend = self.extensions.iter_mut().find(|x| x.extension_type().as_u16() == ExtensionKind::SupportedVersions as u16);
         if let Some(ext) = extend {
             ext.remove_tls13()

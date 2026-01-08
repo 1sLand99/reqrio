@@ -128,6 +128,18 @@ impl SignatureAlgorithms {
         res
     }
 
+    pub fn hashes(&self) -> &Vec<SignatureAlgorithm> {
+        &self.hash
+    }
+
+    pub fn push_hash(&mut self, hash: SignatureAlgorithm) {
+        self.hash.push(hash);
+    }
+
+    pub fn clear(&mut self) {
+        self.hash.clear();
+    }
+
     pub fn random() -> SignatureAlgorithms {
         let mut res = SignatureAlgorithms::new();
         let all_sign = SignatureAlgorithm::all();

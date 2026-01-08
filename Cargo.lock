@@ -53,9 +53,9 @@ dependencies = [
 
 [[package]]
 name = "base16ct"
-version = "1.0.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd307490d624467aa6f74b0eabb77633d1f758a7b25f12bceb0b22e08d9726f6"
+checksum = "d8b59d472eab27ade8d770dcb11da7201c11234bef9f82ce7aa517be028d462b"
 
 [[package]]
 name = "block-buffer"
@@ -164,9 +164,9 @@ dependencies = [
 
 [[package]]
 name = "crypto-bigint"
-version = "0.7.0-rc.15"
+version = "0.7.0-rc.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a9e36ac79ac44866b74e08a0b4925f97b984e3fff17680d2c6fbce8317ab0f6"
+checksum = "b2bb4138de6db76c8155b4423e967049fbef2cf84ad6af7f552f73a161941b72"
 dependencies = [
  "ctutils",
  "hybrid-array",
@@ -197,9 +197,9 @@ dependencies = [
 
 [[package]]
 name = "curve25519-dalek"
-version = "5.0.0-pre.4"
+version = "5.0.0-pre.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ae8b2fe5e4995d7fd08a7604e794dc569a65ed19659f5939d529813ed816d38"
+checksum = "92419e1cdc506051ffd30713ad09d0ec6a24bba9197e12989de389e35b19c77a"
 dependencies = [
  "cfg-if",
  "cpufeatures",
@@ -250,9 +250,9 @@ checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
 
 [[package]]
 name = "elliptic-curve"
-version = "0.14.0-rc.20"
+version = "0.14.0-rc.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f4874d0de0bf58704a6917f26154afcdd49ebc11cae10b6d53950217aee9408"
+checksum = "c8119dc256cd897f759f5b9d45dfd9b066af1c79e71688b7f0a6be989e8fbfbf"
 dependencies = [
  "base16ct",
  "crypto-bigint",
@@ -458,9 +458,9 @@ checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 
 [[package]]
 name = "p256"
-version = "0.14.0-rc.3"
+version = "0.14.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4caab26e75ab3d0790a0f29df73f006308ada2e1fbbfcbab03e92346adc43dd9"
+checksum = "627b64d2b280c7509b62060609926b1bbf8e5123b2b89dd99c6ee7a520d34260"
 dependencies = [
  "elliptic-curve",
  "primefield",
@@ -469,9 +469,9 @@ dependencies = [
 
 [[package]]
 name = "p384"
-version = "0.14.0-rc.3"
+version = "0.14.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30732b26c446549117425e4e905456494ff6c87da40216fd6c71ccc7c3976080"
+checksum = "90a2f93da2b1f9714a97bf278158d5e832000c2929689c6ec538a9ec216c34f1"
 dependencies = [
  "elliptic-curve",
  "fiat-crypto",
@@ -493,9 +493,9 @@ checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 
 [[package]]
 name = "primefield"
-version = "0.14.0-rc.3"
+version = "0.14.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29b2bd4ddf14d08c2bc8d9cceaf362f28c146b0737d58c7fee6534b99e19a3ee"
+checksum = "9f4ec7ba23a4ad5298525e3208cdef746216a5a5a25614f5ea2c453dcc931092"
 dependencies = [
  "crypto-bigint",
  "rand_core",
@@ -506,9 +506,9 @@ dependencies = [
 
 [[package]]
 name = "primeorder"
-version = "0.14.0-rc.3"
+version = "0.14.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e56388fad6b8c7576e6987fd0c8c7f3bf94d73d74ae794edaac3e420f9cabfe"
+checksum = "17a5fb1336715a650d236e3461954e69725d61251fcbd68a9656e7a764d53d09"
 dependencies = [
  "elliptic-curve",
 ]
@@ -669,12 +669,11 @@ dependencies = [
 
 [[package]]
 name = "sec1"
-version = "0.8.0-rc.11"
+version = "0.8.0-rc.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2568531a8ace88b848310caa98fb2115b151ef924d54aa523e659c21b9d32d71"
+checksum = "1dff52f6118bc9f0ac974a54a639d499ac26a6cad7a6e39bc0990c19625e793b"
 dependencies = [
  "base16ct",
- "ctutils",
  "der",
  "hybrid-array",
  "subtle",
@@ -1034,9 +1033,9 @@ checksum = "f17a85883d4e6d00e8a97c586de764dabcc06133f7f1d55dce5cdc070ad7fe59"
 
 [[package]]
 name = "x25519-dalek"
-version = "3.0.0-pre.4"
+version = "3.0.0-pre.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5887899407ca8fb861126d509bb08465c14a9c60fad1f24c59ed59630a45586"
+checksum = "8367a41efe370c38fa4af81968298cdd695311791e4797118a1621f04ed75859"
 dependencies = [
  "curve25519-dalek",
  "rand_core",

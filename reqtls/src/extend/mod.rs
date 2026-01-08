@@ -23,12 +23,14 @@ pub mod alps;
 mod client_hello;
 mod certificate;
 mod psk_key;
+mod pre_share_key;
 
 use crate::error::RlsResult;
 use crate::extend::certificate::{CompressionKind, CompressionType};
 use crate::version::VersionKind;
 use crate::Version;
 pub use client_hello::Aead;
+use crate::extend::pre_share_key::PreSharedKey;
 
 pub struct ExtensionType(u16);
 
@@ -78,6 +80,7 @@ pub enum ExtensionKind {
     RenegotiationInfo = 0xff01,
     EncryptedClientHello = 0xfe0d,
     ApplicationSetting = 0x44cd,
+    PreSharedKey = 0x29,
 }
 
 impl ExtensionKind {
@@ -100,6 +103,7 @@ impl ExtensionKind {
             0xff01 => Some(ExtensionKind::RenegotiationInfo),
             0xfe0d => Some(ExtensionKind::EncryptedClientHello),
             0x44cd => Some(ExtensionKind::ApplicationSetting),
+            0x29 => Some(ExtensionKind::PreSharedKey),
             _ => None
         }
     }
@@ -130,7 +134,8 @@ impl ExtensionKind {
             ExtensionKind::KeyShare => ExtensionValue::KeyShare(KeyShare::new()),
             ExtensionKind::RenegotiationInfo => ExtensionValue::RenegotiationInfo(RenegotiationInfo::new()),
             ExtensionKind::EncryptedClientHello => ExtensionValue::EncryptedClientHello(EncryptClientHello::new()),
-            ExtensionKind::ApplicationSetting => ExtensionValue::ApplicationSetting(ALPS::new())
+            ExtensionKind::ApplicationSetting => ExtensionValue::ApplicationSetting(ALPS::new()),
+            ExtensionKind::PreSharedKey => ExtensionValue::PreSharedKey(PreSharedKey::random()),
         }
     }
 
@@ -153,6 +158,7 @@ impl ExtensionKind {
             ExtensionKind::RenegotiationInfo,
             ExtensionKind::EncryptedClientHello,
             ExtensionKind::ApplicationSetting,
+            ExtensionKind::PreSharedKey,
         ]
     }
 }
@@ -196,6 +202,7 @@ pub enum ExtensionValue {
     EncryptTheMac,
     MasterSecret,
     SignedCertificateTimestamp,
+    PreSharedKey(PreSharedKey),
     Unknown(Bytes),
 }
 
@@ -219,6 +226,7 @@ impl ExtensionValue {
             Some(ExtensionKind::ApplicationSetting) => Ok(ExtensionValue::ApplicationSetting(ALPS::from_bytes(bytes)?)),
             Some(ExtensionKind::KeyShare) => Ok(ExtensionValue::KeyShare(KeyShare::from_bytes(bytes))),
             Some(ExtensionKind::ApplicationLayerProtocolNegotiation) => Ok(ExtensionValue::ApplicationLayerProtocolNegotiation(ALPS::from_bytes(bytes)?)),
+            Some(ExtensionKind::PreSharedKey) => Ok(ExtensionValue::PreSharedKey(PreSharedKey::from_bytes(bytes)?)),
             _ => Ok(ExtensionValue::Unknown(Bytes::new(bytes.to_vec())))
         }
     }
@@ -242,7 +250,8 @@ impl ExtensionValue {
             ExtensionValue::ApplicationSetting(v) => v.as_bytes(),
             ExtensionValue::ApplicationLayerProtocolNegotiation(v) => v.as_bytes(),
             ExtensionValue::Unknown(v) => v.as_bytes(),
-            ExtensionValue::SignedCertificateTimestamp => vec![]
+            ExtensionValue::SignedCertificateTimestamp => vec![],
+            ExtensionValue::PreSharedKey(v) => v.as_bytes()
         }
     }
 }
@@ -296,6 +305,34 @@ impl Extension {
         }
     }
 
+    pub fn signature_algorithms(&self) -> Option<&SignatureAlgorithms> {
+        match &self.value {
+            ExtensionValue::SignatureAlgorithms(v) => Some(v),
+            _ => None
+        }
+    }
+
+    pub fn signature_algorithms_mut(&mut self) -> Option<&mut SignatureAlgorithms> {
+        match &mut self.value {
+            ExtensionValue::SignatureAlgorithms(v) => Some(v),
+            _ => None
+        }
+    }
+
+    pub fn supported_versions(&self) -> Option<&SupportVersions> {
+        match &self.value {
+            ExtensionValue::SupportedVersions(v) => Some(v),
+            _ => None
+        }
+    }
+
+    pub fn supported_versions_mut(&mut self) -> Option<&mut SupportVersions> {
+        match &mut self.value {
+            ExtensionValue::SupportedVersions(v) => Some(v),
+            _ => None
+        }
+    }
+
     pub fn supported_groups_mut(&mut self) -> Option<&mut SupportedGroups> {
         match self.value {
             ExtensionValue::SupportedGroups(ref mut v) => Some(v),
@@ -317,12 +354,12 @@ impl Extension {
         }
     }
 
-    pub fn application_layer_protocol_negotiation(&self) -> Option<&ALPS> {
-        match &self.value {
-            ExtensionValue::ApplicationLayerProtocolNegotiation(v) => Some(v),
-            _ => None
-        }
-    }
+    // pub fn application_layer_protocol_negotiation(&self) -> Option<&ALPS> {
+    //     match &self.value {
+    //         ExtensionValue::ApplicationLayerProtocolNegotiation(v) => Some(v),
+    //         _ => None
+    //     }
+    // }
 
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut res = self.type_.as_bytes().to_vec();
@@ -349,6 +386,13 @@ impl Extension {
     pub fn alps(&self) -> Option<&ALPS> {
         match self.value {
             ExtensionValue::ApplicationLayerProtocolNegotiation(ref v) => Some(v),
+            _ => None
+        }
+    }
+
+    pub fn alps_mut(&mut self) -> Option<&mut ALPS> {
+        match self.value {
+            ExtensionValue::ApplicationLayerProtocolNegotiation(ref mut v) => Some(v),
             _ => None
         }
     }
