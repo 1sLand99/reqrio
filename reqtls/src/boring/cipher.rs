@@ -1,37 +1,43 @@
+use std::ffi::c_int;
+use crate::boring::CryptParam;
 use crate::error::RlsResult;
 use crate::extend::Aead;
-use crate::rand;
+use crate::{rand, RlsError};
 use boring_sys::{CRYPTO_memcmp, EVP_CIPHER_CTX_free, EVP_CIPHER_CTX_new, EVP_DecryptFinal_ex, EVP_DecryptInit_ex, EVP_DecryptUpdate, EVP_EncryptFinal_ex, EVP_EncryptInit_ex, EVP_EncryptUpdate, EVP_aes_128_cbc, EVP_aes_256_cbc, EVP_sha1, EVP_CIPHER, EVP_CIPHER_CTX, HMAC};
-use std::ptr;
 use std::ptr::null_mut;
+
+trait BoringResExt {
+    fn ok(self, error: RlsError) -> RlsResult<()>;
+}
+
+impl BoringResExt for c_int {
+    fn ok(self, error: RlsError) -> RlsResult<()> {
+        if self != 1 { return Err(error); }
+        Ok(())
+    }
+}
 
 pub struct CipherCryptor {
     ctx: *mut EVP_CIPHER_CTX,
     mac_key: [u8; 20],
+    key: Vec<u8>,
     evp_cipher: *const EVP_CIPHER,
 }
 
 impl CipherCryptor {
-    pub fn new(aead: &Aead) -> RlsResult<CipherCryptor> {
+    pub fn new(aead: &Aead, key: Vec<u8>) -> RlsResult<CipherCryptor> {
         let evp_cipher = match aead {
             Aead::AES_128_CBC_SHA => unsafe { EVP_aes_128_cbc() }
             Aead::AES_256_CBC_SHA => unsafe { EVP_aes_256_cbc() }
             _ => return Err("not cipher,but in cipher".into())
         };
-        println!("{}", evp_cipher.is_null());
-        // assert_eq!(key.len(), 36);
         let ctx = unsafe { EVP_CIPHER_CTX_new() };
-
-        // let ok = unsafe { EVP_EncryptInit(ctx, evp_aead, key.as_ptr(), null()) };
-        // // 初始化失败，ok是空
-        // unsafe {
-        //     if ok != 1 {
-        //         let err = ERR_get_error();
-        //         println!("BoringSSL Error: {:x}", err); // 打印出十六进制错误码
-        //         return Err(RlsError::AeadCryptError);
-        //     }
-        // }
-        Ok(CipherCryptor { ctx, mac_key: rand::random(), evp_cipher })
+        Ok(CipherCryptor {
+            ctx,
+            mac_key: rand::random(),
+            evp_cipher,
+            key,
+        })
     }
 
     /// cbc加密块:
@@ -39,161 +45,86 @@ impl CipherCryptor {
     /// mac = HMAC_SHA1(mac_key, seq_num + hdr + plaintext) //20位
     /// ciphertext = AES_CBC(key, iv, plaintext || mac || padding) //pcsk7
     ///```
-    pub fn encrypt(&self, plaintext: &[u8], key: &[u8], iv: &[u8; 16]) -> RlsResult<Vec<u8>> {
+    pub fn encrypt(&self, param: CryptParam) -> RlsResult<usize> {
+        unsafe { EVP_EncryptInit_ex(self.ctx, self.evp_cipher, null_mut(), self.key.as_ptr(), param.iv.as_ptr()) }.ok(RlsError::CipherCryptError)?;
+        let mut out_len = 0;
         unsafe {
-            // 1. 初始化加密操作，传入本次使用的 IV
-            if EVP_EncryptInit_ex(
+            EVP_EncryptUpdate(
                 self.ctx,
-                self.evp_cipher, // 使用 new 中已经设定的算法
-                null_mut(),
-                key.as_ptr(), // 使用 new 中已经设定的 key
-                iv.as_ptr(),
-            ) != 1 {
-                return Err("Failed to init encryption with IV".into());
-            }
-
-            // 2. 准备缓冲区
-            // CBC 模式输出长度最多为 plaintext.len() + block_size
-            let block_size = 16;
-            let mut ciphertext = vec![0u8; plaintext.len() + block_size];
-            let mut out_len = 0i32;
-            let mut final_len = 0i32;
-
-            // 3. 执行加密
-            if EVP_EncryptUpdate(
-                self.ctx,
-                ciphertext.as_mut_ptr(),
+                param.payload.encrypting_out(param.aead).as_mut_ptr(),
                 &mut out_len,
-                plaintext.as_ptr(),
-                plaintext.len() as i32,
-            ) != 1 {
-                return Err("Encryption update failed".into());
-            }
-
-            // 4. 完成加密（处理 Padding）
-            if EVP_EncryptFinal_ex(
+                param.payload.encrypting_in(param.aead).as_ptr(),
+                param.payload.len as i32)
+        }.ok(RlsError::CipherEncryptError)?;
+        let mut final_len = 0;
+        unsafe {
+            EVP_EncryptFinal_ex(
                 self.ctx,
-                ciphertext.as_mut_ptr().add(out_len as usize),
+                param.payload.value[16 + out_len as usize..].as_mut_ptr(),
                 &mut final_len,
-            ) != 1 {
-                return Err("Encryption final failed".into());
-            }
+            )
+        }.ok(RlsError::CipherEncryptError)?;
+        let mut mac_len = 0;
+        let ok = unsafe {
+            HMAC(
+                EVP_sha1(),
+                self.mac_key.as_ptr() as *const _,
+                self.mac_key.len(),
+                param.payload.value[..(16 + out_len + final_len) as usize].as_ptr(),
+                (16 + out_len + final_len) as usize,
+                param.payload.value[(16 + out_len + final_len) as usize..].as_mut_ptr(),
+                &mut mac_len,
+            )
+        };
+        if ok.is_null() { return Err(RlsError::CipherMacError); }
+        Ok((16 + out_len + final_len + 20) as usize)
+    }
 
-            // 截断到实际加密后的长度
-            ciphertext.truncate((out_len + final_len) as usize);
-
-            // 5. 计算 HMAC-SHA1 (针对 IV + Ciphertext)
-            // 很多协议要求把 IV 也放入认证范围，以防止 IV 被篡改
-            let mut auth_data = Vec::with_capacity(iv.len() + ciphertext.len());
-            auth_data.extend_from_slice(iv);
-            auth_data.extend_from_slice(&ciphertext);
-
-            let mut mac = [0u8; 20]; // SHA1 长度为 20 字节
-            let mut mac_len = 20u32;
-
-            if HMAC(
+    pub fn decrypt(&self, param: CryptParam) -> RlsResult<usize> {
+        let auth_data = &param.payload.value[..param.payload.value.len() - 20];
+        let mac = &param.payload.value[param.payload.value.len() - 20..];
+        // 2. 校验 HMAC (必须先于解密)
+        let mut computed_mac = [0u8; 20];
+        let mut computed_mac_len = 20u32;
+        let ok = unsafe {
+            HMAC(
                 EVP_sha1(),
                 self.mac_key.as_ptr() as *const _,
                 self.mac_key.len(),
                 auth_data.as_ptr(),
                 auth_data.len(),
-                mac.as_mut_ptr(),
-                &mut mac_len,
-            ).is_null() {
-                return Err("HMAC calculation failed".into());
-            }
-
-            // 6. 最终结果：IV + Ciphertext + MAC
-            let mut result = auth_data; // 此时 auth_data 已经是 IV + Ciphertext
-            result.extend_from_slice(&mac);
-            println!("{:?}", result);
-            Ok(result)
-        }
-    }
-
-    pub fn decrypt(&self, input: &[u8], key: &[u8]) -> RlsResult<Vec<u8>> {
-        // 1. 基础长度校验
-        // 最小长度 = 16 (IV) + 0 (数据) + 20 (MAC) + 至少一个 block 的 padding
-        if input.len() < (16 + 20) {
-            return Err("Input data too short".into());
-        }
-
-        let iv_len = 16;
-        let mac_len = 20;
-        let data_with_iv_len = input.len() - mac_len;
-
-        // 拆分数据
-        let iv_and_ciphertext = &input[0..data_with_iv_len];
-        let expected_mac = &input[data_with_iv_len..];
-        let iv = &input[0..iv_len];
-        let ciphertext = &input[iv_len..data_with_iv_len];
-
-        unsafe {
-            // 2. 校验 HMAC (必须先于解密)
-            let mut computed_mac = [0u8; 20];
-            let mut computed_mac_len = 20u32;
-
-            if HMAC(
-                EVP_sha1(),
-                self.mac_key.as_ptr() as *const _,
-                self.mac_key.len(),
-                iv_and_ciphertext.as_ptr(),
-                iv_and_ciphertext.len(),
                 computed_mac.as_mut_ptr(),
                 &mut computed_mac_len,
-            ).is_null() {
-                return Err("HMAC calculation failed".into());
-            }
+            )
+        };
+        if ok.is_null() { return Err(RlsError::CipherMacError); }
+        println!("{:?} {:?}", mac, computed_mac);
+        // 使用恒定时间比较 (Constant-time comparison) 防止侧信道攻击
+        let res = unsafe { CRYPTO_memcmp(computed_mac.as_ptr() as *const _, mac.as_ptr() as *const _, mac.len()) };
+        if res != 0 { return Err(RlsError::CipherMacError); }
+        // 3. 初始化解密
+        unsafe { EVP_DecryptInit_ex(self.ctx, self.evp_cipher, null_mut(), self.key.as_ptr(), param.iv.as_ptr()) }.ok(RlsError::CipherCryptError)?;
 
-            // 使用恒定时间比较 (Constant-time comparison) 防止侧信道攻击
-            if CRYPTO_memcmp(
-                computed_mac.as_ptr() as *const _,
-                expected_mac.as_ptr() as *const _,
-                mac_len,
-            ) != 0 {
-                return Err("HMAC verification failed".into());
-            }
-
-            // 3. 初始化解密
-            // let ctx = self.encrypt_ctx; // 实际开发中建议加密解密使用独立的 ctx
-            if EVP_DecryptInit_ex(
+        // 4. 执行解密
+        let mut out_len = 0i32;
+        let mut final_len = 0i32;
+        unsafe {
+            EVP_DecryptUpdate(
                 self.ctx,
-                self.evp_cipher, // 使用之前设定的算法
-                ptr::null_mut(),
-                key.as_ptr(), // 使用之前设定的 key
-                iv.as_ptr(),
-            ) != 1 {
-                return Err("Failed to init decryption".into());
-            }
-
-            // 4. 执行解密
-            let mut plaintext = vec![0u8; ciphertext.len()];
-            let mut out_len = 0i32;
-            let mut final_len = 0i32;
-
-            if EVP_DecryptUpdate(
-                self.ctx,
-                plaintext.as_mut_ptr(),
+                param.payload.decrypting_payload(param.aead).as_mut_ptr(),
                 &mut out_len,
-                ciphertext.as_ptr(),
-                ciphertext.len() as i32,
-            ) != 1 {
-                return Err("Decryption update failed".into());
-            }
-
-            // 5. 完成解密并移除 Padding
-            // 如果 Padding 不正确，这里会报错，但因为我们先校验了 HMAC，这通常意味着数据被破坏
-            if EVP_DecryptFinal_ex(
+                param.payload.decrypting_payload(param.aead).as_ptr(),
+                param.payload.decrypting_payload(param.aead).len() as i32,
+            )
+        }.ok(RlsError::CipherDecryptError)?;
+        unsafe {
+            EVP_DecryptFinal_ex(
                 self.ctx,
-                plaintext.as_mut_ptr().add(out_len as usize),
+                param.payload.decrypting_payload(param.aead).as_mut_ptr().add(out_len as usize),
                 &mut final_len,
-            ) != 1 {
-                return Err("Decryption final failed (possible padding error)".into());
-            }
-
-            plaintext.truncate((out_len + final_len) as usize);
-            Ok(plaintext)
-        }
+            )
+        }.ok(RlsError::CipherDecryptError)?;
+        Ok((out_len + final_len) as usize)
     }
 }
 
@@ -206,28 +137,43 @@ impl Drop for CipherCryptor {
 #[cfg(test)]
 mod tests {
     use crate::boring::cipher::CipherCryptor;
+    use crate::boring::CryptParam;
     use crate::extend::Aead;
     use crate::rand;
+    use crate::record::RecordBuffer;
 
     #[test]
     fn test_cipher_cryptor() {
         let aead = Aead::AES_128_CBC_SHA;
-        let key = rand::random::<[u8; 16]>();
+        let key = rand::random::<[u8; 16]>().to_vec();
         let iv = rand::random::<[u8; 16]>();
-        let mut payload = vec![1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6];
+        println!("{:?}", iv);
+        let mut buffer = [0; 1024];
         // payload.extend(&[0; 20]);
-        // let mut payload = Payload::from_slice(&mut payload);
-        let cryptor = CipherCryptor::new(&aead).unwrap();
-        let encrypted = cryptor.encrypt(&payload, &key, &iv).unwrap();
-        let decrypted = cryptor.decrypt(&encrypted, &key).unwrap();
-        println!("{:?}", decrypted);
-        // cryptor.encrypt(CryptParam {
-        //     aead: &aead,
-        //     nonce: &[0; 12],
-        //     iv: &iv,
-        //     aad: &[0; 13],
-        //     payload: &mut payload,
-        // }).unwrap();
-        // println!("{:?}", &payload[0..]);
+        let mut record_buffer = RecordBuffer::from_buffer(&aead, &mut buffer);
+        record_buffer.add_explicit_iv(&iv);
+        record_buffer.set_payload(&[1, 2, 3, 4, 5, 61, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 67, 8, ]);
+        println!("{:?}", &record_buffer.payload.value[..50]);
+
+        let cryptor = CipherCryptor::new(&aead, key).unwrap();
+        let encrypted = cryptor.encrypt(CryptParam {
+            aead: record_buffer.aead,
+            nonce: &[0; 12],
+            iv: &iv,
+            aad: &[0; 13],
+            payload: &mut record_buffer.payload,
+        }).unwrap();
+        println!("{:?}", &buffer[..encrypted + 10]);
+        let mut record_buffer = RecordBuffer::from_buffer(&aead, &mut buffer[..encrypted + 5]);
+        // let decrypted = cryptor.decrypt(&encrypted, &key).unwrap();
+        // println!("{:?}", decrypted);
+        let len = cryptor.decrypt(CryptParam {
+            aead: &aead,
+            nonce: &[0; 12],
+            iv: &iv,
+            aad: &[0; 13],
+            payload: &mut record_buffer.payload,
+        }).unwrap();
+        println!("{:?}", &buffer[..len + 30]);
     }
 }

@@ -25,6 +25,8 @@ pub enum HlsError {
     PayloadNone,
     DecrypterNone,
     EncrypterNone,
+    WsFrameTypeNone,
+    DataTooShort,
     // StdErr(Box<dyn Error>),
     Currently(String),
 }
@@ -63,6 +65,8 @@ impl Display for HlsError {
             HlsError::DecrypterNone => f.write_str("DecrypterNone"),
             HlsError::NonePointer => f.write_str("NonePointer"),
             HlsError::EncrypterNone => f.write_str("EncrypterNone"),
+            HlsError::WsFrameTypeNone => f.write_str("WsFrameTypeNone"),
+            HlsError::DataTooShort => f.write_str("DataTooShort"),
         }
     }
 }

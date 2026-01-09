@@ -2,8 +2,6 @@ use crate::extend::Aead;
 use std::fmt::Debug;
 
 
-
-
 pub struct Payload<'a> {
     //真实payload长度，不含explicit和tag等信息
     pub(crate) len: usize,
@@ -15,6 +13,7 @@ impl<'a> Payload<'a> {
         match aead {
             Aead::AES_128_GCM | Aead::AES_256_GCM => &mut self.value[8..],
             Aead::ChaCha20_POLY1305 => self.value,
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => &mut self.value[16..],
             _ => self.value
         }
     }
@@ -29,9 +28,11 @@ impl<'a> Payload<'a> {
     }
 
     pub fn decrypting_payload(&mut self, aead: &Aead) -> &mut [u8] {
+        let len = self.value.len();
         match aead {
             Aead::AES_128_GCM | Aead::AES_256_GCM => &mut self.value[8..],
             Aead::ChaCha20_POLY1305 => &mut self.value,
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => &mut self.value[16..len - 20],
             _ => self.value
         }
     }

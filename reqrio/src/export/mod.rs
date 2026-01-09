@@ -10,6 +10,7 @@ use crate::error::HlsResult;
 use crate::json;
 
 mod req;
+mod wss;
 
 fn unique_id() -> i32 {
     let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();

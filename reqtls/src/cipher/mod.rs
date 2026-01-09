@@ -92,6 +92,7 @@ mod tests {
     use crate::message::Payload;
     use crate::version::VersionKind;
     use crate::{rand, Message, RecordLayer, RecordType, Version};
+    use crate::record::RecordBuffer;
 
     #[test]
     fn test_cipher() {
@@ -99,30 +100,25 @@ mod tests {
         let key_bs = rand::random::<[u8; 32]>().to_vec();
         let iv = rand::random::<[u8; 12]>();
         // let explicit = rand::random::<[u8; 8]>();
-        let aead = Aead::ChaCha20_POLY1305;
+        let aead = Aead::AES_128_CBC_SHA;
         cipher.set_key(&key_bs, &aead).unwrap();
         let iv = Iv::new(&iv, vec![]);
         cipher.set_iv(iv);
-        let mut payload_buffer = [0; 37];
-        payload_buffer[5..21].copy_from_slice(&rand::random::<[u8; 16]>());
-        println!("{:?}", payload_buffer);
-        let mut layer = RecordLayer {
-            context_type: RecordType::HandShake,
-            version: Version::new(VersionKind::TLS_1_2 as u16),
-            len: 0,
-            messages: vec![Message::Payload(Payload::from_slice(&mut payload_buffer[5..]))],
-        };
-        cipher.encrypt(&mut layer, &aead).unwrap();
-        println!("{:?}", payload_buffer);
+        let mut buffer = [0u8; 1024];
+        let mut record_buffer = RecordBuffer::from_buffer(&aead, &mut buffer);
+        record_buffer.set_head(RecordType::HandShake, Version::new(VersionKind::TLS_1_2 as u16));
+        record_buffer.set_payload(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
+        let len = cipher.encrypt(record_buffer).unwrap();
+        println!("{:?}", &buffer[..len + 10]);
         cipher.seq = 0;
-        let mut layer = RecordLayer {
+        let mut record_buffer = RecordLayer {
             context_type: RecordType::HandShake,
             version: Version::new(VersionKind::TLS_1_2 as u16),
             len: 0,
-            messages: vec![Message::Payload(Payload::from_slice(&mut payload_buffer[5..]))],
+            messages: vec![Message::Payload(Payload::from_slice(&mut buffer[5..len]))],
         };
-        cipher.decrypt(&mut layer, &aead).unwrap();
-        println!("{:?}", payload_buffer);
+        let pdr = cipher.decrypt(&mut record_buffer, &aead).unwrap();
+        println!("{:?}", &buffer[pdr]);
         // cipher.encrypt(&mut layer).unwrap(); //单独运行这个不报错，在前面的Finish后会偶尔会报错
         // let _res = cipher.decrypt(layer).unwrap();
     }

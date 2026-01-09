@@ -26,6 +26,7 @@ pub enum RlsError {
     CipherCryptError,
     CipherEncryptError,
     CipherDecryptError,
+    CipherMacError,
     StdError(Box<dyn Error>),
     Currently(String),
 }
@@ -48,6 +49,7 @@ impl Display for RlsError {
             RlsError::CipherCryptError => f.write_str("Cipher crypto error"),
             RlsError::CipherEncryptError => f.write_str("Cipher encrypt error"),
             RlsError::CipherDecryptError => f.write_str("Cipher decrypt error"),
+            RlsError::CipherMacError => f.write_str("Cipher mac error"),
             RlsError::StdError(e) => f.write_fmt(format_args!("{:?}", e)),
             RlsError::Currently(e) => f.write_str(e),
         }

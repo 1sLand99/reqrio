@@ -18,7 +18,7 @@ pub struct AcReq {
     header: Header,
     url: Url,
     hack_coder: HPackCoding,
-    stream: Stream,
+    pub stream: Stream,
     timeout: Timeout,
     callback: Option<ReqCallback>,
     stream_id: u32,
@@ -118,7 +118,7 @@ impl AcReq {
             let res = tokio::time::timeout(self.timeout.handle(), self.handle_io()).await;
             match &res {
                 Ok(res) => if let Err(e) = res && i != self.timeout.handle_times() - 1 {
-                    if e.to_string().to_lowercase().contains("close") {
+                    if e.to_string().to_lowercase().contains("close")||e.to_string().contains("中止了") {
                         self.re_conn().await?;
                     }
                     println!("[AcReq] write/recv with error-{}, handle: {}/{}", e.to_string(), i + 2, self.timeout.handle_times());

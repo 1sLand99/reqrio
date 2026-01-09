@@ -31,8 +31,8 @@ DLL.set_alpn.restype = c_int
 # DLL.set_ja3.argtypes = [c_int, c_char_p]
 # DLL.set_ja3.restype = c_int
 
-DLL.set_random_fingerprint.argtypes = [c_int]
-DLL.set_random_fingerprint.restype = c_int
+# DLL.set_random_fingerprint.argtypes = [c_int]
+# DLL.set_random_fingerprint.restype = c_int
 
 DLL.set_proxy.argtypes = [c_int, c_char_p]
 DLL.set_proxy.restype = c_int
@@ -113,3 +113,8 @@ DLL.thread_pool_set_timeout.restype = c_int
 
 DLL.thread_pool_set_max_active.argtypes = [c_void_p, c_int]
 DLL.thread_pool_set_max_active.restype = c_int
+
+DLL.wss_h1_io.argtypes = [c_int, c_char_p, CALLBACK]
+
+DLL.reconnect.argtypes = [c_int]
+DLL.reconnect.restype = c_int

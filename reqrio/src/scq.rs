@@ -19,7 +19,7 @@ pub struct ScReq {
     header: Header,
     url: Url,
     hack_coder: HPackCoding,
-    stream: Stream,
+    pub stream: Stream,
     body: BodyType,
     callback: Option<ReqCallback>,
     timeout: Timeout,
@@ -120,6 +120,9 @@ impl ScReq {
             match res {
                 Ok(res) => return Ok(res),
                 Err(e) => if i != self.timeout.handle_times() - 1 {
+                    if e.to_string().to_lowercase().contains("close")||e.to_string().contains("中止了") {
+                        self.re_conn()?;
+                    }
                     println!("[ScReq] write/recv error, error: {}, handle: {}/{}", e.to_string(), i + 2, self.timeout.handle_times());
                     continue;
                 }

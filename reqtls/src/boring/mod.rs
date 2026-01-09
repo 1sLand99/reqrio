@@ -23,12 +23,17 @@ pub enum Cryptor {
 
 impl Cryptor {
     pub fn from_aead(key: &[u8], aead: &Aead) -> RlsResult<Cryptor> {
-        Ok(Cryptor::AeadCryptor(AeadCryptor::new(aead, key)?))
+        match aead {
+            Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::ChaCha20_POLY1305 => Ok(Cryptor::AeadCryptor(AeadCryptor::new(aead, key)?)),
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => Ok(Cryptor::CipherCryptor(CipherCryptor::new(aead, key.to_vec())?)),
+            _=>return Err("unsupported cryptor".into()),
+        }
     }
 
     pub fn encrypt(&self, param: CryptParam) -> RlsResult<usize> {
         match self {
             Cryptor::AeadCryptor(cryptor) => cryptor.encrypt(param),
+            Cryptor::CipherCryptor(cipher) => cipher.encrypt(param),
             _ => Err("Cryptor not implemented".into()),
         }
     }
@@ -36,6 +41,7 @@ impl Cryptor {
     pub fn decrypt(&self, param: CryptParam) -> RlsResult<usize> {
         match self {
             Cryptor::AeadCryptor(cryptor) => cryptor.decrypt(param),
+            Cryptor::CipherCryptor(cipher) => cipher.decrypt(param),
             _ => Err("Cryptor not implemented".into()),
         }
     }
@@ -67,7 +73,7 @@ mod tests {
             aad: &aad,
             payload: &mut payload,
         }).unwrap();
-        println!("{:?}", &payload[0..]);
+        // println!("{:?}", );
         // let cryptor = AeadCryptor::new(&aead, &key).unwrap();
         cryptor.decrypt(CryptParam {
             aead: &aead,
@@ -76,6 +82,6 @@ mod tests {
             aad: &aad,
             payload: &mut payload,
         }).unwrap();
-        println!("{:?}", &payload[0..]);
+        // println!("{:?}", &payload[0..]);
     }
 }

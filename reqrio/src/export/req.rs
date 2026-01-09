@@ -9,7 +9,7 @@ use std::sync::{LazyLock, Mutex};
 use crate::export::unique_id;
 use crate::timeout::Timeout;
 
-static CONNECTIONS: LazyLock<Mutex<HashMap<i32, ScReq>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+pub(crate) static CONNECTIONS: LazyLock<Mutex<HashMap<i32, ScReq>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
 
 #[unsafe(no_mangle)]
@@ -39,7 +39,7 @@ pub extern "system" fn set_header_json(id: i32, header: *const c_char) -> i32 {
 pub extern "system" fn set_random_fingerprint(id: i32) -> i32 {
     || -> HlsResult<i32> {
         let mut params = CONNECTIONS.lock()?;
-        let fingerprint=Fingerprint::random()?;
+        let fingerprint = Fingerprint::random()?;
         params.get_mut(&id).ok_or("id 不存在")?.set_fingerprint(fingerprint);
         Ok(0)
     }().unwrap_or(-1)
@@ -228,7 +228,14 @@ fn send(id: i32, method: Method) -> *mut c_char {
         }
     }
 }
-
+#[unsafe(no_mangle)]
+pub extern "system" fn reconnect(id: i32) -> i32 {
+    || -> HlsResult<i32> {
+        let mut params = CONNECTIONS.lock()?;
+        params.get_mut(&id).ok_or("id 不存在")?.re_conn()?;
+        Ok(0)
+    }().unwrap_or(-1)
+}
 
 #[unsafe(no_mangle)]
 pub extern "system" fn get(id: i32) -> *mut c_char {

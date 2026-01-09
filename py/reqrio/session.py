@@ -198,11 +198,19 @@ class Session:
         except Exception as _:
             raise Exception(bs)
 
+    def session_reconnect(self):
+        r = self.dll.reconnect(self.hid)
+        if r == -1:
+            raise Exception("重连失败")
+
     def open_stream(self, url: str, method: Method):
         from reqrio.stream import Stream
 
         self.set_url(url)
         return Stream(self, method)
+
+    def ws_h1_io(self, context: str, func):
+        self.dll.wss_h1_io(self.hid, context.encode('utf-8'), func)
 
     def close(self):
         """记得关闭资源，否则容易造成内存溢出"""
