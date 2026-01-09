@@ -135,9 +135,9 @@ impl<S: Read> Read for SyncStream<S> {
         if rt == 0x15 && &self.buffer[pdr.clone()] == &[1, 0] {
             return Err(HlsError::PeerClosedConnection.into());
         }
-        buf[..pdr.end - pdr.start].copy_from_slice(&self.buffer[pdr.clone()]);
+        buf[..pdr.len()].copy_from_slice(&self.buffer[pdr.clone()]);
         self.buffer.reset();
-        Ok(pdr.end - pdr.start)
+        Ok(pdr.len())
     }
 }
 

@@ -7,6 +7,7 @@ pub use secret::key::PriKey;
 pub use record::{RecordLayer, RecordType};
 pub use error::RlsError;
 pub use version::Version;
+pub use range::RangeExt;
 
 mod extend;
 mod message;
@@ -21,3 +22,4 @@ mod secret;
 mod error;
 pub mod rand;
 mod boring;
+mod range;

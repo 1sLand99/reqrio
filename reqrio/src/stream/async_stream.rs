@@ -182,9 +182,7 @@ impl<S: AsyncRead + Unpin> AsyncRead for TlsStream<S> {
         while let Ok(mut record) = RecordLayer::from_bytes(&mut stream.read_buffer.filled_mut()[read..], stream.handshake_finished) {
             let rt = record.context_type.as_u8();
             let rl = record.len;
-            let mut pdr = stream.conn.read_message(&mut record)?;
-            pdr.start += read;
-            pdr.end += read;
+            let mut pdr = stream.conn.read_message(&mut record)?.add(read);
             if rt == 0x15 && &stream.read_buffer[pdr.clone()] == &[1, 0] {
                 return Poll::Ready(Ok(()));
             }

@@ -4,6 +4,8 @@ use crate::boring::{CryptParam, Cryptor};
 use crate::error::{RlsError, RlsResult};
 use crate::extend::Aead;
 use iv::Iv;
+use crate::range::RangeExt;
+
 pub mod iv;
 // pub mod key;
 pub mod suite;
@@ -77,10 +79,7 @@ impl Cipher {
             payload,
         })?;
         self.seq += 1;
-        let mut pdr = aead.payload_range(len);
-        pdr.start += 5;
-        pdr.end += 5;
-        Ok(pdr)
+        Ok(aead.payload_range(len).add(5))
     }
 }
 
