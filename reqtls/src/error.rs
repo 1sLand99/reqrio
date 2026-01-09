@@ -20,6 +20,12 @@ pub enum RlsError {
     AeadNone,
     InvalidCipherSuite,
     MessageTooShort,
+    AeadCryptError,
+    AeadEncryptError,
+    AeadDecryptError,
+    CipherCryptError,
+    CipherEncryptError,
+    CipherDecryptError,
     StdError(Box<dyn Error>),
     Currently(String),
 }
@@ -36,6 +42,12 @@ impl Display for RlsError {
             RlsError::HasherNone => f.write_str("Hasher none"),
             RlsError::InvalidCipherSuite => f.write_str("Invalid cipher suite"),
             RlsError::MessageTooShort => f.write_str("Message too short"),
+            RlsError::AeadCryptError => f.write_str("Init aead crypto error"),
+            RlsError::AeadEncryptError => f.write_str("Aead encrypt error"),
+            RlsError::AeadDecryptError => f.write_str("Aead decrypt error"),
+            RlsError::CipherCryptError => f.write_str("Cipher crypto error"),
+            RlsError::CipherEncryptError => f.write_str("Cipher encrypt error"),
+            RlsError::CipherDecryptError => f.write_str("Cipher decrypt error"),
             RlsError::StdError(e) => f.write_fmt(format_args!("{:?}", e)),
             RlsError::Currently(e) => f.write_str(e),
         }
@@ -75,18 +87,6 @@ impl From<TryFromSliceError> for RlsError {
 impl From<InvalidLength> for RlsError {
     fn from(value: InvalidLength) -> Self {
         RlsError::StdError(Box::new(value))
-    }
-}
-
-// impl From<Unspecified> for RlsError {
-//     fn from(value: Unspecified) -> Self {
-//         RlsError::StdError(Box::new(value))
-//     }
-// }
-
-impl From<ring::error::Unspecified> for RlsError {
-    fn from(value: ring::error::Unspecified) -> Self {
-        RlsError::Currently(value.to_string())
     }
 }
 

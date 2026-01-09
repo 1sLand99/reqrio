@@ -1,3 +1,4 @@
+use std::ops::Range;
 use crate::error::RlsResult;
 use super::super::bytes::Bytes;
 use super::super::cipher::suite::CipherSuiteKind;
@@ -47,6 +48,8 @@ pub enum Aead {
     ChaCha20_POLY1305 = 0x3,
     AES_128_CCM = 0x4,
     AES_128_CCM_8 = 0x5,
+    AES_128_CBC_SHA,
+    AES_256_CBC_SHA,
 }
 
 impl Aead {
@@ -72,7 +75,13 @@ impl Aead {
             Some(Aead::AES_256_GCM)
         } else if text.contains("chacha20_poly1305") {
             Some(Aead::ChaCha20_POLY1305)
-        } else {
+        }
+        // else if text.contains("aes_128_cbc") {
+        //     Some(Aead::AES_128_CBC)
+        // } else if text.contains("aes_256_cbc") {
+        //     Some(Aead::AES_256_CBC)
+        // }
+        else {
             None
         }
     }
@@ -86,20 +95,21 @@ impl Aead {
     //     }
     // }
 
-    pub fn as_ring_aead(&self) -> &'static ring::aead::Algorithm {
-        match self {
-            Aead::AES_128_GCM => &ring::aead::AES_128_GCM,
-            Aead::AES_256_GCM => &ring::aead::AES_256_GCM,
-            Aead::ChaCha20_POLY1305 => &ring::aead::CHACHA20_POLY1305,
-            _ => panic!("unknown aead"),
-        }
-    }
+    // pub fn as_ring_aead(&self) -> &'static ring::aead::Algorithm {
+    //     match self {
+    //         Aead::AES_128_GCM => &ring::aead::AES_128_GCM,
+    //         Aead::AES_256_GCM => &ring::aead::AES_256_GCM,
+    //         Aead::ChaCha20_POLY1305 => &ring::aead::CHACHA20_POLY1305,
+    //         _ => panic!("unknown aead"),
+    //     }
+    // }
 
     pub fn key_len(&self) -> usize {
         match self {
             Aead::AES_128_GCM => 16,
             Aead::AES_256_GCM => 32,
             Aead::ChaCha20_POLY1305 => 32,
+            // Aead::AES_128_CBC => 16,
             _ => 0
         }
     }
@@ -108,6 +118,7 @@ impl Aead {
         match self {
             Aead::AES_128_GCM | Aead::AES_256_GCM => 4,
             Aead::ChaCha20_POLY1305 => 12,
+            // Aead::AES_128_CBC => 16,
             _ => 0
         }
     }
@@ -120,19 +131,38 @@ impl Aead {
         }
     }
 
-    pub fn encrypted_payload_len(&self, len: usize) -> usize {
-        match self {
-            Aead::AES_128_GCM | Aead::AES_256_GCM => 8 + len + 16,
-            Aead::ChaCha20_POLY1305 => len + 16,
-            _ => len
-        }
-    }
+    // pub fn encrypted_payload_len(&self, len: usize) -> usize {
+    //     match self {
+    //         Aead::AES_128_GCM | Aead::AES_256_GCM => 8 + len + 16,
+    //         Aead::ChaCha20_POLY1305 => len + 16,
+    //         _ => len
+    //     }
+    // }
 
+    #[deprecated = "use payload range"]
     pub fn payload_start(&self) -> usize {
         match self {
             Aead::AES_128_GCM | Aead::AES_256_GCM => 13,
             Aead::ChaCha20_POLY1305 => 5,
             _ => 5
+        }
+    }
+
+    pub fn payload_range(&self, len: usize) -> Range<usize> {
+        match self {
+            Aead::AES_128_GCM | Aead::AES_256_GCM => 8..8 + len,
+            Aead::ChaCha20_POLY1305 => 0..len,
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => 16..16 + len,
+            _ => 0..len
+        }
+    }
+
+    pub fn explicit_range(&self)->Range<usize> {
+        match self {
+            Aead::AES_128_GCM | Aead::AES_256_GCM => 0..8,
+            Aead::ChaCha20_POLY1305 => 0..0,
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => 0..16,
+            _ => 0..0
         }
     }
 }

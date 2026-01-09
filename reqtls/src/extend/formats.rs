@@ -37,6 +37,12 @@ impl EcPointFormats {
         }
     }
 
+    pub fn random() -> EcPointFormats {
+        let mut res = EcPointFormats::new();
+        res.formats = vec![EcPointFormat::UNCOMPRESSED];
+        res
+    }
+
     pub fn from_bytes(bytes: &[u8]) -> RlsResult<EcPointFormats> {
         let mut res = EcPointFormats::new();
         res.len = bytes[0];

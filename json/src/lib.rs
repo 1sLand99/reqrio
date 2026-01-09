@@ -172,11 +172,19 @@ impl JsonValue {
     }
 
     pub fn pretty(&self) -> String {
-        to_string_pretty(self).unwrap()
+        match self {
+            JsonValue::Null => "null".to_string(),
+            JsonValue::String(v) => v.clone(),
+            _ => to_string_pretty(self).unwrap()
+        }
     }
 
     pub fn dump(&self) -> String {
-        to_string(self).unwrap()
+        match self {
+            JsonValue::Null => "null".to_string(),
+            JsonValue::String(v) => v.clone(),
+            _ => to_string(self).unwrap()
+        }
     }
 
     pub fn has_key(&self, key: &str) -> bool {

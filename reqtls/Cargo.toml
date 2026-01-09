@@ -9,11 +9,11 @@ repository = "https://github.com/xllgl2017/reqrio/tree/master/reqtls"
 
 [dependencies]
 hex = "0.4.3"
-ring = "0.17.14"
-#aws-lc-rs = "1.15.2"
 md5 = "0.8.0"
 hmac = "0.13.0-rc.3"
+sha1 = "0.11.0-rc.3"
 sha2 = "0.11.0-rc.3"
+boring-sys = "4.19.0"
 p256 = { version = "0.14.0-rc.2", features = ["ecdh"], default-features = false }
 p384 = { version = "0.14.0-rc.2", features = ["ecdh"], default-features = false }
 x25519-dalek = { version = "3.0.0-pre.3", default-features = false }

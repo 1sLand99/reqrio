@@ -559,7 +559,8 @@ mod tests {
         };
         let strs = serde_json::to_string_pretty(&jd).unwrap();
         println!("{}", strs);
-        let v:JsonValue = serde_json::from_str(&strs).unwrap();
-        println!("{}",v.pretty())
+        let v: JsonValue = serde_json::from_str(&strs).unwrap();
+        println!("{}", v.pretty());
+        println!("{} {}", v["sdsd"].to_string(), v["tf"].pretty())
     }
 }

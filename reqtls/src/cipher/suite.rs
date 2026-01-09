@@ -1,10 +1,12 @@
 use std::fmt::{Debug, Formatter};
+use sha1::Sha1;
 use sha2::{Digest, Sha256, Sha384};
 use crate::error::RlsResult;
 use crate::RlsError;
 use super::super::extend::Aead;
 
 pub enum Hasher {
+    Sha1(Sha1),
     Sha256(Sha256),
     Sha384(Sha384),
 }
@@ -12,6 +14,7 @@ pub enum Hasher {
 impl Hasher {
     fn update(&mut self, data: &[u8]) {
         match self {
+            Hasher::Sha1(v) => v.update(data),
             Hasher::Sha256(v) => v.update(data),
             Hasher::Sha384(v) => v.update(data),
         }
@@ -19,6 +22,7 @@ impl Hasher {
 
     fn finalize(&self) -> Vec<u8> {
         match self {
+            Hasher::Sha1(v) => v.clone().finalize().to_vec(),
             Hasher::Sha256(v) => v.clone().finalize().to_vec(),
             Hasher::Sha384(v) => v.clone().finalize().to_vec(),
         }
@@ -30,6 +34,8 @@ impl Hasher {
             Some(Hasher::Sha256(Sha256::new()))
         } else if text.contains("sha384") {
             Some(Hasher::Sha384(Sha384::new()))
+        } else if text.ends_with("_sha") {
+            Some(Hasher::Sha1(Sha1::new()))
         } else {
             None
         }

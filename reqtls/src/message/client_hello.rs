@@ -273,10 +273,10 @@ impl ClientHello {
         // if let Some(pos) = pos {
         //     self.extensions.remove(pos);
         // }
-        let pos = self.extensions.iter().position(|x| x.extension_type().as_u16() == ExtensionKind::EcPointFormats as u16);
-        if let Some(pos) = pos {
-            self.extensions.remove(pos);
-        }
+        // let pos = self.extensions.iter().position(|x| x.extension_type().as_u16() == ExtensionKind::EcPointFormats as u16);
+        // if let Some(pos) = pos {
+        //     self.extensions.remove(pos);
+        // }
         let extend = self.extensions.iter_mut().find(|x| x.extension_type().as_u16() == ExtensionKind::SupportedVersions as u16);
         if let Some(ext) = extend {
             ext.remove_tls13()

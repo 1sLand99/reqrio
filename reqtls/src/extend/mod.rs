@@ -113,7 +113,7 @@ impl ExtensionKind {
             ExtensionKind::ServerName => ExtensionValue::ServerName(ServerName::new()),
             ExtensionKind::StatusRequest => ExtensionValue::StatusRequest(StatusRequest::new()),
             ExtensionKind::SupportedGroup => ExtensionValue::SupportedGroups(SupportedGroups::random()),
-            ExtensionKind::EcPointFormats => ExtensionValue::EcPointFormats(EcPointFormats::new()),
+            ExtensionKind::EcPointFormats => ExtensionValue::EcPointFormats(EcPointFormats::random()),
             ExtensionKind::SignatureAlgorithms => ExtensionValue::SignatureAlgorithms(SignatureAlgorithms::random()),
             ExtensionKind::ApplicationLayerProtocolNegotiation => ExtensionValue::ApplicationLayerProtocolNegotiation(ALPS::new()),
             ExtensionKind::SignedCertificateTimestamp => ExtensionValue::SignedCertificateTimestamp,

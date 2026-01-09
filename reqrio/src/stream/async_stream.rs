@@ -182,12 +182,13 @@ impl<S: AsyncRead + Unpin> AsyncRead for TlsStream<S> {
         while let Ok(mut record) = RecordLayer::from_bytes(&mut stream.read_buffer.filled_mut()[read..], stream.handshake_finished) {
             let rt = record.context_type.as_u8();
             let rl = record.len;
-            let pdl = stream.conn.read_message(&mut record)?;
-            let aead = stream.conn.aead().ok_or(RlsError::AeadNone)?;
-            if rt == 0x15 && &stream.read_buffer[aead.payload_start()..aead.payload_start() + pdl] == &[1, 0] {
+            let mut pdr = stream.conn.read_message(&mut record)?;
+            pdr.start += read;
+            pdr.end += read;
+            if rt == 0x15 && &stream.read_buffer[pdr.clone()] == &[1, 0] {
                 return Poll::Ready(Ok(()));
             }
-            buf.put_slice(&stream.read_buffer[read + aead.payload_start()..read + aead.payload_start() + pdl]);
+            buf.put_slice(&stream.read_buffer[pdr]);
             read += rl as usize + 5;
         }
         if read < stream.read_buffer.len() {
@@ -211,16 +212,17 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for TlsStream<S> {
         }
         loop {
             if stream.pending.len() == 0 { break; }
-            let aead = stream.conn.aead().ok_or(RlsError::AeadNone)?;
-            let record_len = aead.encrypted_payload_len(chucks[stream.pending[0]].len()) + 5;
+            // let aead = stream.conn.aead().ok_or(RlsError::AeadNone)?;
+            // let record_len = aead.encrypted_payload_len(chucks[stream.pending[0]].len()) + 5;
             if stream.write_buffer.len() == 0 {
-                let push_len = stream.write_buffer.push_slice_in(aead.payload_start(), chucks[stream.pending[0]]);
-                let record_len = aead.encrypted_payload_len(push_len) + 5;
+                // let push_len = stream.write_buffer.push_slice_in(aead.payload_start(), chucks[stream.pending[0]]);
+                // let record_len = aead.encrypted_payload_len(push_len) + 5;
+                // stream.write_buffer.set_len(record_len);
+                let record_len = stream.conn.make_message(RecordType::ApplicationData, &mut stream.write_buffer[..], chucks[stream.pending[0]])?;
                 stream.write_buffer.set_len(record_len);
-                stream.conn.make_message(RecordType::ApplicationData, &mut stream.write_buffer[..], push_len)?;
                 stream.wrote_len += chucks[stream.pending[0]].len();
             }
-            match Pin::new(&mut stream.stream).poll_write(cx, &stream.write_buffer[..record_len]) {
+            match Pin::new(&mut stream.stream).poll_write(cx, stream.write_buffer.filled()) {
                 Poll::Ready(Ok(_)) => {
                     stream.pending.remove(0);
                     stream.write_buffer.reset();

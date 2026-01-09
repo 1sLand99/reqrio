@@ -1,9 +1,11 @@
 use super::cipher::suite::Hasher;
 use crate::error::RlsResult;
 use hmac::{Hmac, KeyInit, Mac};
+use sha1::Sha1;
 use sha2::{Sha256, Sha384};
 
 enum PrfKind {
+    Sha1,
     Sha256,
     Sha384,
 }
@@ -25,11 +27,19 @@ impl PrfKind {
                 }
                 Ok(a_i.finalize().as_bytes().to_vec())
             }
+            PrfKind::Sha1 => {
+                let mut a_i: Hmac<Sha1> = Hmac::new_from_slice(secret)?;
+                for datum in data {
+                    a_i.update(datum);
+                }
+                Ok(a_i.finalize().as_bytes().to_vec())
+            }
         }
     }
 
     fn hash_size(&self) -> usize {
         match self {
+            PrfKind::Sha1 => 20,
             PrfKind::Sha256 => 32,
             PrfKind::Sha384 => 48,
         }
@@ -46,6 +56,7 @@ impl Prf {
 
     pub fn from_hasher(hasher: &Hasher) -> Prf {
         match hasher {
+            Hasher::Sha1(_) => Prf(PrfKind::Sha1),
             Hasher::Sha256(_) => Prf(PrfKind::Sha256),
             Hasher::Sha384(_) => Prf(PrfKind::Sha384),
         }

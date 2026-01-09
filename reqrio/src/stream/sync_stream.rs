@@ -108,10 +108,10 @@ impl<S: Read + Write> SyncStream<S> {
 
     pub fn shutdown(&mut self) -> HlsResult<()> {
         self.buffer.reset();
-        let aead = self.conn.aead().ok_or(RlsError::AeadNone)?;
-        self.buffer.set_len(aead.encrypted_payload_len(2) + 5);
-        self.buffer[aead.payload_start()..aead.payload_start() + 2].copy_from_slice(&[1, 0]);
-        let record_len = self.conn.make_message(RecordType::Alert, &mut self.buffer[..], 2)?;
+        // let aead = self.conn.aead().ok_or(RlsError::AeadNone)?;
+        // self.buffer.set_len(aead.encrypted_payload_len(2) + 5);
+        // self.buffer[aead.payload_start()..aead.payload_start() + 2].copy_from_slice(&[1, 0]);
+        let record_len = self.conn.make_message(RecordType::Alert, &mut self.buffer[..], &[1, 0])?;
         self.stream.write(&self.buffer[..record_len])?;
         self.stream.flush()?;
         Ok(())
@@ -131,14 +131,13 @@ impl<S: Read> Read for SyncStream<S> {
         }
         let mut record = RecordLayer::from_bytes(self.buffer.filled_mut(), self.handshake_finished)?;
         let rt = record.context_type.as_u8();
-        let len = self.conn.read_message(&mut record)?;
-        let aead = self.conn.aead().ok_or(RlsError::AeadNone)?;
-        if rt == 0x15 && &self.buffer[aead.payload_start()..aead.payload_start() + len] == &[1, 0] {
+        let pdr = self.conn.read_message(&mut record)?;
+        if rt == 0x15 && &self.buffer[pdr.clone()] == &[1, 0] {
             return Err(HlsError::PeerClosedConnection.into());
         }
-        buf[..len].copy_from_slice(&self.buffer[13..13 + len]);
+        buf[..pdr.end - pdr.start].copy_from_slice(&self.buffer[pdr.clone()]);
         self.buffer.reset();
-        Ok(len)
+        Ok(pdr.end - pdr.start)
     }
 }
 
@@ -147,10 +146,9 @@ impl<S: Write> Write for SyncStream<S> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let mut sent = 0;
         for chunk in buf.chunks(16384) {
-            let aead = self.conn.aead().ok_or(RlsError::AeadNone)?;
             self.buffer.reset();
-            let pln = self.buffer.push_slice_in(aead.payload_start(), chunk);
-            let record_len = self.conn.make_message(RecordType::ApplicationData, &mut self.buffer[..], pln)?;
+            // let pln = self.buffer.push_slice_in(aead.payload_start(), chunk);
+            let record_len = self.conn.make_message(RecordType::ApplicationData, &mut self.buffer[..], chunk)?;
             self.stream.write(&self.buffer[..record_len])?;
             sent += chunk.len();
         }

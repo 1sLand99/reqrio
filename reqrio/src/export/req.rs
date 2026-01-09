@@ -6,14 +6,11 @@ use std::collections::HashMap;
 use std::ffi::{c_char, CStr, CString};
 use std::slice;
 use std::sync::{LazyLock, Mutex};
+use crate::export::unique_id;
 use crate::timeout::Timeout;
 
 static CONNECTIONS: LazyLock<Mutex<HashMap<i32, ScReq>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
-fn unique_id() -> i32 {
-    let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
-    let res = nanos << 8;
-    (res as i32).abs()
-}
+
 
 #[unsafe(no_mangle)]
 pub extern "system" fn init_http() -> i32 {
@@ -296,6 +293,7 @@ pub extern "C" fn register(id: i32, callback: Callback) -> i32 {
         Ok(0)
     }().unwrap_or(-1)
 }
+
 
 
 

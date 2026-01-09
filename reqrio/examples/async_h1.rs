@@ -9,7 +9,7 @@ async fn main() {
     //
     let record = RecordLayer::from_bytes(&mut data, false).unwrap();
     println!("{:#?}", record);
-    let mut req = AcReq::new().with_fingerprint(fingerprint).with_alpn(ALPN::Http20);
+    let mut req = AcReq::new().with_alpn(ALPN::Http11);//.with_fingerprint(fingerprint)
     let headers = json::object! {
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
         "Accept-Encoding": "gzip, deflate, br, zstd",
@@ -35,10 +35,10 @@ async fn main() {
     // let fingerprint = Fingerprint::random().unwrap();
     // req.set_fingerprint(fingerprint);
     // // req.set_proxy(Proxy::HttpPlain(Addr::new_addr("125.121.47.165", 13968)));
-    // // req.set_callback(|body| {
-    // //     println!("{}", body.len());
-    // //     Ok(())
-    // // });
+    req.set_callback(|body| {
+        println!("{}", body.len());
+        Ok(())
+    });
     // // req.set_alpn(ALPN::Http11);
     // // let content = req.gen_h1().unwrap();
     // // println!("{}", String::from_utf8(content).unwrap());

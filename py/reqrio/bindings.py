@@ -89,3 +89,27 @@ DLL.free_pointer.argtypes = [c_void_p]
 CALLBACK = CFUNCTYPE(None, POINTER(c_char), c_uint32)
 DLL.register.argtypes = [c_int, CALLBACK]
 DLL.register.restype = c_int
+
+ThreadCallback = CFUNCTYPE(None, c_uint32)
+DLL.new_thread_pool.argtypes = [c_int, c_int]
+DLL.new_thread_pool.restype = c_void_p
+
+DLL.thread_pool_run.argtypes = [c_void_p, ThreadCallback]
+DLL.thread_pool_run.restype = c_int
+
+DLL.thread_pool_join.argtypes = [c_void_p]
+DLL.thread_pool_join.restype = c_int
+
+DLL.thread_pool_free.argtypes = [c_void_p]
+
+DLL.thread_pool_acquire_lock.argtypes = [c_void_p]
+DLL.thread_pool_acquire_lock.restype = c_int
+
+DLL.thread_pool_release_lock.argtypes = [c_void_p]
+DLL.thread_pool_release_lock.restype = c_int
+
+DLL.thread_pool_set_timeout.argtypes = [c_void_p, c_int]
+DLL.thread_pool_set_timeout.restype = c_int
+
+DLL.thread_pool_set_max_active.argtypes = [c_void_p, c_int]
+DLL.thread_pool_set_max_active.restype = c_int

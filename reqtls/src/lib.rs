@@ -20,3 +20,4 @@ mod fingerprint;
 mod secret;
 mod error;
 pub mod rand;
+mod boring;

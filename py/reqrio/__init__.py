@@ -2,6 +2,8 @@ from reqrio.alpn import ALPN
 from reqrio.response import Response
 from reqrio.session import Session
 from reqrio.method import Method
+from reqrio.pool import ThreadPool
+
 
 # pyinstaller.exe -F --collect-binaries reqrio .\1.py
 
