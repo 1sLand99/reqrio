@@ -697,7 +697,7 @@ checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
 
 [[package]]
 name = "reqrio"
-version = "0.0.12"
+version = "0.0.13"
 dependencies = [
  "brotli",
  "cfg_aliases",
@@ -725,7 +725,7 @@ dependencies = [
 
 [[package]]
 name = "reqtls"
-version = "0.0.12"
+version = "0.0.13"
 dependencies = [
  "boring-sys",
  "bytemuck",
