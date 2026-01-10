@@ -3,6 +3,7 @@ from reqrio.response import Response
 from reqrio.session import Session
 from reqrio.method import Method
 from reqrio.pool import ThreadPool
+from reqrio.websocket import WebSocket, WsOpCode, WsFrame
 
 
 # pyinstaller.exe -F --collect-binaries reqrio .\1.py
@@ -51,5 +52,3 @@ def post(url: str, headers: dict, params: dict = None, data: dict = None, json: 
     resp = s.post()
     s.close()
     return resp
-
-

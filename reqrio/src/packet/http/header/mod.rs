@@ -99,7 +99,7 @@ impl Header {
             HeaderKey::new("Cookie", HeaderValue::Cookies(vec![])),
 
 
-            // HeaderKey::new("origin", HeaderValue::String("".to_string())),
+            HeaderKey::new("Origin", HeaderValue::String("".to_string())),
             // HeaderKey::new("pragma", HeaderValue::String("".to_string())),
 
         ];
@@ -138,6 +138,12 @@ impl Header {
         let k = name.to_lowercase();
         let header = self.keys.iter().find(|x| x.name_lower() == k)?;
         Some(header.value())
+    }
+
+    pub fn get_mut(&mut self, name: &str) -> Option<&mut HeaderValue> {
+        let k = name.to_lowercase();
+        let header = self.keys.iter_mut().find(|x| x.name_lower() == k)?;
+        Some(header.value_mut())
     }
 
     pub fn remove(&mut self, name: impl AsRef<str>) -> Option<HeaderValue> {

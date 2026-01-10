@@ -57,6 +57,15 @@ impl WsFrame {
         }
     }
 
+    pub fn new_frame(opcode: WsOpcode, mask: bool, payload: &[u8]) -> WsFrame {
+        let mut res = WsFrame::new();
+        res.typ.set_opcode(opcode);
+        res.typ.set_fin(true);
+        res.masker.mask = mask;
+        res.payload.copy_payload(payload, &res.masker);
+        res
+    }
+
     pub fn new_pong(mask: bool, payload: &[u8]) -> WsFrame {
         let mut res = WsFrame::new();
         res.typ.set_opcode(WsOpcode::PONG);

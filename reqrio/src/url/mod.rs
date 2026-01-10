@@ -38,11 +38,22 @@ impl Url {
     pub fn set_uri(&mut self, uri: impl AsRef<str>) -> HlsResult<()> {
         let mut i = uri.as_ref().split("?");
         self.uri.set_uri(i.next().ok_or("Invalid uri")?);
-        self.uri.parse_param(i.next().unwrap_or(""))
+        if let Some(param) = i.next() {
+            self.uri.parse_param(param)?
+        }
+        Ok(())
     }
 
     pub fn addr(&self) -> &Addr {
         &self.addr
+    }
+
+    pub fn set_addr(&mut self, addr: Addr) {
+        self.addr = addr;
+    }
+
+    pub fn set_protocol(&mut self, proto: Protocol) {
+        self.protocol = proto;
     }
 
     pub fn protocol(&self) -> &Protocol {
@@ -101,7 +112,7 @@ impl TryFrom<&str> for Url {
 
 #[cfg(test)]
 mod tests {
-    use crate::url::{Uri, Url};
+    use crate::url::Url;
 
     #[test]
     fn test_url() {
@@ -130,7 +141,8 @@ mod tests {
         let url = Url::try_from(url8).unwrap();
         println!("{:#?} {}", url, url.to_string() == url8);
 
-        let uri = Uri::try_from("http://114.132.98.40:45689/admin/index.html").unwrap();
+        let mut uri = Url::try_from("wss://poe.game.qq.com/api/trade2/live/poe2/%E7%93%A6%E5%B0%94%E7%9A%84%E5%AE%BF%E5%91%BD/32Y6Wjkc5").unwrap();
+        uri.set_uri("wss://poe.game.qq.com/api/trade2/live/poe2/%E7%93%A6%E5%B0%94%E7%9A%84%E5%AE%BF%E5%91%BD/32Y6Wjkc5").unwrap();
         println!("{}", uri);
     }
 }

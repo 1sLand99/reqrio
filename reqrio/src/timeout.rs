@@ -30,6 +30,17 @@ impl Timeout {
         }
     }
 
+    pub fn longer() -> Timeout {
+        Timeout {
+            connect: Duration::from_millis(u64::MAX),
+            read: Duration::from_millis(u64::MAX),
+            write: Duration::from_millis(u64::MAX),
+            handle: Duration::from_millis(u64::MAX),
+            connect_times: 3,
+            handle_times: 3,
+        }
+    }
+
     pub fn is_peer_closed(&self, status: impl AsRef<str>) -> bool {
         let close_status = vec!["broken pipe", "reset by peer", "peer close", "关闭"];
         let status = status.as_ref().to_lowercase();
@@ -90,11 +101,11 @@ impl TryFrom<JsonValue> for Timeout {
     fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
         Ok(Timeout {
             connect: Duration::from_secs(value["connect"].as_u64()?),
-            read:Duration::from_secs(value["read"].as_u64()?),
-            write:Duration::from_secs(value["write"].as_u64()?),
-            handle:Duration::from_secs(value["handle"].as_u64()?),
-            connect_times:value["connect_times"].as_i32()?,
-            handle_times:value["handle_times"].as_i32()?,
+            read: Duration::from_secs(value["read"].as_u64()?),
+            write: Duration::from_secs(value["write"].as_u64()?),
+            handle: Duration::from_secs(value["handle"].as_u64()?),
+            connect_times: value["connect_times"].as_i32()?,
+            handle_times: value["handle_times"].as_i32()?,
         })
     }
 }

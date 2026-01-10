@@ -1,6 +1,7 @@
 use crate::error::HlsResult;
 use crate::HlsError;
 
+#[derive(Copy, Clone)]
 pub enum WsOpcode {
     CONTINUATION = 0x0,
     TEXT = 0x1,

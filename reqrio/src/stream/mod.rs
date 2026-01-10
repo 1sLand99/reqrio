@@ -16,6 +16,8 @@ pub use proxy::Proxy;
 use crate::Buffer;
 #[cfg(feature = "cls_async")]
 pub use async_stream::{TlsStream, TlsConnector};
+#[cfg(anys)]
+pub use ws::{WebSocket, WebSocketBuilder};
 
 #[cfg(feature = "cls_async")]
 mod async_stream;
@@ -30,6 +32,8 @@ mod proxy;
 mod cstream;
 #[cfg(anys)]
 mod kind;
+#[cfg(anys)]
+mod ws;
 
 #[cfg(anys)]
 pub struct ConnParam<'a> {
@@ -95,8 +99,8 @@ impl Stream {
         self.kind.sync_write(data)
     }
 
-    pub fn sync_shutdown(&mut self) -> HlsResult<()> {
-        self.kind.sync_shutdown()
-    }
+    // pub fn sync_shutdown(&mut self) -> HlsResult<()> {
+    //     self.kind.sync_shutdown()
+    // }
 }
 

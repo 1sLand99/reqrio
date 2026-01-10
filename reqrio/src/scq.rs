@@ -83,8 +83,8 @@ impl ScReq {
         self.stream_io()
     }
 
-    pub fn h1_io(&mut self, context: Vec<u8>) -> HlsResult<Response> {
-        self.stream.sync_write(context.as_slice())?;
+    pub fn h1_io(&mut self, context: impl AsRef<[u8]>) -> HlsResult<Response> {
+        self.stream.sync_write(context.as_ref())?;
         let mut response = Response::new();
         let mut buffer = Buffer::with_capacity(16413);
         let mut read_len = 0;
@@ -120,7 +120,7 @@ impl ScReq {
             match res {
                 Ok(res) => return Ok(res),
                 Err(e) => if i != self.timeout.handle_times() - 1 {
-                    if e.to_string().to_lowercase().contains("close")||e.to_string().contains("中止了") {
+                    if e.to_string().to_lowercase().contains("close") || e.to_string().contains("中止了") {
                         self.re_conn()?;
                     }
                     println!("[ScReq] write/recv error, error: {}, handle: {}/{}", e.to_string(), i + 2, self.timeout.handle_times());
@@ -170,7 +170,7 @@ impl ScReq {
         Err("[ScReq] connection error".into())
     }
 
-    pub fn with_url(mut self, url: &str) -> HlsResult<Self> {
+    pub fn with_url(mut self, url: impl AsRef<str>) -> HlsResult<Self> {
         self.set_url(url)?;
         Ok(self)
     }
@@ -268,7 +268,7 @@ impl ScReq {
                     WsOpcode::PING => {
                         println!("PING-{}", frame.payload().len());
                         let pong = WsFrame::new_pong(true, frame.payload().as_bytes());
-                        let bs=pong.to_bytes();
+                        let bs = pong.to_bytes();
                         println!("pong={:?}", bs);
                         self.stream.sync_write(&bs)?;
                     }
@@ -282,6 +282,9 @@ impl ScReq {
 impl ReqGenExt for ScReq {}
 
 impl ReqPriExt for ScReq {
+    fn into_stream(self) -> Stream {
+        self.stream
+    }
     fn callback(&mut self) -> &mut Option<ReqCallback> {
         &mut self.callback
     }
@@ -342,11 +345,11 @@ impl ReqExt for ScReq {
     }
 }
 
-impl Drop for ScReq {
-    fn drop(&mut self) {
-        let _ = self.stream.sync_shutdown();
-    }
-}
+// impl Drop for ScReq {
+//     fn drop(&mut self) {
+//         let _ = self.stream.sync_shutdown();
+//     }
+// }
 
 #[cfg(feature = "export")]
 unsafe impl Send for ScReq {}

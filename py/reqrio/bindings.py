@@ -1,6 +1,6 @@
 import os
 import sys
-from ctypes import cdll, CFUNCTYPE, c_void_p, c_int, c_char, c_uint32, c_char_p
+from ctypes import cdll, CFUNCTYPE, c_void_p, c_int, c_char, c_uint32, c_char_p, c_bool
 
 from _ctypes import POINTER
 
@@ -114,7 +114,35 @@ DLL.thread_pool_set_timeout.restype = c_int
 DLL.thread_pool_set_max_active.argtypes = [c_void_p, c_int]
 DLL.thread_pool_set_max_active.restype = c_int
 
-DLL.wss_h1_io.argtypes = [c_int, c_char_p, CALLBACK]
-
 DLL.reconnect.argtypes = [c_int]
 DLL.reconnect.restype = c_int
+
+# websocket
+DLL.build_ws.argtypes = []
+DLL.build_ws.restype = c_void_p
+
+DLL.ws_add_header.argtypes = [c_void_p, c_char_p, c_char_p]
+DLL.ws_add_header.restype = c_int
+
+DLL.ws_set_proxy.argtypes = [c_void_p, c_char_p]
+DLL.ws_set_proxy.restype = c_int
+
+DLL.ws_set_url.argtypes = [c_void_p, c_char_p]
+DLL.ws_set_url.restype = c_int
+
+DLL.ws_set_uri.argtypes = [c_void_p, c_char_p]
+DLL.ws_set_uri.restype = c_int
+
+DLL.open_ws.argtypes = [c_void_p]
+DLL.open_ws.restype = c_void_p
+
+DLL.open_ws_raw.argtypes = [c_char_p, c_char_p]
+DLL.open_ws_raw.restype = c_void_p
+
+DLL.ws_read.argtypes = [c_void_p]
+DLL.ws_read.restype = c_void_p
+
+DLL.ws_write.argtypes = [c_void_p, c_int, c_bool, c_void_p]
+DLL.ws_write.restype = c_int
+
+DLL.ws_free.argtypes = [c_void_p]

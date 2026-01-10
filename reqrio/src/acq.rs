@@ -82,8 +82,8 @@ impl AcReq {
         self.stream_io().await
     }
 
-    pub async fn h1_io(&mut self, context: Vec<u8>) -> HlsResult<Response> {
-        self.stream.async_write(context.as_slice()).await?;
+    pub async fn h1_io(&mut self, context: impl AsRef<[u8]>) -> HlsResult<Response> {
+        self.stream.async_write(context.as_ref()).await?;
         let mut response = Response::new();
         let mut buffer = Buffer::with_capacity(16413);
         let mut read_len = 0;
@@ -262,7 +262,7 @@ impl AcReq {
                     WsOpcode::PING => {
                         println!("PING-{}", frame.payload().len());
                         let pong = WsFrame::new_pong(true, frame.payload().as_bytes());
-                        let bs=pong.to_bytes();
+                        let bs = pong.to_bytes();
                         println!("pong={:?}", bs);
                         self.stream.async_write(&bs).await?;
                     }
@@ -276,6 +276,9 @@ impl AcReq {
 impl ReqGenExt for AcReq {}
 
 impl ReqPriExt for AcReq {
+    fn into_stream(self) -> Stream {
+        self.stream
+    }
     fn callback(&mut self) -> &mut Option<ReqCallback> {
         &mut self.callback
     }

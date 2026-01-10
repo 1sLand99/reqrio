@@ -209,9 +209,6 @@ class Session:
         self.set_url(url)
         return Stream(self, method)
 
-    def ws_h1_io(self, context: str, func):
-        self.dll.wss_h1_io(self.hid, context.encode('utf-8'), func)
-
     def close(self):
         """记得关闭资源，否则容易造成内存溢出"""
         self.dll.destroy(self.hid)

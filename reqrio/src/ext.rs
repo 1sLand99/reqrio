@@ -10,6 +10,8 @@ use json::JsonValue;
 use reqtls::Fingerprint;
 #[cfg(anys)]
 use crate::coder::HackDecode;
+#[cfg(anys)]
+use crate::stream::Stream;
 
 pub trait ReqExt: Sized {
     fn body_type(&self) -> &BodyType;
@@ -48,6 +50,10 @@ pub trait ReqExt: Sized {
     }
     fn header_mut(&mut self) -> &mut Header;
     fn header(&self) -> &Header;
+    fn with_timeout(mut self, timeout: Timeout) -> Self {
+        self.set_timeout(timeout);
+        self
+    }
     fn set_timeout(&mut self, timeout: Timeout);
     fn timeout(&self) -> &Timeout;
     fn url(&self) -> &Url;
@@ -89,6 +95,11 @@ pub trait ReqExt: Sized {
         self.header_mut().set_content_type(ContentType::Application(Application::Json))
     }
 
+    fn with_header_json(mut self, data: JsonValue) -> HlsResult<Self> {
+        self.set_headers_json(data)?;
+        Ok(self)
+    }
+
     fn insert_header(&mut self, k: impl AsRef<str>, v: impl ToString) -> HlsResult<()> {
         self.header_mut().insert(k, v)?;
         Ok(())
@@ -119,6 +130,8 @@ pub trait ReqExt: Sized {
 
 
 pub(crate) trait ReqPriExt: ReqExt {
+    #[cfg(anys)]
+    fn into_stream(self) -> Stream;
     #[cfg(anys)]
     fn callback(&mut self) -> &mut Option<ReqCallback>;
 

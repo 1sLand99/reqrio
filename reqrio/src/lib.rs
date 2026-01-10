@@ -105,6 +105,8 @@ pub use body::BodyType;
 pub use stream::Proxy;
 #[cfg(feature = "cls_async")]
 pub use stream::{TlsStream, TlsConnector};
+#[cfg(anys)]
+pub use stream::{WebSocket, WebSocketBuilder};
 #[cfg(feature = "tokio")]
 pub use tokio;
 pub use url::{Addr, Protocol, Uri, Url};
