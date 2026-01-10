@@ -1,52 +1,51 @@
 use reqrio::{json, AcReq, ReqExt, WebSocket, WsFrame, WsOpcode, ALPN};
-use reqtls::Fingerprint;
 
 #[tokio::main]
 async fn main() {
-    // // let fingerprint = Fingerprint::new_ja4("t13d1517h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0017,001b,0023,0029,002b,002d,0033,44cd,fe0d,ff01_0403,0804,0401,0503,0805,0501,0806,0601").unwrap();
-    // //
-    // // let mut data =hex::decode("1603010848010008440303a5fb6638dbe64a35a0d500e2c3465316d1617310d498ca2e4b18f13158d05ae820818c23e338779d38edc46c29cbcfe73cf201099adf60663710d364a34a32ae9300200a0a130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035010007db5a5a0000000a000c000a9a9a11ec001d0017001800170000003304ef04ed9a9a00010011ec04c056633ea1c8b22e71a2f7c904acaa009265b1b0a87ed2ba7cba078a5dc1c3c0310a1857bc613036acb7ba384a4a442c3661f580c150bc8e8a36d6461397757d90ab92bf5929ef7108dbd49b373692dfd72b20068c5e8b2a2390a6768ac7b7d25708f167c232027f3b31f1478cb01963b65b855f281bbbc8b7f5a377fe5cc03a22a974c232056505003ac439a8777a3112adcc8bc06092fde299bc8a9b8c9970ffb75e864c8546caaa1db27dd9da62b5c6cdca672017282bafc133f1a0086e265338cc7812282653d5a442fc1c7e89cb6d7665a9097f4f55b34abc0cd2288cbfd9628cdaa434e521fb07671007b55de167e76b0b28c7a6b53476ed51409c088a8d08b5298965c35179ae283514150b8e446a39e1c74a801825f1c6bb0612ce7618d3841b09035bd029b14dc30d944603dd4b02da117f87c056b2961596545bff02291ad03c06810da5e08a4df82c61ac32d93ba00f7ca7cf865bae27c0d9a86ade5872ad55ce8e5589daa64cfcda74eb535514d94633383efd90831f2b20f3f8847fa87ede43352ff6a6031598d7c27c8a0b6921caa87e67b63c7acdb91c24b3499eb1795e885212003bbbe06838f2189c8940771d03b845e314297934d5970f6c0c26aad41f419c7d8c9a9aa2521a94b40102d3037796c8fb48292a99a4519574c7e4162a2bac9e9b32fd0ba5e0eb8f8fe86ad8346e0fe93f21997708eab3024ba6fa4972456653cd412e2f737ee645571dc71befb945dcd13ad21c8e78f1a6a0fa06b86c0797512613bb30c556a1c6331d5b6a12b914ceaaa008737cc9ecd4b19fc3c20386209d7c73ac046f8de3a20a8c5292556ae719018933525d7b17b39a92cf2aa8b44a9e9c3c17c16a3bec82669d1345e72b1dddd87aa7e1c214e3a0e2a028e95347c4e75f4d641ad438798fb5408ac65c7b028caa8929699ccb7225b253d90cfa7b3375b2a94c47cdf012821e199457a1ca4eb0c504c21edcc5b251eca83204cd91927b0687b407a94a2a4ca6e78134a59351c7788118a96ccb84b8e5018f253a6e822a10b9bbaaa3f507391879c40795c0ec09af33b44dd24c7a6c835596837249a7f1aa135cfb5df1937664138bf8301419781371ea3736441c94c1400fb385386885f85b9724bb6fa4e48733279ee308a38a297bde67b5d535837a29541874bf3b04209de00d2ec96472bc1612b438a2e86035581c36f18737f4313acb7db943c4e9175f472470d698245e5b6e7e6b1983c40fa762829e7746adf4cb2bab469b67432bdb61a5d68d86ca8a4366255f406064c89129d6307a199b21e3b2c2137239c80e5823b527bb494ef55787d688fd3866a58b41268a873e9239c8312ce4c66fdc44525660a7af300b40d04afb9c18225c5be134b17fa76ec06abaf901646869ab8d9bcff0f7527ec83427180149c85963d3c16b856b2e58bd9b6022186009918290c4cc90e912856b005a7670a3f1206839abafa2b8bbeb1a704a678d65901184ab35b9473d947abab0ec554246cac6117388ea73f3b61ef0764a754a7489720db575c06cd057d54ca87a9698a1d2a714a33d35805bb89b320f97b4d8a06cbfb30aa4a66baf018d72b86cf6dc49c1dc31973297808b7b915909838a1da1f039ca77ce78ea67dd244b5443efd97378404e4fb0699cd5e6c7931db067bf2df9e1d77609491b07daaba5b65e82a09d28c44d95b8998508063a1b2b001d0020138ea9a7ea4607ef11eae91e6988e5ee5d58ea0c6e44f063b657992ef339c111000500050100000000fe0d011a0000010001da002087f1d8249e0d7cce5fa9053729d3b8c4507f6750bb224f8a02ffe17a0c0d040800f0d58e03e7ecc019e4c8002d1dc18cf86669baba6dfb38178c09fed01970a433fc9d04991edcec696f41cc05a9624d9d53ca53bb5227c25d783cc2708bf542b6dda1868a20d169689386740b6e234f704b45f99cdbe09eddbbf08165a6b1be6c1cd99c8a9dc8cd7ebfc72b8da524d42f9a3b73b3522a5adbd31a59f39fb831d3e85486c688de034ab6b8fb0db84cfd9c1c6ce87d7315685d3831c8132fd7d59b9537b15bdbe53e33f1db367efe7a9bbadc8c3f54c8975745a7aba861cd9e46646e226418fb3ed6671c52f8738bd8347817db6199a75424347dcd45bd367b45308fbccc5bd3b3b4fef8d9e405635f0d2eb20010000e000c02683208687474702f312e31000b0002010000120000ff01000100001b000302000200230000000d001200100403080404010503080505010806060144cd00050003026832002b0007064a4a03040303002d000201010000001500130000107073732e62647374617469632e636f6d6a6a0001000029012b00f600f0a12f8633d2ea22594d2f008edf7444396846a0514a20366cd35ab17e7e5cf11fcb8914653b99ce6b63fd6cae843e5445b53a39f9f686e34e4889336a517feb03010478f14030a20554ce2225cf43debc8d3ecadd885ea1bab8670bfc202084fb6b319d98b9976449179de7c0c50fef02ff275c16b2873093d556daa01b197aa54b5c454b92ce2c5f252b813348f4aa49d1e25268e51ce0f469b395cf6091138a941f40dcf8e6ab678fa09ca00ecfe0fa2dba363d2cece4e31333d0f6d32be86bfe5499a70934a4abda27916734ea471eb06e0097e395f77b510d7409382a4a039b67451fc5e6dcf2ecc0a43b5c337507acc19724003130e5a357d4ca7911dec46b84a44a09d2c9160f7aafbf3518d0ae2f7544961de8ded7f072f1d1bcc9aeab74241ffc6c99f9").unwrap();
-    // // //
-    // // let record = RecordLayer::from_bytes(&mut data, false).unwrap();
-    // // println!("{:#?}", record);
-    // let mut req = AcReq::new().with_fingerprint(Fingerprint::random().unwrap()).with_alpn(ALPN::Http11);//
-    // let headers = json::object! {
-    //     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-    //     "Accept-Encoding": "gzip, deflate, br, zstd",
-    //     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-    //     "Cache-Control": "no-cache",
-    //     "Connection": "keep-alive",
-    //     "Cookie": "pac_uid=0_NattYaCs7NNmH; omgid=0_NattYaCs7NNmH; _qimei_uuid42=19c1f11150d1000f92fe16d850a9c40cf94ef1d39f; _qimei_fingerprint=f3dc39297e432b1f08da57e9904a8f52; _qimei_q36=; _qimei_h38=a549811f92fe16d850a9c40c02000006b19c1f; _qpsvr_localtk=0.2296543129537577; RK=WPZCq/wl3I; ptcz=c338dead622f05f0d8467ac10589e7e45326b81d67ff476b9643f933cfdc644a; eas_sid=M1b7q677w9D5R5P2L8x5g4p313; eas_entry=https%3A%2F%2Fgraph.qq.com%2F; POESESSID=939e23af876572a0b2852b2e183e20cc",
-    //     "Host": "m.so.com",
-    //     "Pragma": "no-cache",
-    //     "Sec-Fetch-Dest": "document",
-    //     "Sec-Fetch-Mode": "navigate",
-    //     "Sec-Fetch-Site": "none",
-    //     "Sec-Fetch-User": "?1",
-    //     "Upgrade-Insecure-Requests": 1,
-    //     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0",
-    //     "sec-ch-ua": r#""Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24""#,
-    //     "sec-ch-ua-mobile": "?0",
-    //     "sec-ch-ua-platform": r#""Windows""#
-    // };
-    // req.set_headers_json(headers).unwrap();
-    // // // // let fingerprint = Fingerprint::new_ja3("771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,13-11-65037-17613-45-18-16-5-43-10-0-27-23-35-51-65281,4588-29-23-24,0").unwrap();
-    // // // // println!("{:#?}", fingerprint);
-    // // // let fingerprint = Fingerprint::random().unwrap();
-    // // // req.set_fingerprint(fingerprint);
-    // // // // req.set_proxy(Proxy::HttpPlain(Addr::new_addr("125.121.47.165", 13968)));
-    // // req.set_callback(|body| {
-    // //     println!("{}", body.len());
-    // //     Ok(())
-    // // });
-    // // // // req.set_alpn(ALPN::Http11);
-    // // // // let content = req.gen_h1().unwrap();
-    // // // // println!("{}", String::from_utf8(content).unwrap());
-    // req.set_url("https://www.baidu.com").await.unwrap();
-    // // // // sleep(Duration::from_secs(5)).await;
-    // let res = req.get().await.unwrap();
+    // let fingerprint = Fingerprint::new_ja4("t13d1517h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0017,001b,0023,0029,002b,002d,0033,44cd,fe0d,ff01_0403,0804,0401,0503,0805,0501,0806,0601").unwrap();
     //
-    // println!("{} {}", res.header(), res.raw_body().len());
+    // let mut data =hex::decode("1603010848010008440303a5fb6638dbe64a35a0d500e2c3465316d1617310d498ca2e4b18f13158d05ae820818c23e338779d38edc46c29cbcfe73cf201099adf60663710d364a34a32ae9300200a0a130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035010007db5a5a0000000a000c000a9a9a11ec001d0017001800170000003304ef04ed9a9a00010011ec04c056633ea1c8b22e71a2f7c904acaa009265b1b0a87ed2ba7cba078a5dc1c3c0310a1857bc613036acb7ba384a4a442c3661f580c150bc8e8a36d6461397757d90ab92bf5929ef7108dbd49b373692dfd72b20068c5e8b2a2390a6768ac7b7d25708f167c232027f3b31f1478cb01963b65b855f281bbbc8b7f5a377fe5cc03a22a974c232056505003ac439a8777a3112adcc8bc06092fde299bc8a9b8c9970ffb75e864c8546caaa1db27dd9da62b5c6cdca672017282bafc133f1a0086e265338cc7812282653d5a442fc1c7e89cb6d7665a9097f4f55b34abc0cd2288cbfd9628cdaa434e521fb07671007b55de167e76b0b28c7a6b53476ed51409c088a8d08b5298965c35179ae283514150b8e446a39e1c74a801825f1c6bb0612ce7618d3841b09035bd029b14dc30d944603dd4b02da117f87c056b2961596545bff02291ad03c06810da5e08a4df82c61ac32d93ba00f7ca7cf865bae27c0d9a86ade5872ad55ce8e5589daa64cfcda74eb535514d94633383efd90831f2b20f3f8847fa87ede43352ff6a6031598d7c27c8a0b6921caa87e67b63c7acdb91c24b3499eb1795e885212003bbbe06838f2189c8940771d03b845e314297934d5970f6c0c26aad41f419c7d8c9a9aa2521a94b40102d3037796c8fb48292a99a4519574c7e4162a2bac9e9b32fd0ba5e0eb8f8fe86ad8346e0fe93f21997708eab3024ba6fa4972456653cd412e2f737ee645571dc71befb945dcd13ad21c8e78f1a6a0fa06b86c0797512613bb30c556a1c6331d5b6a12b914ceaaa008737cc9ecd4b19fc3c20386209d7c73ac046f8de3a20a8c5292556ae719018933525d7b17b39a92cf2aa8b44a9e9c3c17c16a3bec82669d1345e72b1dddd87aa7e1c214e3a0e2a028e95347c4e75f4d641ad438798fb5408ac65c7b028caa8929699ccb7225b253d90cfa7b3375b2a94c47cdf012821e199457a1ca4eb0c504c21edcc5b251eca83204cd91927b0687b407a94a2a4ca6e78134a59351c7788118a96ccb84b8e5018f253a6e822a10b9bbaaa3f507391879c40795c0ec09af33b44dd24c7a6c835596837249a7f1aa135cfb5df1937664138bf8301419781371ea3736441c94c1400fb385386885f85b9724bb6fa4e48733279ee308a38a297bde67b5d535837a29541874bf3b04209de00d2ec96472bc1612b438a2e86035581c36f18737f4313acb7db943c4e9175f472470d698245e5b6e7e6b1983c40fa762829e7746adf4cb2bab469b67432bdb61a5d68d86ca8a4366255f406064c89129d6307a199b21e3b2c2137239c80e5823b527bb494ef55787d688fd3866a58b41268a873e9239c8312ce4c66fdc44525660a7af300b40d04afb9c18225c5be134b17fa76ec06abaf901646869ab8d9bcff0f7527ec83427180149c85963d3c16b856b2e58bd9b6022186009918290c4cc90e912856b005a7670a3f1206839abafa2b8bbeb1a704a678d65901184ab35b9473d947abab0ec554246cac6117388ea73f3b61ef0764a754a7489720db575c06cd057d54ca87a9698a1d2a714a33d35805bb89b320f97b4d8a06cbfb30aa4a66baf018d72b86cf6dc49c1dc31973297808b7b915909838a1da1f039ca77ce78ea67dd244b5443efd97378404e4fb0699cd5e6c7931db067bf2df9e1d77609491b07daaba5b65e82a09d28c44d95b8998508063a1b2b001d0020138ea9a7ea4607ef11eae91e6988e5ee5d58ea0c6e44f063b657992ef339c111000500050100000000fe0d011a0000010001da002087f1d8249e0d7cce5fa9053729d3b8c4507f6750bb224f8a02ffe17a0c0d040800f0d58e03e7ecc019e4c8002d1dc18cf86669baba6dfb38178c09fed01970a433fc9d04991edcec696f41cc05a9624d9d53ca53bb5227c25d783cc2708bf542b6dda1868a20d169689386740b6e234f704b45f99cdbe09eddbbf08165a6b1be6c1cd99c8a9dc8cd7ebfc72b8da524d42f9a3b73b3522a5adbd31a59f39fb831d3e85486c688de034ab6b8fb0db84cfd9c1c6ce87d7315685d3831c8132fd7d59b9537b15bdbe53e33f1db367efe7a9bbadc8c3f54c8975745a7aba861cd9e46646e226418fb3ed6671c52f8738bd8347817db6199a75424347dcd45bd367b45308fbccc5bd3b3b4fef8d9e405635f0d2eb20010000e000c02683208687474702f312e31000b0002010000120000ff01000100001b000302000200230000000d001200100403080404010503080505010806060144cd00050003026832002b0007064a4a03040303002d000201010000001500130000107073732e62647374617469632e636f6d6a6a0001000029012b00f600f0a12f8633d2ea22594d2f008edf7444396846a0514a20366cd35ab17e7e5cf11fcb8914653b99ce6b63fd6cae843e5445b53a39f9f686e34e4889336a517feb03010478f14030a20554ce2225cf43debc8d3ecadd885ea1bab8670bfc202084fb6b319d98b9976449179de7c0c50fef02ff275c16b2873093d556daa01b197aa54b5c454b92ce2c5f252b813348f4aa49d1e25268e51ce0f469b395cf6091138a941f40dcf8e6ab678fa09ca00ecfe0fa2dba363d2cece4e31333d0f6d32be86bfe5499a70934a4abda27916734ea471eb06e0097e395f77b510d7409382a4a039b67451fc5e6dcf2ecc0a43b5c337507acc19724003130e5a357d4ca7911dec46b84a44a09d2c9160f7aafbf3518d0ae2f7544961de8ded7f072f1d1bcc9aeab74241ffc6c99f9").unwrap();
+    // //
+    // let record = RecordLayer::from_bytes(&mut data, false).unwrap();
+    // println!("{:#?}", record);
+    let mut req = AcReq::new().with_alpn(ALPN::Http11);//.with_fingerprint(Fingerprint::random().unwrap())
+    let headers = json::object! {
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Accept-Encoding": "gzip, deflate, br, zstd",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "Cookie": "pac_uid=0_NattYaCs7NNmH; omgid=0_NattYaCs7NNmH; _qimei_uuid42=19c1f11150d1000f92fe16d850a9c40cf94ef1d39f; _qimei_fingerprint=f3dc39297e432b1f08da57e9904a8f52; _qimei_q36=; _qimei_h38=a549811f92fe16d850a9c40c02000006b19c1f; _qpsvr_localtk=0.2296543129537577; RK=WPZCq/wl3I; ptcz=c338dead622f05f0d8467ac10589e7e45326b81d67ff476b9643f933cfdc644a; eas_sid=M1b7q677w9D5R5P2L8x5g4p313; eas_entry=https%3A%2F%2Fgraph.qq.com%2F; POESESSID=939e23af876572a0b2852b2e183e20cc",
+        "Host": "m.so.com",
+        "Pragma": "no-cache",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": 1,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0",
+        "sec-ch-ua": r#""Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24""#,
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": r#""Windows""#
+    };
+    req.set_headers_json(headers).unwrap();
+    // // // let fingerprint = Fingerprint::new_ja3("771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,13-11-65037-17613-45-18-16-5-43-10-0-27-23-35-51-65281,4588-29-23-24,0").unwrap();
+    // // // println!("{:#?}", fingerprint);
+    // // let fingerprint = Fingerprint::random().unwrap();
+    // // req.set_fingerprint(fingerprint);
+    // // // req.set_proxy(Proxy::HttpPlain(Addr::new_addr("125.121.47.165", 13968)));
+    // req.set_callback(|body| {
+    //     println!("{}", body.len());
+    //     Ok(())
+    // });
+    // // // req.set_alpn(ALPN::Http11);
+    // // // let content = req.gen_h1().unwrap();
+    // // // println!("{}", String::from_utf8(content).unwrap());
+    req.set_url("https://www.baidu.com").await.unwrap();
+    // // // sleep(Duration::from_secs(5)).await;
+    let res = req.get().await.unwrap();
+
+    println!("{} {}", res.header(), res.raw_body().len());
     // // // req.set_url("https://s.360.cn/mso/disp.gif?pro=m_so&pid=result&u=https%3A%2F%2Fm.so.com%2Fs%2F&guid=15015764.1071255116101212729.1764940193317.2156&mbp=0&q=2132&pq=&ls=&abv=&ablist=&sid=f057cafe91decc82f2436391559db2ef&qid=&src=default_src&srcg=default_srcg&userid=&nid=&version=&category=&nettype=unknown&nav=&chl=&bv=&adv_t=&end=0&bucketid=240001%2C350001%2C530001%2C540001%2C750000%2C830003%2C850001%2C920000%2C1230007%2C1330000%2C1550001%2C1900000%2C2260000%2C3030000%2C4130001%2C4260003%2C4700001%2C4770001%2C4810001%2C5010000%2C5070001%2C5120001%2C5150001%2C5400001%2C5510001%2C5740001%2C5790002%2C5810001%2C5910000%2C6000001%2C6310000%2C6480001%2C6490003%2C6620003%2C6660026%2C6920004%2C7170013%2C7190023%2C7660000%2C8020016%2C8060001%2C8190001%2C8310002%2C8330001%2C8480001%2C8530000%2C8570012%2C8640000%2C8720001%2C8890000%2C8980000%2C9000019%2C9060001%2C9110001%2C9130000%2C9260001%2C9270003%2C9330000%2C9390002%2C9560000%2C10720005%2C10820001%2C10950003%2C10990001%2C11010003%2C11120001%2C11140000%2C11180001%2C11270000%2C11460000%2C11500002&pn=1&bzv=584d8cd4518f3435&screen=1&mod=ccb&cat=time-filter&t=1767332302637").await.unwrap();
     // // // let res = req.get().await.unwrap();
     // // // println!("{}", res.header());
@@ -69,26 +68,26 @@ async fn main() {
     // // // req.insert_header("Sec-Fetch-Site", "same-site").unwrap();
     // // // let res = req.get().await.unwrap();
     // // // println!("{}", res.to_string().unwrap());
-    let mut ws = WebSocket::async_build()
-        .with_url("wss://poe.game.qq.com/").unwrap()
-        .with_uri("wss://poe.game.qq.com/api/trade2/live/poe2/%E7%93%A6%E5%B0%94%E7%9A%84%E5%AE%BF%E5%91%BD/32Y6Wjkc5").unwrap()
-        .with_origin("https://poe.game.qq.com").unwrap()
-        .with_cookie("pac_uid=0_NattYaCs7NNmH; omgid=0_NattYaCs7NNmH; _qimei_uuid42=19c1f11150d1000f92fe16d850a9c40cf94ef1d39f; _qimei_fingerprint=f3dc39297e432b1f08da57e9904a8f52; _qimei_q36=; _qimei_h38=a549811f92fe16d850a9c40c02000006b19c1f; _qpsvr_localtk=0.2296543129537577; RK=WPZCq/wl3I; ptcz=c338dead622f05f0d8467ac10589e7e45326b81d67ff476b9643f933cfdc644a; eas_sid=M1b7q677w9D5R5P2L8x5g4p313; eas_entry=https%3A%2F%2Fgraph.qq.com%2F; POESESSID=939e23af876572a0b2852b2e183e20cc").unwrap()
-        .with_user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0").unwrap()
-        .build().await.unwrap();
-    loop {
-        let res = ws.async_read_frame().await.unwrap();
-        match res.frame_type().op_code() {
-            WsOpcode::CONTINUATION => {}
-            WsOpcode::TEXT => println!("{}", res.payload().as_bytes().len()),
-            WsOpcode::BINARY => {}
-            WsOpcode::CLOSE => {}
-            WsOpcode::PING => {
-                println!("PING");
-                let pong = WsFrame::new_pong(true, res.payload().as_bytes());
-                ws.async_write_frame(pong).await.unwrap();
-            }
-            WsOpcode::PONG => {}
-        }
-    }
+    // let mut ws = WebSocket::async_build()
+    //     .with_url("wss://poe.game.qq.com/").unwrap()
+    //     .with_uri("wss://poe.game.qq.com/api/trade2/live/poe2/%E7%93%A6%E5%B0%94%E7%9A%84%E5%AE%BF%E5%91%BD/32Y6Wjkc5").unwrap()
+    //     .with_origin("https://poe.game.qq.com").unwrap()
+    //     .with_cookie("pac_uid=0_NattYaCs7NNmH; omgid=0_NattYaCs7NNmH; _qimei_uuid42=19c1f11150d1000f92fe16d850a9c40cf94ef1d39f; _qimei_fingerprint=f3dc39297e432b1f08da57e9904a8f52; _qimei_q36=; _qimei_h38=a549811f92fe16d850a9c40c02000006b19c1f; _qpsvr_localtk=0.2296543129537577; RK=WPZCq/wl3I; ptcz=c338dead622f05f0d8467ac10589e7e45326b81d67ff476b9643f933cfdc644a; eas_sid=M1b7q677w9D5R5P2L8x5g4p313; eas_entry=https%3A%2F%2Fgraph.qq.com%2F; POESESSID=939e23af876572a0b2852b2e183e20cc").unwrap()
+    //     .with_user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0").unwrap()
+    //     .build().await.unwrap();
+    // loop {
+    //     let res = ws.async_read_frame().await.unwrap();
+    //     match res.frame_type().op_code() {
+    //         WsOpcode::CONTINUATION => {}
+    //         WsOpcode::TEXT => println!("{}", res.payload().as_bytes().len()),
+    //         WsOpcode::BINARY => {}
+    //         WsOpcode::CLOSE => {}
+    //         WsOpcode::PING => {
+    //             println!("PING");
+    //             let pong = WsFrame::new_pong(true, res.payload().as_bytes());
+    //             ws.async_write_frame(pong).await.unwrap();
+    //         }
+    //         WsOpcode::PONG => {}
+    //     }
+    // }
 }

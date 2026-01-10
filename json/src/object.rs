@@ -1,10 +1,10 @@
+use crate::{JsonValue, NULL};
+use serde::ser::SerializeMap;
+use serde::{Serialize, Serializer};
+use serde_json::{Map, Value};
 use std::ops::{Index, IndexMut};
 use std::slice::{Iter, IterMut};
 use std::vec::IntoIter;
-use serde::{Serialize, Serializer};
-use serde::ser::Error;
-use serde_json::{Map, Value};
-use crate::{JsonValue, NULL};
 
 #[derive(Clone)]
 pub struct Object {
@@ -83,7 +83,7 @@ impl Object {
     }
 }
 
-impl<'a> Index<&'a str> for Object {
+impl Index<&str> for Object {
     type Output = JsonValue;
 
     fn index(&self, index: &str) -> &JsonValue {
@@ -102,12 +102,11 @@ impl Serialize for Object {
     where
         S: Serializer,
     {
-        let mut object = serde_json::Map::new();
+        let mut map = serializer.serialize_map(Some(self.store.len()))?;
         for node in &self.store {
-            let value = serde_json::to_value(node.value()).or(Err(S::Error::custom("failed to serialize value")))?;
-            object.insert(node.key.to_string(), value);
+            map.serialize_entry(&node.key, &node.value)?;
         }
-        object.serialize(serializer)
+        map.end()
     }
 }
 
@@ -122,7 +121,6 @@ impl TryFrom<Map<String, Value>> for Object {
         Ok(obj)
     }
 }
-
 
 
 #[derive(Clone)]

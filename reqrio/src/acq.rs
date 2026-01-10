@@ -1,18 +1,18 @@
-use std::mem;
 use crate::alpn::ALPN;
+use crate::body::BodyType;
 use crate::coder::{HPackCoding, HackDecode};
 use crate::error::HlsResult;
 use crate::ext::ReqExt;
 use crate::ext::{ReqGenExt, ReqPriExt};
+use crate::json::JsonValue;
 use crate::packet::{Frame, FrameFlag, FrameType, Header, HeaderKey, Method, Response};
 use crate::stream::{ConnParam, Proxy, Stream};
 use crate::timeout::Timeout;
 use crate::url::Url;
-use crate::{Buffer, ReqCallback, WsFrame, WsOpcode};
-use crate::json::JsonValue;
+use crate::{Buffer, ReqCallback};
 #[cfg(use_cls)]
 use reqtls::Fingerprint;
-use crate::body::BodyType;
+use std::mem;
 
 pub struct AcReq {
     header: Header,

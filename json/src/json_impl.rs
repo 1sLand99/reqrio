@@ -94,72 +94,29 @@ impl<'a> IndexMut<&'a String> for JsonValue {
     }
 }
 
-// impl Serialize for JsonValue {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         let ser_str = match self {
-//             JsonValue::String(s) => format!("\"{s}\""),
-//             _ => { self.dump() }
-//         };
-//         let json_value: Value = serde_json::from_str(&ser_str).unwrap();
-//         serializer.serialize_some(&json_value)
-//     }
-// }
-
-// impl<'de> Deserialize<'de> for JsonValue {
-//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//     where
-//         D: Deserializer<'de>,
-//     {
-//         let json_value: Value = Deserialize::deserialize(deserializer)?;
-//         let json_str = serde_json::to_string(&json_value).unwrap();
-//         Ok(JsonParser::new().parse_json(mh_json::parse(json_str.as_str()).unwrap()).unwrap())
-//     }
-// }
-
 impl JsonValue {
     pub fn is_string(&self) -> bool {
-        match *self {
-            JsonValue::String(_) => true,
-            _ => false,
-        }
+        matches!(self, JsonValue::String(_))
     }
 
     pub fn is_number(&self) -> bool {
-        match *self {
-            JsonValue::Number(_) => true,
-            _ => false,
-        }
+        matches!(self, JsonValue::Number(_))
     }
 
     pub fn is_boolean(&self) -> bool {
-        match *self {
-            JsonValue::Boolean(_) => true,
-            _ => false
-        }
+        matches!(self, JsonValue::Boolean(_))
     }
 
     pub fn is_null(&self) -> bool {
-        match *self {
-            JsonValue::Null => true,
-            _ => false,
-        }
+        matches!(self, JsonValue::Null)
     }
 
     pub fn is_object(&self) -> bool {
-        match *self {
-            JsonValue::Object(_) => true,
-            _ => false,
-        }
+        matches!(self, JsonValue::Object(_))
     }
 
     pub fn is_array(&self) -> bool {
-        match *self {
-            JsonValue::Array(_) => true,
-            _ => false,
-        }
+        matches!(self, JsonValue::Array(_))
     }
 
     pub fn as_str(&self) -> JsonResult<&str> {
@@ -226,8 +183,8 @@ impl JsonValue {
     }
 
     pub fn as_bool(&self) -> JsonResult<bool> {
-        match *self {
-            JsonValue::Boolean(ref value) => Ok(value.clone()),
+        match self {
+            JsonValue::Boolean(value) => Ok(*value),
             _ => Err("parse bool error!".into())
         }
     }
