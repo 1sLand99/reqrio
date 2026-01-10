@@ -136,7 +136,13 @@ impl<'a> RecordBuffer<'a> {
         self.payload.len = payload.len();
     }
 
-    pub fn add_explicit_iv(&mut self, explicit: &[u8]) {
+    pub fn add_explicit_iv(&mut self, iv: &[u8]) {
+        let explicit=match self.aead {
+            Aead::AES_128_GCM|Aead::AES_256_GCM => &iv[4..],
+            Aead::ChaCha20_POLY1305 => &[],
+            Aead::AES_128_CBC_SHA|Aead::AES_256_CBC_SHA => iv,
+            _=>panic!("unsupported cipher specification"),
+        };
         let iv_range = self.aead.explicit_range();
         if iv_range.start == iv_range.end { return; }
         self.payload.value[iv_range].copy_from_slice(explicit);

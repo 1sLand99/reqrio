@@ -1,71 +1,5 @@
-use std::error::Error;
-use reqrio::{json, AcReq, Buffer, ReqExt, Timeout, WsFrame, WsOpcode, ALPN};
-use reqtls::{rand, Fingerprint, RecordLayer};
-
-fn get_frame_len(frame: &Buffer) -> Result<usize, Box<dyn Error>> {
-    if frame.len() < 2 { return Err("data len not enough".into()); }
-    let second = frame[1];
-    let mask = (second & 0x80) != 0;
-    let mut payload_len = (second & 0x7F) as usize;
-    let mut header_len = 2; // 基础头部
-    if payload_len == 126 {
-        if frame.len() < 4 { return Err("data len not enough".into()); }
-        payload_len = u16::from_be_bytes([frame[2], frame[3]]) as usize;
-        header_len += 2;
-    } else if payload_len == 127 {
-        if frame.len() < 10 { return Err("data len not enough".into()); }
-        payload_len = u64::from_be_bytes([
-            frame[2], frame[3], frame[4], frame[5],
-            frame[6], frame[7], frame[8], frame[9]
-        ]) as usize;
-        header_len += 8;
-    }
-    if mask {
-        header_len += 4;
-    }
-    Ok(header_len + payload_len)
-}
-
-fn get_payload(mut buffer: Vec<u8>) -> Result<Vec<u8>, Box<dyn Error>> {
-    if buffer.len() == 0 { return Err("data is empty".into()); }
-    if buffer[0] & 0x80 != 0x80 {
-        // warn!("[Websocket] Not a final packet!");
-        return Err("Not a final frame!".into());
-    }
-    let mut payload_len = (buffer[1].clone() & 0x7F) as usize;
-    Ok(match payload_len {
-        127 => {
-            let mut pl = [0; 8];
-            for (i, d) in buffer[2..10].iter().enumerate() {
-                pl[i] = *d;
-            }
-            payload_len = u64::from_be_bytes(pl) as usize;
-            if buffer.len() < payload_len + 10 { return Err("data len not enough".into()); }
-            let msg = buffer[10..payload_len + 10].to_vec();
-            // buffer.copy_within(payload_len + 10..buffer.len(), 0);
-            // buffer.set_len(buffer.len() - payload_len - 10);
-            // buffer = buffer[payload_len + 10..].to_vec();
-            msg
-        }
-        126 => {
-            payload_len = u16::from_be_bytes([buffer[2], buffer[3]]) as usize;
-            if buffer.len() < payload_len + 4 { return Err("data len not enough".into()); }
-            let msg = buffer[4..payload_len + 4].to_vec();
-            // buffer.copy_within(payload_len + 4..buffer.len(), 0);
-            // buffer.set_len(buffer.len() - payload_len - 4);
-            // frame = frame[payload_len + 4..].to_vec();
-            msg
-        }
-        _ => {
-            if buffer.len() < payload_len + 2 { return Err("data len not enough".into()); }
-            let msg = buffer[2..payload_len + 2].to_vec();
-            // buffer.copy_within(payload_len + 2..buffer.len(), 0);
-            // buffer.set_len(buffer.len() - payload_len - 2);
-            // frame = frame[payload_len + 2..].to_vec();
-            msg
-        }
-    })
-}
+use reqrio::{json, AcReq, ReqExt, ALPN};
+use reqtls::Fingerprint;
 
 #[tokio::main]
 async fn main() {
@@ -75,7 +9,7 @@ async fn main() {
     // //
     // let record = RecordLayer::from_bytes(&mut data, false).unwrap();
     // println!("{:#?}", record);
-    // let mut req = AcReq::new().with_alpn(ALPN::Http11);//.with_fingerprint(fingerprint)
+    let mut req = AcReq::new().with_fingerprint(Fingerprint::random().unwrap()).with_alpn(ALPN::Http11);//
     let headers = json::object! {
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
         "Accept-Encoding": "gzip, deflate, br, zstd",
@@ -95,7 +29,7 @@ async fn main() {
         "sec-ch-ua-mobile": "?0",
         "sec-ch-ua-platform": r#""Windows""#
     };
-    // req.set_headers_json(headers).unwrap();
+    req.set_headers_json(headers).unwrap();
     // // // let fingerprint = Fingerprint::new_ja3("771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,13-11-65037-17613-45-18-16-5-43-10-0-27-23-35-51-65281,4588-29-23-24,0").unwrap();
     // // // println!("{:#?}", fingerprint);
     // // let fingerprint = Fingerprint::random().unwrap();
@@ -108,10 +42,11 @@ async fn main() {
     // // // req.set_alpn(ALPN::Http11);
     // // // let content = req.gen_h1().unwrap();
     // // // println!("{}", String::from_utf8(content).unwrap());
-    // req.set_url("https://www.baidu.com").await.unwrap();
+    req.set_url("https://www.baidu.com").await.unwrap();
     // // // sleep(Duration::from_secs(5)).await;
-    // let res = req.get().await.unwrap();
-    // println!("{} {}", res.header(), res.raw_body().len());
+    let res = req.get().await.unwrap();
+
+    println!("{} {}", res.header(), res.raw_body().len());
     // // // req.set_url("https://s.360.cn/mso/disp.gif?pro=m_so&pid=result&u=https%3A%2F%2Fm.so.com%2Fs%2F&guid=15015764.1071255116101212729.1764940193317.2156&mbp=0&q=2132&pq=&ls=&abv=&ablist=&sid=f057cafe91decc82f2436391559db2ef&qid=&src=default_src&srcg=default_srcg&userid=&nid=&version=&category=&nettype=unknown&nav=&chl=&bv=&adv_t=&end=0&bucketid=240001%2C350001%2C530001%2C540001%2C750000%2C830003%2C850001%2C920000%2C1230007%2C1330000%2C1550001%2C1900000%2C2260000%2C3030000%2C4130001%2C4260003%2C4700001%2C4770001%2C4810001%2C5010000%2C5070001%2C5120001%2C5150001%2C5400001%2C5510001%2C5740001%2C5790002%2C5810001%2C5910000%2C6000001%2C6310000%2C6480001%2C6490003%2C6620003%2C6660026%2C6920004%2C7170013%2C7190023%2C7660000%2C8020016%2C8060001%2C8190001%2C8310002%2C8330001%2C8480001%2C8530000%2C8570012%2C8640000%2C8720001%2C8890000%2C8980000%2C9000019%2C9060001%2C9110001%2C9130000%2C9260001%2C9270003%2C9330000%2C9390002%2C9560000%2C10720005%2C10820001%2C10950003%2C10990001%2C11010003%2C11120001%2C11140000%2C11180001%2C11270000%2C11460000%2C11500002&pn=1&bzv=584d8cd4518f3435&screen=1&mod=ccb&cat=time-filter&t=1767332302637").await.unwrap();
     // // // let res = req.get().await.unwrap();
     // // // println!("{}", res.header());
@@ -134,49 +69,33 @@ async fn main() {
     // // // req.insert_header("Sec-Fetch-Site", "same-site").unwrap();
     // // // let res = req.get().await.unwrap();
     // // // println!("{}", res.to_string().unwrap());
-    let mut timeout = Timeout::new();
-    timeout.set_read(99999);
-    timeout.set_write(99999);
-    timeout.set_handle(99999);
-    let mut req = AcReq::new();
-    req.set_timeout(timeout);
-    req.set_url("https://poe.game.qq.com/").await.unwrap();
-    let context = r#"GET wss://poe.game.qq.com/api/trade2/live/poe2/%E7%93%A6%E5%B0%94%E7%9A%84%E5%AE%BF%E5%91%BD/32Y6Wjkc5 HTTP/1.1
-Host: poe.game.qq.com
-Connection: Upgrade
-Pragma: no-cache
-Cache-Control: no-cache
-User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0
-Upgrade: websocket
-Origin: https://poe.game.qq.com
-Sec-WebSocket-Version: 13
-Accept-Encoding: gzip, deflate, br, zstd
-Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6
-Cookie: pac_uid=0_NattYaCs7NNmH; omgid=0_NattYaCs7NNmH; _qimei_uuid42=19c1f11150d1000f92fe16d850a9c40cf94ef1d39f; _qimei_fingerprint=f3dc39297e432b1f08da57e9904a8f52; _qimei_q36=; _qimei_h38=a549811f92fe16d850a9c40c02000006b19c1f; _qpsvr_localtk=0.2296543129537577; RK=WPZCq/wl3I; ptcz=c338dead622f05f0d8467ac10589e7e45326b81d67ff476b9643f933cfdc644a; eas_sid=M1b7q677w9D5R5P2L8x5g4p313; eas_entry=https%3A%2F%2Fgraph.qq.com%2F; POESESSID=939e23af876572a0b2852b2e183e20cc
-Sec-WebSocket-Key: Y/3ZjeJohL99ku1nNT2WEQ==
-Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits
-
-"#.replace("\n", "\r\n");
-    let resp = req.h1_io(context.as_bytes().to_vec()).await.unwrap();
-    println!("{}", resp.raw_string());
-    let mut buffer = Buffer::with_capacity(0xFFFF);
-
-    let mut req2 = AcReq::new().with_alpn(ALPN::Http20);
-    req2.set_headers_json(headers).unwrap();
-    loop {
-        req.stream.async_read(&mut buffer).await.unwrap();
-        while let Ok(frame) = WsFrame::from_buffer(&mut buffer) {
-            match frame.frame_type().op_code() {
-                WsOpcode::TEXT => println!("text-{:?}", frame.payload().len()),
-                WsOpcode::PING => {
-                    println!("PING-{}", frame.payload().len());
-                    let pong = WsFrame::new_pong(true, frame.payload().as_bytes());
-                    let bs=pong.to_bytes();
-                    println!("pong={:?}", bs);
-                    req.stream.async_write(&bs).await.unwrap();
-                }
-                _ => println!("other-{}-{:?}", frame.payload().len(), frame.payload().as_bytes())
-            }
-        }
-    }
+//     let mut timeout = Timeout::new();
+//     timeout.set_read(99999);
+//     timeout.set_write(99999);
+//     timeout.set_handle(99999);
+//     let mut req = AcReq::new();
+//     req.set_timeout(timeout);
+//     req.set_url("wss://poe.game.qq.com/").await.unwrap();
+//     let context = r#"GET wss://poe.game.qq.com/api/trade2/live/poe2/%E7%93%A6%E5%B0%94%E7%9A%84%E5%AE%BF%E5%91%BD/32Y6Wjkc5 HTTP/1.1
+// Host: poe.game.qq.com
+// Connection: Upgrade
+// Pragma: no-cache
+// Cache-Control: no-cache
+// User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0
+// Upgrade: websocket
+// Origin: https://poe.game.qq.com
+// Sec-WebSocket-Version: 13
+// Accept-Encoding: gzip, deflate, br, zstd
+// Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6
+// Cookie: pac_uid=0_NattYaCs7NNmH; omgid=0_NattYaCs7NNmH; _qimei_uuid42=19c1f11150d1000f92fe16d850a9c40cf94ef1d39f; _qimei_fingerprint=f3dc39297e432b1f08da57e9904a8f52; _qimei_q36=; _qimei_h38=a549811f92fe16d850a9c40c02000006b19c1f; _qpsvr_localtk=0.2296543129537577; RK=WPZCq/wl3I; ptcz=c338dead622f05f0d8467ac10589e7e45326b81d67ff476b9643f933cfdc644a; eas_sid=M1b7q677w9D5R5P2L8x5g4p313; eas_entry=https%3A%2F%2Fgraph.qq.com%2F; POESESSID=939e23af876572a0b2852b2e183e20cc
+// Sec-WebSocket-Key: Y/3ZjeJohL99ku1nNT2WEQ==
+// Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits
+//
+// "#.replace("\n", "\r\n");
+//     let resp = req.h1_io(context.as_bytes().to_vec()).await.unwrap();
+//     println!("{}", resp.raw_string());
+//     req.handle_websocket( async |frame: WsFrame|{
+//         println!("{}", frame.payload().len());
+//         Ok(())
+//     }).await.unwrap();
 }

@@ -39,21 +39,21 @@ pub enum StreamKind {
 impl StreamKind {
     pub async fn async_conn(&mut self, param: ConnParam<'_>) -> HlsResult<ALPN> {
         let _ = self.async_shutdown().await;
-        let stream = tokio::time::timeout(param.timeout.connect(),param.proxy.create_async_stream(param.url.addr(), param.timeout)).await??;
+        let stream = tokio::time::timeout(param.timeout.connect(), param.proxy.create_async_stream(param.url.addr(), param.timeout)).await??;
         match param.url.protocol() {
-            Protocol::Http => {
+            Protocol::Http | Protocol::Ws => {
                 *self = StreamKind::AsyncHttp(stream);
                 Ok(ALPN::Http11)
             }
             #[cfg(feature = "std_async")]
-            Protocol::Https => {
+            Protocol::Https | Protocol::Wss => {
                 let tls_stream = StdAsyncTlsStream::connect_timeout(param, stream).await?;
                 let alpn = tls_stream.alpn().unwrap_or(ALPN::Http11);
                 *self = StreamKind::StdAsyncHttps(tls_stream);
                 Ok(alpn)
             }
             #[cfg(cls_async)]
-            Protocol::Https => {
+            Protocol::Https | Protocol::Wss => {
                 let tls_stream = AsyncTlsStream::connect_timeout(param, stream).await?;
                 let alpn = tls_stream.alpn().map(|x| ALPN::from_slice(x.as_bytes())).unwrap_or(ALPN::Http11);
                 *self = StreamKind::AsyncHttps(tls_stream);
@@ -116,19 +116,19 @@ impl StreamKind {
         let _ = self.sync_shutdown();
         let stream = param.proxy.create_sync_stream(param.url.addr(), param.timeout)?;
         match param.url.protocol() {
-            Protocol::Http => {
+            Protocol::Http | Protocol::Ws => {
                 *self = StreamKind::SyncHttp(stream);
                 Ok(ALPN::Http11)
             }
             #[cfg(std_sync)]
-            Protocol::Https => {
+            Protocol::Https | Protocol::Wss => {
                 let tls_stream = StdSyncTlsStream::connect(param, stream)?;
                 let alpn = tls_stream.alpn().unwrap_or(ALPN::Http11);
                 *self = StreamKind::StdSyncHttps(tls_stream);
                 Ok(alpn)
             }
             #[cfg(cls_sync)]
-            Protocol::Https => {
+            Protocol::Https | Protocol::Wss => {
                 let tls_stream = SyncStream::connect(param, stream)?;
                 let alpn = tls_stream.alpn().map(|x| ALPN::from_slice(x.as_bytes())).unwrap_or(ALPN::Http11);
                 *self = StreamKind::SyncHttps(tls_stream);

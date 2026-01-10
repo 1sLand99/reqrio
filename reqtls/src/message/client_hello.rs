@@ -71,6 +71,7 @@ impl ClientHello {
             Extension::from_type(ExtensionType::new(ExtensionKind::SupportedVersions as u16)),
             Extension::from_type(ExtensionType::new(ExtensionKind::ApplicationLayerProtocolNegotiation as u16)),
             Extension::from_type(ExtensionType::new(ExtensionKind::ServerName as u16)),
+            Extension::from_type(ExtensionType::new(ExtensionKind::EcPointFormats as u16)),
         ];
         // let ext_all = ExtensionKind::all();
         // while res.extensions.len() < 9 {

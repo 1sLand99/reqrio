@@ -1,7 +1,8 @@
 //! #### reqrio是http请求库，目标是可以快速、简单、便捷使用http请求
-//!
+//! * reqrio特性: 低拷贝、高并发、低损耗
 //! * reqrio支持tls指纹，可以通过tls握手的十六进制或ja3设置,仅cls_sync和cls_async支持(**仅订阅**),
 //! * reqrio默认对请求头的顺序会默认和浏览器一致(会对请求头进行重排序)
+//! * cls模式使用boringssl，和浏览器chrome、edge等一致。
 //!
 //! #### reqrio默认不开启http请求，仅作为http数据数据流解析库导出，请求需要打开features
 //! * std_sync: 标准的tls库([rustls](https://github.com/rustls/rustls)，同步请求
@@ -61,6 +62,27 @@
 //! let body=res.decode_body().unwrap();
 //! //尝试解码到json
 //! let json=res.to_json().unwrap();
+//! ```
+//! * websocket示例:
+//! ```rust
+//! use reqrio::WsFrame;
+//! let req=ScReq::new()
+//!     .with_url("wss://example.com/").unwrap();
+//! let headers = json::object! {
+//!     "Connection": "keep-alive",
+//!     "Cookie": "__guid=15015764.1071255116101212729.1764940193317.2156; env_webp=1; _S=pvc5q7leemba50e4kn4qis4b95; QiHooGUID=4C8051464B2D97668E3B21198B9CA207.1766289287750; count=1; so-like-red=2; webp=1; so_huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; __huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; gtHuid=1",
+//!     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0",
+//!     "sec-ch-ua": r#""Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24""#,
+//!     "sec-ch-ua-mobile": "?0",
+//!     "sec-ch-ua-platform": r#""Windows""#
+//! };
+//! let resp=req.get().unwrap();
+//! assert_eq!(resp.header().status().status_num(),101)
+//! req.handle_websocket(|frame：WsFrame| {
+//!     let payload = frame.payload().as_bytes();
+//!     println!("{}",payload.len())
+//!     Ok(())
+//! })
 //! ```
 //!
 //!

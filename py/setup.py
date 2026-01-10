@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='reqrio', version='0.0.12', packages=find_packages(),
-      package_data={'reqrio': ['*.dll']}, include_package_data=True, entry_points={
+      package_data={'reqrio': ['*.dll','*.so']}, include_package_data=True, entry_points={
         'pyinstaller40': ["hook-dirs=reqrio.hooks"]
     })
 

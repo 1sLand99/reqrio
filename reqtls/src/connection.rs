@@ -85,10 +85,8 @@ impl Connection {
         let (wi, remain) = remain.split_at(aead.fix_iv_len());
         let (ri, remain) = remain.split_at(aead.fix_iv_len());
         let (explicit, _) = remain.split_at(aead.explicit_len());
-        // self.write.set_key(Key::write(wk, aead)?);
         self.write.set_key(wk, aead)?;
         self.write.set_iv(Iv::new(wi, explicit.to_vec()));
-        // self.read.set_key(Key::read(rk, aead)?);
         self.read.set_key(rk, aead)?;
         self.read.set_iv(Iv::new(ri, vec![]));
         self.master_secret = master_secret.to_vec();

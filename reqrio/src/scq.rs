@@ -19,7 +19,7 @@ pub struct ScReq {
     header: Header,
     url: Url,
     hack_coder: HPackCoding,
-    pub stream: Stream,
+    stream: Stream,
     body: BodyType,
     callback: Option<ReqCallback>,
     timeout: Timeout,
@@ -252,6 +252,28 @@ impl ScReq {
                     continue;
                 }
                 if self.handle_h2_res(frame, &mut response)? { return Ok(response); };
+            }
+        }
+    }
+
+    pub fn handle_websocket(&mut self, callback: impl Fn(WsFrame) -> HlsResult<()>) -> HlsResult<()> {
+        let mut buffer = Buffer::with_capacity(0xFFFF);
+        loop {
+            self.stream.sync_read(&mut buffer)?;
+            while let Ok(frame) = WsFrame::from_buffer(&mut buffer) {
+                match frame.frame_type().op_code() {
+                    WsOpcode::TEXT | WsOpcode::BINARY => callback(frame)?,
+                    WsOpcode::CONTINUATION => return Err("unexpected continuation message".into()),
+                    WsOpcode::CLOSE => return Err("peer closed".into()),
+                    WsOpcode::PING => {
+                        println!("PING-{}", frame.payload().len());
+                        let pong = WsFrame::new_pong(true, frame.payload().as_bytes());
+                        let bs=pong.to_bytes();
+                        println!("pong={:?}", bs);
+                        self.stream.sync_write(&bs)?;
+                    }
+                    WsOpcode::PONG => return Err("unexpected pong message".into()),
+                }
             }
         }
     }

@@ -77,9 +77,9 @@ impl Aead {
             Some(Aead::ChaCha20_POLY1305)
         }
         // else if text.contains("aes_128_cbc") {
-        //     Some(Aead::AES_128_CBC)
+        //     Some(Aead::AES_128_CBC_SHA)
         // } else if text.contains("aes_256_cbc") {
-        //     Some(Aead::AES_256_CBC)
+        //     Some(Aead::AES_256_CBC_SHA)
         // }
         else {
             None

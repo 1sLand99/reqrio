@@ -98,7 +98,6 @@ impl CipherCryptor {
             )
         };
         if ok.is_null() { return Err(RlsError::CipherMacError); }
-        println!("{:?} {:?}", mac, computed_mac);
         // 使用恒定时间比较 (Constant-time comparison) 防止侧信道攻击
         let res = unsafe { CRYPTO_memcmp(computed_mac.as_ptr() as *const _, mac.as_ptr() as *const _, mac.len()) };
         if res != 0 { return Err(RlsError::CipherMacError); }
@@ -133,6 +132,8 @@ impl Drop for CipherCryptor {
         unsafe { EVP_CIPHER_CTX_free(self.ctx); }
     }
 }
+
+unsafe impl Send for CipherCryptor {}
 
 #[cfg(test)]
 mod tests {

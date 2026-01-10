@@ -1,32 +1,8 @@
 use super::req::{Callback, CONNECTIONS};
 use crate::error::HlsResult;
-use crate::{Buffer, ScReq, WsFrame, WsOpcode};
-use std::error::Error;
 use std::ffi::{c_char, CStr};
-
-
-
-fn read_wss(req: &mut ScReq, buffer: &mut Buffer, callback: &Callback) -> HlsResult<()> {
-    req.stream.sync_read(buffer)?;
-    while let Ok(frame) = WsFrame::from_buffer(buffer) {
-        match frame.frame_type().op_code() {
-            WsOpcode::TEXT => {
-                let payload = frame.payload().as_bytes();
-                callback(payload.as_ptr() as *const c_char, payload.len() as u32);
-            }
-            WsOpcode::PING => {
-                println!("PING-{}", frame.payload().len());
-                let pong = WsFrame::new_pong(true, frame.payload().as_bytes());
-                let bs = pong.to_bytes();
-                println!("pong={:?}", bs);
-                req.stream.sync_write(&bs)?;
-            }
-            _ => println!("other-{}-{:?}", frame.payload().len(), frame.payload().as_bytes())
-        }
-    }
-    Ok(())
-}
-
+use std::thread::sleep;
+use std::time::Duration;
 
 #[unsafe(no_mangle)]
 pub extern "system" fn wss_h1_io(id: i32, context: *const c_char, callback: Callback) {
@@ -35,34 +11,33 @@ pub extern "system" fn wss_h1_io(id: i32, context: *const c_char, callback: Call
         let mut req = conns.remove(&id).ok_or("id not found")?;
         drop(conns);
         let context = unsafe { CStr::from_ptr(context) }.to_bytes();
-        let resp = req.h1_io(context.to_vec())?;
-        println!("{}", resp.raw_string());
-        let mut buffer = Buffer::with_capacity(0xFFFF);
         loop {
-            match read_wss(&mut req, &mut buffer, &callback) {
-                Ok(_) => continue,
-                Err(e) => {
-                    if e.to_string().to_lowercase().contains("close") {
-                        req.re_conn()?;
-                        let resp = req.h1_io(context.to_vec())?;
-                        println!("{}", resp.raw_string());
-                    } else {
-                        println!("错误: {}", e.to_string());
-                        break;
-                    }
+            let res = || -> HlsResult<()>{
+                let resp = req.h1_io(context.to_vec())?;
+                println!("{}", resp.raw_string());
+                req.handle_websocket(|frame| {
+                    let payload = frame.payload().as_bytes();
+                    callback(payload.as_ptr() as *const c_char, payload.len() as u32);
+                    Ok(())
+                })
+            }();
+            match res {
+                Ok(_) => break Ok(()),
+                Err(e) => if e.to_string().to_lowercase().contains("close") || e.to_string().contains("中止了") {
+                    req.re_conn()?;
                 }
             }
+            sleep(Duration::from_millis(100));
         }
-        Ok(())
     }().unwrap_or_else(|e| println!("{}", e.to_string()));
 }
 
 
 #[cfg(test)]
 mod tests {
-    use std::ffi::{c_char, CStr, CString};
     use crate::export::req::{init_http, set_url};
     use crate::export::wss::wss_h1_io;
+    use std::ffi::{c_char, CStr, CString};
 
     extern "C" fn callback(data: *const c_char, len: u32) {
         let data = unsafe { CStr::from_ptr(data) }.to_bytes();

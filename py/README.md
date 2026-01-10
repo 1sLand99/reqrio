@@ -1,3 +1,5 @@
+from tests.test_session import session
+
 #### reqrio是http请求库，目标是可以快速、简单、便捷使用http请求
 * reqrio特性: 低拷贝、高并发、低损耗
 * reqrio支持tls指纹，可以通过tls握手的十六进制或ja3设置,仅cls_sync和cls_async支持(**仅订阅**),
@@ -13,51 +15,6 @@
 **注意**: std和cls不可以同时存在，sync和async可以同时存在
 
 ### 使用示例(支持rust、python、java):
-
-* rust示例
-
-```rust
-use reqrio::{Fingerprint, ScReq, ALPN};
-
-fn ff() {
-    let fingerprint = Fingerprint::default().unwrap();
-    fingerprint.set_ja3("771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,13-11-65037-17613-45-18-16-5-43-10-0-27-23-35-51-65281,4588-29-23-24,0");
-    let req = ScReq::new()
-        //默认使用http/1.1
-        .with_alpn(ALPN::Http20)
-        .with_fingerprint(fingerprint)
-        .with_url("https://www.baidu.com").unwrap();
-    let headers = json::object! {
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-        "Accept-Encoding": "gzip, deflate, br, zstd",
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-        "Cookie": "__guid=15015764.1071255116101212729.1764940193317.2156; env_webp=1; _S=pvc5q7leemba50e4kn4qis4b95; QiHooGUID=4C8051464B2D97668E3B21198B9CA207.1766289287750; count=1; so-like-red=2; webp=1; so_huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; __huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; gtHuid=1",
-        "Host": "m.so.com",
-        "Pragma": "no-cache",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        "Upgrade-Insecure-Requests": 1,
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0",
-        "sec-ch-ua": r#""Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24""#,
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": r#""Windows""#
-    };
-    //默认没有任何请求头，需要自己设置
-    req.set_headers_json(header);
-    let res = req.get().unwrap();
-    //获取响应头
-    let header = res.header();
-    //获取响应体,这里的body已经解编码
-    let body = res.decode_body().unwrap();
-    //尝试解码到json
-    let json = res.to_json().unwrap();
-}
-```
-
 * python示例
 
 ```python
@@ -91,7 +48,7 @@ headers = {
 # 默认没有任何请求头，需要自己设置
 session.set_header_json(headers)
 # 设置超时
-session.set_timeout(3, 3, 3, 3)
+session.set_timeout(3000, 3000, 3000, 3000)
 resp = session.get('https://m.so.com')
 # 获取响应头
 print(resp.header.__dict__)
@@ -112,45 +69,18 @@ print(stream.response.header.__dict__)
 session.close()
 ```
 
-* java示例
+* ws示例
+```python
+import reqrio
+from reqrio.bindings import CALLBACK
 
-```java
-import com.google.gson.Gson;
-import org.xllgl2017.*;
 
-void main() throws Exception {
-    //初始化，可以设置版本
-    Reqrio reqrio = new Reqrio(ALPN.HTTP11);
-    //初始化头部
-    Headers headers = new Headers();
-    headers.addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
-    headers.addHeader("Accept-Encoding", "gzip, deflate, br, zstd");
-    headers.addHeader("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6");
-    headers.addHeader("Cache-Control", "no-cache");
-    headers.addHeader("Connection", "keep-alive");
-    headers.addHeader("Host", "m.so.com");
-    headers.addHeader("Pragma", "no-cache");
-    headers.addHeader("Sec-Fetch-Dest", "document");
-    headers.addHeader("Sec-Fetch-Mode", "navigate");
-    headers.addHeader("Sec-Fetch-Site", "none");
-    headers.addHeader("Sec-Fetch-User", "?1");
-    headers.addHeader("Upgrade-Insecure-Requests", "1");
-    headers.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0");
-    headers.addHeader("sec-ch-ua", "\"Microsoft Edge\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"");
-    headers.addHeader("sec-ch-ua-mobile", "?0");
-    headers.addHeader("sec-ch-ua-platform", "\"Windows\"");
-    //添加cookie，也可以用reqrio.setCookie
-    headers.setCookies("__guid=15015764.1071255116101212729.1764940193317.2156; env_webp=1; _S=pvc5q7leemba50e4kn4qis4b95; QiHooGUID=4C8051464B2D97668E3B21198B9CA207.1766289287750; count=1; so-like-red=2; webp=1; so_huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; __huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; gtHuid=1");
-    //设置头部
-    reqrio.setHeaders(headers);
-    //设置超时
-    Timeout timeout = new Timeout();
-    reqrio.setTimeout(timeout);
-    //请求
-    Response response = reqrio.get("https://m.so.com");
-    IO.println(response.length());
-    Headers resp_hdr = response.getHeader();
-    Gson gson = new Gson();
-    IO.println(gson.toJson(resp_hdr));
-}
+def ws_stream(ptr, size):
+    data = bytes(ptr[:size])
+    print(data)
+
+
+session = reqrio.Session()
+session.set_url('wss://127.0.0.1')
+session.ws_h1_io('GET /api/ws HTTP/1.1\r\nHost: 127.0.0.1:\r\n\r\n', CALLBACK(ws_stream))
 ```

@@ -66,6 +66,24 @@ impl WsFrame {
         res
     }
 
+    pub fn new_binary(mask: bool, payload: &[u8]) -> WsFrame {
+        let mut res = WsFrame::new();
+        res.typ.set_opcode(WsOpcode::BINARY);
+        res.typ.set_fin(true);
+        res.masker.mask = mask;
+        res.payload.copy_payload(payload, &res.masker);
+        res
+    }
+
+    pub fn new_text(mask: bool, payload: impl AsRef<str>) -> WsFrame {
+        let mut res = WsFrame::new();
+        res.typ.set_opcode(WsOpcode::TEXT);
+        res.typ.set_fin(true);
+        res.masker.mask = mask;
+        res.payload.copy_payload(payload.as_ref().as_bytes(), &res.masker);
+        res
+    }
+
     pub fn len(&self) -> usize {
         let mut len = 2;
         if self.masker.mask {

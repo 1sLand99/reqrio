@@ -37,9 +37,10 @@ impl<'a> Payload<'a> {
         }
     }
 
-    pub fn explicit(&self, aead: &Aead) -> &[u8] {
+    pub fn explicit_iv(&self, aead: &Aead) -> &[u8] {
         match aead {
             Aead::AES_128_GCM | Aead::AES_256_GCM => &self.value[..8],
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => &self.value[..16],
             _ => &self.value[..0]
         }
     }

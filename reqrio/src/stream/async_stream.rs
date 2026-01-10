@@ -97,11 +97,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
         self.read_buffer.async_read_limit(&mut self.stream, 5).await?;
         if self.read_buffer.len() < 5 { return Err(HlsError::InvalidHeadSize)?; }
         let payload_len = u16::from_be_bytes([self.read_buffer[3], self.read_buffer[4]]) as usize;
-        // if payload_len > self.read_buffer.capacity() - self.read_buffer.len() {
-        //
-        // }
         while self.read_buffer.len() - 5 < payload_len {
-            // println!("{} {} {:?} {}", payload_len, self.read_buffer.len(), &self.read_buffer[..10],String::from_utf8_lossy(&self.read_buffer[..10]).to_string());
             self.read_buffer.async_read_limit(&mut self.stream, payload_len + 5 - self.read_buffer.len()).await?;
         }
         if !self.handshake_finished { self.conn.update_session(&self.read_buffer.filled()[5..])?; }
@@ -117,7 +113,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                 for message in record.messages {
                     match message {
                         Message::ServerHello(v) => {
-                            // println!("{:#?}-{}", v.cipher_suite, connector.sni);
+                            println!("{:#?}-{}", v.cipher_suite, connector.sni);
                             self.conn.set_by_server_hello(v)?;
                         }
                         Message::ServerKeyExchange(v) => {
@@ -182,7 +178,7 @@ impl<S: AsyncRead + Unpin> AsyncRead for TlsStream<S> {
         while let Ok(mut record) = RecordLayer::from_bytes(&mut stream.read_buffer.filled_mut()[read..], stream.handshake_finished) {
             let rt = record.context_type.as_u8();
             let rl = record.len;
-            let mut pdr = stream.conn.read_message(&mut record)?.add(read);
+            let pdr = stream.conn.read_message(&mut record)?.add(read);
             if rt == 0x15 && &stream.read_buffer[pdr.clone()] == &[1, 0] {
                 return Poll::Ready(Ok(()));
             }

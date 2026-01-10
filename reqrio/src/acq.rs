@@ -8,7 +8,7 @@ use crate::packet::{Frame, FrameFlag, FrameType, Header, HeaderKey, Method, Resp
 use crate::stream::{ConnParam, Proxy, Stream};
 use crate::timeout::Timeout;
 use crate::url::Url;
-use crate::{Buffer, ReqCallback};
+use crate::{Buffer, ReqCallback, WsFrame, WsOpcode};
 use crate::json::JsonValue;
 #[cfg(use_cls)]
 use reqtls::Fingerprint;
@@ -18,7 +18,7 @@ pub struct AcReq {
     header: Header,
     url: Url,
     hack_coder: HPackCoding,
-    pub stream: Stream,
+    stream: Stream,
     timeout: Timeout,
     callback: Option<ReqCallback>,
     stream_id: u32,
@@ -118,7 +118,7 @@ impl AcReq {
             let res = tokio::time::timeout(self.timeout.handle(), self.handle_io()).await;
             match &res {
                 Ok(res) => if let Err(e) = res && i != self.timeout.handle_times() - 1 {
-                    if e.to_string().to_lowercase().contains("close")||e.to_string().contains("中止了") {
+                    if e.to_string().to_lowercase().contains("close") || e.to_string().contains("中止了") {
                         self.re_conn().await?;
                     }
                     println!("[AcReq] write/recv with error-{}, handle: {}/{}", e.to_string(), i + 2, self.timeout.handle_times());
@@ -246,6 +246,28 @@ impl AcReq {
                     continue;
                 }
                 if self.handle_h2_res(frame, &mut response)? { return Ok(response); };
+            }
+        }
+    }
+
+    pub async fn handle_websocket(&mut self, callback: impl AsyncFn(WsFrame) -> HlsResult<()>) -> HlsResult<()> {
+        let mut buffer = Buffer::with_capacity(0xFFFF);
+        loop {
+            self.stream.async_read(&mut buffer).await?;
+            while let Ok(frame) = WsFrame::from_buffer(&mut buffer) {
+                match frame.frame_type().op_code() {
+                    WsOpcode::TEXT | WsOpcode::BINARY => callback(frame).await?,
+                    WsOpcode::CONTINUATION => return Err("unexpected continuation message".into()),
+                    WsOpcode::CLOSE => return Err("peer closed".into()),
+                    WsOpcode::PING => {
+                        println!("PING-{}", frame.payload().len());
+                        let pong = WsFrame::new_pong(true, frame.payload().as_bytes());
+                        let bs=pong.to_bytes();
+                        println!("pong={:?}", bs);
+                        self.stream.async_write(&bs).await?;
+                    }
+                    WsOpcode::PONG => return Err("unexpected pong message".into()),
+                }
             }
         }
     }

@@ -27,7 +27,6 @@ pub enum HlsError {
     EncrypterNone,
     WsFrameTypeNone,
     DataTooShort,
-    // StdErr(Box<dyn Error>),
     Currently(String),
 }
 

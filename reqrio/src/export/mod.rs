@@ -1,13 +1,8 @@
-use std::collections::HashMap;
-use std::ffi::{c_char, CStr};
+use crate::error::HlsResult;
 use std::ptr::null_mut;
-use std::sync::{Arc, LazyLock, Mutex};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::thread::{sleep, spawn, JoinHandle};
 use std::time::Duration;
-use reqrio_json::JsonValue;
-use crate::error::HlsResult;
-use crate::json;
 
 mod req;
 mod wss;
@@ -18,135 +13,15 @@ fn unique_id() -> i32 {
     (res as i32).abs()
 }
 
-fn time_sec() -> u64 {
-    let sec = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-    sec
-}
+// fn time_sec() -> u64 {
+//     let sec = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+//     sec
+// }
 
 fn time_millis() -> u128 {
     let millis = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
     millis
 }
-
-struct Inner {
-    locked: bool,
-    locked_id: i32,
-    last_lock: u64,
-}
-
-pub struct DataLock {
-    inner: Arc<Mutex<Inner>>,
-}
-
-impl DataLock {
-    pub fn new() -> Self {
-        Self {
-            inner: Arc::new(Mutex::new(Inner {
-                locked: false,
-                locked_id: 0,
-                last_lock: 0,
-            })),
-        }
-    }
-
-    pub fn lock(&self) -> i32 {
-        loop {
-            let mut inner = self.inner.lock().unwrap();
-
-            if inner.locked && time_sec() - inner.last_lock < 15 {
-                drop(inner);
-                std::thread::sleep(std::time::Duration::from_millis(100));
-                continue;
-            }
-
-            inner.locked = true;
-            inner.locked_id = unique_id();
-            inner.last_lock = time_sec();
-
-            return inner.locked_id;
-        }
-    }
-}
-
-
-// #[repr(C)]
-// pub struct DataLock {
-//     locked: Arc<Mutex<bool>>,
-//     locked_id: i32,
-//     inner: Arc<Mutex<JsonValue>>,
-//     last_lock: u64,
-// }
-//
-// impl DataLock {
-//     pub fn lock(&self) -> HlsResult<i32> {
-//         loop {
-//             // 锁住 Arc 内部的 Mutex
-//             let mut guard = self.locked.lock()?;
-//
-//             if *guard && time_sec() - self.last_lock < 15 {
-//                 drop(guard);
-//                 std::thread::sleep(Duration::from_millis(100));
-//                 continue;
-//             }
-//
-//             // 成功加锁
-//             *guard = true;
-//
-//             // 这里需要修改 self.locked_id 和 self.last_lock
-//             // 因为 self 是不可变引用，我们必须把这两个字段放到 Mutex 内部，或者用 Atomic
-//             // 假设你把 last_lock 和 locked_id 也放进 Mutex 内部：
-//             let locked_id = unique_id();
-//             // self.locked_id.store(locked_id, Ordering::Relaxed); // 如果是 AtomicI32
-//             // self.last_lock.store(time_sec(), Ordering::Relaxed); // 如果是 AtomicI64 或 AtomicU64
-//
-//             return Ok(locked_id);
-//         }
-//     }
-//
-//     pub fn release_lock(&mut self, lid: i32) -> HlsResult<()> {
-//         if self.locked_id != lid { return Ok(()); }
-//         let mut locked = self.locked.lock()?;
-//         *locked = false;
-//         self.locked_id = 0;
-//         Ok(())
-//     }
-// }
-//
-// #[unsafe(no_mangle)]
-// pub extern "C" fn new_data_lock(data: *const c_char) -> *mut DataLock {
-//     || -> HlsResult<*mut DataLock> {
-//         let data = unsafe { CStr::from_ptr(data) }.to_bytes();
-//         Ok(Box::into_raw(Box::new(DataLock {
-//             locked: Arc::new(Mutex::new(false)),
-//             locked_id: 0,
-//             inner: Arc::new(Mutex::new(json::from_bytes(data)?)),
-//             last_lock: 0,
-//         })))
-//     }().unwrap_or_else(|_| null_mut())
-// }
-//
-// #[unsafe(no_mangle)]
-// pub extern "C" fn data_acquire_lock(data: *mut DataLock) -> i32 {
-//     || -> HlsResult<i32> {
-//         let data = unsafe { data.as_mut() }.ok_or("null ptr")?;
-//         data.lock()
-//     }().unwrap_or_else(|_| -1)
-// }
-//
-// #[unsafe(no_mangle)]
-// pub extern "C" fn data_release_lock(data: *mut DataLock, lid: i32) -> i32 {
-//     || -> HlsResult<i32> {
-//         let data = unsafe { data.as_mut() }.ok_or("null ptr")?;
-//         data.release_lock(lid)?;
-//         Ok(0)
-//     }().unwrap_or_else(|_| -1)
-// }
-
-
-// #[unsafe(no_mangle)]
-// pub extern "C" fn data_lock_free(data: *mut DataLock) {
-//     unsafe { drop(Box::from_raw(data)) }
-// }
 
 #[repr(C)]
 pub struct ThreadPool {

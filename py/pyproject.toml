@@ -8,7 +8,7 @@ version = "0.0.12"
 license = "MIT"
 requires-python = ">=3.9"
 description = "A http lib"
-#readme = "../reqrio/README.md"
+readme = "README.md"
 
 authors = [
   { name="xllgl2017", email="xinlanxi2017@gmail.com" },
@@ -26,4 +26,4 @@ hook-dirs = "reqrio:_pyinstaller_hooks_dir"
 
 
 [project.urls]
-Homepage = "https://github.com/xllgl2017/reqrio"
+Homepage = "https://github.com/xllgl2017/reqrio/tree/master/reqrio"

@@ -49,11 +49,11 @@ impl Cipher {
     pub fn encrypt<'a>(&mut self, mut buffer: RecordBuffer) -> RlsResult<usize> {
         let add_arr = buffer.aad(self.seq);
         let nonce = self.iv.as_array(self.seq);
-        buffer.add_explicit_iv(&nonce.as_ref()[4..]);
+        buffer.add_explicit_iv(&nonce);
         let len = self.cryptor.encrypt(CryptParam {
             aead: buffer.aead,
-            nonce: &self.iv.as_array(self.seq),
-            iv: &[],
+            nonce: &nonce,
+            iv: &nonce,
             aad: &add_arr,
             payload: &mut buffer.payload,
         })?;
@@ -65,16 +65,17 @@ impl Cipher {
     pub fn decrypt<'a>(&mut self, record: &'a mut RecordLayer<'a>, aead: &Aead) -> RlsResult<Range<usize>> {
         let add_arr = self.build_aad(&record, aead)?;
         let payload = record.messages[0].payload_mut().ok_or(RlsError::PayloadNone)?;
-        self.iv.set_explicit(payload.explicit(aead).to_vec());
+        self.iv.set_explicit(payload.explicit_iv(aead).to_vec());
         let nonce = match aead {
-            Aead::AES_128_GCM | Aead::AES_256_GCM => self.iv.as_ref(),
+            Aead::AES_128_GCM | Aead::AES_256_GCM => self.iv.decrypting_iv(),
             Aead::ChaCha20_POLY1305 => self.iv.as_array(self.seq),
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => self.iv.decrypting_iv(),
             _ => return Err("gen nonce none".into())
         };
         let len = self.cryptor.decrypt(CryptParam {
             aead,
             nonce: &nonce,
-            iv: &[],
+            iv: &nonce,
             aad: &add_arr,
             payload,
         })?;
@@ -98,11 +99,11 @@ mod tests {
     fn test_cipher() {
         let mut cipher = Cipher::none();
         let key_bs = rand::random::<[u8; 32]>().to_vec();
-        let iv = rand::random::<[u8; 12]>();
-        // let explicit = rand::random::<[u8; 8]>();
-        let aead = Aead::AES_128_CBC_SHA;
+        let iv = rand::random::<[u8; 16]>();
+        let explicit = rand::random::<[u8; 8]>();
+        let aead = Aead::AES_256_CBC_SHA;
         cipher.set_key(&key_bs, &aead).unwrap();
-        let iv = Iv::new(&iv, vec![]);
+        let iv = Iv::new(&iv, explicit.to_vec());
         cipher.set_iv(iv);
         let mut buffer = [0u8; 1024];
         let mut record_buffer = RecordBuffer::from_buffer(&aead, &mut buffer);
@@ -119,7 +120,5 @@ mod tests {
         };
         let pdr = cipher.decrypt(&mut record_buffer, &aead).unwrap();
         println!("{:?}", &buffer[pdr]);
-        // cipher.encrypt(&mut layer).unwrap(); //单独运行这个不报错，在前面的Finish后会偶尔会报错
-        // let _res = cipher.decrypt(layer).unwrap();
     }
 }

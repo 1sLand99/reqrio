@@ -26,7 +26,7 @@ class Session:
             r = self.dll.set_random_fingerprint(self.hid)
             if r == -1: raise Exception('set rand tls error')
 
-    def set_timeout(self, connect: int = 3, read: int = 3, write: int = 3, handle: int = 30, connect_times: int = 3,
+    def set_timeout(self, connect: int = 3000, read: int = 3000, write: int = 3000, handle: int = 30000, connect_times: int = 3,
                     handle_times: int = 3):
         """
         :param connect: 连接超时,默认3s
