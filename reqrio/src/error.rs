@@ -19,7 +19,7 @@ use reqtls::RlsError;
 
 #[derive(Debug)]
 pub enum HlsError {
-    NonePointer,
+    NullPointer,
     InvalidHeadSize,
     PeerClosedConnection,
     PayloadNone,
@@ -62,7 +62,7 @@ impl Display for HlsError {
             HlsError::PeerClosedConnection => f.write_str("PeerClosedConnection"),
             HlsError::PayloadNone => f.write_str("PayloadNone"),
             HlsError::DecrypterNone => f.write_str("DecrypterNone"),
-            HlsError::NonePointer => f.write_str("NonePointer"),
+            HlsError::NullPointer => f.write_str("NonePointer"),
             HlsError::EncrypterNone => f.write_str("EncrypterNone"),
             HlsError::WsFrameTypeNone => f.write_str("WsFrameTypeNone"),
             HlsError::DataTooShort => f.write_str("DataTooShort"),

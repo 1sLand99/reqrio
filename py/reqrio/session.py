@@ -18,7 +18,7 @@ class Session:
         self.dll = DLL
         self.callback = CALLBACK
 
-        self.hid = self.dll.init_http()
+        self.hid = self.dll.new_http()
         if self.hid == -1: raise Exception('init fail')
         r = self.dll.set_alpn(self.hid, alpn.value.encode('utf-8'))
         if r == -1: raise Exception('set alpn error')
@@ -57,20 +57,20 @@ class Session:
         r = self.dll.set_header_json(self.hid, name.encode('utf-8'), value.encode('utf-8'))
         if r == -1: raise Exception('add header error')
 
-    # def set_fingerprint(self, fingerprint: str):
-    #     """指纹数据，是tls握手过程中客户端发出的数据（转十六进制）,包含:
-    #
-    #     1.client_hello
-    #
-    #     2.client_key_exchange
-    #
-    #     3.change_cipher_spec"""
-    #     r = self.dll.set_fingerprint(self.hid, fingerprint.encode('utf-8'))
-    #     if r == -1: raise Exception('set fingerprint error')
+    def set_fingerprint(self, fingerprint: str):
+        """指纹数据，是tls握手过程中客户端发出的数据（转十六进制）,包含:
 
-    # def set_ja3(self, ja3: str):
-    #     r = self.dll.set_ja3(self.hid, ja3.encode('utf-8'))
-    #     if r == -1: raise Exception('set ja3 error')
+        1.client_hello
+
+        2.client_key_exchange
+
+        3.change_cipher_spec"""
+        r = self.dll.set_fingerprint(self.hid, fingerprint.encode('utf-8'))
+        if r == -1: raise Exception('set fingerprint error')
+
+    def set_ja3(self, ja3: str):
+        r = self.dll.set_ja3(self.hid, ja3.encode('utf-8'))
+        if r == -1: raise Exception('set ja3 error')
 
     def set_proxy(self, proxy: str):
         """设置代理，格式:http://127.0.0.1:10000、socks5://127.0.0.1:10001"""

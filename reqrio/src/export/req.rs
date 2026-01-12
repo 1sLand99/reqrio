@@ -1,220 +1,208 @@
 use crate::error::HlsResult;
-use crate::{json, ContentType, Cookie, Method, Proxy, ReqExt, ScReq, ALPN};
+use crate::{json, ContentType, Cookie, HlsError, Method, Proxy, ReqExt, ScReq, ALPN};
 #[cfg(use_cls)]
 use crate::Fingerprint;
-use std::collections::HashMap;
 use std::ffi::{c_char, CStr, CString};
+use std::ptr::null_mut;
 use std::slice;
-use std::sync::{LazyLock, Mutex};
-use crate::export::unique_id;
 use crate::timeout::Timeout;
 
-pub(crate) static CONNECTIONS: LazyLock<Mutex<HashMap<i32, ScReq>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
-
-
 #[unsafe(no_mangle)]
-pub extern "system" fn init_http() -> i32 {
-    || -> HlsResult<i32> {
-        let id = unique_id();
+pub extern "system" fn new_http() -> *mut ScReq {
+    || -> HlsResult<*mut ScReq> {
         let sc = ScReq::new();
-        let mut scs = CONNECTIONS.lock()?;
-        scs.insert(id, sc);
-        Ok(id)
-    }().unwrap_or(-1)
+        Ok(Box::into_raw(Box::new(sc)))
+    }().unwrap_or(null_mut())
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_header_json(id: i32, header: *const c_char) -> i32 {
+pub extern "system" fn set_header_json(req: *mut ScReq, header: *const c_char) -> i32 {
     || -> HlsResult<i32> {
-        let header = unsafe { CStr::from_ptr(header) }.to_str()?.to_string();
-        let header = json::parse(header)?;
-        let mut params = CONNECTIONS.lock()?;
-        params.get_mut(&id).ok_or("id 不存在")?.set_headers_json(header)?;
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
+        let header = unsafe { CStr::from_ptr(header) }.to_bytes();
+        let header = json::from_bytes(header)?;
+        req.set_headers_json(header)?;
         Ok(0)
     }().unwrap_or(-1)
 }
 
 #[cfg(use_cls)]
 #[unsafe(no_mangle)]
-pub extern "system" fn set_random_fingerprint(id: i32) -> i32 {
+pub extern "system" fn set_random_fingerprint(req: *mut ScReq) -> i32 {
     || -> HlsResult<i32> {
-        let mut params = CONNECTIONS.lock()?;
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let fingerprint = Fingerprint::random()?;
-        params.get_mut(&id).ok_or("id 不存在")?.set_fingerprint(fingerprint);
+        req.set_fingerprint(fingerprint);
         Ok(0)
     }().unwrap_or(-1)
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn add_header(id: i32, key: *const c_char, value: *const c_char) -> i32 {
+pub extern "system" fn add_header(req: *mut ScReq, key: *const c_char, value: *const c_char) -> i32 {
     || -> HlsResult<i32> {
-        let key = unsafe { CStr::from_ptr(key) }.to_str()?.to_string();
-        let value = unsafe { CStr::from_ptr(value) }.to_str()?.to_string();
-        let mut params = CONNECTIONS.lock()?;
-        params.get_mut(&id).ok_or("id 不存在")?.header_mut().insert(key, value)?;
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
+        let key = unsafe { CStr::from_ptr(key) }.to_str()?;
+        let value = unsafe { CStr::from_ptr(value) }.to_str()?;
+        req.header_mut().insert(key, value)?;
         Ok(0)
     }().unwrap_or(-1)
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_alpn(id: i32, alpn: *const c_char) -> i32 {
+pub extern "system" fn set_alpn(req: *mut ScReq, alpn: *const c_char) -> i32 {
     || -> HlsResult<i32> {
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let alpn = unsafe { CStr::from_ptr(alpn) }.to_bytes();
         let alpn = ALPN::from_slice(alpn);
-        let mut params = CONNECTIONS.lock()?;
-        params.get_mut(&id).ok_or("id 不存在")?.set_alpn(alpn);
+        req.set_alpn(alpn);
         Ok(0)
     }().unwrap_or(-1)
 }
 
 #[cfg(use_cls)]
 #[unsafe(no_mangle)]
-pub extern "system" fn set_fingerprint(id: i32, fingerprint: *const c_char) -> i32 {
+pub extern "system" fn set_fingerprint(req: *mut ScReq, fingerprint: *const c_char) -> i32 {
     || -> HlsResult<i32> {
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let fingerprint = unsafe { CStr::from_ptr(fingerprint) }.to_str()?.to_string();
         let fingerprint = Fingerprint::from_hex_all(fingerprint)?;
-        let mut params = CONNECTIONS.lock()?;
-        params.get_mut(&id).ok_or("id 不存在")?.set_fingerprint(fingerprint);
+        req.set_fingerprint(fingerprint);
         Ok(0)
     }().unwrap_or(-1)
 }
 
 #[cfg(use_cls)]
 #[unsafe(no_mangle)]
-pub extern "system" fn set_ja3(id: i32, ja3: *const c_char) -> i32 {
+pub extern "system" fn set_ja3(req: *mut ScReq, ja3: *const c_char) -> i32 {
     || -> HlsResult<i32> {
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let ja3 = unsafe { CStr::from_ptr(ja3) }.to_str()?.to_string();
         let fingerprint = Fingerprint::new_ja3(ja3)?;
-        let mut params = CONNECTIONS.lock()?;
-        params.get_mut(&id).ok_or("id 不存在")?.set_fingerprint(fingerprint);
+        req.set_fingerprint(fingerprint);
         Ok(0)
     }().unwrap_or(-1)
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_proxy(id: i32, addr: *const c_char) -> i32 {
+pub extern "system" fn set_proxy(req: *mut ScReq, addr: *const c_char) -> i32 {
     || -> HlsResult<i32> {
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let addr = unsafe { CStr::from_ptr(addr) }.to_str()?.to_string();
         let proxy = Proxy::try_from(addr)?;
-        let mut params = CONNECTIONS.lock()?;
-        params.get_mut(&id).ok_or("id 不存在")?.set_proxy(proxy);
+        req.set_proxy(proxy);
         Ok(0)
     }().unwrap_or(-1)
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_url(id: i32, url: *const c_char) -> i32 {
+pub extern "system" fn set_url(req: *mut ScReq, url: *const c_char) -> i32 {
     || -> HlsResult<i32> {
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let url = unsafe { CStr::from_ptr(url) }.to_str()?.to_string();
-        let mut params = CONNECTIONS.lock()?;
-        params.get_mut(&id).ok_or("id 不存在")?.set_url(url)?;
+        req.set_url(url)?;
         Ok(0)
     }().unwrap_or(-1)
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn add_param(id: i32, name: *const c_char, value: *const c_char) -> i32 {
+pub extern "system" fn add_param(req: *mut ScReq, name: *const c_char, value: *const c_char) -> i32 {
     || -> HlsResult<i32> {
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let name = unsafe { CStr::from_ptr(name) }.to_str()?.to_string();
         let value = unsafe { CStr::from_ptr(value) }.to_str()?.to_string();
-        let mut params = CONNECTIONS.lock()?;
-        params.get_mut(&id).ok_or("id 不存在")?.add_param(&name, &value);
+        req.add_param(&name, &value);
         Ok(0)
     }().unwrap_or(-1)
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_data(id: i32, data: *const c_char) -> i32 {
+pub extern "system" fn set_data(req: *mut ScReq, data: *const c_char) -> i32 {
     || -> HlsResult<i32> {
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let data = unsafe { CStr::from_ptr(data) }.to_bytes();
         let data = json::from_bytes(data)?;
-        let mut params = CONNECTIONS.lock()?;
-        params.get_mut(&id).ok_or("id 不存在")?.set_data(data);
+        req.set_data(data);
         Ok(0)
     }().unwrap_or(-1)
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_json(id: i32, data: *const c_char) -> i32 {
+pub extern "system" fn set_json(req: *mut ScReq, data: *const c_char) -> i32 {
     || -> HlsResult<i32> {
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let data = unsafe { CStr::from_ptr(data) }.to_bytes();
         let data = json::from_bytes(data)?;
-        let mut params = CONNECTIONS.lock()?;
-        params.get_mut(&id).ok_or("id 不存在")?.set_json(data);
+        req.set_json(data);
         Ok(0)
     }().unwrap_or(-1)
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_bytes(id: i32, bytes: *const c_char, len: u32) -> i32 {
+pub extern "system" fn set_bytes(req: *mut ScReq, bytes: *const c_char, len: u32) -> i32 {
     || -> HlsResult<i32> {
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         println!("{}", len);
         let bytes = unsafe { slice::from_raw_parts(bytes as *const u8, len as usize) }.to_vec();
-        let mut params = CONNECTIONS.lock()?;
-        params.get_mut(&id).ok_or("id 不存在")?.set_bytes(bytes);
+        req.set_bytes(bytes);
         Ok(0)
     }().unwrap_or(-1)
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_content_type(id: i32, context_type: *const c_char) -> i32 {
+pub extern "system" fn set_content_type(req: *mut ScReq, context_type: *const c_char) -> i32 {
     || -> HlsResult<i32> {
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let context_type = unsafe { CStr::from_ptr(context_type) }.to_str()?;
         let context_type = ContentType::try_from(context_type)?;
-        let mut params = CONNECTIONS.lock()?;
-        params.get_mut(&id).ok_or("id 不存在")?.header_mut().set_content_type(context_type);
+        req.header_mut().set_content_type(context_type);
         Ok(0)
     }().unwrap_or(-1)
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_timeout(id: i32, timeout: *const c_char) -> i32 {
+pub extern "system" fn set_timeout(req: *mut ScReq, timeout: *const c_char) -> i32 {
     || -> HlsResult<i32> {
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let timeout = unsafe { CStr::from_ptr(timeout) }.to_bytes();
         let data = json::from_bytes(timeout)?;
         let timeout = Timeout::try_from(data)?;
-        let mut params = CONNECTIONS.lock()?;
-        params.get_mut(&id).ok_or("id 不存在")?.set_timeout(timeout);
+        req.set_timeout(timeout);
         Ok(0)
     }().unwrap_or(-1)
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_cookie(id: i32, cookie: *const c_char) -> i32 {
+pub extern "system" fn set_cookie(req: *mut ScReq, cookie: *const c_char) -> i32 {
     || -> HlsResult<i32> {
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let cookie = unsafe { CStr::from_ptr(cookie) }.to_str()?;
-        let mut params = CONNECTIONS.lock()?;
-        params.get_mut(&id).ok_or("id 不存在")?.header_mut().set_cookie(cookie)?;
+        req.header_mut().set_cookie(cookie)?;
         Ok(0)
     }().unwrap_or(-1)
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn add_cookie(id: i32, name: *const c_char, value: *const c_char) -> i32 {
+pub extern "system" fn add_cookie(req: *mut ScReq, name: *const c_char, value: *const c_char) -> i32 {
     || -> HlsResult<i32> {
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let name = unsafe { CStr::from_ptr(name) }.to_str()?;
         let value = unsafe { CStr::from_ptr(value) }.to_str()?;
         let cookie = Cookie::new_cookie(name, value);
-        let mut params = CONNECTIONS.lock()?;
-        params.get_mut(&id).ok_or("id 不存在")?.header_mut().add_cookie(cookie);
+        req.header_mut().add_cookie(cookie);
         Ok(0)
     }().unwrap_or(-1)
 }
 
 
-fn send(id: i32, method: Method) -> *mut c_char {
+fn send(req: *mut ScReq, method: Method) -> *mut c_char {
     let res = || -> HlsResult<String> {
-        let mut acs = CONNECTIONS.lock()?;
-        let mut ac = acs.remove(&id).ok_or("id  不存在")?;
-        drop(acs);
-        ac.header_mut().set_method(method);
-        let mut resp = ac.stream_io()?;
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
+        req.header_mut().set_method(method);
+        let mut resp = req.stream_io()?;
         let res = json::object! {
             "header":resp.header(),
             "body":hex::encode(resp.decode_body()?.as_bytes()?),
         };
-        let mut acs = CONNECTIONS.lock()?;
-        acs.insert(id, ac);
         Ok(hex::encode(res.dump()))
     };
     match res() {
@@ -229,55 +217,52 @@ fn send(id: i32, method: Method) -> *mut c_char {
     }
 }
 #[unsafe(no_mangle)]
-pub extern "system" fn reconnect(id: i32) -> i32 {
+pub extern "system" fn reconnect(req: *mut ScReq) -> i32 {
     || -> HlsResult<i32> {
-        let mut params = CONNECTIONS.lock()?;
-        params.get_mut(&id).ok_or("id 不存在")?.re_conn()?;
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
+        req.re_conn()?;
         Ok(0)
     }().unwrap_or(-1)
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn get(id: i32) -> *mut c_char {
-    send(id, Method::GET)
+pub extern "system" fn get(req: *mut ScReq) -> *mut c_char {
+    send(req, Method::GET)
 }
 
 
 #[unsafe(no_mangle)]
-pub extern "system" fn post(id: i32) -> *mut c_char {
-    send(id, Method::POST)
+pub extern "system" fn post(req: *mut ScReq) -> *mut c_char {
+    send(req, Method::POST)
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn options(id: i32) -> *mut c_char {
-    send(id, Method::OPTIONS)
+pub extern "system" fn options(req: *mut ScReq) -> *mut c_char { send(req, Method::OPTIONS) }
+
+#[unsafe(no_mangle)]
+pub extern "system" fn put(req: *mut ScReq) -> *mut c_char {
+    send(req, Method::PUT)
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn put(id: i32) -> *mut c_char {
-    send(id, Method::PUT)
+pub extern "system" fn head(req: *mut ScReq) -> *mut c_char {
+    send(req, Method::HEAD)
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn head(id: i32) -> *mut c_char {
-    send(id, Method::HEAD)
+pub extern "system" fn delete(req: *mut ScReq) -> *mut c_char {
+    send(req, Method::DELETE)
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn delete(id: i32) -> *mut c_char {
-    send(id, Method::DELETE)
+pub extern "system" fn trach(req: *mut ScReq) -> *mut c_char {
+    send(req, Method::TRACH)
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn trach(id: i32) -> *mut c_char {
-    send(id, Method::TRACH)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn destroy(id: i32) {
-    if let Ok(mut acs) = CONNECTIONS.lock() {
-        acs.remove(&id);
-    }
+pub extern "C" fn destroy(req: *mut ScReq) {
+    let req = unsafe { Box::from_raw(req) };
+    drop(req);
 }
 
 #[unsafe(no_mangle)]
@@ -290,10 +275,10 @@ pub type Callback = extern "C" fn(*const c_char, u32);
 
 
 #[unsafe(no_mangle)]
-pub extern "C" fn register(id: i32, callback: Callback) -> i32 {
+pub extern "C" fn register(req: *mut ScReq, callback: Callback) -> i32 {
     || -> HlsResult<i32> {
-        let mut params = CONNECTIONS.lock()?;
-        params.get_mut(&id).ok_or("id 不存在")?.set_callback(move |bs| {
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
+        req.set_callback(move |bs| {
             callback(bs.as_ptr() as *const c_char, bs.len() as u32);
             Ok(())
         });

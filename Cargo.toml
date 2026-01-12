@@ -1,14 +1,12 @@
 [workspace]
 resolver = "1"
 members = [
-    "json",
-    "reqtls",
     "reqrio"
 ]
 
 [workspace.dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
-reqrio-json = { path = "json", version = "0.1.4" }
+reqrio-json = { path = "json", version = "0.1.5" }
 reqtls = { path = "reqtls", version = "0.0.13" }
 
 [profile.release]

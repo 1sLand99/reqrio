@@ -17,14 +17,14 @@ impl<S: Read + Write> SyncStream<S> {
         let client_random = rand::random::<[u8; 32]>();
         let mut conn = Connection::new(client_random.to_vec());
         let mut client_hello = RecordLayer::from_bytes(param.fingerprint.client_hello_mut(), false)?;
-        client_hello.messages[0].client_mut().ok_or(HlsError::NonePointer)?.set_random(client_random.clone());
-        client_hello.messages[0].client_mut().ok_or(HlsError::NonePointer)?.set_server_name(param.url.addr().host());
-        client_hello.messages[0].client_mut().ok_or(HlsError::NonePointer)?.set_session_id(rand::random());
+        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_random(client_random.clone());
+        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_server_name(param.url.addr().host());
+        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_session_id(rand::random());
         match param.alpn {
-            ALPN::Http20 => client_hello.messages[0].client_mut().ok_or(HlsError::NonePointer)?.add_h2_alpn(),
-            _ => client_hello.messages[0].client_mut().ok_or(HlsError::NonePointer)?.remove_h2_alpn()
+            ALPN::Http20 => client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.add_h2_alpn(),
+            _ => client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.remove_h2_alpn()
         }
-        client_hello.messages[0].client_mut().ok_or(HlsError::NonePointer)?.remove_tls13();
+        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.remove_tls13();
         let bs = client_hello.handshake_bytes();
         conn.update_session(&bs[5..])?;
         stream.write_all(&bs)?;

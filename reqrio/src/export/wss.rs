@@ -1,9 +1,6 @@
-use super::req::{Callback, CONNECTIONS};
 use crate::error::HlsResult;
 use std::ffi::{c_char, CStr, CString};
 use std::ptr::null_mut;
-use std::thread::sleep;
-use std::time::Duration;
 use crate::{json, HlsError, Proxy, ScReq, Url, WebSocket, WebSocketBuilder, WsFrame, WsOpcode};
 
 #[unsafe(no_mangle)]
@@ -14,7 +11,7 @@ pub extern "system" fn build_ws() -> *mut WebSocketBuilder<ScReq> {
 #[unsafe(no_mangle)]
 pub extern "system" fn ws_add_header(builder: *mut WebSocketBuilder<ScReq>, name: *const c_char, value: *const c_char) -> i32 {
     || -> HlsResult<i32>{
-        let builder = unsafe { builder.as_mut().ok_or(HlsError::NonePointer) }?;
+        let builder = unsafe { builder.as_mut().ok_or(HlsError::NullPointer) }?;
         let name = unsafe { CStr::from_ptr(name) }.to_str()?;
         let value = unsafe { CStr::from_ptr(value) }.to_str()?;
         builder.add_header(name, value)?;
@@ -25,7 +22,7 @@ pub extern "system" fn ws_add_header(builder: *mut WebSocketBuilder<ScReq>, name
 #[unsafe(no_mangle)]
 pub extern "system" fn ws_set_proxy(builder: *mut WebSocketBuilder<ScReq>, proxy: *const c_char) -> i32 {
     || -> HlsResult<i32>{
-        let builder = unsafe { builder.as_mut().ok_or(HlsError::NonePointer) }?;
+        let builder = unsafe { builder.as_mut().ok_or(HlsError::NullPointer) }?;
         let proxy = unsafe { CStr::from_ptr(proxy) }.to_str()?;
         let url = Url::try_from(proxy)?;
         builder.set_proxy(Proxy::HttpPlain(url.addr().clone()));
@@ -36,7 +33,7 @@ pub extern "system" fn ws_set_proxy(builder: *mut WebSocketBuilder<ScReq>, proxy
 #[unsafe(no_mangle)]
 pub extern "system" fn ws_set_url(builder: *mut WebSocketBuilder<ScReq>, url: *const c_char) -> i32 {
     || -> HlsResult<i32>{
-        let builder = unsafe { builder.as_mut().ok_or(HlsError::NonePointer) }?;
+        let builder = unsafe { builder.as_mut().ok_or(HlsError::NullPointer) }?;
         let url = unsafe { CStr::from_ptr(url) }.to_str()?;
         builder.set_url(url)?;
         Ok(0)
@@ -46,7 +43,7 @@ pub extern "system" fn ws_set_url(builder: *mut WebSocketBuilder<ScReq>, url: *c
 #[unsafe(no_mangle)]
 pub extern "system" fn ws_set_uri(builder: *mut WebSocketBuilder<ScReq>, uri: *const c_char) -> i32 {
     || -> HlsResult<i32>{
-        let builder = unsafe { builder.as_mut().ok_or(HlsError::NonePointer) }?;
+        let builder = unsafe { builder.as_mut().ok_or(HlsError::NullPointer) }?;
         let uri = unsafe { CStr::from_ptr(uri) }.to_str()?;
         builder.set_uri(uri)?;
         Ok(0)
@@ -78,7 +75,7 @@ pub extern "system" fn open_ws_raw(url: *const c_char, context: *const c_char) -
 #[unsafe(no_mangle)]
 pub extern "system" fn ws_read(websocket: *mut WebSocket) -> *mut c_char {
     || -> HlsResult<*mut c_char>{
-        let websocket = unsafe { websocket.as_mut() }.ok_or(HlsError::NonePointer)?;
+        let websocket = unsafe { websocket.as_mut() }.ok_or(HlsError::NullPointer)?;
         let frame = websocket.read_frame()?;
         let res = json::object! {
             "opcode":*frame.frame_type().op_code() as u8,
@@ -95,7 +92,7 @@ pub extern "system" fn ws_read(websocket: *mut WebSocket) -> *mut c_char {
 #[unsafe(no_mangle)]
 pub extern "system" fn ws_write(websocket: *mut WebSocket, op_code: i32, mask: bool, payload: *const c_char) -> i32 {
     || -> HlsResult<i32> {
-        let websocket = unsafe { websocket.as_mut() }.ok_or(HlsError::NonePointer)?;
+        let websocket = unsafe { websocket.as_mut() }.ok_or(HlsError::NullPointer)?;
         let payload = unsafe { CStr::from_ptr(payload) }.to_bytes();
         let opcode = WsOpcode::from_u8(op_code as u8).ok_or("opcode unknow")?;
         let frame = WsFrame::new_frame(opcode, mask, payload);

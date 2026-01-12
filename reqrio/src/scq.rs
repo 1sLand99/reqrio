@@ -15,6 +15,7 @@ use reqtls::Fingerprint;
 use std::mem;
 use crate::ReqCallback;
 
+#[repr(C)]
 pub struct ScReq {
     header: Header,
     url: Url,
