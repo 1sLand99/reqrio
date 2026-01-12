@@ -173,6 +173,10 @@ impl WebSocket {
             }
         }
     }
+
+    pub fn shutdown(mut self) -> HlsResult<()> {
+        self.stream.sync_shutdown()
+    }
 }
 
 #[cfg(aync)]
@@ -212,5 +216,9 @@ impl WebSocket {
                 return Ok(frame);
             }
         }
+    }
+    
+    pub async fn async_shutdown(mut self) -> HlsResult<()> {
+        self.stream.async_shutdown().await
     }
 }

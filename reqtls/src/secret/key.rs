@@ -1,3 +1,4 @@
+use p256::elliptic_curve::Generate;
 use super::super::message::key_exchange::NamedCurve;
 use crate::error::RlsResult;
 use crate::rand::CryptRand;
@@ -20,12 +21,12 @@ impl PriKey {
             }
             NamedCurve::Secp256r1 => {
                 let mut rng = CryptRand::new();
-                let keypair = p256::ecdh::EphemeralSecret::try_from_rng(&mut rng)?;
+                let keypair = p256::ecdh::EphemeralSecret::try_generate_from_rng(&mut rng)?;
                 Ok(PriKey::Secp256r1(keypair))
             }
             NamedCurve::Secp384r1 => {
                 let mut rng = CryptRand::new();
-                let keypair = p384::ecdh::EphemeralSecret::try_from_rng(&mut rng)?;
+                let keypair = p384::ecdh::EphemeralSecret::try_generate_from_rng(&mut rng)?;
                 Ok(PriKey::Secp384r1(keypair))
             }
         }

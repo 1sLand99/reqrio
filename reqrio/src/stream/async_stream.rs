@@ -112,7 +112,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                 for message in record.messages {
                     match message {
                         Message::ServerHello(v) => {
-                            println!("{:#?}-{}", v.cipher_suite, connector.sni);
+                            // println!("{:#?}-{}", v.cipher_suite, connector.sni);
                             self.conn.set_by_server_hello(v)?;
                         }
                         Message::ServerKeyExchange(v) => {

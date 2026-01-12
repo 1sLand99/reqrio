@@ -14,7 +14,7 @@ crate-type = ['rlib', 'cdylib']
 [dependencies]
 reqrio-json = { workspace = true }
 brotli = "8.0.2"
-flate2 = "1.1.5"
+flate2 = "1.1.8"
 zstd = "0.13.3"
 httlib-hpack = "0.1.3"
 #httlib-huffman = "0.3.4"
@@ -33,7 +33,7 @@ cls_sync = ["reqtls"]
 cls_async = ["tokio", "reqtls"]
 std_sync = ["rustls", "webpki-roots"]
 std_async = ["tokio", "tokio-rustls", "rustls", 'webpki-roots']
-export = ["cls_sync", "hex"]
+export = ["hex"]
 
 [build-dependencies]
 cfg_aliases = "0.2.1"

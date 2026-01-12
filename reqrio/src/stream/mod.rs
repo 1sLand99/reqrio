@@ -79,9 +79,9 @@ impl Stream {
         self.kind.async_write(data).await
     }
 
-    // pub async fn async_shutdown(&mut self) -> HlsResult<()> {
-    //     self.kind.async_shutdown().await
-    // }
+    pub async fn async_shutdown(&mut self) -> HlsResult<()> {
+        self.kind.async_shutdown().await
+    }
 }
 
 #[cfg(sync)]
@@ -99,8 +99,8 @@ impl Stream {
         self.kind.sync_write(data)
     }
 
-    // pub fn sync_shutdown(&mut self) -> HlsResult<()> {
-    //     self.kind.sync_shutdown()
-    // }
+    pub fn sync_shutdown(&mut self) -> HlsResult<()> {
+        self.kind.sync_shutdown()
+    }
 }
 

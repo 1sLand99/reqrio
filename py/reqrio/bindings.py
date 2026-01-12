@@ -31,8 +31,8 @@ DLL.set_alpn.restype = c_int
 # DLL.set_ja3.argtypes = [c_void_p, c_char_p]
 # DLL.set_ja3.restype = c_int
 
-DLL.set_random_fingerprint.argtypes = [c_void_p]
-DLL.set_random_fingerprint.restype = c_int
+# DLL.set_random_fingerprint.argtypes = [c_void_p]
+# DLL.set_random_fingerprint.restype = c_int
 
 DLL.set_proxy.argtypes = [c_void_p, c_char_p]
 DLL.set_proxy.restype = c_int
@@ -145,4 +145,4 @@ DLL.ws_read.restype = c_void_p
 DLL.ws_write.argtypes = [c_void_p, c_int, c_bool, c_void_p]
 DLL.ws_write.restype = c_int
 
-DLL.ws_free.argtypes = [c_void_p]
+DLL.ws_close.argtypes = [c_void_p]

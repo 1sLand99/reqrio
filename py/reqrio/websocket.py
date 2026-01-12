@@ -69,4 +69,4 @@ class WebSocket:
         if r == -1: raise Exception("ws写帧失败")
 
     def close(self):
-        DLL.ws_free(self.ws)
+        DLL.ws_close(self.ws)
