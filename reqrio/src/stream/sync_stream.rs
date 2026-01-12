@@ -27,8 +27,7 @@ impl<S: Read + Write> SyncStream<S> {
         client_hello.messages[0].client_mut().ok_or(HlsError::NonePointer)?.remove_tls13();
         let bs = client_hello.handshake_bytes();
         conn.update_session(&bs[5..])?;
-        stream.write(&bs)?;
-        stream.flush()?;
+        stream.write_all(&bs)?;
         let mut stream = SyncStream {
             stream,
             conn,
@@ -72,7 +71,7 @@ impl<S: Read + Write> SyncStream<S> {
                         Message::ServerHello(v) => self.conn.set_by_server_hello(v)?,
                         Message::ServerKeyExchange(v) => {
                             // println!("{:#?}", v);
-                            self.conn.set_by_exchange_key(v.hellman_param().pub_key().clone(), v.hellman_param().named_curve().clone())
+                            self.conn.set_by_exchange_key(v.hellman_param().pub_key().clone(), *v.hellman_param().named_curve())
                         }
                         Message::ServerHelloDone(_) => {
                             let keypair = PriKey::new(self.conn.named_curve())?;
@@ -81,19 +80,16 @@ impl<S: Read + Write> SyncStream<S> {
                             client_key_exchange.messages[0].client_key_exchange_mut().unwrap().set_pub_key(client_pub_key);
                             let bs = client_key_exchange.handshake_bytes();
                             self.conn.update_session(&bs[5..])?;
-                            self.stream.write(&bs)?;
-                            self.stream.flush()?;
+                            self.stream.write_all(&bs)?;
 
-                            self.stream.write(&param.fingerprint.change_cipher_spec())?;
-                            self.stream.flush()?;
+                            self.stream.write_all(param.fingerprint.change_cipher_spec())?;
                             let share_secret = keypair.diffie_hellman(self.conn.server_pub_key().as_ref())?;
                             let handshake_hash = self.conn.session_hash()?;
                             self.conn.make_cipher(&share_secret, handshake_hash.clone())?;
 
                             self.buffer.reset();
                             let record_len = self.conn.make_finish_message(&handshake_hash, &mut self.buffer[..])?;
-                            self.stream.write(&self.buffer[..record_len])?;
-                            self.stream.flush()?;
+                            self.stream.write_all(&self.buffer[..record_len])?;
                             break;
                         }
                         _ => {}
@@ -112,8 +108,7 @@ impl<S: Read + Write> SyncStream<S> {
         // self.buffer.set_len(aead.encrypted_payload_len(2) + 5);
         // self.buffer[aead.payload_start()..aead.payload_start() + 2].copy_from_slice(&[1, 0]);
         let record_len = self.conn.make_message(RecordType::Alert, &mut self.buffer[..], &[1, 0])?;
-        self.stream.write(&self.buffer[..record_len])?;
-        self.stream.flush()?;
+        self.stream.write_all(&self.buffer[..record_len])?;
         Ok(())
     }
 
@@ -132,7 +127,7 @@ impl<S: Read> Read for SyncStream<S> {
         let mut record = RecordLayer::from_bytes(self.buffer.filled_mut(), self.handshake_finished)?;
         let rt = record.context_type.as_u8();
         let pdr = self.conn.read_message(&mut record)?;
-        if rt == 0x15 && &self.buffer[pdr.clone()] == &[1, 0] {
+        if rt == 0x15 && self.buffer[pdr.clone()] == [1, 0] {
             return Err(HlsError::PeerClosedConnection.into());
         }
         buf[..pdr.len()].copy_from_slice(&self.buffer[pdr.clone()]);

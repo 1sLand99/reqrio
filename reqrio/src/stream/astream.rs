@@ -1,6 +1,8 @@
 #[cfg(cls_async)]
 use super::async_stream::TlsStream;
 use crate::error::HlsResult;
+#[cfg(cls_async)]
+use crate::stream::async_stream::TlsConnector;
 use crate::stream::ConnParam;
 use crate::Buffer;
 #[cfg(feature = "std_async")]
@@ -21,8 +23,6 @@ use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream;
 #[cfg(all(feature = "std_async", not(feature = "cls_sync")))]
 use tokio_rustls::TlsConnector;
-#[cfg(cls_async)]
-use crate::stream::async_stream::TlsConnector;
 
 pub trait TimeoutRW<S: AsyncReadExt + AsyncWriteExt + Unpin> {
     fn stream(&mut self) -> &mut S;

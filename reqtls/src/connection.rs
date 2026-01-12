@@ -70,14 +70,12 @@ impl Connection {
             false => ("master secret", [self.client_random.as_bytes(), self.server_random.as_bytes()].concat())
         };
         let mut master_secret = [0u8; 48];
-        self.prf.prf(&share_secret, label, &seed, &mut master_secret)?; //"master secret"
+        self.prf.prf(share_secret, label, &seed, &mut master_secret)?; //"master secret"
         let mut f = OpenOptions::new().create(true).append(true).open("2.log")?;
-        f.write(format!("CLIENT_RANDOM {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(&master_secret)).as_bytes())?;
-        f.flush()?;
+        f.write_all(format!("CLIENT_RANDOM {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(master_secret)).as_bytes())?;
         let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
         let block_size = (aead.key_len() + aead.fix_iv_len()) * 2 + aead.explicit_len();
-        let mut key_block = Vec::with_capacity(block_size);
-        key_block.resize(block_size, 0);
+        let mut key_block = vec![0; block_size];
         let seed = [self.server_random.as_bytes(), self.client_random.as_bytes()].concat();
         self.prf.prf(&master_secret, "key expansion", &seed, key_block.as_mut_slice())?;
         let (wk, remain) = key_block.split_at(aead.key_len());
@@ -96,10 +94,10 @@ impl Connection {
     ///#### tls Record结构-5bytes(头部)
     /// * aes-gcm: payload(8byte的explicit+16payload+16byte的tag)
     /// * chacha20_poly1305: payload(16payload+16byte tag)
-    pub fn make_finish_message<'a>(&mut self, session_hash: &[u8], buffer: &'a mut [u8]) -> RlsResult<usize> {
+    pub fn make_finish_message(&mut self, session_hash: &[u8], buffer: &mut [u8]) -> RlsResult<usize> {
         let mut finish = [0; 16];
         finish[0..4].copy_from_slice(&[0x14, 0x00, 0x0, 0xc]);
-        self.prf.prf(&self.master_secret, "client finished", &session_hash, &mut finish[4..16])?;
+        self.prf.prf(&self.master_secret, "client finished", session_hash, &mut finish[4..16])?;
         self.make_message(RecordType::HandShake, buffer, &finish)
     }
 

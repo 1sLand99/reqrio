@@ -141,21 +141,17 @@ impl StreamKind {
     pub fn sync_write(&mut self, buf: &[u8]) -> HlsResult<()> {
         match self {
             StreamKind::SyncHttp(s) => {
-                s.write(buf)?;
-                s.flush()?;
+                s.write_all(buf)?;
                 Ok(())
             }
             #[cfg(cls_sync)]
             StreamKind::SyncHttps(s) => {
-                s.write(buf)?;
-                // s.write_tls(buf)?;
-                s.flush()?;
+                s.write_all(buf)?;
                 Ok(())
             }
             #[cfg(std_sync)]
             StreamKind::StdSyncHttps(s) => {
-                s.write(buf)?;
-                s.flush()?;
+                s.write_all(buf)?;
                 Ok(())
             }
             _ => Err("Unsupported sync write".into()),

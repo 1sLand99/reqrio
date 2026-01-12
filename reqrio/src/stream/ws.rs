@@ -125,18 +125,21 @@ impl WebSocket {
     }
 }
 
-#[cfg(sync)]
 impl WebSocket {
-    pub fn sync_build() -> WebSocketBuilder<ScReq> {
-        WebSocketBuilder(ScReq::new().with_timeout(Timeout::longer()).with_alpn(ALPN::Http11))
-    }
-
     fn new(stream: Stream) -> Self {
         WebSocket {
             stream,
             buffer: Buffer::with_capacity(0xFFFF),
         }
     }
+}
+
+#[cfg(sync)]
+impl WebSocket {
+    pub fn sync_build() -> WebSocketBuilder<ScReq> {
+        WebSocketBuilder(ScReq::new().with_timeout(Timeout::longer()).with_alpn(ALPN::Http11))
+    }
+
 
     fn connect_sync(mut req: ScReq, context: impl AsRef<[u8]>) -> HlsResult<Stream> {
         let resp = req.h1_io(context)?;
@@ -176,13 +179,6 @@ impl WebSocket {
 impl WebSocket {
     pub fn async_build() -> WebSocketBuilder<AcReq> {
         WebSocketBuilder(AcReq::new().with_timeout(Timeout::longer()).with_alpn(ALPN::Http11))
-    }
-
-    fn new(stream: Stream) -> Self {
-        WebSocket {
-            stream,
-            buffer: Buffer::with_capacity(0xFFFF),
-        }
     }
 
     async fn connect_async(mut req: AcReq, context: impl AsRef<[u8]>) -> HlsResult<Stream> {

@@ -1,4 +1,4 @@
-use reqrio::{json, AcReq, ReqExt, WebSocket, WsFrame, WsOpcode, ALPN};
+use reqrio::{json, AcReq, ReqExt, ALPN};
 
 #[tokio::main]
 async fn main() {

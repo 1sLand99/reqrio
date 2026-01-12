@@ -57,7 +57,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
         let mut conn = Connection::new(client_random.to_vec());
         let mut record = RecordLayer::from_bytes(connector.fingerprint.client_hello_mut(), false)?;
         let message = record.messages.get_mut(0).ok_or(RlsError::ClientHelloNone)?;
-        message.client_mut().ok_or(HlsError::NonePointer)?.set_random(client_random.clone());
+        message.client_mut().ok_or(HlsError::NonePointer)?.set_random(client_random);
         message.client_mut().ok_or(HlsError::NonePointer)?.set_server_name(connector.sni);
         message.client_mut().ok_or(HlsError::NonePointer)?.set_session_id(rand::random());
         match connector.alpn {
@@ -67,8 +67,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
         message.client_mut().ok_or(HlsError::NonePointer)?.remove_tls13();
         let bs = record.handshake_bytes();
         conn.update_session(&bs[5..])?;
-        stream.write(&bs).await?;
-        stream.flush().await?;
+        stream.write_all(&bs).await?;
         let mut stream = TlsStream {
             stream,
             conn,
@@ -118,7 +117,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                         }
                         Message::ServerKeyExchange(v) => {
                             // println!("{:#?}", v);
-                            self.conn.set_by_exchange_key(v.hellman_param().pub_key().clone(), v.hellman_param().named_curve().clone())
+                            self.conn.set_by_exchange_key(v.hellman_param().pub_key().clone(), *v.hellman_param().named_curve())
                         }
                         Message::ServerHelloDone(_) => {
                             let keypair = PriKey::new(self.conn.named_curve())?;
@@ -130,7 +129,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             self.conn.update_session(&bs[5..])?;
                             self.stream.write_all(&bs).await?;
 
-                            self.stream.write_all(&connector.fingerprint.change_cipher_spec()).await?;
+                            self.stream.write_all(connector.fingerprint.change_cipher_spec()).await?;
                             let share_secret = keypair.diffie_hellman(self.conn.server_pub_key().as_ref())?;
                             let handshake_hash = self.conn.session_hash()?;
                             self.conn.make_cipher(&share_secret, handshake_hash.clone())?;
@@ -179,7 +178,7 @@ impl<S: AsyncRead + Unpin> AsyncRead for TlsStream<S> {
             let rt = record.context_type.as_u8();
             let rl = record.len;
             let pdr = stream.conn.read_message(&mut record)?.add(read);
-            if rt == 0x15 && &stream.read_buffer[pdr.clone()] == &[1, 0] {
+            if rt == 0x15 && stream.read_buffer[pdr.clone()] == [1, 0] {
                 return Poll::Ready(Ok(()));
             }
             buf.put_slice(&stream.read_buffer[pdr]);
@@ -205,13 +204,8 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for TlsStream<S> {
             stream.pending = (0..chucks.len()).collect();
         }
         loop {
-            if stream.pending.len() == 0 { break; }
-            // let aead = stream.conn.aead().ok_or(RlsError::AeadNone)?;
-            // let record_len = aead.encrypted_payload_len(chucks[stream.pending[0]].len()) + 5;
+            if stream.pending.is_empty() { break; }
             if stream.write_buffer.len() == 0 {
-                // let push_len = stream.write_buffer.push_slice_in(aead.payload_start(), chucks[stream.pending[0]]);
-                // let record_len = aead.encrypted_payload_len(push_len) + 5;
-                // stream.write_buffer.set_len(record_len);
                 let record_len = stream.conn.make_message(RecordType::ApplicationData, &mut stream.write_buffer[..], chucks[stream.pending[0]])?;
                 stream.write_buffer.set_len(record_len);
                 stream.wrote_len += chucks[stream.pending[0]].len();
