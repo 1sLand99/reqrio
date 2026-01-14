@@ -72,6 +72,10 @@ public class Headers {
         }
     }
 
+    public int getStatus() {
+        return status;
+    }
+
     public List<Header> getKeys() {
         return keys;
     }

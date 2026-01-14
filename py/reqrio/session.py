@@ -93,9 +93,9 @@ class Session:
         r = self.dll.set_bytes(self.hid, bs, len(bs))
         if r == -1: raise Exception('set bytes error')
 
-    def set_content_type(self, content_type: str):
-        r = self.dll.set_content_type(self.hid, content_type.encode('utf-8'))
-        if r == -1: raise Exception('set content_type error')
+    def set_text(self, text: str):
+        r = self.dll.set_text(self.hid, text.encode('utf-8'))
+        if r == -1: raise Exception('set text error')
 
     def set_cookie(self, cookie: str):
         r = self.dll.set_cookie(self.hid, cookie.encode('utf-8'))

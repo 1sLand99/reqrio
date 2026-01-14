@@ -7,73 +7,78 @@ import com.sun.jna.Pointer;
 import java.io.IOException;
 
 interface ReqrioLibrary extends Library {
-    ReqrioLibrary INSTANCE = loadLibrary();
+    Pointer new_http();
 
-    int init_http();
+    int set_header_json(Pointer req, String header);
 
-    int set_header_json(int id, String header);
+    int set_random_fingerprint(Pointer req);
 
-    int add_header(int id, String key, String value);
+    int add_header(Pointer req, String key, String value);
 
-    int set_alpn(int id, String alpn);
+    int set_alpn(Pointer req, String alpn);
 
-    int set_proxy(int id, String proxy);
+    int set_fingerprint(Pointer req, String tls);
 
-    int set_url(int id, String url);
+    int set_ja3(Pointer req, String ja3);
 
-    int add_param(int id, String name, String value);
+    int set_ja4(Pointer req, String ja4);
 
-    int set_data(int id, String data);
+    int set_proxy(Pointer req, String proxy);
 
-    int set_json(int id, String json);
+    int set_url(Pointer req, String url);
 
-    int set_content_type(int id, String context_type);
+    int add_param(Pointer req, String name, String value);
 
-    int set_cookie(int id, String cookie);
+    int set_data(Pointer req, String data);
 
-    int add_cookie(int id, String name, String value);
+    int set_json(Pointer req, String json);
 
-    int set_timeout(int id, String timeout);
+    int set_bytes(Pointer req, byte[] bytes, int len);
 
-    int set_bytes(int id, byte[] bytes, int len);
+    int set_text(Pointer req, String text);
 
-    Pointer get(int id);
+    int set_timeout(Pointer req, String timeout);
 
-    Pointer post(int id);
+    int set_cookie(Pointer req, String cookie);
 
-    Pointer put(int id);
+    int add_cookie(Pointer req, String name, String value);
 
-    Pointer options(int id);
+    Pointer get(Pointer req);
 
-    Pointer delete(int id);
+    Pointer post(Pointer req);
 
-    Pointer head(int id);
+    Pointer options(Pointer req);
 
-    Pointer trach(int id);
+    Pointer put(Pointer req);
 
-    void destroy(int id);
+    Pointer head(Pointer req);
+
+    Pointer delete(Pointer req);
+
+    Pointer trach(Pointer req);
+
+    void destroy(Pointer req);
 
     void free_pointer(Pointer ptr);
-
 
     static ReqrioLibrary loadLibrary() {
         try {
             String tmp_dir = System.getProperty("java.io.tmpdir");
             java.io.File dll_file = new java.io.File(tmp_dir, "reqrio.dll");
-            if (!dll_file.exists()) {
-                try {
-                    java.io.InputStream in = ReqrioLibrary.class.getResourceAsStream("/reqrio.dll");
-                    java.io.OutputStream out = new java.io.FileOutputStream(dll_file);
-                    byte[] buffer = new byte[4096];
-                    int read;
-                    while ((read = in.read(buffer)) != -1) {
-                        out.write(buffer, 0, read);
-                    }
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+            try {
+                java.io.InputStream in = ReqrioLibrary.class.getResourceAsStream("/reqrio.dll");
+                java.io.OutputStream out = new java.io.FileOutputStream(dll_file);
+                byte[] buffer = new byte[4096];
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
                 }
-
+                out.flush();
+                out.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
+            IO.println(dll_file);
             return Native.load(dll_file.getAbsolutePath(), ReqrioLibrary.class);
         } catch (Exception e) {
             throw new RuntimeException(e);

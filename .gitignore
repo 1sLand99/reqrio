@@ -4,6 +4,7 @@
 py/build
 py/dist
 py/reqrio.egg-info
+py/reqrio/reqrio.dll
 ClientHello
 ServerHello
 Certificate
@@ -12,5 +13,7 @@ ServerHelloDone
 ClientKeyExchange
 java/target
 java/.idea
+java/src/main/resources
 c++/cmake-build-debug-visual-studio
 c++/.idea
+nls_100.json

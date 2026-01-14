@@ -171,7 +171,6 @@ impl Fingerprint {
             "h2" => client_hello.add_h2_alpn(),
             _ => client_hello.remove_h2_alpn()
         }
-        println!("{:#?}", record);
         self.client_hello = record.handshake_bytes();
         Ok(())
     }

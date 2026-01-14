@@ -20,6 +20,7 @@ pub enum HttpStatus {
     Unauthorized = 401,
     Forbidden = 403,
     NotFound = 404,
+    PreconditionFailed = 412,
     ReqTooLarge = 413,
     Teapot = 418,
     TooManyRequests = 429,
@@ -56,6 +57,7 @@ impl TryFrom<i32> for HttpStatus {
             401 => Ok(HttpStatus::Unauthorized),
             403 => Ok(HttpStatus::Forbidden),
             404 => Ok(HttpStatus::NotFound),
+            412 => Ok(HttpStatus::PreconditionFailed),
             413 => Ok(HttpStatus::ReqTooLarge),
             418 => Ok(HttpStatus::Teapot),
             429 => Ok(HttpStatus::TooManyRequests),
@@ -97,6 +99,7 @@ impl Display for HttpStatus {
             HttpStatus::ServiceUnavailable => f.write_str("Service Unavailable"),
             HttpStatus::GatewayTimeOut => f.write_str("Gateway Time Out"),
             HttpStatus::ReceiveTimeOut => f.write_str("Receive Time Out"),
+            HttpStatus::PreconditionFailed=>f.write_str("Precondition Failed"),
         }
     }
 }

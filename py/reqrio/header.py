@@ -1,6 +1,6 @@
 class Cookie:
     def __init__(self, cookie: dict):
-        self.cookie = cookie['name']
+        self.name = cookie['name']
         self.value = cookie['value']
         self.age = cookie['age']
         self.domain = cookie['domain']
@@ -24,9 +24,13 @@ class Header:
         self.cookies = []
         for cookie in self.keys.get('set-cookie', []):
             self.cookies.append(Cookie(cookie))
+        for cookie in self.keys.get('Set-Cookie', []):
+            self.cookies.append(Cookie(cookie))
         del header
         if self.keys.get("set-cookie") is not None:
             del self.keys['set-cookie']
+        if self.keys.get('Set-Cookie') is not None:
+            del self.keys['Set-Cookie']
         return
 
     def get(self, key: str):

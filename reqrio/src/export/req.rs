@@ -1,5 +1,5 @@
 use crate::error::HlsResult;
-use crate::{json, ContentType, Cookie, HlsError, Method, Proxy, ReqExt, ScReq, ALPN};
+use crate::{json, Cookie, HlsError, Method, Proxy, ReqExt, ScReq, ALPN};
 #[cfg(use_cls)]
 use crate::Fingerprint;
 use std::ffi::{c_char, CStr, CString};
@@ -83,6 +83,18 @@ pub extern "system" fn set_ja3(req: *mut ScReq, ja3: *const c_char) -> i32 {
     }().unwrap_or(-1)
 }
 
+#[cfg(use_cls)]
+#[unsafe(no_mangle)]
+pub extern "system" fn set_ja4(req: *mut ScReq, ja4: *const c_char) -> i32 {
+    || -> HlsResult<i32> {
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
+        let ja3 = unsafe { CStr::from_ptr(ja4) }.to_str()?.to_string();
+        let fingerprint = Fingerprint::new_ja4(ja3)?;
+        req.set_fingerprint(fingerprint);
+        Ok(0)
+    }().unwrap_or(-1)
+}
+
 #[unsafe(no_mangle)]
 pub extern "system" fn set_proxy(req: *mut ScReq, addr: *const c_char) -> i32 {
     || -> HlsResult<i32> {
@@ -149,12 +161,11 @@ pub extern "system" fn set_bytes(req: *mut ScReq, bytes: *const c_char, len: u32
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_content_type(req: *mut ScReq, context_type: *const c_char) -> i32 {
+pub extern "system" fn set_text(req: *mut ScReq, text: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
-        let context_type = unsafe { CStr::from_ptr(context_type) }.to_str()?;
-        let context_type = ContentType::try_from(context_type)?;
-        req.header_mut().set_content_type(context_type);
+        let text = unsafe { CStr::from_ptr(text) }.to_str()?;
+        req.set_text(text);
         Ok(0)
     }().unwrap_or(-1)
 }
