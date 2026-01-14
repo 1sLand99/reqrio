@@ -13,7 +13,9 @@ ServerHelloDone
 ClientKeyExchange
 java/target
 java/.idea
-java/src/main/resources
+java/src/main/resources/reqrio.dll
+java/src/main/resources/nls_100.json
 c++/cmake-build-debug-visual-studio
 c++/.idea
+c++/reqrio_rs.dll
 nls_100.json
