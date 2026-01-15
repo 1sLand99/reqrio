@@ -57,6 +57,7 @@ public class HttpUtil2 {
 
     Response fetchIndex() throws Exception {
         Response resp_index = this.session.get();
+        IO.println("kkk");
         JsonObject data = new JsonObject();
         data.add("html", new JsonPrimitive(Base64.getEncoder().encodeToString(resp_index.toString().getBytes())));
         data.add("apiUrl", new JsonPrimitive("https://ticket.sxhm.com/quickticket/index.html"));
@@ -64,6 +65,7 @@ public class HttpUtil2 {
         ses.setUrl("http://124.220.66.8:8082/cookies");
         ses.setJson(data);
         Response ses_index = ses.post();
+        IO.println("kkllk");
         JsonObject cookies = ses_index.toJson().getAsJsonObject().getAsJsonObject("cookies");
         //记得关闭资源
         ses.close();

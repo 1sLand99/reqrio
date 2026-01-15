@@ -3,7 +3,7 @@ use crate::coder::HackDecode;
 use crate::error::HlsResult;
 use crate::packet::h2c::{FrameFlag, FrameType};
 use crate::packet::{Frame, Header};
-use crate::{coder, HeaderValue};
+use crate::{coder, HeaderValue, HTTP_GAP};
 use crate::json::JsonValue;
 use std::{mem, ptr};
 pub enum Body {
@@ -134,7 +134,7 @@ impl Response {
         }
         match self.header.is_empty() {
             true => {
-                let pos = self.raw.windows(4).position(|w| w == b"\r\n\r\n");
+                let pos = self.raw.windows(HTTP_GAP.len()).position(|w| w == HTTP_GAP);
                 if let Some(pos) = pos {
                     let hdr_bs = self.raw.drain(..pos).collect();
                     let hdr_str = String::from_utf8(hdr_bs)?;

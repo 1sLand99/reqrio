@@ -4,7 +4,7 @@ use crate::error::HlsResult;
 #[cfg(cls_async)]
 use crate::stream::async_stream::TlsConnector;
 use crate::stream::ConnParam;
-use crate::Buffer;
+use crate::{Buffer, Timeout};
 #[cfg(feature = "std_async")]
 use crate::ALPN;
 #[cfg(all(feature = "std_async", not(feature = "cls_sync")))]
@@ -23,6 +23,7 @@ use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream;
 #[cfg(all(feature = "std_async", not(feature = "cls_sync")))]
 use tokio_rustls::TlsConnector;
+use crate::stream::proxy::ProxyStream;
 
 pub trait TimeoutRW<S: AsyncReadExt + AsyncWriteExt + Unpin> {
     fn stream(&mut self) -> &mut S;
@@ -36,12 +37,12 @@ pub trait TimeoutRW<S: AsyncReadExt + AsyncWriteExt + Unpin> {
         }
     }
 
-    async fn read_limit(&mut self, buffer: &mut Buffer, limit: usize) -> HlsResult<()> {
-        match self.read_timeout() {
-            None => buffer.async_read_limit(self.stream(), limit).await,
-            Some(timeout) => tokio::time::timeout(timeout, buffer.async_read_limit(self.stream(), limit)).await?
-        }
-    }
+    // async fn read_limit(&mut self, buffer: &mut Buffer, limit: usize) -> HlsResult<()> {
+    //     match self.read_timeout() {
+    //         None => buffer.async_read_limit(self.stream(), limit).await,
+    //         Some(timeout) => tokio::time::timeout(timeout, buffer.async_read_limit(self.stream(), limit)).await?
+    //     }
+    // }
 
     async fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self.write_timeout() {
@@ -57,6 +58,13 @@ pub trait TimeoutRW<S: AsyncReadExt + AsyncWriteExt + Unpin> {
         }
     }
 
+    // async fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
+    //     match self.write_timeout() {
+    //         None => self.stream().write_all(buf).await,
+    //         Some(timeout) => tokio::time::timeout(timeout, self.stream().write_all(buf)).await?
+    //     }
+    // }
+
     async fn shutdown(&mut self) -> HlsResult<()> {
         match self.write_timeout() {
             None => self.stream().shutdown().await?,
@@ -68,35 +76,43 @@ pub trait TimeoutRW<S: AsyncReadExt + AsyncWriteExt + Unpin> {
 
 #[cfg(any(feature = "cls_async", feature = "std_async"))]
 pub struct AsyncTcpStream {
-    stream: TcpStream,
+    stream: ProxyStream<TcpStream>,
     read_timeout: Option<Duration>,
     write_timeout: Option<Duration>,
 }
 
 #[cfg(any(feature = "cls_async", feature = "std_async"))]
 impl AsyncTcpStream {
-    pub async fn connect_timeout(addr: impl tokio::net::ToSocketAddrs, timeout: Duration) -> HlsResult<AsyncTcpStream> {
-        Ok(AsyncTcpStream {
-            stream: tokio::time::timeout(timeout, TcpStream::connect(addr)).await??,
-            read_timeout: None,
-            write_timeout: None,
-        })
+    // pub async fn connect_timeout(addr: impl tokio::net::ToSocketAddrs, timeout: Duration) -> HlsResult<AsyncTcpStream> {
+    //     Ok(AsyncTcpStream {
+    //         stream: tokio::time::timeout(timeout, TcpStream::connect(addr)).await??,
+    //         read_timeout: None,
+    //         write_timeout: None,
+    //     })
+    // }
+
+    pub fn from_proxy_stream(stream: ProxyStream<TcpStream>, timeout: &Timeout) -> Self {
+        AsyncTcpStream {
+            stream,
+            read_timeout: Option::from(timeout.read()),
+            write_timeout: Option::from(timeout.write()),
+        }
     }
 
-    pub fn set_read_timeout(&mut self, read_timeout: Duration) {
-        self.read_timeout = Some(read_timeout);
-    }
+    // pub fn set_read_timeout(&mut self, read_timeout: Duration) {
+    //     self.read_timeout = Some(read_timeout);
+    // }
 
-    pub fn set_write_timeout(&mut self, write_timeout: Duration) {
-        self.write_timeout = Some(write_timeout);
-    }
-    pub fn into_inner(self) -> TcpStream {
-        self.stream
-    }
+    // pub fn set_write_timeout(&mut self, write_timeout: Duration) {
+    //     self.write_timeout = Some(write_timeout);
+    // }
+    // pub fn into_inner(self) -> ProxyStream<TcpStream> {
+    //     self.stream
+    // }
 }
 
-impl TimeoutRW<TcpStream> for AsyncTcpStream {
-    fn stream(&mut self) -> &mut TcpStream {
+impl TimeoutRW<ProxyStream<TcpStream>> for AsyncTcpStream {
+    fn stream(&mut self) -> &mut ProxyStream<TcpStream> {
         &mut self.stream
     }
 
@@ -195,20 +211,22 @@ impl TimeoutRW<TlsStream<TcpStream>> for StdAsyncTlsStream {
 
 #[cfg(cls_async)]
 pub struct AsyncTlsStream {
-    stream: TlsStream<TcpStream>,
+    stream: TlsStream<ProxyStream<TcpStream>>,
     read_timeout: Option<Duration>,
     write_timeout: Option<Duration>,
 }
 
 #[cfg(cls_async)]
 impl AsyncTlsStream {
-    pub async fn connect_timeout(param: ConnParam<'_>, tcp: AsyncTcpStream) -> HlsResult<AsyncTlsStream> {
+    pub async fn connect_timeout(param: ConnParam<'_>, tcp: ProxyStream<TcpStream>) -> HlsResult<AsyncTlsStream> {
         let connect_timeout = param.timeout.connect();
-        let stream = TlsConnector::from(param).connect(tcp.stream); //TlsStream::connect(param, tcp.stream);
+        let read_timeout = param.timeout.read();
+        let write_timeout = param.timeout.write();
+        let stream = TlsConnector::from(param).connect(tcp); //TlsStream::connect(param, tcp.stream);
         Ok(AsyncTlsStream {
             stream: tokio::time::timeout(connect_timeout, stream).await??,
-            read_timeout: tcp.read_timeout,
-            write_timeout: tcp.write_timeout,
+            read_timeout: Some(read_timeout),
+            write_timeout: Some(write_timeout),
         })
     }
 
@@ -218,8 +236,8 @@ impl AsyncTlsStream {
 }
 
 #[cfg(cls_async)]
-impl TimeoutRW<TlsStream<TcpStream>> for AsyncTlsStream {
-    fn stream(&mut self) -> &mut TlsStream<TcpStream> {
+impl TimeoutRW<TlsStream<ProxyStream<TcpStream>>> for AsyncTlsStream {
+    fn stream(&mut self) -> &mut TlsStream<ProxyStream<TcpStream>> {
         &mut self.stream
     }
 

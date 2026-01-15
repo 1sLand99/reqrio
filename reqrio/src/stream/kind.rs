@@ -9,21 +9,20 @@ use crate::stream::astream::StdAsyncTlsStream;
 use crate::stream::astream::{AsyncTcpStream, TimeoutRW};
 #[cfg(std_sync)]
 use crate::stream::cstream::StdSyncTlsStream;
+use crate::stream::proxy::ProxyStream;
 use crate::stream::ConnParam;
 use crate::url::Protocol;
 use crate::{Buffer, ALPN};
 #[cfg(sync)]
 use std::io::Write;
-#[cfg(sync)]
-use std::net::Shutdown;
 
 pub enum StreamKind {
     NonConnection,
     //同步
     #[cfg(any(feature = "std_sync", feature = "cls_sync"))]
-    SyncHttp(std::net::TcpStream),
+    SyncHttp(ProxyStream<std::net::TcpStream>),
     #[cfg(all(feature = "cls_sync", not(feature = "std_sync"), not(feature = "std_async")))]
-    SyncHttps(SyncStream<std::net::TcpStream>),
+    SyncHttps(SyncStream<ProxyStream<std::net::TcpStream>>),
     #[cfg(std_sync)]
     StdSyncHttps(StdSyncTlsStream),
     //异步
@@ -39,10 +38,10 @@ pub enum StreamKind {
 impl StreamKind {
     pub async fn async_conn(&mut self, param: ConnParam<'_>) -> HlsResult<ALPN> {
         let _ = self.async_shutdown().await;
-        let stream = tokio::time::timeout(param.timeout.connect(), param.proxy.create_async_stream(param.url.addr(), param.timeout)).await??;
+        let stream = tokio::time::timeout(param.timeout.connect(), ProxyStream::async_connect(param.proxy, param.url.addr())).await??;
         match param.url.protocol() {
             Protocol::Http | Protocol::Ws => {
-                *self = StreamKind::AsyncHttp(stream);
+                *self = StreamKind::AsyncHttp(AsyncTcpStream::from_proxy_stream(stream, param.timeout));
                 Ok(ALPN::Http11)
             }
             #[cfg(feature = "std_async")]
@@ -114,7 +113,7 @@ impl StreamKind {
 impl StreamKind {
     pub fn sync_conn(&mut self, param: ConnParam) -> HlsResult<ALPN> {
         let _ = self.sync_shutdown();
-        let stream = param.proxy.create_sync_stream(param.url.addr(), param.timeout)?;
+        let stream = ProxyStream::sync_connect(param.proxy, param.url.addr(), param.timeout)?; //param.proxy.create_sync_stream(param.url.addr(), param.timeout)?;
         match param.url.protocol() {
             Protocol::Http | Protocol::Ws => {
                 *self = StreamKind::SyncHttp(stream);
@@ -171,7 +170,7 @@ impl StreamKind {
 
     pub fn sync_shutdown(&mut self) -> HlsResult<()> {
         match self {
-            StreamKind::SyncHttp(s) => Ok(s.shutdown(Shutdown::Both)?),
+            StreamKind::SyncHttp(s) => Ok(s.shutdown()?),
             #[cfg(cls_sync)]
             StreamKind::SyncHttps(s) => Ok(s.shutdown()?),
             #[cfg(std_sync)]

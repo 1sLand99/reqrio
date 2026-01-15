@@ -118,7 +118,7 @@ impl AcReq {
             let res = tokio::time::timeout(self.timeout.handle(), self.handle_io()).await;
             match &res {
                 Ok(res) => if let Err(e) = res && i != self.timeout.handle_times() - 1 {
-                    if e.to_string().to_lowercase().contains("close") || e.to_string().contains("中止了") {
+                    if e.to_string().to_lowercase().contains("close") || e.to_string().contains("中止了") || e.to_string().contains("关闭") {
                         self.re_conn().await?;
                     }
                     println!("[AcReq] write/recv with error-{}, handle: {}/{}", e.to_string(), i + 2, self.timeout.handle_times());

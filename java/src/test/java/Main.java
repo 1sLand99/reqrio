@@ -29,7 +29,9 @@ void main() throws Exception {
 //    Gson gson = new Gson();
 //    IO.println(gson.toJson(resp_hdr));
     HttpUtil2 util2 = new HttpUtil2();
+    IO.println("00");
     Response response = util2.fetchIndex();
+
     JsonObject data = new JsonObject();
     data.add("planId", new JsonPrimitive("2010255636437147648"));
     String token = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ3ZWNoYXRfcHVibGljMSIsInVzZXJJZCI6IjE4Nzc1ODcyNjU3MDczMTUyMDAiLCJuYW1lIjoi5b6u5L-h5YWs5LyX5Y-35pWj5a6iIiwib3JnSWQiOiIxODc3MzM4MjQ2MDkyODE2Mzg0IiwiZGV2aWNlQ29kZSI6IiIsInNhbGVTdGF0aW9uSWQiOiIxODc3MzM4MjQ3NzcwNTM3OTg0IiwiY3VzdG9tZXJJZCI6IjE4Nzc1ODcyNjU4NTgzMTAxNDQiLCJzb2NpYWxDdXN0b21lcklkIjoxOTg1MjA4NjY3ODU4NzE0NjI0LCJleHAiOjE3Njg0NDA3NzN9.lFiEpgMQfCBEGssuCRAHrVD-YamH5vYose4hUEnZg72V8XhSIEHXfLL1_eZ96fkjZD_wE-JNrkeHTMJ_WAjMLZ5DRnGiKN5n0BOUyQayvUZ_SxoVryLPoJ4W19YhYAYN5yZXLpGakymtqr5q3peOR-Sy8-tLLJNolnuTNfRRMaQ";

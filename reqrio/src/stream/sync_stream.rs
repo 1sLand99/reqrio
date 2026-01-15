@@ -1,9 +1,9 @@
-use std::io;
-use reqtls::*;
 use crate::error::{HlsError, HlsResult};
 use crate::stream::ConnParam;
-use std::io::{Read, Write};
 use crate::{Buffer, ALPN};
+use reqtls::*;
+use std::io;
+use std::io::{Read, Write};
 
 pub struct SyncStream<S> {
     conn: Connection,
@@ -28,11 +28,12 @@ impl<S: Read + Write> SyncStream<S> {
         let bs = client_hello.handshake_bytes();
         conn.update_session(&bs[5..])?;
         stream.write_all(&bs)?;
+        stream.flush()?;
         let mut stream = SyncStream {
             stream,
             conn,
             handshake_finished: false,
-            buffer: Buffer::with_capacity(16413),
+            buffer: Buffer::with_capacity(0xFFFF),
         };
         while !stream.handshake_finished {
             stream.read_packet()?;
@@ -104,9 +105,6 @@ impl<S: Read + Write> SyncStream<S> {
 
     pub fn shutdown(&mut self) -> HlsResult<()> {
         self.buffer.reset();
-        // let aead = self.conn.aead().ok_or(RlsError::AeadNone)?;
-        // self.buffer.set_len(aead.encrypted_payload_len(2) + 5);
-        // self.buffer[aead.payload_start()..aead.payload_start() + 2].copy_from_slice(&[1, 0]);
         let record_len = self.conn.make_message(RecordType::Alert, &mut self.buffer[..], &[1, 0])?;
         self.stream.write_all(&self.buffer[..record_len])?;
         Ok(())
@@ -117,21 +115,47 @@ impl<S: Read + Write> SyncStream<S> {
     }
 }
 
+impl<S: Read> SyncStream<S> {
+    fn read_size(&mut self, size: usize) -> HlsResult<()> {
+        let start = self.buffer.len();
+        while self.buffer.len() - start < size {
+            self.buffer.sync_read(&mut self.stream)?;
+        }
+        Ok(())
+    }
+
+    fn check_and_read(&mut self) -> HlsResult<usize> {
+        let len = u16::from_be_bytes([self.buffer[3], self.buffer[4]]) as usize;
+        if self.buffer.len() >= len + 5 {
+            Ok(len + 5)
+        } else {
+            self.read_size(len + 5 - self.buffer.len())?;
+            Ok(len + 5)
+        }
+    }
+
+    fn read_zero(&mut self) -> HlsResult<usize> {
+        self.buffer.sync_read(&mut self.stream)?;
+        self.check_and_read()
+    }
+}
+
 impl<S: Read> Read for SyncStream<S> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.buffer.sync_read_limit(&mut self.stream, 5)?;
-        let len = u16::from_be_bytes([self.buffer[3], self.buffer[4]]) as usize;
-        while self.buffer.len() - 5 < len {
-            self.buffer.sync_read_limit(&mut self.stream, len + 5 - self.buffer.len())?;
-        }
-        let mut record = RecordLayer::from_bytes(self.buffer.filled_mut(), self.handshake_finished)?;
+        let record_len = if self.buffer.len() >= 5 {
+            self.check_and_read()?
+        } else {
+            self.read_zero()?
+        };
+        let mut record = RecordLayer::from_bytes(&mut self.buffer[0..record_len], self.handshake_finished)?;
         let rt = record.context_type.as_u8();
         let pdr = self.conn.read_message(&mut record)?;
         if rt == 0x15 && self.buffer[pdr.clone()] == [1, 0] {
             return Err(HlsError::PeerClosedConnection.into());
         }
         buf[..pdr.len()].copy_from_slice(&self.buffer[pdr.clone()]);
-        self.buffer.reset();
+        self.buffer.copy_within(record_len..self.buffer.len(), 0);
+        self.buffer.set_len(self.buffer.len() - record_len);
         Ok(pdr.len())
     }
 }
@@ -142,7 +166,6 @@ impl<S: Write> Write for SyncStream<S> {
         let mut sent = 0;
         for chunk in buf.chunks(16384) {
             self.buffer.reset();
-            // let pln = self.buffer.push_slice_in(aead.payload_start(), chunk);
             let record_len = self.conn.make_message(RecordType::ApplicationData, &mut self.buffer[..], chunk)?;
             self.stream.write(&self.buffer[..record_len])?;
             sent += chunk.len();

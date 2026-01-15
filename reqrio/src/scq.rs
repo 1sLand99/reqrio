@@ -121,7 +121,7 @@ impl ScReq {
             match res {
                 Ok(res) => return Ok(res),
                 Err(e) => if i != self.timeout.handle_times() - 1 {
-                    if e.to_string().to_lowercase().contains("close") || e.to_string().contains("中止了") {
+                    if e.to_string().to_lowercase().contains("close") || e.to_string().contains("中止了") || e.to_string().contains("关闭") {
                         self.re_conn()?;
                     }
                     println!("[ScReq] write/recv error, error: {}, handle: {}/{}", e.to_string(), i + 2, self.timeout.handle_times());
@@ -256,7 +256,6 @@ impl ScReq {
             }
         }
     }
-
 }
 
 impl ReqGenExt for ScReq {}
