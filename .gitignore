@@ -15,7 +15,8 @@ java/target
 java/.idea
 java/src/main/resources/reqrio.dll
 java/src/main/resources/nls_100.json
-c++/cmake-build-debug-visual-studio
-c++/.idea
-c++/reqrio_rs.dll
+qt/.idea
+qt/cmake-build-debug-visual-studio
+qt/cmake-build-release-visual-studio
+qt/reqrio.lib
 nls_100.json

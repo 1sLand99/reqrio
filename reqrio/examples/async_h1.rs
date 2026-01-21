@@ -1,37 +1,71 @@
-use reqrio::{json, AcReq, Proxy, ReqExt, ALPN};
+use std::fs;
+use std::time::Duration;
+use select::document::Document;
+use select::predicate::{Class, Name, Predicate};
+use tokio::time::sleep;
+use reqrio::{json, AcReq, Proxy, ReqExt, ReqGenExt, Url, WebSocket, ALPN};
 use reqtls::Fingerprint;
 
 #[tokio::main]
 async fn main() {
-    let fingerprint = Fingerprint::from_hex_all("160301020c010002080303247340d23c347b7a66d5a7eb4eccb285012ce86f658d0b45e1588354c51ca4792009a85c66f5ba581afec042a139153e1d4016b38319618311c2e36ae2a76c924000200a0a130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f00350100019f8a8a00000000000e000c0000093338686d7a672e636e000d00120010040308040401050308050501080606010033002b00291a1a000100001d0020b511c3d06f2e67ec1dbb9bfc333511feb597f20e5c0d3a0aa3ab1044cb63001f00170000001b000302000200120000000b00020100ff01000100000a000a00081a1a001d00170018002d00020101002b000706caca03040303fe0d00da0000010001f80020c8665dd625d0a4c92ddc132c7d1ebca65a14a278f07375a85d545f630e18872500b02461426ced15d88bd0d907fffb17ab849140d48cad81bbfe8e7b7e1846ccf1d6be156a397fbeede0092f5eb5f6c35e9c1e8cf8738d8cb53c21f25bcb7934a2709ad124490010ada60f44741c97fb56976201c8ff3194204e37c82d3bbbbe395bed90a2a9e9d692d662594d9e8676bdea51a07ce7cdcd882929ed7bee454e2c3a39a80b90ceef6a1272e87627a7f40f96314d67f7857a1bfccc776a61f55f8922047c97b55c001193aade01aa6573c0b5446900050003026832002300000005000501000000000010000e000c02683208687474702f312e319a9a0001001603030046100000424104ff635373fbbfbc37444a2026372f57fd06c5205bacfe32b61261a9d29bf1fca57f91ef22cb2ba46af8cf9ae7c3123f56634099af297dcd30835cd81664005fb9140303000101").unwrap();
+    println!("{}", Url::new().to_string());
+    let fingerprint = Fingerprint::from_hex_all("16030106b2010006ae0303f0aed3d4d9fac0e8d4ff98981a90257765d203b4ce089c591e86d8e7ec8ab90a204803c2150a14429bfe6536328fe11cfd4034264fa2a3a443c5972eeeb93d427100206a6a130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035010006453a3a000000230000001b0003020002ff010001000000000e000c0000093338686d7a672e636e0005000501000000000017000044cd00050003026832fe0d00ba00000100010900208e3fc249e1ce71ff4aefb0970b38167b6b7de98537b874130ba4e284e15f1c4f00909540fc3a77fcc8f96d51ff9144785ccf114d3618d9a77b0e88f54d4dd1279083483e0ad83a4f25e55951194048709bf0842651d940c291569b9cfe1323d6fc2d31348ccaaa7b79271fc41af0975d94f7a826819154e05f6f90bdaa4e2b215894ccd36f748ded2bcae0a61aa101a7187588c2b45b51d076356d0e47728974d6d1cdd2b3ce4a8e5e8f70a79fb8f288c868000b00020100002d00020101000a000c000a3a3a11ec001d00170018001200000010000e000c02683208687474702f312e31003304ef04ed3a3a00010011ec04c05b20439ba8b50e3a5800981889512ab253cd2f1ba1488613fbd79f43813c08e34ed45330a62991a6b37890d54d2d0c089251b146acace84512c031c74ac6a2ac6345b6668629aa143357b45921916de02ac5cc8d57e1ca9882ccad900640a1b51c587de3291a2f15ad67e180b79b442fe4606de978f7a27591a41ffcd91116c50703c45531999c9d377a173c249ef747a60a81158c0d3ef709b9b5a38af61b6b5c9740c343f7322b6510a60797cb39148ba310413b688354bb0b2e395dbf3935fd0a797d7b5e94acab23a95c163238dd1bc9b8b420599a0efd4726e85a0783fc8506436c3eb89ee96008b0c9c5a2047a2415bbb5a2768d7c8d58384644d5473de96721b24a3fc82ee68cc0a3a43cc73467ec515a3ac1a79b9070f4e4aad61ac50c7b4e9b125f66cba026807cdad5a43e4a5cfa2ac521801616bb58ea068689c15afd4592b26545c3a8c638800a3429c32237a902f1a605458935391c4d352a211cb2122203f9ea38e3d44b29741502bb57c7850ffaf36ab0db72ac9c0fc0ba309661096bc550d86b442beca080c0602e02a54ed2171e58b0b82582c568a5b1407d8d35448cf907a43575aed4c5371595d1456f29778c892325d4d785a3a384a30b838e6b0d59990ca54ba52369c4faf835a2f50cbd504f7d38cdc4047bf7acae92090cf121180096a513dc4cadf290641ab6e4375aa477395b8902b74c39e62b945a09438d83b1d41ac2f204c4614425bed86e221c60c8520e1c3233e5ccb53c228c0d525fb7823d9d9c4337e36785eb61590794f9565b3dd2722a2834b536be157a307d928d7f910167a314b8705bdddc1b4c9c139a5320380910b1263b40a6c6065c84266a2c036a19d3a51f5edbb8eaf3cb1e8295ef1ab978f5306da9b11a5a3df473bbd2acca084a4c4bba0bc478630283b0e6910bde3052c6f58300703a6e9524381b4cc1b247236acc1c0bae6cb69c463c29811b04d93a589ba36d30c9b4d1fb234368a9b3e94abaf419a220af730917488bc9be585f7111c9a13a8544969bf3e397b1f2ceba0ca7f21785531a3f7856248f54a5bd854124b21e1e75c366e8b5293130bdb902db0a05e9803c3d7827d5cc26046815102c3713b4a14ef63aed3163319244995a6524dbabfaf93ed8a95e08641377683dd6b3b05084bf48f77d47904d09656d4a19b457d84bcfd77a4c433393bbb43f09931cf4896cf891990c9363202467b6193ea6b8bd493733235c93c118feb808b1d9b38cc7862c744342e2baeeec6299d0a21898aa9576ae61b2703a5b072521166f6693aa4b5e6148ad4e7c21a21a7972a0c8c3f986e95392ed2b15e51a5f2e5b90e4766320513e3bfa4d67688fb6c547147c47aa71c04095336b11b32b52a6c9d047a1357eece2688efb2045184653a480ef15a3fb8c4851d8c0407b24a87b55fd36af59b18fff38b183b6256e15c161395a46f62ce1b0af240319dec84d3aa04e2773ac289b393160683e901b2b622d615b2719b06cc12bae79fca101e737a91434c8e0828cc6a71b740216964a06a9952d9c54f24743b1b9c4fc9475554aa8a87719ccd7ae40374c87d8018937c7b6007e028b348e884d201087416396ec3237b61319e0f40e436a6a1dc75f2486a68c60c27f719d251a9d73b3de3bd91858d3f3d4043384f7ad42422b47b96bdd03b5556f8107232953dad801970157aa95971638e2908d55001d0020552cb65392fdab1ff61dd3b43c895fdf782c61bb6f05519f2b7d9e28facfd25e000d0012001004030804040105030805050108060601002b000706dada030403031a1a0001001603030046100000424104ff635373fbbfbc37444a2026372f57fd06c5205bacfe32b61261a9d29bf1fca57f91ef22cb2ba46af8cf9ae7c3123f56634099af297dcd30835cd81664005fb9140303000101").unwrap();
     let mut req = AcReq::new()
         .with_fingerprint(fingerprint)
         .with_alpn(ALPN::Http20)
-        .with_proxy(Proxy::new_socks5("127.0.0.1", 10808));
+        // .with_proxy(Proxy::try_from("http://111.227.123.247:14557").unwrap())
+        ;
     let headers = json::object! {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
-        "uid": "1985208667858714624",
-        "Content-Type": "application/json",
-        "token":"eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ3ZWNoYXRfcHVibGljMSIsInVzZXJJZCI6IjE4Nzc1ODcyNjU3MDczMTUyMDAiLCJuYW1lIjoi5b6u5L-h5YWs5LyX5Y-35pWj5a6iIiwib3JnSWQiOiIxODc3MzM4MjQ2MDkyODE2Mzg0IiwiZGV2aWNlQ29kZSI6IiIsInNhbGVTdGF0aW9uSWQiOiIxODc3MzM4MjQ3NzcwNTM3OTg0IiwiY3VzdG9tZXJJZCI6IjE4Nzc1ODcyNjU4NTgzMTAxNDQiLCJzb2NpYWxDdXN0b21lcklkIjoxOTg1MjA4NjY3ODU4NzE0NjI0LCJleHAiOjE3Njg0NDA3NzN9.lFiEpgMQfCBEGssuCRAHrVD-YamH5vYose4hUEnZg72V8XhSIEHXfLL1_eZ96fkjZD_wE-JNrkeHTMJ_WAjMLZ5DRnGiKN5n0BOUyQayvUZ_SxoVryLPoJ4W19YhYAYN5yZXLpGakymtqr5q3peOR-Sy8-tLLJNolnuTNfRRMaQ",
+        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.6894.1545 Safari/537.36",
         "Accept": "*/*",
-        "Origin": "https://ticket.sxhm.com",
         "Sec-Fetch-Site": "same-origin",
         "Sec-Fetch-Mode": "cors",
         "Sec-Fetch-Dest": "empty",
-        "sec-ch-ua": "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"120\", \"Microsoft Edge\";v=\"120\"",
+        "sec-ch-ua": "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"42\", \"Microsoft Edge\";v=\"42\"",
         "sec-ch-ua-mobile": "?0",
         "sec-ch-ua-platform": "\"Windows\"",
-        "Referer": "https://ticket.sxhm.com/quickticket/index.html",
         "Accept-Language": "zh-CN,zh;q=0.9",
-        "Cookie":"yrLQQyDMDE1ZO=608wtJPUPLKBJVe6Tz1eB9cSEtX55rEaNgz_xzFFR4vTmeBL1wE8H6VNN0qyN2nkDewI0yK3y0.GXVHAAXyrFvaA; yrLQQyDMDE1ZP=0Yn0ZcLnGoSPFQhck3P57_Q4U0jIs_8V2TH1280.uDyhj1YzCNm9uFfROinxkdxymwO7MqkMSTVzt6Y3GCKFWfSuEUIjAl8bTezWlSR8IyZDFtX5PkpDMg3nT74FwXuGmt2l76bK515gCLTH1TtfQcoPVz1DLSW5feuDCN7sdcuKxwaQ7oLf2TZ7O2K1C3u9DghWIHCjgI6jFVEzeJKnhXlgjJAd5BSb5eBOuYiwXI49KAvAe3XtxYCFbZW.URJ8MfFaU7x_JMislcGeLF_Kzn119ro9Wgqup0y_ITliU.R7Z8D02q7ytWe9pjg7AxnvF33R9prSimv3kgof2QPKoWITc0Z75yJuH8iAp9PdeiJkMb6okRb2GouUT3tCUvJ3TRZUARz_HOX8K4ln_snmrVq"
     };
-    req.set_url("https://m.so.com").await.unwrap();
-    req.set_headers_json(headers).unwrap();
-    req.set_callback(|data| {
-        println!("{}", data.len());
-        Ok(())
-    });
-    let res = req.get().await.unwrap();
+    req.set_headers_json(headers).unwrap(); //
+    // req.set_url("https://www.sogou.com").await.unwrap();
+    req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").await.unwrap();
 
-    println!("{}", res.raw_string().len());
+    // req.set_callback(|data| {
+    //     println!("{}", data.len());
+    //     Ok(())
+    // });
+    // let context=req.gen_h1().unwrap();
+    // println!("{}",String::from_utf8(context).unwrap());
+    let res = req.get().await.unwrap();
+    // // println!("{}", res.raw_string());
+    let res = req.get().await.unwrap();
+    let body = res.to_string().unwrap();
+    let doc = Document::from(body.as_str());
+    let lis = doc.find(Name("li").and(Class("b_algo")));
+    let mut res = json::array![];
+    for li in lis {
+        let ats = li.find(Name("a").and(Class("tilk")));
+        for a in ats {
+            let href = a.attr("href").unwrap_or("");
+            let aria = a.attr("aria-label").unwrap_or("");
+            println!("{} {}", href, aria);
+            res.push(json::object! {
+                "href":href.replace("http://","").replace("https://","").split("/").next().unwrap_or(""),
+                "title":aria
+            });
+        }
+    }
+    println!("{}", res.pretty());
+    // println!("{}", res.raw_string());
+    // fs::write("1.html",res.to_string().unwrap()).unwrap();
+    // let res = req.get().await.unwrap();
+    // // println!("{}", res.raw_string());
+    // let res = req.get().await.unwrap();
+    // // println!("{}", res.raw_string());
+    // let res = req.get().await.unwrap();
+    // // println!("{}", res.raw_string());
+    // let res = req.get().await.unwrap();
+    // // println!("{}", res.raw_string());
+    // let res = req.get().await.unwrap();
+    // // println!("{}", res.raw_string());
 }

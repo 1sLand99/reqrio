@@ -26,6 +26,7 @@ rustls = { version = "0.23.36", optional = true, default-features = false, featu
 tokio-rustls = { version = "0.26.4", optional = true, default-features = false, features = ["tls12", "aws_lc_rs"] }
 webpki-roots = { version = "1.0.5", optional = true }
 reqtls = { workspace = true, optional = true }
+select = "0.6.0"
 
 [features]
 # 自定义tls，支持自定义指纹

@@ -3,6 +3,7 @@ use crate::{json, Cookie, HlsError, Method, Proxy, ReqExt, ScReq, ALPN};
 #[cfg(use_cls)]
 use crate::Fingerprint;
 use std::ffi::{c_char, CStr, CString};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr::null_mut;
 use std::slice;
 use crate::timeout::Timeout;
@@ -206,26 +207,29 @@ pub extern "system" fn add_cookie(req: *mut ScReq, name: *const c_char, value: *
 
 
 fn send(req: *mut ScReq, method: Method) -> *mut c_char {
-    let res = || -> HlsResult<String> {
-        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
-        req.header_mut().set_method(method);
-        let mut resp = req.stream_io()?;
-        let res = json::object! {
+    let res = catch_unwind(AssertUnwindSafe(|| {
+        let res = || -> HlsResult<String> {
+            let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
+            req.header_mut().set_method(method);
+            let mut resp = req.stream_io()?;
+            let res = json::object! {
             "header":resp.header(),
             "body":hex::encode(resp.decode_body()?.as_bytes()?),
         };
-        Ok(hex::encode(res.dump()))
-    };
-    match res() {
-        Ok(res) => {
-            // println!("res: {}", res.len());
-            CString::new(res).unwrap().into_raw()
+            Ok(hex::encode(res.dump()))
+        };
+        match res() {
+            Ok(res) => {
+                // println!("res: {}", res.len());
+                CString::new(res).unwrap().into_raw()
+            }
+            Err(e) => {
+                // println!("{}", e.to_string());
+                CString::new(hex::encode(e.to_string())).unwrap().into_raw()
+            }
         }
-        Err(e) => {
-            // println!("{}", e.to_string());
-            CString::new(hex::encode(e.to_string())).unwrap().into_raw()
-        }
-    }
+    }));
+    res.unwrap_or_else(|e| CString::new(hex::encode("程序panic")).unwrap().into_raw())
 }
 #[unsafe(no_mangle)]
 pub extern "system" fn reconnect(req: *mut ScReq) -> i32 {

@@ -187,6 +187,7 @@ impl WebSocket {
 
     async fn connect_async(mut req: AcReq, context: impl AsRef<[u8]>) -> HlsResult<Stream> {
         let resp = req.h1_io(context).await?;
+        println!("{}", resp.raw_string());
         let status = resp.header().status();
         if status != &HttpStatus::SwitchingProtocols { return Err(format!("Connect fail with code-{}", status.status_num()).into()); }
         Ok(req.into_stream())
@@ -217,7 +218,7 @@ impl WebSocket {
             }
         }
     }
-    
+
     pub async fn async_shutdown(mut self) -> HlsResult<()> {
         self.stream.async_shutdown().await
     }
