@@ -1,5 +1,10 @@
 mod aead;
 mod cipher;
+mod ec_curve;
+mod evp_curve;
+
+pub use ec_curve::*;
+pub use evp_curve::*;
 
 use crate::error::RlsResult;
 use crate::extend::Aead;

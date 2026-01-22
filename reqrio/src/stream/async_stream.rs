@@ -116,11 +116,11 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             self.conn.set_by_server_hello(v)?;
                         }
                         Message::ServerKeyExchange(v) => {
-                            // println!("{:#?}", v);
+                            println!("{:#?}", v);
                             self.conn.set_by_exchange_key(v.hellman_param().pub_key().clone(), *v.hellman_param().named_curve())
                         }
                         Message::ServerHelloDone(_) => {
-                            let keypair = PriKey::new(self.conn.named_curve())?;
+                            let mut keypair = PriKey::new(self.conn.named_curve())?;
                             let client_pub_key = keypair.pub_key();
                             let mut record = RecordLayer::from_bytes(connector.fingerprint.client_key_exchange_mut(), false)?;
                             let client_key_exchange = record.messages.get_mut(0).ok_or(HlsError::NullPointer)?;

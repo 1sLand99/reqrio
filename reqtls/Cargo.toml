@@ -14,8 +14,6 @@ hmac = "0.13.0-rc.3"
 sha1 = "0.11.0-rc.3"
 sha2 = "0.11.0-rc.3"
 boring-sys = "4.19.0"
-p256 = { version = "0.14.0-rc.4", features = ["ecdh"], default-features = false }
-p384 = { version = "0.14.0-rc.4", features = ["ecdh"], default-features = false }
-x25519-dalek = { version = "3.0.0-pre.4", default-features = false }
+rand_core = "0.9.5"
 getrandom = "0.4.0-rc.0"
 bytemuck = "1.24.0"

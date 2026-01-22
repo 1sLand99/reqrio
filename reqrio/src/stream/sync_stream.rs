@@ -75,7 +75,7 @@ impl<S: Read + Write> SyncStream<S> {
                             self.conn.set_by_exchange_key(v.hellman_param().pub_key().clone(), *v.hellman_param().named_curve())
                         }
                         Message::ServerHelloDone(_) => {
-                            let keypair = PriKey::new(self.conn.named_curve())?;
+                            let mut keypair = PriKey::new(self.conn.named_curve())?;
                             let client_pub_key = keypair.pub_key();
                             let mut client_key_exchange = RecordLayer::from_bytes(param.fingerprint.client_key_exchange_mut(), false)?;
                             client_key_exchange.messages[0].client_key_exchange_mut().unwrap().set_pub_key(client_pub_key);

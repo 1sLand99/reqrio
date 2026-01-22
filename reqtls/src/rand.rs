@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use p256::elliptic_curve::rand_core::{CryptoRng, RngCore};
+use rand_core::{CryptoRng, RngCore};
 use std::cell::RefCell;
 use std::rc::Rc;
 

@@ -27,6 +27,7 @@ pub enum NamedCurve {
     x25519 = 0x1d,
     Secp256r1 = 0x17,
     Secp384r1 = 0x18,
+    Secp521r1 = 0x19,
 }
 
 impl NamedCurve {
@@ -35,6 +36,7 @@ impl NamedCurve {
             0x1d => Some(Self::x25519),
             0x17 => Some(Self::Secp256r1),
             0x18 => Some(Self::Secp384r1),
+            0x19 => Some(Self::Secp521r1),
             _ => None
         }
     }
@@ -201,8 +203,8 @@ impl ClientKeyExchange {
         res
     }
 
-    pub fn set_pub_key(&mut self, pub_key: Vec<u8>) {
-        self.hellman_param.pub_key = Bytes::new(pub_key);
+    pub fn set_pub_key(&mut self, pub_key: &[u8]) {
+        self.hellman_param.pub_key = Bytes::new(pub_key.to_vec());
         self.hellman_param.pub_key_len = self.hellman_param.pub_key.len();
     }
 

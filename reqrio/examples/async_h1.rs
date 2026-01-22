@@ -1,9 +1,4 @@
-use std::fs;
-use std::time::Duration;
-use select::document::Document;
-use select::predicate::{Class, Name, Predicate};
-use tokio::time::sleep;
-use reqrio::{json, AcReq, Proxy, ReqExt, ReqGenExt, Url, WebSocket, ALPN};
+use reqrio::{json, AcReq, ReqExt, Url, ALPN};
 use reqtls::Fingerprint;
 
 #[tokio::main]
@@ -29,7 +24,7 @@ async fn main() {
     req.set_headers_json(headers).unwrap(); //
     // req.set_url("https://www.sogou.com").await.unwrap();
     req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").await.unwrap();
-
+    // req.set_url("https://www.so.com").await.unwrap();
     // req.set_callback(|data| {
     //     println!("{}", data.len());
     //     Ok(())
@@ -37,25 +32,26 @@ async fn main() {
     // let context=req.gen_h1().unwrap();
     // println!("{}",String::from_utf8(context).unwrap());
     let res = req.get().await.unwrap();
-    // // println!("{}", res.raw_string());
+    // println!("{}", res.raw_string());
     let res = req.get().await.unwrap();
     let body = res.to_string().unwrap();
-    let doc = Document::from(body.as_str());
-    let lis = doc.find(Name("li").and(Class("b_algo")));
-    let mut res = json::array![];
-    for li in lis {
-        let ats = li.find(Name("a").and(Class("tilk")));
-        for a in ats {
-            let href = a.attr("href").unwrap_or("");
-            let aria = a.attr("aria-label").unwrap_or("");
-            println!("{} {}", href, aria);
-            res.push(json::object! {
-                "href":href.replace("http://","").replace("https://","").split("/").next().unwrap_or(""),
-                "title":aria
-            });
-        }
-    }
-    println!("{}", res.pretty());
+    println!("{}", body);
+    // let doc = Document::from(body.as_str());
+    // let lis = doc.find(Name("li").and(Class("b_algo")));
+    // let mut res = json::array![];
+    // for li in lis {
+    //     let ats = li.find(Name("a").and(Class("tilk")));
+    //     for a in ats {
+    //         let href = a.attr("href").unwrap_or("");
+    //         let aria = a.attr("aria-label").unwrap_or("");
+    //         println!("{} {}", href, aria);
+    //         res.push(json::object! {
+    //             "href":href.replace("http://","").replace("https://","").split("/").next().unwrap_or(""),
+    //             "title":aria
+    //         });
+    //     }
+    // }
+    // println!("{}", res.pretty());
     // println!("{}", res.raw_string());
     // fs::write("1.html",res.to_string().unwrap()).unwrap();
     // let res = req.get().await.unwrap();

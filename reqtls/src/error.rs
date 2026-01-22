@@ -27,6 +27,19 @@ pub enum RlsError {
     CipherEncryptError,
     CipherDecryptError,
     CipherMacError,
+    InitEcKeyError,
+    GenEcKeyError,
+    InitEcPointError,
+    OCT2PointError,
+    ComputeKeyError,
+    InitEvpPKeyCtxError,
+    InitKeygenError,
+    KeyGenError,
+    GetPubKeyError,
+    NewPublicKeyError,
+    InitDeriveError,
+    SetPeerDeriveError,
+    DeriveError,
     StdError(Box<dyn Error>),
     Currently(String),
 }
@@ -50,6 +63,19 @@ impl Display for RlsError {
             RlsError::CipherEncryptError => f.write_str("Cipher encrypt error"),
             RlsError::CipherDecryptError => f.write_str("Cipher decrypt error"),
             RlsError::CipherMacError => f.write_str("Cipher mac error"),
+            RlsError::InitEcKeyError => f.write_str("Init EC key error"),
+            RlsError::GenEcKeyError => f.write_str("Gen EC key error"),
+            RlsError::InitEcPointError => f.write_str("Init EC point error"),
+            RlsError::OCT2PointError => f.write_str("OCT2 EC point error"),
+            RlsError::ComputeKeyError => f.write_str("Compute key error"),
+            RlsError::InitEvpPKeyCtxError => f.write_str("Init Evp P key ctx error"),
+            RlsError::InitKeygenError => f.write_str("Init keygen error"),
+            RlsError::KeyGenError => f.write_str("Key gen error"),
+            RlsError::GetPubKeyError => f.write_str("Get public key error"),
+            RlsError::NewPublicKeyError => f.write_str("New public key error"),
+            RlsError::InitDeriveError => f.write_str("Init derive error"),
+            RlsError::SetPeerDeriveError => f.write_str("Set peer derive error"),
+            RlsError::DeriveError => f.write_str("Derive error"),
             RlsError::StdError(e) => f.write_fmt(format_args!("{:?}", e)),
             RlsError::Currently(e) => f.write_str(e),
         }
@@ -106,12 +132,6 @@ impl From<FromHexError> for RlsError {
 
 impl From<ParseIntError> for RlsError {
     fn from(value: ParseIntError) -> Self {
-        RlsError::StdError(Box::new(value))
-    }
-}
-
-impl From<p256::elliptic_curve::Error> for RlsError {
-    fn from(value: p256::elliptic_curve::Error) -> Self {
         RlsError::StdError(Box::new(value))
     }
 }
