@@ -3,7 +3,7 @@ use crate::boring::CryptParam;
 use crate::error::RlsResult;
 use crate::extend::Aead;
 use crate::{rand, RlsError};
-use boring_sys::{CRYPTO_memcmp, EVP_CIPHER_CTX_free, EVP_CIPHER_CTX_new, EVP_DecryptFinal_ex, EVP_DecryptInit_ex, EVP_DecryptUpdate, EVP_EncryptFinal_ex, EVP_EncryptInit_ex, EVP_EncryptUpdate, EVP_aes_128_cbc, EVP_aes_256_cbc, EVP_sha1, EVP_CIPHER, EVP_CIPHER_CTX, HMAC};
+use super::bindings::*;
 use std::ptr::null_mut;
 
 trait BoringResExt {

@@ -2,9 +2,9 @@ use crate::boring::CryptParam;
 use crate::error::RlsResult;
 use crate::extend::Aead;
 use crate::RlsError;
-use boring_sys::{EVP_AEAD_CTX_cleanup, EVP_AEAD_CTX_init, EVP_AEAD_CTX_open, EVP_AEAD_CTX_seal, EVP_aead_aes_128_gcm, EVP_aead_aes_256_gcm, EVP_aead_chacha20_poly1305, EVP_AEAD_CTX, EVP_AEAD_DEFAULT_TAG_LENGTH};
 use std::mem::MaybeUninit;
 use std::ptr::null_mut;
+use crate::boring::bindings::*;
 
 pub struct AeadCryptor {
     ctx: MaybeUninit<EVP_AEAD_CTX>,
@@ -16,8 +16,6 @@ impl AeadCryptor {
             Aead::AES_128_GCM => unsafe { EVP_aead_aes_128_gcm() },
             Aead::AES_256_GCM => unsafe { EVP_aead_aes_256_gcm() }
             Aead::ChaCha20_POLY1305 => unsafe { EVP_aead_chacha20_poly1305() }
-            // Aead::AES_128_CBC_SHA => unsafe { EVP_aead_aes_128_cbc_sha1_tls() }
-            // Aead::AES_256_CBC_SHA => unsafe { EVP_aead_aes_256_cbc_sha1_tls() }
             _ => return Err("not aead,but in aead".into())
         };
         let mut ctx = MaybeUninit::zeroed();

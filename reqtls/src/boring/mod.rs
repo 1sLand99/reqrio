@@ -2,6 +2,7 @@ mod aead;
 mod cipher;
 mod ec_curve;
 mod evp_curve;
+mod bindings;
 
 pub use ec_curve::*;
 pub use evp_curve::*;
@@ -31,7 +32,7 @@ impl Cryptor {
         match aead {
             Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::ChaCha20_POLY1305 => Ok(Cryptor::AeadCryptor(AeadCryptor::new(aead, key)?)),
             Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => Ok(Cryptor::CipherCryptor(CipherCryptor::new(aead, key.to_vec())?)),
-            _=>return Err("unsupported cryptor".into()),
+            _ => return Err("unsupported cryptor".into()),
         }
     }
 

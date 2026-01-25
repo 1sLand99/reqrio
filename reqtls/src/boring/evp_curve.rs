@@ -1,6 +1,6 @@
 use crate::error::RlsResult;
 use crate::RlsError;
-use boring_sys::EVP_PKEY;
+use super::bindings::*;
 use std::ptr::null_mut;
 
 pub struct EvpCurve {
@@ -13,27 +13,27 @@ pub struct EvpCurve {
 
 impl EvpCurve {
     pub fn new_x25519() -> RlsResult<EvpCurve> {
-        EvpCurve::new(boring_sys::EVP_PKEY_X25519, 32, 32)
+        EvpCurve::new(EVP_PKEY_X25519, 32, 32)
     }
 
     fn new(nid: i32, mut pub_len: usize, secret_len: usize) -> RlsResult<EvpCurve> {
-        let ctx = unsafe { boring_sys::EVP_PKEY_CTX_new_id(nid, null_mut()) };
+        let ctx = unsafe { EVP_PKEY_CTX_new_id(nid, null_mut()) };
         if ctx.is_null() {
             return Err(RlsError::InitEvpPKeyCtxError);
         }
-        let ret = unsafe { boring_sys::EVP_PKEY_keygen_init(ctx) };
+        let ret = unsafe { EVP_PKEY_keygen_init(ctx) };
         if ret != 1 {
-            unsafe { boring_sys::EVP_PKEY_CTX_free(ctx); }
+            unsafe { EVP_PKEY_CTX_free(ctx); }
             return Err(RlsError::InitKeygenError);
         }
         let mut pkey = null_mut();
-        let ret = unsafe { boring_sys::EVP_PKEY_keygen(ctx, &mut pkey) };
-        unsafe { boring_sys::EVP_PKEY_CTX_free(ctx); }
+        let ret = unsafe { EVP_PKEY_keygen(ctx, &mut pkey) };
+        unsafe { EVP_PKEY_CTX_free(ctx); }
         if ret != 1 {
             return Err(RlsError::KeyGenError);
         }
         let mut pub_key = vec![0; pub_len];
-        let ret = unsafe { boring_sys::EVP_PKEY_get_raw_public_key(pkey, pub_key.as_mut_ptr(), &mut pub_len) };
+        let ret = unsafe { EVP_PKEY_get_raw_public_key(pkey, pub_key.as_mut_ptr(), &mut pub_len) };
         if ret != 1 { return Err(RlsError::GetPubKeyError); }
         Ok(EvpCurve {
             evp_key: pkey,
@@ -49,7 +49,7 @@ impl EvpCurve {
 
     pub fn diffie_hellman(mut self, pub_key: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
         let pub_key = unsafe {
-            boring_sys::EVP_PKEY_new_raw_public_key(
+            EVP_PKEY_new_raw_public_key(
                 self.nid,
                 null_mut(),
                 pub_key.as_ref().as_ptr(),
@@ -59,27 +59,27 @@ impl EvpCurve {
         if pub_key.is_null() {
             return Err(RlsError::NewPublicKeyError);
         }
-        let ctx = unsafe { boring_sys::EVP_PKEY_CTX_new(self.evp_key, null_mut()) };
+        let ctx = unsafe { EVP_PKEY_CTX_new(self.evp_key, null_mut()) };
         if ctx.is_null() {
-            unsafe { boring_sys::EVP_PKEY_free(pub_key); }
+            unsafe { EVP_PKEY_free(pub_key); }
             return Err(RlsError::InitEvpPKeyCtxError);
         }
-        let ret = unsafe { boring_sys::EVP_PKEY_derive_init(ctx) };
+        let ret = unsafe { EVP_PKEY_derive_init(ctx) };
         if ret != 1 {
-            unsafe { boring_sys::EVP_PKEY_free(pub_key); }
-            unsafe { boring_sys::EVP_PKEY_CTX_free(ctx); }
+            unsafe { EVP_PKEY_free(pub_key); }
+            unsafe { EVP_PKEY_CTX_free(ctx); }
             return Err(RlsError::InitDeriveError);
         }
-        let ret = unsafe { boring_sys::EVP_PKEY_derive_set_peer(ctx, pub_key) };
+        let ret = unsafe { EVP_PKEY_derive_set_peer(ctx, pub_key) };
         if ret != 1 {
-            unsafe { boring_sys::EVP_PKEY_free(pub_key); }
-            unsafe { boring_sys::EVP_PKEY_CTX_free(ctx); }
+            unsafe { EVP_PKEY_free(pub_key); }
+            unsafe { EVP_PKEY_CTX_free(ctx); }
             return Err(RlsError::SetPeerDeriveError);
         }
         let mut secret = vec![0u8; self.secret];
-        let ret = unsafe { boring_sys::EVP_PKEY_derive(ctx, secret.as_mut_ptr(), &mut self.secret) };
-        unsafe { boring_sys::EVP_PKEY_free(pub_key); }
-        unsafe { boring_sys::EVP_PKEY_CTX_free(ctx); }
+        let ret = unsafe { EVP_PKEY_derive(ctx, secret.as_mut_ptr(), &mut self.secret) };
+        unsafe { EVP_PKEY_free(pub_key); }
+        unsafe { EVP_PKEY_CTX_free(ctx); }
         if ret != 1 { return Err(RlsError::DeriveError); }
         Ok(secret)
     }
@@ -87,7 +87,7 @@ impl EvpCurve {
 
 impl Drop for EvpCurve {
     fn drop(&mut self) {
-        unsafe { boring_sys::EVP_PKEY_free(self.evp_key) }
+        unsafe { EVP_PKEY_free(self.evp_key) }
         self.pub_key.clear();
         self.pub_key.shrink_to_fit();
     }

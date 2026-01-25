@@ -1,9 +1,9 @@
 use std::ffi::c_void;
 use std::ptr::null_mut;
 use std::slice;
-use boring_sys::EC_KEY;
 use crate::error::RlsResult;
 use crate::RlsError;
+use super::bindings::*;
 
 pub struct EcCurve {
     ec_key: *mut EC_KEY,
@@ -12,22 +12,22 @@ pub struct EcCurve {
 
 impl EcCurve {
     pub fn new_p256() -> RlsResult<EcCurve> {
-        EcCurve::new(boring_sys::NID_X9_62_prime256v1)
+        EcCurve::new(NID_X9_62_prime256v1)
     }
 
     pub fn new_p384() -> RlsResult<EcCurve> {
-        EcCurve::new(boring_sys::NID_secp384r1)
+        EcCurve::new(NID_secp384r1)
     }
 
     pub fn new_p521() -> RlsResult<EcCurve> {
-        EcCurve::new(boring_sys::NID_secp521r1)
+        EcCurve::new(NID_secp521r1)
     }
     fn new(nid: i32) -> RlsResult<EcCurve> {
-        let ec_key = unsafe { boring_sys::EC_KEY_new_by_curve_name(nid) };
+        let ec_key = unsafe { EC_KEY_new_by_curve_name(nid) };
         if ec_key.is_null() { return Err(RlsError::InitEcKeyError); }
-        let r = unsafe { boring_sys::EC_KEY_generate_key(ec_key) };
+        let r = unsafe { EC_KEY_generate_key(ec_key) };
         if r != 1 {
-            unsafe { boring_sys::EC_KEY_free(ec_key) };
+            unsafe { EC_KEY_free(ec_key) };
             return Err(RlsError::GenEcKeyError);
         };
         Ok(EcCurve {
@@ -37,13 +37,13 @@ impl EcCurve {
     }
 
     pub fn pub_key(&mut self) -> &[u8] {
-        let pub_key = unsafe { boring_sys::EC_KEY_get0_public_key(self.ec_key) };
-        let group = unsafe { boring_sys::EC_KEY_get0_group(self.ec_key) };
+        let pub_key = unsafe { EC_KEY_get0_public_key(self.ec_key) };
+        let group = unsafe { EC_KEY_get0_group(self.ec_key) };
         let len = unsafe {
-            boring_sys::EC_POINT_point2buf(
+            EC_POINT_point2buf(
                 group,
                 pub_key,
-                boring_sys::point_conversion_form_t::POINT_CONVERSION_UNCOMPRESSED,
+                point_conversion_form_t::POINT_CONVERSION_UNCOMPRESSED,
                 &mut self.pub_key,
                 null_mut(),
             )
@@ -52,11 +52,11 @@ impl EcCurve {
     }
 
     pub fn diffie_hellman(self, pub_key: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
-        let group = unsafe { boring_sys::EC_KEY_get0_group(self.ec_key) };
-        let server_point = unsafe { boring_sys::EC_POINT_new(group) };
+        let group = unsafe { EC_KEY_get0_group(self.ec_key) };
+        let server_point = unsafe { EC_POINT_new(group) };
         if server_point.is_null() { return Err(RlsError::InitEcPointError); }
         let ret = unsafe {
-            boring_sys::EC_POINT_oct2point(
+            EC_POINT_oct2point(
                 group,
                 server_point,
                 pub_key.as_ref().as_ptr(),
@@ -65,13 +65,13 @@ impl EcCurve {
             )
         };
         if ret != 1 {
-            unsafe { boring_sys::EC_POINT_free(server_point); }
+            unsafe { EC_POINT_free(server_point); }
             return Err(RlsError::OCT2PointError);
         }
-        let secret_len = unsafe { boring_sys::EC_GROUP_get_degree(group) }.div_ceil(8);
+        let secret_len = unsafe { EC_GROUP_get_degree(group) }.div_ceil(8);
         let mut secret = vec![0u8; secret_len as usize];
         let ret = unsafe {
-            boring_sys::ECDH_compute_key(
+            ECDH_compute_key(
                 secret.as_mut_ptr() as *mut c_void,
                 secret_len as usize,
                 server_point,
@@ -79,7 +79,7 @@ impl EcCurve {
                 None,
             )
         };
-        unsafe { boring_sys::EC_POINT_free(server_point); }
+        unsafe { EC_POINT_free(server_point); }
         if ret <= 0 {
             return Err(RlsError::ComputeKeyError);
         }
@@ -90,11 +90,11 @@ impl EcCurve {
 impl Drop for EcCurve {
     fn drop(&mut self) {
         if !self.pub_key.is_null() {
-            unsafe { boring_sys::OPENSSL_free(self.pub_key as *mut c_void) };
+            unsafe { OPENSSL_free(self.pub_key as *mut c_void) };
         }
 
         if !self.ec_key.is_null() {
-            unsafe { boring_sys::EC_KEY_free(self.ec_key) }
+            unsafe { EC_KEY_free(self.ec_key) }
         }
     }
 }
