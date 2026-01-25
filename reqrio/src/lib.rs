@@ -114,7 +114,7 @@ pub use stream::Proxy;
 #[cfg(feature = "cls_async")]
 pub use stream::{TlsStream, TlsConnector};
 #[cfg(anys)]
-pub use stream::{WebSocket, WebSocketBuilder};
+pub use stream::{WebSocket, WebSocketBuilder, ProxyStream};
 #[cfg(feature = "tokio")]
 pub use tokio;
 pub use url::{Addr, Protocol, Uri, Url};

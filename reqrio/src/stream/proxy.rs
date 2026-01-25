@@ -101,6 +101,12 @@ pub struct ProxyStream<S> {
     resp: Response,
 }
 
+impl<S> ProxyStream<S> {
+    pub fn stream_mut(&mut self) -> &mut S {
+        &mut self.stream
+    }
+}
+
 #[cfg(sync)]
 impl ProxyStream<std::net::TcpStream> {
     fn create_sync(addr: &SocketAddr, timeout: &Timeout) -> HlsResult<std::net::TcpStream> {

@@ -13,11 +13,7 @@ pub struct Buffer {
 
 impl Buffer {
     pub fn with_capacity(capacity: usize) -> Buffer {
-        let mut buffer = Vec::with_capacity(capacity);
-        unsafe {
-            buffer.set_len(capacity);
-            ptr::write_bytes(buffer.as_mut_ptr(), 0, capacity);
-        }
+        let buffer=vec![0u8; capacity];
         Buffer { buffer, len: 0 }
     }
 
@@ -61,6 +57,9 @@ impl Buffer {
         self.len = 0;
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
 
     pub fn len(&self) -> usize {
         self.len

@@ -99,6 +99,8 @@ impl Drop for EcCurve {
     }
 }
 
+unsafe impl Send for EcCurve {}
+
 #[cfg(test)]
 mod tests {
     use crate::boring::ec_curve::EcCurve;

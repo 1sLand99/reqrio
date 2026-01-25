@@ -127,14 +127,14 @@ impl TimeoutRW<ProxyStream<TcpStream>> for AsyncTcpStream {
 
 #[cfg(std_async)]
 pub struct StdAsyncTlsStream {
-    stream: TlsStream<TcpStream>,
+    stream: TlsStream<ProxyStream<TcpStream>>,
     read_timeout: Option<Duration>,
     write_timeout: Option<Duration>,
 }
 
 #[cfg(std_async)]
 impl StdAsyncTlsStream {
-    pub async fn connect_timeout(param: ConnParam<'_>, tcp: AsyncTcpStream) -> HlsResult<StdAsyncTlsStream> {
+    pub async fn connect_timeout(param: ConnParam<'_>, tcp: ProxyStream<TcpStream>) -> HlsResult<StdAsyncTlsStream> {
         let dns_name = DnsName::try_from(param.url.addr().host().to_string())?;
         let server_name = ServerName::DnsName(dns_name);
         let mut root = RootCertStore::empty();
@@ -151,41 +151,14 @@ impl StdAsyncTlsStream {
             ]
         }
         let connector = TlsConnector::from(Arc::new(config));
-        let stream = tokio::time::timeout(param.timeout.connect(), connector.connect(server_name, tcp.stream)).await??;
+        let stream = tokio::time::timeout(param.timeout.connect(), connector.connect(server_name, tcp)).await??;
         Ok(StdAsyncTlsStream {
             stream,
-            read_timeout: tcp.read_timeout,
-            write_timeout: tcp.write_timeout,
+            read_timeout: Some(param.timeout.read()),
+            write_timeout: Some(param.timeout.write()),
         })
     }
 
-    // pub async fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-    //     match self.read_timeout {
-    //         None => self.stream.read(buf).await,
-    //         Some(timeout) => tokio::time::timeout(timeout, self.stream.read(buf)).await?
-    //     }
-    // }
-    //
-    // pub async fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-    //     match self.write_timeout {
-    //         None => self.stream.write(buf).await,
-    //         Some(timeout) => tokio::time::timeout(timeout, self.stream.write(buf)).await?
-    //     }
-    // }
-    //
-    // pub async fn flush(&mut self) -> std::io::Result<()> {
-    //     match self.write_timeout {
-    //         None => self.stream.flush().await,
-    //         Some(timeout) => tokio::time::timeout(timeout, self.stream.flush()).await?
-    //     }
-    // }
-
-    // pub async fn shutdown(&mut self) -> std::io::Result<()> {
-    //     match self.write_timeout {
-    //         None => self.stream.shutdown().await,
-    //         Some(timeout) => tokio::time::timeout(timeout, self.stream.shutdown()).await?,
-    //     }
-    // }
 
     pub fn alpn(&self) -> Option<ALPN> {
         let alpn = self.stream.get_ref().1.alpn_protocol()?;
@@ -194,8 +167,8 @@ impl StdAsyncTlsStream {
 }
 
 #[cfg(std_async)]
-impl TimeoutRW<TlsStream<TcpStream>> for StdAsyncTlsStream {
-    fn stream(&mut self) -> &mut TlsStream<TcpStream> {
+impl TimeoutRW<TlsStream<ProxyStream<TcpStream>>> for StdAsyncTlsStream {
+    fn stream(&mut self) -> &mut TlsStream<ProxyStream<TcpStream>> {
         &mut self.stream
     }
 

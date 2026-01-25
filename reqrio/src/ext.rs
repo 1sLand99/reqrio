@@ -278,7 +278,7 @@ pub trait ReqGenExt: ReqPriExt {
     fn gen_h2_header(&mut self) -> HlsResult<Vec<HeaderKey>> {
         let mut headers = self.header().as_h2c()?;
         headers.insert(1, HeaderKey::new(":authority".to_string(), HeaderValue::String(self.url().addr().to_string().replace(":80", "").replace(":443", ""))));
-        headers.insert(2, HeaderKey::new(":scheme".to_string(), HeaderValue::String("https".to_string())));
+        headers.insert(2, HeaderKey::new(":scheme".to_string(), HeaderValue::String(self.url().protocol().to_string())));
         headers.insert(3, HeaderKey::new(":path".to_string(), HeaderValue::String(self.url().uri().to_string())));
         Ok(headers)
     }

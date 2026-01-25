@@ -93,6 +93,8 @@ impl Drop for EvpCurve {
     }
 }
 
+unsafe impl Send for EvpCurve {}
+
 
 #[cfg(test)]
 mod tests {

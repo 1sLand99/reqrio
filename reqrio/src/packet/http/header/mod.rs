@@ -55,6 +55,7 @@ impl Header {
             HeaderKey::new("sec-fetch-mode", HeaderValue::String("".to_string())),
             HeaderKey::new("sec-fetch-user", HeaderValue::String("".to_string())),
             HeaderKey::new("sec-fetch-dest", HeaderValue::String("".to_string())),
+            HeaderKey::new("sec-fetch-storage-access", HeaderValue::String("".to_string())),
             HeaderKey::new("referer", HeaderValue::String("".to_string())),
             HeaderKey::new("accept-encoding", HeaderValue::String("".to_string())),
             HeaderKey::new("accept-language", HeaderValue::String("".to_string())),
@@ -97,8 +98,6 @@ impl Header {
             HeaderKey::new("Accept-Encoding", HeaderValue::String("".to_string())),
             HeaderKey::new("Accept-Language", HeaderValue::String("".to_string())),
             HeaderKey::new("Cookie", HeaderValue::Cookies(vec![])),
-
-
             HeaderKey::new("Origin", HeaderValue::String("".to_string())),
             // HeaderKey::new("pragma", HeaderValue::String("".to_string())),
 
@@ -128,7 +127,7 @@ impl Header {
                 "set-cookie" => for cookie in key.cookies().unwrap_or(&vec![]) {
                     res.push(format!("Set-Cookie: {}", cookie.as_res()));
                 },
-                _ => res.push(format!("{}: {}", key.name(), key.value().to_string()))
+                _ => res.push(format!("{}: {}", key.name(), key.value()))
             }
         }
         res
@@ -302,7 +301,7 @@ impl Header {
         &self.uri
     }
 
-    pub fn is_empty(&self) -> bool { self.agreement == "" }
+    pub fn is_empty(&self) -> bool { self.agreement.is_empty() }
 
     pub fn content_encoding(&self) -> Option<&str> {
         self.get("content-encoding")?.as_string()
@@ -372,12 +371,12 @@ impl Header {
         let mut header = Header::new_res();
         header.agreement = "HTTP/2.0".to_string();
         for pack in packs {
-            // println!("{}", pack);
+            header.insert(pack.name(), pack.value())?;
             match pack.name() {
                 ":method" => header.method = Method::try_from(pack.value().to_uppercase())?,
                 ":path" => header.uri = Uri::try_from(pack.value())?,
                 ":status" => header.status = HttpStatus::try_from(pack.value().parse::<i32>()?)?,
-                _ => header.insert(pack.name(), pack.value())?,
+                _ => {}
             }
         }
         Ok(header)
@@ -460,20 +459,18 @@ impl Display for Header {
         let raw = match self.status {
             HttpStatus::None => {
                 let mut raw = self.raw();
-                raw.insert(0, format!("{} {} {}", self.method, self.uri, self.agreement));
-                raw.push("".to_string());
-                raw.push("".to_string());
+                if self.agreement.starts_with("HTTP/1") { raw.insert(0, format!("{} {} {}", self.method, self.uri, self.agreement)); }
                 raw
             }
             _ => {
                 if self.agreement.starts_with("HTTP/1") {
                     let mut raw = self.raw();
-                    raw.insert(0, format!("{} {} {}", self.agreement, self.status.status_num(), self.status.to_string()));
+                    raw.insert(0, format!("{} {} {}", self.agreement, self.status.status_num(), self.status));
                     raw.push("".to_string());
                     raw.push("".to_string());
                     raw
                 } else {
-                    let mut raw = vec![format!(":status: {}", self.status.status_num())];
+                    let mut raw = vec![];
                     self.keys.iter().for_each(|k| match k.value() {
                         HeaderValue::Cookies(cookies) => for cookie in cookies {
                             raw.push(format!("{}: {}", k.name(), cookie.as_res()));

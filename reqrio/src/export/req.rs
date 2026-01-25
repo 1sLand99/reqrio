@@ -229,7 +229,7 @@ fn send(req: *mut ScReq, method: Method) -> *mut c_char {
             }
         }
     }));
-    res.unwrap_or_else(|e| CString::new(hex::encode("程序panic")).unwrap().into_raw())
+    res.unwrap_or_else(|_| CString::new(hex::encode("程序panic")).unwrap().into_raw())
 }
 #[unsafe(no_mangle)]
 pub extern "system" fn reconnect(req: *mut ScReq) -> i32 {

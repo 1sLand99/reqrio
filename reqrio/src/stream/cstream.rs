@@ -1,19 +1,20 @@
+use crate::alpn::ALPN;
 use crate::error::HlsResult;
+use crate::stream::ConnParam;
+use crate::ProxyStream;
 use rustls::pki_types::{DnsName, ServerName};
 use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
 use std::io::{Read, Write};
-use std::net::{Shutdown, TcpStream};
+use std::net::TcpStream;
 use std::sync::Arc;
-use crate::alpn::ALPN;
-use crate::stream::ConnParam;
 
 pub struct StdSyncTlsStream {
-    stream: StreamOwned<ClientConnection, TcpStream>,
+    stream: StreamOwned<ClientConnection, ProxyStream<TcpStream>>,
 }
 
 
 impl StdSyncTlsStream {
-    pub fn connect(param: ConnParam, mut stream: TcpStream) -> HlsResult<StdSyncTlsStream> {
+    pub fn connect(param: ConnParam, mut stream: ProxyStream<TcpStream>) -> HlsResult<StdSyncTlsStream> {
         let dns_name = DnsName::try_from(param.url.addr().host().to_string())?;
         let server_name = ServerName::DnsName(dns_name);
         let mut root = RootCertStore::empty();
@@ -37,14 +38,12 @@ impl StdSyncTlsStream {
     pub fn shutdown(&mut self) -> std::io::Result<()> {
         self.stream.conn.send_close_notify();
         self.stream.conn.complete_io(&mut self.stream.sock)?;
-        self.stream.sock.shutdown(Shutdown::Both)
+        self.stream.sock.shutdown()?;
+        Ok(())
     }
 
     pub fn alpn(&self) -> Option<ALPN> {
-        match self.stream.conn.alpn_protocol() {
-            None => None,
-            Some(alpn) => Some(ALPN::from_slice(alpn)),
-        }
+        self.stream.conn.alpn_protocol().map(ALPN::from_slice)
     }
 }
 

@@ -183,7 +183,7 @@ impl Response {
     pub fn raw_string(&self) -> String {
         let header = self.header.to_string();
         let body = String::from_utf8_lossy(&self.raw).to_string();
-        header + &body
+        header +"\r\n\r\n"+ &body
     }
 
     pub fn clear_raw(&mut self) { self.raw.clear() }
