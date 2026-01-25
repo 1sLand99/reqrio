@@ -11,7 +11,11 @@ use crate::stream::kind::StreamKind;
 #[cfg(anys)]
 use crate::timeout::Timeout;
 
-pub use proxy::{Proxy, ProxyStream};
+pub use proxy::Proxy;
+
+#[cfg(anys)]
+pub use proxy::ProxyStream;
+
 #[cfg(anys)]
 use crate::Buffer;
 #[cfg(feature = "cls_async")]

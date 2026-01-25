@@ -125,7 +125,7 @@ pub use timeout::Timeout;
 
 #[cfg(anys)]
 pub type ReqCallback = Box<dyn FnMut(&[u8]) -> HlsResult<()>>;
-pub const HTTP_GAP: &'static [u8; 4] = b"\r\n\r\n";
+pub const HTTP_GAP: &[u8; 4] = b"\r\n\r\n";
 
 
 #[cfg(aync)]

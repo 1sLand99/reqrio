@@ -28,7 +28,7 @@ impl Proxy {
         Proxy::Socks5(Addr::new_addr(host, port))
     }
 
-
+    #[cfg(anys)]
     fn proxy_context(&self, peer_addr: &Addr) -> Vec<u8> {
         match self {
             Proxy::Null => vec![],
@@ -91,7 +91,7 @@ impl TryFrom<String> for Proxy {
     }
 }
 
-
+#[cfg(anys)]
 pub struct ProxyStream<S> {
     stream: S,
     handle_proxy: bool,
@@ -101,6 +101,7 @@ pub struct ProxyStream<S> {
     resp: Response,
 }
 
+#[cfg(anys)]
 impl<S> ProxyStream<S> {
     pub fn stream_mut(&mut self) -> &mut S {
         &mut self.stream
