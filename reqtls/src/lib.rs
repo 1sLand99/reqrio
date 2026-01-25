@@ -8,6 +8,7 @@ pub use record::{RecordLayer, RecordType};
 pub use error::RlsError;
 pub use version::Version;
 pub use range::RangeExt;
+pub use boring::hash;
 
 mod extend;
 mod message;

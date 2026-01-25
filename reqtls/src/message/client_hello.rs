@@ -1,15 +1,16 @@
+use super::super::bytes::Bytes;
+use super::super::cipher::suite::CipherSuite;
+use super::super::extend::Extension;
+use super::super::extend::ExtensionKind;
+use super::super::version::Version;
+use super::HandshakeType;
+use crate::boring::hash;
 use crate::cipher::suite::CipherSuiteKind;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::ExtensionType;
 use crate::rand;
 use crate::version::VersionKind;
-use super::super::bytes::Bytes;
-use super::super::cipher::suite::CipherSuite;
-use super::super::extend::Extension;
-use super::HandshakeType;
-use super::super::extend::ExtensionKind;
-use super::super::version::Version;
 
 
 #[derive(Debug)]
@@ -156,7 +157,7 @@ impl ClientHello {
         };
         let ja3_str = format!("{},{},{},{},{}", ver, suite.join("-"), ext.join("-"), group.join("-"), formats.join("-"));
         println!("{}", ja3_str);
-        hex::encode(md5::compute(ja3_str.as_bytes()).as_slice())
+        hex::encode(hash::md5(ja3_str).unwrap())
     }
 
     ///### ja4计算方式为
@@ -190,17 +191,13 @@ impl ClientHello {
         let ext = self.extensions.iter().find(|x| x.signature_algorithms().is_some());
         let sign_algo = ext.map(|x| Some(x.signature_algorithms()?.hashes().iter().map(|x| *x as u16).collect::<Vec<_>>()));
         let sign_algo = sign_algo.unwrap_or(Some(vec![])).unwrap_or(vec![]);
-        let mut hash = sha2::Sha256::default();
         let suite_str = suite.iter().map(|x| hex::encode(x.to_be_bytes())).collect::<Vec<_>>().join(",");
         println!("{}", suite_str);
-        sha2::Digest::update(&mut hash, suite_str);
-        let suit_hash = hex::encode(sha2::Digest::finalize(hash).to_vec());
+        let suit_hash = hex::encode(hash::sha256(suite_str).unwrap());
         let c = format!("{}_{}", exts.iter().map(|x| hex::encode(x.to_be_bytes())).collect::<Vec<_>>().join(","),
                         sign_algo.iter().map(|x| hex::encode(x.to_be_bytes())).collect::<Vec<_>>().join(","));
         println!("{}", c);
-        let mut hash = sha2::Sha256::default();
-        sha2::Digest::update(&mut hash, c.as_bytes());
-        let c_hash = hex::encode(sha2::Digest::finalize(hash).to_vec());
+        let c_hash = hex::encode(hash::sha256(c).unwrap());
 
         format!("t{}d{:.2}{:02}{}_{}_{}", ver, suite.len(), exts.len(), alps, &suit_hash[..12], &c_hash[..12])
     }

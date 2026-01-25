@@ -1,77 +1,37 @@
-use super::cipher::suite::Hasher;
+use crate::boring;
+use crate::boring::{Hasher, Sha};
 use crate::error::RlsResult;
-use hmac::{Hmac, KeyInit, Mac};
-use sha1::Sha1;
-use sha2::{Sha256, Sha384};
 
-enum PrfKind {
-    Sha1,
-    Sha256,
-    Sha384,
-}
-
-impl PrfKind {
-    fn hmac_sha(&self, secret: &[u8], data: &[&[u8]]) -> RlsResult<Vec<u8>> {
-        match self {
-            PrfKind::Sha256 => {
-                let mut a_i: Hmac<Sha256> = Hmac::new_from_slice(secret)?;
-                for datum in data {
-                    a_i.update(datum);
-                }
-                Ok(a_i.finalize().as_bytes().to_vec())
-            }
-            PrfKind::Sha384 => {
-                let mut a_i: Hmac<Sha384> = Hmac::new_from_slice(secret)?;
-                for datum in data {
-                    a_i.update(datum);
-                }
-                Ok(a_i.finalize().as_bytes().to_vec())
-            }
-            PrfKind::Sha1 => {
-                let mut a_i: Hmac<Sha1> = Hmac::new_from_slice(secret)?;
-                for datum in data {
-                    a_i.update(datum);
-                }
-                Ok(a_i.finalize().as_bytes().to_vec())
-            }
-        }
-    }
-
-    fn hash_size(&self) -> usize {
-        match self {
-            PrfKind::Sha1 => 20,
-            PrfKind::Sha256 => 32,
-            PrfKind::Sha384 => 48,
-        }
-    }
-}
-
-pub struct Prf(PrfKind);
+pub struct Prf(Sha);
 
 
 impl Prf {
     pub fn default() -> Prf {
-        Prf(PrfKind::Sha256)
+        Prf(Sha::Sha256)
     }
 
     pub fn from_hasher(hasher: &Hasher) -> Prf {
-        match hasher {
-            Hasher::Sha1(_) => Prf(PrfKind::Sha1),
-            Hasher::Sha256(_) => Prf(PrfKind::Sha256),
-            Hasher::Sha384(_) => Prf(PrfKind::Sha384),
+        Prf(hasher.sha().clone())
+    }
+
+    pub fn hmac_sha(&self, secret: &[u8], data: &[&[u8]]) -> RlsResult<Vec<u8>> {
+        let mut hmac = boring::Hmac::new(secret, self.0)?;
+        for datum in data {
+            hmac.update(datum)?;
         }
+        Ok(hmac.finalize()?.to_vec())
     }
 
     pub fn prf(&mut self, secret: &[u8], label: &str, seed: &[u8], out: &mut [u8]) -> RlsResult<()> {
         // A(0) = HMAC_hash(secret, label + seed)
-        let mut a_i = self.0.hmac_sha(secret, &[label.as_bytes(), seed])?;
+        let mut a_i = self.hmac_sha(secret, &[label.as_bytes(), seed])?;
         let chunk_size = self.0.hash_size();
         for chunk in out.chunks_mut(chunk_size) {
             // P_hash[i] = HMAC_hash(secret, A(i) + label + seed)
-            let p_hash = self.0.hmac_sha(secret, &[&a_i, label.as_bytes(), seed])?;
+            let p_hash = self.hmac_sha(secret, &[&a_i, label.as_bytes(), seed])?;
             chunk.copy_from_slice(&p_hash[..chunk.len()]);
             // A(i) = HMAC_hash(secret, A(i - 1))
-            a_i = self.0.hmac_sha(secret, &[&a_i])?;
+            a_i = self.hmac_sha(secret, &[&a_i])?;
         }
         Ok(())
     }
@@ -80,9 +40,8 @@ impl Prf {
 
 #[cfg(test)]
 mod tests {
-    use crate::cipher::suite::Hasher;
+    use crate::boring::{Hasher, Sha};
     use crate::prf::Prf;
-    use sha2::Sha256;
 
     #[test]
     fn test_prf() {
@@ -90,7 +49,7 @@ mod tests {
         let share_secret = [189, 131, 30, 96, 115, 185, 113, 187, 225, 41, 170, 137, 172, 238, 155, 134, 67, 209, 193, 147, 14, 95, 123, 199, 218, 123, 24, 132, 246, 107, 134, 13];
         let session_hash = [203, 88, 253, 224, 105, 246, 231, 82, 172, 215, 174, 32, 168, 62, 147, 60, 219, 189, 233, 197, 149, 10, 0, 47, 84, 235, 172, 168, 140, 212, 108, 127];
         let mut master_secret = [0; 48];
-        let mut prf = Prf::from_hasher(&Hasher::Sha256(Sha256::default()));
+        let mut prf = Prf::from_hasher(&Hasher::new(Sha::Sha256).unwrap());
         prf.prf(&share_secret, "extended master secret", &session_hash, &mut master_secret).unwrap();
         println!("{:?}", master_secret);
         let client_random = [168, 102, 144, 116, 168, 105, 73, 53, 141, 158, 97, 68, 2, 18, 204, 19, 248, 142, 178, 215, 223, 48, 197, 110, 19, 11, 72, 208, 168, 74, 129, 61];

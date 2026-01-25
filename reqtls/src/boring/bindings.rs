@@ -118,8 +118,6 @@ unsafe extern "C" {
 
     pub fn EVP_CIPHER_CTX_new() -> *mut EVP_CIPHER_CTX;
 
-    pub fn EVP_sha1() -> *const EVP_MD;
-
     pub fn EVP_CIPHER_CTX_free(ctx: *mut EVP_CIPHER_CTX);
 
     pub fn CRYPTO_memcmp(
@@ -337,4 +335,103 @@ unsafe extern "C" {
         in_: *const u8,
         len: usize,
     ) -> *mut EVP_PKEY;
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub struct HMAC_CTX {
+    pub md: *const EVP_MD,
+    pub md_ctx: EVP_MD_CTX,
+    pub i_ctx: EVP_MD_CTX,
+    pub o_ctx: EVP_MD_CTX,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub struct EVP_MD_CTX {
+    pub digest: *const EVP_MD,
+    pub md_data: *mut c_void,
+    pub pctx: *mut EVP_PKEY_CTX,
+    pub pctx_ops: *const evp_md_pctx_ops,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+#[allow(non_camel_case_types)]
+pub struct evp_md_pctx_ops {
+    _unused: [u8; 0],
+}
+
+
+unsafe extern "C"{
+    pub fn EVP_md5() -> *const EVP_MD;
+    pub fn EVP_sha1() -> *const EVP_MD;
+
+    pub fn EVP_sha256() -> *const EVP_MD;
+
+    pub fn EVP_sha384() -> *const EVP_MD;
+
+    pub fn EVP_sha512() -> *const EVP_MD;
+
+    pub fn HMAC_CTX_new() -> *mut HMAC_CTX;
+
+    pub fn HMAC_CTX_free(ctx: *mut HMAC_CTX);
+
+    pub fn EVP_MD_CTX_new() -> *mut EVP_MD_CTX;
+
+    pub fn EVP_MD_CTX_free(ctx: *mut EVP_MD_CTX);
+
+    pub fn EVP_MD_CTX_copy_ex(
+        out: *mut EVP_MD_CTX,
+        in_: *const EVP_MD_CTX,
+    ) -> c_int;
+
+    pub fn HMAC_Init_ex(
+        ctx: *mut HMAC_CTX,
+        key: *const c_void,
+        key_len: usize,
+        md: *const EVP_MD,
+        impl_: *mut ENGINE,
+    ) -> c_int;
+
+    pub fn HMAC_Update(
+        ctx: *mut HMAC_CTX,
+        data: *const u8,
+        data_len: usize,
+    ) -> c_int;
+
+    pub fn HMAC_Final(
+        ctx: *mut HMAC_CTX,
+        out: *mut u8,
+        out_len: *mut c_uint,
+    ) -> c_int;
+
+    pub fn EVP_DigestInit_ex(
+        ctx: *mut EVP_MD_CTX,
+        type_: *const EVP_MD,
+        engine: *mut ENGINE,
+    ) -> c_int;
+
+    pub fn EVP_DigestUpdate(
+        ctx: *mut EVP_MD_CTX,
+        data: *const c_void,
+        len: usize,
+    ) -> c_int;
+
+    pub fn EVP_DigestFinal_ex(
+        ctx: *mut EVP_MD_CTX,
+        md_out: *mut u8,
+        out_size: *mut c_uint,
+    ) -> c_int;
+
+    pub fn EVP_Digest(
+        data: *const c_void,
+        len: usize,
+        md_out: *mut u8,
+        md_out_size: *mut c_uint,
+        type_: *const EVP_MD,
+        impl_: *mut ENGINE,
+    ) -> c_int;
 }

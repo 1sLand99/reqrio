@@ -25,6 +25,7 @@ async fn main() {
     req.set_headers_json(headers).unwrap(); //
     // req.set_url("https://www.sogou.com").await.unwrap();
     req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").await.unwrap();
+    println!("111");
     // req.set_url("https://www.so.com").await.unwrap();
     // req.set_callback(|data| {
     //     println!("{}", data.len());

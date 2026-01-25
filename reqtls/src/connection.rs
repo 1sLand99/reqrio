@@ -130,10 +130,10 @@ impl Connection {
             self.session_bytes.extend_from_slice(data.as_ref());
         } else {
             if !self.session_bytes.is_empty() {
-                self.cipher_suite.update(&self.session_bytes);
+                self.cipher_suite.update(&self.session_bytes)?;
                 self.session_bytes.clear();
             }
-            self.cipher_suite.update(data.as_ref());
+            self.cipher_suite.update(data)?;
         }
         Ok(())
     }

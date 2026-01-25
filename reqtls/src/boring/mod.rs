@@ -3,9 +3,11 @@ mod cipher;
 mod ec_curve;
 mod evp_curve;
 mod bindings;
+pub mod hash;
 
 pub use ec_curve::*;
 pub use evp_curve::*;
+pub use hash::*;
 
 use crate::error::RlsResult;
 use crate::extend::Aead;
@@ -23,31 +25,31 @@ pub(crate) struct CryptParam<'a, 'b: 'a> {
 
 pub enum Cryptor {
     None,
-    AeadCryptor(AeadCryptor),
-    CipherCryptor(CipherCryptor),
+    Aead(Box<AeadCryptor>),
+    Cipher(CipherCryptor),
 }
 
 impl Cryptor {
     pub fn from_aead(key: &[u8], aead: &Aead) -> RlsResult<Cryptor> {
         match aead {
-            Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::ChaCha20_POLY1305 => Ok(Cryptor::AeadCryptor(AeadCryptor::new(aead, key)?)),
-            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => Ok(Cryptor::CipherCryptor(CipherCryptor::new(aead, key.to_vec())?)),
-            _ => return Err("unsupported cryptor".into()),
+            Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::ChaCha20_POLY1305 => Ok(Cryptor::Aead(Box::new(AeadCryptor::new(aead, key)?))),
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => Ok(Cryptor::Cipher(CipherCryptor::new(aead, key.to_vec())?)),
+            _ => Err("unsupported cryptor".into()),
         }
     }
 
     pub fn encrypt(&self, param: CryptParam) -> RlsResult<usize> {
         match self {
-            Cryptor::AeadCryptor(cryptor) => cryptor.encrypt(param),
-            Cryptor::CipherCryptor(cipher) => cipher.encrypt(param),
+            Cryptor::Aead(cryptor) => cryptor.encrypt(param),
+            Cryptor::Cipher(cipher) => cipher.encrypt(param),
             _ => Err("Cryptor not implemented".into()),
         }
     }
 
     pub fn decrypt(&self, param: CryptParam) -> RlsResult<usize> {
         match self {
-            Cryptor::AeadCryptor(cryptor) => cryptor.decrypt(param),
-            Cryptor::CipherCryptor(cipher) => cipher.decrypt(param),
+            Cryptor::Aead(cryptor) => cryptor.decrypt(param),
+            Cryptor::Cipher(cipher) => cipher.decrypt(param),
             _ => Err("Cryptor not implemented".into()),
         }
     }

@@ -9,10 +9,6 @@ repository = "https://github.com/xllgl2017/reqrio/tree/master/reqtls"
 
 [dependencies]
 hex = "0.4.3"
-md5 = "0.8.0"
-hmac = "0.13.0-rc.3"
-sha1 = "0.11.0-rc.3"
-sha2 = "0.11.0-rc.3"
 rand_core = "0.9.5"
 getrandom = "0.4.0-rc.0"
 bytemuck = "1.24.0"

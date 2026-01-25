@@ -5,9 +5,7 @@ use std::fmt::{Display, Formatter};
 use std::io;
 use std::num::ParseIntError;
 use std::string::FromUtf8Error;
-// use aws_lc_rs::error::Unspecified;
 use hex::FromHexError;
-use hmac::digest::InvalidLength;
 
 #[derive(Debug)]
 pub enum RlsError {
@@ -40,6 +38,14 @@ pub enum RlsError {
     InitDeriveError,
     SetPeerDeriveError,
     DeriveError,
+    HmacCtxNull,
+    HmacInitError,
+    HmacUpdateError,
+    HmacFinalizeError,
+    InitEvpCtxError,
+    InitDigestError,
+    DigestUpdateError,
+    DigestFinalError,
     StdError(Box<dyn Error>),
     Currently(String),
 }
@@ -76,6 +82,14 @@ impl Display for RlsError {
             RlsError::InitDeriveError => f.write_str("Init derive error"),
             RlsError::SetPeerDeriveError => f.write_str("Set peer derive error"),
             RlsError::DeriveError => f.write_str("Derive error"),
+            RlsError::HmacCtxNull => f.write_str("Hmac ctx null"),
+            RlsError::HmacInitError => f.write_str("Hmac init error"),
+            RlsError::HmacUpdateError => f.write_str("Hmac update error"),
+            RlsError::HmacFinalizeError => f.write_str("Hmac finalize error"),
+            RlsError::InitEvpCtxError => f.write_str("Init Evp ctx error"),
+            RlsError::InitDigestError => f.write_str("Init digest error"),
+            RlsError::DigestUpdateError => f.write_str("Digest update error"),
+            RlsError::DigestFinalError => f.write_str("Digest finalize error"),
             RlsError::StdError(e) => f.write_fmt(format_args!("{:?}", e)),
             RlsError::Currently(e) => f.write_str(e),
         }
@@ -108,12 +122,6 @@ impl From<FromUtf8Error> for RlsError {
 
 impl From<TryFromSliceError> for RlsError {
     fn from(value: TryFromSliceError) -> Self {
-        RlsError::StdError(Box::new(value))
-    }
-}
-
-impl From<InvalidLength> for RlsError {
-    fn from(value: InvalidLength) -> Self {
         RlsError::StdError(Box::new(value))
     }
 }
