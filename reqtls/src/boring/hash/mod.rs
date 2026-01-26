@@ -62,10 +62,19 @@ pub fn md5(context: impl AsRef<[u8]>) -> RlsResult<[u8; 16]> {
     Ok(out)
 }
 
+pub fn md5_hex(context: impl AsRef<[u8]>) -> RlsResult<String> {
+    Ok(hex::encode(md5(context)?))
+
+}
+
 pub fn sha1(context: impl AsRef<[u8]>) -> RlsResult<[u8; 20]> {
     let mut out = [0u8; 20];
     digest(context.as_ref(), out.as_mut_ptr(), Sha::Sha1)?;
     Ok(out)
+}
+
+pub fn sha1_hex(context: impl AsRef<[u8]>) -> RlsResult<String> {
+    Ok(hex::encode(sha1(context)?))
 }
 
 pub fn sha256(context: impl AsRef<[u8]>) -> RlsResult<[u8; 32]> {
@@ -74,14 +83,26 @@ pub fn sha256(context: impl AsRef<[u8]>) -> RlsResult<[u8; 32]> {
     Ok(out)
 }
 
+pub fn sha256_hex(context: impl AsRef<[u8]>) -> RlsResult<String> {
+    Ok(hex::encode(sha256(context)?))
+}
+
 pub fn sha384(context: impl AsRef<[u8]>) -> RlsResult<[u8; 48]> {
     let mut out = [0u8; 48];
     digest(context.as_ref(), out.as_mut_ptr(), Sha::Sha384)?;
     Ok(out)
 }
 
+pub fn sha384_hex(context: impl AsRef<[u8]>) -> RlsResult<String> {
+    Ok(hex::encode(sha384(context)?))
+}
+
 pub fn sha512(context: impl AsRef<[u8]>) -> RlsResult<[u8; 64]> {
     let mut out = [0u8; 64];
     digest(context.as_ref(), out.as_mut_ptr(), Sha::Sha512)?;
     Ok(out)
+}
+
+pub fn sha512_hex(context: impl AsRef<[u8]>) -> RlsResult<String> {
+    Ok(hex::encode(sha512(context)?))
 }

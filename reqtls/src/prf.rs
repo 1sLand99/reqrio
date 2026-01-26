@@ -11,7 +11,7 @@ impl Prf {
     }
 
     pub fn from_hasher(hasher: &Hasher) -> Prf {
-        Prf(hasher.sha().clone())
+        Prf(*hasher.sha())
     }
 
     pub fn hmac_sha(&self, secret: &[u8], data: &[&[u8]]) -> RlsResult<Vec<u8>> {

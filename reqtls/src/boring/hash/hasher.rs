@@ -52,7 +52,7 @@ impl Clone for Hasher {
         unsafe { EVP_MD_CTX_copy_ex(ctx, self.ctx) };
         Hasher {
             ctx,
-            sha: self.sha.clone(),
+            sha: self.sha,
             buf: [0; 64],
             len: 0,
         }
