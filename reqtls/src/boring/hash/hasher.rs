@@ -65,6 +65,7 @@ impl Drop for Hasher {
     }
 }
 
+unsafe impl Send for Hasher {}
 
 #[cfg(test)]
 mod tests {

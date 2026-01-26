@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn test_evp_curve() {
-        let mut x25519 = EvpCurve::new_x25519().unwrap();
+        let x25519 = EvpCurve::new_x25519().unwrap();
         let pub_key = x25519.pub_key();
         println!("{} {:?}", pub_key.len(), pub_key);
         let secret = x25519.diffie_hellman([206, 118, 3, 226, 136, 204, 138, 40, 0, 126, 104, 169, 167, 100, 179, 140, 247, 174, 108, 211, 16, 18, 195, 23, 240, 147, 55, 173, 102, 11, 202, 9]).unwrap();

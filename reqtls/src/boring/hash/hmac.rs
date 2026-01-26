@@ -54,6 +54,47 @@ impl Drop for Hmac {
     }
 }
 
+fn hmac(key: &[u8], data: &[u8], out: &mut [u8], sha: Sha) -> RlsResult<usize> {
+    let mut len = 0;
+    let ret = unsafe {
+        HMAC(
+            sha.evp_md(),
+            key.as_ptr() as *const _,
+            key.len(),
+            data.as_ptr() as *const _,
+            data.len(),
+            out.as_mut_ptr(),
+            &mut len,
+        )
+    };
+    if ret.is_null() { return Err(RlsError::CipherMacError); }
+    Ok(len as usize)
+}
+
+pub fn hmac_sha1(key: impl AsRef<[u8]>, data: impl AsRef<[u8]>) -> RlsResult<[u8; 20]> {
+    let mut out = [0; 20];
+    hmac(key.as_ref(), data.as_ref(), &mut out[..], Sha::Sha1)?;
+    Ok(out)
+}
+
+pub fn hmac_sha256(key: impl AsRef<[u8]>, data: impl AsRef<[u8]>) -> RlsResult<[u8; 32]> {
+    let mut out = [0; 32];
+    hmac(key.as_ref(), data.as_ref(), &mut out[..], Sha::Sha1)?;
+    Ok(out)
+}
+
+pub fn hmac_sha384(key: impl AsRef<[u8]>, data: impl AsRef<[u8]>) -> RlsResult<[u8; 48]> {
+    let mut out = [0; 48];
+    hmac(key.as_ref(), data.as_ref(), &mut out[..], Sha::Sha1)?;
+    Ok(out)
+}
+
+pub fn hmac_sha512(key: impl AsRef<[u8]>, data: impl AsRef<[u8]>) -> RlsResult<[u8; 64]> {
+    let mut out = [0; 64];
+    hmac(key.as_ref(), data.as_ref(), &mut out[..], Sha::Sha1)?;
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use crate::boring::hash::{Hmac, Sha};

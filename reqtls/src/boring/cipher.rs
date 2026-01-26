@@ -5,6 +5,7 @@ use crate::extend::Aead;
 use crate::{rand, RlsError};
 use super::bindings::*;
 use std::ptr::null_mut;
+use crate::hash::hmac;
 
 trait BoringResExt {
     fn ok(self, error: RlsError) -> RlsResult<()>;
@@ -64,19 +65,9 @@ impl CipherCryptor {
                 &mut final_len,
             )
         }.ok(RlsError::CipherEncryptError)?;
-        let mut mac_len = 0;
-        let ok = unsafe {
-            HMAC(
-                EVP_sha1(),
-                self.mac_key.as_ptr() as *const _,
-                self.mac_key.len(),
-                param.payload.value[..(16 + out_len + final_len) as usize].as_ptr(),
-                (16 + out_len + final_len) as usize,
-                param.payload.value[(16 + out_len + final_len) as usize..].as_mut_ptr(),
-                &mut mac_len,
-            )
-        };
-        if ok.is_null() { return Err(RlsError::CipherMacError); }
+        let len = (16 + out_len + final_len) as usize;
+        let mac = hmac::hmac_sha1(self.mac_key, &param.payload.value[..len])?;
+        param.payload.value[len..len + 20].copy_from_slice(&mac);
         Ok((16 + out_len + final_len + 20) as usize)
     }
 
@@ -84,20 +75,7 @@ impl CipherCryptor {
         let auth_data = &param.payload.value[..param.payload.value.len() - 20];
         let mac = &param.payload.value[param.payload.value.len() - 20..];
         // 2. 校验 HMAC (必须先于解密)
-        let mut computed_mac = [0u8; 20];
-        let mut computed_mac_len = 20u32;
-        let ok = unsafe {
-            HMAC(
-                EVP_sha1(),
-                self.mac_key.as_ptr() as *const _,
-                self.mac_key.len(),
-                auth_data.as_ptr(),
-                auth_data.len(),
-                computed_mac.as_mut_ptr(),
-                &mut computed_mac_len,
-            )
-        };
-        if ok.is_null() { return Err(RlsError::CipherMacError); }
+        let computed_mac = hmac::hmac_sha1(self.mac_key, auth_data)?;
         // 使用恒定时间比较 (Constant-time comparison) 防止侧信道攻击
         let res = unsafe { CRYPTO_memcmp(computed_mac.as_ptr() as *const _, mac.as_ptr() as *const _, mac.len()) };
         if res != 0 { return Err(RlsError::CipherMacError); }

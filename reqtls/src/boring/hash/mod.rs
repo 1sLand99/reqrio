@@ -5,7 +5,7 @@ use crate::boring::bindings::*;
 use crate::error::RlsResult;
 use crate::RlsError;
 
-mod hmac;
+pub mod hmac;
 mod hasher;
 
 #[derive(Clone, Copy)]
