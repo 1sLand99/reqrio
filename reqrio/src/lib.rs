@@ -106,7 +106,7 @@ pub use packet::{
     HttpStatus, Method, Response, Text, HeaderKey, WsFrame, WsOpcode,
 };
 #[cfg(use_cls)]
-pub use reqtls::{Fingerprint, hash, hmac, Cipher, Padding, base64};
+pub use reqtls::*;
 #[cfg(sync)]
 pub use scq::ScReq;
 pub use body::BodyType;

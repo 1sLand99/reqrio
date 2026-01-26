@@ -9,6 +9,7 @@ pub use error::RlsError;
 pub use version::Version;
 pub use range::RangeExt;
 pub use boring::{hash, hmac, base64, Cipher, Padding};
+pub use hex;
 
 mod extend;
 mod message;
