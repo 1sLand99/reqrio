@@ -111,10 +111,31 @@ pub struct EVP_MD {
     _unused: [u8; 0],
 }
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct EVP_ENCODE_CTX {
+    pub data_used: c_uint,
+    pub data: [u8; 48usize],
+    pub eof_seen: ::std::os::raw::c_char,
+    pub error_encountered: ::std::os::raw::c_char,
+}
+
 unsafe extern "C" {
     pub fn EVP_aes_128_cbc() -> *const EVP_CIPHER;
 
+    pub fn EVP_aes_192_cbc() -> *const EVP_CIPHER;
+
     pub fn EVP_aes_256_cbc() -> *const EVP_CIPHER;
+
+    pub fn EVP_aes_128_ecb() -> *const EVP_CIPHER;
+
+    pub fn EVP_aes_192_ecb() -> *const EVP_CIPHER;
+
+    pub fn EVP_aes_256_ecb() -> *const EVP_CIPHER;
+
+    pub fn EVP_des_ecb() -> *const EVP_CIPHER;
+
+    pub fn EVP_des_cbc() -> *const EVP_CIPHER;
 
     pub fn EVP_CIPHER_CTX_new() -> *mut EVP_CIPHER_CTX;
 
@@ -176,6 +197,43 @@ unsafe extern "C" {
 
     pub fn EVP_DecryptFinal_ex(
         ctx: *mut EVP_CIPHER_CTX,
+        out: *mut u8,
+        out_len: *mut c_int,
+    ) -> c_int;
+
+    pub fn EVP_CIPHER_CTX_set_padding(
+        ctx: *mut EVP_CIPHER_CTX,
+        pad: c_int,
+    ) -> c_int;
+
+    pub fn EVP_ENCODE_CTX_new() -> *mut EVP_ENCODE_CTX;
+
+    pub fn EVP_ENCODE_CTX_free(ctx: *mut EVP_ENCODE_CTX);
+
+    pub fn EVP_EncodeUpdate(
+        ctx: *mut EVP_ENCODE_CTX,
+        out: *mut u8,
+        out_len: *mut c_int,
+        in_: *const u8,
+        in_len: usize,
+    );
+
+    pub fn EVP_EncodeFinal(
+        ctx: *mut EVP_ENCODE_CTX,
+        out: *mut u8,
+        out_len: *mut c_int,
+    );
+
+    pub fn EVP_DecodeUpdate(
+        ctx: *mut EVP_ENCODE_CTX,
+        out: *mut u8,
+        out_len: *mut c_int,
+        in_: *const u8,
+        in_len: usize,
+    ) -> c_int;
+
+    pub fn EVP_DecodeFinal(
+        ctx: *mut EVP_ENCODE_CTX,
         out: *mut u8,
         out_len: *mut c_int,
     ) -> c_int;

@@ -1,10 +1,14 @@
+pub use padding::Padding;
+mod padding;
+pub mod base64;
+
 use std::ffi::c_int;
 use crate::boring::CryptParam;
 use crate::error::RlsResult;
 use crate::extend::Aead;
 use crate::{rand, RlsError};
 use super::bindings::*;
-use std::ptr::null_mut;
+use std::ptr::{null, null_mut};
 use crate::hash::hmac;
 
 trait BoringResExt {
@@ -112,6 +116,132 @@ impl Drop for CipherCryptor {
 }
 
 unsafe impl Send for CipherCryptor {}
+
+pub struct Cipher {
+    ctx: *mut EVP_CIPHER_CTX,
+    evp_cipher: *const EVP_CIPHER,
+    padding: Padding,
+    key: Vec<u8>,
+    iv: Vec<u8>,
+}
+
+impl Cipher {
+    fn new(cipher: *const EVP_CIPHER) -> Cipher {
+        let ctx = unsafe { EVP_CIPHER_CTX_new() };
+
+        Cipher {
+            ctx,
+            evp_cipher: cipher,
+            padding: Padding::PKCS7Padding,
+            key: vec![],
+            iv: vec![],
+        }
+    }
+
+
+    pub fn aes_cbc_128() -> Cipher {
+        Cipher::new(unsafe { EVP_aes_128_cbc() })
+    }
+
+    pub fn aes_cbc_192() -> Cipher {
+        Cipher::new(unsafe { EVP_aes_192_cbc() })
+    }
+
+    pub fn aes_cbc_256() -> Cipher {
+        Cipher::new(unsafe { EVP_aes_256_cbc() })
+    }
+
+    pub fn aes_ecb_128() -> Cipher {
+        Cipher::new(unsafe { EVP_aes_128_ecb() })
+    }
+
+    pub fn aes_ecb_192() -> Cipher {
+        Cipher::new(unsafe { EVP_aes_192_ecb() })
+    }
+
+    pub fn aes_ecb_256() -> Cipher {
+        Cipher::new(unsafe { EVP_aes_256_ecb() })
+    }
+
+    pub fn des_cbc() -> Cipher {
+        Cipher::new(unsafe { EVP_des_cbc() })
+    }
+
+    pub fn des_ecb() -> Cipher {
+        Cipher::new(unsafe { EVP_des_ecb() })
+    }
+
+    pub fn set_secret_key(&mut self, key: impl Into<Vec<u8>>, iv: Option<impl Into<Vec<u8>>>) {
+        self.key = key.into();
+        self.iv = iv.map(|iv| iv.into()).unwrap_or(vec![]);
+    }
+
+    pub fn encrypt(&self, context: impl Into<Vec<u8>>) -> RlsResult<Vec<u8>> {
+        let mut context = context.into();
+        self.padding.add_padding(&mut context);
+        let iv = if self.iv.is_empty() { null() } else { self.iv.as_ptr() };
+        unsafe { EVP_EncryptInit_ex(self.ctx, self.evp_cipher, null_mut(), self.key.as_ptr(), iv) }.ok(RlsError::CipherCryptError)?;
+        unsafe { EVP_CIPHER_CTX_set_padding(self.ctx, 0) };
+        context.resize(context.len() + 16, 0);
+        let mut block_len = 0;
+        unsafe {
+            EVP_EncryptUpdate(
+                self.ctx,
+                context.as_mut_ptr(),
+                &mut block_len,
+                context.as_ptr(),
+                context.len() as i32 - 16)
+        }.ok(RlsError::CipherEncryptError)?;
+        let mut final_len = 0;
+        unsafe {
+            EVP_EncryptFinal_ex(
+                self.ctx,
+                context[block_len as usize..].as_mut_ptr(),
+                &mut final_len,
+            )
+        }.ok(RlsError::CipherEncryptError)?;
+        context.truncate((block_len + final_len) as usize);
+        Ok(context)
+    }
+
+    pub fn decrypt(&self, context: impl Into<Vec<u8>>) -> RlsResult<Vec<u8>> {
+        let iv = if self.iv.is_empty() { null() } else { self.iv.as_ptr() };
+        unsafe { EVP_DecryptInit_ex(self.ctx, self.evp_cipher, null_mut(), self.key.as_ptr(), iv) }.ok(RlsError::CipherCryptError)?;
+        unsafe { EVP_CIPHER_CTX_set_padding(self.ctx, 0) };
+        let mut context = context.into();
+        // 4. 执行解密
+        let mut out_len = 0i32;
+        let mut final_len = 0i32;
+        unsafe {
+            EVP_DecryptUpdate(
+                self.ctx,
+                context.as_mut_ptr(),
+                &mut out_len,
+                context.as_ptr(),
+                context.len() as i32,
+            )
+        }.ok(RlsError::CipherDecryptError)?;
+        unsafe {
+            EVP_DecryptFinal_ex(
+                self.ctx,
+                context.as_mut_ptr().add(out_len as usize),
+                &mut final_len,
+            )
+        }.ok(RlsError::CipherDecryptError)?;
+        context.truncate((out_len + final_len) as usize);
+        self.padding.remove_padding(&mut context);
+        Ok(context)
+    }
+}
+
+impl Drop for Cipher {
+    fn drop(&mut self) {
+        unsafe { EVP_CIPHER_CTX_free(self.ctx); }
+    }
+}
+
+unsafe impl Send for Cipher {}
+
 
 #[cfg(test)]
 mod tests {

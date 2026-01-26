@@ -1,69 +1,82 @@
 use reqrio::{json, AcReq, ReqExt, Url, ALPN};
+use reqtls::{base64, Cipher};
 // use reqtls::Fingerprint;
 
 #[tokio::main]
 async fn main() {
-    println!("{}", Url::new().to_string());
-    // let fingerprint = Fingerprint::from_hex_all("16030106f2010006ee03031def2fa12c5809120f0f1afd079c5a102e2e38e953b1dea9a1eacd67b6103e2f20766cbd21560f313c7e9764aa5c76b2c69f367fc9adceb624e608996d38792a900020aaaa130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f003501000685caca0000000b00020100002b0007064a4a030403030010000e000c02683208687474702f312e3100230000001b000302000200120000fe0d00fa0000010001d90020a2cfa97fa33547c6344b633828221fb33f1e5a35fcb06726850a800fd2dbdf2c00d07cedc0e3605a031d9d7d66a9db7a1fdc691a86c13107a512f3f03b86efafbabe6312d144f881a1767034901c3bc43628da28591690b3fce37bdbdf505b3b276bb3a2fb62c4a64fe941ffbca5a0741add9b8009c24ea294f1b62af03dce6a49df263b902d75f00e7b0e910f8e27ff527aad134bca9e98a315d9174010b4adf22ffbd9ef635c6da9587f9f838790980e9edb2b1b03b2626006bd0636b00a61e7a80993fc6e9a33d52757c60126111774079d6b5f18480c557eaae5662b30713c3645fd3be9b9e1ac2cda62b75a3e81ca25ff01000100000d001200100403080404010503080505010806060144cd00050003026832000a000c000a2a2a11ec001d00170018003304ef04ed2a2a00010011ec04c06f713961a0b4dedb3a35989d548c8f4e7bbfac08be1c47403077c362864d8738469b7486ceb72f72a60d9a4506e04b816b62425eeb83ad3c0ceaf9a788796e143218f2261037303ac934c8e8934139e3b45cf4b2c51224d9d71169dc6a6298c355107afbf529273b678506782102b487b26799b937613c500a2623d6e98750b8a87f87393e146e5e10876cb1733bbba9e7d4765b806869322c972181e824638af2208727befdfb6b381cb5a926224ed3936904662df5478ce19164a602b954bc01625c1ce2137011b1b29823470b4c52a7089c5b0d0666024a303aab661c5f9a2fe341c5a485c10c837b21b21e0bc22d580b14a0588df7717a609cc22fab33e2d667a8fa22978a2e5b67aebdf0545d43aa4f4ac3c09090aa83c2b6f71029a54ce06668dbbaa4c608a4a26018bad6874f0330b68b0cf235224a96846af8713b479d9b40cd8e8240291091a01715aa020c01a544ff8644901aac37a7bd1c84711c42471760958c253a9f7244396b4050918100c49ab69591a3f026204424c9268c8d2ab6e5d05ca56bca5131b34f71b311d7410cb61c535444f1fc903cc7160c47560710b96b01add0f0cc5f486113b5147e22b13671bd7568ad5ab7572dfc3c1a63247e7656d695716820bb6e33711ad761ad757f84e6b782fc6dc8fb6a4e838249913859583d8b8208c45332537570f8e51f1333908b58829d7075df885ca9acbd335c5d42b319c8552a7f6202f4286f7131bb9b43af5a2c76392b01e729205c488310f319a697ccf0ba4faa073230d5281df4aff2db80991b3da35bb442a70a4f480605f99e47707ff2caa388ab4fb5a66afe556f1898a74544969a0b2afd356d87838e0bfc5d65a59c5722430827b6fbe611cef047b7569317daacdfeb919641a1448b149bbb2166a110d5306b688cae8990757c3301854811a9a1cc4ee45dc548a5837731459bb9051494949bbb4e54c8f9e84613409c44ac27398bb52e541fbc378f507953f06909a63129407236c340801d1b3df4c69f31c4aa04e79f0532cc8494a0ec63848bb482f83a91bf9b3e0b7c2cb2fa12ddc76b38b864c1f41479f9633982bb7693142766c157ec33fcac28eac201df635650eac5adc971e3870112819214c42b1dd144de698f95e603f124cfe562944f64a78ad91f17830115d920f6d9327e575126dba2bdeccd1f7773b973997379a6c8f1071904bd33254c117a6423a4bb4aaa9884e70551817225051a42824d698471cbfb51b2d36270f084e7974eff1967eab791d82879f9674f77262815d26280b0c34c7bc2db1344d060782d632e191099b6094ca5a822eec18d068770c56a386e017e638a1d740494dc3053eb8ac915362197c1be3f867e36350ec49c810f4566c141908f5a3057f15e56d3324544402c2676f38415cac68d9426bdd4c382af045b3470bfb9714dcc2b2a8f774cf45535337a33889285cb82863123ccbb10bd5fb8485511be2cd9c2e7445926e122117627e3642408e1b6a54c464bea0e87ccc9ffba19cc6033e0203e8f72bc0078a097e5c40e581ba92928b69b397f0118e57b0beaac2eb35b654a233cf988860fd733cfc3838a33b3a120c6aa848ccc94416b89bc5124a8fce474cf65100160adc8a5427a642cc582e3e01f852f9b00aeb4a002bdcd21c63d97edb767d1776a686c6b59fdc05b6d2942cbc9176c694e8fa6d84afc580cd3c62c6e001d0020ee79fceeeca4696122da380472b2de2404645c83ae2ca07ecac898bf5b7525470000000e000c0000093338686d7a672e636e00170000002d000201010005000501000000000a0a0001001603030046100000424104ff635373fbbfbc37444a2026372f57fd06c5205bacfe32b61261a9d29bf1fca57f91ef22cb2ba46af8cf9ae7c3123f56634099af297dcd30835cd81664005fb9140303000101").unwrap();
-    let mut req = AcReq::new()
-        // .with_fingerprint(fingerprint)
-        .with_alpn(ALPN::Http20)
-        // .with_proxy(Proxy::try_from("http://111.227.123.247:14557").unwrap())
-        ;
-    let headers = json::object! {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0",
-        "Accept": "*/*",
-        "Sec-Fetch-Site": "same-origin",
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Dest": "empty",
-        "sec-ch-ua": "\"Chromium\";v=\"142\", \"Microsoft Edge\";v=\"142\", \"Not_A Brand\";v=\"99\"",
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": "\"Windows\"",
-        "Accept-Language": "zh-CN,zh;q=0.9",
-        "Accept-Encoding": "gzip,deflate,br,zstd",
-    };
-    req.set_headers_json(headers).unwrap(); //
-    // req.set_url("https://www.sogou.com").await.unwrap();
-    req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").await.unwrap();
-    println!("111");
-    // req.set_url("https://www.so.com").await.unwrap();
-    // req.set_callback(|data| {
-    //     println!("{}", data.len());
-    //     Ok(())
-    // });
-    // let context=req.gen_h1().unwrap();
-    // println!("{}",String::from_utf8(context).unwrap());
-    let res = req.get().await.unwrap();
-    // println!("{}", res.raw_string());
-    let res = req.get().await.unwrap();
-    let body = res.to_string().unwrap();
-    println!("{}", body);
-    // let doc = Document::from(body.as_str());
-    // let lis = doc.find(Name("li").and(Class("b_algo")));
-    // let mut res = json::array![];
-    // for li in lis {
-    //     let ats = li.find(Name("a").and(Class("tilk")));
-    //     for a in ats {
-    //         let href = a.attr("href").unwrap_or("");
-    //         let aria = a.attr("aria-label").unwrap_or("");
-    //         println!("{} {}", href, aria);
-    //         res.push(json::object! {
-    //             "href":href.replace("http://","").replace("https://","").split("/").next().unwrap_or(""),
-    //             "title":aria
-    //         });
-    //     }
-    // }
-    // println!("{}", res.pretty());
-    // println!("{}", res.raw_string());
-    // fs::write("1.html",res.to_string().unwrap()).unwrap();
+    let mut aes = Cipher::des_cbc();
+    aes.set_secret_key("12345678", Some("12345678"));
+    let encrypted = aes.encrypt("1234567812345678jhjfhhhhhhhhhhhhhhdhhhhhhhgfdsfdsefdutrythdyrfgytyth8").unwrap();
+    println!("{:?}", encrypted);
+    let b64 = base64::b64encode(encrypted).unwrap();
+    println!("encrypted: {}", b64);
+
+    let de_bs = base64::b64decode(b64).unwrap();
+    println!("decrypted: {:?}", de_bs);
+    println!("{:?}", aes.decrypt(de_bs).unwrap());
+
+
+    // println!("{}", Url::new().to_string());
+    // // let fingerprint = Fingerprint::from_hex_all("16030106f2010006ee03031def2fa12c5809120f0f1afd079c5a102e2e38e953b1dea9a1eacd67b6103e2f20766cbd21560f313c7e9764aa5c76b2c69f367fc9adceb624e608996d38792a900020aaaa130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f003501000685caca0000000b00020100002b0007064a4a030403030010000e000c02683208687474702f312e3100230000001b000302000200120000fe0d00fa0000010001d90020a2cfa97fa33547c6344b633828221fb33f1e5a35fcb06726850a800fd2dbdf2c00d07cedc0e3605a031d9d7d66a9db7a1fdc691a86c13107a512f3f03b86efafbabe6312d144f881a1767034901c3bc43628da28591690b3fce37bdbdf505b3b276bb3a2fb62c4a64fe941ffbca5a0741add9b8009c24ea294f1b62af03dce6a49df263b902d75f00e7b0e910f8e27ff527aad134bca9e98a315d9174010b4adf22ffbd9ef635c6da9587f9f838790980e9edb2b1b03b2626006bd0636b00a61e7a80993fc6e9a33d52757c60126111774079d6b5f18480c557eaae5662b30713c3645fd3be9b9e1ac2cda62b75a3e81ca25ff01000100000d001200100403080404010503080505010806060144cd00050003026832000a000c000a2a2a11ec001d00170018003304ef04ed2a2a00010011ec04c06f713961a0b4dedb3a35989d548c8f4e7bbfac08be1c47403077c362864d8738469b7486ceb72f72a60d9a4506e04b816b62425eeb83ad3c0ceaf9a788796e143218f2261037303ac934c8e8934139e3b45cf4b2c51224d9d71169dc6a6298c355107afbf529273b678506782102b487b26799b937613c500a2623d6e98750b8a87f87393e146e5e10876cb1733bbba9e7d4765b806869322c972181e824638af2208727befdfb6b381cb5a926224ed3936904662df5478ce19164a602b954bc01625c1ce2137011b1b29823470b4c52a7089c5b0d0666024a303aab661c5f9a2fe341c5a485c10c837b21b21e0bc22d580b14a0588df7717a609cc22fab33e2d667a8fa22978a2e5b67aebdf0545d43aa4f4ac3c09090aa83c2b6f71029a54ce06668dbbaa4c608a4a26018bad6874f0330b68b0cf235224a96846af8713b479d9b40cd8e8240291091a01715aa020c01a544ff8644901aac37a7bd1c84711c42471760958c253a9f7244396b4050918100c49ab69591a3f026204424c9268c8d2ab6e5d05ca56bca5131b34f71b311d7410cb61c535444f1fc903cc7160c47560710b96b01add0f0cc5f486113b5147e22b13671bd7568ad5ab7572dfc3c1a63247e7656d695716820bb6e33711ad761ad757f84e6b782fc6dc8fb6a4e838249913859583d8b8208c45332537570f8e51f1333908b58829d7075df885ca9acbd335c5d42b319c8552a7f6202f4286f7131bb9b43af5a2c76392b01e729205c488310f319a697ccf0ba4faa073230d5281df4aff2db80991b3da35bb442a70a4f480605f99e47707ff2caa388ab4fb5a66afe556f1898a74544969a0b2afd356d87838e0bfc5d65a59c5722430827b6fbe611cef047b7569317daacdfeb919641a1448b149bbb2166a110d5306b688cae8990757c3301854811a9a1cc4ee45dc548a5837731459bb9051494949bbb4e54c8f9e84613409c44ac27398bb52e541fbc378f507953f06909a63129407236c340801d1b3df4c69f31c4aa04e79f0532cc8494a0ec63848bb482f83a91bf9b3e0b7c2cb2fa12ddc76b38b864c1f41479f9633982bb7693142766c157ec33fcac28eac201df635650eac5adc971e3870112819214c42b1dd144de698f95e603f124cfe562944f64a78ad91f17830115d920f6d9327e575126dba2bdeccd1f7773b973997379a6c8f1071904bd33254c117a6423a4bb4aaa9884e70551817225051a42824d698471cbfb51b2d36270f084e7974eff1967eab791d82879f9674f77262815d26280b0c34c7bc2db1344d060782d632e191099b6094ca5a822eec18d068770c56a386e017e638a1d740494dc3053eb8ac915362197c1be3f867e36350ec49c810f4566c141908f5a3057f15e56d3324544402c2676f38415cac68d9426bdd4c382af045b3470bfb9714dcc2b2a8f774cf45535337a33889285cb82863123ccbb10bd5fb8485511be2cd9c2e7445926e122117627e3642408e1b6a54c464bea0e87ccc9ffba19cc6033e0203e8f72bc0078a097e5c40e581ba92928b69b397f0118e57b0beaac2eb35b654a233cf988860fd733cfc3838a33b3a120c6aa848ccc94416b89bc5124a8fce474cf65100160adc8a5427a642cc582e3e01f852f9b00aeb4a002bdcd21c63d97edb767d1776a686c6b59fdc05b6d2942cbc9176c694e8fa6d84afc580cd3c62c6e001d0020ee79fceeeca4696122da380472b2de2404645c83ae2ca07ecac898bf5b7525470000000e000c0000093338686d7a672e636e00170000002d000201010005000501000000000a0a0001001603030046100000424104ff635373fbbfbc37444a2026372f57fd06c5205bacfe32b61261a9d29bf1fca57f91ef22cb2ba46af8cf9ae7c3123f56634099af297dcd30835cd81664005fb9140303000101").unwrap();
+    // let mut req = AcReq::new()
+    //     // .with_fingerprint(fingerprint)
+    //     .with_alpn(ALPN::Http20)
+    //     // .with_proxy(Proxy::try_from("http://111.227.123.247:14557").unwrap())
+    //     ;
+    // let headers = json::object! {
+    //     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0",
+    //     "Accept": "*/*",
+    //     "Sec-Fetch-Site": "same-origin",
+    //     "Sec-Fetch-Mode": "cors",
+    //     "Sec-Fetch-Dest": "empty",
+    //     "sec-ch-ua": "\"Chromium\";v=\"142\", \"Microsoft Edge\";v=\"142\", \"Not_A Brand\";v=\"99\"",
+    //     "sec-ch-ua-mobile": "?0",
+    //     "sec-ch-ua-platform": "\"Windows\"",
+    //     "Accept-Language": "zh-CN,zh;q=0.9",
+    //     "Accept-Encoding": "gzip,deflate,br,zstd",
+    // };
+    // req.set_headers_json(headers).unwrap(); //
+    // // req.set_url("https://www.sogou.com").await.unwrap();
+    // req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").await.unwrap();
+    // println!("111");
+    // // req.set_url("https://www.so.com").await.unwrap();
+    // // req.set_callback(|data| {
+    // //     println!("{}", data.len());
+    // //     Ok(())
+    // // });
+    // // let context=req.gen_h1().unwrap();
+    // // println!("{}",String::from_utf8(context).unwrap());
     // let res = req.get().await.unwrap();
     // // println!("{}", res.raw_string());
     // let res = req.get().await.unwrap();
+    // let body = res.to_string().unwrap();
+    // println!("{}", body);
+    // // let doc = Document::from(body.as_str());
+    // // let lis = doc.find(Name("li").and(Class("b_algo")));
+    // // let mut res = json::array![];
+    // // for li in lis {
+    // //     let ats = li.find(Name("a").and(Class("tilk")));
+    // //     for a in ats {
+    // //         let href = a.attr("href").unwrap_or("");
+    // //         let aria = a.attr("aria-label").unwrap_or("");
+    // //         println!("{} {}", href, aria);
+    // //         res.push(json::object! {
+    // //             "href":href.replace("http://","").replace("https://","").split("/").next().unwrap_or(""),
+    // //             "title":aria
+    // //         });
+    // //     }
+    // // }
+    // // println!("{}", res.pretty());
     // // println!("{}", res.raw_string());
-    // let res = req.get().await.unwrap();
-    // // println!("{}", res.raw_string());
-    // let res = req.get().await.unwrap();
-    // // println!("{}", res.raw_string());
-    // let res = req.get().await.unwrap();
-    // // println!("{}", res.raw_string());
+    // // fs::write("1.html",res.to_string().unwrap()).unwrap();
+    // // let res = req.get().await.unwrap();
+    // // // println!("{}", res.raw_string());
+    // // let res = req.get().await.unwrap();
+    // // // println!("{}", res.raw_string());
+    // // let res = req.get().await.unwrap();
+    // // // println!("{}", res.raw_string());
+    // // let res = req.get().await.unwrap();
+    // // // println!("{}", res.raw_string());
+    // // let res = req.get().await.unwrap();
+    // // // println!("{}", res.raw_string());
 }
