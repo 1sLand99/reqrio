@@ -303,7 +303,7 @@ checksum = "76afc826de14238e6e8c374ddcc1fa19e374fd8dd986b0d2af0d02377261d83c"
 
 [[package]]
 name = "reqrio"
-version = "0.0.15"
+version = "0.0.16"
 dependencies = [
  "brotli",
  "cfg_aliases",
@@ -331,7 +331,7 @@ dependencies = [
 
 [[package]]
 name = "reqtls"
-version = "0.0.15"
+version = "0.0.16"
 dependencies = [
  "bytemuck",
  "getrandom 0.4.0-rc.0",
