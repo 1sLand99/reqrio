@@ -1,72 +1,67 @@
-//! #### reqrio是http请求库，目标是可以快速、简单、便捷使用http请求
-//! * reqrio特性: 低拷贝、高并发、低损耗
-//! * reqrio支持tls指纹，可以通过tls握手的十六进制或ja3设置,仅cls_sync和cls_async支持(**仅订阅**),
-//! * reqrio默认对请求头的顺序会默认和浏览器一致(会对请求头进行重排序)
-//! * cls模式使用boringssl，和浏览器chrome、edge等一致。
-//!
-//! #### reqrio默认不开启http请求，仅作为http数据数据流解析库导出，请求需要打开features
-//! * std_sync: 标准的tls库([rustls](https://github.com/rustls/rustls)，同步请求
-//! * std_async: 标准的tls库([tokio-rustls](https://github.com/rustls/tokio-rustls))，异步请求
-//! * cls_sync: 自研tls库(**算法不完善，不校验服务端证书，请勿用于生产模式**)[reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), 同步请求
-//! * cls_async: 自研tls库(**算法不完善，不校验服务端证书，请勿用于生产模式**)[reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), 异步请求
-//!
-//! **注意**: std和cls不可以同时存在，sync和async可以同时存在
-//!
-//! ### 使用示例(feaures=cls_sync)
-//! * 快速请求
-//! ```rust
-//! use reqrio::ScReq;
-//! let req=ScReq::new_with_url("https://www.baidu.com").unwrap();
-//! ```
-//! * 详细用法:
+//! #### `reqrio` is an HTTP request library designed to enable quick, simple, and convenient use of HTTP requests.
+//! * reqrio features: low copying, high concurrency, low overhead
+//! * Reqrio supports TLS fingerprinting, which can be set via hexadecimal or Ja3 data from the TLS handshake. Only cls_sync and cls_async are supported (**subscription only**).
+//! * By default, reqrio will reorder the request headers in the same way as the browser (it will reorder the request headers).
+//! * CLS mode uses BoringSSL, consistent with browsers such as Chrome and Edge.
+//! 
+//! #### By default, reqrio does not enable HTTP requests; it is only exported as an HTTP data stream parsing library. Requests require features to be enabled.
+//! * `std_sync`: Standard TLS library ([rustls](https://github.com/rustls/rustls), synchronous requests)
+//! * `std_async`: Standard TLS library ([tokio-rustls](https://github.com/rustls/tokio-rustls), asynchronous requests)
+//! * `cls_sync`: Self-developed TLS library (**Algorithm is imperfect, does not verify server certificates, do not use in production mode**) [reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), synchronous requests
+//! * `cls_async`: Self-developed TLS library (**Algorithm is imperfect, does not verify server certificates, do not use in production mode**) [reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), asynchronous requests
+//! 
+//! **Note:** std and cls cannot exist simultaneously, while sync and async can exist simultaneously.
+//! 
+//! ### Usage examples (supports Rust, Python, and Java):
+//! 
+//! * Rust HTTP Example
+//! 
 //! ```rust
 //! use reqrio::{Fingerprint, ScReq, ALPN};
-//! let fingerprint=Fingerprint::default().unwrap();
-//! fingerprint.set_ja3("771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,13-11-65037-17613-45-18-16-5-43-10-0-27-23-35-51-65281,4588-29-23-24,0");
-//! let req=ScReq::new()
-//!     //默认使用http/1.1
-//!     .with_alpn(ALPN::Http20)
-//!     .with_fingerprint(fingerprint)
-//!     .with_url("https://www.baidu.com").unwrap();
-//! let headers = json::object! {
-//!     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-//!     "Accept-Encoding": "gzip, deflate, br, zstd",
-//!     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-//!     "Cache-Control": "no-cache",
-//!     "Connection": "keep-alive",
-//!     "Cookie": "__guid=15015764.1071255116101212729.1764940193317.2156; env_webp=1; _S=pvc5q7leemba50e4kn4qis4b95; QiHooGUID=4C8051464B2D97668E3B21198B9CA207.1766289287750; count=1; so-like-red=2; webp=1; so_huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; __huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; gtHuid=1",
-//!     "Host": "m.so.com",
-//!     "Pragma": "no-cache",
-//!     "Sec-Fetch-Dest": "document",
-//!     "Sec-Fetch-Mode": "navigate",
-//!     "Sec-Fetch-Site": "none",
-//!     "Sec-Fetch-User": "?1",
-//!     "Upgrade-Insecure-Requests": 1,
-//!     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0",
-//!     "sec-ch-ua": r#""Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24""#,
-//!     "sec-ch-ua-mobile": "?0",
-//!     "sec-ch-ua-platform": r#""Windows""#
-//! };
-//! //默认没有任何请求头，需要自己设置
-//! req.set_headers_json(header);
-//! let mut len = Rc::new(RefCell::new(0));
-//! //这里设置回调函数
-//! req.set_callback(move|bs|{
-//!     *len.borrow_mut() += bs.len();
-//!     println!("{}",bs.len());
-//! })
-//! let res=req.get().unwrap();
-//! //获取响应头
-//! let header=res.header();
-//! //获取响应体,这里的body已经解编码
-//! let body=res.decode_body().unwrap();
-//! //尝试解码到json
-//! let json=res.to_json().unwrap();
+//! 
+//! fn ff() {
+//!     let fingerprint = Fingerprint::default().unwrap();
+//!     fingerprint.set_ja3("771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,13-11-65037-17613-45-18-16-5-43-10-0-27-23-35-51-65281,4588-29-23-24,0");
+//!     let req = ScReq::new()
+//!         //The default is to use http/1.1
+//!         .with_alpn(ALPN::Http20)
+//!         .with_fingerprint(fingerprint)
+//!         .with_url("https://www.baidu.com").unwrap();
+//!     let headers = json::object! {
+//!         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+//!         "Accept-Encoding": "gzip, deflate, br, zstd",
+//!         "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+//!         "Cache-Control": "no-cache",
+//!         "Connection": "keep-alive",
+//!         "Cookie": "__guid=15015764.1071255116101212729.1764940193317.2156; env_webp=1; _S=pvc5q7leemba50e4kn4qis4b95; QiHooGUID=4C8051464B2D97668E3B21198B9CA207.1766289287750; count=1; so-like-red=2; webp=1; so_huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; __huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; gtHuid=1",
+//!         "Host": "m.so.com",
+//!         "Pragma": "no-cache",
+//!         "Sec-Fetch-Dest": "document",
+//!         "Sec-Fetch-Mode": "navigate",
+//!         "Sec-Fetch-Site": "none",
+//!         "Sec-Fetch-User": "?1",
+//!         "Upgrade-Insecure-Requests": 1,
+//!         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0",
+//!         "sec-ch-ua": r#""Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24""#,
+//!         "sec-ch-ua-mobile": "?0",
+//!         "sec-ch-ua-platform": r#""Windows""#
+//!     };
+//!     //By default, there are no request headers; you need to configure them yourself.
+//!     req.set_headers_json(header);
+//!     let res = req.get().unwrap();
+//!     //Get response headers
+//!     let header = res.header();
+//!     //Get the response body; the body here has already been decoded.
+//!     let body = res.decode_body().unwrap();
+//!     //Try decoding to JSON
+//!     let json = res.to_json().unwrap();
+//! }
 //! ```
-//! * websocket示例:
+//! 
+//! * Rust WebSocket Example
 //! ```rust
 //! use reqrio::*;
-//!
+//! 
 //! fn ff() {
 //!     let mut ws = WebSocket::sync_build()
 //!         .with_url("wss://poe.game.qq.com/").unwrap()
@@ -92,8 +87,7 @@
 //!     }
 //! }
 //! ```
-//!
-//!
+
 
 #[cfg(aync)]
 pub use acq::AcReq;

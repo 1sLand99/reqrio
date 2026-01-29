@@ -42,17 +42,6 @@ impl Iv {
         }
     }
 
-    // pub fn as_ref(&self) -> [u8; 12] {
-    //     let mut buf = [0; 12];
-    //     if self.fix_iv.len() == 12 {
-    //         buf.copy_from_slice(&self.fix_iv);
-    //     } else {
-    //         buf[0..4].copy_from_slice(&self.fix_iv);
-    //         buf[4..12].copy_from_slice(&self.explicit);
-    //     }
-    //     buf
-    // }
-
     pub fn set_explicit(&mut self, explicit: Vec<u8>) {
         self.explicit = explicit;
     }

@@ -1,8 +1,8 @@
-#### reqtls is a lightweight TLS library and encryption/decryption library.
+#### reqtls是一个轻量的tls库和加/解密库
 
-&nbsp;&nbsp;&nbsp;&nbsp;reqtls is built on boringssl and maintains consistency with browser behavior.
+&nbsp;&nbsp;&nbsp;&nbsp;reqtls是基于boringssl构建，与浏览器行为保持一致
 
-#### Encryption/decryption support：
+#### 加解密支持：
 
 * aes_ecb_128
 * aes_ecb_192
@@ -15,7 +15,7 @@
 * base64
 * rsa
 
-### TLS supports TLS 1.2.
+### tls支持tls1.2
 
 * aes-gcm-128
 * aes-gcm-256
@@ -25,7 +25,7 @@
 * secp384r1
 * secp521r1
 
-### Hash support
+### 哈希支持
 
 * sha1
 * sha256
@@ -33,11 +33,11 @@
 * sha512
 * hmac
 
-### Encoding support
+### 编码支持
 
 * base64
 
-#### Cipher encryption/decryption examples
+#### Cipher 加解密示例
 
 ```rust
 fn dd() {
@@ -54,7 +54,7 @@ fn dd() {
 }
 ```
 
-### RsaCipher encryption/decryption example
+### RsaCipher 加解密示例
 
 ```rust
 fn dd() {
