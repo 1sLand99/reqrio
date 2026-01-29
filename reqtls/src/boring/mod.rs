@@ -5,7 +5,7 @@ mod evp_curve;
 mod bindings;
 pub mod hash;
 
-pub use cipher::{Cipher, Padding, base64};
+pub use cipher::{Cipher, Padding, base64, RsaCipher, RsaKey};
 pub use ec_curve::*;
 pub use evp_curve::*;
 pub use hash::*;

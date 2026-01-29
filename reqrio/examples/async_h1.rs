@@ -1,3 +1,4 @@
+use std::fs;
 use reqrio::{json, AcReq, ReqExt, Url, ALPN};
 
 #[tokio::main]
@@ -21,10 +22,12 @@ async fn main() {
         "Accept-Language": "zh-CN,zh;q=0.9",
         "Accept-Encoding": "gzip,deflate,br,zstd",
     };
-    req.set_headers_json(headers).unwrap(); //
+    req.set_headers_json(headers).unwrap();
+    req.set_url("https://xxbg.snssdk.com/websdk/v1/getInfo?q=XfgdTCqUcsu8u5XCQ1LqO37Ucffi3fTnvO3o1KFGAQ%2BZFPyZHl9LNQNSuH%2B6GDkrCn%2FKMBtAkFMVpKPRRWbTkVnbkeED5ODcQmFP0haBk%2F0MVudTipONglSxBWi1oOr49RtrUSBIpHPl%2B1bpZNBgny2o74OHkCNNLoHZUQTczORUXblFPCmks%2BuPK4mU8w%2Bj71rvUIJLs4Acz7ghs2obeDBmet0e7nly1mMXsFNbljOWb9rlhB0MTSdurqhldMFXpqfPFc7Noec5aX7h7XJrOJbPF7Z69CV%2BlstlfAENy%2BAF41tDMKxjMU%2BvqEEtCza%2Bz7aikTJvaYw3DpPrwFG6jAx1GPkK%2F9uT2uuL%2BeFGPP05Fd2Xx1RlouiXTeyPLwZZa8xhvNbPnDvunGyBFbU8QFs250RTimBv5NIggwcMpFPwA5sXhtoQndtasKLBm7VsaAnCuyrK4I9Uk%2FCbohB%2BIViohZovgdcBkYy7iZekLMbmFZq8x0ecdAtrAcbgM0tAF6MeSVj7LQcCp4vKzqtW%2BXDkVsp8iEs8Uo%2Bm11H4P%2FNGlcsG3IU1L%2BZYl7yAQ7yQumQBRMc%2FZOty3F%2BgkQ9kjq0qYpcls9y3oxSdxaF77iWBuUCMCduZb26sNfbtuXTi8jzhZMHDN4gKkbQsxmranuFPVcIxckrvW17qJjOMFwGLeiAecZ7Oel0%2BZsQ%2FUpRWsrlcXrrlKnFWcAVJQeAfzQU8zM8UiJlYOGevIZX%2BbgTrZnpIpNMeS16%2FTEVD8lJaAo7aZKG1xzoe8TdsJsb1ismcPcfoeY2XsK0HWS5sVFfq7qVHS7Nb771gFRDosEwMUfrMgTNl6rKrdFvDMwMUt8TemYd43fg8yLFRenesj5MKjNEpvn9cCT5dCP7Orhap%2FpvuAzalw80okQurghteaLd4ENPVoqRtpce3aQENf%2FpqkqyIFBdiUH7g%2FmU6W5mGax7vdyHN116Ijl3U8AVIbJ5sBxfJXp%2B3w1Aq8jN3PlfZUvs4gRI694OmiXATfPJyPkDootXGJRjd3NQP7N6QWWrtxdMIPa59OJV41DvImvRVvYn7Yx89not%2BBUzCOBETiN1EXblH68tEgdqclU5fGgny6sWAZI9zifRw6p1ULk0JaY5a39oz4aC2EZL1%2BO0TTZMAhwv8VOGwGBHm7dA%2BrV%2FDup4zV3iv6tQC9TBh8UuqXJi0rd4DHy5j%2Bxa9DV4kZFfG%2FHCx%2BIGb09Rj8NvL2Nsb0rWy%2F4RVRosiRrEJ2Ih7%2Fpvo84XLRf%3D%3D&callback=_2224_1769678138367").await.unwrap();
+    // req.set_url("https://www.toutiao.com/article/7600224020776239658/?log_from=99ab1fa2b852c_1769590891442&wid=1769590984039").await.unwrap();
     // req.set_url("https://www.sogou.com").await.unwrap();
-    req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").await.unwrap();
-    println!("111");
+    // req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").await.unwrap();
+    // println!("111");
     // req.set_url("https://www.so.com").await.unwrap();
     // req.set_callback(|data| {
     //     println!("{}", data.len());
@@ -33,8 +36,10 @@ async fn main() {
     // let context=req.gen_h1().unwrap();
     // println!("{}",String::from_utf8(context).unwrap());
     let res = req.get().await.unwrap();
+    println!("{}", res.raw_string());
     // println!("{}", res.raw_string());
-    let res = req.get().await.unwrap();
-    let body = res.to_string().unwrap();
-    println!("{}", body);
+    // let res = req.get().await.unwrap();
+    // let body = res.text().unwrap();
+    // fs::write("1.html", body).unwrap();
+    // println!("{}", body);
 }

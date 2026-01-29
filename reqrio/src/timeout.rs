@@ -42,9 +42,9 @@ impl Timeout {
     }
 
     pub fn is_peer_closed(&self, status: impl AsRef<str>) -> bool {
-        let close_status = vec!["broken pipe", "reset by peer", "peer close", "关闭"];
+        let close_status = vec!["broken pipe", "reset by peer", "peer close", "关闭", "中止了"];
         let status = status.as_ref().to_lowercase();
-        close_status.into_iter().find(|x| status.contains(x)).is_some()
+        close_status.into_iter().any(|x| status.contains(&x))
     }
 
     pub fn connect(&self) -> Duration {
@@ -72,19 +72,19 @@ impl Timeout {
     }
 
     pub fn set_connect(&mut self, millis: u64) {
-        self.connect = Duration::from_secs(millis);
+        self.connect = Duration::from_millis(millis);
     }
 
     pub fn set_read(&mut self, millis: u64) {
-        self.read = Duration::from_secs(millis);
+        self.read = Duration::from_millis(millis);
     }
 
     pub fn set_write(&mut self, millis: u64) {
-        self.write = Duration::from_secs(millis);
+        self.write = Duration::from_millis(millis);
     }
 
     pub fn set_handle(&mut self, millis: u64) {
-        self.handle = Duration::from_secs(millis);
+        self.handle = Duration::from_millis(millis);
     }
 
     pub fn set_connect_times(&mut self, connect_times: i32) {

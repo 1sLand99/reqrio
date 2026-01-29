@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 use crate::error::HlsError;
 
+#[derive(Clone, Copy)]
 pub enum Method {
     GET,
     POST,

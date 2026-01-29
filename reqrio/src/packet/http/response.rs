@@ -91,6 +91,13 @@ impl Body {
             _ => Err("not decode".into()),
         }
     }
+
+    pub fn to_bytes(self) -> HlsResult<Vec<u8>> {
+        match self {
+            Body::Decoded(decoded) => Ok(decoded),
+            _ => Err("not decode".into()),
+        }
+    }
 }
 
 pub struct Response {
@@ -206,8 +213,13 @@ impl Response {
         self.body.to_json()
     }
 
-    pub fn to_string(mut self) -> HlsResult<String> {
+    pub fn text(mut self) -> HlsResult<String> {
         self.decode_body()?;
         self.body.to_string()
+    }
+
+    pub fn bytes(mut self) -> HlsResult<Vec<u8>> {
+        self.decode_body()?;
+        self.body.to_bytes()
     }
 }

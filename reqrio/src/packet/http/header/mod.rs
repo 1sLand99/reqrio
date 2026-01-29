@@ -20,6 +20,7 @@ mod key;
 mod method;
 mod status;
 
+#[derive(Clone)]
 pub struct Header {
     method: Method,
     agreement: String,
@@ -414,17 +415,6 @@ impl Header {
         Ok(())
     }
 }
-
-// impl TryFrom<JsonValue> for Header {
-//     type Error = HlsError;
-//     fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
-//         let mut ss = Self::new_res();
-//         for (k, v) in value.entries() {
-//             ss.insert(k.to_string(), v.to_string())?;
-//         }
-//         Ok(ss)
-//     }
-// }
 
 #[cfg(feature = "export")]
 impl From<&Header> for JsonValue {

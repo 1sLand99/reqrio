@@ -8,7 +8,7 @@ pub use record::{RecordLayer, RecordType};
 pub use error::RlsError;
 pub use version::Version;
 pub use range::RangeExt;
-pub use boring::{hash, hmac, base64, Cipher, Padding};
+pub use boring::{hash, hmac, base64, Cipher, Padding, RsaCipher, RsaKey};
 pub use hex;
 
 mod extend;

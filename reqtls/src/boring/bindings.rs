@@ -1,4 +1,4 @@
-use std::os::raw::{c_int, c_uint, c_void};
+use std::os::raw::{c_char, c_int, c_uint, c_void};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -113,12 +113,17 @@ pub struct EVP_MD {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
 pub struct EVP_ENCODE_CTX {
     pub data_used: c_uint,
     pub data: [u8; 48usize],
-    pub eof_seen: ::std::os::raw::c_char,
-    pub error_encountered: ::std::os::raw::c_char,
+    pub eof_seen: c_char,
+    pub error_encountered: c_char,
 }
+
+
+
+
 
 unsafe extern "C" {
     pub fn EVP_aes_128_cbc() -> *const EVP_CIPHER;
@@ -136,6 +141,8 @@ unsafe extern "C" {
     pub fn EVP_des_ecb() -> *const EVP_CIPHER;
 
     pub fn EVP_des_cbc() -> *const EVP_CIPHER;
+
+   
 
     pub fn EVP_CIPHER_CTX_new() -> *mut EVP_CIPHER_CTX;
 
@@ -237,6 +244,8 @@ unsafe extern "C" {
         out: *mut u8,
         out_len: *mut c_int,
     ) -> c_int;
+
+   
 }
 
 #[repr(C)]
@@ -353,6 +362,7 @@ pub struct EVP_PKEY_CTX {
 pub const EVP_PKEY_X25519: i32 = 948;
 
 unsafe extern "C" {
+    pub fn EVP_PKEY_new() -> *mut EVP_PKEY;
     pub fn EVP_PKEY_CTX_new_id(id: c_int, e: *mut ENGINE) -> *mut EVP_PKEY_CTX;
 
     pub fn EVP_PKEY_keygen_init(ctx: *mut EVP_PKEY_CTX) -> c_int;

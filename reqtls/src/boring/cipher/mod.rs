@@ -1,6 +1,8 @@
 pub use padding::Padding;
+pub use rsa::{RsaKey, RsaCipher};
 mod padding;
 pub mod base64;
+mod rsa;
 
 use std::ffi::c_int;
 use crate::boring::CryptParam;
@@ -171,7 +173,7 @@ impl Cipher {
         Cipher::new(unsafe { EVP_des_ecb() })
     }
 
-    pub fn set_secret_key(&mut self, key: impl Into<Vec<u8>>, iv: Option<impl Into<Vec<u8>>>) {
+    pub fn set_secret_key<T: Into<Vec<u8>>>(&mut self, key: T, iv: Option<T>) {
         self.key = key.into();
         self.iv = iv.map(|iv| iv.into()).unwrap_or(vec![]);
     }
