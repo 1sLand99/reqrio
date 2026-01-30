@@ -8,7 +8,7 @@ fn main() {
         // .with_proxy(Proxy::new_socks5("127.0.0.1", 10808))
         ;
     let headers = json::object! {
-           "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.6894.1545 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.6894.1545 Safari/537.36",
         "Accept": "*/*",
         "Sec-Fetch-Site": "same-origin",
         "Sec-Fetch-Mode": "cors",
@@ -20,10 +20,12 @@ fn main() {
         "Accept-Encoding": "gzip, deflate, br,zstd",
 
     };
-    req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").unwrap();
+    req.set_url("https://m.so.com").unwrap();
+    // req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").unwrap();
     println!("6");
     req.set_headers_json(headers).unwrap();
-    let mut res =req.get().unwrap();
-    println!("{}",res.decode_body().unwrap().as_string().unwrap());
-
+    let mut res = req.get().unwrap();
+    let body = res.decode_body().unwrap().as_string().unwrap();
+    println!("{}", body);
+    println!("{}", body.len());
 }

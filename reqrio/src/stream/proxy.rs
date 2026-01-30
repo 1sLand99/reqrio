@@ -51,7 +51,7 @@ impl Proxy {
 
     pub fn is_null(&self) -> bool {
         matches!(self, Proxy::Null)
-    }
+}
 
     pub fn socket_addr(&self, peer_addr: &Addr) -> HlsResult<SocketAddr> {
         match self {
@@ -171,7 +171,7 @@ impl std::io::Read for ProxyStream<std::net::TcpStream> {
                 self.buffer.copy_within(10..self.buffer.len(), 0);
                 self.buffer.set_len(self.buffer.len() - 10);
             }
-            if self.buffer.len() == 0 {
+            if self.buffer.is_empty() {
                 self.stream.read(buf)
             } else {
                 buf[..self.buffer.len()].copy_from_slice(self.buffer.filled());
@@ -253,7 +253,7 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
                 stream.buffer.set_len(stream.buffer.len() - 12);
             }
             stream.handle_proxy = true;
-            if stream.buffer.len() == 0 {
+            if stream.buffer.is_empty() {
                 Pin::new(&mut stream.stream).poll_read(cx, buf)
             } else {
                 buf.put_slice(stream.buffer.filled());

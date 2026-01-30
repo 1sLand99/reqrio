@@ -17,7 +17,7 @@ impl<S: Read + Write> SyncStream<S> {
         let client_random = rand::random::<[u8; 32]>();
         let mut conn = Connection::new(client_random.to_vec());
         let mut client_hello = RecordLayer::from_bytes(param.fingerprint.client_hello_mut(), false)?;
-        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_random(client_random.clone());
+        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_random(client_random);
         client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_server_name(param.url.addr().host());
         client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_session_id(rand::random());
         match param.alpn {
@@ -35,33 +35,17 @@ impl<S: Read + Write> SyncStream<S> {
             handshake_finished: false,
             buffer: Buffer::with_capacity(0xFFFF),
         };
-        while !stream.handshake_finished {
-            stream.read_packet()?;
-            stream.handle_message(&mut param)?;
+        loop {
+            let record_len = stream.read_next_packet()?;
+            let len = stream.buffer.len();
+            let hello_done = stream.handle_message(Some(&mut param))?;
+            stream.buffer.move_to(record_len..len, 0);
+            if hello_done { break; }
         }
-        stream.read_packet()?;
-        let mut record = RecordLayer::from_bytes(stream.buffer.filled_mut(), stream.handshake_finished)?;
-        stream.conn.read_message(&mut record)?;
         Ok(stream)
     }
 
-    pub fn read_packet(&mut self) -> HlsResult<()> {
-        self.buffer.reset();
-        self.buffer.sync_read_limit(&mut self.stream, 5)?;
-        if self.buffer.len() < 5 { return Err(HlsError::InvalidHeadSize)?; }
-        let payload_len = u16::from_be_bytes([self.buffer[3], self.buffer[4]]) as usize;
-        while self.buffer.len() - 5 < payload_len {
-            self.buffer.sync_read_limit(&mut self.stream, payload_len + 5 - self.buffer.len())?;
-        }
-        if !self.handshake_finished { self.conn.update_session(&self.buffer.filled()[5..])?; }
-        let record_type = RecordType::from_byte(self.buffer[0]).ok_or("LayerType Unknown")?;
-        if let RecordType::CipherSpec = record_type {
-            self.handshake_finished = true;
-        }
-        Ok(())
-    }
-
-    fn handle_message(&mut self, param: &mut ConnParam) -> HlsResult<()> {
+    fn handle_message(&mut self, param: Option<&mut ConnParam>) -> HlsResult<bool> {
         let record = RecordLayer::from_bytes(self.buffer.filled_mut(), self.handshake_finished)?;
         for message in record.messages {
             match record.context_type {
@@ -75,6 +59,7 @@ impl<S: Read + Write> SyncStream<S> {
                             self.conn.set_by_exchange_key(v.hellman_param().pub_key().clone(), *v.hellman_param().named_curve())
                         }
                         Message::ServerHelloDone(_) => {
+                            let param = param.ok_or("conn param can't be null")?;
                             let mut keypair = PriKey::new(self.conn.named_curve())?;
                             let client_pub_key = keypair.pub_key();
                             let mut client_key_exchange = RecordLayer::from_bytes(param.fingerprint.client_key_exchange_mut(), false)?;
@@ -91,7 +76,7 @@ impl<S: Read + Write> SyncStream<S> {
                             self.buffer.reset();
                             let record_len = self.conn.make_finish_message(&handshake_hash, &mut self.buffer[..])?;
                             self.stream.write_all(&self.buffer[..record_len])?;
-                            break;
+                            return Ok(true);
                         }
                         _ => {}
                     }
@@ -100,7 +85,7 @@ impl<S: Read + Write> SyncStream<S> {
             }
         }
 
-        Ok(())
+        Ok(false)
     }
 
     pub fn shutdown(&mut self) -> HlsResult<()> {
@@ -138,25 +123,42 @@ impl<S: Read> SyncStream<S> {
         self.buffer.sync_read(&mut self.stream)?;
         self.check_and_read()
     }
-}
 
-impl<S: Read> Read for SyncStream<S> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+    fn read_next_packet(&mut self) -> HlsResult<usize> {
         let record_len = if self.buffer.len() >= 5 {
             self.check_and_read()?
         } else {
             self.read_zero()?
         };
-        let mut record = RecordLayer::from_bytes(&mut self.buffer[0..record_len], self.handshake_finished)?;
-        let rt = record.context_type.as_u8();
-        let pdr = self.conn.read_message(&mut record)?;
-        if rt == 0x15 && self.buffer[pdr.clone()] == [1, 0] {
-            return Err(HlsError::PeerClosedConnection.into());
-        }
-        buf[..pdr.len()].copy_from_slice(&self.buffer[pdr.clone()]);
-        self.buffer.copy_within(record_len..self.buffer.len(), 0);
-        self.buffer.set_len(self.buffer.len() - record_len);
-        Ok(pdr.len())
+        if !self.handshake_finished { self.conn.update_session(&self.buffer.filled()[5..record_len])?; }
+        Ok(record_len)
+    }
+}
+
+impl<S: Read + Write> Read for SyncStream<S> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        loop {
+            let record_len = self.read_next_packet()?;
+            let mut record = RecordLayer::from_bytes(&mut self.buffer[0..record_len], self.handshake_finished)?;
+            match record.context_type {
+                RecordType::CipherSpec | RecordType::HandShake => {
+                    if self.handshake_finished { self.conn.read_message(&mut record)?; } else { let _ = self.handle_message(None)?; }
+                    self.buffer.move_to(record_len..self.buffer.len(), 0);
+                    continue;
+                }
+                RecordType::Alert => {
+                    let pdr = if self.handshake_finished { self.conn.read_message(&mut record)? } else { 5..record_len };
+                    if self.buffer[pdr.clone()] == [1, 0] { return Err(HlsError::PeerClosedConnection.into()); }
+                    self.buffer.move_to(record_len..self.buffer.len(), 0);
+                }
+                RecordType::ApplicationData => {
+                    let pdr = self.conn.read_message(&mut record)?;
+                    buf[..pdr.len()].copy_from_slice(&self.buffer[pdr.clone()]);
+                    self.buffer.move_to(record_len..self.buffer.len(), 0);
+                    return Ok(pdr.len());
+                }
+            }
+        };
     }
 }
 

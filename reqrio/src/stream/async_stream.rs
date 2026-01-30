@@ -78,32 +78,44 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
             wrote_len: 0,
             pending: vec![],
         };
-        while !stream.handshake_finished {
-            stream.read_packet().await?;
-            stream.handle_message(&mut connector).await?;
+        loop {
+            let record_len = stream.read_packet().await?;
+            let hello_done = stream.handle_message(Some(&mut connector)).await?;
+            stream.read_buffer.move_to(record_len..stream.read_buffer.len(), 0);
+            if hello_done { break; }
         }
 
-        stream.read_packet().await?;
-        let mut record = RecordLayer::from_bytes(stream.read_buffer.filled_mut(), stream.handshake_finished)?;
-        stream.conn.read_message(&mut record)?;
-        stream.read_buffer.reset();
-        stream.write_buffer.reset();
+        // stream.read_packet().await?;
+        // let mut record = RecordLayer::from_bytes(stream.read_buffer.filled_mut(), stream.handshake_finished)?;
+        // stream.conn.read_message(&mut record)?;
+        // stream.read_buffer.reset();
+        // stream.write_buffer.reset();
         Ok(stream)
     }
 
-    pub async fn read_packet(&mut self) -> HlsResult<()> {
-        self.read_buffer.reset();
-        self.read_buffer.async_read_limit(&mut self.stream, 5).await?;
-        if self.read_buffer.len() < 5 { return Err(HlsError::InvalidHeadSize)?; }
-        let payload_len = u16::from_be_bytes([self.read_buffer[3], self.read_buffer[4]]) as usize;
-        while self.read_buffer.len() - 5 < payload_len {
-            self.read_buffer.async_read_limit(&mut self.stream, payload_len + 5 - self.read_buffer.len()).await?;
+    pub async fn read_packet(&mut self) -> HlsResult<usize> {
+        // self.read_buffer.reset();
+        // self.read_buffer.async_read_limit(&mut self.stream, 5).await?;
+        // if self.read_buffer.len() < 5 { return Err(HlsError::InvalidHeadSize)?; }
+        let record_len = match self.read_buffer.is_empty() {
+            true => {
+                self.read_buffer.async_read(&mut self.stream).await?;
+                u16::from_be_bytes([self.read_buffer[3], self.read_buffer[4]]) as usize
+            }
+            false => u16::from_be_bytes([self.read_buffer[3], self.read_buffer[4]]) as usize,
+        } + 5;
+        while self.read_buffer.len() < record_len {
+            self.read_buffer.async_read(&mut self.stream).await?;
         }
-        if !self.handshake_finished { self.conn.update_session(&self.read_buffer.filled()[5..])?; }
-        Ok(())
+        // let payload_len = u16::from_be_bytes([self.read_buffer[3], self.read_buffer[4]]) as usize;
+        // while self.read_buffer.len() - 5 < payload_len {
+        //     self.read_buffer.async_read_limit(&mut self.stream, payload_len + 5 - self.read_buffer.len()).await?;
+        // }
+        if !self.handshake_finished { self.conn.update_session(&self.read_buffer[5..record_len])?; }
+        Ok(record_len)
     }
 
-    async fn handle_message(&mut self, connector: &mut TlsConnector<'_>) -> HlsResult<()> {
+    async fn handle_message(&mut self, connector: Option<&mut TlsConnector<'_>>) -> HlsResult<bool> {
         let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished)?;
         match record.context_type {
             RecordType::CipherSpec => self.handshake_finished = true,
@@ -116,10 +128,11 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             self.conn.set_by_server_hello(v)?;
                         }
                         Message::ServerKeyExchange(v) => {
-                            println!("{:#?}", v);
+                            // println!("{:#?}", v);
                             self.conn.set_by_exchange_key(v.hellman_param().pub_key().clone(), *v.hellman_param().named_curve())
                         }
                         Message::ServerHelloDone(_) => {
+                            let connector = connector.ok_or("connector can't be null")?;
                             let mut keypair = PriKey::new(self.conn.named_curve())?;
                             let client_pub_key = keypair.pub_key();
                             let mut record = RecordLayer::from_bytes(connector.fingerprint.client_key_exchange_mut(), false)?;
@@ -135,10 +148,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             self.conn.make_cipher(&share_secret, handshake_hash.clone())?;
 
                             let record_len = self.conn.make_finish_message(&handshake_hash, &mut self.write_buffer[..])?;
-
-                            // let aead = self.conn.aead().ok_or(RlsError::AeadNone)?;
                             self.stream.write_all(&self.write_buffer[..record_len]).await?;
-                            break;
+                            self.write_buffer.reset();
+                            return Ok(true);
                         }
                         _ => {}
                     }
@@ -146,11 +158,40 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
             }
             RecordType::ApplicationData => {}
         }
-        Ok(())
+        Ok(false)
     }
 
     pub fn alpn(&self) -> Option<&str> {
         Some(self.conn.alpn()?.value())
+    }
+}
+
+
+impl<S> TlsStream<S> {
+    fn read_message(&mut self, buf: &mut ReadBuf<'_>) -> std::io::Result<usize> {
+        let mut record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished)?;
+        let record_len = record.len as usize + 5;
+        match record.context_type {
+            RecordType::CipherSpec => {
+                self.handshake_finished = true;
+                self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
+            }
+            RecordType::Alert => {
+                let pdr = if self.handshake_finished { self.conn.read_message(&mut record)? } else { 5..record.len as usize + 5 };
+                return Err(Error::other(format!("TlsAlert: [{:?}]", &self.read_buffer[pdr])));
+            }
+            RecordType::HandShake => {
+                if self.handshake_finished { self.conn.read_message(&mut record)?; }
+                self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
+            }
+            RecordType::ApplicationData => {
+                let pdr = self.conn.read_message(&mut record)?;
+                buf.put_slice(&self.read_buffer[pdr]);
+                self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
+                return Ok(record_len);
+            }
+        }
+        Ok(0)
     }
 }
 
@@ -159,6 +200,13 @@ impl<S: AsyncRead + Unpin> AsyncRead for TlsStream<S> {
         if self.shutdown_wrote { return Poll::Ready(Ok(())); }
         let stream = self.get_mut();
         loop {
+            let record_len = if stream.read_buffer.is_empty() { 0 } else { u16::from_be_bytes([stream.read_buffer[3], stream.read_buffer[4]]) as usize + 5 };
+            if record_len != 0 && stream.read_buffer.len() >= record_len {
+                match stream.read_message(buf) {
+                    Ok(len) => if len > 0 { return Poll::Ready(Ok(())); }
+                    Err(e) => return Poll::Ready(Err(e)),
+                }
+            }
             let mut rd = ReadBuf::new(stream.read_buffer.unfilled_mut());
             match Pin::new(&mut stream.stream).poll_read(cx, &mut rd) {
                 Poll::Ready(Ok(_)) => {
@@ -166,31 +214,11 @@ impl<S: AsyncRead + Unpin> AsyncRead for TlsStream<S> {
                     if fl == 0 { return Poll::Ready(Ok(())); }
                     let nl = stream.read_buffer.len() + fl;
                     stream.read_buffer.set_len(nl);
-                    let pdl = u16::from_be_bytes([stream.read_buffer[3], stream.read_buffer[4]]) as usize;
-                    if stream.read_buffer.len() >= pdl + 5 { break; }
                 }
                 Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
                 Poll::Pending => return Poll::Pending,
             }
         }
-        let mut read = 0;
-        while let Ok(mut record) = RecordLayer::from_bytes(&mut stream.read_buffer.filled_mut()[read..], stream.handshake_finished) {
-            let rt = record.context_type.as_u8();
-            let rl = record.len;
-            let pdr = stream.conn.read_message(&mut record)?.add(read);
-            if rt == 0x15 && stream.read_buffer[pdr.clone()] == [1, 0] {
-                return Poll::Ready(Ok(()));
-            }
-            buf.put_slice(&stream.read_buffer[pdr]);
-            read += rl as usize + 5;
-        }
-        if read < stream.read_buffer.len() {
-            stream.read_buffer.copy_within(read..stream.read_buffer.len(), 0);
-            stream.read_buffer.set_len(stream.read_buffer.len() - read);
-        } else {
-            stream.read_buffer.reset();
-        }
-        Poll::Ready(Ok(()))
     }
 }
 
@@ -205,7 +233,7 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for TlsStream<S> {
         }
         loop {
             if stream.pending.is_empty() { break; }
-            if stream.write_buffer.len() == 0 {
+            if stream.write_buffer.is_empty() {
                 let record_len = stream.conn.make_message(RecordType::ApplicationData, &mut stream.write_buffer[..], chucks[stream.pending[0]])?;
                 stream.write_buffer.set_len(record_len);
                 stream.wrote_len += chucks[stream.pending[0]].len();

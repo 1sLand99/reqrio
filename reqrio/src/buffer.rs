@@ -13,7 +13,7 @@ pub struct Buffer {
 
 impl Buffer {
     pub fn with_capacity(capacity: usize) -> Buffer {
-        let buffer=vec![0u8; capacity];
+        let buffer = vec![0u8; capacity];
         Buffer { buffer, len: 0 }
     }
 
@@ -121,7 +121,12 @@ impl Buffer {
     }
 
     pub fn copy_within(&mut self, r: Range<usize>, pos: usize) {
-        self.buffer.copy_within(r,pos);
+        self.buffer.copy_within(r, pos);
+    }
+
+    pub fn move_to(&mut self, r: Range<usize>, pos: usize) {
+        self.len = r.end - r.start;
+        self.copy_within(r, pos);
     }
 }
 
