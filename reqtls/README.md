@@ -10,6 +10,15 @@
 * aes_cbc_128
 * aes_cbc_192
 * aes_cbc_256
+* aes_crt_128
+* aes_crt_192
+* aes_crt_256
+* aes_gcm_192
+* aes_gcm_256
+* aes_gcm_128
+* aes_ofb_192
+* aes_ofb_256
+* aes_ofb_128
 * des_ecb
 * des_cbc
 * base64

@@ -1,17 +1,17 @@
 pub use padding::Padding;
-pub use rsa::{RsaKey, RsaCipher};
+pub use rsa::{RsaCipher, RsaKey};
 mod padding;
 pub mod base64;
 mod rsa;
 
-use std::ffi::c_int;
+use super::bindings::*;
 use crate::boring::CryptParam;
 use crate::error::RlsResult;
 use crate::extend::Aead;
-use crate::{rand, RlsError};
-use super::bindings::*;
-use std::ptr::{null, null_mut};
 use crate::hash::hmac;
+use crate::{rand, RlsError};
+use std::ffi::c_int;
+use std::ptr::{null, null_mut};
 
 trait BoringResExt {
     fn ok(self, error: RlsError) -> RlsResult<()>;
@@ -141,28 +141,64 @@ impl Cipher {
     }
 
 
-    pub fn aes_cbc_128() -> Cipher {
+    pub fn aes_128_cbc() -> Cipher {
         Cipher::new(unsafe { EVP_aes_128_cbc() })
     }
 
-    pub fn aes_cbc_192() -> Cipher {
+    pub fn aes_192_cbc() -> Cipher {
         Cipher::new(unsafe { EVP_aes_192_cbc() })
     }
 
-    pub fn aes_cbc_256() -> Cipher {
+    pub fn aes_256_cbc() -> Cipher {
         Cipher::new(unsafe { EVP_aes_256_cbc() })
     }
 
-    pub fn aes_ecb_128() -> Cipher {
+    pub fn aes_128_ecb() -> Cipher {
         Cipher::new(unsafe { EVP_aes_128_ecb() })
     }
 
-    pub fn aes_ecb_192() -> Cipher {
+    pub fn aes_192_ecb() -> Cipher {
         Cipher::new(unsafe { EVP_aes_192_ecb() })
     }
 
-    pub fn aes_ecb_256() -> Cipher {
+    pub fn aes_256_ecb() -> Cipher {
         Cipher::new(unsafe { EVP_aes_256_ecb() })
+    }
+
+    pub fn aes_128_ctr() -> Cipher {
+        Cipher::new(unsafe { EVP_aes_128_ctr() })
+    }
+
+    pub fn aes_192_ctr() -> Cipher {
+        Cipher::new(unsafe { EVP_aes_192_ctr() })
+    }
+
+    pub fn aes_256_ctr() -> Cipher {
+        Cipher::new(unsafe { EVP_aes_256_ctr() })
+    }
+
+    pub fn aes_128_gcm() -> Cipher {
+        Cipher::new(unsafe { EVP_aes_128_gcm() })
+    }
+
+    pub fn aes_192_gcm() -> Cipher {
+        Cipher::new(unsafe { EVP_aes_192_gcm() })
+    }
+
+    pub fn aes_256_gcm() -> Cipher {
+        Cipher::new(unsafe { EVP_aes_256_gcm() })
+    }
+
+    pub fn aes_128_ofb() -> Cipher {
+        Cipher::new(unsafe { EVP_aes_128_ofb() })
+    }
+
+    pub fn aes_192_ofb() -> Cipher {
+        Cipher::new(unsafe { EVP_aes_192_ofb() })
+    }
+
+    pub fn aes_256_ofb() -> Cipher {
+        Cipher::new(unsafe { EVP_aes_256_ofb() })
     }
 
     pub fn des_cbc() -> Cipher {
@@ -250,8 +286,19 @@ mod tests {
     use crate::boring::cipher::CipherCryptor;
     use crate::boring::CryptParam;
     use crate::extend::Aead;
-    use crate::rand;
+    use crate::{base64, rand, Cipher};
     use crate::record::RecordBuffer;
+
+    #[test]
+    fn test_cipher() {
+        let mut cipher = Cipher::aes_128_ctr();
+        cipher.set_secret_key("1234567812345678", Some("1234567812345678"));
+        let res = cipher.encrypt(b"foobar".to_vec()).unwrap();
+        println!("{}", base64::b64encode(&res).unwrap());
+
+        let res = cipher.decrypt(res).unwrap();
+        println!("{}", String::from_utf8(res).unwrap());
+    }
 
     #[test]
     fn test_cipher_cryptor() {

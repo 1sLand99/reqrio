@@ -123,8 +123,6 @@ pub struct EVP_ENCODE_CTX {
 
 
 
-
-
 unsafe extern "C" {
     pub fn EVP_aes_128_cbc() -> *const EVP_CIPHER;
 
@@ -137,6 +135,25 @@ unsafe extern "C" {
     pub fn EVP_aes_192_ecb() -> *const EVP_CIPHER;
 
     pub fn EVP_aes_256_ecb() -> *const EVP_CIPHER;
+
+    pub fn EVP_aes_128_gcm() -> *const EVP_CIPHER;
+
+    pub fn EVP_aes_192_gcm() -> *const EVP_CIPHER;
+
+    pub fn EVP_aes_256_gcm() -> *const EVP_CIPHER;
+
+    pub fn EVP_aes_128_ofb() -> *const EVP_CIPHER;
+
+    pub fn EVP_aes_192_ofb() -> *const EVP_CIPHER;
+
+    pub fn EVP_aes_256_ofb() -> *const EVP_CIPHER;
+
+    pub fn EVP_aes_128_ctr() -> *const EVP_CIPHER;
+
+    pub fn EVP_aes_192_ctr() -> *const EVP_CIPHER;
+
+    pub fn EVP_aes_256_ctr() -> *const EVP_CIPHER;
+
 
     pub fn EVP_des_ecb() -> *const EVP_CIPHER;
 
