@@ -12,7 +12,7 @@ use crate::Buffer;
 use crate::error::HlsResult;
 
 #[derive(Clone, Debug)]
-pub struct Frame {
+pub struct H2Frame {
     len: usize,
     frame_type: FrameType,
     flags: Vec<FrameFlag>,
@@ -23,7 +23,7 @@ pub struct Frame {
     settings: Vec<Setting>,
 }
 
-impl Display for Frame {
+impl Display for H2Frame {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let s = format!("Frame {{ len: {}, frame_type: {:?}, flags: {:?}, stream_identifier: {}, stream_dependency: {}, weight: {}, settings: {:?} payload: {:?} }}",
                         self.len, self.frame_type, self.flags, self.stream_identifier, self.stream_dependency, self.weight, self.settings, if self.frame_type == FrameType::Data { vec![] } else { self.payload.clone() }
@@ -32,9 +32,9 @@ impl Display for Frame {
     }
 }
 
-impl Frame {
-    pub fn none_frame() -> Frame {
-        Frame {
+impl H2Frame {
+    pub fn none_frame() -> H2Frame {
+        H2Frame {
             len: 0,
             frame_type: FrameType::Data,
             flags: vec![],
@@ -46,7 +46,7 @@ impl Frame {
         }
     }
 
-    pub fn from_bytes(buffer: &mut Buffer) -> HlsResult<Frame> {
+    pub fn from_bytes(buffer: &mut Buffer) -> HlsResult<H2Frame> {
         if buffer.len() < 9 { return Err("byte not enough".into()); }
         let len = u32::from_be_bytes([0, buffer[0], buffer[1], buffer[2]]) as usize;
         let frame_type = FrameType::from_u8(buffer[3])?;
@@ -80,7 +80,7 @@ impl Frame {
         }
 
 
-        Ok(Frame {
+        Ok(H2Frame {
             len,
             frame_type,
             flags,
@@ -115,8 +115,8 @@ impl Frame {
         res
     }
 
-    pub fn window_update() -> Frame {
-        let mut frame = Frame::none_frame();
+    pub fn window_update() -> H2Frame {
+        let mut frame = H2Frame::none_frame();
         frame.len = 4;
         frame.frame_type = FrameType::WindowUpdate;
         frame.flags.push(FrameFlag::ACK);
@@ -124,13 +124,13 @@ impl Frame {
         frame
     }
 
-    pub fn default_setting() -> Frame {
+    pub fn default_setting() -> H2Frame {
         let settings = Setting::default();
         let mut payload = vec![];
         for setting in &settings {
             payload.extend(setting.to_bytes());
         }
-        Frame {
+        H2Frame {
             len: payload.len(),
             frame_type: FrameType::Settings,
             flags: vec![FrameFlag::ACK],
@@ -142,8 +142,8 @@ impl Frame {
         }
     }
 
-    pub fn new_header(hdr_bs: Vec<u8>, body_len: usize, sid: u32) -> Frame {
-        let mut res = Frame {
+    pub fn new_header(hdr_bs: Vec<u8>, body_len: usize, sid: u32) -> H2Frame {
+        let mut res = H2Frame {
             len: hdr_bs.len(),
             frame_type: FrameType::Headers,
             flags: vec![FrameFlag::EndHeaders],
@@ -157,14 +157,14 @@ impl Frame {
         res
     }
 
-    pub fn new_body(mut body: Vec<u8>, sid: u32) -> Vec<Frame> {
+    pub fn new_body(mut body: Vec<u8>, sid: u32) -> Vec<H2Frame> {
         if body.len() == 0 { return vec![]; }
         let max_len = u32::from_be_bytes([0, 255, 255, 255]) as usize;
         let mut res = vec![];
         loop {
             let pos = if body.len() >= max_len { max_len } else { body.len() };
             let payload = body[..pos].to_vec();
-            res.push(Frame {
+            res.push(H2Frame {
                 len: payload.len(),
                 frame_type: FrameType::Data,
                 flags: vec![],

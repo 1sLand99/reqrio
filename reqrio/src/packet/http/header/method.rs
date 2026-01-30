@@ -23,7 +23,7 @@ impl Display for Method {
             Method::PUT => f.write_str("PUT"),
             Method::DELETE => f.write_str("DELETE"),
             Method::CONNECT => f.write_str("CONNECT"),
-            Method::TRACH => f.write_str("TRACE"),
+            Method::TRACH => f.write_str("TRACH"),
         }
     }
 }

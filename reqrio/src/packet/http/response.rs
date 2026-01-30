@@ -2,7 +2,7 @@ use crate::buffer::Buffer;
 use crate::coder::HackDecode;
 use crate::error::HlsResult;
 use crate::packet::h2c::{FrameFlag, FrameType};
-use crate::packet::{Frame, Header};
+use crate::packet::{H2Frame, Header};
 use crate::{coder, HeaderValue, HTTP_GAP};
 use crate::json::JsonValue;
 use std::{mem, ptr};
@@ -104,7 +104,7 @@ pub struct Response {
     header: Header,
     body: Body,
     raw: Vec<u8>,
-    frames: Vec<Frame>,
+    frames: Vec<H2Frame>,
 }
 
 impl Response {
@@ -155,7 +155,7 @@ impl Response {
         }
     }
 
-    pub fn extend_frame(&mut self, frame: Frame, hpack_coding: &mut HackDecode) -> HlsResult<bool> {
+    pub fn extend_frame(&mut self, frame: H2Frame, hpack_coding: &mut HackDecode) -> HlsResult<bool> {
         let ended = frame.is_end_frame();
         match frame.frame_type() {
             FrameType::Data => self.raw.extend(frame.to_payload()),

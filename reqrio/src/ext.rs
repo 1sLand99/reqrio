@@ -164,7 +164,7 @@ pub(crate) trait ReqPriExt: ReqExt {
     }
 
     #[cfg(anys)]
-    fn handle_h2_res(&mut self, frame: Frame, response: &mut Response) -> HlsResult<bool> {
+    fn handle_h2_res(&mut self, frame: H2Frame, response: &mut Response) -> HlsResult<bool> {
         if frame.frame_type() == &FrameType::Goaway { return Err("Connection reset by peer".into()); }
         match self.callback() {
             None => response.extend_frame(frame, self.hack_decoder()),

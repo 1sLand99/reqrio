@@ -96,7 +96,7 @@ pub use buffer::Buffer;
 pub use ext::{ReqExt, ReqGenExt};
 pub use reqrio_json as json;
 pub use packet::{
-    Application, Body, ContentType, Cookie, Font, Frame, FrameFlag, FrameType, Header, HeaderValue,
+    Application, Body, ContentType, Cookie, Font, H2Frame, FrameFlag, FrameType, Header, HeaderValue,
     HttpStatus, Method, Response, Text, HeaderKey, WsFrame, WsOpcode,
 };
 #[cfg(use_cls)]

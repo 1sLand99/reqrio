@@ -5,7 +5,7 @@ use crate::error::HlsResult;
 use crate::ext::ReqExt;
 use crate::ext::{ReqGenExt, ReqPriExt};
 use crate::json::JsonValue;
-use crate::packet::{Frame, FrameFlag, FrameType, Header, HeaderKey, Method, Response};
+use crate::packet::{H2Frame, FrameFlag, FrameType, Header, HeaderKey, Method, Response};
 use crate::stream::{ConnParam, Proxy, Stream};
 use crate::timeout::Timeout;
 use crate::url::Url;
@@ -215,9 +215,9 @@ impl AcReq {
 impl AcReq {
     pub async fn handle_h2_setting(&mut self) -> HlsResult<()> {
         let mut handshake = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".as_bytes().to_vec();
-        let setting_frame = Frame::default_setting();
+        let setting_frame = H2Frame::default_setting();
         handshake.extend(setting_frame.to_bytes());
-        let update_frame = Frame::window_update();
+        let update_frame = H2Frame::window_update();
         handshake.extend(update_frame.to_bytes());
         self.stream.async_write(&handshake).await?;
         self.stream_id += 1;
@@ -226,20 +226,20 @@ impl AcReq {
 
     pub async fn h2c_io(&mut self, headers: Vec<HeaderKey>, body: Vec<u8>) -> HlsResult<Response> {
         let hdr_bs = self.hack_coder.encode(headers)?;
-        let mut header_frame = Frame::new_header(hdr_bs, body.len(), self.stream_id);
+        let mut header_frame = H2Frame::new_header(hdr_bs, body.len(), self.stream_id);
         header_frame.set_weight(146);
         header_frame.add_flag(FrameFlag::Priority);
         self.stream.async_write(header_frame.to_bytes().as_slice()).await?;
-        for body_frame in Frame::new_body(body, self.stream_id) {
+        for body_frame in H2Frame::new_body(body, self.stream_id) {
             self.stream.async_write(body_frame.to_bytes().as_slice()).await?;
         }
         let mut response = Response::new();
         let mut buffer = Buffer::with_capacity(0xFFFF);
         loop {
             self.stream.async_read(&mut buffer).await?;
-            while let Ok(frame) = Frame::from_bytes(&mut buffer) {
+            while let Ok(frame) = H2Frame::from_bytes(&mut buffer) {
                 if frame.frame_type() == &FrameType::Settings && frame.flags().contains(&FrameFlag::ACK) {
-                    let mut end_frame = Frame::none_frame();
+                    let mut end_frame = H2Frame::none_frame();
                     end_frame.set_frame_type(FrameType::Settings);
                     end_frame.set_flags(vec![FrameFlag::EndStream]);
                     self.stream.async_write(end_frame.to_bytes().as_ref()).await?;

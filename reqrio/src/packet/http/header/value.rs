@@ -13,16 +13,13 @@ pub enum HeaderValue {
 
 impl HeaderValue {
     pub fn add_cookie(&mut self, cookie: Cookie) {
-        match self {
-            HeaderValue::Cookies(cookies) => {
-                let exits = cookies.iter_mut().find(|x| x.name() == cookie.name());
-                if let Some(exits) = exits {
-                    *exits = cookie;
-                } else {
-                    cookies.push(cookie)
-                }
+        if let HeaderValue::Cookies(cookies) = self {
+            let exits = cookies.iter_mut().find(|x| x.name() == cookie.name());
+            if let Some(exits) = exits {
+                *exits = cookie;
+            } else {
+                cookies.push(cookie)
             }
-            _ => {}
         }
     }
 
