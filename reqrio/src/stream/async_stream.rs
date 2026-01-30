@@ -203,7 +203,7 @@ impl<S: AsyncRead + Unpin> AsyncRead for TlsStream<S> {
             let record_len = if stream.read_buffer.is_empty() { 0 } else { u16::from_be_bytes([stream.read_buffer[3], stream.read_buffer[4]]) as usize + 5 };
             if record_len != 0 && stream.read_buffer.len() >= record_len {
                 match stream.read_message(buf) {
-                    Ok(len) => if len > 0 { return Poll::Ready(Ok(())); }
+                    Ok(len) => if len > 0 { return Poll::Ready(Ok(())); } else { continue; }
                     Err(e) => return Poll::Ready(Err(e)),
                 }
             }
@@ -216,7 +216,9 @@ impl<S: AsyncRead + Unpin> AsyncRead for TlsStream<S> {
                     stream.read_buffer.set_len(nl);
                 }
                 Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-                Poll::Pending => return Poll::Pending,
+                Poll::Pending => {
+                    return Poll::Pending;
+                }
             }
         }
     }

@@ -49,7 +49,7 @@ impl Body {
         };
         if let Body::Json(value) = self {
             Ok(value)
-        } else { Err("not json body".into()).into() }
+        } else { Err("not json body".into()) }
     }
 
     pub fn as_string(&mut self) -> HlsResult<&str> {
@@ -60,10 +60,10 @@ impl Body {
         };
         if let Body::String(value) = self {
             Ok(value)
-        } else { Err("not json body".into()).into() }
+        } else { Err("not json body".into()) }
     }
 
-    fn to_string(self) -> HlsResult<String> {
+    fn into_string(self) -> HlsResult<String> {
         match self {
             Body::Raw(_) => Err("not decode".into()),
             Body::Decoded(decoded) => Ok(String::from_utf8(decoded)?),
@@ -72,7 +72,7 @@ impl Body {
         }
     }
 
-    fn to_json(self) -> HlsResult<JsonValue> {
+    fn into_json(self) -> HlsResult<JsonValue> {
         match self {
             Body::Raw(_) => Err("not decode".into()),
             Body::Decoded(decoded) => Ok(crate::json::from_bytes(&decoded).or(Err("decode to json error"))?),
@@ -92,7 +92,7 @@ impl Body {
         }
     }
 
-    pub fn to_bytes(self) -> HlsResult<Vec<u8>> {
+    pub fn into_bytes(self) -> HlsResult<Vec<u8>> {
         match self {
             Body::Decoded(decoded) => Ok(decoded),
             _ => Err("not decode".into()),
@@ -147,6 +147,7 @@ impl Response {
                     let hdr_str = String::from_utf8(hdr_bs)?;
                     // println!("{}", hdr_str);
                     self.header = Header::try_from(hdr_str)?;
+                    println!("{:?}", self.header.get("connection").map(|v| v.to_string()));
                     self.raw.drain(..4);
                     Ok(self.check_status().unwrap_or(false))
                 } else { Ok(false) }
@@ -166,6 +167,7 @@ impl Response {
                     let mut hdr_bs = payload.concat();
                     let res = hpack_coding.decode(&mut hdr_bs)?;
                     self.header = Header::parse_h2(res)?;
+                    println!("{:?}", self.header.get("connection").map(|v| v.to_string()));
                 } else {
                     self.frames.push(frame);
                 }
@@ -190,7 +192,7 @@ impl Response {
     pub fn raw_string(&self) -> String {
         let header = self.header.to_string();
         let body = String::from_utf8_lossy(&self.raw).to_string();
-        header +"\r\n\r\n"+ &body
+        header + "\r\n\r\n" + &body
     }
 
     pub fn clear_raw(&mut self) { self.raw.clear() }
@@ -208,18 +210,18 @@ impl Response {
         Ok(&mut self.body)
     }
 
-    pub fn to_json(mut self) -> HlsResult<JsonValue> {
+    pub fn json(mut self) -> HlsResult<JsonValue> {
         self.decode_body()?;
-        self.body.to_json()
+        self.body.into_json()
     }
 
     pub fn text(mut self) -> HlsResult<String> {
         self.decode_body()?;
-        self.body.to_string()
+        self.body.into_string()
     }
 
     pub fn bytes(mut self) -> HlsResult<Vec<u8>> {
         self.decode_body()?;
-        self.body.to_bytes()
+        self.body.into_bytes()
     }
 }
