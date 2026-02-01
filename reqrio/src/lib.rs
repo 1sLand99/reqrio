@@ -18,7 +18,7 @@
 //! 
 //! ```rust
 //! use reqrio::{Fingerprint, ScReq, ALPN};
-//! 
+//!
 //! fn ff() {
 //!     let fingerprint = Fingerprint::default().unwrap();
 //!     fingerprint.set_ja3("771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,13-11-65037-17613-45-18-16-5-43-10-0-27-23-35-51-65281,4588-29-23-24,0");
@@ -54,7 +54,7 @@
 //!     //Get the response body; the body here has already been decoded.
 //!     let body = res.decode_body().unwrap();
 //!     //Try decoding to JSON
-//!     let json = res.to_json().unwrap();
+//!     let json = res.json().unwrap();
 //! }
 //! ```
 //! 

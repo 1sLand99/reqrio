@@ -9,7 +9,8 @@ pub struct SyncStream<S> {
     conn: Connection,
     stream: S,
     handshake_finished: bool,
-    buffer: Buffer,
+    read_buffer: Buffer,
+    write_buffer: Buffer,
 }
 
 impl<S: Read + Write> SyncStream<S> {
@@ -33,20 +34,21 @@ impl<S: Read + Write> SyncStream<S> {
             stream,
             conn,
             handshake_finished: false,
-            buffer: Buffer::with_capacity(0xFFFF),
+            read_buffer: Buffer::with_capacity(0xFFFF),
+            write_buffer: Buffer::with_capacity(0xFFFF),
         };
         loop {
             let record_len = stream.read_next_packet()?;
-            let len = stream.buffer.len();
+            let len = stream.read_buffer.len();
             let hello_done = stream.handle_message(Some(&mut param))?;
-            stream.buffer.move_to(record_len..len, 0);
+            stream.read_buffer.move_to(record_len..len, 0);
             if hello_done { break; }
         }
         Ok(stream)
     }
 
     fn handle_message(&mut self, param: Option<&mut ConnParam>) -> HlsResult<bool> {
-        let record = RecordLayer::from_bytes(self.buffer.filled_mut(), self.handshake_finished)?;
+        let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished)?;
         for message in record.messages {
             match record.context_type {
                 RecordType::CipherSpec => self.handshake_finished = true,
@@ -73,9 +75,9 @@ impl<S: Read + Write> SyncStream<S> {
                             let handshake_hash = self.conn.session_hash()?;
                             self.conn.make_cipher(&share_secret, handshake_hash.clone())?;
 
-                            self.buffer.reset();
-                            let record_len = self.conn.make_finish_message(&handshake_hash, &mut self.buffer[..])?;
-                            self.stream.write_all(&self.buffer[..record_len])?;
+                            self.write_buffer.reset();
+                            let record_len = self.conn.make_finish_message(&handshake_hash, &mut self.write_buffer[..])?;
+                            self.stream.write_all(&self.write_buffer[..record_len])?;
                             return Ok(true);
                         }
                         _ => {}
@@ -89,9 +91,9 @@ impl<S: Read + Write> SyncStream<S> {
     }
 
     pub fn shutdown(&mut self) -> HlsResult<()> {
-        self.buffer.reset();
-        let record_len = self.conn.make_message(RecordType::Alert, &mut self.buffer[..], &[1, 0])?;
-        self.stream.write_all(&self.buffer[..record_len])?;
+        self.write_buffer.reset();
+        let record_len = self.conn.make_message(RecordType::Alert, &mut self.write_buffer[..], &[1, 0])?;
+        self.stream.write_all(&self.write_buffer[..record_len])?;
         Ok(())
     }
 
@@ -102,35 +104,35 @@ impl<S: Read + Write> SyncStream<S> {
 
 impl<S: Read> SyncStream<S> {
     fn read_size(&mut self, size: usize) -> HlsResult<()> {
-        let start = self.buffer.len();
-        while self.buffer.len() - start < size {
-            self.buffer.sync_read(&mut self.stream)?;
+        let start = self.read_buffer.len();
+        while self.read_buffer.len() - start < size {
+            self.read_buffer.sync_read(&mut self.stream)?;
         }
         Ok(())
     }
 
     fn check_and_read(&mut self) -> HlsResult<usize> {
-        let len = u16::from_be_bytes([self.buffer[3], self.buffer[4]]) as usize;
-        if self.buffer.len() >= len + 5 {
+        let len = u16::from_be_bytes([self.read_buffer[3], self.read_buffer[4]]) as usize;
+        if self.read_buffer.len() >= len + 5 {
             Ok(len + 5)
         } else {
-            self.read_size(len + 5 - self.buffer.len())?;
+            self.read_size(len + 5 - self.read_buffer.len())?;
             Ok(len + 5)
         }
     }
 
     fn read_zero(&mut self) -> HlsResult<usize> {
-        self.buffer.sync_read(&mut self.stream)?;
+        self.read_buffer.sync_read(&mut self.stream)?;
         self.check_and_read()
     }
 
     fn read_next_packet(&mut self) -> HlsResult<usize> {
-        let record_len = if self.buffer.len() >= 5 {
+        let record_len = if self.read_buffer.len() >= 5 {
             self.check_and_read()?
         } else {
             self.read_zero()?
         };
-        if !self.handshake_finished { self.conn.update_session(&self.buffer.filled()[5..record_len])?; }
+        if !self.handshake_finished { self.conn.update_session(&self.read_buffer.filled()[5..record_len])?; }
         Ok(record_len)
     }
 }
@@ -139,22 +141,22 @@ impl<S: Read + Write> Read for SyncStream<S> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         loop {
             let record_len = self.read_next_packet()?;
-            let mut record = RecordLayer::from_bytes(&mut self.buffer[0..record_len], self.handshake_finished)?;
+            let mut record = RecordLayer::from_bytes(&mut self.read_buffer[0..record_len], self.handshake_finished)?;
             match record.context_type {
                 RecordType::CipherSpec | RecordType::HandShake => {
                     if self.handshake_finished { self.conn.read_message(&mut record)?; } else { let _ = self.handle_message(None)?; }
-                    self.buffer.move_to(record_len..self.buffer.len(), 0);
+                    self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
                     continue;
                 }
                 RecordType::Alert => {
                     let pdr = if self.handshake_finished { self.conn.read_message(&mut record)? } else { 5..record_len };
-                    if self.buffer[pdr.clone()] == [1, 0] { return Err(HlsError::PeerClosedConnection.into()); }
-                    self.buffer.move_to(record_len..self.buffer.len(), 0);
+                    if self.read_buffer[pdr.clone()] == [1, 0] { return Err(HlsError::PeerClosedConnection.into()); }
+                    self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
                 }
                 RecordType::ApplicationData => {
                     let pdr = self.conn.read_message(&mut record)?;
-                    buf[..pdr.len()].copy_from_slice(&self.buffer[pdr.clone()]);
-                    self.buffer.move_to(record_len..self.buffer.len(), 0);
+                    buf[..pdr.len()].copy_from_slice(&self.read_buffer[pdr.clone()]);
+                    self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
                     return Ok(pdr.len());
                 }
             }
@@ -167,9 +169,9 @@ impl<S: Write> Write for SyncStream<S> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let mut sent = 0;
         for chunk in buf.chunks(16384) {
-            self.buffer.reset();
-            let record_len = self.conn.make_message(RecordType::ApplicationData, &mut self.buffer[..], chunk)?;
-            self.stream.write(&self.buffer[..record_len])?;
+            self.write_buffer.reset();
+            let record_len = self.conn.make_message(RecordType::ApplicationData, &mut self.write_buffer[..], chunk)?;
+            self.stream.write(&self.write_buffer[..record_len])?;
             sent += chunk.len();
         }
         Ok(sent)

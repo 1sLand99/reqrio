@@ -234,7 +234,7 @@ pub(crate) trait ReqPriExt: ReqExt {
 
     #[cfg(anys)]
     fn check_res(&self, response: Response, k: impl AsRef<str>, v: impl ToString, e: Vec<impl AsRef<str>>) -> HlsResult<JsonValue> {
-        let data = response.to_json()?;
+        let data = response.json()?;
         if data[k.as_ref()].to_string() != v.to_string() {
             for e in e {
                 if !data[e.as_ref()].is_null() { return Err(data[e.as_ref()].to_string().into()); }
