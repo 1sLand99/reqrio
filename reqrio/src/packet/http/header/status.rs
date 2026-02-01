@@ -2,38 +2,72 @@ use crate::error::HlsError;
 use std::fmt::Display;
 
 #[derive(Clone, PartialEq)]
-pub enum HttpStatus {
-    None,
-    Continue = 100,
-    SwitchingProtocols = 101,
-    OK = 200,
-    Created = 201,
-    Accepted = 202,
-    NoContent = 204,
-    PartialContent = 206,
-    Move = 301,
-    Found = 302,
-    NotModified = 304,
-    TemporaryRedirect = 307,
-    PermanentRedirect = 308,
-    BadRequest = 400,
-    Unauthorized = 401,
-    Forbidden = 403,
-    NotFound = 404,
-    PreconditionFailed = 412,
-    ReqTooLarge = 413,
-    Teapot = 418,
-    TooManyRequests = 429,
-    ServerError = 500,
-    BadGateway = 502,
-    ServiceUnavailable = 503,
-    GatewayTimeOut = 504,
-    ReceiveTimeOut = 524,
+pub struct HttpStatus(u16);
+
+
+#[allow(non_upper_case_globals)]
+impl HttpStatus {
+    pub const None: HttpStatus = HttpStatus(0);
+    pub const Continue: HttpStatus = HttpStatus(100);
+    pub const SwitchingProtocols: HttpStatus = HttpStatus(101);
+    pub const OK: HttpStatus = HttpStatus(200);
+    pub const Created: HttpStatus = HttpStatus(201);
+    pub const Accepted: HttpStatus = HttpStatus(202);
+    pub const NoContent: HttpStatus = HttpStatus(204);
+    pub const PartialContent: HttpStatus = HttpStatus(206);
+    pub const Move: HttpStatus = HttpStatus(301);
+    pub const Found: HttpStatus = HttpStatus(302);
+    pub const NotModified: HttpStatus = HttpStatus(304);
+    pub const TemporaryRedirect: HttpStatus = HttpStatus(307);
+    pub const PermanentRedirect: HttpStatus = HttpStatus(308);
+    pub const BadRequest: HttpStatus = HttpStatus(400);
+    pub const Unauthorized: HttpStatus = HttpStatus(401);
+    pub const Forbidden: HttpStatus = HttpStatus(403);
+    pub const NotFound: HttpStatus = HttpStatus(404);
+    pub const PreconditionFailed: HttpStatus = HttpStatus(412);
+    pub const ReqTooLarge: HttpStatus = HttpStatus(413);
+    pub const Teapot: HttpStatus = HttpStatus(418);
+    pub const TooManyRequests: HttpStatus = HttpStatus(429);
+    pub const ServerError: HttpStatus = HttpStatus(500);
+    pub const BadGateway: HttpStatus = HttpStatus(502);
+    pub const ServiceUnavailable: HttpStatus = HttpStatus(503);
+    pub const GatewayTimeOut: HttpStatus = HttpStatus(504);
+    pub const ReceiveTimeOut: HttpStatus = HttpStatus(524);
 }
 
 impl HttpStatus {
-    pub fn status_num(&self) -> i32 {
-        self.clone() as i32
+    pub fn code(&self) -> u16 { self.0 }
+
+    pub fn spec(&self) -> &'static str {
+        match self.0 {
+            0 => "None",
+            100 => "Continue",
+            101 => "Switching Protocols",
+            200 => "Ok",
+            201 => "Created",
+            202 => "Accepted",
+            204 => "No Content",
+            206 => "Partial Content",
+            301 => "Move",
+            302 => "Found",
+            304 => "Not Modified",
+            307 => "Temporary Redirect",
+            308 => "Permanent Redirect",
+            400 => "Bad Request",
+            401 => "Unauthorized",
+            403 => "Forbidden",
+            404 => "Not Found",
+            412 => "Precondition Failed",
+            413 => "Req Too Large",
+            418 => "Teapot",
+            429 => "Too Many Requests",
+            500 => "Server Error",
+            502 => "Bad Gateway",
+            503 => "Service Unavailable",
+            504 => "Gateway Time Out",
+            524 => "Receive Time Out",
+            _ => "Unknown"
+        }
     }
 }
 
@@ -73,33 +107,6 @@ impl TryFrom<i32> for HttpStatus {
 
 impl Display for HttpStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            HttpStatus::None => write!(f, "None"),
-            HttpStatus::Continue => f.write_str("Continue"),
-            HttpStatus::SwitchingProtocols => f.write_str("Switching Protocols"),
-            HttpStatus::OK => f.write_str("Ok"),
-            HttpStatus::Created => f.write_str("Created"),
-            HttpStatus::Accepted => f.write_str("Accepted"),
-            HttpStatus::NoContent => f.write_str("No Content"),
-            HttpStatus::PartialContent => write!(f, "Partial Content"),
-            HttpStatus::Move => f.write_str("Move"),
-            HttpStatus::Found => f.write_str("Found"),
-            HttpStatus::NotModified => f.write_str("Not Modified"),
-            HttpStatus::TemporaryRedirect => f.write_str("Temporary Redirect"),
-            HttpStatus::PermanentRedirect => f.write_str("Permanent Redirect"),
-            HttpStatus::BadRequest => f.write_str("Bad Request"),
-            HttpStatus::Unauthorized => f.write_str("Unauthorized"),
-            HttpStatus::Forbidden => f.write_str("Forbidden"),
-            HttpStatus::NotFound => f.write_str("Not Found"),
-            HttpStatus::ReqTooLarge => f.write_str("Request Too Large"),
-            HttpStatus::Teapot => f.write_str("Teapot"),
-            HttpStatus::TooManyRequests => f.write_str("Too Many Requests"),
-            HttpStatus::ServerError => f.write_str("Server Error"),
-            HttpStatus::BadGateway => f.write_str("Bad Gateway"),
-            HttpStatus::ServiceUnavailable => f.write_str("Service Unavailable"),
-            HttpStatus::GatewayTimeOut => f.write_str("Gateway Time Out"),
-            HttpStatus::ReceiveTimeOut => f.write_str("Receive Time Out"),
-            HttpStatus::PreconditionFailed=>f.write_str("Precondition Failed"),
-        }
+        write!(f, "{}({})", self.spec(), self.code())
     }
 }

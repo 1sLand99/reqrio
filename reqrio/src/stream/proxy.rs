@@ -152,7 +152,7 @@ impl std::io::Read for ProxyStream<std::net::TcpStream> {
                     self.buffer.sync_read(&mut self.stream)?;
                     if resp.extend(&self.buffer)? { break; }
                 }
-                let status = resp.header().status().status_num();
+                let status = resp.header().status().code();
                 if status != 200 { return Err(std::io::Error::other(format!("connect http proxy error-{}", status))); }
                 let pos = self.buffer.filled().windows(HTTP_GAP.len()).position(|window| window == HTTP_GAP);
                 let pos = pos.ok_or(std::io::Error::other("connect proxy fail"))? + resp.header().content_length().unwrap_or(0);

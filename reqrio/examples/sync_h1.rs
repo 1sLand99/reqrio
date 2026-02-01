@@ -21,12 +21,12 @@ fn main() {
         "Accept-Encoding": "gzip, deflate, br,zstd",
 
     };
-    req.set_url("https://zhifazhe.top").unwrap();
-    // req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").unwrap();
+    // req.set_url("https://zhifazhe.top").unwrap();
+    req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").unwrap();
     println!("6");
     req.set_headers_json(headers).unwrap();
     let resp = req.get().unwrap();
     // let body = res.decode_body().unwrap().as_string().unwrap();
-    println!("{}", resp.header().status().status_num());
+    println!("{}", resp.header().status());
     println!("{}", resp.text().unwrap());
 }

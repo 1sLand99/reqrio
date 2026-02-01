@@ -144,7 +144,7 @@ impl WebSocket {
     fn connect_sync(mut req: ScReq, context: impl AsRef<[u8]>) -> HlsResult<Stream> {
         let resp = req.h1_io(context)?;
         let status = resp.header().status();
-        if status != &HttpStatus::SwitchingProtocols { return Err(format!("Connect fail with code-{}", status.status_num()).into()); }
+        if status != &HttpStatus::SwitchingProtocols { return Err(format!("Connect fail with code-{}", status).into()); }
         Ok(req.into_stream())
     }
 
@@ -189,7 +189,7 @@ impl WebSocket {
         let resp = req.h1_io(context).await?;
         println!("{}", resp.raw_string());
         let status = resp.header().status();
-        if status != &HttpStatus::SwitchingProtocols { return Err(format!("Connect fail with code-{}", status.status_num()).into()); }
+        if status != &HttpStatus::SwitchingProtocols { return Err(format!("Connect fail with code-{}", status).into()); }
         Ok(req.into_stream())
     }
 

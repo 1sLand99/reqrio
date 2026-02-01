@@ -422,7 +422,7 @@ impl From<&Header> for JsonValue {
         let mut header = crate::json::object! {
             "uri":value.uri.to_string(),
             "method":value.method.to_string(),
-            "status":value.status.status_num(),
+            "status":value.status.code(),
             "agreement":value.agreement.clone(),
             "keys":{}
         };
@@ -458,7 +458,7 @@ impl Display for Header {
             _ => {
                 if self.agreement.starts_with("HTTP/1") {
                     let mut raw = self.raw();
-                    raw.insert(0, format!("{} {} {}", self.agreement, self.status.status_num(), self.status));
+                    raw.insert(0, format!("{} {} {}", self.agreement, self.status.code(), self.status.spec()));
                     raw.push("".to_string());
                     raw.push("".to_string());
                     raw

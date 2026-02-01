@@ -1,6 +1,3 @@
-use std::time::Duration;
-use tokio::spawn;
-use tokio::time::sleep;
 use reqrio::{json, AcReq, ReqExt, ALPN};
 use reqtls::Fingerprint;
 
@@ -39,7 +36,7 @@ async fn main() {
     // let context=req.gen_h1().unwrap();
     // println!("{}",String::from_utf8(context).unwrap());
     let res = req.get().await.unwrap();
-    println!("{}",res.header().status().status_num())
+    println!("{}",res.header().status())
     // println!("{}", res.tex/t().unwrap());
     // println!("{}", res.raw_string());
     // let res = req.get().await.unwrap();
