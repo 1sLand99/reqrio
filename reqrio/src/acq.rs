@@ -9,9 +9,7 @@ use crate::packet::{H2Frame, FrameFlag, FrameType, Header, HeaderKey, Method, Re
 use crate::stream::{ConnParam, Proxy, Stream};
 use crate::timeout::Timeout;
 use crate::url::Url;
-use crate::{Buffer, ReqCallback};
-#[cfg(use_cls)]
-use reqtls::Fingerprint;
+use crate::*;
 use std::mem;
 
 pub struct AcReq {
@@ -215,9 +213,9 @@ impl AcReq {
 impl AcReq {
     pub async fn handle_h2_setting(&mut self) -> HlsResult<()> {
         let mut handshake = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".as_bytes().to_vec();
-        let setting_frame = H2Frame::default_setting();
+        let setting_frame =self.fingerprint.h2_setting().clone();
         handshake.extend(setting_frame.to_bytes());
-        let update_frame = H2Frame::window_update();
+        let update_frame = self.fingerprint.h2_window_update().clone();
         handshake.extend(update_frame.to_bytes());
         self.stream.async_write(&handshake).await?;
         self.stream_id += 1;

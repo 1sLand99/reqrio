@@ -1,5 +1,4 @@
-use reqrio::{json, AcReq, ReqExt, ALPN};
-use reqtls::Fingerprint;
+use reqrio::{json, AcReq, Fingerprint, ReqExt, ALPN};
 
 #[tokio::main]
 async fn main() {

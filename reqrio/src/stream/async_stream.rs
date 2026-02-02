@@ -1,7 +1,6 @@
 use crate::error::{HlsError, HlsResult};
 use crate::stream::ConnParam;
-use crate::{Buffer, ALPN};
-use reqtls::*;
+use crate::*;
 use std::io::Error;
 use std::pin::Pin;
 use std::task::{Context, Poll};

@@ -116,6 +116,8 @@ pub use error::HlsError;
 #[cfg(anys)]
 use crate::error::HlsResult;
 pub use timeout::Timeout;
+#[cfg(use_cls)]
+pub use fingerprint::Fingerprint;
 
 #[cfg(anys)]
 pub type ReqCallback = Box<dyn FnMut(&[u8]) -> HlsResult<()>>;
@@ -139,3 +141,5 @@ mod stream;
 mod timeout;
 mod url;
 mod body;
+#[cfg(use_cls)]
+mod fingerprint;

@@ -1,9 +1,7 @@
-#[cfg(use_cls)]
-use reqtls::Fingerprint;
 #[cfg(anys)]
 use super::url::Url;
 #[cfg(anys)]
-use crate::alpn::ALPN;
+use crate::*;
 #[cfg(anys)]
 use crate::error::HlsResult;
 #[cfg(anys)]

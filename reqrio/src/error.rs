@@ -159,6 +159,12 @@ impl From<AddrParseError> for HlsError {
     }
 }
 
+impl From<crate::hex::FromHexError> for HlsError {
+    fn from(value: crate::hex::FromHexError) -> Self {
+        HlsError::Currently(value.to_string())
+    }
+}
+
 // impl From<super::coder::EncoderError> for HlsError {
 //     fn from(value: super::coder::EncoderError) -> Self {
 //         HlsError::StdErr(Box::new(value))

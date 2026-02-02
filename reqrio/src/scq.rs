@@ -8,10 +8,8 @@ use crate::packet::*;
 use crate::stream::{ConnParam, Proxy, Stream};
 use crate::timeout::Timeout;
 use crate::url::Url;
-use crate::json;
+use crate::*;
 use json::JsonValue;
-#[cfg(feature = "cls_sync")]
-use reqtls::Fingerprint;
 use std::mem;
 use crate::ReqCallback;
 
@@ -163,7 +161,7 @@ impl ScReq {
                     return Ok(());
                 }
                 Err(e) => if i != self.timeout.connect_times() - 1 {
-                    println!("[ScReq] continue with error-{}, handle: {}/{}", e.to_string(), i + 2, self.timeout.handle_times());
+                    println!("[ScReq] continue with error-{}, handle: {}/{}", e, i + 2, self.timeout.handle_times());
                     continue;
                 }
             }
@@ -222,9 +220,9 @@ impl ScReq {
 impl ScReq {
     pub fn handle_h2_setting(&mut self) -> HlsResult<()> {
         let mut handshake = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".as_bytes().to_vec();
-        let setting_frame = H2Frame::default_setting();
+        let setting_frame = self.fingerprint.h2_setting().clone();
         handshake.extend(setting_frame.to_bytes());
-        let update_frame = H2Frame::window_update();
+        let update_frame =self.fingerprint.h2_window_update().clone();
         handshake.extend(update_frame.to_bytes());
         self.stream.sync_write(&handshake)?;
         self.stream_id += 1;

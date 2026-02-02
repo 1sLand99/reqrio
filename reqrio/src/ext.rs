@@ -6,8 +6,6 @@ use crate::timeout::Timeout;
 use crate::url::Url;
 use crate::*;
 use json::JsonValue;
-#[cfg(use_cls)]
-use reqtls::Fingerprint;
 #[cfg(anys)]
 use crate::coder::HackDecode;
 #[cfg(anys)]

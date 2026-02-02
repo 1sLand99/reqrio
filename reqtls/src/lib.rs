@@ -85,7 +85,6 @@
 //! ```
 //!
 //!
-pub use fingerprint::Fingerprint;
 pub use connection::Connection;
 pub use message::Message;
 pub use message::client_hello::ClientHello;
@@ -97,6 +96,9 @@ pub use version::Version;
 pub use range::RangeExt;
 pub use boring::{hash, hmac, base64, Cipher, Padding, RsaCipher, RsaKey};
 pub use hex;
+pub use cipher::suite::CipherSuite;
+pub use extend::{Extension, ExtensionType, group::GroupType, formats::EcPointFormat, ExtensionKind,
+algorithm::SignatureAlgorithm};
 
 mod extend;
 mod message;
@@ -106,7 +108,6 @@ mod connection;
 mod record;
 mod version;
 mod bytes;
-mod fingerprint;
 mod secret;
 mod error;
 pub mod rand;
