@@ -10,7 +10,6 @@ use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::ExtensionType;
 use crate::rand;
-use crate::version::VersionKind;
 
 
 #[derive(Debug)]
@@ -50,7 +49,7 @@ impl ClientHello {
     pub fn random() -> ClientHello {
         let mut res = ClientHello::new();
         res.random = Bytes::new(vec![0; 32]);
-        res.version = Version::new(VersionKind::TLS_1_0 as u16);
+        res.version = Version::TLS_1_0;
         res.cipher_suites = vec![
             CipherSuite::new(CipherSuiteKind::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 as u16),
             CipherSuite::new(CipherSuiteKind::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 as u16),
@@ -167,8 +166,8 @@ impl ClientHello {
         let ver = self.extensions.iter().find(|x| x.extension_type().as_u16() == ExtensionKind::SupportedVersions as u16);
         let ver = ver.map(|ext| {
             let versions = ext.supported_versions()?.versions();
-            let vers = versions.iter().filter(|x| x.as_kind().is_some()).next()?;
-            Some(vers.as_kind()?.as_ja4_str())
+            let vers = versions.iter().filter(|x| x.is_reverse()).next()?;
+            Some(vers.as_ja4_str())
         }).unwrap_or(Some("00")).unwrap_or("00");
         let mut suite = self.cipher_suites.iter().filter_map(|x| if x.is_reserved() {
             None

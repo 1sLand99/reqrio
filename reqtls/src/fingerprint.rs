@@ -1,12 +1,12 @@
 use super::record::RecordLayer;
 use crate::cipher::suite::CipherSuite;
 use crate::error::{RlsError, RlsResult};
+use crate::extend::algorithm::SignatureAlgorithm;
 use crate::extend::formats::EcPointFormat;
 use crate::extend::group::GroupType;
 use crate::extend::{Extension, ExtensionKind, ExtensionType};
+use crate::version::Version;
 use crate::{ClientHello, Message};
-use crate::extend::algorithm::SignatureAlgorithm;
-use crate::version::{Version, VersionKind};
 
 #[derive(Debug, Clone)]
 pub struct Fingerprint {
@@ -158,10 +158,10 @@ impl Fingerprint {
         let ver_ext = exts.iter_mut().find(|x| x.supported_versions().is_some());
         if let Some(ext) = ver_ext && let Some(vers) = ext.supported_versions_mut() {
             match ver {
-                "13" => vers.push(Version::new(VersionKind::TLS_1_3 as u16)),
-                "12" => vers.push(Version::new(VersionKind::TLS_1_2 as u16)),
-                "11" => vers.push(Version::new(VersionKind::TLS_1_1 as u16)),
-                "10" => vers.push(Version::new(VersionKind::TLS_1_0 as u16)),
+                "13" => vers.push(Version::TLS_1_3),
+                "12" => vers.push(Version::TLS_1_2),
+                "11" => vers.push(Version::TLS_1_1),
+                "10" => vers.push(Version::TLS_1_0),
                 _ => return Err("unknown tls version".into()),
             }
         }

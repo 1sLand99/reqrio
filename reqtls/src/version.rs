@@ -1,36 +1,14 @@
 use std::fmt::{Debug, Formatter};
 
-#[allow(non_camel_case_types)]
-#[derive(Debug, Clone)]
-pub enum VersionKind {
-    TLS_1_0 = 0x301,
-    TLS_1_1 = 0x302,
-    TLS_1_2 = 0x303,
-    TLS_1_3 = 0x304,
-}
-
-impl VersionKind {
-    pub fn from_u16(v: u16) -> Option<VersionKind> {
-        match v {
-            0x301 => Some(VersionKind::TLS_1_0),
-            0x302 => Some(VersionKind::TLS_1_1),
-            0x303 => Some(VersionKind::TLS_1_2),
-            0x304 => Some(VersionKind::TLS_1_3),
-            _ => None
-        }
-    }
-
-    pub fn as_ja4_str(&self) -> &'static str {
-        match self {
-            VersionKind::TLS_1_0 => "10",
-            VersionKind::TLS_1_1 => "11",
-            VersionKind::TLS_1_2 => "12",
-            VersionKind::TLS_1_3 => "13"
-        }
-    }
-}
-
+#[derive(PartialEq)]
 pub struct Version(u16);
+
+impl Version {
+    pub const TLS_1_0: Version = Version(0x301);
+    pub const TLS_1_1: Version = Version(0x302);
+    pub const TLS_1_2: Version = Version(0x303);
+    pub const TLS_1_3: Version = Version(0x304);
+}
 
 impl Version {
     pub fn new(v: u16) -> Version {
@@ -45,16 +23,35 @@ impl Version {
         self.0
     }
 
-    pub fn as_kind(&self) -> Option<VersionKind> {
-        VersionKind::from_u16(self.0)
+    pub fn as_ja4_str(&self) -> &'static str {
+        match self.0 {
+            0x301 => "10",
+            0x302 => "11",
+            0x303 => "12",
+            0x304 => "13",
+            _ => ""
+        }
+    }
+    
+    pub fn is_reverse(&self) -> bool {
+        match self.0 {
+            0x301 => false,
+            0x302 => false,
+            0x303 => false,
+            0x304 => false,
+            _ => true
+        }
     }
 }
 
 impl Debug for Version {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match VersionKind::from_u16(self.0) {
-            None => f.write_str(&format!("Reserved({})", self.0)),
-            Some(kind) => f.write_str(&format!("{:?}", kind))
+        match self.0 {
+            0x301 => write!(f, "TLS_1_0"),
+            0x302 => write!(f, "TLS_1_1"),
+            0x303 => write!(f, "TLS_1_2"),
+            0x304 => write!(f, "TLS_1_3"),
+            _ => write!(f, "Reserved({})", self.0)
         }
     }
 }

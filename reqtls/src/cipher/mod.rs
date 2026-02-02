@@ -91,7 +91,6 @@ mod tests {
     use crate::cipher::Cipher;
     use crate::extend::Aead;
     use crate::message::Payload;
-    use crate::version::VersionKind;
     use crate::{rand, Message, RecordLayer, RecordType, Version};
     use crate::record::RecordBuffer;
 
@@ -107,14 +106,14 @@ mod tests {
         cipher.set_iv(iv);
         let mut buffer = [0u8; 1024];
         let mut record_buffer = RecordBuffer::from_buffer(&aead, &mut buffer);
-        record_buffer.set_head(RecordType::HandShake, Version::new(VersionKind::TLS_1_2 as u16));
+        record_buffer.set_head(RecordType::HandShake, Version::TLS_1_2);
         record_buffer.set_payload(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
         let len = cipher.encrypt(record_buffer).unwrap();
         println!("{:?}", &buffer[..len + 10]);
         cipher.seq = 0;
         let mut record_buffer = RecordLayer {
             context_type: RecordType::HandShake,
-            version: Version::new(VersionKind::TLS_1_2 as u16),
+            version: Version::TLS_1_2,
             len: 0,
             messages: vec![Message::Payload(Payload::from_slice(&mut buffer[5..len]))],
         };

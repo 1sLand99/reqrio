@@ -27,7 +27,6 @@ mod pre_share_key;
 
 use crate::error::RlsResult;
 use crate::extend::certificate::{CompressionKind, CompressionType};
-use crate::version::VersionKind;
 use crate::Version;
 pub use client_hello::Aead;
 use crate::extend::pre_share_key::PreSharedKey;
@@ -127,7 +126,7 @@ impl ExtensionKind {
             }
             ExtensionKind::SupportedVersions => {
                 let mut supported_versions = SupportVersions::new();
-                supported_versions.push(Version::new(VersionKind::TLS_1_2 as u16));
+                supported_versions.push(Version::TLS_1_2);
                 ExtensionValue::SupportedVersions(supported_versions)
             }
             ExtensionKind::PskKeyExchangeMode => ExtensionValue::PskKeyExchangeMode(PskKey::new()),

@@ -8,7 +8,6 @@ use super::message::server_hello::ServerHello;
 use super::prf::Prf;
 use super::record::{RecordBuffer, RecordLayer, RecordType};
 use super::version::Version;
-use super::version::VersionKind;
 use crate::error::RlsResult;
 use crate::extend::Aead;
 use crate::RlsError;
@@ -104,7 +103,7 @@ impl Connection {
     pub fn make_message(&mut self, cty: RecordType, buffer: &mut [u8], payload: &[u8]) -> RlsResult<usize> {
         let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
         let mut buffer = RecordBuffer::from_buffer(aead, buffer);
-        buffer.set_head(cty, Version::new(VersionKind::TLS_1_2 as u16));
+        buffer.set_head(cty, Version::TLS_1_2);
         buffer.set_payload(payload);
         self.write.encrypt(buffer)
     }
