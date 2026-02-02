@@ -83,19 +83,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
             stream.read_buffer.move_to(record_len..stream.read_buffer.len(), 0);
             if hello_done { break; }
         }
-
-        // stream.read_packet().await?;
-        // let mut record = RecordLayer::from_bytes(stream.read_buffer.filled_mut(), stream.handshake_finished)?;
-        // stream.conn.read_message(&mut record)?;
-        // stream.read_buffer.reset();
-        // stream.write_buffer.reset();
         Ok(stream)
     }
 
     pub async fn read_packet(&mut self) -> HlsResult<usize> {
-        // self.read_buffer.reset();
-        // self.read_buffer.async_read_limit(&mut self.stream, 5).await?;
-        // if self.read_buffer.len() < 5 { return Err(HlsError::InvalidHeadSize)?; }
         let record_len = match self.read_buffer.is_empty() {
             true => {
                 self.read_buffer.async_read(&mut self.stream).await?;
@@ -106,10 +97,6 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
         while self.read_buffer.len() < record_len {
             self.read_buffer.async_read(&mut self.stream).await?;
         }
-        // let payload_len = u16::from_be_bytes([self.read_buffer[3], self.read_buffer[4]]) as usize;
-        // while self.read_buffer.len() - 5 < payload_len {
-        //     self.read_buffer.async_read_limit(&mut self.stream, payload_len + 5 - self.read_buffer.len()).await?;
-        // }
         if !self.handshake_finished { self.conn.update_session(&self.read_buffer[5..record_len])?; }
         Ok(record_len)
     }
