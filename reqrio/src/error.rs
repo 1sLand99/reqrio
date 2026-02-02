@@ -159,8 +159,9 @@ impl From<AddrParseError> for HlsError {
     }
 }
 
-impl From<crate::hex::FromHexError> for HlsError {
-    fn from(value: crate::hex::FromHexError) -> Self {
+#[cfg(anys)]
+impl From<reqtls::hex::FromHexError> for HlsError {
+    fn from(value: reqtls::hex::FromHexError) -> Self {
         HlsError::Currently(value.to_string())
     }
 }
