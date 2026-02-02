@@ -158,7 +158,7 @@ impl H2Frame {
     }
 
     pub fn new_body(mut body: Vec<u8>, sid: u32) -> Vec<H2Frame> {
-        if body.len() == 0 { return vec![]; }
+        if body.is_empty() { return vec![]; }
         let max_len = u32::from_be_bytes([0, 255, 255, 255]) as usize;
         let mut res = vec![];
         loop {
@@ -177,7 +177,7 @@ impl H2Frame {
             if pos >= body.len() { break; }
             body = body[pos..].to_vec();
         }
-        if res.len() != 0 { res.last_mut().unwrap().flags.push(FrameFlag::EndStream); }
+        if !res.is_empty() { res.last_mut().unwrap().flags.push(FrameFlag::EndStream); }
         res
     }
 
@@ -191,6 +191,10 @@ impl H2Frame {
 
     pub fn payload(&self) -> &Vec<u8> { &self.payload }
     pub fn to_payload(self) -> Vec<u8> { self.payload }
+
+    pub fn set_payload(&mut self, payload: Vec<u8>) { self.payload = payload }
+
+    pub fn is_empty(&self) -> bool { self.len == 0 }
 
     pub fn len(&self) -> usize {
         self.len
@@ -206,6 +210,10 @@ impl H2Frame {
 
     pub fn set_flags(&mut self, flags: Vec<FrameFlag>) {
         self.flags = flags;
+    }
+
+    pub fn set_settings(&mut self, settings: Vec<Setting>) {
+        self.settings = settings;
     }
 
     pub fn set_weight(&mut self, weight: u8) {
