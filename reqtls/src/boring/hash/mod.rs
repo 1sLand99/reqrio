@@ -12,6 +12,7 @@ mod hasher;
 pub enum Sha {
     MD5,
     Sha1,
+    Sha224,
     Sha256,
     Sha384,
     Sha512,
@@ -22,6 +23,7 @@ impl Sha {
     pub fn evp_md(&self) -> *const EVP_MD {
         match self {
             Sha::MD5 => unsafe { EVP_md5() },
+            Sha::Sha224 => unsafe { EVP_sha224() }
             Sha::Sha1 => unsafe { EVP_sha1() },
             Sha::Sha256 => unsafe { EVP_sha256() },
             Sha::Sha384 => unsafe { EVP_sha384() },
@@ -33,6 +35,7 @@ impl Sha {
         match self {
             Sha::MD5 => 32,
             Sha::Sha1 => 20,
+            Sha::Sha224 => 28,
             Sha::Sha256 => 32,
             Sha::Sha384 => 48,
             Sha::Sha512 => 64
@@ -64,7 +67,6 @@ pub fn md5(context: impl AsRef<[u8]>) -> RlsResult<[u8; 16]> {
 
 pub fn md5_hex(context: impl AsRef<[u8]>) -> RlsResult<String> {
     Ok(hex::encode(md5(context)?))
-
 }
 
 pub fn sha1(context: impl AsRef<[u8]>) -> RlsResult<[u8; 20]> {
@@ -75,6 +77,16 @@ pub fn sha1(context: impl AsRef<[u8]>) -> RlsResult<[u8; 20]> {
 
 pub fn sha1_hex(context: impl AsRef<[u8]>) -> RlsResult<String> {
     Ok(hex::encode(sha1(context)?))
+}
+
+pub fn sha224(context: impl AsRef<[u8]>) -> RlsResult<[u8; 28]> {
+    let mut out = [0u8; 28];
+    digest(context.as_ref(), out.as_mut_ptr(), Sha::Sha224)?;
+    Ok(out)
+}
+
+pub fn sha224_hex(context: impl AsRef<[u8]>) -> RlsResult<String> {
+    Ok(hex::encode(sha224(context)?))
 }
 
 pub fn sha256(context: impl AsRef<[u8]>) -> RlsResult<[u8; 32]> {

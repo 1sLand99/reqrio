@@ -37,6 +37,7 @@
 ### Hash support
 
 * sha1
+* sha224
 * sha256
 * sha385
 * sha512

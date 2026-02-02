@@ -452,8 +452,11 @@ pub struct evp_md_pctx_ops {
 
 unsafe extern "C"{
     pub fn EVP_md5() -> *const EVP_MD;
+    
     pub fn EVP_sha1() -> *const EVP_MD;
 
+    pub fn EVP_sha224() -> *const EVP_MD;
+    
     pub fn EVP_sha256() -> *const EVP_MD;
 
     pub fn EVP_sha384() -> *const EVP_MD;

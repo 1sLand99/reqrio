@@ -27,6 +27,12 @@ pub struct AcReq {
     fingerprint: Fingerprint,
 }
 
+impl Default for AcReq {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AcReq {
     pub fn new() -> AcReq {
         AcReq {
@@ -119,7 +125,7 @@ impl AcReq {
                     if e.to_string().to_lowercase().contains("close") || e.to_string().contains("中止了") || e.to_string().contains("关闭") {
                         self.re_conn().await?;
                     }
-                    println!("[AcReq] write/recv with error-{}, handle: {}/{}", e.to_string(), i + 2, self.timeout.handle_times());
+                    println!("[AcReq] write/recv with error-{}, handle: {}/{}", e, i + 2, self.timeout.handle_times());
                     continue;
                 }
                 Err(_) => if i != self.timeout.handle_times() - 1 {
@@ -150,7 +156,7 @@ impl AcReq {
             let res = tokio::time::timeout(self.timeout.connect(), self.stream.async_connect(param)).await;
             match &res {
                 Ok(res) => if let Err(e) = res && i != self.timeout.handle_times() - 1 {
-                    println!("[AcReq] connect with error-{}, handle: {}/{}", e.to_string(), i + 2, self.timeout.handle_times());
+                    println!("[AcReq] connect with error-{}, handle: {}/{}", e, i + 2, self.timeout.handle_times());
                     continue;
                 }
                 Err(e) => if i != self.timeout.handle_times() - 1 {
@@ -165,7 +171,7 @@ impl AcReq {
                         if self.stream.alpn() == &ALPN::Http20 { self.handle_h2_setting().await?; }
                         Ok(())
                     }
-                    Err(e) => Err(e.into()),
+                    Err(e) => Err(e),
                 },
                 Err(_) => Err(format!("connect timeout, handle:{}; timeout: {:?}", self.timeout.handle_times(), self.timeout.connect()).into())
             };
