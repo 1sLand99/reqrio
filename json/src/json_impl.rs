@@ -41,7 +41,7 @@ impl IndexMut<usize> for JsonValue {
     }
 }
 
-impl<'a> Index<&'a str> for JsonValue {
+impl Index<&str> for JsonValue {
     type Output = JsonValue;
 
     fn index(&self, index: &str) -> &JsonValue {
@@ -68,7 +68,7 @@ impl<'a> Index<&'a String> for JsonValue {
     }
 }
 
-impl<'a> IndexMut<&'a str> for JsonValue {
+impl IndexMut<& str> for JsonValue {
     fn index_mut(&mut self, index: &str) -> &mut JsonValue {
         match *self {
             JsonValue::Object(ref mut object) => {
@@ -88,7 +88,7 @@ impl IndexMut<String> for JsonValue {
     }
 }
 
-impl<'a> IndexMut<&'a String> for JsonValue {
+impl IndexMut<& String> for JsonValue {
     fn index_mut(&mut self, index: &String) -> &mut JsonValue {
         self.index_mut(index.as_str())
     }
@@ -518,6 +518,6 @@ mod tests {
         println!("{}", strs);
         let v: JsonValue = serde_json::from_str(&strs).unwrap();
         println!("{}", v.pretty());
-        println!("{} {}", v["sdsd"].to_string(), v["tf"].pretty())
+        println!("{} {}", v["sdsd"], v["tf"].pretty())
     }
 }

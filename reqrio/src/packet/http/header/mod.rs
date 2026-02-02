@@ -361,7 +361,7 @@ impl Header {
                 let mut items = line.split(" ");
                 header.agreement = items.next().unwrap_or("").to_string();
                 let status = items.next().unwrap_or("100").parse().unwrap_or(100);
-                header.status = HttpStatus::try_from(status).unwrap_or(HttpStatus::Continue);
+                header.status = HttpStatus::new(status);
             }
             let mut items = line.split(": ");
             let name = items.next().unwrap_or("");
@@ -379,7 +379,7 @@ impl Header {
             match pack.name() {
                 ":method" => header.method = Method::try_from(pack.value().to_uppercase())?,
                 ":path" => header.uri = Uri::try_from(pack.value())?,
-                ":status" => header.status = HttpStatus::try_from(pack.value().parse::<i32>()?)?,
+                ":status" => header.status = HttpStatus::new(pack.value().parse::<u16>()?),
                 _ => {}
             }
         }

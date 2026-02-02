@@ -21,8 +21,8 @@ fn main() {
         "Accept-Encoding": "gzip, deflate, br,zstd",
 
     };
-    // req.set_url("https://zhifazhe.top").unwrap();
-    req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").unwrap();
+    req.set_url("https://zhifazhe.top").unwrap();
+    // req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").unwrap();
     println!("6");
     req.set_headers_json(headers).unwrap();
     let resp = req.get().unwrap();

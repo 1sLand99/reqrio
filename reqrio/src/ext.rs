@@ -141,10 +141,10 @@ pub(crate) trait ReqPriExt: ReqExt {
     #[cfg(anys)]
     fn handle_h1_res(&mut self, buffer: &Buffer, response: &mut Response, rd: &mut usize) -> HlsResult<bool> {
         match self.callback() {
-            None => response.extend(&buffer),
+            None => response.extend(buffer),
             Some(callback) => {
                 if response.header().is_empty() {
-                    response.extend(&buffer)?;
+                    response.extend(buffer)?;
                     if !response.header().is_empty() {
                         callback(response.raw_body())?;
                         *rd += response.raw_body().len();

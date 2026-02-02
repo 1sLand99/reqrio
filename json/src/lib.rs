@@ -1,4 +1,3 @@
-use serde_json;
 use std::fmt::{Debug, Display, Formatter};
 use std::io;
 use std::num::{ParseFloatError, ParseIntError};
@@ -41,8 +40,7 @@ impl Future for JsonError {
     type Output = String;
 
     fn poll(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Self::Output> {
-        let poll = Poll::from(self.msg.clone());
-        poll
+        Poll::Ready(self.msg.clone())
     }
 }
 
@@ -147,10 +145,7 @@ impl JsonValue {
     where
         T: Into<JsonValue>,
     {
-        match self {
-            JsonValue::Array(vec) => vec.push(value.into()),
-            _ => {}
-        }
+        if let JsonValue::Array(vec) = self { vec.push(value.into()) }
     }
 
     pub fn len(&self) -> usize {
@@ -301,7 +296,7 @@ impl JsonValue {
     }
 
     fn set_by_xpath(&mut self, xp: &[String], value: JsonValue) -> JsonResult<()> {
-        if xp.len() != 0 {
+        if !xp.is_empty() {
             if xp[0].starts_with("[") && xp[0].ends_with("]") {
                 if !self.is_array() { return Err("xpath error-current is not array".into()); }
                 let index = xp[0].replace("[", "").replace("]", "").parse::<usize>()?;
@@ -354,22 +349,20 @@ impl JsonValue {
                 if !self.is_object() { return Err("xpath error-current is not object".into()); }
                 Ok(self.remove(xp[0].as_str()))
             }
+        } else if xp[0].starts_with("[") && xp[0].ends_with("]") {
+            if !self.is_array() { return Err("xpath error-current is not array".into()); }
+            let index = xp[0].replace("[", "").replace("]", "").parse::<usize>()?;
+            self[index].remove_by_xpath(&xp[1..])
         } else {
-            if xp[0].starts_with("[") && xp[0].ends_with("]") {
-                if !self.is_array() { return Err("xpath error-current is not array".into()); }
-                let index = xp[0].replace("[", "").replace("]", "").parse::<usize>()?;
-                self[index].remove_by_xpath(&xp[1..])
-            } else {
-                if !self.is_object() { return Err("xpath error-current is not object".into()); }
-                self[xp[0].as_str()].remove_by_xpath(&xp[1..])
-            }
+            if !self.is_object() { return Err("xpath error-current is not object".into()); }
+            self[xp[0].as_str()].remove_by_xpath(&xp[1..])
         }
     }
 
     pub fn remove_value_by_xpath(&mut self, xpath: &str) -> JsonResult<JsonValue> {
         let paths = xpath.split('.').collect::<Vec<_>>();
         let xpaths = paths.iter().filter_map(|x| if x != &"" { Some(x.to_string()) } else { None }).collect::<Vec<_>>();
-        if xpaths.len() == 0 { return Err("xpath error".into()); }
+        if xpaths.is_empty() { return Err("xpath error".into()); }
         self.remove_by_xpath(xpaths.as_slice())
     }
 

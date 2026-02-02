@@ -1,4 +1,3 @@
-use crate::error::HlsError;
 use std::fmt::Display;
 
 #[derive(Clone, PartialEq)]
@@ -36,6 +35,8 @@ impl HttpStatus {
 }
 
 impl HttpStatus {
+    pub fn new(code: u16) -> HttpStatus { HttpStatus(code) }
+    
     pub fn code(&self) -> u16 { self.0 }
 
     pub fn spec(&self) -> &'static str {
@@ -67,40 +68,6 @@ impl HttpStatus {
             504 => "Gateway Time Out",
             524 => "Receive Time Out",
             _ => "Unknown"
-        }
-    }
-}
-
-impl TryFrom<i32> for HttpStatus {
-    type Error = HlsError;
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
-        match value {
-            100 => Ok(HttpStatus::Continue),
-            101 => Ok(HttpStatus::SwitchingProtocols),
-            200 => Ok(HttpStatus::OK),
-            201 => Ok(HttpStatus::Created),
-            202 => Ok(HttpStatus::Accepted),
-            204 => Ok(HttpStatus::NoContent),
-            206 => Ok(HttpStatus::PartialContent),
-            301 => Ok(HttpStatus::Move),
-            302 => Ok(HttpStatus::Found),
-            304 => Ok(HttpStatus::NotModified),
-            307 => Ok(HttpStatus::TemporaryRedirect),
-            308 => Ok(HttpStatus::PermanentRedirect),
-            400 => Ok(HttpStatus::BadRequest),
-            401 => Ok(HttpStatus::Unauthorized),
-            403 => Ok(HttpStatus::Forbidden),
-            404 => Ok(HttpStatus::NotFound),
-            412 => Ok(HttpStatus::PreconditionFailed),
-            413 => Ok(HttpStatus::ReqTooLarge),
-            418 => Ok(HttpStatus::Teapot),
-            429 => Ok(HttpStatus::TooManyRequests),
-            500 => Ok(HttpStatus::ServerError),
-            502 => Ok(HttpStatus::BadGateway),
-            504 => Ok(HttpStatus::GatewayTimeOut),
-            503 => Ok(HttpStatus::ServiceUnavailable),
-            524 => Ok(HttpStatus::ReceiveTimeOut),
-            _ => Err(format!("Invalid HTTP status: {}", value).into()),
         }
     }
 }
