@@ -7,7 +7,6 @@ use iv::Iv;
 use crate::range::RangeExt;
 
 pub mod iv;
-// pub mod key;
 pub mod suite;
 
 pub struct Cipher {
@@ -21,7 +20,7 @@ impl Cipher {
     pub fn none() -> Cipher {
         Cipher {
             cryptor: Cryptor::None,
-            iv: Iv::new(&vec![], vec![]),
+            iv: Iv::new(&[], vec![]),
             seq: 0,
         }
     }
@@ -46,7 +45,7 @@ impl Cipher {
         Ok(res)
     }
 
-    pub fn encrypt<'a>(&mut self, mut buffer: RecordBuffer) -> RlsResult<usize> {
+    pub fn encrypt(&mut self, mut buffer: RecordBuffer) -> RlsResult<usize> {
         let add_arr = buffer.aad(self.seq);
         let nonce = self.iv.as_array(self.seq);
         buffer.add_explicit_iv(&nonce);
@@ -63,7 +62,7 @@ impl Cipher {
     }
 
     pub fn decrypt<'a>(&mut self, record: &'a mut RecordLayer<'a>, aead: &Aead) -> RlsResult<Range<usize>> {
-        let add_arr = self.build_aad(&record, aead)?;
+        let add_arr = self.build_aad(record, aead)?;
         let payload = record.messages[0].payload_mut().ok_or(RlsError::PayloadNone)?;
         self.iv.set_explicit(payload.explicit_iv(aead).to_vec());
         let nonce = match aead {
