@@ -1,28 +1,13 @@
 use std::fmt::{Debug, Formatter};
 use crate::error::RlsResult;
 
-#[derive(Debug, Clone, Copy)]
-pub enum CompressionKind {
-    Null = 0x0,
-    Deflate = 0x1,
-    Brotli = 0x2,
-}
-
-impl CompressionKind {
-    pub fn from_u16(value: u16) -> Option<CompressionKind> {
-        match value {
-            0 => Some(CompressionKind::Null),
-            1 => Some(CompressionKind::Deflate),
-            0x2 => Some(CompressionKind::Brotli),
-            _ => None
-        }
-    }
-}
-
 
 pub struct CompressionType(u16);
 
 impl CompressionType {
+    pub const NULL: CompressionType = CompressionType(0);
+    pub const DEFLATE: CompressionType = CompressionType(1);
+    pub const BROTLI: CompressionType = CompressionType(2);
     pub fn new(value: u16) -> CompressionType {
         CompressionType(value)
     }
@@ -35,9 +20,11 @@ impl CompressionType {
 
 impl Debug for CompressionType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match CompressionKind::from_u16(self.0) {
-            None => f.write_str(&format!("Reserved({})", self.0)),
-            Some(kind) => f.write_str(&format!("{:?}", kind))
+        match self.0 {
+            0 => write!(f, "Null(0)"),
+            1 => write!(f, "Deflate(1)"),
+            2 => write!(f, "Brotli(2)"),
+            _ => write!(f, "Reserved({})", self.0),
         }
     }
 }

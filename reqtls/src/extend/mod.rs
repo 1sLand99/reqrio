@@ -26,10 +26,10 @@ mod psk_key;
 mod pre_share_key;
 
 use crate::error::RlsResult;
-use crate::extend::certificate::{CompressionKind, CompressionType};
+use crate::extend::certificate::CompressionType;
+use crate::extend::pre_share_key::PreSharedKey;
 use crate::Version;
 pub use client_hello::Aead;
-use crate::extend::pre_share_key::PreSharedKey;
 
 #[derive(PartialEq)]
 pub struct ExtensionType(u16);
@@ -61,7 +61,7 @@ impl ExtensionType {
             ExtensionType::SessionTicket => Some(ExtensionValue::SessionTicket),
             ExtensionType::CompressionCertificate => {
                 let mut cp_cer = CompressionCertificate::new();
-                cp_cer.push(CompressionType::new(CompressionKind::Null as u16));
+                cp_cer.push(CompressionType::NULL);
                 Some(ExtensionValue::CompressionCertificate(cp_cer))
             }
             ExtensionType::SupportedVersions => {

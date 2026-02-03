@@ -86,24 +86,6 @@ impl Aead {
         }
     }
 
-    // pub fn as_aws_aead(&self) -> &'static aws_lc_rs::aead::Algorithm {
-    //     match self {
-    //         Aead::AES_128_GCM => &aws_lc_rs::aead::AES_128_GCM,
-    //         Aead::AES_256_GCM => &aws_lc_rs::aead::AES_256_GCM,
-    //         Aead::ChaCha20_POLY1305 => &aws_lc_rs::aead::CHACHA20_POLY1305,
-    //         _ => panic!("unknown aead"),
-    //     }
-    // }
-
-    // pub fn as_ring_aead(&self) -> &'static ring::aead::Algorithm {
-    //     match self {
-    //         Aead::AES_128_GCM => &ring::aead::AES_128_GCM,
-    //         Aead::AES_256_GCM => &ring::aead::AES_256_GCM,
-    //         Aead::ChaCha20_POLY1305 => &ring::aead::CHACHA20_POLY1305,
-    //         _ => panic!("unknown aead"),
-    //     }
-    // }
-
     pub fn key_len(&self) -> usize {
         match self {
             Aead::AES_128_GCM => 16,
@@ -128,23 +110,6 @@ impl Aead {
             Aead::AES_128_GCM | Aead::AES_256_GCM => 8,
             Aead::ChaCha20_POLY1305 => 0,
             _ => 0
-        }
-    }
-
-    // pub fn encrypted_payload_len(&self, len: usize) -> usize {
-    //     match self {
-    //         Aead::AES_128_GCM | Aead::AES_256_GCM => 8 + len + 16,
-    //         Aead::ChaCha20_POLY1305 => len + 16,
-    //         _ => len
-    //     }
-    // }
-
-    #[deprecated = "use payload range"]
-    pub fn payload_start(&self) -> usize {
-        match self {
-            Aead::AES_128_GCM | Aead::AES_256_GCM => 13,
-            Aead::ChaCha20_POLY1305 => 5,
-            _ => 5
         }
     }
 
