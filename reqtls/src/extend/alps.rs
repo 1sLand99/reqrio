@@ -1,16 +1,31 @@
 use crate::error::RlsResult;
-
-#[derive(Debug, Clone)]
-pub struct ALPN {
-    len: usize,
-    value: String,
+#[derive(Debug, PartialEq, Clone)]
+pub enum ALPN {
+    Http20,
+    Http11,
+    Http10,
+    None,
 }
 
 impl ALPN {
-    pub fn new() -> ALPN {
-        ALPN {
-            len: 0,
-            value: "".to_string(),
+    pub fn from_slice(opt: &[u8]) -> ALPN {
+        match opt {
+            b"http/1.0" => ALPN::Http10,
+            b"http/1.1" => ALPN::Http11,
+            b"h2" => ALPN::Http20,
+            _ => {
+                println!("unknown alpn {:?}", opt);
+                ALPN::None
+            }
+        }
+    }
+
+    pub fn value(&self) -> &'static str {
+        match self {
+            ALPN::Http10 => "http/1.0",
+            ALPN::Http11 => "http/1.1",
+            ALPN::Http20 => "h2",
+            ALPN::None => ""
         }
     }
 
@@ -18,23 +33,17 @@ impl ALPN {
         let mut res = vec![];
         let mut index = 0;
         while index < bytes.len() {
-            let mut alpn = ALPN::new();
-            alpn.len = bytes[index] as usize;
-            alpn.value = String::from_utf8(bytes[index + 1..alpn.len + index + 1].to_vec())?;
-            index = index + 1 + alpn.len;
-            res.push(alpn);
+            let len = bytes[index] as usize;
+            res.push(ALPN::from_slice(&bytes[index + 1..len + index + 1]));
+            index = index + 1 + len;
         }
         Ok(res)
     }
 
     pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = vec![self.value.len() as u8];
-        res.extend(self.value.as_bytes());
+        let mut res = self.value().as_bytes().to_vec();
+        res.insert(0, res.len() as u8);
         res
-    }
-
-    pub fn value(&self) -> &str {
-        &self.value
     }
 }
 
@@ -70,28 +79,17 @@ impl ALPS {
 
     pub fn remove_h2_alpn(&mut self) {
         if self.values.len() <= 1 {
-            self.values = vec![ALPN {
-                len: 8,
-                value: "http/1.1".to_string(),
-            }]
+            self.values = vec![ALPN::Http11]
         } else {
-            self.values = self.values.clone().into_iter().filter_map(|x| {
-                if x.value != "h2" { Some(x) } else { None }
-            }).collect();
+            self.values = self.values.clone().into_iter().filter(|x| x != &ALPN::Http20).collect();
         }
     }
 
     pub fn add_h2_alpn(&mut self) {
         self.values.clear();
         self.values = vec![
-            ALPN {
-                len: 2,
-                value: "h2".to_string(),
-            },
-            ALPN {
-                len: 8,
-                value: "http/1.1".to_string(),
-            }
+            ALPN::Http20,
+            ALPN::Http11,
         ]
     }
 
