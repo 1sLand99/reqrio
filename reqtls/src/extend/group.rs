@@ -4,6 +4,14 @@ use crate::error::RlsResult;
 pub struct GroupType(u16);
 
 impl GroupType {
+    pub const X25519: GroupType = GroupType(0x1d);
+    pub const X25519MLKEM768: GroupType = GroupType(0x11ec);
+    #[allow(non_upper_case_globals)]
+    pub const Secp256r1: GroupType = GroupType(0x0017);
+    #[allow(non_upper_case_globals)]
+    pub const Secp384r1: GroupType = GroupType(0x0018);
+    #[allow(non_upper_case_globals)]
+    pub const Secp521r1: GroupType = GroupType(0x0019);
     pub fn new(v: u16) -> GroupType {
         GroupType(v)
     }
@@ -17,38 +25,19 @@ impl GroupType {
     }
 
     pub fn is_reserved(&self) -> bool {
-        GroupKind::from_u16(self.0).is_none()
+        !matches!(self.0, 0x1d | 0x11ec | 0x0017 | 0x0018 | 0x0019)
     }
 }
 
 impl Debug for GroupType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match GroupKind::from_u16(self.0) {
-            None => f.write_str(&format!("Reserved({})", self.0)),
-            Some(kind) => f.write_str(&format!("{:?}", kind))
-        }
-    }
-}
-
-#[allow(non_camel_case_types)]
-#[derive(Debug, Clone)]
-enum GroupKind {
-    X25519 = 0x1d,
-    X25519MLKEM768 = 0x11ec,
-    SECP256r1 = 0x0017,
-    SECP384r1 = 0x0018,
-    SECP521r1 = 0x0019,
-}
-
-impl GroupKind {
-    pub fn from_u16(value: u16) -> Option<Self> {
-        match value {
-            0x1d => Some(GroupKind::X25519),
-            0x11ec => Some(GroupKind::X25519MLKEM768),
-            0x0017 => Some(GroupKind::SECP256r1),
-            0x0018 => Some(GroupKind::SECP384r1),
-            0x0019 => Some(GroupKind::SECP521r1),
-            _ => None
+        match self.0 {
+            0x1d => write!(f, "X25519(0x1d)"),
+            0x11ec => write!(f, "X25519MLKEM768(0x11ec)"),
+            0x0017 => write!(f, "Secp256r1(0x0017)"),
+            0x0018 => write!(f, "Secp384r1(0x0018)"),
+            0x0019 => write!(f, "Secp521r1(0x0019)"),
+            _ => write!(f, "Reserved({})", self.0),
         }
     }
 }
@@ -97,9 +86,10 @@ impl SupportedGroups {
     pub fn random() -> SupportedGroups {
         let mut res = SupportedGroups::new();
         res.values = vec![
-            GroupType::new(GroupKind::X25519 as u16),
-            GroupType::new(GroupKind::SECP256r1 as u16),
-            GroupType::new(GroupKind::SECP384r1 as u16),
+            GroupType::X25519,
+            GroupType::Secp256r1,
+            GroupType::Secp384r1,
+            GroupType::Secp521r1,
         ];
         res
     }
