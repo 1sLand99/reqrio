@@ -10,7 +10,7 @@ use psk_key::PskKey;
 use server_name::ServerName;
 use status::StatusRequest;
 use std::fmt::{Debug, Formatter};
-use version::SupportVersions;
+pub use version::SupportVersions;
 
 mod version;
 pub mod formats;
@@ -180,7 +180,7 @@ pub enum ExtensionValue {
 
 impl ExtensionValue {
     pub fn from_bytes(t: &ExtensionType, bytes: &[u8]) -> RlsResult<Self> {
-        match *t{
+        match *t {
             ExtensionType::ServerName => Ok(ExtensionValue::ServerName(ServerName::from_bytes(bytes)?)),
             ExtensionType::StatusRequest => Ok(ExtensionValue::StatusRequest(StatusRequest::from_bytes(bytes)?)),
             ExtensionType::SupportedGroup => Ok(ExtensionValue::SupportedGroups(SupportedGroups::from_bytes(bytes)?)),
@@ -246,6 +246,14 @@ impl Default for Extension {
 }
 
 impl Extension {
+    pub fn new(typ: ExtensionType, value: ExtensionValue) -> Extension {
+        Extension {
+            type_: typ,
+            value,
+            ..Default::default()
+        }
+    }
+
     pub fn from_type(t: ExtensionType) -> Extension {
         let mut res = Extension::default();
         if let Some(value) = t.default_value() {

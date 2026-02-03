@@ -92,6 +92,10 @@ impl ALPS {
             ALPN::Http11,
         ]
     }
+    
+    pub fn add_alpn(&mut self, alpn: ALPN) {
+        self.values.push(alpn);
+    }
 
     pub fn values(&self) -> &Vec<ALPN> {
         &self.values

@@ -1,5 +1,11 @@
 use crate::error::RlsResult;
-use crate::ExtensionType;
+use crate::{rand, ClientHello, EcPointFormat, ExtensionType, GroupType, SignatureAlgorithm, SupportVersions};
+use crate::cipher::suite::CipherSuiteKind;
+use crate::extend::algorithm::SignatureAlgorithms;
+use crate::extend::alps::ALPS;
+use crate::extend::ExtensionValue;
+use crate::extend::formats::EcPointFormats;
+use crate::extend::group::SupportedGroups;
 use super::super::cipher::suite::CipherSuite;
 use super::super::extend::Extension;
 use super::super::message::HandshakeType;
@@ -21,8 +27,8 @@ pub struct ServerHello {
     extensions: Vec<Extension>,
 }
 
-impl ServerHello {
-    pub fn new() -> ServerHello {
+impl Default for ServerHello {
+    fn default() -> Self {
         ServerHello {
             handshake_type: HandshakeType::ServerHello,
             len: 0,
@@ -36,9 +42,11 @@ impl ServerHello {
             extensions: vec![],
         }
     }
+}
 
+impl ServerHello {
     pub fn from_bytes(ht: HandshakeType, bytes: &[u8]) -> RlsResult<ServerHello> {
-        let mut res = ServerHello::new();
+        let mut res = ServerHello::default();
         res.handshake_type = ht;
         res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]]);
         res.version = Version::new(u16::from_be_bytes([bytes[4], bytes[5]]));
@@ -51,6 +59,47 @@ impl ServerHello {
         res.compress_method = bytes[index + 2];
         res.extend_len = u16::from_be_bytes([bytes[index + 3], bytes[index + 4]]);
         res.extensions = Extension::from_bytes(&bytes[index + 5..index + 5 + res.extend_len as usize])?;
+        Ok(res)
+    }
+
+    pub fn from_client_hello(mut client_hello: ClientHello) -> RlsResult<ServerHello> {
+        let mut res = ServerHello::default();
+        res.version = Version::TLS_1_2;
+        res.random = Bytes::new(rand::random::<[u8; 32]>().to_vec());
+        res.session_id = Bytes::new(rand::random::<[u8; 32]>().to_vec());
+        res.cipher_suite = CipherSuite::new(CipherSuiteKind::TLS_AES_128_GCM_SHA256 as u16);
+        for extension in client_hello.take_extensions() {
+            match *extension.extension_type() {
+                ExtensionType::SignatureAlgorithms => {
+                    let mut signature = SignatureAlgorithms::new();
+                    signature.push_hash(SignatureAlgorithm::RSA_PKCS1_SHA256);
+                    res.extensions.push(Extension::new(ExtensionType::SignatureAlgorithms, ExtensionValue::SignatureAlgorithms(signature)));
+                }
+                ExtensionType::SignedCertificateTimestamp => res.extensions.push(extension),
+                ExtensionType::EcPointFormats => {
+                    let mut ec_point_formats = EcPointFormats::new();
+                    ec_point_formats.add_format(EcPointFormat::UNCOMPRESSED);
+                    res.extensions.push(Extension::new(ExtensionType::EcPointFormats, ExtensionValue::EcPointFormats(ec_point_formats)));
+                }
+                ExtensionType::ApplicationLayerProtocolNegotiation => {
+                    let mut alps = ALPS::new();
+                    alps.add_alpn(ALPN::Http11);
+                    res.extensions.push(Extension::new(ExtensionType::ApplicationLayerProtocolNegotiation, ExtensionValue::ApplicationLayerProtocolNegotiation(alps)));
+                }
+                ExtensionType::ExtendMasterSecret => res.extensions.push(extension),
+                ExtensionType::SupportedVersions => {
+                    let mut version = SupportVersions::new();
+                    version.push(Version::TLS_1_2);
+                    res.extensions.push(Extension::new(ExtensionType::SupportedVersions, ExtensionValue::SupportedVersions(version)));
+                }
+                ExtensionType::SupportedGroup => {
+                    let mut groups = SupportedGroups::new();
+                    groups.add_group(GroupType::X25519);
+                    res.extensions.push(Extension::new(ExtensionType::SupportedGroup, ExtensionValue::SupportedGroups(groups)));
+                }
+                _ => {}
+            }
+        }
         Ok(res)
     }
 

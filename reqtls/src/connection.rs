@@ -29,10 +29,10 @@ pub struct Connection {
     session_bytes: Vec<u8>,
     prf: Prf,
 }
-impl Connection {
-    pub fn new(client_random: Vec<u8>) -> Connection {
+impl Default for Connection {
+    fn default() -> Self {
         Connection {
-            client_random: Bytes::new(client_random),
+            client_random: Bytes::none(),
             server_random: Bytes::none(),
             read: Cipher::none(),
             write: Cipher::none(),
@@ -45,6 +45,17 @@ impl Connection {
             session_bytes: vec![],
             prf: Prf::default(),
         }
+    }
+}
+
+impl Connection {
+    pub fn with_client_random(mut self, client_random: Vec<u8>) -> Connection {
+        self.client_random = Bytes::new(client_random);
+        self
+    }
+    
+    pub fn set_client_random(&mut self, client_random: Vec<u8>){
+        self.client_random = Bytes::new(client_random);
     }
 
     pub fn set_by_server_hello(&mut self, server_hello: ServerHello) -> RlsResult<()> {

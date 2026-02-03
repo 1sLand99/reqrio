@@ -1,3 +1,4 @@
+use std::mem;
 use super::super::bytes::Bytes;
 use super::super::cipher::suite::CipherSuite;
 use super::super::extend::Extension;
@@ -204,6 +205,10 @@ impl ClientHello {
         self.random = Bytes::new(random.to_vec());
     }
 
+    pub fn take_random(&mut self) -> Vec<u8> {
+        mem::take(&mut self.random).to_bytes()
+    }
+
     pub fn set_session_id(&mut self, session_id: [u8; 32]) {
         self.session_id = Bytes::new(session_id.to_vec());
     }
@@ -292,6 +297,14 @@ impl ClientHello {
 
     pub fn len(&self) -> u32 {
         self.len
+    }
+
+    pub fn cipher_suites(&self) -> &Vec<CipherSuite> {
+        &self.cipher_suites
+    }
+
+    pub fn take_extensions(&mut self) -> Vec<Extension> {
+        mem::take(&mut self.extensions)
     }
 }
 

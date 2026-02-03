@@ -17,6 +17,11 @@ impl Certificate {
         }
     }
 
+    pub fn with_bytes(mut self, bytes: impl Into<Vec<u8>>) -> Self {
+        self.value = Bytes::new(bytes.into());
+        self
+    }
+
     pub fn from_bytes(bytes: &[u8]) -> RlsResult<Vec<Certificate>> {
         let mut res = vec![];
         let mut index = 0;
@@ -79,6 +84,10 @@ impl Certificates {
 
     pub fn len(&self) -> u32 {
         self.len
+    }
+
+    pub fn add_certificate(&mut self, cert: impl Into<Vec<u8>>) {
+        self.certificates.push(Certificate::new().with_bytes(cert))
     }
 }
 

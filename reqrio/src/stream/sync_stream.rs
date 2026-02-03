@@ -16,7 +16,7 @@ pub struct SyncStream<S> {
 impl<S: Read + Write> SyncStream<S> {
     pub fn connect(mut param: ConnParam, mut stream: S) -> HlsResult<SyncStream<S>> {
         let client_random = rand::random::<[u8; 32]>();
-        let mut conn = Connection::new(client_random.to_vec());
+        let mut conn = Connection::default().with_client_random(client_random.to_vec());
         let mut client_hello = RecordLayer::from_bytes(param.fingerprint.client_hello_mut(), false)?;
         client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_random(client_random);
         client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_server_name(param.url.addr().host());
