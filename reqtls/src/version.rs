@@ -15,15 +15,15 @@ impl Version {
         Version(v)
     }
 
-    pub fn as_bytes(&self) -> [u8; 2] {
+    pub(crate) fn as_bytes(&self) -> [u8; 2] {
         self.0.to_be_bytes()
     }
 
-    pub fn as_u16(&self) -> u16 {
+    pub(crate) fn as_u16(&self) -> u16 {
         self.0
     }
 
-    pub fn as_ja4_str(&self) -> &'static str {
+    pub(crate) fn as_ja4_str(&self) -> &'static str {
         match self.0 {
             0x301 => "10",
             0x302 => "11",
@@ -33,14 +33,8 @@ impl Version {
         }
     }
     
-    pub fn is_reverse(&self) -> bool {
-        match self.0 {
-            0x301 => false,
-            0x302 => false,
-            0x303 => false,
-            0x304 => false,
-            _ => true
-        }
+    pub(crate) fn is_reverse(&self) -> bool {
+        !matches!(self.0, 0x301..=0x304)
     }
 }
 
