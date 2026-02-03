@@ -49,25 +49,24 @@ impl ServerHello {
         let v = u16::from_be_bytes([bytes[index], bytes[index + 1]]);
         res.cipher_suite = CipherSuite::new(v);
         res.compress_method = bytes[index + 2];
-        res.extend_len = u16::from_be_bytes([bytes[index + 3], bytes[index + 4]].try_into()?);
+        res.extend_len = u16::from_be_bytes([bytes[index + 3], bytes[index + 4]]);
         res.extensions = Extension::from_bytes(&bytes[index + 5..index + 5 + res.extend_len as usize])?;
         Ok(res)
     }
 
     pub fn use_ems(&self) -> bool {
-        self.extensions.iter().find(|x| x.extension_type().as_u16() == ExtensionKind::ExtendMasterSecret as u16).is_some()
+        self.extensions.iter().any(|x| x.extension_type().as_u16() == ExtensionKind::ExtendMasterSecret as u16)
     }
 
     pub fn alpn(&self) -> Option<ALPN> {
         let extend = self.extensions.iter().find(|x| x.alps().is_some())?;
         let protocol = extend.alps()?;
-        let alpn = protocol.values().get(0)?.clone();
+        let alpn = protocol.values().first()?.clone();
         Some(alpn)
     }
 
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut res = vec![self.handshake_type.as_u8(), 0, 0, 0];
-        // res.extend_from_slice(&(self.len as u32).to_be_bytes()[1..]);
         res.extend(self.version.as_bytes());
         res.extend(self.random.as_bytes());
         res.push(self.session_id.len() as u8);
@@ -107,7 +106,7 @@ impl ServerHelloDone {
     pub fn from_bytes(ht: HandshakeType, bytes: &[u8]) -> RlsResult<ServerHelloDone> {
         let mut res = ServerHelloDone::new();
         res.handshake_type = ht;
-        res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]].try_into()?);
+        res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]]);
         Ok(res)
     }
 

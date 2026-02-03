@@ -262,17 +262,20 @@ pub struct Extension {
     value: ExtensionValue,
 }
 
-impl Extension {
-    pub fn new() -> Extension {
+impl Default for Extension {
+    fn default() -> Self {
         Extension {
             type_: ExtensionType(0),
             len: 0,
             value: ExtensionValue::Unknown(Bytes::none()),
         }
     }
+}
+
+impl Extension {
 
     pub fn from_type(t: ExtensionType) -> Extension {
-        let mut res = Extension::new();
+        let mut res = Extension::default();
         if let Some(kind) = t.kind() {
             res.value = kind.default_value();
         };
@@ -284,10 +287,10 @@ impl Extension {
         let mut res = vec![];
         let mut index = 0;
         while index < bytes.len() {
-            let tv = u16::from_be_bytes([bytes[index], bytes[index + 1]].try_into()?);
-            let mut v = Extension::new();
+            let tv = u16::from_be_bytes([bytes[index], bytes[index + 1]]);
+            let mut v = Extension::default();
             v.type_ = ExtensionType(tv);
-            v.len = u16::from_be_bytes([bytes[index + 2], bytes[index + 3]].try_into()?);
+            v.len = u16::from_be_bytes([bytes[index + 2], bytes[index + 3]]);
             v.value = ExtensionValue::from_bytes(&v.type_, &bytes[index + 4..index + 4 + v.len as usize])?;
             index += 4 + v.len as usize;
             res.push(v);
@@ -369,10 +372,7 @@ impl Extension {
     }
 
     pub fn set_server_name(&mut self, value: &str) {
-        match self.value {
-            ExtensionValue::ServerName(ref mut v) => v.set_value(value),
-            _ => {}
-        }
+        if let ExtensionValue::ServerName(ref mut v) = self.value { v.set_value(value) }
     }
 
     pub fn server_name(&self) -> Option<&ServerName> {
@@ -397,10 +397,7 @@ impl Extension {
     }
 
     pub fn remove_tls13(&mut self) {
-        match self.value {
-            ExtensionValue::SupportedVersions(ref mut v) => v.remove_tls13(),
-            _ => {}
-        }
+        if let ExtensionValue::SupportedVersions(ref mut v) = self.value { v.remove_tls13() }
     }
 
     pub fn remove_h2_alpn(&mut self) {
