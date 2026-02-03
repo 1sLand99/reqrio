@@ -122,13 +122,13 @@ impl RsaKey {
     }
 
     pub fn from_pri_der(der: impl AsRef<[u8]>) -> RlsResult<RsaKey> {
-        let pkey = unsafe { d2i_AutoPrivateKey(null_mut(), &mut der.as_ref().as_ptr(), (der.as_ref().len() as u32).into()) };
+        let pkey = unsafe { d2i_AutoPrivateKey(null_mut(), &mut der.as_ref().as_ptr(), (der.as_ref().len() as u16).into()) };
         if pkey.is_null() { return Err(RlsError::PkeyNewError); };
         Ok(RsaKey(pkey))
     }
 
     pub fn from_pub_der(der: impl AsRef<[u8]>) -> RlsResult<RsaKey> {
-        let pkey = unsafe { d2i_PUBKEY(null_mut(), &mut der.as_ref().as_ptr(), (der.as_ref().len() as u32).into()) };
+        let pkey = unsafe { d2i_PUBKEY(null_mut(), &mut der.as_ref().as_ptr(), (der.as_ref().len() as u16).into()) };
         if pkey.is_null() { return Err(RlsError::PkeyNewError); };
         Ok(RsaKey(pkey))
     }

@@ -149,7 +149,7 @@ impl From<Elapsed> for HlsError {
 
 impl From<HlsError> for io::Error {
     fn from(err: HlsError) -> io::Error {
-        io::Error::new(io::ErrorKind::Other, err.to_string())
+        io::Error::other(err.to_string())
     }
 }
 
@@ -159,7 +159,7 @@ impl From<AddrParseError> for HlsError {
     }
 }
 
-#[cfg(anys)]
+#[cfg(use_cls)]
 impl From<reqtls::hex::FromHexError> for HlsError {
     fn from(value: reqtls::hex::FromHexError) -> Self {
         HlsError::Currently(value.to_string())

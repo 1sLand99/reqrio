@@ -223,8 +223,8 @@ pub(crate) trait ReqPriExt: ReqExt {
 
     #[cfg(anys)]
     fn check_status(&self, response: &Response) -> HlsResult<()> {
-        let status = response.header().status().code();
-        match status {
+        let status = response.header().status();
+        match status.code() {
             400..600 => Err(format!("网络请求错误-{}", status).into()),
             _ => Ok(())
         }
