@@ -23,7 +23,6 @@ pub struct AcReq {
     body: BodyType,
     alpn: ALPN,
     proxy: Proxy,
-    #[cfg(use_cls)]
     fingerprint: Fingerprint,
 }
 
@@ -45,7 +44,6 @@ impl AcReq {
             stream_id: 0,
             alpn: ALPN::Http11,
             proxy: Proxy::Null,
-            #[cfg(use_cls)]
             fingerprint: Fingerprint::default(),
             body: BodyType::Text("".to_string()),
         }

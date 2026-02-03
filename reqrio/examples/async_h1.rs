@@ -1,4 +1,4 @@
-use reqrio::{json, AcReq, Fingerprint, Proxy, ReqExt, ReqGenExt, Timeout, ALPN};
+use reqrio::{json, AcReq, Fingerprint, ReqExt, ReqGenExt, Timeout, ALPN};
 
 #[tokio::main]
 async fn main() {
@@ -11,7 +11,7 @@ async fn main() {
         .with_fingerprint(fingerprint)
         .with_alpn(ALPN::Http11)
         .with_timeout(timeout)
-        .with_proxy(Proxy::try_from("http://127.0.0.1:10280").unwrap())
+        // .with_proxy(Proxy::try_from("http://127.0.0.1:10280").unwrap())
         ;
     let headers = json::object! {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",

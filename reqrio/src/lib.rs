@@ -116,7 +116,7 @@ pub use error::HlsError;
 #[cfg(anys)]
 use crate::error::HlsResult;
 pub use timeout::Timeout;
-#[cfg(use_cls)]
+#[cfg(anys)]
 pub use fingerprint::Fingerprint;
 
 #[cfg(anys)]
@@ -141,5 +141,5 @@ mod stream;
 mod timeout;
 mod url;
 mod body;
-#[cfg(use_cls)]
+#[cfg(anys)]
 mod fingerprint;

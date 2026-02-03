@@ -25,7 +25,6 @@ pub struct ScReq {
     stream_id: u32,
     alpn: ALPN,
     proxy: Proxy,
-    #[cfg(feature = "cls_sync")]
     fingerprint: Fingerprint,
 }
 
@@ -42,7 +41,6 @@ impl ScReq {
             stream_id: 0,
             alpn: ALPN::Http11,
             proxy: Proxy::Null,
-            #[cfg(feature = "cls_sync")]
             fingerprint: Fingerprint::default(),
         }
     }
