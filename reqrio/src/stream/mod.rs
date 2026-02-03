@@ -42,7 +42,7 @@ pub struct ConnParam<'a> {
     pub url: &'a Url,
     pub proxy: &'a Proxy,
     pub timeout: &'a Timeout,
-    #[cfg(any(feature = "cls_sync", feature = "cls_async"))]
+    #[cfg(use_cls)]
     pub fingerprint: &'a mut Fingerprint,
     pub alpn: &'a ALPN,
 }

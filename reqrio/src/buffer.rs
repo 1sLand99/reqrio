@@ -11,19 +11,20 @@ pub struct Buffer {
     len: usize,
 }
 
+impl Default for Buffer {
+    fn default() -> Self {
+        Buffer::with_capacity(16 * 1024)
+    }
+}
+
 impl Buffer {
     pub fn with_capacity(capacity: usize) -> Buffer {
         let buffer = vec![0u8; capacity];
         Buffer { buffer, len: 0 }
     }
 
-    pub fn new() -> Self {
-        let res = Buffer::with_capacity(16 * 1024);
-        res
-    }
-
     pub fn new_bytes(bytes: Vec<u8>) -> Self {
-        let mut res = Buffer::new();
+        let mut res = Buffer::default();
         res.buffer[..bytes.len()].copy_from_slice(&bytes);
         res.len = bytes.len();
         res
