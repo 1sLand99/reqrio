@@ -1,11 +1,11 @@
 use crate::error::RlsResult;
+use crate::ExtensionType;
 use super::super::cipher::suite::CipherSuite;
 use super::super::extend::Extension;
 use super::super::message::HandshakeType;
 use super::super::version::Version;
 use super::super::bytes::Bytes;
 use super::super::extend::alps::ALPN;
-use super::super::extend::ExtensionKind;
 
 #[derive(Debug)]
 pub struct ServerHello {
@@ -55,7 +55,7 @@ impl ServerHello {
     }
 
     pub fn use_ems(&self) -> bool {
-        self.extensions.iter().any(|x| x.extension_type().as_u16() == ExtensionKind::ExtendMasterSecret as u16)
+        self.extensions.iter().any(|x| x.extension_type() == &ExtensionType::ExtendMasterSecret)
     }
 
     pub fn alpn(&self) -> Option<ALPN> {

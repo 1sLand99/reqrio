@@ -98,8 +98,7 @@ pub use range::RangeExt;
 pub use boring::{hash, hmac, base64, Cipher, Padding, RsaCipher, RsaKey};
 pub use hex;
 pub use cipher::suite::CipherSuite;
-pub use extend::{Extension, ExtensionType, group::GroupType, formats::EcPointFormat, ExtensionKind,
-algorithm::SignatureAlgorithm};
+pub use extend::{Extension, ExtensionType, group::GroupType, formats::EcPointFormat, algorithm::SignatureAlgorithm};
 
 mod extend;
 mod message;

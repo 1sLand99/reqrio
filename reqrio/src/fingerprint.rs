@@ -124,8 +124,8 @@ impl Fingerprint {
         for ext in items[2].split(",") {
             exts.push(Extension::from_type(ExtensionType::new(u16::from_str_radix(ext, 16)?)));
         }
-        exts.push(Extension::from_type(ExtensionType::new(ExtensionKind::ServerName as u16)));
-        exts.push(Extension::from_type(ExtensionType::new(ExtensionKind::ApplicationLayerProtocolNegotiation as u16)));
+        exts.push(Extension::from_type(ExtensionType::ServerName));
+        exts.push(Extension::from_type(ExtensionType::ApplicationLayerProtocolNegotiation));
         for ext in exts.iter_mut() {
             if let Some(sign) = ext.signature_algorithms_mut() {
                 sign.clear();

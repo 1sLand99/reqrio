@@ -1,7 +1,6 @@
 use super::super::bytes::Bytes;
 use super::super::cipher::suite::CipherSuite;
 use super::super::extend::Extension;
-use super::super::extend::ExtensionKind;
 use super::super::version::Version;
 use super::HandshakeType;
 use crate::boring::hash;
@@ -65,13 +64,13 @@ impl ClientHello {
         }
         res.compress_method = Bytes::new(vec![0]);
         res.extensions = vec![
-            Extension::from_type(ExtensionType::new(ExtensionKind::SignatureAlgorithms as u16)),
-            Extension::from_type(ExtensionType::new(ExtensionKind::SupportedGroup as u16)),
-            Extension::from_type(ExtensionType::new(ExtensionKind::CompressionCertificate as u16)),
-            Extension::from_type(ExtensionType::new(ExtensionKind::SupportedVersions as u16)),
-            Extension::from_type(ExtensionType::new(ExtensionKind::ApplicationLayerProtocolNegotiation as u16)),
-            Extension::from_type(ExtensionType::new(ExtensionKind::ServerName as u16)),
-            Extension::from_type(ExtensionType::new(ExtensionKind::EcPointFormats as u16)),
+            Extension::from_type(ExtensionType::SignatureAlgorithms),
+            Extension::from_type(ExtensionType::SupportedGroup),
+            Extension::from_type(ExtensionType::CompressionCertificate),
+            Extension::from_type(ExtensionType::SupportedVersions),
+            Extension::from_type(ExtensionType::ApplicationLayerProtocolNegotiation),
+            Extension::from_type(ExtensionType::ServerName),
+            Extension::from_type(ExtensionType::EcPointFormats),
         ];
         // let ext_all = ExtensionKind::all();
         // while res.extensions.len() < 9 {
@@ -163,7 +162,7 @@ impl ClientHello {
     /// 't'+version+'d'+len(cipher_suites)+len(extensions)+alpn+'_'+cipher_suite(u16)+','+ec_point_format(u8)
     /// tls1.3中移除了ec_point_format
     pub fn ja4(&self) -> String {
-        let ver = self.extensions.iter().find(|x| x.extension_type().as_u16() == ExtensionKind::SupportedVersions as u16);
+        let ver = self.extensions.iter().find(|x| x.extension_type() == &ExtensionType::SupportedVersions);
         let ver = ver.map(|ext| {
             let versions = ext.supported_versions()?.versions();
             let vers = versions.iter().filter(|x| x.is_reverse()).next()?;
@@ -210,7 +209,7 @@ impl ClientHello {
     }
 
     pub fn set_server_name(&mut self, server_name: &str) {
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type().as_u16() == ExtensionKind::ServerName as u16);
+        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ServerName);
         if let Some(ext) = extend {
             ext.set_server_name(server_name);
         }
@@ -229,63 +228,63 @@ impl ClientHello {
     }
 
     pub fn server_name(&self) -> Option<&str> {
-        let extension = self.extensions.iter().find(|x| x.extension_type().as_u16() == ExtensionKind::ServerName as u16)?;
+        let extension = self.extensions.iter().find(|x| x.extension_type() == &ExtensionType::ServerName)?;
         Some(extension.server_name()?.value())
     }
 
     pub fn alps(&self) -> Option<&ALPS> {
-        let extension = self.extensions.iter().find(|x| x.extension_type().as_u16() == ExtensionKind::ApplicationLayerProtocolNegotiation as u16)?;
+        let extension = self.extensions.iter().find(|x| x.extension_type() == &ExtensionType::ApplicationLayerProtocolNegotiation)?;
         extension.alps()
     }
 
     pub fn remove_h2_alpn(&mut self) {
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type().as_u16() == ExtensionKind::ApplicationLayerProtocolNegotiation as u16);
+        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ApplicationLayerProtocolNegotiation);
         if let Some(ext) = extend {
             ext.remove_h2_alpn();
         }
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type().as_u16() == ExtensionKind::ApplicationSetting as u16);
+        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ApplicationSetting);
         if let Some(ext) = extend {
             ext.remove_h2_alpn();
         }
     }
 
     pub fn remove_tls13(&mut self) {
-        let pos = self.extensions.iter().position(|x| x.extension_type().as_u16() == ExtensionKind::PreSharedKey as u16);
+        let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::PreSharedKey);
         if let Some(pos) = pos {
             self.extensions.remove(pos);
         }
-        // let pos = self.extensions.iter().position(|x| x.extension_type().as_u16() == ExtensionKind::KeyShare as u16);
+        // let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::KeyShare);
         // if let Some(pos) = pos {
         //     self.extensions.remove(pos);
         // }
-        // let pos = self.extensions.iter().position(|x| x.extension_type().as_u16() == ExtensionKind::PskKeyExchangeMode as u16);
+        // let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::PskKeyExchangeMode);
         // if let Some(pos) = pos {
         //     self.extensions.remove(pos);
         // }
-        // let pos = self.extensions.iter().position(|x| x.extension_type().as_u16() == ExtensionKind::SessionTicket as u16);
+        // let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::SessionTicket);
         // if let Some(pos) = pos {
         //     self.extensions.remove(pos);
         // }
-        // let pos = self.extensions.iter().position(|x| x.extension_type().as_u16() == ExtensionKind::SignedCertificateTimestamp as u16);
+        // let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::SignedCertificateTimestamp);
         // if let Some(pos) = pos {
         //     self.extensions.remove(pos);
         // }
-        // let pos = self.extensions.iter().position(|x| x.extension_type().as_u16() == ExtensionKind::EcPointFormats as u16);
+        // let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::EcPointFormats);
         // if let Some(pos) = pos {
         //     self.extensions.remove(pos);
         // }
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type().as_u16() == ExtensionKind::SupportedVersions as u16);
+        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::SupportedVersions);
         if let Some(ext) = extend {
             ext.remove_tls13()
         }
     }
 
     pub fn add_h2_alpn(&mut self) {
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type().as_u16() == ExtensionKind::ApplicationLayerProtocolNegotiation as u16);
+        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ApplicationLayerProtocolNegotiation);
         if let Some(ext) = extend {
             ext.add_h2_alpn();
         }
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type().as_u16() == ExtensionKind::ApplicationSetting as u16);
+        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ApplicationSetting);
         if let Some(ext) = extend {
             ext.add_h2_alpn();
         }
