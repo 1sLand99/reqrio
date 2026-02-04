@@ -4,8 +4,13 @@ mod ec_curve;
 mod evp_curve;
 mod bindings;
 pub mod hash;
+mod signature;
+mod certificate;
 
+use std::ffi::c_int;
 pub use cipher::{Cipher, Padding, base64, RsaCipher, RsaKey};
+pub use certificate::Certificate;
+pub use signature::{AlgorithmSigner, SignatureAlgorithm};
 pub use ec_curve::*;
 pub use evp_curve::*;
 pub use hash::*;
@@ -15,6 +20,19 @@ use crate::extend::Aead;
 use crate::message::Payload;
 use aead::AeadCryptor;
 use cipher::CipherCryptor;
+use crate::RlsError;
+
+trait BoringResExt {
+    fn ok(self, error: RlsError) -> RlsResult<()>;
+}
+
+impl BoringResExt for c_int {
+    fn ok(self, error: RlsError) -> RlsResult<()> {
+        if self != 1 { return Err(error); }
+        Ok(())
+    }
+}
+
 
 pub(crate) struct CryptParam<'a, 'b: 'a> {
     pub(crate) aead: &'a Aead,

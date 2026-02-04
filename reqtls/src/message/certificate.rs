@@ -40,6 +40,10 @@ impl Certificate {
         res.extend(self.value.as_bytes());
         res
     }
+
+    pub fn value(&self) -> &Bytes {
+        &self.value
+    }
 }
 
 #[derive(Debug)]
@@ -88,6 +92,10 @@ impl Certificates {
 
     pub fn add_certificate(&mut self, cert: impl Into<Vec<u8>>) {
         self.certificates.push(Certificate::new().with_bytes(cert))
+    }
+
+    pub fn certificates(&self) -> &Vec<Certificate> {
+        &self.certificates
     }
 }
 

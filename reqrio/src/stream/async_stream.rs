@@ -121,7 +121,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
         Ok(record_len)
     }
 
-    async fn handle_message(&mut self, connector: Option<&mut TlsConnector<'_>>) -> HlsResult<bool> {
+    async fn handle_message(&mut self, mut connector: Option<&mut TlsConnector<'_>>) -> HlsResult<bool> {
         let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished)?;
         println!("{:#?}", record);
         match record.context_type {
@@ -134,12 +134,16 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             // println!("{:#?}-{}", v.cipher_suite, connector.sni);
                             self.conn.set_by_server_hello(v)?;
                         }
+                        Message::Certificate(v) => {
+                            let connector = connector.as_mut().ok_or("connector can't be null")?;
+                            self.conn.set_by_certificate(v, connector.sni)?;
+                        }
                         Message::ServerKeyExchange(v) => {
                             // println!("{:#?}", v);
-                            self.conn.set_by_exchange_key(v.hellman_param().pub_key().clone(), *v.hellman_param().named_curve())
+                            self.conn.set_by_exchange_key(v)?
                         }
                         Message::ServerHelloDone(_) => {
-                            let connector = connector.ok_or("connector can't be null")?;
+                            let connector = connector.as_mut().ok_or("connector can't be null")?;
                             let mut keypair = PriKey::new(self.conn.named_curve())?;
                             let client_pub_key = keypair.pub_key();
                             let mut record = RecordLayer::from_bytes(connector.fingerprint.client_key_exchange_mut(), false)?;
@@ -166,11 +170,6 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             self.conn.set_by_server_hello(server_hello)?;
 
 
-
-
-
-
-
                             let mut record = RecordLayer::new();
                             record.version = Version::TLS_1_2;
                             record.context_type = RecordType::HandShake;
@@ -178,7 +177,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             let mut bytes = record.head_bytes();
                             bytes.extend(record.len.to_be_bytes());
                             bytes.extend(server_hello_bytes);
-                            let record = RecordLayer::from_bytes(&mut bytes, false).unwrap();
+                            let record = RecordLayer::from_bytes(&mut bytes, false)?;
                             println!("{:#?}", record);
                         }
                         _ => {}

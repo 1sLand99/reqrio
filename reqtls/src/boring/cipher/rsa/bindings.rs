@@ -254,7 +254,6 @@ pub struct BIO {
 
 pub const RSA_F4: i32 = 65537;
 pub const RSA_PKCS1_OAEP_PADDING: i32 = 4;
-pub const RSA_PKCS1_PADDING: i32 = 1;
 
 unsafe extern "C" {
     pub fn RSA_new() -> *mut RSA;
@@ -289,7 +288,7 @@ unsafe extern "C" {
 
     pub fn EVP_PKEY_decrypt_init(ctx: *mut EVP_PKEY_CTX) -> c_int;
 
-    pub fn EVP_PKEY_CTX_set_rsa_padding(ctx: *mut EVP_PKEY_CTX, padding: c_int) -> c_int;
+    // pub fn EVP_PKEY_CTX_set_rsa_padding(ctx: *mut EVP_PKEY_CTX, padding: c_int) -> c_int;
 
     pub fn RSA_generate_key_ex(
         rsa: *mut RSA,

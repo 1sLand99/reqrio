@@ -132,6 +132,10 @@ impl RsaKey {
         if pkey.is_null() { return Err(RlsError::PkeyNewError); };
         Ok(RsaKey(pkey))
     }
+
+    pub fn pkey(&self) -> *mut EVP_PKEY {
+        self.0
+    }
 }
 
 impl Drop for RsaKey {

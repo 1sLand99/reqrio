@@ -47,8 +47,9 @@ impl<S: Read + Write> SyncStream<S> {
         Ok(stream)
     }
 
-    fn handle_message(&mut self, param: Option<&mut ConnParam>) -> HlsResult<bool> {
+    fn handle_message(&mut self, mut param: Option<&mut ConnParam>) -> HlsResult<bool> {
         let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished)?;
+        println!("{:#?}",record);
         for message in record.messages {
             match record.context_type {
                 RecordType::CipherSpec => self.handshake_finished = true,
@@ -56,12 +57,16 @@ impl<S: Read + Write> SyncStream<S> {
                 RecordType::HandShake => {
                     match message {
                         Message::ServerHello(v) => self.conn.set_by_server_hello(v)?,
+                        Message::Certificate(v) => {
+                            let param = param.as_mut().ok_or("conn param can't be null")?;
+                            self.conn.set_by_certificate(v, param.url.addr().host())?;
+                        }
                         Message::ServerKeyExchange(v) => {
                             // println!("{:#?}", v);
-                            self.conn.set_by_exchange_key(v.hellman_param().pub_key().clone(), *v.hellman_param().named_curve())
+                            self.conn.set_by_exchange_key(v)?
                         }
                         Message::ServerHelloDone(_) => {
-                            let param = param.ok_or("conn param can't be null")?;
+                            let param = param.as_mut().ok_or("conn param can't be null")?;
                             let mut keypair = PriKey::new(self.conn.named_curve())?;
                             let client_pub_key = keypair.pub_key();
                             let mut client_key_exchange = RecordLayer::from_bytes(param.fingerprint.client_key_exchange_mut(), false)?;

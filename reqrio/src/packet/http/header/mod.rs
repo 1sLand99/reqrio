@@ -158,15 +158,8 @@ impl Header {
     pub fn as_h2c(&self) -> HlsResult<Vec<HeaderKey>> {
         let mut res = self.keys.clone();
         res.insert(0, HeaderKey::new(":method", HeaderValue::String(self.method.to_string())));
-        let res = res.into_iter().filter_map(|x| {
-            if x.value().to_string() == "" {
-                None
-            } else if x.name_lower() == "connection" || x.name_lower() == "host" || x.name_lower() == "content-length" {
-                None
-            } else {
-                Some(x)
-            }
-        }).collect();
+        let invalid_keys = ["connection", "host", "content-length", "transfer-encoding", "upgrade"];
+        let res=res.into_iter().filter(|x|!invalid_keys.contains(&x.name_lower().as_str())&&x.value().to_string()!="").collect();
         Ok(res)
     }
 

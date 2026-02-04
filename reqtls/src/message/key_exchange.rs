@@ -1,5 +1,5 @@
 use crate::error::RlsResult;
-use super::super::extend::algorithm::SignatureAlgorithm;
+use super::super::boring::SignatureAlgorithm;
 use super::super::message::HandshakeType;
 use super::super::bytes::Bytes;
 
@@ -94,12 +94,22 @@ impl ServerHellmanParam {
         res
     }
 
+    pub fn curve_type(&self) -> &CurveType {&self.curve_type}
+
     pub fn pub_key(&self) -> &Bytes {
         &self.pub_key
     }
 
     pub fn named_curve(&self) -> &NamedCurve {
         &self.named_curve
+    }
+
+    pub fn signature(&self) -> &Bytes {
+        &self.signature
+    }
+
+    pub fn signature_algorithm(&self) -> SignatureAlgorithm {
+        self.signature_algorithm
     }
 }
 
@@ -178,17 +188,20 @@ pub struct ClientKeyExchange {
     hellman_param: ClientHellmanParam,
 }
 
-impl ClientKeyExchange {
-    pub fn new() -> ClientKeyExchange {
+impl Default for ClientKeyExchange {
+    fn default() -> Self {
         ClientKeyExchange {
             handshake_type: HandshakeType::ClientHello,
             len: 0,
             hellman_param: ClientHellmanParam::new(),
         }
     }
+}
+
+impl ClientKeyExchange {
 
     pub fn from_bytes(ht: HandshakeType, bytes: &[u8]) -> RlsResult<ClientKeyExchange> {
-        let mut res = ClientKeyExchange::new();
+        let mut res = ClientKeyExchange::default();
         res.handshake_type = ht;
         res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]].try_into()?);
         res.hellman_param = ClientHellmanParam::from_bytes(&bytes[4..])?;

@@ -3,14 +3,15 @@ use super::cipher::iv::Iv;
 use super::cipher::suite::CipherSuite;
 use super::cipher::Cipher;
 use super::extend::alps::ALPN;
-use super::message::key_exchange::NamedCurve;
+use super::message::key_exchange::{NamedCurve, ServerKeyExchange};
 use super::message::server_hello::ServerHello;
 use super::prf::Prf;
 use super::record::{RecordBuffer, RecordLayer, RecordType};
 use super::version::Version;
+use crate::boring::{AlgorithmSigner, Certificate};
 use crate::error::RlsResult;
 use crate::extend::Aead;
-use crate::RlsError;
+use crate::{Certificates, RlsError};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::ops::Range;
@@ -28,6 +29,7 @@ pub struct Connection {
     cipher_suite: CipherSuite,
     session_bytes: Vec<u8>,
     prf: Prf,
+    certificate: Certificate,
 }
 impl Default for Connection {
     fn default() -> Self {
@@ -44,6 +46,7 @@ impl Default for Connection {
             cipher_suite: CipherSuite::new(0),
             session_bytes: vec![],
             prf: Prf::default(),
+            certificate: Certificate::none(),
         }
     }
 }
@@ -53,8 +56,8 @@ impl Connection {
         self.client_random = Bytes::new(client_random);
         self
     }
-    
-    pub fn set_client_random(&mut self, client_random: Vec<u8>){
+
+    pub fn set_client_random(&mut self, client_random: Vec<u8>) {
         self.client_random = Bytes::new(client_random);
     }
 
@@ -69,9 +72,28 @@ impl Connection {
         Ok(())
     }
 
-    pub fn set_by_exchange_key(&mut self, server_pub_key: Bytes, named_curve: NamedCurve) {
-        self.server_pub_key = server_pub_key;
-        self.named_curve = named_curve;
+    pub fn set_by_certificate(&mut self, certificate: Certificates, sni: &str) -> RlsResult<()> {
+        let der = certificate.certificates().first().ok_or("Server not sent certificate")?;
+        self.certificate = Certificate::from_der(der.value().as_ref())?;
+        self.certificate.verify_sni(sni)
+    }
+
+    pub fn set_by_exchange_key(&mut self, server_key: ServerKeyExchange) -> RlsResult<()> {
+        let mut sign_data = vec![];
+        sign_data.extend_from_slice(self.client_random.as_ref());
+        sign_data.extend_from_slice(self.server_random.as_ref());
+        sign_data.push(*server_key.hellman_param().curve_type() as u8);
+        sign_data.extend(server_key.hellman_param().named_curve().as_bytes());
+        sign_data.push(server_key.hellman_param().pub_key().len() as u8);
+        sign_data.extend(server_key.hellman_param().pub_key().as_bytes());
+        println!("{:?}", sign_data);
+        let signature = AlgorithmSigner::new_verify(self.certificate.pub_key()?, server_key.hellman_param().signature_algorithm())?;
+        signature.verify(sign_data, server_key.hellman_param().signature().as_ref())?;
+
+
+        self.server_pub_key = server_key.hellman_param().pub_key().clone();
+        self.named_curve = *server_key.hellman_param().named_curve();
+        Ok(())
     }
 
     pub fn make_cipher(&mut self, share_secret: &[u8], session_hash: Vec<u8>) -> RlsResult<()> {

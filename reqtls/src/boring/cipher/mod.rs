@@ -10,19 +10,9 @@ use crate::error::RlsResult;
 use crate::extend::Aead;
 use crate::hash::hmac;
 use crate::{rand, RlsError};
-use std::ffi::c_int;
+use super::BoringResExt;
 use std::ptr::{null, null_mut};
 
-trait BoringResExt {
-    fn ok(self, error: RlsError) -> RlsResult<()>;
-}
-
-impl BoringResExt for c_int {
-    fn ok(self, error: RlsError) -> RlsResult<()> {
-        if self != 1 { return Err(error); }
-        Ok(())
-    }
-}
 
 pub struct CipherCryptor {
     ctx: *mut EVP_CIPHER_CTX,

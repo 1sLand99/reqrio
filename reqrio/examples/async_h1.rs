@@ -1,4 +1,4 @@
-use reqrio::{json, AcReq, Fingerprint, ReqExt, ReqGenExt, Timeout, ALPN};
+use reqrio::*;
 
 #[tokio::main]
 async fn main() {
@@ -9,7 +9,7 @@ async fn main() {
 
     let mut req = AcReq::new()
         .with_fingerprint(fingerprint)
-        .with_alpn(ALPN::Http11)
+        .with_alpn(ALPN::Http20)
         .with_timeout(timeout)
         // .with_proxy(Proxy::try_from("http://127.0.0.1:10280").unwrap())
         ;
@@ -27,11 +27,33 @@ async fn main() {
         "Accept-Language": "zh-CN,zh;q=0.9",
         "Accept-Encoding": "gzip,deflate,br,zstd",
         "Cache-Control": "no-cache",
-        "Connection": "keep-alive"
-        // "cookie":"_spvid_id.ab05=211d3f05-8cb7-40e6-aa8e-595b45cf7e0e.1770095266.1.1770095266..22c133ab-52af-492f-8532-a1b936acfbcc..a8f75e61-9d1d-4143-ac41-3ba5e9131b2d.1770095265854.1; _spvid_ses.ab05=*; _spvid_=e68ffafe-bd86-43c1-80ec-560de9f1bddf; ak_bmsc=B54C35CE57EA175DB8FFA5038485F93D~000000000000000000000000000000~YAAQBNYsF4CkSBGcAQAAok3mIR4dx1WmSty0j4DtoVhdY3UPJ22h4jdleBRwYQGNUZEpcRjx7iP+5EQq+ZsKFsDhvXqJ/dmk2rylQY+3EW75sRsa+BdFHMx7dUoRAEwqTNBE8GdgFKMlyAiLU3V40TWM/6lpTVgwEMR4rbqdgQLs06jrHCinI9oHmwSCacDA7lzf+5IiwOKYmzqNazYn/WyC4AMKCnOqnKEzccbAfm0tYo+aujjUbmo9VzwBBWeik6VC9jpdEMpMw2ffv6UmDpCpjvGId0+1vw53v7tHDiDWVs6z+oOkfzuIrJt58U76FT4oUTpRAEifsArt1Rt3ia7IwD7HmOPdt+pGwEAdrKPXpNRAcaxS5VGSG1P5K+qb; ADRUM=s~1770095269046&r~aHR0cHMlM0ElMkYlMkZhY2NvdW50cy5wY2lkLmNhJTJGbG9naW4="
+        "Connection": "keep-alive",
+        "cookie":"JSESSIONID=05304295A550FF08DE1E44A03CDA8CBB; acw_tc=0a065e4717701411754903815e64f1c251caacb791decd35981b455583d1da; acw_sc__v2=69823a8cb1bb76098533c5837be7f69784d38872"
     };
     req.set_headers_json(headers).unwrap();
-    req.set_url("https://accounts.pcid.ca/login").await.unwrap();
+    let data = json::object! {
+        "bizProd":1,
+        "couponIds":[],
+        "pageIndex":5,
+        "pageSize":16,
+        "gameId":"10032",
+        "query":"",
+        "type":4,
+        "mineFav":false,
+        "filterDTOList":[
+            {"attrId":"100328","attrValList":["10032131"],"attrType":1,"filterType":1,"optionType":1},
+            {"attrId":"10032306","attrValList":[1000,2000],"attrType":2,"filterType":1,"optionType":1}
+        ],
+        "combineFilterList":[],
+        "sincerelySell":0,
+        "posType":1,
+        "fromSubscribe":0,
+        "productTypeIds":[],
+        "confirmSubscribe":1
+    };
+    let url = "https://m1.pxb7.com/api/search/h5/product/selectSearchPageList";
+
+    // req.set_url("https://accounts.pcid.ca/login").await.unwrap();
     // req.set_url("https://xxbg.snssdk.com/fdsf/dsfsdfkdsjfk").await.unwrap();
     // req.set_url("https://www.toutiao.com/article/7600224020776239658/?log_from=99ab1fa2b852c_1769590891442&wid=1769590984039").await.unwrap();
     // req.set_url("https://www.sogou.com").await.unwrap();
@@ -44,8 +66,10 @@ async fn main() {
     // });
     // let context=req.gen_h1().unwrap();
     // println!("{}",String::from_utf8(context).unwrap());
-    println!("{}", String::from_utf8_lossy(&req.gen_h1().unwrap()));
-    let res = req.get().await.unwrap();
+    // println!("{}", String::from_utf8_lossy(&req.gen_h1().unwrap()));
+    req.set_url(url).await.unwrap();
+    req.set_json(data);
+    let res = req.post().await.unwrap();
     // let res = req.get().await.unwrap();
     println!("{}", res.header());
     println!("{}", res.text().unwrap());

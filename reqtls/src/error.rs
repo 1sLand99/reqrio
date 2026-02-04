@@ -1,6 +1,7 @@
 use std::array::TryFromSliceError;
 use std::convert::Infallible;
 use std::error::Error;
+use std::ffi::NulError;
 use std::fmt::{Display, Formatter};
 use std::io;
 use std::num::ParseIntError;
@@ -46,6 +47,8 @@ pub enum RlsError {
     InitDigestError,
     DigestUpdateError,
     DigestFinalError,
+    DigestSignError,
+    DigestVerifyError,
     RsaNewError,
     BnNewError,
     BnSetWordError,
@@ -60,6 +63,10 @@ pub enum RlsError {
     InitEncryptError,
     InitDecryptError,
     PkeyDecryptError,
+    OpenX509Error,
+    SetRsaMgf1MdError,
+    SetRsaPassSaltLenError,
+    CertSniInvalid,
     StdError(Box<dyn Error>),
     Currently(String),
 }
@@ -104,6 +111,8 @@ impl Display for RlsError {
             RlsError::InitDigestError => f.write_str("Init digest error"),
             RlsError::DigestUpdateError => f.write_str("Digest update error"),
             RlsError::DigestFinalError => f.write_str("Digest finalize error"),
+            RlsError::DigestSignError => f.write_str("Digest sign error"),
+            RlsError::DigestVerifyError => f.write_str("Digest verify error"),
             RlsError::RsaNewError => f.write_str("Rsa new error"),
             RlsError::BnNewError => f.write_str("Bn new error"),
             RlsError::BnSetWordError => f.write_str("Bn set word error"),
@@ -118,6 +127,10 @@ impl Display for RlsError {
             RlsError::InitDecryptError => f.write_str("Init decrypt error"),
             RlsError::PkeyDecryptError => f.write_str("Pkey decrypt error"),
             RlsError::InitEncryptError => f.write_str("Init encrypt error"),
+            RlsError::OpenX509Error => f.write_str("Open X509 error"),
+            RlsError::SetRsaMgf1MdError => f.write_str("Set Rsa Mgf1Md error"),
+            RlsError::SetRsaPassSaltLenError => f.write_str("Set Rsa Pass Salt Len error"),
+            RlsError::CertSniInvalid => f.write_str("CertSniInvalid"),
             RlsError::StdError(e) => f.write_fmt(format_args!("{:?}", e)),
             RlsError::Currently(e) => f.write_str(e),
         }
@@ -175,6 +188,12 @@ impl From<ParseIntError> for RlsError {
 impl From<RlsError> for io::Error {
     fn from(error: RlsError) -> Self {
         io::Error::new(io::ErrorKind::Other, error.to_string())
+    }
+}
+
+impl From<NulError> for RlsError {
+    fn from(value: NulError) -> Self {
+        RlsError::StdError(Box::new(value))
     }
 }
 

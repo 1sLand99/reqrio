@@ -1,4 +1,4 @@
-use std::os::raw::{c_char, c_int, c_uint, c_void};
+use std::os::raw::{c_char, c_int, c_long, c_uint, c_void};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -122,7 +122,6 @@ pub struct EVP_ENCODE_CTX {
 }
 
 
-
 unsafe extern "C" {
     pub fn EVP_aes_128_cbc() -> *const EVP_CIPHER;
 
@@ -154,12 +153,9 @@ unsafe extern "C" {
 
     pub fn EVP_aes_256_ctr() -> *const EVP_CIPHER;
 
-
     pub fn EVP_des_ecb() -> *const EVP_CIPHER;
 
     pub fn EVP_des_cbc() -> *const EVP_CIPHER;
-
-   
 
     pub fn EVP_CIPHER_CTX_new() -> *mut EVP_CIPHER_CTX;
 
@@ -261,8 +257,6 @@ unsafe extern "C" {
         out: *mut u8,
         out_len: *mut c_int,
     ) -> c_int;
-
-   
 }
 
 #[repr(C)]
@@ -359,7 +353,6 @@ unsafe extern "C" {
             ) -> *mut c_void,
         >,
     ) -> c_int;
-
 }
 
 #[repr(C)]
@@ -448,15 +441,16 @@ pub struct EVP_MD_CTX {
 pub struct evp_md_pctx_ops {
     _unused: [u8; 0],
 }
+pub const RSA_PKCS1_PADDING: i32 = 1;
+pub const RSA_PKCS1_PSS_PADDING: i32 = 6;
 
-
-unsafe extern "C"{
+unsafe extern "C" {
     pub fn EVP_md5() -> *const EVP_MD;
-    
+
     pub fn EVP_sha1() -> *const EVP_MD;
 
     pub fn EVP_sha224() -> *const EVP_MD;
-    
+
     pub fn EVP_sha256() -> *const EVP_MD;
 
     pub fn EVP_sha384() -> *const EVP_MD;
@@ -470,6 +464,12 @@ unsafe extern "C"{
     pub fn EVP_MD_CTX_new() -> *mut EVP_MD_CTX;
 
     pub fn EVP_MD_CTX_free(ctx: *mut EVP_MD_CTX);
+
+    pub fn EVP_PKEY_CTX_set_rsa_padding(ctx: *mut EVP_PKEY_CTX, padding: c_int) -> c_int;
+
+    pub fn EVP_PKEY_CTX_set_rsa_mgf1_md(ctx: *mut EVP_PKEY_CTX, md: *const EVP_MD) -> c_int;
+
+    pub fn EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx: *mut EVP_PKEY_CTX, salt_len: c_int) -> c_int;
 
     pub fn EVP_MD_CTX_copy_ex(
         out: *mut EVP_MD_CTX,
@@ -521,5 +521,63 @@ unsafe extern "C"{
         md_out_size: *mut c_uint,
         type_: *const EVP_MD,
         impl_: *mut ENGINE,
+    ) -> c_int;
+
+    pub fn EVP_DigestSignInit(
+        ctx: *mut EVP_MD_CTX,
+        pctx: *mut *mut EVP_PKEY_CTX,
+        type_: *const EVP_MD,
+        e: *mut ENGINE,
+        pkey: *mut EVP_PKEY,
+    ) -> c_int;
+
+    pub fn EVP_DigestSign(
+        ctx: *mut EVP_MD_CTX,
+        out_sig: *mut u8,
+        out_sig_len: *mut usize,
+        data: *const u8,
+        data_len: usize,
+    ) -> c_int;
+
+    pub fn EVP_DigestVerifyInit(
+        ctx: *mut EVP_MD_CTX,
+        pctx: *mut *mut EVP_PKEY_CTX,
+        type_: *const EVP_MD,
+        e: *mut ENGINE,
+        pkey: *mut EVP_PKEY,
+    ) -> c_int;
+
+    pub fn EVP_DigestVerify(
+        ctx: *mut EVP_MD_CTX,
+        sig: *const u8,
+        sig_len: usize,
+        data: *const u8,
+        len: usize,
+    ) -> c_int;
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct X509 {
+    _unused: [u8; 0],
+}
+
+unsafe extern "C" {
+    pub fn X509_get_pubkey(x509: *mut X509) -> *mut EVP_PKEY;
+
+    pub fn X509_free(x509: *mut X509);
+
+    pub fn d2i_X509(
+        out: *mut *mut X509,
+        inp: *mut *const u8,
+        len: c_long,
+    ) -> *mut X509;
+
+    pub fn X509_check_host(
+        x: *mut X509,
+        chk: *const c_char,
+        chklen: usize,
+        flags: c_uint,
+        peername: *mut *mut c_char,
     ) -> c_int;
 }
