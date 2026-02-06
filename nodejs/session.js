@@ -28,39 +28,31 @@ class Session {
             let ret = library.set_alpn(this.req, alpn)
             if (ret === -1) throw "set_alpn error"
         }
-        if (rand_tls)
-            if (library.set_random_fingerprint) {
-                let ret = library.set_random_fingerprint(this.req);
-                if (ret === -1) throw "set_random_fingerprint error"
-            } else
-                throw "free user, set_random_fingerprint can't be used"
-
+        if (rand_tls) {
+            let ret = library.set_random_fingerprint(this.req);
+            if (ret === -2) throw "free user, set_random_fingerprint can't be used"
+            if (ret === -1) throw "set_random_fingerprint error"
+        }
         registry.register(this, this.req)
     }
 
     set_fingerprint(fingerprint) {
-        if (library.set_fingerprint) {
-            let ret = library.set_fingerprint(this.req, fingerprint);
-            if (ret === -1) throw "set_fingerprint error"
-        } else
-            throw "free user, set_fingerprint can't be used"
+        let ret = library.set_fingerprint(this.req, fingerprint);
+        if (ret === -2) throw "free user, set_fingerprint can't be used"
+        if (ret === -1) throw "set_fingerprint error"
     }
 
     set_ja3(ja3) {
-        if (library.set_ja3) {
-            let ret = library.set_ja3(this.req, ja3);
-            if (ret === -1) throw "set_ja3 error"
-        } else
-            throw "free user, set_ja3 can't be used"
+        let ret = library.set_ja3(this.req, ja3);
+        if (ret === -2) throw "free user, set_ja3 can't be used"
+        if (ret === -1) throw "set_ja3 error"
 
     }
 
     set_ja4(ja4) {
-        if (library.set_ja4) {
-            let ret = library.set_ja4(this.req, ja4);
-            if (ret === -1) throw "set_ja4 error"
-        } else
-            throw "free user, set_ja4 can't be used"
+        let ret = library.set_ja4(this.req, ja4);
+        if (ret === -2) throw "free user, set_ja4 can't be used"
+        if (ret === -1) throw "set_ja4 error"
 
     }
 

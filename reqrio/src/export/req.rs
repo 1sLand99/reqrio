@@ -27,17 +27,6 @@ pub extern "system" fn set_header_json(req: *mut ScReq, header: *const c_char) -
     }().unwrap_or(-1)
 }
 
-#[cfg(use_cls)]
-#[unsafe(no_mangle)]
-pub extern "system" fn set_random_fingerprint(req: *mut ScReq) -> i32 {
-    || -> HlsResult<i32> {
-        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
-        let fingerprint = Fingerprint::random()?;
-        req.set_fingerprint(fingerprint);
-        Ok(0)
-    }().unwrap_or(-1)
-}
-
 #[unsafe(no_mangle)]
 pub extern "system" fn add_header(req: *mut ScReq, key: *const c_char, value: *const c_char) -> i32 {
     || -> HlsResult<i32> {
@@ -56,6 +45,17 @@ pub extern "system" fn set_alpn(req: *mut ScReq, alpn: *const c_char) -> i32 {
         let alpn = unsafe { CStr::from_ptr(alpn) }.to_bytes();
         let alpn = ALPN::from_slice(alpn);
         req.set_alpn(alpn);
+        Ok(0)
+    }().unwrap_or(-1)
+}
+
+#[cfg(use_cls)]
+#[unsafe(no_mangle)]
+pub extern "system" fn set_random_fingerprint(req: *mut ScReq) -> i32 {
+    || -> HlsResult<i32> {
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
+        let fingerprint = Fingerprint::random()?;
+        req.set_fingerprint(fingerprint);
         Ok(0)
     }().unwrap_or(-1)
 }
@@ -95,6 +95,23 @@ pub extern "system" fn set_ja4(req: *mut ScReq, ja4: *const c_char) -> i32 {
         Ok(0)
     }().unwrap_or(-1)
 }
+
+
+#[cfg(use_std)]
+#[unsafe(no_mangle)]
+pub extern "system" fn set_random_fingerprint(_: *mut ScReq) -> i32 { -2 }
+
+#[cfg(use_std)]
+#[unsafe(no_mangle)]
+pub extern "system" fn set_fingerprint(_: *mut ScReq, _: *const c_char) -> i32 { -2 }
+
+#[cfg(use_std)]
+#[unsafe(no_mangle)]
+pub extern "system" fn set_ja3(_: *mut ScReq, _: *const c_char) -> i32 { -2 }
+
+#[cfg(use_std)]
+#[unsafe(no_mangle)]
+pub extern "system" fn set_ja4(_: *mut ScReq, _: *const c_char) -> i32 { -2 }
 
 #[unsafe(no_mangle)]
 pub extern "system" fn set_proxy(req: *mut ScReq, addr: *const c_char) -> i32 {

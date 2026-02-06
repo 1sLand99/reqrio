@@ -24,6 +24,7 @@ class Session:
         if r == -1: raise Exception('set alpn error')
         if rand_tls:
             r = self.dll.set_random_fingerprint(self.hid)
+            if r==-2:raise Exception("free user, rand_tls can't be used")
             if r == -1: raise Exception('set rand tls error')
 
     def set_timeout(self, connect: int = 3000, read: int = 3000, write: int = 3000, handle: int = 30000, connect_times: int = 3,
@@ -66,11 +67,18 @@ class Session:
 
         3.change_cipher_spec"""
         r = self.dll.set_fingerprint(self.hid, fingerprint.encode('utf-8'))
+        if r==-2:raise Exception("free user, set_fingerprint can't be used")
         if r == -1: raise Exception('set fingerprint error')
 
     def set_ja3(self, ja3: str):
         r = self.dll.set_ja3(self.hid, ja3.encode('utf-8'))
+        if r==-2:raise Exception("free user, set_ja3 can't be used")
         if r == -1: raise Exception('set ja3 error')
+
+     def set_ja4(self,ja4:str):
+         r=self.dll.set_ja4(self.hid,ja4.encode('utf-8'))
+         if r==-2:raise Exception("free user, set_ja4 can't be used")
+         if r == -1: raise Exception('set ja4 error')
 
     def set_proxy(self, proxy: str):
         """设置代理，格式:http://127.0.0.1:10000、socks5://127.0.0.1:10001"""
