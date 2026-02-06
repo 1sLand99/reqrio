@@ -34,6 +34,18 @@
 //! * secp384r1
 //! * secp521r1
 //!
+//! ### AlgorithmSignature
+//!
+//! * RSA_PSS_RSAE_SHA256
+//! * RSA_PSS_RSAE_SHA384
+//! * RSA_PSS_RSAE_SHA512
+//! * ECDSA_SECP256R1_SHA256
+//! * ECDSA_SECP384R1_SHA384
+//! * ECDSA_SECP521R1_SHA512
+//! * RSA_PKCS1_SHA256
+//! * RSA_PKCS1_SHA384
+//! * RSA_PKCS1_SHA512
+//!
 //! ### Hash support
 //!
 //! * sha1
@@ -87,20 +99,21 @@
 //!
 //!
 pub use connection::Connection;
-pub use message::Message;
+pub use message::{Message, Alert};
+pub use message::session_ticket::{SessionTicket, TlsSessionTicket};
+pub use message::key_exchange::ServerKeyExchange;
 pub use message::server_hello::ServerHello;
 pub use message::client_hello::ClientHello;
 pub use message::key_exchange::ClientKeyExchange;
 pub use message::certificate::Certificates;
-pub use secret::key::PriKey;
 pub use record::{RecordLayer, RecordType};
 pub use error::RlsError;
 pub use version::Version;
 pub use range::RangeExt;
-pub use boring::{hash, hmac, base64, Cipher, Padding, RsaCipher, RsaKey, SignatureAlgorithm};
+pub use boring::{hash, hmac, base64, Cipher, Padding, RsaCipher, RsaKey, SignatureAlgorithm, Certificate};
 pub use hex;
 pub use cipher::suite::CipherSuite;
-pub use extend::{Extension, ExtensionType, group::GroupType, formats::EcPointFormat, alps::ALPN, SupportVersions};
+pub use extend::{Extension, ExtensionType, group::GroupType, formats::EcPointFormat,  SupportVersions};
 
 mod extend;
 mod message;

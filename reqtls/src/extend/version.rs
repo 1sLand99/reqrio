@@ -14,10 +14,14 @@ impl SupportVersions {
         }
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> Self {
+    pub fn from_bytes(bytes: &[u8], server: bool) -> Self {
         let mut res = SupportVersions::new();
-        res.len = bytes[0];
-        let mut index = 1;
+        let mut index = 0;
+        if !server {
+            res.len = bytes[0];
+            index += 1;
+        }
+
         while index < bytes.len() {
             res.versions.push(Version::new(u16::from_be_bytes([bytes[index], bytes[index + 1]])));
             index += 2;
@@ -25,12 +29,13 @@ impl SupportVersions {
         res
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
+    pub fn as_bytes(&self, server: bool) -> Vec<u8> {
         let mut res = vec![0];
         for version in &self.versions {
             res.extend(version.as_bytes());
         }
         res[0] = (res.len() - 1) as u8;
+        if server { res.remove(0); }
         res
     }
 

@@ -51,7 +51,7 @@ impl EcCurve {
         unsafe { slice::from_raw_parts(self.pub_key, len) }
     }
 
-    pub fn diffie_hellman(self, pub_key: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
+    pub fn diffie_hellman(&self, pub_key: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
         let group = unsafe { EC_KEY_get0_group(self.ec_key) };
         let server_point = unsafe { EC_POINT_new(group) };
         if server_point.is_null() { return Err(RlsError::InitEcPointError); }

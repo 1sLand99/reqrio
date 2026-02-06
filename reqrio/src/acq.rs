@@ -24,6 +24,7 @@ pub struct AcReq {
     alpn: ALPN,
     proxy: Proxy,
     fingerprint: Fingerprint,
+    verify: bool,
 }
 
 impl Default for AcReq {
@@ -46,6 +47,7 @@ impl AcReq {
             proxy: Proxy::Null,
             fingerprint: Fingerprint::default(),
             body: BodyType::Text("".to_string()),
+            verify: false,
         }
     }
 
@@ -150,6 +152,7 @@ impl AcReq {
                 #[cfg(use_cls)]
                 fingerprint: &mut self.fingerprint,
                 alpn: &self.alpn,
+                verify: self.verify,
             };
             let res = tokio::time::timeout(self.timeout.connect(), self.stream.async_connect(param)).await;
             match &res {
@@ -217,7 +220,7 @@ impl AcReq {
 impl AcReq {
     pub async fn handle_h2_setting(&mut self) -> HlsResult<()> {
         let mut handshake = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".as_bytes().to_vec();
-        let setting_frame =self.fingerprint.h2_setting().clone();
+        let setting_frame = self.fingerprint.h2_setting().clone();
         handshake.extend(setting_frame.to_bytes());
         let update_frame = self.fingerprint.h2_window_update().clone();
         handshake.extend(update_frame.to_bytes());
@@ -303,6 +306,10 @@ impl ReqExt for AcReq {
 
     fn set_proxy(&mut self, proxy: Proxy) {
         self.proxy = proxy;
+    }
+
+    fn set_verify(&mut self, verify: bool) {
+        self.verify = verify;
     }
 
     fn set_alpn(&mut self, alpn: ALPN) {

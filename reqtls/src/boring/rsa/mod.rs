@@ -1,15 +1,21 @@
 mod bindings;
 use crate::boring::bindings::*;
-use crate::boring::cipher::BoringResExt;
+use crate::boring::BoringResExt;
 use crate::error::RlsResult;
 use crate::RlsError;
 use bindings::*;
 use std::ptr::null_mut;
 use std::slice;
+pub use certificate::Certificate;
+
+mod certificate;
 
 pub struct RsaKey(*mut EVP_PKEY);
 
 impl RsaKey {
+    pub fn none() -> RsaKey {
+        RsaKey(null_mut())
+    }
     pub fn gen_new_key(bits: i32) -> RlsResult<RsaKey> {
         let rsa = unsafe { RSA_new() };
         if rsa.is_null() { return Err(RlsError::RsaNewError); }
@@ -140,7 +146,7 @@ impl RsaKey {
 
 impl Drop for RsaKey {
     fn drop(&mut self) {
-        unsafe { EVP_PKEY_free(self.0); }
+        if !self.0.is_null() { unsafe { EVP_PKEY_free(self.0); } }
     }
 }
 
@@ -215,7 +221,7 @@ impl Drop for RsaCipher {
 
 #[cfg(test)]
 mod tests {
-    use crate::boring::cipher::rsa::{RsaCipher, RsaKey};
+    use crate::{RsaCipher, RsaKey};
 
     #[test]
     fn test_rsa() {

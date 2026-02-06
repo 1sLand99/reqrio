@@ -60,10 +60,10 @@ impl ServerHellmanParam {
     pub fn new() -> ServerHellmanParam {
         ServerHellmanParam {
             curve_type: CurveType::NamedCurve,
-            named_curve: NamedCurve::x25519,
+            named_curve: NamedCurve::Secp384r1,
             pub_key_len: 0,
             pub_key: Bytes::none(),
-            signature_algorithm: SignatureAlgorithm::SHA1_DSA,
+            signature_algorithm: SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
             signature_len: 0,
             signature: Bytes::none(),
         }
@@ -71,14 +71,14 @@ impl ServerHellmanParam {
     pub fn from_bytes(bytes: &[u8]) -> RlsResult<ServerHellmanParam> {
         let mut res = ServerHellmanParam::new();
         res.curve_type = CurveType::from_u8(bytes[0]).ok_or("CurveType Unknown")?;
-        let v = u16::from_be_bytes([bytes[1], bytes[2]].try_into()?);
+        let v = u16::from_be_bytes([bytes[1], bytes[2]]);
         res.named_curve = NamedCurve::from_u16(v).ok_or(format!("NamedCurve Unknown-{}", v))?;
         res.pub_key_len = bytes[3];
         res.pub_key = Bytes::new(bytes[4..res.pub_key_len as usize + 4].to_vec());
         let index = res.pub_key_len as usize + 4;
-        let v = u16::from_be_bytes([bytes[index], bytes[index + 1]].try_into()?);
+        let v = u16::from_be_bytes([bytes[index], bytes[index + 1]]);
         res.signature_algorithm = SignatureAlgorithm::from_u16(v).ok_or("SignatureAlgorithm Unknown")?;
-        res.signature_len = u16::from_be_bytes([bytes[index + 2], bytes[index + 3]].try_into()?);
+        res.signature_len = u16::from_be_bytes([bytes[index + 2], bytes[index + 3]]);
         res.signature = Bytes::new(bytes[index + 4..index + 4 + res.signature_len as usize].to_vec());
         Ok(res)
     }
@@ -94,7 +94,7 @@ impl ServerHellmanParam {
         res
     }
 
-    pub fn curve_type(&self) -> &CurveType {&self.curve_type}
+    pub fn curve_type(&self) -> &CurveType { &self.curve_type }
 
     pub fn pub_key(&self) -> &Bytes {
         &self.pub_key
@@ -111,6 +111,14 @@ impl ServerHellmanParam {
     pub fn signature_algorithm(&self) -> SignatureAlgorithm {
         self.signature_algorithm
     }
+
+    pub fn set_pub_key(&mut self, pub_key: impl Into<Vec<u8>>) {
+        self.pub_key = Bytes::new(pub_key.into());
+    }
+
+    pub fn set_signature(&mut self, signature: Bytes) {
+        self.signature = signature;
+    }
 }
 
 #[derive(Debug)]
@@ -123,7 +131,7 @@ pub struct ServerKeyExchange {
 impl ServerKeyExchange {
     pub fn new() -> ServerKeyExchange {
         ServerKeyExchange {
-            handshake_type: HandshakeType::ClientHello,
+            handshake_type: HandshakeType::ServerKeyExchange,
             len: 0,
             hellman_param: ServerHellmanParam::new(),
         }
@@ -147,6 +155,8 @@ impl ServerKeyExchange {
     pub fn hellman_param(&self) -> &ServerHellmanParam {
         &self.hellman_param
     }
+
+    pub fn hellman_param_mut(&mut self) -> &mut ServerHellmanParam { &mut self.hellman_param }
 
     pub fn len(&self) -> u32 {
         self.len
@@ -179,6 +189,10 @@ impl ClientHellmanParam {
         res.extend(self.pub_key.as_bytes());
         res
     }
+
+    pub fn pub_key(&self) -> &Bytes {
+        &self.pub_key
+    }
 }
 
 #[derive(Debug)]
@@ -199,7 +213,6 @@ impl Default for ClientKeyExchange {
 }
 
 impl ClientKeyExchange {
-
     pub fn from_bytes(ht: HandshakeType, bytes: &[u8]) -> RlsResult<ClientKeyExchange> {
         let mut res = ClientKeyExchange::default();
         res.handshake_type = ht;
@@ -223,6 +236,10 @@ impl ClientKeyExchange {
 
     pub fn len(&self) -> u32 {
         self.len
+    }
+
+    pub fn hellman_param(&self) -> &ClientHellmanParam {
+        &self.hellman_param
     }
 }
 

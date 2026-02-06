@@ -12,7 +12,7 @@ use crate::stream::cstream::StdSyncTlsStream;
 use crate::stream::proxy::ProxyStream;
 use crate::stream::ConnParam;
 use crate::url::Protocol;
-use crate::{Buffer, ALPN};
+use crate::*;
 #[cfg(sync)]
 use std::io::Write;
 
@@ -128,7 +128,14 @@ impl StreamKind {
             }
             #[cfg(cls_sync)]
             Protocol::Https | Protocol::Wss => {
-                let tls_stream = SyncStream::connect(param, stream)?;
+                let tls_stream = SyncStream::connect(TlsConfig{
+                    sni: param.url.addr().host(),
+                    alpn: param.alpn,
+                    fingerprint: param.fingerprint,
+                    certificate: &mut vec![],
+                    private_key: &RsaKey::none(),
+                    verify: param.verify,
+                }, stream)?;
                 let alpn = tls_stream.alpn().map(|x| ALPN::from_slice(x.as_bytes())).unwrap_or(ALPN::Http11);
                 *self = StreamKind::SyncHttps(tls_stream);
                 Ok(alpn)

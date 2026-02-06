@@ -31,34 +31,36 @@ async fn main() {
         "cookie":"JSESSIONID=05304295A550FF08DE1E44A03CDA8CBB; acw_tc=0a065e4717701411754903815e64f1c251caacb791decd35981b455583d1da; acw_sc__v2=69823a8cb1bb76098533c5837be7f69784d38872"
     };
     req.set_headers_json(headers).unwrap();
-    let data = json::object! {
-        "bizProd":1,
-        "couponIds":[],
-        "pageIndex":5,
-        "pageSize":16,
-        "gameId":"10032",
-        "query":"",
-        "type":4,
-        "mineFav":false,
-        "filterDTOList":[
-            {"attrId":"100328","attrValList":["10032131"],"attrType":1,"filterType":1,"optionType":1},
-            {"attrId":"10032306","attrValList":[1000,2000],"attrType":2,"filterType":1,"optionType":1}
-        ],
-        "combineFilterList":[],
-        "sincerelySell":0,
-        "posType":1,
-        "fromSubscribe":0,
-        "productTypeIds":[],
-        "confirmSubscribe":1
-    };
-    let url = "https://m1.pxb7.com/api/search/h5/product/selectSearchPageList";
+    // let data = json::object! {
+    //     "bizProd":1,
+    //     "couponIds":[],
+    //     "pageIndex":5,
+    //     "pageSize":16,
+    //     "gameId":"10032",
+    //     "query":"",
+    //     "type":4,
+    //     "mineFav":false,
+    //     "filterDTOList":[
+    //         {"attrId":"100328","attrValList":["10032131"],"attrType":1,"filterType":1,"optionType":1},
+    //         {"attrId":"10032306","attrValList":[1000,2000],"attrType":2,"filterType":1,"optionType":1}
+    //     ],
+    //     "combineFilterList":[],
+    //     "sincerelySell":0,
+    //     "posType":1,
+    //     "fromSubscribe":0,
+    //     "productTypeIds":[],
+    //     "confirmSubscribe":1
+    // };
+    // req.set_url("https://127.0.0.1:7878").await.unwrap();
+    // req.set_url("https://www.jetstar.com").await.unwrap();
+    // let url = "https://m1.pxb7.com/api/search/h5/product/selectSearchPageList";
 
     // req.set_url("https://accounts.pcid.ca/login").await.unwrap();
     // req.set_url("https://xxbg.snssdk.com/fdsf/dsfsdfkdsjfk").await.unwrap();
     // req.set_url("https://www.toutiao.com/article/7600224020776239658/?log_from=99ab1fa2b852c_1769590891442&wid=1769590984039").await.unwrap();
     // req.set_url("https://www.sogou.com").await.unwrap();
-    // req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").await.unwrap();
-    // println!("111");
+    req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").await.unwrap();
+    println!("111");
     // req.set_url("https://www.so.com").await.unwrap();
     // req.set_callback(|data| {
     //     println!("{}", data.len());
@@ -67,9 +69,13 @@ async fn main() {
     // let context=req.gen_h1().unwrap();
     // println!("{}",String::from_utf8(context).unwrap());
     // println!("{}", String::from_utf8_lossy(&req.gen_h1().unwrap()));
-    req.set_url(url).await.unwrap();
-    req.set_json(data);
-    let res = req.post().await.unwrap();
+    // req.set_url(url).await.unwrap();
+    // req.set_json(data);
+    let res = req.get().await.unwrap();
+    // let res = req.get().await.unwrap();
+    // println!("{}", res.header());
+    // println!("{}", res.text().unwrap());
+    // req.set_url(res.header().location().unwrap()).await.unwrap();
     // let res = req.get().await.unwrap();
     println!("{}", res.header());
     println!("{}", res.text().unwrap());

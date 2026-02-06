@@ -19,9 +19,7 @@ impl Iv {
                 buf[0..4].copy_from_slice(&self.fix_iv);
                 buf[4..12].copy_from_slice(&self.explicit);
             }
-            12 => {
-                buf[0..12].copy_from_slice(&self.fix_iv);
-            }
+            12 => buf[0..12].copy_from_slice(&self.fix_iv),
             16 => return self.fix_iv.clone(),
             _ => panic!("invalid fix iv length")
         }

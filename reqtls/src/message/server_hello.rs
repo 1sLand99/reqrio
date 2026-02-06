@@ -1,17 +1,14 @@
-use crate::error::RlsResult;
-use crate::{rand, ClientHello, EcPointFormat, ExtensionType, GroupType, SignatureAlgorithm, SupportVersions};
-use crate::cipher::suite::CipherSuiteKind;
-use crate::extend::algorithm::SignatureAlgorithms;
-use crate::extend::alps::ALPS;
-use crate::extend::ExtensionValue;
-use crate::extend::formats::EcPointFormats;
-use crate::extend::group::SupportedGroups;
+use super::super::bytes::Bytes;
 use super::super::cipher::suite::CipherSuite;
+use super::super::extend::alps::ALPN;
 use super::super::extend::Extension;
 use super::super::message::HandshakeType;
 use super::super::version::Version;
-use super::super::bytes::Bytes;
-use super::super::extend::alps::ALPN;
+use crate::cipher::suite::CipherSuiteKind;
+use crate::error::RlsResult;
+use crate::extend::alps::ALPS;
+use crate::extend::ExtensionValue;
+use crate::{rand, ClientHello, ExtensionType};
 
 #[derive(Debug)]
 pub struct ServerHello {
@@ -58,7 +55,7 @@ impl ServerHello {
         res.cipher_suite = CipherSuite::new(v);
         res.compress_method = bytes[index + 2];
         res.extend_len = u16::from_be_bytes([bytes[index + 3], bytes[index + 4]]);
-        res.extensions = Extension::from_bytes(&bytes[index + 5..index + 5 + res.extend_len as usize])?;
+        res.extensions = Extension::from_bytes(&bytes[index + 5..index + 5 + res.extend_len as usize], true)?;
         Ok(res)
     }
 
@@ -67,19 +64,19 @@ impl ServerHello {
         res.version = Version::TLS_1_2;
         res.random = Bytes::new(rand::random::<[u8; 32]>().to_vec());
         res.session_id = Bytes::new(rand::random::<[u8; 32]>().to_vec());
-        res.cipher_suite = CipherSuite::new(CipherSuiteKind::TLS_AES_128_GCM_SHA256 as u16);
+        res.cipher_suite = CipherSuite::new(CipherSuiteKind::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 as u16);
         for extension in client_hello.take_extensions() {
             match *extension.extension_type() {
                 ExtensionType::SignatureAlgorithms => {
-                    let mut signature = SignatureAlgorithms::new();
-                    signature.push_hash(SignatureAlgorithm::RSA_PKCS1_SHA256);
-                    res.extensions.push(Extension::new(ExtensionType::SignatureAlgorithms, ExtensionValue::SignatureAlgorithms(signature)));
+                    // let mut signature = SignatureAlgorithms::new();
+                    // signature.push_hash(SignatureAlgorithm::RSA_PKCS1_SHA256);
+                    // res.extensions.push(Extension::new(ExtensionType::SignatureAlgorithms, ExtensionValue::SignatureAlgorithms(signature)));
                 }
-                ExtensionType::SignedCertificateTimestamp => res.extensions.push(extension),
+                // ExtensionType::SignedCertificateTimestamp => res.extensions.push(extension),
                 ExtensionType::EcPointFormats => {
-                    let mut ec_point_formats = EcPointFormats::new();
-                    ec_point_formats.add_format(EcPointFormat::UNCOMPRESSED);
-                    res.extensions.push(Extension::new(ExtensionType::EcPointFormats, ExtensionValue::EcPointFormats(ec_point_formats)));
+                    // let mut ec_point_formats = EcPointFormats::new();
+                    // ec_point_formats.add_format(EcPointFormat::UNCOMPRESSED);
+                    // res.extensions.push(Extension::new(ExtensionType::EcPointFormats, ExtensionValue::EcPointFormats(ec_point_formats)));
                 }
                 ExtensionType::ApplicationLayerProtocolNegotiation => {
                     let mut alps = ALPS::new();
@@ -88,15 +85,19 @@ impl ServerHello {
                 }
                 ExtensionType::ExtendMasterSecret => res.extensions.push(extension),
                 ExtensionType::SupportedVersions => {
-                    let mut version = SupportVersions::new();
-                    version.push(Version::TLS_1_2);
-                    res.extensions.push(Extension::new(ExtensionType::SupportedVersions, ExtensionValue::SupportedVersions(version)));
+                    // let mut version = SupportVersions::new();
+                    // version.push(Version::TLS_1_2);
+                    // res.extensions.push(Extension::new(ExtensionType::SupportedVersions, ExtensionValue::SupportedVersions(version)));
                 }
                 ExtensionType::SupportedGroup => {
-                    let mut groups = SupportedGroups::new();
-                    groups.add_group(GroupType::X25519);
-                    res.extensions.push(Extension::new(ExtensionType::SupportedGroup, ExtensionValue::SupportedGroups(groups)));
+                    // let mut groups = SupportedGroups::new();
+                    // groups.add_group(GroupType::X25519);
+                    // res.extensions.push(Extension::new(ExtensionType::SupportedGroup, ExtensionValue::SupportedGroups(groups)));
                 }
+                ExtensionType::RenegotiationInfo => res.extensions.push(extension),
+                ExtensionType::ServerName => {}
+                ExtensionType::StatusRequest => res.extensions.push(extension),
+                ExtensionType::SessionTicket => res.extensions.push(extension),
                 _ => {}
             }
         }
@@ -124,7 +125,7 @@ impl ServerHello {
         res.push(self.compress_method);
         let mut ebs = vec![];
         for extension in &self.extensions {
-            ebs.extend(extension.as_bytes());
+            ebs.extend(extension.as_bytes(true));
         };
         res.extend((ebs.len() as u16).to_be_bytes());
         res.extend(ebs);

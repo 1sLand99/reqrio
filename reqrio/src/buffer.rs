@@ -73,6 +73,10 @@ impl Buffer {
     pub fn set_len(&mut self, len: usize) {
         self.len = len;
     }
+    
+    pub fn add_len(&mut self, len: usize) {
+        self.len += len;
+    }
 
     pub fn starts_with(&self, bs: &[u8]) -> bool {
         self.buffer.starts_with(bs)
@@ -94,9 +98,13 @@ impl Buffer {
         unsafe {
             let dst = self.buffer.as_mut_ptr().add(self.len);
             ptr::copy_nonoverlapping(slice.as_ref().as_ptr(), dst, slice.len());
-            self.buffer.set_len(self.len + slice.len());
+            // self.buffer.set_len(self.len + slice.len());
             self.len += slice.len();
         }
+    }
+
+    pub fn push_u16(&mut self, val: u16) {
+        self.push_slice(&val.to_be_bytes());
     }
 
     ///必须手动管理len, 返回已push的长度

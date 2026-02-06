@@ -26,6 +26,7 @@ pub struct ScReq {
     alpn: ALPN,
     proxy: Proxy,
     fingerprint: Fingerprint,
+    verify: bool,
 }
 
 impl ScReq {
@@ -42,6 +43,7 @@ impl ScReq {
             alpn: ALPN::Http11,
             proxy: Proxy::Null,
             fingerprint: Fingerprint::default(),
+            verify: true,
         }
     }
 
@@ -150,6 +152,7 @@ impl ScReq {
                 #[cfg(feature = "cls_sync")]
                 fingerprint: &mut self.fingerprint,
                 alpn: &self.alpn,
+                verify: self.verify,
             };
             match self.stream.sync_connect(param) {
                 Ok(_) => {
@@ -220,7 +223,7 @@ impl ScReq {
         let mut handshake = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".as_bytes().to_vec();
         let setting_frame = self.fingerprint.h2_setting().clone();
         handshake.extend(setting_frame.to_bytes());
-        let update_frame =self.fingerprint.h2_window_update().clone();
+        let update_frame = self.fingerprint.h2_window_update().clone();
         handshake.extend(update_frame.to_bytes());
         self.stream.sync_write(&handshake)?;
         self.stream_id += 1;
@@ -304,6 +307,10 @@ impl ReqExt for ScReq {
 
     fn set_proxy(&mut self, proxy: Proxy) {
         self.proxy = proxy;
+    }
+
+    fn set_verify(&mut self, verify: bool) {
+        self.verify = verify;
     }
 
     fn set_alpn(&mut self, alpn: ALPN) {

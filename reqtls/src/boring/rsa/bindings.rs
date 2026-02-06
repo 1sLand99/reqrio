@@ -255,6 +255,14 @@ pub struct BIO {
 pub const RSA_F4: i32 = 65537;
 pub const RSA_PKCS1_OAEP_PADDING: i32 = 4;
 
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct X509 {
+    _unused: [u8; 0],
+}
+
+
 unsafe extern "C" {
     pub fn RSA_new() -> *mut RSA;
 
@@ -288,7 +296,11 @@ unsafe extern "C" {
 
     pub fn EVP_PKEY_decrypt_init(ctx: *mut EVP_PKEY_CTX) -> c_int;
 
-    // pub fn EVP_PKEY_CTX_set_rsa_padding(ctx: *mut EVP_PKEY_CTX, padding: c_int) -> c_int;
+    pub fn X509_get_pubkey(x509: *mut X509) -> *mut EVP_PKEY;
+
+    pub fn X509_free(x509: *mut X509);
+
+    pub fn i2d_X509(x509: *mut X509, outp: *mut *mut u8) -> c_int;
 
     pub fn RSA_generate_key_ex(
         rsa: *mut RSA,
@@ -348,4 +360,25 @@ unsafe extern "C" {
         cb: pem_password_cb,
         u: *mut c_void,
     ) -> *mut EVP_PKEY;
+
+    pub fn PEM_read_bio_X509(
+        bp: *mut BIO,
+        x: *mut *mut X509,
+        cb: pem_password_cb,
+        u: *mut c_void,
+    ) -> *mut X509;
+
+    pub fn d2i_X509(
+        out: *mut *mut X509,
+        inp: *mut *const u8,
+        len: c_long,
+    ) -> *mut X509;
+
+    pub fn X509_check_host(
+        x: *mut X509,
+        chk: *const c_char,
+        chklen: usize,
+        flags: c_uint,
+        peername: *mut *mut c_char,
+    ) -> c_int;
 }

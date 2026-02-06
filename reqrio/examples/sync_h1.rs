@@ -8,28 +8,37 @@ fn main() {
         // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10280))
         ;
     let headers = json::object! {
-        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.6894.1545 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
         "Accept": "*/*",
-        "Sec-Fetch-Site": "same-origin",
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Dest": "empty",
-        "sec-ch-ua": "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"42\", \"Microsoft Edge\";v=\"42\"",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Dest": "document",
+        "sec-fetch-user":"?1",
+        "upgrade-insecure-requests":"1",
+        "sec-ch-ua": "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"120\", \"Microsoft Edge\";v=\"120\"",
         "sec-ch-ua-mobile": "?0",
         "sec-ch-ua-platform": "\"Windows\"",
         "Accept-Language": "zh-CN,zh;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br,zstd",
+        "Accept-Encoding": "gzip,deflate,br,zstd",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
 
     };
-    req.set_url("https://m.baidu.com").unwrap();
+    // req.set_url("http://3434.characlink.com").unwrap();
+    // req.set_url("https://www.baidu.com").unwrap();
+
+    // req.set_url("https://ms.xllgl.top").unwrap();
     // req.set_url("https://www.so.com").unwrap();
     // req.set_url("https://zhifazhe.top").unwrap();
+    req.set_headers_json(headers).unwrap();
+    req.set_url("https://jetstar.com").unwrap();
     // req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").unwrap();
     // req.set_url("https://accounts.pcid.ca/login").unwrap();
     // req.set_url("https://ccppdd.zzzzzzyyyyy.shop/api/v1/client/s9FkyFPBngt80pFn1?token=a0cedb7c6645280ec2402db62d550a17").unwrap();
     println!("6");
-    req.set_headers_json(headers).unwrap();
+
     let resp = req.get().unwrap();
     // let body = res.decode_body().unwrap().as_string().unwrap();
-    println!("{}", resp.header().status());
+    println!("{}", resp.header());
     println!("{}", resp.text().unwrap());
 }

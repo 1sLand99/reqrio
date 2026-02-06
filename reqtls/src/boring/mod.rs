@@ -5,11 +5,12 @@ mod evp_curve;
 mod bindings;
 pub mod hash;
 mod signature;
-mod certificate;
+
+pub use rsa::{RsaCipher, RsaKey,Certificate};
+mod rsa;
 
 use std::ffi::c_int;
-pub use cipher::{Cipher, Padding, base64, RsaCipher, RsaKey};
-pub use certificate::Certificate;
+pub use cipher::{Cipher, Padding, base64};
 pub use signature::{AlgorithmSigner, SignatureAlgorithm};
 pub use ec_curve::*;
 pub use evp_curve::*;

@@ -100,7 +100,7 @@ impl ClientHello {
         res.compress_method = Bytes::new(bytes[index + 1..index + 1 + res.compress_method_len as usize].to_vec());
         let index = index + res.compress_method_len as usize + 1;
         res.extend_len = u16::from_be_bytes([bytes[index], bytes[index + 1]].try_into()?);
-        res.extensions = Extension::from_bytes(&bytes[index + 2..index + 2 + res.extend_len as usize])?;
+        res.extensions = Extension::from_bytes(&bytes[index + 2..index + 2 + res.extend_len as usize], false)?;
         // println!("{}", res.ja3());
         // println!("{}", res.ja4());
         Ok(res)
@@ -125,7 +125,7 @@ impl ClientHello {
         let mut ebs = vec![];
 
         for extension in &self.extensions {
-            ebs.extend(extension.as_bytes());
+            ebs.extend(extension.as_bytes(false));
         }
         res.extend((ebs.len() as u16).to_be_bytes());
         res.extend(ebs);

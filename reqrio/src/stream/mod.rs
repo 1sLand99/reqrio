@@ -1,13 +1,13 @@
 #[cfg(anys)]
 use super::url::Url;
 #[cfg(anys)]
-use crate::*;
-#[cfg(anys)]
 use crate::error::HlsResult;
 #[cfg(anys)]
 use crate::stream::kind::StreamKind;
 #[cfg(anys)]
 use crate::timeout::Timeout;
+#[cfg(anys)]
+use crate::*;
 
 pub use proxy::Proxy;
 
@@ -17,7 +17,7 @@ pub use proxy::ProxyStream;
 #[cfg(anys)]
 use crate::Buffer;
 #[cfg(feature = "cls_async")]
-pub use async_stream::{TlsStream, TlsConnector};
+pub use async_stream::TlsStream;
 #[cfg(anys)]
 pub use ws::{WebSocket, WebSocketBuilder};
 
@@ -37,6 +37,16 @@ mod kind;
 #[cfg(anys)]
 mod ws;
 
+#[cfg(use_cls)]
+pub struct TlsConfig<'a> {
+    pub sni: &'a str,
+    pub alpn: &'a ALPN,
+    pub fingerprint: &'a mut Fingerprint,
+    pub certificate: &'a mut Vec<Certificate>,
+    pub private_key: &'a RsaKey,
+    pub verify: bool,
+}
+
 #[cfg(anys)]
 pub struct ConnParam<'a> {
     pub url: &'a Url,
@@ -45,6 +55,7 @@ pub struct ConnParam<'a> {
     #[cfg(use_cls)]
     pub fingerprint: &'a mut Fingerprint,
     pub alpn: &'a ALPN,
+    pub verify: bool,
 }
 
 #[cfg(anys)]

@@ -1,9 +1,7 @@
 pub use padding::Padding;
-pub use rsa::{RsaCipher, RsaKey};
+
 mod padding;
 pub mod base64;
-mod rsa;
-
 use super::bindings::*;
 use crate::boring::CryptParam;
 use crate::error::RlsResult;

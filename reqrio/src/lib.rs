@@ -3,19 +3,19 @@
 //! * Reqrio supports TLS fingerprinting, which can be set via hexadecimal or Ja3 data from the TLS handshake. Only cls_sync and cls_async are supported (**subscription only**).
 //! * By default, reqrio will reorder the request headers in the same way as the browser (it will reorder the request headers).
 //! * CLS mode uses BoringSSL, consistent with browsers such as Chrome and Edge.
-//! 
+//!
 //! #### By default, reqrio does not enable HTTP requests; it is only exported as an HTTP data stream parsing library. Requests require features to be enabled.
 //! * `std_sync`: Standard TLS library ([rustls](https://github.com/rustls/rustls), synchronous requests)
 //! * `std_async`: Standard TLS library ([tokio-rustls](https://github.com/rustls/tokio-rustls), asynchronous requests)
 //! * `cls_sync`: Self-developed TLS library (**Algorithm is imperfect, does not verify server certificates, do not use in production mode**) [reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), synchronous requests
 //! * `cls_async`: Self-developed TLS library (**Algorithm is imperfect, does not verify server certificates, do not use in production mode**) [reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), asynchronous requests
-//! 
+//!
 //! **Note:** std and cls cannot exist simultaneously, while sync and async can exist simultaneously.
-//! 
+//!
 //! ### Usage examples (supports Rust, Python, and Java):
-//! 
+//!
 //! * Rust HTTP Example
-//! 
+//!
 //! ```rust
 //! use reqrio::{Fingerprint, ScReq, ALPN};
 //!
@@ -57,11 +57,11 @@
 //!     let json = res.json().unwrap();
 //! }
 //! ```
-//! 
+//!
 //! * Rust WebSocket Example
 //! ```rust
 //! use reqrio::*;
-//! 
+//!
 //! fn ff() {
 //!     let mut ws = WebSocket::sync_build()
 //!         .with_url("wss://poe.game.qq.com/").unwrap()
@@ -88,36 +88,37 @@
 //! }
 //! ```
 
-
+#[cfg(anys)]
+use crate::error::HlsResult;
 #[cfg(aync)]
 pub use acq::AcReq;
 pub use alpn::ALPN;
+pub use body::BodyType;
 pub use buffer::Buffer;
+pub use error::HlsError;
 pub use ext::{ReqExt, ReqGenExt};
-pub use reqrio_json as json;
+#[cfg(anys)]
+pub use fingerprint::Fingerprint;
 pub use packet::{
-    Application, Body, ContentType, Cookie, Font, H2Frame, FrameFlag, FrameType, Header, HeaderValue,
-    HttpStatus, Method, Response, Text, HeaderKey, WsFrame, WsOpcode,
+    Application, Body, ContentType, Cookie, Font, FrameFlag, FrameType, H2Frame, Header, HeaderKey,
+    HeaderValue, HttpStatus, Method, Response, Text, WsFrame, WsOpcode,
 };
+pub use reqrio_json as json;
 #[cfg(use_cls)]
 pub use reqtls::*;
 #[cfg(sync)]
 pub use scq::ScReq;
-pub use body::BodyType;
 pub use stream::Proxy;
-#[cfg(feature = "cls_async")]
-pub use stream::{TlsStream, TlsConnector};
 #[cfg(anys)]
-pub use stream::{WebSocket, WebSocketBuilder, ProxyStream};
+pub use stream::{ProxyStream, WebSocket, WebSocketBuilder};
+#[cfg(feature = "cls_async")]
+pub use stream::TlsStream;
+#[cfg(use_cls)]
+pub use stream::TlsConfig;
+pub use timeout::Timeout;
 #[cfg(feature = "tokio")]
 pub use tokio;
 pub use url::{Addr, Protocol, Uri, Url};
-pub use error::HlsError;
-#[cfg(anys)]
-use crate::error::HlsResult;
-pub use timeout::Timeout;
-#[cfg(anys)]
-pub use fingerprint::Fingerprint;
 
 #[cfg(anys)]
 pub type ReqCallback = Box<dyn FnMut(&[u8]) -> HlsResult<()>>;

@@ -60,8 +60,8 @@ impl CipherSuite {
         }
     }
 
-    pub fn session_hash(&self) -> RlsResult<Vec<u8>> {
-        Ok(self.hasher.clone().ok_or(RlsError::HasherNone)?.finalize()?.to_vec())
+    pub fn current_session_hash(&mut self) -> RlsResult<&[u8]> {
+        self.hasher.as_mut().ok_or(RlsError::HasherNone)?.current_hash()
     }
 
     pub fn aead(&self) -> Option<&Aead> {
@@ -221,12 +221,12 @@ mod tests {
     #[test]
     fn test_hasher() {
         let mut hasher = Hasher::new(Sha::Sha256).unwrap();
-        hasher.update(&fs::read("../ClientHello").unwrap()).unwrap();
-        hasher.update(&fs::read("../ServerHello").unwrap()).unwrap();
-        hasher.update(&fs::read("../Certificate").unwrap()).unwrap();
-        hasher.update(&fs::read("../ServerKeyExchange").unwrap()).unwrap();
-        hasher.update(&fs::read("../ServerHelloDone").unwrap()).unwrap();
-        hasher.update(&fs::read("../ClientKeyExchange").unwrap()).unwrap();
+        hasher.update(fs::read("../ClientHello").unwrap()).unwrap();
+        hasher.update(fs::read("../ServerHello").unwrap()).unwrap();
+        hasher.update(fs::read("../Certificate").unwrap()).unwrap();
+        hasher.update(fs::read("../ServerKeyExchange").unwrap()).unwrap();
+        hasher.update(fs::read("../ServerHelloDone").unwrap()).unwrap();
+        hasher.update(fs::read("../ClientKeyExchange").unwrap()).unwrap();
         let res = hasher.finalize().unwrap();
         println!("{:?}", res);
     }

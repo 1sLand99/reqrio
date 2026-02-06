@@ -8,7 +8,6 @@ use group::SupportedGroups;
 use key_share::KeyShare;
 use psk_key::PskKey;
 use server_name::ServerName;
-use status::StatusRequest;
 use std::fmt::{Debug, Formatter};
 pub use version::SupportVersions;
 
@@ -30,6 +29,7 @@ use crate::extend::certificate::CompressionType;
 use crate::extend::pre_share_key::PreSharedKey;
 use crate::Version;
 pub use client_hello::Aead;
+pub use status::StatusRequest;
 
 #[derive(PartialEq)]
 pub struct ExtensionType(u16);
@@ -179,7 +179,7 @@ pub enum ExtensionValue {
 }
 
 impl ExtensionValue {
-    pub fn from_bytes(t: &ExtensionType, bytes: &[u8]) -> RlsResult<Self> {
+    pub fn from_bytes(t: &ExtensionType, bytes: &[u8], server: bool) -> RlsResult<Self> {
         match *t {
             ExtensionType::ServerName => Ok(ExtensionValue::ServerName(ServerName::from_bytes(bytes)?)),
             ExtensionType::StatusRequest => Ok(ExtensionValue::StatusRequest(StatusRequest::from_bytes(bytes)?)),
@@ -190,7 +190,7 @@ impl ExtensionValue {
             ExtensionType::ExtendMasterSecret => Ok(ExtensionValue::MasterSecret),
             ExtensionType::SessionTicket => Ok(ExtensionValue::SessionTicket),
             ExtensionType::RenegotiationInfo => Ok(ExtensionValue::RenegotiationInfo(RenegotiationInfo::from_bytes(bytes))),
-            ExtensionType::SupportedVersions => Ok(ExtensionValue::SupportedVersions(SupportVersions::from_bytes(bytes))),
+            ExtensionType::SupportedVersions => Ok(ExtensionValue::SupportedVersions(SupportVersions::from_bytes(bytes, server))),
             ExtensionType::PskKeyExchangeMode => Ok(ExtensionValue::PskKeyExchangeMode(PskKey::from_bytes(bytes)?)),
             ExtensionType::CompressionCertificate => Ok(ExtensionValue::CompressionCertificate(CompressionCertificate::from_bytes(bytes)?)),
             ExtensionType::EncryptedClientHello => Ok(ExtensionValue::EncryptedClientHello(EncryptClientHello::from_bytes(bytes)?)),
@@ -203,16 +203,16 @@ impl ExtensionValue {
         }
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
+    pub fn as_bytes(&self, server: bool) -> Vec<u8> {
         match self {
             ExtensionValue::PskKeyExchangeMode(v) => v.as_bytes(),
             ExtensionValue::KeyShare(v) => v.as_bytes(),
             ExtensionValue::SupportedGroups(v) => v.as_bytes(),
-            ExtensionValue::StatusRequest(v) => v.as_bytes(),
+            ExtensionValue::StatusRequest(v) => if server { vec![] }else { v.as_bytes() },
             ExtensionValue::SignatureAlgorithms(v) => v.as_bytes(),
             ExtensionValue::ServerName(v) => v.as_bytes(),
             ExtensionValue::EcPointFormats(v) => v.as_bytes(),
-            ExtensionValue::SupportedVersions(v) => v.as_bytes(),
+            ExtensionValue::SupportedVersions(v) => v.as_bytes(server),
             ExtensionValue::RenegotiationInfo(v) => vec![v.as_u8()],
             ExtensionValue::SessionTicket => vec![],
             ExtensionValue::EncryptTheMac => vec![],
@@ -263,7 +263,7 @@ impl Extension {
         res
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> RlsResult<Vec<Extension>> {
+    pub fn from_bytes(bytes: &[u8], server: bool) -> RlsResult<Vec<Extension>> {
         let mut res = vec![];
         let mut index = 0;
         while index < bytes.len() {
@@ -271,7 +271,7 @@ impl Extension {
             let mut v = Extension::default();
             v.type_ = ExtensionType(tv);
             v.len = u16::from_be_bytes([bytes[index + 2], bytes[index + 3]]);
-            v.value = ExtensionValue::from_bytes(&v.type_, &bytes[index + 4..index + 4 + v.len as usize])?;
+            v.value = ExtensionValue::from_bytes(&v.type_, &bytes[index + 4..index + 4 + v.len as usize], server)?;
             index += 4 + v.len as usize;
             res.push(v);
         }
@@ -343,9 +343,9 @@ impl Extension {
     //     }
     // }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
+    pub fn as_bytes(&self, server: bool) -> Vec<u8> {
         let mut res = self.type_.as_bytes().to_vec();
-        let vbs = self.value.as_bytes();
+        let vbs = self.value.as_bytes(server);
         res.extend((vbs.len() as u16).to_be_bytes());
         res.extend(vbs);
         res

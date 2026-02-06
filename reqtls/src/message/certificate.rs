@@ -4,71 +4,37 @@ use crate::error::RlsResult;
 use super::super::bytes::Bytes;
 
 #[derive(Debug)]
-pub struct Certificate {
-    len: u32,
-    value: Bytes,
-}
-
-impl Certificate {
-    pub fn new() -> Certificate {
-        Certificate {
-            len: 0,
-            value: Bytes::new(vec![]),
-        }
-    }
-
-    pub fn with_bytes(mut self, bytes: impl Into<Vec<u8>>) -> Self {
-        self.value = Bytes::new(bytes.into());
-        self
-    }
-
-    pub fn from_bytes(bytes: &[u8]) -> RlsResult<Vec<Certificate>> {
-        let mut res = vec![];
-        let mut index = 0;
-        while index < bytes.len() {
-            let mut v = Certificate::new();
-            v.len = u32::from_be_bytes([0, bytes[index], bytes[index + 1], bytes[index + 2]].try_into()?);
-            index = index + v.len as usize + 3;
-            v.value = Bytes::new(bytes[index - v.len as usize..index].to_vec());
-            res.push(v);
-        }
-        Ok(res)
-    }
-
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = (self.value.len() as u32).to_be_bytes()[1..].to_vec();
-        res.extend(self.value.as_bytes());
-        res
-    }
-
-    pub fn value(&self) -> &Bytes {
-        &self.value
-    }
-}
-
-#[derive(Debug)]
 pub struct Certificates {
     handshake_type: HandshakeType,
     len: u32,
     certificate_len: u32,
-    certificates: Vec<Certificate>,
+    certificates: Vec<Bytes>,
 }
 
-impl Certificates {
-    pub fn new() -> Certificates {
+impl Default for Certificates {
+    fn default() -> Self {
         Certificates {
-            handshake_type: HandshakeType::ClientHello,
+            handshake_type: HandshakeType::Certificate,
             len: 0,
             certificate_len: 0,
             certificates: vec![],
         }
     }
+}
+
+impl Certificates {
     pub fn from_bytes(ht: HandshakeType, bytes: &[u8]) -> RlsResult<Certificates> {
-        let mut res = Certificates::new();
+        let mut res = Certificates::default();
         res.handshake_type = ht;
         res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]]);
         res.certificate_len = u32::from_be_bytes([0, bytes[4], bytes[5], bytes[6]]);
-        res.certificates = Certificate::from_bytes(&bytes[7..7 + res.certificate_len as usize])?;
+        let mut index = 7;
+        while index < res.certificate_len as usize + 7 {
+            let len = u32::from_be_bytes([0, bytes[index], bytes[index + 1], bytes[index + 2]]) as usize;
+            index += 3;
+            res.certificates.push(Bytes::new(bytes[index..index + len].to_vec()));
+            index += len
+        }
         Ok(res)
     }
 
@@ -77,7 +43,8 @@ impl Certificates {
         // res.extend_from_slice(&(self.len as u32).to_be_bytes()[1..]);
         // res.extend_from_slice(&(self.certificate_len as u32).to_be_bytes()[1..]);
         for certificate in &self.certificates {
-            res.extend(certificate.as_bytes())
+            res.extend_from_slice(&(certificate.len() as u32).to_be_bytes()[1..]);
+            res.extend_from_slice(certificate.as_ref())
         };
         let len = (res.len() - 4) as u32;
         res[1..4].copy_from_slice(len.to_be_bytes()[1..].as_ref());
@@ -86,15 +53,19 @@ impl Certificates {
         res
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     pub fn len(&self) -> u32 {
         self.len
     }
 
     pub fn add_certificate(&mut self, cert: impl Into<Vec<u8>>) {
-        self.certificates.push(Certificate::new().with_bytes(cert))
+        self.certificates.push(Bytes::new(cert.into()));
     }
 
-    pub fn certificates(&self) -> &Vec<Certificate> {
+    pub fn certificates(&self) -> &Vec<Bytes> {
         &self.certificates
     }
 }

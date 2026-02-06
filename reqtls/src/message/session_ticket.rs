@@ -12,7 +12,7 @@ pub struct TlsSessionTicket {
 impl TlsSessionTicket {
     pub fn new() -> TlsSessionTicket {
         TlsSessionTicket {
-            lifetime: 0,
+            lifetime: 3600,
             len: 0,
             value: Bytes::none(),
         }
@@ -32,6 +32,10 @@ impl TlsSessionTicket {
         res.extend(self.value.as_bytes());
         res
     }
+
+    pub fn set_value(&mut self, value: Vec<u8>) {
+        self.value = Bytes::new(value);
+    }
 }
 
 #[derive(Debug)]
@@ -44,7 +48,7 @@ pub struct SessionTicket {
 impl SessionTicket {
     pub fn new() -> SessionTicket {
         SessionTicket {
-            handshake_type: HandshakeType::ClientHello,
+            handshake_type: HandshakeType::NewSessionTicket,
             len: 0,
             tls_ticket: TlsSessionTicket::new(),
         }
@@ -68,5 +72,9 @@ impl SessionTicket {
 
     pub fn len(&self) -> u32 {
         self.len
+    }
+
+    pub fn tls_ticket_mut(&mut self) -> &mut TlsSessionTicket {
+        &mut self.tls_ticket
     }
 }

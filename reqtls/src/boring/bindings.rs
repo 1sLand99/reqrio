@@ -1,4 +1,4 @@
-use std::os::raw::{c_char, c_int, c_long, c_uint, c_void};
+use std::os::raw::{c_char, c_int, c_uint, c_void};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -553,31 +553,5 @@ unsafe extern "C" {
         sig_len: usize,
         data: *const u8,
         len: usize,
-    ) -> c_int;
-}
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct X509 {
-    _unused: [u8; 0],
-}
-
-unsafe extern "C" {
-    pub fn X509_get_pubkey(x509: *mut X509) -> *mut EVP_PKEY;
-
-    pub fn X509_free(x509: *mut X509);
-
-    pub fn d2i_X509(
-        out: *mut *mut X509,
-        inp: *mut *const u8,
-        len: c_long,
-    ) -> *mut X509;
-
-    pub fn X509_check_host(
-        x: *mut X509,
-        chk: *const c_char,
-        chklen: usize,
-        flags: c_uint,
-        peername: *mut *mut c_char,
     ) -> c_int;
 }

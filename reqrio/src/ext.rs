@@ -61,7 +61,15 @@ pub trait ReqExt: Sized {
         self.set_proxy(proxy);
         self
     }
-    /// *必须在建立tls连接（即：set_url/with_url）前设置, 否则需要调re_conn
+    
+    ///是否校验服务器下发的消息，默认校验
+    fn with_verify(mut self, verify: bool) -> Self {
+        self.set_verify(verify);
+        self
+    }
+    
+    fn set_verify(&mut self, verify: bool);
+    /// * 必须在建立tls连接（即：set_url/with_url）前设置, 否则需要调re_conn
     fn set_alpn(&mut self, alpn: ALPN);
     fn with_alpn(mut self, alpn: ALPN) -> Self {
         self.set_alpn(alpn);

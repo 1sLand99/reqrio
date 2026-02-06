@@ -38,8 +38,8 @@ pub struct RecordLayer<'a> {
     pub messages: Vec<Message<'a>>,
 }
 
-impl<'a> RecordLayer<'a> {
-    pub fn new() -> RecordLayer<'a> {
+impl<'a> Default for RecordLayer<'a> {
+    fn default() -> Self {
         RecordLayer {
             context_type: RecordType::CipherSpec,
             version: Version::new(0),
@@ -47,10 +47,13 @@ impl<'a> RecordLayer<'a> {
             messages: vec![],
         }
     }
+}
+
+impl<'a> RecordLayer<'a> {
     pub fn from_bytes(bytes: &mut [u8], payload: bool) -> RlsResult<RecordLayer<'_>> {
         if bytes.len() < 5 { return Err(RlsError::MessageTooShort); }
         let (head, messages) = bytes.split_at_mut(5);
-        let mut res = RecordLayer::new();
+        let mut res = RecordLayer::default();
         res.context_type = RecordType::from_byte(head[0]).ok_or("LayerType Unknown")?;
         res.version = Version::new(u16::from_be_bytes([head[1], head[2]]));
         res.len = u16::from_be_bytes([head[3], head[4]]);
