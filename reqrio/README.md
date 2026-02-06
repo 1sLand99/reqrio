@@ -1,14 +1,20 @@
 #### `reqrio` is an HTTP request library designed to enable quick, simple, and convenient use of HTTP requests.
+
 * reqrio features: low copying, high concurrency, low overhead
-* Reqrio supports TLS fingerprinting, which can be set via hexadecimal or Ja3 data from the TLS handshake. Only cls_sync and cls_async are supported (**subscription only**).
-* By default, reqrio will reorder the request headers in the same way as the browser (it will reorder the request headers).
+* Reqrio supports TLS fingerprinting, which can be set via hexadecimal or Ja3 data from the TLS handshake. Only cls_sync
+  and cls_async are supported (**subscription only**).
+* By default, reqrio will reorder the request headers in the same way as the browser (it will reorder the request
+  headers).
 * CLS mode uses BoringSSL, consistent with browsers such as Chrome and Edge.
 
 #### By default, reqrio does not enable HTTP requests; it is only exported as an HTTP data stream parsing library. Requests require features to be enabled.
+
 * `std_sync`: Standard TLS library ([rustls](https://github.com/rustls/rustls), synchronous requests)
 * `std_async`: Standard TLS library ([tokio-rustls](https://github.com/rustls/tokio-rustls), asynchronous requests)
-* `cls_sync`: Self-developed TLS library (**Algorithm is imperfect, does not verify server certificates, do not use in production mode**) [reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), synchronous requests
-* `cls_async`: Self-developed TLS library (**Algorithm is imperfect, does not verify server certificates, do not use in production mode**) [reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), asynchronous requests
+* `cls_sync`: Self-developed TLS library (**Algorithm is imperfect, does not verify server certificates, do not use in
+  production mode**) [reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), synchronous requests
+* `cls_async`: Self-developed TLS library (**Algorithm is imperfect, does not verify server certificates, do not use in
+  production mode**) [reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), asynchronous requests
 
 **Note:** std and cls cannot exist simultaneously, while sync and async can exist simultaneously.
 
@@ -59,6 +65,7 @@ fn ff() {
 ```
 
 * Rust WebSocket Example
+
 ```rust
 use reqrio::*;
 
@@ -186,6 +193,7 @@ void main() throws Exception {
 ```
 
 * Qt Example
+
 ```c++
 #include "Session.h"
 
@@ -210,7 +218,9 @@ int main(int argc, char *argv[]) {
 }
 
 ```
+
 * Node.js Example
+
 ```js
 const {Session, ALPN} = require("./session")
 
@@ -235,8 +245,51 @@ session.set_header_json({
     "sec-ch-ua-platform": '"Windows"'
 })
 session.set_url('https://m.so.com')
-let resp=session.get()
+let resp = session.get()
 console.log(resp.status_code())
 session.close()
 
 ```
+
+### reqrio export function
+
+| Function               | Params                                        |  Res   |                 Note                  |
+|:-----------------------|:----------------------------------------------|:------:|:-------------------------------------:|
+| new_http               | -                                             | void * |
+| set_header_json        | void *, const char *                          |  int   |
+| add_header             | void *, const char *, const char *            |  int   |
+| set_alpn               | void *, const char *                          |  int   |
+| set_random_fingerprint | void *                                        |  int   |       Return -2 as unsubscribed       |
+| set_fingerprint        | void *, const char *                          |  int   |       Return -2 as unsubscribed       |
+| set_ja3                | void *, const char *                          |  int   |       Return -2 as unsubscribed       |
+| set_ja4                | void *, const char *                          |  int   |       Return -2 as unsubscribed       |
+| set_proxy              | void *, const char *                          |  int   |   The value is http:// or socks5://   |
+| set_url                | void *, const char *                          |  int   |    Called before setting the body     |
+| add_param              | void *, const char *, const char *            |  int   |
+| set_data               | void *, const char *                          |  int   |
+| set_json               | void *, const char *                          |  int   |
+| set_bytes              | void *, const char *, uint32_t                |  int   |
+| set_text               | void *, const char *                          |  int   |
+| set_timeout            | void *, const char *                          |  int   | Tiemouth structure to JSON conversion |
+| set_cookie             | void *, const char *                          |  int   |
+| add_cookie             | void *, const char *, const char *            |  int   |
+| reconnect              | void *                                        |  int   |
+| get                    | void *                                        | char * |
+| post                   | void *                                        | char * |
+| options                | void *                                        | char * |
+| put                    | void *                                        | char * |
+| delete                 | void *                                        | char * |
+| trach                  | void *                                        | char * |
+| destroy                | void *                                        |   -    |     Destroy the new_tttp instance     |
+| free_pointer           | char *                                        |   -    |        Destroy char * pointer         |
+| register               | char *, extern "C" fn(const char *, uint32_t) |  int   |
+| build_ws               | -                                             | void * |
+| ws_add_header          | void *, const char *, const char *            |  int   |
+| ws_set_proxy           | void *, const char *                          |  int   |   The value is http:// or socks5://   |
+| ws_set_url             | void *, const char *                          |  int   |
+| ws_set_uri             | void *, const char *                          |  int   |
+| open_ws                | void *                                        | void * |
+| open_ws_raw            | void *, const char *                          | void * |
+| ws_read                | void *                                        | char * |            Return as JSON             |
+| ws_write               | void *, int, bool, const char *               |  int   |            opcode,mask,msg            |
+| ws_close               | void *                                        |   -    |          Destroy WS instance          |

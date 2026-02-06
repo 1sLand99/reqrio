@@ -241,3 +241,47 @@ console.log(resp.status_code())
 session.close()
 
 ```
+
+
+### reqrio导出函数
+
+| 函数名                    | 参数                                            |   返回   |         备注          |
+|:-----------------------|:----------------------------------------------|:------:|:-------------------:|
+| new_http               | -                                             | void * |
+| set_header_json        | void *, const char *                          |  int   |
+| add_header             | void *, const char *, const char *            |  int   |
+| set_alpn               | void *, const char *                          |  int   |
+| set_random_fingerprint | void *                                        |  int   |      返回-2为未订阅       |
+| set_fingerprint        | void *, const char *                          |  int   |      返回-2为未订阅       |
+| set_ja3                | void *, const char *                          |  int   |      返回-2为未订阅       |
+| set_ja4                | void *, const char *                          |  int   |      返回-2为未订阅       |
+| set_proxy              | void *, const char *                          |  int   | 值为http://或socks5:// |
+| set_url                | void *, const char *                          |  int   |     在设置body前调用      |
+| add_param              | void *, const char *, const char *            |  int   |
+| set_data               | void *, const char *                          |  int   |
+| set_json               | void *, const char *                          |  int   |
+| set_bytes              | void *, const char *, uint32_t                |  int   |
+| set_text               | void *, const char *                          |  int   |
+| set_timeout            | void *, const char *                          |  int   |   Tiemout结构转json    |
+| set_cookie             | void *, const char *                          |  int   |
+| add_cookie             | void *, const char *, const char *            |  int   |
+| reconnect              | void *                                        |  int   |
+| get                    | void *                                        | char * |
+| post                   | void *                                        | char * |
+| options                | void *                                        | char * |
+| put                    | void *                                        | char * |
+| delete                 | void *                                        | char * |
+| trach                  | void *                                        | char * |
+| destroy                | void *                                        |   -    |    销毁new_http实例     |
+| free_pointer           | char *                                        |   -    |     销毁char *指针      |
+| register               | char *, extern "C" fn(const char *, uint32_t) |  int   |
+| build_ws               | -                                             | void * |
+| ws_add_header          | void *, const char *, const char *            |  int   |
+| ws_set_proxy           | void *, const char *                          |  int   | 值为http://或socks5:// |
+| ws_set_url             | void *, const char *                          |  int   |
+| ws_set_uri             | void *, const char *                          |  int   |
+| open_ws                | void *                                        | void * |
+| open_ws_raw            | void *, const char *                          | void * |
+| ws_read                | void *                                        | char * |       以json返回       |
+| ws_write               | void *, int, bool, const char *               |  int   |   opcode,mask,msg   |
+| ws_close               | void *                                        |   -    |       销毁ws实例        |
