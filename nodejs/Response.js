@@ -38,7 +38,7 @@ class Response {
         }
     }
 
-    staus_code() {
+    status_code() {
         return this.header.status
     }
 

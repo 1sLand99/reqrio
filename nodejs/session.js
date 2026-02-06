@@ -201,5 +201,5 @@ class Session {
 }
 
 module.exports = {
-    Session, ALPN, Method
+    Session, ALPN, Method, Response
 }
