@@ -18,7 +18,7 @@
 
 **Note:** std and cls cannot exist simultaneously, while sync and async can exist simultaneously.
 
-### Usage examples (supports Rust, Python, and Java):
+### Usage examples (supports Rust, Python, Java and Node.js):
 
 * Rust HTTP Example
 
@@ -253,43 +253,46 @@ session.close()
 
 ### reqrio export function
 
-| Function               | Params                                        |  Res   |                 Note                  |
-|:-----------------------|:----------------------------------------------|:------:|:-------------------------------------:|
-| new_http               | -                                             | void * |
-| set_header_json        | void *, const char *                          |  int   |
-| add_header             | void *, const char *, const char *            |  int   |
-| set_alpn               | void *, const char *                          |  int   |
-| set_random_fingerprint | void *                                        |  int   |       Return -2 as unsubscribed       |
-| set_fingerprint        | void *, const char *                          |  int   |       Return -2 as unsubscribed       |
-| set_ja3                | void *, const char *                          |  int   |       Return -2 as unsubscribed       |
-| set_ja4                | void *, const char *                          |  int   |       Return -2 as unsubscribed       |
-| set_proxy              | void *, const char *                          |  int   |   The value is http:// or socks5://   |
-| set_url                | void *, const char *                          |  int   |    Called before setting the body     |
-| add_param              | void *, const char *, const char *            |  int   |
-| set_data               | void *, const char *                          |  int   |
-| set_json               | void *, const char *                          |  int   |
-| set_bytes              | void *, const char *, uint32_t                |  int   |
-| set_text               | void *, const char *                          |  int   |
-| set_timeout            | void *, const char *                          |  int   | Tiemouth structure to JSON conversion |
-| set_cookie             | void *, const char *                          |  int   |
-| add_cookie             | void *, const char *, const char *            |  int   |
-| reconnect              | void *                                        |  int   |
-| get                    | void *                                        | char * |
-| post                   | void *                                        | char * |
-| options                | void *                                        | char * |
-| put                    | void *                                        | char * |
-| delete                 | void *                                        | char * |
-| trach                  | void *                                        | char * |
-| destroy                | void *                                        |   -    |     Destroy the new_tttp instance     |
-| free_pointer           | char *                                        |   -    |        Destroy char * pointer         |
-| register               | char *, extern "C" fn(const char *, uint32_t) |  int   |
-| build_ws               | -                                             | void * |
-| ws_add_header          | void *, const char *, const char *            |  int   |
-| ws_set_proxy           | void *, const char *                          |  int   |   The value is http:// or socks5://   |
-| ws_set_url             | void *, const char *                          |  int   |
-| ws_set_uri             | void *, const char *                          |  int   |
-| open_ws                | void *                                        | void * |
-| open_ws_raw            | void *, const char *                          | void * |
-| ws_read                | void *                                        | char * |            Return as JSON             |
-| ws_write               | void *, int, bool, const char *               |  int   |            opcode,mask,msg            |
-| ws_close               | void *                                        |   -    |          Destroy WS instance          |
+| No. |                        | Function                                      | Params |                Res                | Note |
+|:---:|------------------------|:----------------------------------------------|:-------|:---------------------------------:|:----:|
+|  1  | new_http               | -                                             | void * |
+|  2  | set_header_json        | void *, const char *                          | int    |
+|  3  | add_header             | void *, const char *, const char *            | int    |
+|  4  | set_alpn               | void *, const char *                          | int    |
+|  5  | set_random_fingerprint | void *                                        | int    |     Return -2 as unsubscribed     |
+|  6  | set_fingerprint        | void *, const char *                          | int    |     Return -2 as unsubscribed     |
+|  7  | set_ja3                | void *, const char *                          | int    |     Return -2 as unsubscribed     |
+|  8  | set_ja4                | void *, const char *                          | int    |     Return -2 as unsubscribed     |
+|  9  | set_proxy              | void *, const char *                          | int    |       http:// or socks5://        |
+| 10  | set_url                | void *, const char *                          | int    |  Called before setting the body   |
+| 11  | add_param              | void *, const char *, const char *            | int    |
+| 12  | set_data               | void *, const char *                          | int    |
+| 13  | set_json               | void *, const char *                          | int    |
+| 14  | set_bytes              | void *, const char *, uint32_t                | int    |
+| 15  | set_text               | void *, const char *                          | int    |
+| 16  | set_timeout            | void *, const char *                          | int    |   Tiemout structure to JSON str   |
+| 17  | set_cookie             | void *, const char *                          | int    |
+| 18  | add_cookie             | void *, const char *, const char *            | int    |
+| 19  | reconnect              | void *                                        | int    |
+| 20  | get                    | void *                                        | char * |
+| 21  | post                   | void *                                        | char * |
+| 22  | options                | void *                                        | char * |
+| 23  | put                    | void *                                        | char * |
+| 24  | delete                 | void *                                        | char * |
+| 25  | trach                  | void *                                        | char * |
+| 26  | destroy                | void *                                        | -      |   Destroy the new_tttp instance   |
+| 27  | free_pointer           | char *                                        | -      |      Destroy char * pointer       |
+| 28  | register               | void *, extern "C" fn(const char *, uint32_t) | int    |
+| 29  | build_ws               | -                                             | void * |
+| 30  | ws_add_header          | void *, const char *, const char *            | int    |
+| 31  | ws_set_proxy           | void *, const char *                          | int    | The value is http:// or socks5:// |
+| 32  | ws_set_url             | void *, const char *                          | int    |
+| 33  | ws_set_uri             | void *, const char *                          | int    |
+| 34  | open_ws                | void *                                        | void * |
+| 35  | open_ws_raw            | void *, const char *                          | void * |
+| 36  | ws_read                | void *                                        | char * |          Return as JSON           |
+| 37  | ws_write               | void *, int, bool, const char *               | int    |          opcode,mask,msg          |
+| 38  | ws_close               | void *                                        | -      |        Destroy WS instance        |
+
+* When the function returns -1, the execution fails; -2 is in non subscription status and the function is unavailable
+* The instance needs to be manually released, otherwise it may cause memory leakage

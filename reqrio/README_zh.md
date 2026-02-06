@@ -1,14 +1,18 @@
 #### reqrio是http请求库，目标是可以快速、简单、便捷使用http请求
+
 * reqrio特性: 低拷贝、高并发、低损耗
 * reqrio支持tls指纹，可以通过tls握手的十六进制或ja3设置,仅cls_sync和cls_async支持(**仅订阅**),
 * reqrio默认对请求头的顺序会默认和浏览器一致(会对请求头进行重排序)
 * cls模式使用boringssl，和浏览器chrome、edge等一致。
 
 #### reqrio默认不开启http请求，仅作为http数据数据流解析库导出，请求需要打开features
+
 * std_sync: 标准的tls库([rustls](https://github.com/rustls/rustls)，同步请求
 * std_async: 标准的tls库([tokio-rustls](https://github.com/rustls/tokio-rustls))，异步请求
-* cls_sync: 自研tls库(**算法不完善，不校验服务端证书，请勿用于生产模式**)[reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), 同步请求
-* cls_async: 自研tls库(**算法不完善，不校验服务端证书，请勿用于生产模式**)[reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), 异步请求
+* cls_sync: 自研tls库(**算法不完善，不校验服务端证书，请勿用于生产模式
+  **)[reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), 同步请求
+* cls_async: 自研tls库(**算法不完善，不校验服务端证书，请勿用于生产模式
+  **)[reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), 异步请求
 
 **注意**: std和cls不可以同时存在，sync和async可以同时存在
 
@@ -59,6 +63,7 @@ fn ff() {
 ```
 
 * rust websocket示例
+
 ```rust
 use reqrio::*;
 
@@ -186,6 +191,7 @@ void main() throws Exception {
 ```
 
 * qt示例
+
 ```c++
 #include "Session.h"
 
@@ -212,6 +218,7 @@ int main(int argc, char *argv[]) {
 ```
 
 * Node.js 示例
+
 ```js
 const {Session, ALPN} = require("./session")
 
@@ -236,52 +243,54 @@ session.set_header_json({
     "sec-ch-ua-platform": '"Windows"'
 })
 session.set_url('https://m.so.com')
-let resp=session.get()
+let resp = session.get()
 console.log(resp.status_code())
 session.close()
 
 ```
 
-
 ### reqrio导出函数
 
-| 函数名                    | 参数                                            |   返回   |         备注          |
-|:-----------------------|:----------------------------------------------|:------:|:-------------------:|
-| new_http               | -                                             | void * |
-| set_header_json        | void *, const char *                          |  int   |
-| add_header             | void *, const char *, const char *            |  int   |
-| set_alpn               | void *, const char *                          |  int   |
-| set_random_fingerprint | void *                                        |  int   |      返回-2为未订阅       |
-| set_fingerprint        | void *, const char *                          |  int   |      返回-2为未订阅       |
-| set_ja3                | void *, const char *                          |  int   |      返回-2为未订阅       |
-| set_ja4                | void *, const char *                          |  int   |      返回-2为未订阅       |
-| set_proxy              | void *, const char *                          |  int   | 值为http://或socks5:// |
-| set_url                | void *, const char *                          |  int   |     在设置body前调用      |
-| add_param              | void *, const char *, const char *            |  int   |
-| set_data               | void *, const char *                          |  int   |
-| set_json               | void *, const char *                          |  int   |
-| set_bytes              | void *, const char *, uint32_t                |  int   |
-| set_text               | void *, const char *                          |  int   |
-| set_timeout            | void *, const char *                          |  int   |   Tiemout结构转json    |
-| set_cookie             | void *, const char *                          |  int   |
-| add_cookie             | void *, const char *, const char *            |  int   |
-| reconnect              | void *                                        |  int   |
-| get                    | void *                                        | char * |
-| post                   | void *                                        | char * |
-| options                | void *                                        | char * |
-| put                    | void *                                        | char * |
-| delete                 | void *                                        | char * |
-| trach                  | void *                                        | char * |
-| destroy                | void *                                        |   -    |    销毁new_http实例     |
-| free_pointer           | char *                                        |   -    |     销毁char *指针      |
-| register               | char *, extern "C" fn(const char *, uint32_t) |  int   |
-| build_ws               | -                                             | void * |
-| ws_add_header          | void *, const char *, const char *            |  int   |
-| ws_set_proxy           | void *, const char *                          |  int   | 值为http://或socks5:// |
-| ws_set_url             | void *, const char *                          |  int   |
-| ws_set_uri             | void *, const char *                          |  int   |
-| open_ws                | void *                                        | void * |
-| open_ws_raw            | void *, const char *                          | void * |
-| ws_read                | void *                                        | char * |       以json返回       |
-| ws_write               | void *, int, bool, const char *               |  int   |   opcode,mask,msg   |
-| ws_close               | void *                                        |   -    |       销毁ws实例        |
+| 序号 | 函数名                    | 参数                                            |   返回   |         备注          |
+|:--:|:-----------------------|:----------------------------------------------|:------:|:-------------------:|
+| 1  | new_http               | -                                             | void * |
+| 2  | set_header_json        | void *, const char *                          |  int   |
+| 3  | add_header             | void *, const char *, const char *            |  int   |
+| 4  | set_alpn               | void *, const char *                          |  int   |
+| 5  | set_random_fingerprint | void *                                        |  int   |      返回-2为未订阅       |
+| 6  | set_fingerprint        | void *, const char *                          |  int   |      返回-2为未订阅       |
+| 7  | set_ja3                | void *, const char *                          |  int   |      返回-2为未订阅       |
+| 8  | set_ja4                | void *, const char *                          |  int   |      返回-2为未订阅       |
+| 9  | set_proxy              | void *, const char *                          |  int   | 值为http://或socks5:// |
+| 10 | set_url                | void *, const char *                          |  int   |     在设置body前调用      |
+| 11 | add_param              | void *, const char *, const char *            |  int   |
+| 12 | set_data               | void *, const char *                          |  int   |
+| 13 | set_json               | void *, const char *                          |  int   |
+| 14 | set_bytes              | void *, const char *, uint32_t                |  int   |
+| 15 | set_text               | void *, const char *                          |  int   |
+| 16 | set_timeout            | void *, const char *                          |  int   |   Tiemout结构转json    |
+| 17 | set_cookie             | void *, const char *                          |  int   |
+| 18 | add_cookie             | void *, const char *, const char *            |  int   |
+| 19 | reconnect              | void *                                        |  int   |
+| 20 | get                    | void *                                        | char * |
+| 21 | post                   | void *                                        | char * |
+| 22 | options                | void *                                        | char * |
+| 23 | put                    | void *                                        | char * |
+| 24 | delete                 | void *                                        | char * |
+| 25 | trach                  | void *                                        | char * |
+| 26 | destroy                | void *                                        |   -    |    销毁new_http实例     |
+| 27 | free_pointer           | char *                                        |   -    |     销毁char *指针      |
+| 28 | register               | void *, extern "C" fn(const char *, uint32_t) |  int   |
+| 29 | build_ws               | -                                             | void * |
+| 30 | ws_add_header          | void *, const char *, const char *            |  int   |
+| 31 | ws_set_proxy           | void *, const char *                          |  int   | 值为http://或socks5:// |
+| 32 | ws_set_url             | void *, const char *                          |  int   |
+| 33 | ws_set_uri             | void *, const char *                          |  int   |
+| 34 | open_ws                | void *                                        | void * |
+| 35 | open_ws_raw            | void *, const char *                          | void * |
+| 36 | ws_read                | void *                                        | char * |       以json返回       |
+| 37 | ws_write               | void *, int, bool, const char *               |  int   |   opcode,mask,msg   |
+| 38 | ws_close               | void *                                        |   -    |       销毁ws实例        |
+
+* 函数返回-1时，执行不成成功；-2为非订阅状态，功能不可用
+* 实例需要手动释放，否则会导致内存泄露
