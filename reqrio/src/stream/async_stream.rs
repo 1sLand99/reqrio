@@ -40,7 +40,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
     pub async fn connect(mut stream: S, config: TlsConfig<'_>) -> HlsResult<TlsStream<S>> {
         let client_random = rand::random::<[u8; 32]>();
         let mut conn = Connection::default().with_client_random(client_random.to_vec());
-        let mut record = RecordLayer::from_bytes(config.fingerprint.client_hello_mut(), false)?;
+        let mut record = RecordLayer::from_bytes(config.fingerprint.client_hello_mut(), false, None)?;
         let message = record.messages.get_mut(0).ok_or(RlsError::ClientHelloNone)?;
         message.client_mut().ok_or(HlsError::NullPointer)?.set_random(client_random);
         message.client_mut().ok_or(HlsError::NullPointer)?.set_server_name(config.sni);
@@ -50,7 +50,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
             _ => message.client_mut().ok_or(HlsError::NullPointer)?.remove_h2_alpn()
         }
         message.client_mut().ok_or(HlsError::NullPointer)?.remove_tls13();
-        let bs = record.handshake_bytes();
+        let bs = record.handshake_bytes(&CipherSuite::new(0));
         conn.update_session(&bs[5..])?;
         stream.write_all(&bs).await?;
         TlsStream::new(stream, conn, config).await
@@ -76,7 +76,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
     }
 
     async fn handle_message(&mut self, mut config: Option<&mut TlsConfig<'_>>) -> HlsResult<bool> {
-        let mut record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished)?;
+        let mut record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, Some(self.conn.cipher_suite()))?;
         match record.context_type {
             RecordType::CipherSpec => self.handshake_finished = true,
             RecordType::Alert => {
@@ -87,24 +87,18 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
             RecordType::HandShake => {
                 for message in record.messages {
                     match message {
-                        Message::ServerHello(v) => {
-                            // println!("{:#?}-{}", v.cipher_suite, connector.sni);
-                            self.conn.set_by_server_hello(v)?;
-                        }
+                        Message::ServerHello(v) => self.conn.set_by_server_hello(v)?,
                         Message::Certificate(v) => {
                             let config = config.as_mut().ok_or("config can't be null")?;
                             self.conn.set_by_certificate(v, config.sni)?;
                         }
-                        Message::ServerKeyExchange(v) => {
-                            // println!("{:#?}", v);
-                            self.conn.set_by_server_exchange_key(v)?
-                        }
+                        Message::ServerKeyExchange(v) => self.conn.set_by_server_exchange_key(v)?,
                         Message::ServerHelloDone(_) => {
                             let config = config.as_mut().ok_or("config can't be null")?;
-                            let mut record = RecordLayer::from_bytes(config.fingerprint.client_key_exchange_mut(), false)?;
+                            let mut record = RecordLayer::from_bytes(config.fingerprint.client_key_exchange_mut(), false, None)?;
                             let client_key_exchange = record.messages.get_mut(0).ok_or(HlsError::NullPointer)?;
                             client_key_exchange.client_key_exchange_mut().unwrap().set_pub_key(self.conn.pub_share_key());
-                            let bs = record.handshake_bytes();
+                            let bs = record.handshake_bytes(self.conn.cipher_suite());
                             self.conn.update_session(&bs[5..])?;
                             self.write_buffer.push_slice(&bs);
                             self.write_buffer.push_slice(config.fingerprint.change_cipher_spec());
@@ -127,7 +121,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             self.conn.make_cipher(true)?;
                         }
                         Message::Payload(_) => {
-                            let mut record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished)?;
+                            let mut record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, None)?;
                             let pdr = self.conn.read_message(&mut record)?;
                             self.conn.verify_finish(&self.read_buffer[pdr], false)?;
 
@@ -162,7 +156,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
 
 impl<S> TlsStream<S> {
     fn read_message(&mut self, buf: &mut ReadBuf<'_>) -> std::io::Result<usize> {
-        let mut record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished)?;
+        let mut record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, None)?;
         let record_len = record.len as usize + 5;
         match record.context_type {
             RecordType::CipherSpec => {

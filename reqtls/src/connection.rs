@@ -10,12 +10,11 @@ use super::record::{RecordBuffer, RecordLayer, RecordType};
 use super::version::Version;
 use crate::boring::{AlgorithmSigner, Certificate};
 use crate::error::RlsResult;
-use crate::extend::Aead;
+use crate::secret::key::SharedKey;
 use crate::{Certificates, ClientHello, ClientKeyExchange, RlsError, RsaKey, SignatureAlgorithm};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::ops::Range;
-use crate::secret::key::SharedKey;
 
 pub struct Connection {
     client_random: Bytes,
@@ -126,6 +125,7 @@ impl Connection {
     }
 
     pub fn make_cipher(&mut self, server: bool) -> RlsResult<()> {
+        println!("{:?} {:?}", self.cipher_suite, self.cipher_suite.aead());
         let share_secret = self.shared_key.diffie_hellman(self.exchange_pub_key.as_ref())?;
         let (label, seed) = match self.use_ems {
             true => ("extended master secret", self.cipher_suite.current_session_hash()?.to_vec()),
@@ -175,7 +175,7 @@ impl Connection {
         let certificate_bytes = certificates.as_bytes();
         self.update_session(&certificate_bytes)?;
 
-        let mut server_key_exchange = ServerKeyExchange::new();
+        let mut server_key_exchange = ServerKeyExchange::default();
         self.shared_key = SharedKey::new(server_key_exchange.hellman_param().named_curve())?;
         server_key_exchange.hellman_param_mut().set_pub_key(self.shared_key.pub_key());
         let sign_data = self.gen_key_sign_data(&server_key_exchange);
@@ -233,7 +233,7 @@ impl Connection {
         let mut finish = [0; 16];
         finish[0..4].copy_from_slice(&[0x14, 0x00, 0x0, 0xc]);
         let session_hash = self.cipher_suite.current_session_hash()?;
-        self.prf.prf(&self.master_secret, if !server { "client finished" } else { "server finished" }, &session_hash, &mut finish[4..16])?;
+        self.prf.prf(&self.master_secret, if !server { "client finished" } else { "server finished" }, session_hash, &mut finish[4..16])?;
         Ok(finish)
     }
 
@@ -266,7 +266,5 @@ impl Connection {
         Ok(())
     }
 
-    pub fn aead(&self) -> Option<&Aead> {
-        self.cipher_suite.aead()
-    }
+    pub fn cipher_suite(&self) -> &CipherSuite {&self.cipher_suite}
 }

@@ -1,6 +1,6 @@
 use crate::error::RlsResult;
 use crate::extend::Aead;
-use crate::RlsError;
+use crate::{CipherSuite, RlsError};
 use super::message::{Message, Payload};
 use super::version::Version;
 
@@ -50,7 +50,7 @@ impl<'a> Default for RecordLayer<'a> {
 }
 
 impl<'a> RecordLayer<'a> {
-    pub fn from_bytes(bytes: &mut [u8], payload: bool) -> RlsResult<RecordLayer<'_>> {
+    pub fn from_bytes(bytes: &'a mut [u8], payload: bool, suite: Option<&CipherSuite>) -> RlsResult<RecordLayer<'a>> {
         if bytes.len() < 5 { return Err(RlsError::MessageTooShort); }
         let (head, messages) = bytes.split_at_mut(5);
         let mut res = RecordLayer::default();
@@ -70,7 +70,7 @@ impl<'a> RecordLayer<'a> {
                         let (message, reset) = messages.split_at_mut(msg_len + 4);
                         messages = reset;
                         index = index + 4 + msg_len;
-                        res.messages.push(Message::from_bytes(message, payload)?)
+                        res.messages.push(Message::from_bytes(message, payload, suite)?)
                     } else {
                         res.messages.push(Message::Payload(Payload::from_slice(messages)));
                         break;
@@ -97,9 +97,9 @@ impl<'a> RecordLayer<'a> {
         Ok(res)
     }
 
-    pub fn handshake_bytes(&self) -> Vec<u8> {
+    pub fn handshake_bytes(&self, suite: &CipherSuite) -> Vec<u8> {
         let mut res = self.head_bytes();
-        let msg = self.messages.iter().map(|x| x.as_bytes()).collect::<Vec<_>>().concat();
+        let msg = self.messages.iter().map(|x| x.as_bytes(suite)).collect::<Vec<_>>().concat();
         res.extend((msg.len() as u16).to_be_bytes());
         res.extend(msg);
         res

@@ -1,7 +1,6 @@
 use std::ops::Range;
 use crate::error::RlsResult;
 use super::super::bytes::Bytes;
-use super::super::cipher::suite::CipherSuiteKind;
 
 #[derive(Debug, Clone, Copy)]
 enum ClientHelloType {
@@ -67,8 +66,8 @@ impl Aead {
         (*self as u16).to_be_bytes()
     }
 
-    pub fn from_cipher_kind(kind: CipherSuiteKind) -> Option<Aead> {
-        let text = format!("{:?}", kind).to_lowercase();
+    pub fn from_cipher_kind(suite_spec: &str) -> Option<Aead> {
+        let text = suite_spec.to_lowercase();
         if text.contains("aes_128_gcm") {
             Some(Aead::AES_128_GCM)
         } else if text.contains("aes_256_gcm") {
@@ -122,7 +121,7 @@ impl Aead {
         }
     }
 
-    pub fn explicit_range(&self)->Range<usize> {
+    pub fn explicit_range(&self) -> Range<usize> {
         match self {
             Aead::AES_128_GCM | Aead::AES_256_GCM => 0..8,
             Aead::ChaCha20_POLY1305 => 0..0,
@@ -131,6 +130,7 @@ impl Aead {
         }
     }
 }
+
 
 #[derive(Debug)]
 struct CipherSuite {
@@ -152,6 +152,7 @@ impl CipherSuite {
         res
     }
 }
+
 
 #[derive(Debug)]
 pub struct EncryptClientHello {

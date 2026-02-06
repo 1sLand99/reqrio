@@ -1,3 +1,4 @@
+use crate::CipherSuite;
 use crate::error::RlsResult;
 use super::super::boring::SignatureAlgorithm;
 use super::super::message::HandshakeType;
@@ -128,16 +129,19 @@ pub struct ServerKeyExchange {
     hellman_param: ServerHellmanParam,
 }
 
-impl ServerKeyExchange {
-    pub fn new() -> ServerKeyExchange {
+impl Default for ServerKeyExchange {
+    fn default() -> Self {
         ServerKeyExchange {
             handshake_type: HandshakeType::ServerKeyExchange,
             len: 0,
             hellman_param: ServerHellmanParam::new(),
         }
     }
+}
+
+impl ServerKeyExchange {
     pub fn from_bytes(ht: HandshakeType, bytes: &[u8]) -> RlsResult<ServerKeyExchange> {
-        let mut res = ServerKeyExchange::new();
+        let mut res = ServerKeyExchange::default();
         res.handshake_type = ht;
         res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]].try_into()?);
         res.hellman_param = ServerHellmanParam::from_bytes(&bytes[4..])?;
@@ -165,7 +169,7 @@ impl ServerKeyExchange {
 
 #[derive(Debug)]
 pub struct ClientHellmanParam {
-    pub_key_len: usize,
+    pub_key_len: u16,
     pub_key: Bytes,
 }
 
@@ -177,15 +181,16 @@ impl ClientHellmanParam {
         }
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> RlsResult<ClientHellmanParam> {
+    pub fn from_bytes(bytes: &[u8], suite: Option<&CipherSuite>) -> RlsResult<ClientHellmanParam> {
         let mut res = ClientHellmanParam::new();
-        res.pub_key_len = bytes[0] as usize;
-        res.pub_key = Bytes::new(bytes[1..res.pub_key_len + 1].to_vec());
+        let key_size = suite.map(|x|x.key_size()).unwrap_or(1);
+        res.pub_key_len = if key_size == 2 { u16::from_be_bytes([bytes[0], bytes[1]]) } else { bytes[0] as u16 };
+        res.pub_key = Bytes::new(bytes[key_size as usize..res.pub_key_len as usize + key_size as usize].to_vec());
         Ok(res)
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = vec![self.pub_key.len() as u8];
+    pub fn as_bytes(&self, suite: &CipherSuite) -> Vec<u8> {
+        let mut res = if suite.key_size() == 2 { (self.pub_key.len() as u16).to_be_bytes().to_vec() } else { vec![self.pub_key.len() as u8] };
         res.extend(self.pub_key.as_bytes());
         res
     }
@@ -213,17 +218,17 @@ impl Default for ClientKeyExchange {
 }
 
 impl ClientKeyExchange {
-    pub fn from_bytes(ht: HandshakeType, bytes: &[u8]) -> RlsResult<ClientKeyExchange> {
+    pub fn from_bytes(ht: HandshakeType, bytes: &[u8], suite: Option<&CipherSuite>) -> RlsResult<ClientKeyExchange> {
         let mut res = ClientKeyExchange::default();
         res.handshake_type = ht;
         res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]].try_into()?);
-        res.hellman_param = ClientHellmanParam::from_bytes(&bytes[4..])?;
+        res.hellman_param = ClientHellmanParam::from_bytes(&bytes[4..], suite)?;
         Ok(res)
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
+    pub fn as_bytes(&self, suite: &CipherSuite) -> Vec<u8> {
         let mut res = vec![self.handshake_type.as_u8()];
-        let vbs = self.hellman_param.as_bytes();
+        let vbs = self.hellman_param.as_bytes(suite);
         res.extend_from_slice(&(vbs.len() as u32).to_be_bytes()[1..]);
         res.extend(vbs);
         res
@@ -231,7 +236,7 @@ impl ClientKeyExchange {
 
     pub fn set_pub_key(&mut self, pub_key: &[u8]) {
         self.hellman_param.pub_key = Bytes::new(pub_key.to_vec());
-        self.hellman_param.pub_key_len = self.hellman_param.pub_key.len();
+        self.hellman_param.pub_key_len = self.hellman_param.pub_key.len() as u16;
     }
 
     pub fn len(&self) -> u32 {

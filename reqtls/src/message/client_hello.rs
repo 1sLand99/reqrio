@@ -5,7 +5,6 @@ use super::super::extend::Extension;
 use super::super::version::Version;
 use super::HandshakeType;
 use crate::boring::hash;
-use crate::cipher::suite::CipherSuiteKind;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::ExtensionType;
@@ -51,15 +50,15 @@ impl ClientHello {
         res.random = Bytes::new(vec![0; 32]);
         res.version = Version::TLS_1_0;
         res.cipher_suites = vec![
-            CipherSuite::new(CipherSuiteKind::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 as u16),
-            CipherSuite::new(CipherSuiteKind::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 as u16),
-            CipherSuite::new(CipherSuiteKind::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 as u16),
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+            CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
         ];
-        let suite_all = CipherSuiteKind::all();
+        let suite_all = CipherSuite::SUITES;
         // suite_all.remove(CipherSuiteKind::TLS_RSA_WITH_AES_128_CBC_SHA)
         while res.cipher_suites.len() < 12 {
             let index = rand::random::<usize>() % suite_all.len();
-            let suite = CipherSuite::new(suite_all[index].clone() as u16);
+            let suite = CipherSuite::new(suite_all[index]);
             if res.cipher_suites.contains(&suite) { continue; }
             res.cipher_suites.push(suite);
         }
@@ -99,7 +98,7 @@ impl ClientHello {
         res.compress_method_len = bytes[index];
         res.compress_method = Bytes::new(bytes[index + 1..index + 1 + res.compress_method_len as usize].to_vec());
         let index = index + res.compress_method_len as usize + 1;
-        res.extend_len = u16::from_be_bytes([bytes[index], bytes[index + 1]].try_into()?);
+        res.extend_len = u16::from_be_bytes([bytes[index], bytes[index + 1]]);
         res.extensions = Extension::from_bytes(&bytes[index + 2..index + 2 + res.extend_len as usize], false)?;
         // println!("{}", res.ja3());
         // println!("{}", res.ja4());

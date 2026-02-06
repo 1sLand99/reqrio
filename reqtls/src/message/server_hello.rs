@@ -4,7 +4,6 @@ use super::super::extend::alps::ALPN;
 use super::super::extend::Extension;
 use super::super::message::HandshakeType;
 use super::super::version::Version;
-use crate::cipher::suite::CipherSuiteKind;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::ExtensionValue;
@@ -64,7 +63,7 @@ impl ServerHello {
         res.version = Version::TLS_1_2;
         res.random = Bytes::new(rand::random::<[u8; 32]>().to_vec());
         res.session_id = Bytes::new(rand::random::<[u8; 32]>().to_vec());
-        res.cipher_suite = CipherSuite::new(CipherSuiteKind::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 as u16);
+        res.cipher_suite = CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256;
         for extension in client_hello.take_extensions() {
             match *extension.extension_type() {
                 ExtensionType::SignatureAlgorithms => {

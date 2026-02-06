@@ -16,7 +16,7 @@ fn main() {
         "sec-fetch-user":"?1",
         "upgrade-insecure-requests":"1",
         "sec-ch-ua": "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"120\", \"Microsoft Edge\";v=\"120\"",
-        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-mobile": "?0",    // req.set_url("https://zhifazhe.top").unwrap();
         "sec-ch-ua-platform": "\"Windows\"",
         "Accept-Language": "zh-CN,zh;q=0.9",
         "Accept-Encoding": "gzip,deflate,br,zstd",
@@ -25,20 +25,22 @@ fn main() {
 
     };
     // req.set_url("http://3434.characlink.com").unwrap();
-    // req.set_url("https://www.baidu.com").unwrap();
+    req.set_url("https://m.baidu.com").unwrap();
 
-    // req.set_url("https://ms.xllgl.top").unwrap();
-    // req.set_url("https://www.so.com").unwrap();
-    // req.set_url("https://zhifazhe.top").unwrap();
-    req.set_headers_json(headers).unwrap();
+    req.set_url("https://ms.xllgl.top").unwrap();
+    req.set_url("https://m.so.com").unwrap();
+
+
     req.set_url("https://jetstar.com").unwrap();
-    // req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").unwrap();
-    // req.set_url("https://accounts.pcid.ca/login").unwrap();
-    // req.set_url("https://ccppdd.zzzzzzyyyyy.shop/api/v1/client/s9FkyFPBngt80pFn1?token=a0cedb7c6645280ec2402db62d550a17").unwrap();
+    req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").unwrap();
+    req.set_url("https://accounts.pcid.ca/login").unwrap();
+    req.set_url("https://ccppdd.zzzzzzyyyyy.shop/api/v1/client/s9FkyFPBngt80pFn1?token=a0cedb7c6645280ec2402db62d550a17").unwrap();
+    req.set_headers_json(headers).unwrap();
     println!("6");
 
     let resp = req.get().unwrap();
     // let body = res.decode_body().unwrap().as_string().unwrap();
-    println!("{}", resp.header());
-    println!("{}", resp.text().unwrap());
+    println!("{}", resp.header().status());
+    // println!("{}", resp.header());
+    // println!("{}", resp.text().unwrap());
 }

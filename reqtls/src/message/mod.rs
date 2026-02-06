@@ -7,6 +7,8 @@ use key_exchange::{ClientKeyExchange, ServerKeyExchange};
 use server_hello::{ServerHello, ServerHelloDone};
 use session_ticket::SessionTicket;
 use std::fmt::Debug;
+use crate::CipherSuite;
+
 pub mod certificate;
 pub mod client_hello;
 pub mod server_hello;
@@ -30,7 +32,7 @@ pub enum Message<'a> {
 }
 
 impl<'a> Message<'a> {
-    pub fn from_bytes(bytes: &mut [u8], payload: bool) -> RlsResult<Message<'_>> {
+    pub fn from_bytes(bytes: &'a mut [u8], payload: bool, suite: Option<&CipherSuite>) -> RlsResult<Message<'a>> {
         if !payload {
             let handshake_type = HandshakeType::from_byte(bytes[0]).unwrap();
             match handshake_type {
@@ -39,7 +41,7 @@ impl<'a> Message<'a> {
                 HandshakeType::Certificate => Ok(Message::Certificate(Certificates::from_bytes(handshake_type, bytes)?)),
                 HandshakeType::ServerKeyExchange => Ok(Message::ServerKeyExchange(ServerKeyExchange::from_bytes(handshake_type, bytes)?)),
                 HandshakeType::ServerHelloDone => Ok(Message::ServerHelloDone(ServerHelloDone::from_bytes(handshake_type, bytes)?)),
-                HandshakeType::ClientKeyExchange => Ok(Message::ClientKeyExchange(ClientKeyExchange::from_bytes(handshake_type, bytes)?)),
+                HandshakeType::ClientKeyExchange => Ok(Message::ClientKeyExchange(ClientKeyExchange::from_bytes(handshake_type, bytes, suite)?)),
                 HandshakeType::NewSessionTicket => Ok(Message::NewSessionTicket(SessionTicket::from_bytes(handshake_type, bytes)?)),
                 HandshakeType::CertificateStatus => Ok(Message::CertificateStatus(CertificateStatus::from_bytes(handshake_type, bytes))),
                 HandshakeType::CipherSpec => Ok(Message::CipherSpec),
@@ -64,14 +66,14 @@ impl<'a> Message<'a> {
         }
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
+    pub fn as_bytes(&self, suite: &CipherSuite) -> Vec<u8> {
         match self {
             Message::ClientHello(v) => v.as_bytes(),
             Message::ServerHello(v) => v.as_bytes(),
             Message::Certificate(v) => v.as_bytes(),
             Message::ServerKeyExchange(v) => v.as_bytes(),
             Message::ServerHelloDone(v) => v.as_bytes(),
-            Message::ClientKeyExchange(v) => v.as_bytes(),
+            Message::ClientKeyExchange(v) => v.as_bytes(suite),
             Message::NewSessionTicket(v) => v.as_bytes(),
             Message::CipherSpec => vec![HandshakeType::ClientHello.as_u8()],
             Message::CertificateStatus(v) => v.as_bytes(),

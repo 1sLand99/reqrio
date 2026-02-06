@@ -15,7 +15,7 @@ impl<S: Read + Write> SyncStream<S> {
     pub fn connect(mut config: TlsConfig, mut stream: S) -> HlsResult<SyncStream<S>> {
         let client_random = rand::random::<[u8; 32]>();
         let mut conn = Connection::default().with_verify(config.verify);
-        let mut client_hello = RecordLayer::from_bytes(config.fingerprint.client_hello_mut(), false)?;
+        let mut client_hello = RecordLayer::from_bytes(config.fingerprint.client_hello_mut(), false, None)?;
         client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_random(client_random);
         client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_server_name(config.sni);
         client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_session_id(rand::random());
@@ -24,7 +24,7 @@ impl<S: Read + Write> SyncStream<S> {
             _ => client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.remove_h2_alpn()
         }
         client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.remove_tls13();
-        let bs = client_hello.handshake_bytes();
+        let bs = client_hello.handshake_bytes(&CipherSuite::new(0));
         conn.update_session(&bs[5..])?;
         stream.write_all(&bs)?;
         conn.set_client_random(client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.take_random());
@@ -46,7 +46,7 @@ impl<S: Read + Write> SyncStream<S> {
     }
 
     fn handle_message(&mut self, mut param: Option<&mut TlsConfig>) -> HlsResult<bool> {
-        let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished)?;
+        let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, Some(self.conn.cipher_suite()))?;
         // println!("{:#?}", record);
         for message in record.messages {
             match record.context_type {
@@ -65,9 +65,9 @@ impl<S: Read + Write> SyncStream<S> {
                         }
                         Message::ServerHelloDone(_) => {
                             let param = param.as_mut().ok_or("conn param can't be null")?;
-                            let mut client_key_exchange = RecordLayer::from_bytes(param.fingerprint.client_key_exchange_mut(), false)?;
+                            let mut client_key_exchange = RecordLayer::from_bytes(param.fingerprint.client_key_exchange_mut(), false, None)?;
                             client_key_exchange.messages[0].client_key_exchange_mut().unwrap().set_pub_key(self.conn.pub_share_key());
-                            let bs = client_key_exchange.handshake_bytes();
+                            let bs = client_key_exchange.handshake_bytes(self.conn.cipher_suite());
                             self.conn.update_session(&bs[5..])?;
                             self.stream.write_all(&bs)?;
 
@@ -140,7 +140,7 @@ impl<S: Read + Write> Read for SyncStream<S> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         loop {
             let record_len = self.read_next_packet()?;
-            let mut record = RecordLayer::from_bytes(&mut self.read_buffer[0..record_len], self.handshake_finished)?;
+            let mut record = RecordLayer::from_bytes(&mut self.read_buffer[0..record_len], self.handshake_finished, None)?;
             match record.context_type {
                 RecordType::CipherSpec | RecordType::HandShake => {
                     if self.handshake_finished { self.conn.read_message(&mut record)?; } else { let _ = self.handle_message(None)?; }

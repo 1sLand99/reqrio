@@ -53,13 +53,13 @@ async fn main() {
     // };
     // req.set_url("https://127.0.0.1:7878").await.unwrap();
     // req.set_url("https://www.jetstar.com").await.unwrap();
-    // let url = "https://m1.pxb7.com/api/search/h5/product/selectSearchPageList";
+    req.set_url("https://m1.pxb7.com/api/search/h5/product/selectSearchPageList").await.unwrap();
 
     // req.set_url("https://accounts.pcid.ca/login").await.unwrap();
     // req.set_url("https://xxbg.snssdk.com/fdsf/dsfsdfkdsjfk").await.unwrap();
     // req.set_url("https://www.toutiao.com/article/7600224020776239658/?log_from=99ab1fa2b852c_1769590891442&wid=1769590984039").await.unwrap();
     // req.set_url("https://www.sogou.com").await.unwrap();
-    req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").await.unwrap();
+    // req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Asite：wLLyn.com&first=0&FORM=PERE2").await.unwrap();
     println!("111");
     // req.set_url("https://www.so.com").await.unwrap();
     // req.set_callback(|data| {
@@ -78,7 +78,7 @@ async fn main() {
     // req.set_url(res.header().location().unwrap()).await.unwrap();
     // let res = req.get().await.unwrap();
     println!("{}", res.header());
-    println!("{}", res.text().unwrap());
+    // println!("{}", res.text().unwrap());
     // println!("{}", res.tex/t().unwrap());
     // println!("{}", res.raw_string());
     // let res = req.get().await.unwrap();
