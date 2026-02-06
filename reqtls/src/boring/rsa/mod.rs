@@ -1,11 +1,13 @@
 mod bindings;
+
+use std::path::Path;
 use crate::boring::bindings::*;
 use crate::boring::BoringResExt;
 use crate::error::RlsResult;
 use crate::RlsError;
 use bindings::*;
 use std::ptr::null_mut;
-use std::slice;
+use std::{fs, slice};
 pub use certificate::Certificate;
 
 mod certificate;
@@ -116,6 +118,11 @@ impl RsaKey {
         unsafe { BIO_free(bio) };
         if pkey.is_null() { return Err(RlsError::BioNewError); }
         Ok(RsaKey(pkey))
+    }
+
+    pub fn from_pri_pem_file(pem_file: impl AsRef<Path>) -> RlsResult<RsaKey> {
+        let pem = fs::read(pem_file)?;
+        RsaKey::from_pri_pem(pem)
     }
 
     pub fn from_pub_pem(pem: impl AsRef<[u8]>) -> RlsResult<RsaKey> {

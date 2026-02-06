@@ -355,6 +355,7 @@ impl Header {
                 header.agreement = items.next().unwrap_or("").to_string();
                 let status = items.next().unwrap_or("100").parse().unwrap_or(100);
                 header.status = HttpStatus::new(status);
+                continue;
             }
             let mut items = line.split(": ");
             let name = items.next().unwrap_or("");

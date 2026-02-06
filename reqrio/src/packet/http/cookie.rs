@@ -107,11 +107,23 @@ impl Cookie {
     pub fn set_domain(&mut self, domain: String) {
         self.domain = domain;
     }
+    pub fn with_domain(mut self, domain: impl ToString) -> Self {
+        self.set_domain(domain.to_string());
+        self
+    }
     pub fn set_path(&mut self, path: String) {
         self.path = path;
     }
+    pub fn with_path(mut self, path: impl ToString) -> Self {
+        self.set_path(path.to_string());
+        self
+    }
     pub fn set_http_only(&mut self, http_only: bool) {
         self.http_only = http_only;
+    }
+    pub fn with_http_only(mut self, http_only: bool) -> Cookie {
+        self.set_http_only(http_only);
+        self
     }
     pub fn set_expires(&mut self, expires: String) {
         self.expires = expires;

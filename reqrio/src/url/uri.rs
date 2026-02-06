@@ -17,6 +17,8 @@ impl Uri {
         }
     }
 
+    pub fn value(&self) -> &str { &self.uri }
+
     pub(crate) fn set_uri(&mut self, uri: impl ToString) {
         self.uri = uri.to_string();
     }

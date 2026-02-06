@@ -1,6 +1,7 @@
 use std::ffi::CString;
+use std::path::Path;
 use std::ptr::null_mut;
-use std::slice;
+use std::{fs, slice};
 use crate::boring::bindings::*;
 use crate::boring::BoringResExt;
 use super::bindings::*;
@@ -51,6 +52,11 @@ impl Certificate {
         }
         unsafe { BIO_free(bio); }
         Ok(res)
+    }
+
+    pub fn from_pem_file(pem_file: impl AsRef<Path>) -> RlsResult<Vec<Certificate>> {
+        let pem = fs::read(pem_file)?;
+        Certificate::from_pem(&pem)
     }
 
     pub fn as_der(&mut self) -> &[u8] {

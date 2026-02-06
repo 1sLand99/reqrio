@@ -20,3 +20,8 @@ qt/cmake-build-debug-visual-studio
 qt/cmake-build-release-visual-studio
 qt/reqrio.lib
 nls_100.json
+nodejs/reqrio.dll
+nodejs/libreqrio.so
+node_modules
+package.json
+package-lock.json
