@@ -21,10 +21,9 @@
 * aes_ofb_128
 * des_ecb
 * des_cbc
-* base64
 * rsa
 
-### tls支持tls1.2
+#### tls支持tls1.2
 
 * aes-gcm-128
 * aes-gcm-256
@@ -34,7 +33,7 @@
 * secp384r1
 * secp521r1
 
-### 算法签名
+#### 算法签名
 
 * RSA_PSS_RSAE_SHA256
 * RSA_PSS_RSAE_SHA384
@@ -46,7 +45,7 @@
 * RSA_PKCS1_SHA384
 * RSA_PKCS1_SHA512
 
-### 哈希支持
+#### 哈希支持
 
 * sha1
 * sha224
@@ -55,7 +54,7 @@
 * sha512
 * hmac
 
-### 编码支持
+#### 编码支持
 
 * base64
 
@@ -76,7 +75,7 @@ fn dd() {
 }
 ```
 
-### RsaCipher 加解密示例
+#### RsaCipher 加解密示例
 
 ```rust
 fn dd() {
@@ -94,5 +93,31 @@ fn dd() {
     let rsa = RsaCipher::from_key(nkey).unwrap();
     let decrypted = rsa.decrypt(encrypted.as_slice(), true).unwrap();
     println!("{} {:?}", decrypted.len(), decrypted);
+}
+```
+
+#### 证书读取示例
+```rust
+fn dd() {
+    //读取证书链
+    let certificates = Certificate::from_pem_file(pem)?;
+    //读取证书私钥
+    let certificate_key = RsaKey::from_pri_pem_file(key)?;
+}
+```
+
+#### 哈希计算示例
+```rust
+fn dd(){
+    let mut hash = Hasher::new(Sha::Sha256).unwrap();
+    hash.update("fd").unwrap();
+    let bs = hash.current_hash().unwrap();
+    let bs = hash.finalize().unwrap();
+
+    let bs = hash::sha256("fd").unwrap();
+
+    let mut hmac = Hmac::new("key", Sha::Sha256).unwrap();
+    hmac.update("fs").unwrap();
+    let bs=hmac.finalize().unwrap();
 }
 ```

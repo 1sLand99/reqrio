@@ -21,10 +21,9 @@
 //! * aes_ofb_128
 //! * des_ecb
 //! * des_cbc
-//! * base64
 //! * rsa
 //!
-//! ### TLS supports TLS 1.2.
+//! #### TLS supports TLS 1.2.
 //!
 //! * aes-gcm-128
 //! * aes-gcm-256
@@ -34,7 +33,7 @@
 //! * secp384r1
 //! * secp521r1
 //!
-//! ### AlgorithmSignature
+//! #### AlgorithmSignature
 //!
 //! * RSA_PSS_RSAE_SHA256
 //! * RSA_PSS_RSAE_SHA384
@@ -46,7 +45,7 @@
 //! * RSA_PKCS1_SHA384
 //! * RSA_PKCS1_SHA512
 //!
-//! ### Hash support
+//! #### Hash support
 //!
 //! * sha1
 //! * sha224
@@ -55,7 +54,7 @@
 //! * sha512
 //! * hmac
 //!
-//! ### Encoding support
+//! #### Encoding support
 //!
 //! * base64
 //!
@@ -76,7 +75,7 @@
 //! }
 //! ```
 //!
-//! ### RsaCipher encryption/decryption example
+//! #### RsaCipher encryption/decryption example
 //!
 //! ```rust
 //! fn dd() {
@@ -97,6 +96,31 @@
 //! }
 //! ```
 //!
+//! #### Certificate Reading Example
+//! ```rust
+//! fn dd() {
+//!     //Read the certificate chain
+//!     let certificates = Certificate::from_pem_file(pem)?;
+//!     //Read the certificate private key
+//!     let certificate_key = RsaKey::from_pri_pem_file(key)?;
+//! }
+//! ```
+//!
+//! #### Hash calculation example
+//! ```rust
+//! fn dd(){
+//!     let mut hash = Hasher::new(Sha::Sha256).unwrap();
+//!     hash.update("fd").unwrap();
+//!     let bs = hash.current_hash().unwrap();
+//!     let bs = hash.finalize().unwrap();
+//!
+//!     let bs = hash::sha256("fd").unwrap();
+//!
+//!     let mut hmac = Hmac::new("key", Sha::Sha256).unwrap();
+//!     hmac.update("fs").unwrap();
+//!     let bs=hmac.finalize().unwrap();
+//! }
+//! ```
 //!
 pub use connection::Connection;
 pub use message::{Message, Alert};
