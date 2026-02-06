@@ -253,8 +253,8 @@ session.close()
 
 ### reqrio export function
 
-| No. |                        | Function                                      | Params |                Res                | Note |
-|:---:|------------------------|:----------------------------------------------|:-------|:---------------------------------:|:----:|
+| No. | Function               | Params                                        | Res    |               Note                |
+|:---:|------------------------|:----------------------------------------------|:-------|:---------------------------------:|
 |  1  | new_http               | -                                             | void * |
 |  2  | set_header_json        | void *, const char *                          | int    |
 |  3  | add_header             | void *, const char *, const char *            | int    |
