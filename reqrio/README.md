@@ -254,7 +254,7 @@ session.close()
 ### reqrio export function
 
 | No. | Function               | Params                                        | Res    |               Note                |
-|:---:|------------------------|:----------------------------------------------|:-------|:---------------------------------:|
+|:---:|:-----------------------|:----------------------------------------------|:-------|:---------------------------------:|
 |  1  | new_http               | -                                             | void * |
 |  2  | set_header_json        | void *, const char *                          | int    |
 |  3  | add_header             | void *, const char *, const char *            | int    |
@@ -274,12 +274,12 @@ session.close()
 | 17  | set_cookie             | void *, const char *                          | int    |
 | 18  | add_cookie             | void *, const char *, const char *            | int    |
 | 19  | reconnect              | void *                                        | int    |
-| 20  | get                    | void *                                        | char * |
-| 21  | post                   | void *                                        | char * |
-| 22  | options                | void *                                        | char * |
-| 23  | put                    | void *                                        | char * |
-| 24  | delete                 | void *                                        | char * |
-| 25  | trach                  | void *                                        | char * |
+| 20  | get                    | void *                                        | char * |       Return to hexadecimal       |
+| 21  | post                   | void *                                        | char * |       Return to hexadecimal       |
+| 22  | options                | void *                                        | char * |       Return to hexadecimal       |
+| 23  | put                    | void *                                        | char * |       Return to hexadecimal       |
+| 24  | delete                 | void *                                        | char * |       Return to hexadecimal       |
+| 25  | trach                  | void *                                        | char * |       Return to hexadecimal       |
 | 26  | destroy                | void *                                        | -      |   Destroy the new_tttp instance   |
 | 27  | free_pointer           | char *                                        | -      |      Destroy char * pointer       |
 | 28  | register               | void *, extern "C" fn(const char *, uint32_t) | int    |

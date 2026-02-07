@@ -47,7 +47,7 @@ impl AcReq {
             proxy: Proxy::Null,
             fingerprint: Fingerprint::default(),
             body: BodyType::Text("".to_string()),
-            verify: false,
+            verify: true,
         }
     }
 

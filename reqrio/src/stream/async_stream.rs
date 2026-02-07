@@ -39,7 +39,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
     }
     pub async fn connect(mut stream: S, config: TlsConfig<'_>) -> HlsResult<TlsStream<S>> {
         let client_random = rand::random::<[u8; 32]>();
-        let mut conn = Connection::default().with_client_random(client_random.to_vec());
+        let mut conn = Connection::default().with_client_random(client_random.to_vec()).with_verify(config.verify);
         let mut record = RecordLayer::from_bytes(config.fingerprint.client_hello_mut(), false, None)?;
         let message = record.messages.get_mut(0).ok_or(RlsError::ClientHelloNone)?;
         message.client_mut().ok_or(HlsError::NullPointer)?.set_random(client_random);
@@ -97,7 +97,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             let config = config.as_mut().ok_or("config can't be null")?;
                             let mut record = RecordLayer::from_bytes(config.fingerprint.client_key_exchange_mut(), false, None)?;
                             let client_key_exchange = record.messages.get_mut(0).ok_or(HlsError::NullPointer)?;
-                            client_key_exchange.client_key_exchange_mut().unwrap().set_pub_key(self.conn.pub_share_key());
+                            client_key_exchange.client_key_exchange_mut().unwrap().set_pub_key(self.conn.pub_share_key()?);
                             let bs = record.handshake_bytes(self.conn.cipher_suite());
                             self.conn.update_session(&bs[5..])?;
                             self.write_buffer.push_slice(&bs);

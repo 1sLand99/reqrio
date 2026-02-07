@@ -51,9 +51,10 @@ async fn main() {
     //     "productTypeIds":[],
     //     "confirmSubscribe":1
     // };
+    req.set_url("https://www.link114.cn/").await.unwrap();
     // req.set_url("https://127.0.0.1:7878").await.unwrap();
     // req.set_url("https://www.jetstar.com").await.unwrap();
-    req.set_url("https://m1.pxb7.com/api/search/h5/product/selectSearchPageList").await.unwrap();
+    // req.set_url("https://m1.pxb7.com/api/search/h5/product/selectSearchPageList").await.unwrap();
 
     // req.set_url("https://accounts.pcid.ca/login").await.unwrap();
     // req.set_url("https://xxbg.snssdk.com/fdsf/dsfsdfkdsjfk").await.unwrap();
@@ -72,13 +73,13 @@ async fn main() {
     // req.set_url(url).await.unwrap();
     // req.set_json(data);
     let res = req.get().await.unwrap();
-    // let res = req.get().await.unwrap();
+    let res = req.get().await.unwrap();
     // println!("{}", res.header());
     // println!("{}", res.text().unwrap());
     // req.set_url(res.header().location().unwrap()).await.unwrap();
     // let res = req.get().await.unwrap();
     println!("{}", res.header());
-    // println!("{}", res.text().unwrap());
+    println!("{}", res.text().unwrap());
     // println!("{}", res.tex/t().unwrap());
     // println!("{}", res.raw_string());
     // let res = req.get().await.unwrap();

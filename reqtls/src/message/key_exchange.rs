@@ -234,8 +234,8 @@ impl ClientKeyExchange {
         res
     }
 
-    pub fn set_pub_key(&mut self, pub_key: &[u8]) {
-        self.hellman_param.pub_key = Bytes::new(pub_key.to_vec());
+    pub fn set_pub_key(&mut self, pub_key: impl Into<Vec<u8>>) {
+        self.hellman_param.pub_key = Bytes::new(pub_key.into());
         self.hellman_param.pub_key_len = self.hellman_param.pub_key.len() as u16;
     }
 

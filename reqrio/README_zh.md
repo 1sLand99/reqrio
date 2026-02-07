@@ -272,12 +272,12 @@ session.close()
 | 17 | set_cookie             | void *, const char *                          |  int   |
 | 18 | add_cookie             | void *, const char *, const char *            |  int   |
 | 19 | reconnect              | void *                                        |  int   |
-| 20 | get                    | void *                                        | char * |
-| 21 | post                   | void *                                        | char * |
-| 22 | options                | void *                                        | char * |
-| 23 | put                    | void *                                        | char * |
-| 24 | delete                 | void *                                        | char * |
-| 25 | trach                  | void *                                        | char * |
+| 20 | get                    | void *                                        | char * |       返回十六进制        |
+| 21 | post                   | void *                                        | char * |       返回十六进制        |
+| 22 | options                | void *                                        | char * |       返回十六进制        |
+| 23 | put                    | void *                                        | char * |       返回十六进制        |
+| 24 | delete                 | void *                                        | char * |       返回十六进制        |
+| 25 | trach                  | void *                                        | char * |       返回十六进制        |
 | 26 | destroy                | void *                                        |   -    |    销毁new_http实例     |
 | 27 | free_pointer           | char *                                        |   -    |     销毁char *指针      |
 | 28 | register               | void *, extern "C" fn(const char *, uint32_t) |  int   |

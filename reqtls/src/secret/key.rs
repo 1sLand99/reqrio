@@ -1,16 +1,24 @@
 use super::super::message::key_exchange::NamedCurve;
 use crate::boring::{EcCurve, EvpCurve};
+use crate::bytes::Bytes;
 use crate::error::RlsResult;
-use crate::RlsError;
+use crate::{rand, RlsError};
 
 #[allow(non_camel_case_types)]
 pub enum SharedKey {
     None,
     Evp(EvpCurve),
     Ec(EcCurve),
+    PreMasterSecret(Bytes),
 }
 
 impl SharedKey {
+    pub fn new_pre_master_secret() -> RlsResult<SharedKey> {
+        let mut master_secret = vec![3, 3];
+        master_secret.extend(rand::random::<[u8; 46]>());
+        Ok(SharedKey::PreMasterSecret(Bytes::new(master_secret)))
+    }
+
     pub fn new(name_cure: &NamedCurve) -> RlsResult<SharedKey> {
         match name_cure {
             NamedCurve::x25519 => Ok(SharedKey::Evp(EvpCurve::new_x25519()?)),
@@ -23,7 +31,8 @@ impl SharedKey {
         match self {
             SharedKey::Evp(v) => v.diffie_hellman(pub_key),
             SharedKey::Ec(v) => v.diffie_hellman(pub_key),
-            SharedKey::None => Err(RlsError::Currently("PriKey mut init before".to_string()))
+            SharedKey::None => Err(RlsError::Currently("PriKey mut init before".to_string())),
+            SharedKey::PreMasterSecret(bytes) => Ok(bytes.as_bytes()),
         }
     }
 
@@ -31,7 +40,8 @@ impl SharedKey {
         match self {
             SharedKey::Evp(v) => v.pub_key(),
             SharedKey::Ec(v) => v.pub_key(),
-            SharedKey::None => &[]
+            SharedKey::None => &[],
+            SharedKey::PreMasterSecret(bytes) => bytes.as_ref(),
         }
     }
 }

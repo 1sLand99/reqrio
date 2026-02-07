@@ -146,6 +146,10 @@ impl RsaKey {
         Ok(RsaKey(pkey))
     }
 
+    pub fn new(pkey: *mut EVP_PKEY) -> RsaKey {
+        RsaKey(pkey)
+    }
+
     pub fn pkey(&self) -> *mut EVP_PKEY {
         self.0
     }
@@ -160,17 +164,18 @@ impl Drop for RsaKey {
 
 pub struct RsaCipher {
     ctx: *mut EVP_PKEY_CTX,
-    _key: RsaKey,
 }
 
 impl RsaCipher {
-    pub fn from_key(key: RsaKey) -> RlsResult<RsaCipher> {
-        let ctx = unsafe { EVP_PKEY_CTX_new(key.0, null_mut()) };
+    pub unsafe fn new(key: *mut EVP_PKEY) -> RlsResult<RsaCipher> {
+        let ctx = unsafe { EVP_PKEY_CTX_new(key, null_mut()) };
         if ctx.is_null() { return Err(RlsError::RsaNewError); }
         Ok(RsaCipher {
             ctx,
-            _key: key,
         })
+    }
+    pub fn from_rsa_key(key: &RsaKey) -> RlsResult<RsaCipher> {
+        unsafe { RsaCipher::new(key.0) }
     }
 
     pub fn encrypt(&self, data: impl AsRef<[u8]>, oaep: bool) -> RlsResult<Vec<u8>> {
@@ -238,12 +243,12 @@ mod tests {
         println!("{:?}", key.to_pri_der());
         println!("{:?}", key.to_pub_der());
         let nkey = RsaKey::from_pub_der(key.to_pub_der()).unwrap();
-        let rsa = RsaCipher::from_key(nkey).unwrap();
+        let rsa = RsaCipher::from_rsa_key(&nkey).unwrap();
         let encrypted = rsa.encrypt("adsdfds", true).unwrap();
         println!("{} {:?}", encrypted.len(), encrypted);
 
         let nkey = RsaKey::from_pri_der(key.to_pri_der()).unwrap();
-        let rsa = RsaCipher::from_key(nkey).unwrap();
+        let rsa = RsaCipher::from_rsa_key(&nkey).unwrap();
         let decrypted = rsa.decrypt(encrypted.as_slice(), true).unwrap();
         println!("{} {:?}", decrypted.len(), decrypted);
     }

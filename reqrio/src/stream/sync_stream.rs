@@ -66,7 +66,7 @@ impl<S: Read + Write> SyncStream<S> {
                         Message::ServerHelloDone(_) => {
                             let param = param.as_mut().ok_or("conn param can't be null")?;
                             let mut client_key_exchange = RecordLayer::from_bytes(param.fingerprint.client_key_exchange_mut(), false, None)?;
-                            client_key_exchange.messages[0].client_key_exchange_mut().unwrap().set_pub_key(self.conn.pub_share_key());
+                            client_key_exchange.messages[0].client_key_exchange_mut().unwrap().set_pub_key(self.conn.pub_share_key()?);
                             let bs = client_key_exchange.handshake_bytes(self.conn.cipher_suite());
                             self.conn.update_session(&bs[5..])?;
                             self.stream.write_all(&bs)?;

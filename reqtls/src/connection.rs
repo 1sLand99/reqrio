@@ -11,7 +11,7 @@ use super::version::Version;
 use crate::boring::{AlgorithmSigner, Certificate};
 use crate::error::RlsResult;
 use crate::secret::key::SharedKey;
-use crate::{Certificates, ClientHello, ClientKeyExchange, RlsError, RsaKey, SignatureAlgorithm};
+use crate::{Certificates, ClientHello, ClientKeyExchange, RlsError, RsaCipher, RsaKey, SignatureAlgorithm};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::ops::Range;
@@ -87,9 +87,9 @@ impl Connection {
     }
 
     pub fn set_by_certificate(&mut self, certificate: Certificates, sni: &str) -> RlsResult<()> {
-        if !self.verify { return Ok(()); }
         let der = certificate.certificates().first().ok_or("Server not sent certificate")?;
         self.certificate = Certificate::from_der(der.as_ref())?;
+        if !self.verify { return Ok(()); }
         self.certificate.verify_sni(sni)
     }
 
@@ -120,8 +120,13 @@ impl Connection {
         self.exchange_pub_key = client_key.hellman_param().pub_key().clone();
     }
 
-    pub fn pub_share_key(&mut self) -> &[u8] {
-        self.shared_key.pub_key()
+    pub fn pub_share_key(&mut self) -> RlsResult<Vec<u8>> {
+        if let SharedKey::None = self.shared_key {
+            self.shared_key = SharedKey::new_pre_master_secret()?;
+            let rsa = unsafe{RsaCipher::new(self.certificate.pub_key()?)?};
+            return rsa.encrypt(self.shared_key.pub_key(), false);
+        }
+        Ok(self.shared_key.pub_key().to_vec())
     }
 
     pub fn make_cipher(&mut self, server: bool) -> RlsResult<()> {
@@ -131,7 +136,7 @@ impl Connection {
             true => ("extended master secret", self.cipher_suite.current_session_hash()?.to_vec()),
             false => ("master secret", [self.client_random.as_bytes(), self.server_random.as_bytes()].concat())
         };
-        self.prf.prf(&share_secret, label, &seed, &mut self.master_secret)?; //"master secret"
+        self.prf.prf(&share_secret, label, &seed, &mut self.master_secret)?; //master" secret"
         let mut f = OpenOptions::new().create(true).append(true).open("2.log")?;
         f.write_all(format!("CLIENT_RANDOM {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(self.master_secret)).as_bytes())?;
         let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
@@ -266,5 +271,5 @@ impl Connection {
         Ok(())
     }
 
-    pub fn cipher_suite(&self) -> &CipherSuite {&self.cipher_suite}
+    pub fn cipher_suite(&self) -> &CipherSuite { &self.cipher_suite }
 }
