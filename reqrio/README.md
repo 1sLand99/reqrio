@@ -12,9 +12,9 @@
 * `std_sync`: Standard TLS library ([rustls](https://github.com/rustls/rustls), synchronous requests)
 * `std_async`: Standard TLS library ([tokio-rustls](https://github.com/rustls/tokio-rustls), asynchronous requests)
 * `cls_sync`: Self-developed TLS library (**Algorithm is imperfect, does not verify server certificates, do not use in
-  production mode**) [reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), synchronous requests
+  production mode**), [algorithm support](https://github.com/xllgl2017/reqrio/tree/master/reqtls), synchronous requests
 * `cls_async`: Self-developed TLS library (**Algorithm is imperfect, does not verify server certificates, do not use in
-  production mode**) [reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), asynchronous requests
+  production mode**), [algorithm support](https://github.com/xllgl2017/reqrio/tree/master/reqtls), asynchronous requests
 
 **Note:** std and cls cannot exist simultaneously, while sync and async can exist simultaneously.
 
@@ -289,7 +289,7 @@ session.close()
 | 32  | ws_set_url             | void *, const char *                          | int    |
 | 33  | ws_set_uri             | void *, const char *                          | int    |
 | 34  | open_ws                | void *                                        | void * |
-| 35  | open_ws_raw            | void *, const char *                          | void * |
+| 35  | open_ws_raw            | const char *, const char *                    | void * |
 | 36  | ws_read                | void *                                        | char * |          Return as JSON           |
 | 37  | ws_write               | void *, int, bool, const char *               | int    |          opcode,mask,msg          |
 | 38  | ws_close               | void *                                        | -      |        Destroy WS instance        |

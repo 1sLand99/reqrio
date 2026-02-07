@@ -10,9 +10,9 @@
 * std_sync: 标准的tls库([rustls](https://github.com/rustls/rustls)，同步请求
 * std_async: 标准的tls库([tokio-rustls](https://github.com/rustls/tokio-rustls))，异步请求
 * cls_sync: 自研tls库(**算法不完善，不校验服务端证书，请勿用于生产模式
-  **)[reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), 同步请求
+  **)，[算法支持](https://github.com/xllgl2017/reqrio/tree/master/reqtls), 同步请求
 * cls_async: 自研tls库(**算法不完善，不校验服务端证书，请勿用于生产模式
-  **)[reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), 异步请求
+  **)，[算法支持](https://github.com/xllgl2017/reqrio/tree/master/reqtls), 异步请求
 
 **注意**: std和cls不可以同时存在，sync和async可以同时存在
 
