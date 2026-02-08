@@ -502,10 +502,10 @@ mod tests {
     #[test]
     fn test_object() {
         let jd = crate::object! {
-            "sdsd":"dffdf",
-            "dfdf":[1,2,3,4],
-            "dfdg":null,
-            "tf":1,
+            "b":"dffdf",
+            "c":[1,2,3,4],
+            "a":null,
+            "d":1,
             "fs":false,
             "sf":1.23234,
             "dffdfdf":{
