@@ -268,3 +268,5 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for TlsStream<S> {
 }
 
 unsafe impl<S> Send for TlsStream<S> {}
+
+unsafe impl<S> Sync for TlsStream<S> {}

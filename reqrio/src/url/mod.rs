@@ -3,6 +3,7 @@ pub use addr::Addr;
 pub use protocol::Protocol;
 use std::fmt::Display;
 pub use uri::Uri;
+pub use param::Param;
 
 mod addr;
 mod param;
