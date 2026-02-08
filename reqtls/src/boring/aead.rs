@@ -71,3 +71,5 @@ impl Drop for AeadCryptor {
 }
 
 unsafe impl Send for AeadCryptor {}
+
+unsafe impl Sync for AeadCryptor {}

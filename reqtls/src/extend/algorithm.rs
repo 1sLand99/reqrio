@@ -3,7 +3,6 @@ use crate::error::RlsResult;
 use crate::rand;
 
 
-
 #[derive(Debug)]
 pub struct SignatureAlgorithms {
     hash_len: u16,

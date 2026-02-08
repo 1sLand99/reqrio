@@ -161,6 +161,10 @@ impl Drop for RsaKey {
     }
 }
 
+unsafe impl Send for RsaKey {}
+
+unsafe impl Sync for RsaKey {}
+
 
 pub struct RsaCipher {
     ctx: *mut EVP_PKEY_CTX,

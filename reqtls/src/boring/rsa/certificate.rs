@@ -91,3 +91,6 @@ impl Drop for Certificate {
         }
     }
 }
+
+unsafe impl Send for Certificate {}
+unsafe impl Sync for Certificate {}

@@ -107,6 +107,8 @@ impl Drop for CipherCryptor {
 
 unsafe impl Send for CipherCryptor {}
 
+unsafe impl Sync for CipherCryptor {}
+
 pub struct Cipher {
     ctx: *mut EVP_CIPHER_CTX,
     evp_cipher: *const EVP_CIPHER,
