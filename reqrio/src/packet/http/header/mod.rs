@@ -159,7 +159,7 @@ impl Header {
         let mut res = self.keys.clone();
         res.insert(0, HeaderKey::new(":method", HeaderValue::String(self.method.to_string())));
         let invalid_keys = ["connection", "host", "content-length", "transfer-encoding", "upgrade"];
-        let res=res.into_iter().filter(|x|!invalid_keys.contains(&x.name_lower().as_str())&&x.value().to_string()!="").collect();
+        let res = res.into_iter().filter(|x| !invalid_keys.contains(&x.name_lower().as_str()) && x.value().to_string() != "").collect();
         Ok(res)
     }
 
@@ -226,6 +226,21 @@ impl Header {
     pub fn set_user_agent(&mut self, user_agent: impl ToString) -> HlsResult<()> {
         self.insert("user-agent", user_agent)
     }
+
+    pub fn set_sec_ch_ua(&mut self, sec_ch_ua: impl ToString)->HlsResult<()> {
+        self.insert("sec-ch-ua", sec_ch_ua.to_string())
+    }
+
+
+    pub fn set_sec_ch_ua_mobile(&mut self, sec_ch_ua_mobile: impl ToString)->HlsResult<()> {
+        self.insert("sec-ch-ua-mobile", sec_ch_ua_mobile.to_string())
+    }
+
+
+    pub fn set_sec_ch_ua_platform(&mut self, sec_ch_ua_platform: impl ToString)->HlsResult<()> {
+        self.insert("sec-ch-ua-platform", sec_ch_ua_platform.to_string())
+    }
+    
 
     pub fn user_agent(&self) -> Option<&str> {
         self.get("user-agent")?.as_string()
@@ -304,6 +319,14 @@ impl Header {
         self.get("content-encoding")?.as_string()
     }
 
+    pub fn set_content_encoding(&mut self, encoding: impl ToString) -> HlsResult<()> {
+        self.insert("content-encoding", encoding)
+    }
+
+    pub fn accept_encoding(&self) -> Option<&str> {
+        self.get("accept-encoding")?.as_string()
+    }
+
     pub fn set_method(&mut self, method: Method) { self.method = method; }
 
     pub fn set_uri(&mut self, uri: impl AsRef<str>) -> HlsResult<()> {
@@ -331,6 +354,7 @@ impl Header {
         let mut header = Header::new_res();
         value = value.replace("\r\n", "\n");
         for (index, line) in value.split("\n").enumerate() {
+            if line == "" { continue; }
             if index == 0 {
                 let mut items = line.split(" ");
                 header.method = Method::try_from(items.next().unwrap_or("GET")).unwrap_or(Method::GET);
@@ -350,6 +374,7 @@ impl Header {
         let mut header = Header::new_res();
         value = value.replace("\r\n", "\n");
         for (index, line) in value.split("\n").enumerate() {
+            if line == "" { continue; }
             if index == 0 {
                 let mut items = line.split(" ");
                 header.agreement = items.next().unwrap_or("").to_string();
