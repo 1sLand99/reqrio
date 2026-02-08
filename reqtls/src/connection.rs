@@ -123,14 +123,14 @@ impl Connection {
     pub fn pub_share_key(&mut self) -> RlsResult<Vec<u8>> {
         if let SharedKey::None = self.shared_key {
             self.shared_key = SharedKey::new_pre_master_secret()?;
-            let rsa = unsafe{RsaCipher::new(self.certificate.pub_key()?)?};
+            let rsa = unsafe { RsaCipher::new(self.certificate.pub_key()?)? };
             return rsa.encrypt(self.shared_key.pub_key(), false);
         }
         Ok(self.shared_key.pub_key().to_vec())
     }
 
     pub fn make_cipher(&mut self, server: bool) -> RlsResult<()> {
-        println!("{:?} {:?}", self.cipher_suite, self.cipher_suite.aead());
+        println!("{:?} {:?} {:?}", self.cipher_suite, self.cipher_suite.aead(), self.named_curve);
         let share_secret = self.shared_key.diffie_hellman(self.exchange_pub_key.as_ref())?;
         let (label, seed) = match self.use_ems {
             true => ("extended master secret", self.cipher_suite.current_session_hash()?.to_vec()),

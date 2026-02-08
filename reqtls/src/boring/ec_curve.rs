@@ -1,13 +1,15 @@
+use super::bindings::*;
+use super::*;
+use crate::error::RlsResult;
+use crate::RlsError;
 use std::ffi::c_void;
 use std::ptr::null_mut;
 use std::slice;
-use crate::error::RlsResult;
-use crate::RlsError;
-use super::bindings::*;
+
 
 pub struct EcCurve {
-    ec_key: *mut EC_KEY,
-    pub_key: *mut u8,
+    ec_key: CPointerMut<EC_KEY>,
+    pub_key: CPointerMut<u8>,
 }
 
 impl EcCurve {
@@ -23,85 +25,60 @@ impl EcCurve {
         EcCurve::new(NID_secp521r1)
     }
     fn new(nid: i32) -> RlsResult<EcCurve> {
-        let ec_key = unsafe { EC_KEY_new_by_curve_name(nid) };
+        let ec_key = CPointerMut::new(unsafe { EC_KEY_new_by_curve_name(nid) });
         if ec_key.is_null() { return Err(RlsError::InitEcKeyError); }
-        let r = unsafe { EC_KEY_generate_key(ec_key) };
-        if r != 1 {
-            unsafe { EC_KEY_free(ec_key) };
-            return Err(RlsError::GenEcKeyError);
-        };
+        unsafe { EC_KEY_generate_key(ec_key.as_mut_ptr()) }.ok(RlsError::GenEcKeyError)?;
         Ok(EcCurve {
             ec_key,
-            pub_key: null_mut(),
+            pub_key: CPointerMut::nullptr(),
         })
     }
 
     pub fn pub_key(&mut self) -> &[u8] {
-        let pub_key = unsafe { EC_KEY_get0_public_key(self.ec_key) };
-        let group = unsafe { EC_KEY_get0_group(self.ec_key) };
+        let pub_key = unsafe { EC_KEY_get0_public_key(self.ec_key.as_ptr()) };
+        let group = unsafe { EC_KEY_get0_group(self.ec_key.as_ptr()) };
         let len = unsafe {
             EC_POINT_point2buf(
                 group,
                 pub_key,
                 point_conversion_form_t::POINT_CONVERSION_UNCOMPRESSED,
-                &mut self.pub_key,
+                self.pub_key.as_mut(),
                 null_mut(),
             )
         };
-        unsafe { slice::from_raw_parts(self.pub_key, len) }
+        unsafe { slice::from_raw_parts(self.pub_key.as_mut_ptr(), len) }
     }
 
     pub fn diffie_hellman(&self, pub_key: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
-        let group = unsafe { EC_KEY_get0_group(self.ec_key) };
-        let server_point = unsafe { EC_POINT_new(group) };
+        let group = unsafe { EC_KEY_get0_group(self.ec_key.as_ptr()) };
+        let server_point = CPointerMut::new(unsafe { EC_POINT_new(group) });
         if server_point.is_null() { return Err(RlsError::InitEcPointError); }
-        let ret = unsafe {
+        unsafe {
             EC_POINT_oct2point(
                 group,
-                server_point,
+                server_point.as_mut_ptr(),
                 pub_key.as_ref().as_ptr(),
                 pub_key.as_ref().len(),
                 null_mut(),
             )
-        };
-        if ret != 1 {
-            unsafe { EC_POINT_free(server_point); }
-            return Err(RlsError::OCT2PointError);
-        }
+        }.ok(RlsError::OCT2PointError)?;
         let secret_len = unsafe { EC_GROUP_get_degree(group) }.div_ceil(8);
         let mut secret = vec![0u8; secret_len as usize];
         let ret = unsafe {
             ECDH_compute_key(
                 secret.as_mut_ptr() as *mut c_void,
                 secret_len as usize,
-                server_point,
-                self.ec_key,
+                server_point.as_ptr(),
+                self.ec_key.as_ptr(),
                 None,
             )
         };
-        unsafe { EC_POINT_free(server_point); }
         if ret <= 0 {
             return Err(RlsError::ComputeKeyError);
         }
         Ok(secret)
     }
 }
-
-impl Drop for EcCurve {
-    fn drop(&mut self) {
-        if !self.pub_key.is_null() {
-            unsafe { OPENSSL_free(self.pub_key as *mut c_void) };
-        }
-
-        if !self.ec_key.is_null() {
-            unsafe { EC_KEY_free(self.ec_key) }
-        }
-    }
-}
-
-unsafe impl Send for EcCurve {}
-
-unsafe impl Sync for EcCurve {}
 
 #[cfg(test)]
 mod tests {

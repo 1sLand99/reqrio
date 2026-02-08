@@ -6,22 +6,24 @@ mod bindings;
 pub mod hash;
 mod signature;
 
-pub use rsa::{RsaCipher, RsaKey,Certificate};
+pub use rsa::{Certificate, RsaCipher, RsaKey};
 mod rsa;
+mod ffi;
 
-use std::ffi::c_int;
-pub use cipher::{Cipher, Padding, base64};
-pub use signature::{AlgorithmSigner, SignatureAlgorithm};
+pub use cipher::{base64, Cipher, Padding};
 pub use ec_curve::*;
 pub use evp_curve::*;
+use ffi::CPointerMut;
 pub use hash::*;
+pub use signature::{AlgorithmSigner, SignatureAlgorithm};
+use std::ffi::c_int;
 
 use crate::error::RlsResult;
 use crate::extend::Aead;
 use crate::message::Payload;
+use crate::RlsError;
 use aead::AeadCryptor;
 use cipher::CipherCryptor;
-use crate::RlsError;
 
 trait BoringResExt {
     fn ok(self, error: RlsError) -> RlsResult<()>;
