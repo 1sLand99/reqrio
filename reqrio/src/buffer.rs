@@ -73,7 +73,7 @@ impl Buffer {
     pub fn set_len(&mut self, len: usize) {
         self.len = len;
     }
-    
+
     pub fn add_len(&mut self, len: usize) {
         self.len += len;
     }
@@ -136,6 +136,13 @@ impl Buffer {
     pub fn move_to(&mut self, r: Range<usize>, pos: usize) {
         self.len = r.end - r.start;
         self.copy_within(r, pos);
+    }
+
+    pub fn drain(&mut self, range: RangeTo<usize>) -> Vec<u8> {
+        let res = self.buffer[range.clone()].to_vec();
+        self.copy_within(range.end..self.len, 0);
+        self.len = self.len - range.end;
+        res
     }
 }
 
