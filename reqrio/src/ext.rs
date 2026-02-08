@@ -145,12 +145,12 @@ pub(crate) trait ReqPriExt: ReqExt {
     fn hack_decoder(&mut self) -> &mut HackDecode;
 
     #[cfg(anys)]
-    fn handle_h1_res(&mut self, buffer: &Buffer, response: &mut Response, rd: &mut usize) -> HlsResult<bool> {
+    fn handle_h1_res(&mut self, buffer: &mut Buffer, response: &mut Response, rd: &mut usize) -> HlsResult<bool> {
         match self.callback() {
-            None => response.extend(buffer),
+            None => response.extend_buffer(buffer),
             Some(callback) => {
                 if response.header().is_empty() {
-                    response.extend(buffer)?;
+                    response.extend_buffer(buffer)?;
                     if !response.header().is_empty() {
                         callback(response.raw_body())?;
                         *rd += response.raw_body().len();

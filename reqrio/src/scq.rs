@@ -88,9 +88,8 @@ impl ScReq {
         let mut buffer = Buffer::with_capacity(16413);
         let mut read_len = 0;
         loop {
-            buffer.reset();
             self.stream.sync_read(&mut buffer)?;
-            if self.handle_h1_res(&buffer, &mut response, &mut read_len)? { break; }
+            if self.handle_h1_res(&mut buffer, &mut response, &mut read_len)? { break; }
         }
         Ok(response)
     }

@@ -92,9 +92,8 @@ impl AcReq {
         let mut buffer = Buffer::with_capacity(16413);
         let mut read_len = 0;
         loop {
-            buffer.reset();
             self.stream.async_read(&mut buffer).await?;
-            if self.handle_h1_res(&buffer, &mut response, &mut read_len)? { break; }
+            if self.handle_h1_res(&mut buffer, &mut response, &mut read_len)? { break; }
         }
         Ok(response)
     }

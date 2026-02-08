@@ -3,7 +3,7 @@ use crate::coder::HackDecode;
 use crate::error::HlsResult;
 use crate::packet::h2c::{FrameFlag, FrameType};
 use crate::packet::{H2Frame, Header};
-use crate::{coder, HeaderValue, HTTP_GAP};
+use crate::{coder, HeaderValue, CHUNK_END, HTTP_GAP};
 use crate::json::JsonValue;
 use std::{mem, ptr};
 pub enum Body {
@@ -132,27 +132,37 @@ impl Response {
         }
     }
 
-    pub fn extend(&mut self, buffer: &Buffer) -> HlsResult<bool> {
-        self.raw.reserve(buffer.len());
+    fn extend_body(&mut self, buffer: &mut Buffer) -> HlsResult<bool> {
+        let copy_len = match self.header.content_length() {
+            None => {
+                let pos = buffer.filled().windows(CHUNK_END.len()).position(|w| w == CHUNK_END);
+                pos.map(|pos| pos + CHUNK_END.len()).unwrap_or(buffer.len())
+            }
+            Some(len) => if buffer.len() < len - self.raw.len() { buffer.len() } else { len - self.raw.len() }
+        };
+        self.raw.reserve(copy_len);
         unsafe {
             let dst = self.raw.as_mut_ptr().add(self.raw.len());
-            ptr::copy_nonoverlapping(buffer.filled().as_ptr(), dst, buffer.len());
-            self.raw.set_len(self.raw.len() + buffer.len());
+            ptr::copy_nonoverlapping(buffer.filled().as_ptr(), dst, copy_len);
+            self.raw.set_len(self.raw.len() + copy_len);
         }
+        buffer.move_to(copy_len..buffer.len(), 0);
+        Ok(self.check_status().unwrap_or(false))
+    }
+
+    pub fn extend_buffer(&mut self, buffer: &mut Buffer) -> HlsResult<bool> {
         match self.header.is_empty() {
             true => {
-                let pos = self.raw.windows(HTTP_GAP.len()).position(|w| w == HTTP_GAP);
+                let pos = buffer.filled().windows(HTTP_GAP.len()).position(|w| w == HTTP_GAP);
                 if let Some(pos) = pos {
-                    let hdr_bs = self.raw.drain(..pos).collect();
+                    let hdr_bs = buffer.drain(..pos + 4);
                     let hdr_str = String::from_utf8(hdr_bs)?;
-                    // println!("{}", hdr_str);
                     self.header = Header::try_from(hdr_str)?;
                     println!("{:?}", self.header.get("connection").map(|v| v.to_string()));
-                    self.raw.drain(..4);
-                    Ok(self.check_status().unwrap_or(false))
+                    self.extend_body(buffer)
                 } else { Ok(false) }
             }
-            false => Ok(self.check_status().unwrap_or(false))
+            false => self.extend_body(buffer)
         }
     }
 

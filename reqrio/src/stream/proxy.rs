@@ -150,7 +150,7 @@ impl std::io::Read for ProxyStream<std::net::TcpStream> {
                 loop {
                     self.buffer.reset();
                     self.buffer.sync_read(&mut self.stream)?;
-                    if resp.extend(&self.buffer)? { break; }
+                    if resp.extend_buffer(&mut self.buffer)? { break; }
                 }
                 let status = resp.header().status().code();
                 if status != 200 { return Err(std::io::Error::other(format!("connect http proxy error-{}", status))); }
@@ -227,7 +227,7 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
                         Poll::Ready(Ok(())) => {
                             let rl = pb.filled().len();
                             stream.buffer.set_len(stream.buffer.len() + rl);
-                            let finished = stream.resp.extend(&stream.buffer)?;
+                            let finished = stream.resp.extend_buffer(&mut stream.buffer)?;
                             if finished { break; }
                         }
                     }
