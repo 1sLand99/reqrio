@@ -107,6 +107,7 @@ impl Connection {
     pub fn set_by_server_exchange_key(&mut self, server_key: ServerKeyExchange) -> RlsResult<()> {
         if self.verify {
             let sign_data = self.gen_key_sign_data(&server_key);
+            println!("{:?}", server_key.hellman_param().signature_algorithm());
             let signature = AlgorithmSigner::new_verify(self.certificate.pub_key()?, server_key.hellman_param().signature_algorithm())?;
             signature.verify(sign_data, server_key.hellman_param().signature().as_ref())?;
         }
