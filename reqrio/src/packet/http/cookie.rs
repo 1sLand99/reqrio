@@ -111,6 +111,10 @@ impl Cookie {
         self.set_domain(domain.to_string());
         self
     }
+    pub fn with_expires(mut self, expires: impl ToString) -> Self {
+        self.set_expires(expires.to_string());
+        self
+    }
     pub fn set_path(&mut self, path: String) {
         self.path = path;
     }

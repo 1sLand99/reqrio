@@ -53,6 +53,10 @@ impl ClientHello {
             CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
             CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
             CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+            //ecdsa
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
         ];
         let suite_all = CipherSuite::SUITES;
         // suite_all.remove(CipherSuiteKind::TLS_RSA_WITH_AES_128_CBC_SHA)
@@ -71,6 +75,10 @@ impl ClientHello {
             Extension::from_type(ExtensionType::ApplicationLayerProtocolNegotiation),
             Extension::from_type(ExtensionType::ServerName),
             Extension::from_type(ExtensionType::EcPointFormats),
+            // Extension::from_type(ExtensionType::RenegotiationInfo),
+            // Extension::from_type(ExtensionType::ExtendMasterSecret),
+            // Extension::from_type(ExtensionType::SignedCertificateTimestamp),
+            // Extension::from_type(ExtensionType::SessionTicket)
         ];
         // let ext_all = ExtensionKind::all();
         // while res.extensions.len() < 9 {

@@ -52,6 +52,11 @@ impl SignatureAlgorithms {
     pub fn random() -> SignatureAlgorithms {
         let mut res = SignatureAlgorithms::new();
         let all_sign = SignatureAlgorithm::all();
+        res.hash=vec![
+          SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
+          SignatureAlgorithm::ECDSA_SECP256R1_SHA256,
+          SignatureAlgorithm::RSA_PKCS1_SHA256,
+        ];
         while res.hash.len() < 10 {
             let index = rand::random::<usize>() % all_sign.len();
             if res.hash.contains(&all_sign[index]) { continue; }

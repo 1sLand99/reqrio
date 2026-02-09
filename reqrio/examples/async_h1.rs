@@ -18,6 +18,7 @@ async fn main() {
         // .with_proxy(Proxy::try_from("http://127.0.0.1:10280").unwrap())
         ;
     let headers = json::object! {
+        "Authorization": "Bearer Upy9fDyueOXiEbON0vRXimg5slXB5wHs+IV75wUbSzZngY0oLn1wJpQw1z3W1yqhu1UUnDUvVg4yrwhyZe9llZUdBEf1DBaF2+N3nSEnwLpmrwQ9iXnSL6LOXKwUhhfc",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
         "Accept": "*/*",
         "Sec-Fetch-Site": "none",
@@ -35,27 +36,28 @@ async fn main() {
         "cookie":"JSESSIONID=05304295A550FF08DE1E44A03CDA8CBB; acw_tc=0a065e4717701411754903815e64f1c251caacb791decd35981b455583d1da; acw_sc__v2=69823a8cb1bb76098533c5837be7f69784d38872"
     };
     req.set_headers_json(headers).unwrap();
-    // let data = json::object! {
-    //     "bizProd":1,
-    //     "couponIds":[],
-    //     "pageIndex":5,
-    //     "pageSize":16,
-    //     "gameId":"10032",
-    //     "query":"",
-    //     "type":4,
-    //     "mineFav":false,
-    //     "filterDTOList":[
-    //         {"attrId":"100328","attrValList":["10032131"],"attrType":1,"filterType":1,"optionType":1},
-    //         {"attrId":"10032306","attrValList":[1000,2000],"attrType":2,"filterType":1,"optionType":1}
-    //     ],
-    //     "combineFilterList":[],
-    //     "sincerelySell":0,
-    //     "posType":1,
-    //     "fromSubscribe":0,
-    //     "productTypeIds":[],
-    //     "confirmSubscribe":1
-    // };
-    // req.set_url("https://127.0.0.1:8080/static/css/index.css").await.unwrap();
+    let data = json::object! {
+      "alpn": "http/1.1",
+      "body": "",
+      "headers": {
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip, deflate, br, zstd",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        // "Content-Type": "application/x-www-form-urlencoded",
+        "Pragma": "no-cache",
+        // "Referer": "http://xxxxxx",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin",
+      },
+      "method": "GET",
+      "tls": "Chrome-linux-135",
+      "url": "https://m.baidu.com"
+    };
+    req.set_url("http://127.0.0.1:8080/v1/api/tlsReq").await.unwrap();
+    req.set_json(data);
     // req.set_url("https://www.link114.cn/").await.unwrap();
     // req.set_url("https://127.0.0.1:7878").await.unwrap();
     // req.set_url("https://www.jetstar.com").await.unwrap();
@@ -65,7 +67,8 @@ async fn main() {
     // req.set_url("https://xxbg.snssdk.com/fdsf/dsfsdfkdsjfk").await.unwrap();
     // req.set_url("https://www.toutiao.com/article/7600224020776239658/?log_from=99ab1fa2b852c_1769590891442&wid=1769590984039").await.unwrap();
     // req.set_url("https://www.sogou.com").await.unwrap();
-    req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Asite：wLLyn.com&first=0&FORM=PERE2").await.unwrap();
+    // req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Asite：wLLyn.com&first=0&FORM=PERE2").await.unwrap();
+    // req.set_url("https://m.baidu.com").await.unwrap();
     println!("111");
     // req.set_url("https://www.so.com").await.unwrap();
     // req.set_callback(|data| {
@@ -77,7 +80,7 @@ async fn main() {
     // println!("{}", String::from_utf8_lossy(&req.gen_h1().unwrap()));
     // req.set_url(url).await.unwrap();
     // req.set_json(data);
-    let res = req.get().await.unwrap();
+    let res = req.post().await.unwrap();
     // let res = req.get().await.unwrap();
     // println!("{}", res.header());
     // println!("{}", res.text().unwrap());
