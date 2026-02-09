@@ -210,8 +210,6 @@ impl Connection {
         bytes.extend(certificate_bytes);
         bytes.extend(server_key_exchange_bytes);
         bytes.extend(server_hello_done_bytes);
-        // let record = RecordLayer::from_bytes(&mut bytes, false)?;
-        // println!("{:#?}", record);
         Ok(bytes)
     }
 
