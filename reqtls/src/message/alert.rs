@@ -149,7 +149,7 @@ impl Alert {
     pub fn from_bytes(bytes: &[u8]) -> RlsResult<Alert> {
         Ok(Alert {
             level: if bytes[0] == 1 { AlertLevel::Warning } else { AlertLevel::Fatal },
-            desc: AlertDesc::from_u8(bytes[1]).ok_or(format!("unsupperted-alert: {}", bytes[1]))?,
+            desc: AlertDesc::from_u8(bytes[1]).ok_or(format!("unsupported-alert: {}", bytes[1]))?,
         })
     }
 
