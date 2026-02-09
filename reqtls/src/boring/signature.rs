@@ -147,7 +147,7 @@ impl AlgorithmSigner {
         Ok(AlgorithmSigner { md_ctx })
     }
 
-    fn new_ec(md_ctx: CPointer<EVP_MD_CTX>, mut pkey_ctx: Option<CPointer<EVP_PKEY_CTX>>) -> RlsResult<AlgorithmSigner> {
+    fn new_ec(md_ctx: CPointer<EVP_MD_CTX>, pkey_ctx: Option<CPointer<EVP_PKEY_CTX>>) -> RlsResult<AlgorithmSigner> {
         if let Some(mut pkey_ctx) = pkey_ctx {
             pkey_ctx.disable_auto_free();
         }
