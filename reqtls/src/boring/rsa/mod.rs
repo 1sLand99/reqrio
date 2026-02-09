@@ -1,4 +1,4 @@
-mod bindings;
+pub(super) mod bindings;
 
 use std::path::Path;
 use crate::boring::bindings::*;
@@ -9,113 +9,79 @@ use bindings::*;
 use std::ptr::null_mut;
 use std::{fs, slice};
 pub use certificate::Certificate;
+use crate::boring::ffi::CPointerMut;
+use crate::RlsError::WritePubKeyError;
 
 mod certificate;
 
-pub struct RsaKey(*mut EVP_PKEY);
+pub struct RsaKey(CPointerMut<EVP_PKEY>);
 
 impl RsaKey {
     pub fn none() -> RsaKey {
-        RsaKey(null_mut())
+        RsaKey(CPointerMut::nullptr())
     }
     pub fn gen_new_key(bits: i32) -> RlsResult<RsaKey> {
-        let rsa = unsafe { RSA_new() };
+        let mut rsa = CPointerMut::new(unsafe { RSA_new() });
         if rsa.is_null() { return Err(RlsError::RsaNewError); }
-        let e = unsafe { BN_new() };
-        if e.is_null() {
-            unsafe { RSA_free(rsa) }
-            return Err(RlsError::BnNewError);
-        };
-        let ret = unsafe { BN_set_word(e, RSA_F4 as u64) };
-        if ret != 1 {
-            unsafe {
-                RSA_free(rsa);
-                BN_free(e);
-            }
-            return Err(RlsError::BnSetWordError);
-        }
-        let ret = unsafe { RSA_generate_key_ex(rsa, bits, e, null_mut()) };
-        if ret != 1 {
-            unsafe {
-                RSA_free(rsa);
-                BN_free(e);
-            }
-            return Err(RlsError::RsaGenKeyError);
-        }
-        let pkey = unsafe { EVP_PKEY_new() };
-        if pkey.is_null() {
-            unsafe {
-                RSA_free(rsa);
-                BN_free(e);
-            }
-            return Err(RlsError::PkeyNewError);
-        };
-        let ret = unsafe { EVP_PKEY_assign_RSA(pkey, rsa) };
-        unsafe { BN_free(e); }
-        if ret != 1 {
-            unsafe { RSA_free(rsa) };
-            return Err(RlsError::PkeyAssignError);
-        }
+        let e = CPointerMut::new(unsafe { BN_new() });
+        if e.is_null() { return Err(RlsError::BnNewError); };
+        unsafe { BN_set_word(e.as_mut_ptr(), RSA_F4 as u64) }.ok(RlsError::BnSetWordError)?;
+        unsafe { RSA_generate_key_ex(rsa.as_mut_ptr(), bits, e.as_mut_ptr(), null_mut()) }.ok(RlsError::RsaGenKeyError)?;
+        let pkey = CPointerMut::new(unsafe { EVP_PKEY_new() });
+        if pkey.is_null() { return Err(RlsError::PkeyNewError); };
+        unsafe { EVP_PKEY_assign_RSA(pkey.as_mut_ptr(), rsa.as_mut_ptr()) }.ok(RlsError::PkeyAssignError)?;
+        rsa.disable_auto_free();
         Ok(RsaKey(pkey))
     }
 
     pub fn to_pri_pem(&self) -> RlsResult<String> {
-        let bio = unsafe { BIO_new(BIO_s_mem()) };
+        let bio = CPointerMut::new(unsafe { BIO_new(BIO_s_mem()) });
         if bio.is_null() { return Err(RlsError::BioNewError); }
-        let ret = unsafe {
+        unsafe {
             PEM_write_bio_PrivateKey(
-                bio,
-                self.0,
+                bio.as_mut_ptr(),
+                self.0.as_mut_ptr(),
                 null_mut(),
                 null_mut(),
                 0,
                 None,
                 null_mut(),
             )
-        };
-        if ret != 1 {
-            unsafe { BIO_free(bio) };
-            return Err(RlsError::WritePriKeyError);
-        }
+        }.ok(RlsError::WritePriKeyError)?;
         let mut data = null_mut();
-        let len = unsafe { BIO_get_mem_data(bio, &mut data) };
+        let len = unsafe { BIO_get_mem_data(bio.as_mut_ptr(), &mut data) };
         let out = unsafe { slice::from_raw_parts(data as *const u8, len as usize) }.to_vec();
-        unsafe { BIO_free(bio) };
         Ok(String::from_utf8(out)?)
     }
 
     pub fn to_pub_pem(&self) -> RlsResult<String> {
-        let bio = unsafe { BIO_new(BIO_s_mem()) };
+        let bio = CPointerMut::new(unsafe { BIO_new(BIO_s_mem()) });
         if bio.is_null() { return Err(RlsError::BioNewError); }
-        let ret = unsafe { PEM_write_bio_PUBKEY(bio, self.0) };
-        if ret != 1 {
-            unsafe { BIO_free(bio) };
-            return Err(RlsError::WritePubKeyError);
-        }
+        unsafe { PEM_write_bio_PUBKEY(bio.as_mut_ptr(), self.0.as_mut_ptr()) }.ok(WritePubKeyError)?;
         let mut data = null_mut();
-        let len = unsafe { BIO_get_mem_data(bio, &mut data) };
+        let len = unsafe { BIO_get_mem_data(bio.as_mut_ptr(), &mut data) };
         let out = unsafe { slice::from_raw_parts(data as *const u8, len as usize) }.to_vec();
-        unsafe { BIO_free(bio) };
         Ok(String::from_utf8(out)?)
     }
 
+    #[deprecated="mem not drop"]
     pub fn to_pri_der(&self) -> &[u8] {
         let mut buf = null_mut();
-        let len = unsafe { i2d_PrivateKey(self.0, &mut buf) };
+        let len = unsafe { i2d_PrivateKey(self.0.as_ptr(), &mut buf) };
         unsafe { slice::from_raw_parts(buf, len as usize) }
     }
 
+    #[deprecated="mem not drop"]
     pub fn to_pub_der(&self) -> &[u8] {
         let mut buf = null_mut();
-        let len = unsafe { i2d_PUBKEY(self.0, &mut buf) };
+        let len = unsafe { i2d_PUBKEY(self.0.as_ptr(), &mut buf) };
         unsafe { slice::from_raw_parts(buf, len as usize) }
     }
 
     pub fn from_pri_pem(pem: impl AsRef<[u8]>) -> RlsResult<RsaKey> {
-        let bio = unsafe { BIO_new_mem_buf(pem.as_ref().as_ptr() as *const _, pem.as_ref().len() as isize) };
+        let bio = CPointerMut::new(unsafe { BIO_new_mem_buf(pem.as_ref().as_ptr() as *const _, pem.as_ref().len() as isize) });
         if bio.is_null() { return Err(RlsError::BioNewError); }
-        let pkey = unsafe { PEM_read_bio_PrivateKey(bio, null_mut(), None, null_mut()) };
-        unsafe { BIO_free(bio) };
+        let pkey = CPointerMut::new(unsafe { PEM_read_bio_PrivateKey(bio.as_mut_ptr(), null_mut(), None, null_mut()) });
         if pkey.is_null() { return Err(RlsError::BioNewError); }
         Ok(RsaKey(pkey))
     }
@@ -126,70 +92,59 @@ impl RsaKey {
     }
 
     pub fn from_pub_pem(pem: impl AsRef<[u8]>) -> RlsResult<RsaKey> {
-        let bio = unsafe { BIO_new_mem_buf(pem.as_ref().as_ptr() as *const _, pem.as_ref().len() as isize) };
+        let bio = CPointerMut::new(unsafe { BIO_new_mem_buf(pem.as_ref().as_ptr() as *const _, pem.as_ref().len() as isize) });
         if bio.is_null() { return Err(RlsError::BioNewError); }
-        let pkey = unsafe { PEM_read_bio_PUBKEY(bio, null_mut(), None, null_mut()) };
-        unsafe { BIO_free(bio) };
+        let pkey = CPointerMut::new(unsafe { PEM_read_bio_PUBKEY(bio.as_mut_ptr(), null_mut(), None, null_mut()) });
         if pkey.is_null() { return Err(RlsError::PkeyNewError); };
         Ok(RsaKey(pkey))
     }
 
     pub fn from_pri_der(der: impl AsRef<[u8]>) -> RlsResult<RsaKey> {
-        let pkey = unsafe { d2i_AutoPrivateKey(null_mut(), &mut der.as_ref().as_ptr(), (der.as_ref().len() as u16).into()) };
+        let pkey = CPointerMut::new(unsafe { d2i_AutoPrivateKey(null_mut(), &mut der.as_ref().as_ptr(), (der.as_ref().len() as u16).into()) });
         if pkey.is_null() { return Err(RlsError::PkeyNewError); };
         Ok(RsaKey(pkey))
     }
 
     pub fn from_pub_der(der: impl AsRef<[u8]>) -> RlsResult<RsaKey> {
-        let pkey = unsafe { d2i_PUBKEY(null_mut(), &mut der.as_ref().as_ptr(), (der.as_ref().len() as u16).into()) };
+        let pkey = CPointerMut::new(unsafe { d2i_PUBKEY(null_mut(), &mut der.as_ref().as_ptr(), (der.as_ref().len() as u16).into()) });
         if pkey.is_null() { return Err(RlsError::PkeyNewError); };
         Ok(RsaKey(pkey))
     }
 
-    pub fn new(pkey: *mut EVP_PKEY) -> RsaKey {
+    pub fn new(pkey: CPointerMut<EVP_PKEY>) -> RsaKey {
         RsaKey(pkey)
     }
 
-    pub fn pkey(&self) -> *mut EVP_PKEY {
-        self.0
+    pub fn pkey(&self) -> &CPointerMut<EVP_PKEY> {
+        &self.0
     }
 }
-
-impl Drop for RsaKey {
-    fn drop(&mut self) {
-        if !self.0.is_null() { unsafe { EVP_PKEY_free(self.0); } }
-    }
-}
-
-unsafe impl Send for RsaKey {}
-
-unsafe impl Sync for RsaKey {}
 
 
 pub struct RsaCipher {
-    ctx: *mut EVP_PKEY_CTX,
+    ctx: CPointerMut<EVP_PKEY_CTX>,
 }
 
 impl RsaCipher {
-    pub unsafe fn new(key: *mut EVP_PKEY) -> RlsResult<RsaCipher> {
-        let ctx = unsafe { EVP_PKEY_CTX_new(key, null_mut()) };
+    pub unsafe fn new(key: &CPointerMut<EVP_PKEY>) -> RlsResult<RsaCipher> {
+        let ctx = CPointerMut::new(unsafe { EVP_PKEY_CTX_new(key.as_mut_ptr(), null_mut()) });
         if ctx.is_null() { return Err(RlsError::RsaNewError); }
         Ok(RsaCipher {
             ctx,
         })
     }
     pub fn from_rsa_key(key: &RsaKey) -> RlsResult<RsaCipher> {
-        unsafe { RsaCipher::new(key.0) }
+        unsafe { RsaCipher::new(&key.0) }
     }
 
     pub fn encrypt(&self, data: impl AsRef<[u8]>, oaep: bool) -> RlsResult<Vec<u8>> {
-        unsafe { EVP_PKEY_encrypt_init(self.ctx) }.ok(RlsError::InitEncryptError)?;
+        unsafe { EVP_PKEY_encrypt_init(self.ctx.as_mut_ptr()) }.ok(RlsError::InitEncryptError)?;
         let padding = if oaep { RSA_PKCS1_OAEP_PADDING } else { RSA_PKCS1_PADDING };
-        unsafe { EVP_PKEY_CTX_set_rsa_padding(self.ctx, padding) }.ok(RlsError::RsaSetPaddingError)?;
+        unsafe { EVP_PKEY_CTX_set_rsa_padding(self.ctx.as_mut_ptr(), padding) }.ok(RlsError::RsaSetPaddingError)?;
         let mut out_len = 0;
         unsafe {
             EVP_PKEY_encrypt(
-                self.ctx,
+                self.ctx.as_mut_ptr(),
                 null_mut(),
                 &mut out_len,
                 data.as_ref().as_ptr(),
@@ -199,7 +154,7 @@ impl RsaCipher {
         let mut out = vec![0u8; out_len];
         unsafe {
             EVP_PKEY_encrypt(
-                self.ctx,
+                self.ctx.as_mut_ptr(),
                 out.as_mut_ptr(),
                 &mut out_len,
                 data.as_ref().as_ptr(),
@@ -210,14 +165,14 @@ impl RsaCipher {
     }
 
     pub fn decrypt(&self, data: impl AsRef<[u8]>, oaep: bool) -> RlsResult<Vec<u8>> {
-        unsafe { EVP_PKEY_decrypt_init(self.ctx) }.ok(RlsError::InitDecryptError)?;
+        unsafe { EVP_PKEY_decrypt_init(self.ctx.as_mut_ptr()) }.ok(RlsError::InitDecryptError)?;
         let padding = if oaep { RSA_PKCS1_OAEP_PADDING } else { RSA_PKCS1_PADDING };
-        unsafe { EVP_PKEY_CTX_set_rsa_padding(self.ctx, padding) }.ok(RlsError::RsaSetPaddingError)?;
+        unsafe { EVP_PKEY_CTX_set_rsa_padding(self.ctx.as_mut_ptr(), padding) }.ok(RlsError::RsaSetPaddingError)?;
         let mut out_len = data.as_ref().len();
         let mut out = vec![0u8; data.as_ref().len()];
         unsafe {
             EVP_PKEY_decrypt(
-                self.ctx,
+                self.ctx.as_mut_ptr(),
                 out.as_mut_ptr(),
                 &mut out_len,
                 data.as_ref().as_ptr(),
@@ -226,12 +181,6 @@ impl RsaCipher {
         }.ok(RlsError::PkeyDecryptError)?;
         out.truncate(out_len);
         Ok(out)
-    }
-}
-
-impl Drop for RsaCipher {
-    fn drop(&mut self) {
-        unsafe { EVP_PKEY_CTX_free(self.ctx) }
     }
 }
 

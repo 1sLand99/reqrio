@@ -10,10 +10,10 @@ use crate::hash::hmac;
 use crate::{rand, RlsError};
 use super::BoringResExt;
 use std::ptr::{null, null_mut};
-
+use crate::boring::ffi::CPointerMut;
 
 pub struct CipherCryptor {
-    ctx: *mut EVP_CIPHER_CTX,
+    ctx: CPointerMut<EVP_CIPHER_CTX>,
     mac_key: [u8; 20],
     key: Vec<u8>,
     evp_cipher: *const EVP_CIPHER,
@@ -26,7 +26,8 @@ impl CipherCryptor {
             Aead::AES_256_CBC_SHA => unsafe { EVP_aes_256_cbc() }
             _ => return Err("not cipher,but in cipher".into())
         };
-        let ctx = unsafe { EVP_CIPHER_CTX_new() };
+        let ctx = CPointerMut::new(unsafe { EVP_CIPHER_CTX_new() });
+        if ctx.is_null() { return Err(RlsError::InitEvpCtxError); }
         Ok(CipherCryptor {
             ctx,
             mac_key: rand::random(),
@@ -41,11 +42,11 @@ impl CipherCryptor {
     /// ciphertext = AES_CBC(key, iv, plaintext || mac || padding) //pcsk7
     ///```
     pub fn encrypt(&self, param: CryptParam) -> RlsResult<usize> {
-        unsafe { EVP_EncryptInit_ex(self.ctx, self.evp_cipher, null_mut(), self.key.as_ptr(), param.iv.as_ptr()) }.ok(RlsError::CipherCryptError)?;
+        unsafe { EVP_EncryptInit_ex(self.ctx.as_mut_ptr(), self.evp_cipher, null_mut(), self.key.as_ptr(), param.iv.as_ptr()) }.ok(RlsError::CipherCryptError)?;
         let mut out_len = 0;
         unsafe {
             EVP_EncryptUpdate(
-                self.ctx,
+                self.ctx.as_mut_ptr(),
                 param.payload.encrypting_out(param.aead).as_mut_ptr(),
                 &mut out_len,
                 param.payload.encrypting_in(param.aead).as_ptr(),
@@ -54,7 +55,7 @@ impl CipherCryptor {
         let mut final_len = 0;
         unsafe {
             EVP_EncryptFinal_ex(
-                self.ctx,
+                self.ctx.as_mut_ptr(),
                 param.payload.value[16 + out_len as usize..].as_mut_ptr(),
                 &mut final_len,
             )
@@ -74,14 +75,14 @@ impl CipherCryptor {
         let res = unsafe { CRYPTO_memcmp(computed_mac.as_ptr() as *const _, mac.as_ptr() as *const _, mac.len()) };
         if res != 0 { return Err(RlsError::CipherMacError); }
         // 3. 初始化解密
-        unsafe { EVP_DecryptInit_ex(self.ctx, self.evp_cipher, null_mut(), self.key.as_ptr(), param.iv.as_ptr()) }.ok(RlsError::CipherCryptError)?;
+        unsafe { EVP_DecryptInit_ex(self.ctx.as_mut_ptr(), self.evp_cipher, null_mut(), self.key.as_ptr(), param.iv.as_ptr()) }.ok(RlsError::CipherCryptError)?;
 
         // 4. 执行解密
         let mut out_len = 0i32;
         let mut final_len = 0i32;
         unsafe {
             EVP_DecryptUpdate(
-                self.ctx,
+                self.ctx.as_mut_ptr(),
                 param.payload.decrypting_payload(param.aead).as_mut_ptr(),
                 &mut out_len,
                 param.payload.decrypting_payload(param.aead).as_ptr(),
@@ -90,7 +91,7 @@ impl CipherCryptor {
         }.ok(RlsError::CipherDecryptError)?;
         unsafe {
             EVP_DecryptFinal_ex(
-                self.ctx,
+                self.ctx.as_mut_ptr(),
                 param.payload.decrypting_payload(param.aead).as_mut_ptr().add(out_len as usize),
                 &mut final_len,
             )
@@ -99,18 +100,8 @@ impl CipherCryptor {
     }
 }
 
-impl Drop for CipherCryptor {
-    fn drop(&mut self) {
-        unsafe { EVP_CIPHER_CTX_free(self.ctx); }
-    }
-}
-
-unsafe impl Send for CipherCryptor {}
-
-unsafe impl Sync for CipherCryptor {}
-
 pub struct Cipher {
-    ctx: *mut EVP_CIPHER_CTX,
+    ctx: CPointerMut<EVP_CIPHER_CTX>,
     evp_cipher: *const EVP_CIPHER,
     padding: Padding,
     key: Vec<u8>,
@@ -119,8 +110,7 @@ pub struct Cipher {
 
 impl Cipher {
     fn new(cipher: *const EVP_CIPHER) -> Cipher {
-        let ctx = unsafe { EVP_CIPHER_CTX_new() };
-
+        let ctx = CPointerMut::new(unsafe { EVP_CIPHER_CTX_new() });
         Cipher {
             ctx,
             evp_cipher: cipher,
@@ -205,16 +195,17 @@ impl Cipher {
     }
 
     pub fn encrypt(&self, context: impl Into<Vec<u8>>) -> RlsResult<Vec<u8>> {
+        if self.ctx.is_null() { return Err(RlsError::InitEvpCtxError); }
         let mut context = context.into();
         self.padding.add_padding(&mut context);
         let iv = if self.iv.is_empty() { null() } else { self.iv.as_ptr() };
-        unsafe { EVP_EncryptInit_ex(self.ctx, self.evp_cipher, null_mut(), self.key.as_ptr(), iv) }.ok(RlsError::CipherCryptError)?;
-        unsafe { EVP_CIPHER_CTX_set_padding(self.ctx, 0) };
+        unsafe { EVP_EncryptInit_ex(self.ctx.as_mut_ptr(), self.evp_cipher, null_mut(), self.key.as_ptr(), iv) }.ok(RlsError::CipherCryptError)?;
+        unsafe { EVP_CIPHER_CTX_set_padding(self.ctx.as_mut_ptr(), 0) };
         context.resize(context.len() + 16, 0);
         let mut block_len = 0;
         unsafe {
             EVP_EncryptUpdate(
-                self.ctx,
+                self.ctx.as_mut_ptr(),
                 context.as_mut_ptr(),
                 &mut block_len,
                 context.as_ptr(),
@@ -223,7 +214,7 @@ impl Cipher {
         let mut final_len = 0;
         unsafe {
             EVP_EncryptFinal_ex(
-                self.ctx,
+                self.ctx.as_mut_ptr(),
                 context[block_len as usize..].as_mut_ptr(),
                 &mut final_len,
             )
@@ -233,16 +224,17 @@ impl Cipher {
     }
 
     pub fn decrypt(&self, context: impl Into<Vec<u8>>) -> RlsResult<Vec<u8>> {
+        if self.ctx.is_null() { return Err(RlsError::InitEvpCtxError); }
         let iv = if self.iv.is_empty() { null() } else { self.iv.as_ptr() };
-        unsafe { EVP_DecryptInit_ex(self.ctx, self.evp_cipher, null_mut(), self.key.as_ptr(), iv) }.ok(RlsError::CipherCryptError)?;
-        unsafe { EVP_CIPHER_CTX_set_padding(self.ctx, 0) };
+        unsafe { EVP_DecryptInit_ex(self.ctx.as_mut_ptr(), self.evp_cipher, null_mut(), self.key.as_ptr(), iv) }.ok(RlsError::CipherCryptError)?;
+        unsafe { EVP_CIPHER_CTX_set_padding(self.ctx.as_mut_ptr(), 0) };
         let mut context = context.into();
         // 4. 执行解密
         let mut out_len = 0i32;
         let mut final_len = 0i32;
         unsafe {
             EVP_DecryptUpdate(
-                self.ctx,
+                self.ctx.as_mut_ptr(),
                 context.as_mut_ptr(),
                 &mut out_len,
                 context.as_ptr(),
@@ -251,7 +243,7 @@ impl Cipher {
         }.ok(RlsError::CipherDecryptError)?;
         unsafe {
             EVP_DecryptFinal_ex(
-                self.ctx,
+                self.ctx.as_mut_ptr(),
                 context.as_mut_ptr().add(out_len as usize),
                 &mut final_len,
             )
@@ -261,14 +253,6 @@ impl Cipher {
         Ok(context)
     }
 }
-
-impl Drop for Cipher {
-    fn drop(&mut self) {
-        unsafe { EVP_CIPHER_CTX_free(self.ctx); }
-    }
-}
-
-unsafe impl Send for Cipher {}
 
 
 #[cfg(test)]

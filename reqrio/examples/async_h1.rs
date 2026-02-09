@@ -14,7 +14,7 @@ async fn main() {
         // .with_fingerprint(Fingerprint::random().unwrap())
         .with_alpn(ALPN::Http20)
         .with_timeout(timeout)
-        .with_verify(false)
+        .with_verify(true)
         // .with_proxy(Proxy::try_from("http://127.0.0.1:10280").unwrap())
         ;
     let headers = json::object! {

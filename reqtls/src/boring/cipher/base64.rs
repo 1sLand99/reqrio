@@ -1,13 +1,14 @@
 use crate::boring::bindings::*;
+use crate::boring::ffi::CPointerMut;
 use crate::error::RlsResult;
 
 pub struct Base64 {
-    ctx: *mut EVP_ENCODE_CTX,
+    ctx: CPointerMut<EVP_ENCODE_CTX>,
 }
 
 impl Base64 {
     fn new() -> Base64 {
-        let ctx = unsafe { EVP_ENCODE_CTX_new() };
+        let ctx = CPointerMut::new(unsafe { EVP_ENCODE_CTX_new() });
         Base64 { ctx }
     }
 
@@ -16,7 +17,7 @@ impl Base64 {
         let mut len = 0;
         unsafe {
             EVP_EncodeUpdate(
-                self.ctx,
+                self.ctx.as_mut_ptr(),
                 out.as_mut_ptr(),
                 &mut len,
                 data.as_ptr(),
@@ -26,7 +27,7 @@ impl Base64 {
         let mut padding = 0;
         unsafe {
             EVP_EncodeFinal(
-                self.ctx,
+                self.ctx.as_mut_ptr(),
                 out.as_mut_ptr().add(len as usize),
                 &mut padding,
             );
@@ -40,7 +41,7 @@ impl Base64 {
         let mut len = 0;
         unsafe {
             EVP_DecodeUpdate(
-                self.ctx,
+                self.ctx.as_mut_ptr(),
                 out.as_mut_ptr(),
                 &mut len,
                 data.as_ptr(),
@@ -50,19 +51,13 @@ impl Base64 {
         let mut padding = 0;
         unsafe {
             EVP_DecodeFinal(
-                self.ctx,
+                self.ctx.as_mut_ptr(),
                 out.as_mut_ptr().add(len as usize),
                 &mut padding,
             );
         }
         out.truncate((len + padding) as usize);
         Ok(out)
-    }
-}
-
-impl Drop for Base64 {
-    fn drop(&mut self) {
-        unsafe { EVP_ENCODE_CTX_free(self.ctx) }
     }
 }
 

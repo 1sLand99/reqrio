@@ -3,6 +3,7 @@ use crate::boring::BoringResExt;
 use crate::error::RlsResult;
 use crate::RlsError;
 use std::ptr::null_mut;
+use crate::boring::ffi::CPointerMut;
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -134,70 +135,59 @@ impl SignatureAlgorithm {
 }
 
 pub struct AlgorithmSigner {
-    md_ctx: *mut EVP_MD_CTX,
+    md_ctx: CPointerMut<EVP_MD_CTX>,
 }
 
 impl AlgorithmSigner {
-    fn init_ctx() -> RlsResult<*mut EVP_MD_CTX> {
-        let md_ctx = unsafe { EVP_MD_CTX_new() };
+    fn init_ctx() -> RlsResult<CPointerMut<EVP_MD_CTX>> {
+        let md_ctx = CPointerMut::new(unsafe { EVP_MD_CTX_new() });
         if md_ctx.is_null() { return Err(RlsError::InitEvpCtxError); }
         Ok(md_ctx)
     }
 
-    fn new_rsa(md_ctx: *mut EVP_MD_CTX, pkey_ctx: *mut EVP_PKEY_CTX, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
-        unsafe { EVP_PKEY_CTX_set_rsa_padding(pkey_ctx, signature.padding()) }.ok(RlsError::RsaSetPaddingError)?;
+    fn new_rsa(md_ctx: CPointerMut<EVP_MD_CTX>, mut pkey_ctx: CPointerMut<EVP_PKEY_CTX>, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
+        unsafe { EVP_PKEY_CTX_set_rsa_padding(pkey_ctx.as_mut_ptr(), signature.padding()) }.ok(RlsError::RsaSetPaddingError)?;
         if matches!(signature,SignatureAlgorithm::RSA_PSS_RSAE_SHA256|SignatureAlgorithm::RSA_PSS_RSAE_SHA384|SignatureAlgorithm::RSA_PSS_RSAE_SHA512) {
-            unsafe { EVP_PKEY_CTX_set_rsa_mgf1_md(pkey_ctx, signature.evp_md()) }.ok(RlsError::SetRsaMgf1MdError)?;
+            unsafe { EVP_PKEY_CTX_set_rsa_mgf1_md(pkey_ctx.as_mut_ptr(), signature.evp_md()) }.ok(RlsError::SetRsaMgf1MdError)?;
             // saltLen = hashLen (32) —— TLS & RFC 推荐
-            unsafe { EVP_PKEY_CTX_set_rsa_pss_saltlen(pkey_ctx, signature.salt_len()) }.ok(RlsError::SetRsaPassSaltLenError)?;
+            unsafe { EVP_PKEY_CTX_set_rsa_pss_saltlen(pkey_ctx.as_mut_ptr(), signature.salt_len()) }.ok(RlsError::SetRsaPassSaltLenError)?;
         }
+        pkey_ctx.disable_auto_free();
         Ok(AlgorithmSigner { md_ctx })
     }
 
-    fn new_ec(md_ctx: *mut EVP_MD_CTX) -> RlsResult<AlgorithmSigner> {
+    fn new_ec(md_ctx: CPointerMut<EVP_MD_CTX>, mut pkey_ctx: CPointerMut<EVP_PKEY_CTX>) -> RlsResult<AlgorithmSigner> {
+        pkey_ctx.disable_auto_free();
         Ok(AlgorithmSigner { md_ctx })
     }
 
-    pub fn new_verify(pkey: *mut EVP_PKEY, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
+    pub fn new_verify(pkey: &CPointerMut<EVP_PKEY>, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
         let md_ctx = AlgorithmSigner::init_ctx()?;
-        let mut pkey_ctx = null_mut();
-        let ret = unsafe { EVP_DigestVerifyInit(md_ctx, &mut pkey_ctx, signature.evp_md(), null_mut(), pkey) };
-
-        if ret != 1 {
-            unsafe { EVP_MD_CTX_free(md_ctx) };
-            return Err(RlsError::DigestVerifyError);
-        };
+        let mut pkey_ctx = CPointerMut::nullptr();
+        unsafe { EVP_DigestVerifyInit(md_ctx.as_mut_ptr(), pkey_ctx.as_mut(), signature.evp_md(), null_mut(), pkey.as_mut_ptr()) }.ok(RlsError::DigestVerifyError)?;
         AlgorithmSigner::new(md_ctx, pkey_ctx, signature)
     }
 
-    fn new(md_ctx: *mut EVP_MD_CTX, pkey_ctx: *mut EVP_PKEY_CTX, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
-        let res = match signature {
+    fn new(md_ctx: CPointerMut<EVP_MD_CTX>, pkey_ctx: CPointerMut<EVP_PKEY_CTX>, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
+        match signature {
             SignatureAlgorithm::RSA_PSS_RSAE_SHA256 | SignatureAlgorithm::RSA_PSS_RSAE_SHA384 | SignatureAlgorithm::RSA_PSS_RSAE_SHA512
             | SignatureAlgorithm::RSA_PKCS1_SHA256 | SignatureAlgorithm::RSA_PKCS1_SHA384 | SignatureAlgorithm::RSA_PKCS1_SHA512 => AlgorithmSigner::new_rsa(md_ctx, pkey_ctx, signature),
-            SignatureAlgorithm::ECDSA_SECP256R1_SHA256 | SignatureAlgorithm::ECDSA_SECP384R1_SHA384 | SignatureAlgorithm::ECDSA_SECP521R1_SHA512 => AlgorithmSigner::new_ec(md_ctx),
-            _ => return Err("unsupported signature".into())
-        };
-        if res.is_err() {
-            unsafe {
-                EVP_MD_CTX_free(md_ctx);
-                EVP_PKEY_CTX_free(pkey_ctx);
-            }
-        };
-        res
+            SignatureAlgorithm::ECDSA_SECP256R1_SHA256 | SignatureAlgorithm::ECDSA_SECP384R1_SHA384 | SignatureAlgorithm::ECDSA_SECP521R1_SHA512 => AlgorithmSigner::new_ec(md_ctx, pkey_ctx),
+            _ => Err("unsupported signature".into())
+        }
     }
 
-    pub fn new_sign(pkey: *mut EVP_PKEY, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
+    pub fn new_sign(pkey: &CPointerMut<EVP_PKEY>, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
         let md_ctx = AlgorithmSigner::init_ctx()?;
-        let mut pkey_ctx = null_mut();
-        let ret = unsafe { EVP_DigestSignInit(md_ctx, &mut pkey_ctx, signature.evp_md(), null_mut(), pkey) };
-        if ret != 1 { return Err(RlsError::DigestSignError); }
+        let mut pkey_ctx = CPointerMut::nullptr();
+        unsafe { EVP_DigestSignInit(md_ctx.as_mut_ptr(), pkey_ctx.as_mut(), signature.evp_md(), null_mut(), pkey.as_mut_ptr()) }.ok(RlsError::DigestSignError)?;
         AlgorithmSigner::new(md_ctx, pkey_ctx, signature)
     }
 
     pub fn verify(&self, data: impl AsRef<[u8]>, signature: &[u8]) -> RlsResult<()> {
         unsafe {
             EVP_DigestVerify(
-                self.md_ctx,
+                self.md_ctx.as_mut_ptr(),
                 signature.as_ptr(),
                 signature.len(),
                 data.as_ref().as_ptr(),
@@ -211,7 +201,7 @@ impl AlgorithmSigner {
         let mut out = vec![0; len];
         unsafe {
             EVP_DigestSign(
-                self.md_ctx,
+                self.md_ctx.as_mut_ptr(),
                 out.as_mut_ptr(),
                 &mut len,
                 data.as_ref().as_ptr(),
@@ -222,15 +212,6 @@ impl AlgorithmSigner {
         Ok(out)
     }
 }
-
-impl Drop for AlgorithmSigner {
-    fn drop(&mut self) {
-        unsafe {
-            EVP_MD_CTX_free(self.md_ctx);
-        }
-    }
-}
-
 
 #[cfg(test)]
 mod tests {
