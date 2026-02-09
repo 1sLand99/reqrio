@@ -1,12 +1,12 @@
 use crate::boring::BoringResExt;
 use crate::error::RlsResult;
 use crate::RlsError;
-use super::bindings::*;
 use std::ptr::null_mut;
-use crate::boring::ffi::CPointerMut;
+use crate::boring::bindings::*;
+use crate::boring::ffi::CPointer;
 
 pub struct EvpCurve {
-    evp_key: CPointerMut<EVP_PKEY>,
+    evp_key: CPointer<EVP_PKEY>,
     pub_key_len: usize,
     nid: i32,
     secret: usize,
@@ -19,10 +19,10 @@ impl EvpCurve {
     }
 
     fn new(nid: i32, pub_len: usize, secret_len: usize) -> RlsResult<EvpCurve> {
-        let ctx = CPointerMut::new(unsafe { EVP_PKEY_CTX_new_id(nid, null_mut()) });
+        let ctx = CPointer::new(unsafe { EVP_PKEY_CTX_new_id(nid, null_mut()) });
         if ctx.is_null() { return Err(RlsError::InitEvpPKeyCtxError); }
         unsafe { EVP_PKEY_keygen_init(ctx.as_mut_ptr()) }.ok(RlsError::InitKeygenError)?;
-        let mut pkey = CPointerMut::nullptr();
+        let mut pkey = CPointer::nullptr();
         unsafe { EVP_PKEY_keygen(ctx.as_mut_ptr(), pkey.as_mut()) }.ok(RlsError::KeyGenError)?;
         Ok(EvpCurve {
             evp_key: pkey,
@@ -40,7 +40,7 @@ impl EvpCurve {
     }
 
     pub fn diffie_hellman(&mut self, pub_key: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
-        let pub_key = CPointerMut::new(unsafe {
+        let pub_key = CPointer::new(unsafe {
             EVP_PKEY_new_raw_public_key(
                 self.nid,
                 null_mut(),
@@ -49,7 +49,7 @@ impl EvpCurve {
             )
         });
         if pub_key.is_null() { return Err(RlsError::NewPublicKeyError); }
-        let ctx = CPointerMut::new(unsafe { EVP_PKEY_CTX_new(self.evp_key.as_mut_ptr(), null_mut()) });
+        let ctx = CPointer::new(unsafe { EVP_PKEY_CTX_new(self.evp_key.as_mut_ptr(), null_mut()) });
         if ctx.is_null() { return Err(RlsError::InitEvpPKeyCtxError); }
         unsafe { EVP_PKEY_derive_init(ctx.as_mut_ptr()) }.ok(RlsError::InitDeriveError)?;
         unsafe { EVP_PKEY_derive_set_peer(ctx.as_mut_ptr(), pub_key.as_mut_ptr()) }.ok(RlsError::SetPeerDeriveError)?;
@@ -62,7 +62,7 @@ impl EvpCurve {
 
 #[cfg(test)]
 mod tests {
-    use crate::boring::evp_curve::EvpCurve;
+    use crate::boring::evp::curve::EvpCurve;
 
     #[test]
     fn test_evp_curve() {

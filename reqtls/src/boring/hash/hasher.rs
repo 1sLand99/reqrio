@@ -1,13 +1,13 @@
 use std::ptr::null_mut;
 use crate::boring::BoringResExt;
-use crate::boring::ffi::CPointerMut;
+use crate::boring::ffi::CPointer;
 use super::Sha;
 use crate::error::RlsResult;
 use crate::RlsError;
 use super::super::bindings::*;
 
 pub struct Hasher {
-    ctx: CPointerMut<EVP_MD_CTX>,
+    ctx: CPointer<EVP_MD_CTX>,
     sha: Sha,
     buf: [u8; 64],
     len: u32,
@@ -16,7 +16,7 @@ pub struct Hasher {
 
 impl Hasher {
     pub fn new(sha: Sha) -> RlsResult<Hasher> {
-        let ctx = CPointerMut::new(unsafe { EVP_MD_CTX_new() });
+        let ctx = CPointer::new(unsafe { EVP_MD_CTX_new() });
         if ctx.is_null() { return Err(RlsError::InitEvpCtxError); };
         unsafe { EVP_DigestInit_ex(ctx.as_mut_ptr(), sha.evp_md(), null_mut()) }.ok(RlsError::InitDigestError)?;
         Ok(Hasher {
@@ -37,7 +37,7 @@ impl Hasher {
 
     pub fn current_hash(&mut self) -> RlsResult<&[u8]> {
         if self.updated {
-            let tmp_ctx = CPointerMut::new(unsafe { EVP_MD_CTX_new() });
+            let tmp_ctx = CPointer::new(unsafe { EVP_MD_CTX_new() });
             unsafe { EVP_MD_CTX_copy_ex(tmp_ctx.as_mut_ptr(), self.ctx.as_ptr()) };
             unsafe { EVP_DigestFinal_ex(tmp_ctx.as_mut_ptr(), self.buf.as_mut_ptr(), &mut self.len) }.ok(RlsError::DigestFinalError)?;
         };

@@ -123,7 +123,7 @@ impl Connection {
     pub fn pub_share_key(&mut self) -> RlsResult<Vec<u8>> {
         if let SharedKey::None = self.shared_key {
             self.shared_key = SharedKey::new_pre_master_secret()?;
-            let rsa = unsafe { RsaCipher::new(self.certificate.pub_key()?)? };
+            let rsa = RsaCipher::new(self.certificate.pub_key()?)?;
             return rsa.encrypt(self.shared_key.pub_key()?.as_slice(), false);
         }
         Ok(self.shared_key.pub_key()?.as_slice().to_vec())

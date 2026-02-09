@@ -4,22 +4,24 @@ use std::slice;
 use crate::boring::bindings::*;
 use super::rsa::bindings::*;
 
-pub struct CPointerMut<T: CFree<T>> {
+pub struct CPointer<T: CFree<T>> {
     ptr: *mut T,
     auto_free: bool,
 }
-unsafe impl<T: CFree<T>> Send for CPointerMut<T> {}
-unsafe impl<T: CFree<T>> Sync for CPointerMut<T> {}
-impl<T: CFree<T>> CPointerMut<T> {
+unsafe impl<T: CFree<T>> Send for CPointer<T> {}
+
+unsafe impl<T: CFree<T>> Sync for CPointer<T> {}
+
+impl<T: CFree<T>> CPointer<T> {
     pub fn nullptr() -> Self {
-        CPointerMut {
+        CPointer {
             ptr: null_mut(),
             auto_free: true,
         }
     }
 
     pub fn new(ptr: *mut T) -> Self {
-        CPointerMut {
+        CPointer {
             ptr,
             auto_free: true,
         }
@@ -32,7 +34,7 @@ impl<T: CFree<T>> CPointerMut<T> {
     pub fn disable_auto_free(&mut self) { self.auto_free = false }
 }
 
-impl<T: CFree<T>> Drop for CPointerMut<T> {
+impl<T: CFree<T>> Drop for CPointer<T> {
     fn drop(&mut self) {
         T::free_ptr(self.ptr, self.auto_free);
         self.ptr = null_mut();
@@ -56,14 +58,14 @@ impl<'a> Buf<'a> {
 }
 
 pub struct BufPtr {
-    ptr: CPointerMut<u8>,
+    ptr: CPointer<u8>,
     len: usize,
 }
 
 impl BufPtr {
     pub fn nullptr() -> Self {
         BufPtr {
-            ptr: CPointerMut::nullptr(),
+            ptr: CPointer::nullptr(),
             len: 0,
         }
     }

@@ -1,6 +1,6 @@
 use std::ops::Range;
 use super::record::{RecordBuffer, RecordLayer};
-use crate::boring::{CryptParam, Cryptor};
+use crate::boring::{CryptParam, Crypto};
 use crate::error::{RlsError, RlsResult};
 use crate::extend::Aead;
 use iv::Iv;
@@ -10,7 +10,7 @@ pub mod iv;
 pub mod suite;
 
 pub struct Cipher {
-    cryptor: Cryptor,
+    crypto: Crypto,
     iv: Iv,
     seq: u64,
 }
@@ -19,14 +19,14 @@ pub struct Cipher {
 impl Cipher {
     pub fn none() -> Cipher {
         Cipher {
-            cryptor: Cryptor::None,
+            crypto: Crypto::None,
             iv: Iv::new(&[], vec![]),
             seq: 0,
         }
     }
 
     pub fn set_key(&mut self, key: &[u8], aead: &Aead) -> RlsResult<()> {
-        self.cryptor = Cryptor::from_aead(key, aead)?;
+        self.crypto = Crypto::from_aead(key, aead)?;
         Ok(())
     }
 
@@ -49,7 +49,7 @@ impl Cipher {
         let add_arr = buffer.aad(self.seq);
         let nonce = self.iv.as_array(self.seq);
         buffer.add_explicit_iv(&nonce);
-        let len = self.cryptor.encrypt(CryptParam {
+        let len = self.crypto.encrypt(CryptParam {
             aead: buffer.aead,
             nonce: &nonce,
             iv: &nonce,
@@ -71,7 +71,7 @@ impl Cipher {
             Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => self.iv.decrypting_iv(),
             _ => return Err("gen nonce none".into())
         };
-        let len = self.cryptor.decrypt(CryptParam {
+        let len = self.crypto.decrypt(CryptParam {
             aead,
             nonce: &nonce,
             iv: &nonce,

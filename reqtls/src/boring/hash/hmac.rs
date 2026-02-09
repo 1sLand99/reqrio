@@ -1,6 +1,6 @@
 use std::ptr::null_mut;
 use crate::boring::BoringResExt;
-use crate::boring::ffi::CPointerMut;
+use crate::boring::ffi::CPointer;
 use super::Sha;
 use super::super::bindings::*;
 use crate::error::RlsResult;
@@ -8,14 +8,14 @@ use crate::RlsError;
 
 
 pub struct Hmac {
-    ctx: CPointerMut<HMAC_CTX>,
+    ctx: CPointer<HMAC_CTX>,
     buf: [u8; 64],
     len: u32,
 }
 
 impl Hmac {
     pub fn new(key: impl AsRef<[u8]>, sha: Sha) -> RlsResult<Hmac> {
-        let ctx = CPointerMut::new(unsafe { HMAC_CTX_new() });
+        let ctx = CPointer::new(unsafe { HMAC_CTX_new() });
         if ctx.is_null() { return Err(RlsError::HmacCtxNull); }
         unsafe {
             HMAC_Init_ex(

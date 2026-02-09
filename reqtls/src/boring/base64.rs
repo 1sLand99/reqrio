@@ -1,14 +1,14 @@
 use crate::boring::bindings::*;
-use crate::boring::ffi::CPointerMut;
+use crate::boring::ffi::CPointer;
 use crate::error::RlsResult;
 
 pub struct Base64 {
-    ctx: CPointerMut<EVP_ENCODE_CTX>,
+    ctx: CPointer<EVP_ENCODE_CTX>,
 }
 
 impl Base64 {
     fn new() -> Base64 {
-        let ctx = CPointerMut::new(unsafe { EVP_ENCODE_CTX_new() });
+        let ctx = CPointer::new(unsafe { EVP_ENCODE_CTX_new() });
         Base64 { ctx }
     }
 

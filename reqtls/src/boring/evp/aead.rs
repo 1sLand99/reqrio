@@ -6,12 +6,12 @@ use std::mem::MaybeUninit;
 use std::ptr::null_mut;
 use crate::boring::bindings::*;
 
-pub struct AeadCryptor {
+pub struct AeadCrypto {
     ctx: MaybeUninit<EVP_AEAD_CTX>,
 }
 
-impl AeadCryptor {
-    pub fn new(aead: &Aead, key: &[u8]) -> RlsResult<AeadCryptor> {
+impl AeadCrypto {
+    pub fn new(aead: &Aead, key: &[u8]) -> RlsResult<AeadCrypto> {
         let evp_aead = match aead {
             Aead::AES_128_GCM => unsafe { EVP_aead_aes_128_gcm() },
             Aead::AES_256_GCM => unsafe { EVP_aead_aes_256_gcm() }
@@ -21,7 +21,7 @@ impl AeadCryptor {
         let mut ctx = MaybeUninit::zeroed();
         let ok = unsafe { EVP_AEAD_CTX_init(ctx.as_mut_ptr(), evp_aead, key.as_ptr(), key.len(), EVP_AEAD_DEFAULT_TAG_LENGTH as usize, null_mut()) };
         if ok != 1 { return Err(RlsError::AeadCryptError); }
-        Ok(AeadCryptor { ctx })
+        Ok(AeadCrypto { ctx })
     }
 
     pub fn encrypt(&self, param: CryptParam) -> RlsResult<usize> {
@@ -64,12 +64,12 @@ impl AeadCryptor {
     }
 }
 
-impl Drop for AeadCryptor {
+impl Drop for AeadCrypto {
     fn drop(&mut self) {
         unsafe { EVP_AEAD_CTX_cleanup(self.ctx.as_mut_ptr()) }
     }
 }
 
-unsafe impl Send for AeadCryptor {}
+unsafe impl Send for AeadCrypto {}
 
-unsafe impl Sync for AeadCryptor {}
+unsafe impl Sync for AeadCrypto {}

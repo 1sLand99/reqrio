@@ -7,7 +7,7 @@ use std::ffi::c_void;
 use std::ptr::null_mut;
 
 pub struct EcCurve {
-    ec_key: CPointerMut<EC_KEY>,
+    ec_key: CPointer<EC_KEY>,
 }
 
 impl EcCurve {
@@ -23,7 +23,7 @@ impl EcCurve {
         EcCurve::new(NID_secp521r1)
     }
     fn new(nid: i32) -> RlsResult<EcCurve> {
-        let ec_key = CPointerMut::new(unsafe { EC_KEY_new_by_curve_name(nid) });
+        let ec_key = CPointer::new(unsafe { EC_KEY_new_by_curve_name(nid) });
         if ec_key.is_null() { return Err(RlsError::InitEcKeyError); }
         unsafe { EC_KEY_generate_key(ec_key.as_mut_ptr()) }.ok(RlsError::GenEcKeyError)?;
         Ok(EcCurve {
@@ -51,7 +51,7 @@ impl EcCurve {
 
     pub fn diffie_hellman(&self, pub_key: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
         let group = unsafe { EC_KEY_get0_group(self.ec_key.as_ptr()) };
-        let server_point = CPointerMut::new(unsafe { EC_POINT_new(group) });
+        let server_point = CPointer::new(unsafe { EC_POINT_new(group) });
         if server_point.is_null() { return Err(RlsError::InitEcPointError); }
         unsafe {
             EC_POINT_oct2point(

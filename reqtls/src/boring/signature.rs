@@ -3,7 +3,7 @@ use crate::boring::BoringResExt;
 use crate::error::RlsResult;
 use crate::RlsError;
 use std::ptr::null_mut;
-use crate::boring::ffi::CPointerMut;
+use crate::boring::ffi::CPointer;
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -135,17 +135,17 @@ impl SignatureAlgorithm {
 }
 
 pub struct AlgorithmSigner {
-    md_ctx: CPointerMut<EVP_MD_CTX>,
+    md_ctx: CPointer<EVP_MD_CTX>,
 }
 
 impl AlgorithmSigner {
-    fn init_ctx() -> RlsResult<CPointerMut<EVP_MD_CTX>> {
-        let md_ctx = CPointerMut::new(unsafe { EVP_MD_CTX_new() });
+    fn init_ctx() -> RlsResult<CPointer<EVP_MD_CTX>> {
+        let md_ctx = CPointer::new(unsafe { EVP_MD_CTX_new() });
         if md_ctx.is_null() { return Err(RlsError::InitEvpCtxError); }
         Ok(md_ctx)
     }
 
-    fn new_rsa(md_ctx: CPointerMut<EVP_MD_CTX>, mut pkey_ctx: CPointerMut<EVP_PKEY_CTX>, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
+    fn new_rsa(md_ctx: CPointer<EVP_MD_CTX>, mut pkey_ctx: CPointer<EVP_PKEY_CTX>, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
         unsafe { EVP_PKEY_CTX_set_rsa_padding(pkey_ctx.as_mut_ptr(), signature.padding()) }.ok(RlsError::RsaSetPaddingError)?;
         if matches!(signature,SignatureAlgorithm::RSA_PSS_RSAE_SHA256|SignatureAlgorithm::RSA_PSS_RSAE_SHA384|SignatureAlgorithm::RSA_PSS_RSAE_SHA512) {
             unsafe { EVP_PKEY_CTX_set_rsa_mgf1_md(pkey_ctx.as_mut_ptr(), signature.evp_md()) }.ok(RlsError::SetRsaMgf1MdError)?;
@@ -156,19 +156,19 @@ impl AlgorithmSigner {
         Ok(AlgorithmSigner { md_ctx })
     }
 
-    fn new_ec(md_ctx: CPointerMut<EVP_MD_CTX>, mut pkey_ctx: CPointerMut<EVP_PKEY_CTX>) -> RlsResult<AlgorithmSigner> {
+    fn new_ec(md_ctx: CPointer<EVP_MD_CTX>, mut pkey_ctx: CPointer<EVP_PKEY_CTX>) -> RlsResult<AlgorithmSigner> {
         pkey_ctx.disable_auto_free();
         Ok(AlgorithmSigner { md_ctx })
     }
 
-    pub fn new_verify(pkey: &CPointerMut<EVP_PKEY>, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
+    pub fn new_verify(pkey: &CPointer<EVP_PKEY>, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
         let md_ctx = AlgorithmSigner::init_ctx()?;
-        let mut pkey_ctx = CPointerMut::nullptr();
+        let mut pkey_ctx = CPointer::nullptr();
         unsafe { EVP_DigestVerifyInit(md_ctx.as_mut_ptr(), pkey_ctx.as_mut(), signature.evp_md(), null_mut(), pkey.as_mut_ptr()) }.ok(RlsError::DigestVerifyError)?;
         AlgorithmSigner::new(md_ctx, pkey_ctx, signature)
     }
 
-    fn new(md_ctx: CPointerMut<EVP_MD_CTX>, pkey_ctx: CPointerMut<EVP_PKEY_CTX>, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
+    fn new(md_ctx: CPointer<EVP_MD_CTX>, pkey_ctx: CPointer<EVP_PKEY_CTX>, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
         match signature {
             SignatureAlgorithm::RSA_PSS_RSAE_SHA256 | SignatureAlgorithm::RSA_PSS_RSAE_SHA384 | SignatureAlgorithm::RSA_PSS_RSAE_SHA512
             | SignatureAlgorithm::RSA_PKCS1_SHA256 | SignatureAlgorithm::RSA_PKCS1_SHA384 | SignatureAlgorithm::RSA_PKCS1_SHA512 => AlgorithmSigner::new_rsa(md_ctx, pkey_ctx, signature),
@@ -177,9 +177,9 @@ impl AlgorithmSigner {
         }
     }
 
-    pub fn new_sign(pkey: &CPointerMut<EVP_PKEY>, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
+    pub fn new_sign(pkey: &CPointer<EVP_PKEY>, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
         let md_ctx = AlgorithmSigner::init_ctx()?;
-        let mut pkey_ctx = CPointerMut::nullptr();
+        let mut pkey_ctx = CPointer::nullptr();
         unsafe { EVP_DigestSignInit(md_ctx.as_mut_ptr(), pkey_ctx.as_mut(), signature.evp_md(), null_mut(), pkey.as_mut_ptr()) }.ok(RlsError::DigestSignError)?;
         AlgorithmSigner::new(md_ctx, pkey_ctx, signature)
     }
