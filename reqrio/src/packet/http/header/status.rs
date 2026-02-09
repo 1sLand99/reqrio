@@ -23,6 +23,7 @@ impl HttpStatus {
     pub const Unauthorized: HttpStatus = HttpStatus(401);
     pub const Forbidden: HttpStatus = HttpStatus(403);
     pub const NotFound: HttpStatus = HttpStatus(404);
+    pub const LengthRequired: HttpStatus = HttpStatus(411);
     pub const PreconditionFailed: HttpStatus = HttpStatus(412);
     pub const ReqTooLarge: HttpStatus = HttpStatus(413);
     pub const Teapot: HttpStatus = HttpStatus(418);
@@ -36,7 +37,7 @@ impl HttpStatus {
 
 impl HttpStatus {
     pub fn new(code: u16) -> HttpStatus { HttpStatus(code) }
-    
+
     pub fn code(&self) -> u16 { self.0 }
 
     pub fn spec(&self) -> &'static str {
@@ -58,6 +59,7 @@ impl HttpStatus {
             401 => "Unauthorized",
             403 => "Forbidden",
             404 => "Not Found",
+            411 => "Length Required",
             412 => "Precondition Failed",
             413 => "Req Too Large",
             418 => "Teapot",
