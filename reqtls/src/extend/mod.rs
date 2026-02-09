@@ -100,8 +100,9 @@ impl ExtensionType {
     pub const EncryptedClientHello: ExtensionType = ExtensionType(0xfe0d);
     pub const ApplicationSetting: ExtensionType = ExtensionType(0x44cd);
     pub const PreSharedKey: ExtensionType = ExtensionType(0x29);
+    pub const ApplicationSettingOld: ExtensionType = ExtensionType(0x4469);
 
-    pub const EXTENSIONS: [u16; 18] = [0x0, 0x5, 0xa, 0xb, 0xd, 0x10, 0x12, 0x16, 0x17, 0x23, 0x1b, 0x2b, 0x2d, 0x33, 0xff01, 0xfe0d, 0x44cd, 0x29];
+    pub const EXTENSIONS: [u16; 19] = [0x0, 0x5, 0xa, 0xb, 0xd, 0x10, 0x12, 0x16, 0x17, 0x23, 0x1b, 0x2b, 0x2d, 0x33, 0xff01, 0xfe0d, 0x44cd, 0x29, 0x4469];
 
     pub fn spec(&self) -> &'static str {
         match self.0 {
@@ -123,6 +124,7 @@ impl ExtensionType {
             0xfe0d => "EncryptedClientHello",
             0x44cd => "ApplicationSetting",
             0x29 => "PreSharedKey",
+            0x4469 => "ApplicationSettingOld",
             _ => "Reserved"
         }
     }
@@ -130,7 +132,7 @@ impl ExtensionType {
 
 impl Debug for ExtensionType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}({})", self.spec(), self.0)
+        write!(f, "{}(0x{:x})", self.spec(), self.0)
     }
 }
 
@@ -167,6 +169,7 @@ pub enum ExtensionValue {
     SupportedVersions(SupportVersions),
     RenegotiationInfo(RenegotiationInfo),
     ApplicationSetting(ALPS),
+    ApplicationSettingOld(ALPS),
     EncryptedClientHello(EncryptClientHello),
     CompressionCertificate(CompressionCertificate),
     ApplicationLayerProtocolNegotiation(ALPS),
@@ -199,6 +202,7 @@ impl ExtensionValue {
             ExtensionType::KeyShare => Ok(ExtensionValue::KeyShare(KeyShare::from_bytes(bytes))),
             ExtensionType::ApplicationLayerProtocolNegotiation => Ok(ExtensionValue::ApplicationLayerProtocolNegotiation(ALPS::from_bytes(bytes)?)),
             ExtensionType::PreSharedKey => Ok(ExtensionValue::PreSharedKey(PreSharedKey::from_bytes(bytes)?)),
+            ExtensionType::ApplicationSettingOld => Ok(ExtensionValue::ApplicationSetting(ALPS::from_bytes(bytes)?)),
             _ => Ok(ExtensionValue::Unknown(Bytes::new(bytes.to_vec())))
         }
     }
@@ -208,7 +212,7 @@ impl ExtensionValue {
             ExtensionValue::PskKeyExchangeMode(v) => v.as_bytes(),
             ExtensionValue::KeyShare(v) => v.as_bytes(),
             ExtensionValue::SupportedGroups(v) => v.as_bytes(),
-            ExtensionValue::StatusRequest(v) => if server { vec![] }else { v.as_bytes() },
+            ExtensionValue::StatusRequest(v) => if server { vec![] } else { v.as_bytes() },
             ExtensionValue::SignatureAlgorithms(v) => v.as_bytes(),
             ExtensionValue::ServerName(v) => v.as_bytes(),
             ExtensionValue::EcPointFormats(v) => v.as_bytes(),
@@ -223,7 +227,8 @@ impl ExtensionValue {
             ExtensionValue::ApplicationLayerProtocolNegotiation(v) => v.as_bytes(),
             ExtensionValue::Unknown(v) => v.as_bytes(),
             ExtensionValue::SignedCertificateTimestamp => vec![],
-            ExtensionValue::PreSharedKey(v) => v.as_bytes()
+            ExtensionValue::PreSharedKey(v) => v.as_bytes(),
+            ExtensionValue::ApplicationSettingOld(v) => v.as_bytes()
         }
     }
 }

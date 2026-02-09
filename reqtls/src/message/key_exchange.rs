@@ -78,7 +78,7 @@ impl ServerHellmanParam {
         res.pub_key = Bytes::new(bytes[4..res.pub_key_len as usize + 4].to_vec());
         let index = res.pub_key_len as usize + 4;
         let v = u16::from_be_bytes([bytes[index], bytes[index + 1]]);
-        res.signature_algorithm = SignatureAlgorithm::from_u16(v).ok_or("SignatureAlgorithm Unknown")?;
+        res.signature_algorithm = SignatureAlgorithm::new(v);
         res.signature_len = u16::from_be_bytes([bytes[index + 2], bytes[index + 3]]);
         res.signature = Bytes::new(bytes[index + 4..index + 4 + res.signature_len as usize].to_vec());
         Ok(res)
@@ -109,8 +109,8 @@ impl ServerHellmanParam {
         &self.signature
     }
 
-    pub fn signature_algorithm(&self) -> SignatureAlgorithm {
-        self.signature_algorithm
+    pub fn signature_algorithm(&self) -> &SignatureAlgorithm {
+        &self.signature_algorithm
     }
 
     pub fn set_pub_key(&mut self, pub_key: impl Into<Vec<u8>>) {

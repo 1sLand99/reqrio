@@ -11,7 +11,7 @@ use super::version::Version;
 use crate::boring::{AlgorithmSigner, Certificate};
 use crate::error::RlsResult;
 use crate::secret::key::SharedKey;
-use crate::{Certificates, ClientHello, ClientKeyExchange, RlsError, RsaCipher, RsaKey, SignatureAlgorithm};
+use crate::{Certificates, ClientHello, ClientKeyExchange, RlsError, RsaCipher, RsaKey};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::ops::Range;
@@ -184,11 +184,11 @@ impl Connection {
         self.shared_key = SharedKey::new(server_key_exchange.hellman_param().named_curve())?;
         server_key_exchange.hellman_param_mut().set_pub_key(self.shared_key.pub_key()?.as_slice());
         let sign_data = self.gen_key_sign_data(&server_key_exchange);
-        let signer = AlgorithmSigner::new_sign(pri_key.pkey(), SignatureAlgorithm::RSA_PSS_RSAE_SHA256)?;
+        let signer = AlgorithmSigner::new_sign(pri_key.pkey(), server_key_exchange.hellman_param().signature_algorithm())?;
         server_key_exchange.hellman_param_mut().set_signature(Bytes::new(signer.sign(&sign_data)?));
 
         let cert = certificate.first_mut().unwrap();
-        AlgorithmSigner::new_verify(cert.pub_key()?, SignatureAlgorithm::RSA_PSS_RSAE_SHA256)?.verify(sign_data, server_key_exchange.hellman_param().signature().as_ref())?;
+        AlgorithmSigner::new_verify(cert.pub_key()?, server_key_exchange.hellman_param().signature_algorithm())?.verify(sign_data, server_key_exchange.hellman_param().signature().as_ref())?;
         self.exchange_pub_key = server_key_exchange.hellman_param().pub_key().clone();
         self.named_curve = *server_key_exchange.hellman_param().named_curve();
         let server_key_exchange_bytes = server_key_exchange.as_bytes();

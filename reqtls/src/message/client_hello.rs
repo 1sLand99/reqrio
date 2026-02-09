@@ -195,7 +195,7 @@ impl ClientHello {
         let ext = self.extensions.iter().find(|x| x.alps().is_some());
         let alps = ext.map(|ext| Some(ext.alps()?.values().get(0)?.value())).unwrap_or(Some("00")).unwrap_or("00");
         let ext = self.extensions.iter().find(|x| x.signature_algorithms().is_some());
-        let sign_algo = ext.map(|x| Some(x.signature_algorithms()?.hashes().iter().map(|x| *x as u16).collect::<Vec<_>>()));
+        let sign_algo = ext.map(|x| Some(x.signature_algorithms()?.hashes().iter().map(|x| x.as_u16()).collect::<Vec<_>>()));
         let sign_algo = sign_algo.unwrap_or(Some(vec![])).unwrap_or(vec![]);
         let suite_str = suite.iter().map(|x| hex::encode(x.to_be_bytes())).collect::<Vec<_>>().join(",");
         println!("{}", suite_str);

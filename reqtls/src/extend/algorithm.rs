@@ -22,7 +22,7 @@ impl SignatureAlgorithms {
         res.hash_len = u16::from_be_bytes([bytes[0], bytes[1]]);
         for chunk in bytes[2..].chunks(2) {
             let v = u16::from_be_bytes(chunk.try_into()?);
-            res.hash.push(SignatureAlgorithm::from_u16(v).ok_or(format!("SignatureAlgorithm Unknown-{}", v))?);
+            res.hash.push(SignatureAlgorithm::new(v));
         }
         Ok(res)
     }
@@ -51,16 +51,16 @@ impl SignatureAlgorithms {
 
     pub fn random() -> SignatureAlgorithms {
         let mut res = SignatureAlgorithms::new();
-        let all_sign = SignatureAlgorithm::all();
-        res.hash=vec![
-          SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
-          SignatureAlgorithm::ECDSA_SECP256R1_SHA256,
-          SignatureAlgorithm::RSA_PKCS1_SHA256,
+        let all_sign = SignatureAlgorithm::ALL;
+        res.hash = vec![
+            SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
+            SignatureAlgorithm::ECDSA_SECP256R1_SHA256,
+            SignatureAlgorithm::RSA_PKCS1_SHA256,
         ];
         while res.hash.len() < 10 {
             let index = rand::random::<usize>() % all_sign.len();
-            if res.hash.contains(&all_sign[index]) { continue; }
-            res.hash.push(all_sign[index]);
+            if res.hash.contains(&SignatureAlgorithm::new(all_sign[index])) { continue; }
+            res.hash.push(SignatureAlgorithm::new(all_sign[index]));
         }
         res
     }

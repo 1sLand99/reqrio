@@ -152,7 +152,7 @@ impl Fingerprint {
         if items.len() != 4 { return Err("ja4 is error".into()); }
         let mut sign_algo = vec![];
         for algo in items[3].split(",") {
-            sign_algo.push(SignatureAlgorithm::from_u16(u16::from_str_radix(algo, 16)?).ok_or("unsupported signature algorithm")?);
+            sign_algo.push(SignatureAlgorithm::new(u16::from_str_radix(algo, 16)?));
         }
 
         let mut exts = vec![];

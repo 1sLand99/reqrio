@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use crate::boring::bindings::*;
 use crate::boring::BoringResExt;
 use crate::error::RlsResult;
@@ -5,100 +6,20 @@ use crate::RlsError;
 use std::ptr::null_mut;
 use crate::boring::ffi::CPointer;
 
-#[allow(non_camel_case_types)]
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum SignatureAlgorithm {
-    RSA_PKCS1_SHA1 = 0x0201,
-    RSA_PKCS1_SHA256 = 0x0401,
-    RSA_PKCS1_SHA384 = 0x0501,
-    RSA_PKCS1_SHA512 = 0x0601,
-    RSA_PSS_RSAE_SHA256 = 0x0804,
-    RSA_PSS_RSAE_SHA384 = 0x0805,
-    RSA_PSS_RSAE_SHA512 = 0x0806,
-    RSA_PSS_PSS_SHA256 = 0x0807,
-    RSA_PSS_PSS_SHA384 = 0x0808,
-    RSA_PSS_PSS_SHA512 = 0x0809,
-
-    ED25519 = 0x080A,
-    ED448 = 0x080B,
-
-    ECDSA_SHA1 = 0x0203,
-    ECDSA_SECP256R1_SHA256 = 0x0403,
-    ECDSA_SECP384R1_SHA384 = 0x0503,
-    ECDSA_SECP521R1_SHA512 = 0x0603,
-    SHA1_DSA = 0x0202,
-    SHA224_RSA = 0x0301,
-    SHA224_DSA = 0x0302,
-    SHA224_ECDSA = 0x0303,
-    SHA256_DSA = 0x0402,
-    SHA384_DSA = 0x0502,
-    SHA512_DSA = 0x0602,
-}
+#[derive(PartialEq)]
+pub struct SignatureAlgorithm(u16);
 
 impl SignatureAlgorithm {
-    pub fn from_u16(value: u16) -> Option<SignatureAlgorithm> {
-        match value {
-            0x0201 => Some(SignatureAlgorithm::RSA_PKCS1_SHA1),
-            0x0401 => Some(SignatureAlgorithm::RSA_PKCS1_SHA256),
-            0x0501 => Some(SignatureAlgorithm::RSA_PKCS1_SHA384),
-            0x0601 => Some(SignatureAlgorithm::RSA_PKCS1_SHA512),
-            0x0804 => Some(SignatureAlgorithm::RSA_PSS_RSAE_SHA256),
-            0x0805 => Some(SignatureAlgorithm::RSA_PSS_RSAE_SHA384),
-            0x0806 => Some(SignatureAlgorithm::RSA_PSS_RSAE_SHA512),
-            0x0807 => Some(SignatureAlgorithm::RSA_PSS_PSS_SHA256),
-            0x0808 => Some(SignatureAlgorithm::RSA_PSS_PSS_SHA384),
-            0x0809 => Some(SignatureAlgorithm::RSA_PSS_PSS_SHA512),
-            0x080A => Some(SignatureAlgorithm::ED25519),
-            0x080B => Some(SignatureAlgorithm::ED448),
-            0x0203 => Some(SignatureAlgorithm::ECDSA_SHA1),
-            0x0403 => Some(SignatureAlgorithm::ECDSA_SECP256R1_SHA256),
-            0x0503 => Some(SignatureAlgorithm::ECDSA_SECP384R1_SHA384),
-            0x0603 => Some(SignatureAlgorithm::ECDSA_SECP521R1_SHA512),
-            0x0202 => Some(SignatureAlgorithm::SHA1_DSA),
-            0x0301 => Some(SignatureAlgorithm::SHA224_RSA),
-            0x0302 => Some(SignatureAlgorithm::SHA224_DSA),
-            0x0303 => Some(SignatureAlgorithm::SHA224_ECDSA),
-            0x0402 => Some(SignatureAlgorithm::SHA256_DSA),
-            0x0502 => Some(SignatureAlgorithm::SHA384_DSA),
-            0x0602 => Some(SignatureAlgorithm::SHA512_DSA),
-            _ => None
-        }
-    }
-
-    pub fn all() -> Vec<SignatureAlgorithm> {
-        vec![
-            SignatureAlgorithm::RSA_PKCS1_SHA1,
-            SignatureAlgorithm::RSA_PKCS1_SHA256,
-            SignatureAlgorithm::RSA_PKCS1_SHA384,
-            SignatureAlgorithm::RSA_PKCS1_SHA512,
-            SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
-            SignatureAlgorithm::RSA_PSS_RSAE_SHA384,
-            SignatureAlgorithm::RSA_PSS_RSAE_SHA512,
-            SignatureAlgorithm::RSA_PSS_PSS_SHA256,
-            SignatureAlgorithm::RSA_PSS_PSS_SHA384,
-            SignatureAlgorithm::RSA_PSS_PSS_SHA512,
-            SignatureAlgorithm::ED25519,
-            SignatureAlgorithm::ED448,
-            SignatureAlgorithm::ECDSA_SHA1,
-            SignatureAlgorithm::ECDSA_SECP256R1_SHA256,
-            SignatureAlgorithm::ECDSA_SECP384R1_SHA384,
-            SignatureAlgorithm::ECDSA_SECP521R1_SHA512,
-            SignatureAlgorithm::SHA1_DSA,
-            SignatureAlgorithm::SHA224_RSA,
-            SignatureAlgorithm::SHA224_DSA,
-            SignatureAlgorithm::SHA224_ECDSA,
-            SignatureAlgorithm::SHA256_DSA,
-            SignatureAlgorithm::SHA384_DSA,
-            SignatureAlgorithm::SHA512_DSA,
-        ]
-    }
+    pub fn new(v: u16) -> SignatureAlgorithm { SignatureAlgorithm(v) }
 
     pub fn as_bytes(&self) -> [u8; 2] {
-        (*self as u16).to_be_bytes()
+        self.0.to_be_bytes()
     }
 
+    pub fn as_u16(&self)-> u16 { self.0 }
+
     fn evp_md(&self) -> *const EVP_MD {
-        match self {
+        match *self {
             SignatureAlgorithm::RSA_PSS_RSAE_SHA256 => unsafe { EVP_sha256() }
             SignatureAlgorithm::RSA_PSS_RSAE_SHA384 => unsafe { EVP_sha384() }
             SignatureAlgorithm::RSA_PSS_RSAE_SHA512 => unsafe { EVP_sha512() }
@@ -113,7 +34,7 @@ impl SignatureAlgorithm {
     }
 
     fn padding(&self) -> i32 {
-        match self {
+        match *self {
             SignatureAlgorithm::RSA_PSS_RSAE_SHA256 => RSA_PKCS1_PSS_PADDING,
             SignatureAlgorithm::RSA_PSS_RSAE_SHA384 => RSA_PKCS1_PSS_PADDING,
             SignatureAlgorithm::RSA_PSS_RSAE_SHA512 => RSA_PKCS1_PSS_PADDING,
@@ -125,12 +46,74 @@ impl SignatureAlgorithm {
     }
 
     fn salt_len(&self) -> i32 {
-        match self {
+        match *self {
             SignatureAlgorithm::RSA_PSS_RSAE_SHA256 => 32,
             SignatureAlgorithm::RSA_PSS_RSAE_SHA384 => 48,
             SignatureAlgorithm::RSA_PSS_RSAE_SHA512 => 64,
             _ => panic!("unsupported signature algorithm"),
         }
+    }
+}
+
+impl SignatureAlgorithm {
+    pub const RSA_PKCS1_SHA1: SignatureAlgorithm = SignatureAlgorithm(0x0201);
+    pub const RSA_PKCS1_SHA256: SignatureAlgorithm = SignatureAlgorithm(0x0401);
+    pub const RSA_PKCS1_SHA384: SignatureAlgorithm = SignatureAlgorithm(0x0501);
+    pub const RSA_PKCS1_SHA512: SignatureAlgorithm = SignatureAlgorithm(0x0601);
+    pub const RSA_PSS_RSAE_SHA256: SignatureAlgorithm = SignatureAlgorithm(0x0804);
+    pub const RSA_PSS_RSAE_SHA384: SignatureAlgorithm = SignatureAlgorithm(0x0805);
+    pub const RSA_PSS_RSAE_SHA512: SignatureAlgorithm = SignatureAlgorithm(0x0806);
+    pub const RSA_PSS_PSS_SHA256: SignatureAlgorithm = SignatureAlgorithm(0x0807);
+    pub const RSA_PSS_PSS_SHA384: SignatureAlgorithm = SignatureAlgorithm(0x0808);
+    pub const RSA_PSS_PSS_SHA512: SignatureAlgorithm = SignatureAlgorithm(0x0809);
+    pub const ED25519: SignatureAlgorithm = SignatureAlgorithm(0x080A);
+    pub const ED448: SignatureAlgorithm = SignatureAlgorithm(0x080B);
+    pub const ECDSA_SHA1: SignatureAlgorithm = SignatureAlgorithm(0x0203);
+    pub const ECDSA_SECP256R1_SHA256: SignatureAlgorithm = SignatureAlgorithm(0x0403);
+    pub const ECDSA_SECP384R1_SHA384: SignatureAlgorithm = SignatureAlgorithm(0x0503);
+    pub const ECDSA_SECP521R1_SHA512: SignatureAlgorithm = SignatureAlgorithm(0x0603);
+    pub const SHA1_DSA: SignatureAlgorithm = SignatureAlgorithm(0x0202);
+    pub const SHA224_RSA: SignatureAlgorithm = SignatureAlgorithm(0x0301);
+    pub const SHA224_DSA: SignatureAlgorithm = SignatureAlgorithm(0x0302);
+    pub const SHA224_ECDSA: SignatureAlgorithm = SignatureAlgorithm(0x0303);
+    pub const SHA256_DSA: SignatureAlgorithm = SignatureAlgorithm(0x0402);
+    pub const SHA384_DSA: SignatureAlgorithm = SignatureAlgorithm(0x0502);
+    pub const SHA512_DSA: SignatureAlgorithm = SignatureAlgorithm(0x0602);
+
+    pub const ALL: [u16; 23] = [0x0201, 0x0401, 0x0501, 0x0601, 0x0804, 0x0805, 0x0806, 0x0807, 0x0808, 0x0809, 0x080A, 0x080B, 0x0203, 0x0403, 0x0503, 0x0603, 0x0202, 0x0301, 0x0302, 0x0303, 0x0402, 0x0502, 0x0602];
+    pub fn spec(&self) -> &'static str {
+        match *self {
+            SignatureAlgorithm::RSA_PKCS1_SHA1 => "RSA_PKCS1_SHA1",
+            SignatureAlgorithm::RSA_PKCS1_SHA256 => "RSA_PKCS1_SHA256",
+            SignatureAlgorithm::RSA_PKCS1_SHA384 => "RSA_PKCS1_SHA384",
+            SignatureAlgorithm::RSA_PKCS1_SHA512 => "RSA_PKCS1_SHA512",
+            SignatureAlgorithm::RSA_PSS_RSAE_SHA256 => "RSA_PSS_RSAE_SHA256",
+            SignatureAlgorithm::RSA_PSS_RSAE_SHA384 => "RSA_PSS_RSAE_SHA384",
+            SignatureAlgorithm::RSA_PSS_RSAE_SHA512 => "RSA_PSS_RSAE_SHA512",
+            SignatureAlgorithm::RSA_PSS_PSS_SHA256 => "RSA_PSS_PSS_SHA256",
+            SignatureAlgorithm::RSA_PSS_PSS_SHA384 => "RSA_PSS_PSS_SHA384",
+            SignatureAlgorithm::RSA_PSS_PSS_SHA512 => "RSA_PSS_PSS_SHA512",
+            SignatureAlgorithm::ED25519 => "ED25519",
+            SignatureAlgorithm::ED448 => "ED448",
+            SignatureAlgorithm::ECDSA_SHA1 => "ECDSA_SHA1",
+            SignatureAlgorithm::ECDSA_SECP256R1_SHA256 => "ECDSA_SECP256R1_SHA256",
+            SignatureAlgorithm::ECDSA_SECP384R1_SHA384 => "ECDSA_SECP384R1_SHA384",
+            SignatureAlgorithm::ECDSA_SECP521R1_SHA512 => "ECDSA_SECP521R1_SHA512",
+            SignatureAlgorithm::SHA1_DSA => "SHA1_DSA",
+            SignatureAlgorithm::SHA224_RSA => "SHA224_RSA",
+            SignatureAlgorithm::SHA224_DSA => "SHA224_DSA",
+            SignatureAlgorithm::SHA224_ECDSA => "SHA224_ECDSA",
+            SignatureAlgorithm::SHA256_DSA => "SHA256_DSA",
+            SignatureAlgorithm::SHA384_DSA => "SHA384_DSA",
+            SignatureAlgorithm::SHA512_DSA => "SHA512_DSA",
+            _ => "Reserved"
+        }
+    }
+}
+
+impl Debug for SignatureAlgorithm {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(0x{:x})", self.spec(), self.0)
     }
 }
 
@@ -145,9 +128,9 @@ impl AlgorithmSigner {
         Ok(md_ctx)
     }
 
-    fn new_rsa(md_ctx: CPointer<EVP_MD_CTX>, mut pkey_ctx: CPointer<EVP_PKEY_CTX>, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
+    fn new_rsa(md_ctx: CPointer<EVP_MD_CTX>, mut pkey_ctx: CPointer<EVP_PKEY_CTX>, signature: &SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
         unsafe { EVP_PKEY_CTX_set_rsa_padding(pkey_ctx.as_mut_ptr(), signature.padding()) }.ok(RlsError::RsaSetPaddingError)?;
-        if matches!(signature,SignatureAlgorithm::RSA_PSS_RSAE_SHA256|SignatureAlgorithm::RSA_PSS_RSAE_SHA384|SignatureAlgorithm::RSA_PSS_RSAE_SHA512) {
+        if matches!(*signature,SignatureAlgorithm::RSA_PSS_RSAE_SHA256|SignatureAlgorithm::RSA_PSS_RSAE_SHA384|SignatureAlgorithm::RSA_PSS_RSAE_SHA512) {
             unsafe { EVP_PKEY_CTX_set_rsa_mgf1_md(pkey_ctx.as_mut_ptr(), signature.evp_md()) }.ok(RlsError::SetRsaMgf1MdError)?;
             // saltLen = hashLen (32) —— TLS & RFC 推荐
             unsafe { EVP_PKEY_CTX_set_rsa_pss_saltlen(pkey_ctx.as_mut_ptr(), signature.salt_len()) }.ok(RlsError::SetRsaPassSaltLenError)?;
@@ -161,15 +144,15 @@ impl AlgorithmSigner {
         Ok(AlgorithmSigner { md_ctx })
     }
 
-    pub fn new_verify(pkey: &CPointer<EVP_PKEY>, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
+    pub fn new_verify(pkey: &CPointer<EVP_PKEY>, signature: &SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
         let md_ctx = AlgorithmSigner::init_ctx()?;
         let mut pkey_ctx = CPointer::nullptr();
         unsafe { EVP_DigestVerifyInit(md_ctx.as_mut_ptr(), pkey_ctx.as_mut(), signature.evp_md(), null_mut(), pkey.as_mut_ptr()) }.ok(RlsError::DigestVerifyError)?;
         AlgorithmSigner::new(md_ctx, pkey_ctx, signature)
     }
 
-    fn new(md_ctx: CPointer<EVP_MD_CTX>, pkey_ctx: CPointer<EVP_PKEY_CTX>, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
-        match signature {
+    fn new(md_ctx: CPointer<EVP_MD_CTX>, pkey_ctx: CPointer<EVP_PKEY_CTX>, signature: &SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
+        match *signature {
             SignatureAlgorithm::RSA_PSS_RSAE_SHA256 | SignatureAlgorithm::RSA_PSS_RSAE_SHA384 | SignatureAlgorithm::RSA_PSS_RSAE_SHA512
             | SignatureAlgorithm::RSA_PKCS1_SHA256 | SignatureAlgorithm::RSA_PKCS1_SHA384 | SignatureAlgorithm::RSA_PKCS1_SHA512 => AlgorithmSigner::new_rsa(md_ctx, pkey_ctx, signature),
             SignatureAlgorithm::ECDSA_SECP256R1_SHA256 | SignatureAlgorithm::ECDSA_SECP384R1_SHA384 | SignatureAlgorithm::ECDSA_SECP521R1_SHA512 => AlgorithmSigner::new_ec(md_ctx, pkey_ctx),
@@ -177,7 +160,7 @@ impl AlgorithmSigner {
         }
     }
 
-    pub fn new_sign(pkey: &CPointer<EVP_PKEY>, signature: SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
+    pub fn new_sign(pkey: &CPointer<EVP_PKEY>, signature: &SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
         let md_ctx = AlgorithmSigner::init_ctx()?;
         let mut pkey_ctx = CPointer::nullptr();
         unsafe { EVP_DigestSignInit(md_ctx.as_mut_ptr(), pkey_ctx.as_mut(), signature.evp_md(), null_mut(), pkey.as_mut_ptr()) }.ok(RlsError::DigestSignError)?;
@@ -226,7 +209,7 @@ mod tests {
         // certificate.verify_sni("m1.pxb7.com").unwrap();
 
         // let key = RsaKey::gen_new_key(2048).unwrap();
-        let sign = AlgorithmSigner::new_verify(certificate.pub_key().unwrap(), SignatureAlgorithm::ECDSA_SECP256R1_SHA256).unwrap();
+        let sign = AlgorithmSigner::new_verify(certificate.pub_key().unwrap(), &SignatureAlgorithm::ECDSA_SECP256R1_SHA256).unwrap();
         let data = vec![222, 5, 40, 78, 60, 157, 158, 31, 41, 107, 228, 17, 120, 231, 193, 86, 172, 163, 46, 135, 47, 196, 207, 210, 110, 188, 242, 8, 214, 186, 222, 31, 105, 130, 249, 181, 90, 88, 18, 74, 218, 239, 250, 217, 83, 58, 253, 55, 109, 80, 45, 239, 89, 27, 100, 103, 68, 79, 87, 78, 71, 82, 68, 1, 3, 0, 29, 32, 85, 171, 63, 138, 57, 16, 252, 246, 128, 200, 141, 222, 72, 111, 113, 116, 95, 200, 175, 51, 22, 204, 188, 237, 11, 62, 143, 244, 126, 115, 40, 47];
         let signature = hex::decode("304502206601d541286ba8526764b24181c089fe292909865ae10239bcaac0073946ccb3022100bf4287115dd5a1a92f2ecd51ec5f6782c4c2b2c811d5031b5aba5884c7abc683").unwrap();
         sign.verify(data, &signature).unwrap();
