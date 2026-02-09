@@ -124,9 +124,9 @@ impl Connection {
         if let SharedKey::None = self.shared_key {
             self.shared_key = SharedKey::new_pre_master_secret()?;
             let rsa = unsafe { RsaCipher::new(self.certificate.pub_key()?)? };
-            return rsa.encrypt(self.shared_key.pub_key(), false);
+            return rsa.encrypt(self.shared_key.pub_key()?.as_slice(), false);
         }
-        Ok(self.shared_key.pub_key().to_vec())
+        Ok(self.shared_key.pub_key()?.as_slice().to_vec())
     }
 
     pub fn make_cipher(&mut self, server: bool) -> RlsResult<()> {
@@ -175,14 +175,14 @@ impl Connection {
 
         let mut certificates = Certificates::default();
         for certificate in certificate.iter_mut() {
-            certificates.add_certificate(certificate.as_der());
+            certificates.add_certificate(certificate.as_der().as_slice());
         }
         let certificate_bytes = certificates.as_bytes();
         self.update_session(&certificate_bytes)?;
 
         let mut server_key_exchange = ServerKeyExchange::default();
         self.shared_key = SharedKey::new(server_key_exchange.hellman_param().named_curve())?;
-        server_key_exchange.hellman_param_mut().set_pub_key(self.shared_key.pub_key());
+        server_key_exchange.hellman_param_mut().set_pub_key(self.shared_key.pub_key()?.as_slice());
         let sign_data = self.gen_key_sign_data(&server_key_exchange);
         let signer = AlgorithmSigner::new_sign(pri_key.pkey(), SignatureAlgorithm::RSA_PSS_RSAE_SHA256)?;
         server_key_exchange.hellman_param_mut().set_signature(Bytes::new(signer.sign(&sign_data)?));

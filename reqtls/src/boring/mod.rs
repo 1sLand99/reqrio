@@ -13,6 +13,7 @@ mod ffi;
 pub use cipher::{base64, Cipher, Padding};
 pub use ec_curve::*;
 pub use evp_curve::*;
+pub use ffi::Buf;
 use ffi::CPointerMut;
 pub use hash::*;
 pub use signature::{AlgorithmSigner, SignatureAlgorithm};

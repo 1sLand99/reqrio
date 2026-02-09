@@ -1,19 +1,17 @@
+use super::bindings::*;
+use crate::boring::bindings::*;
+use crate::boring::ffi::{BufPtr, CPointerMut};
+use crate::boring::BoringResExt;
+use crate::error::RlsResult;
+use crate::RlsError;
 use std::ffi::CString;
 use std::path::Path;
 use std::ptr::null_mut;
-use std::{fs, slice};
-use crate::boring::bindings::*;
-use crate::boring::BoringResExt;
-use crate::boring::ffi::CPointerMut;
-use super::bindings::*;
-use crate::error::RlsResult;
-use crate::RlsError;
+use std::fs;
 
 pub struct Certificate {
     x509: CPointerMut<X509>,
     pkey: CPointerMut<EVP_PKEY>,
-    der: CPointerMut<u8>,
-    len: usize,
 }
 
 impl Certificate {
@@ -21,8 +19,6 @@ impl Certificate {
         Certificate {
             x509: CPointerMut::nullptr(),
             pkey: CPointerMut::nullptr(),
-            der: CPointerMut::nullptr(),
-            len: 0,
         }
     }
 
@@ -30,8 +26,6 @@ impl Certificate {
         Certificate {
             x509,
             pkey: CPointerMut::nullptr(),
-            der: CPointerMut::nullptr(),
-            len: 0,
         }
     }
 
@@ -58,11 +52,11 @@ impl Certificate {
         Certificate::from_pem(&pem)
     }
 
-    pub fn as_der(&mut self) -> &[u8] {
-        if self.der.is_null() {
-            self.len = unsafe { i2d_X509(self.x509.as_mut_ptr(), self.der.as_mut()) } as usize;
-        }
-        unsafe { slice::from_raw_parts(self.der.as_ptr(), self.len) }
+    pub fn as_der(&mut self) -> BufPtr {
+        let mut buf = BufPtr::nullptr();
+        let len = unsafe { i2d_X509(self.x509.as_mut_ptr(), buf.ptr_mut()) };
+        buf.set_len(len as usize);
+        buf
     }
 
     pub(crate) fn pub_key(&mut self) -> RlsResult<&CPointerMut<EVP_PKEY>> {

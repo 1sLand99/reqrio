@@ -7,7 +7,7 @@ use crate::boring::ffi::CPointerMut;
 
 pub struct EvpCurve {
     evp_key: CPointerMut<EVP_PKEY>,
-    pub_key: Vec<u8>,
+    pub_key_len: usize,
     nid: i32,
     secret: usize,
 }
@@ -18,25 +18,25 @@ impl EvpCurve {
         EvpCurve::new(EVP_PKEY_X25519, 32, 32)
     }
 
-    fn new(nid: i32, mut pub_len: usize, secret_len: usize) -> RlsResult<EvpCurve> {
+    fn new(nid: i32, pub_len: usize, secret_len: usize) -> RlsResult<EvpCurve> {
         let ctx = CPointerMut::new(unsafe { EVP_PKEY_CTX_new_id(nid, null_mut()) });
         if ctx.is_null() { return Err(RlsError::InitEvpPKeyCtxError); }
         unsafe { EVP_PKEY_keygen_init(ctx.as_mut_ptr()) }.ok(RlsError::InitKeygenError)?;
         let mut pkey = CPointerMut::nullptr();
         unsafe { EVP_PKEY_keygen(ctx.as_mut_ptr(), pkey.as_mut()) }.ok(RlsError::KeyGenError)?;
-        let mut pub_key = vec![0; pub_len];
-        let ret = unsafe { EVP_PKEY_get_raw_public_key(pkey.as_ptr(), pub_key.as_mut_ptr(), &mut pub_len) };
-        if ret != 1 { return Err(RlsError::GetPubKeyError); }
         Ok(EvpCurve {
             evp_key: pkey,
-            pub_key,
+            pub_key_len: pub_len,
             secret: secret_len,
             nid,
         })
     }
 
-    pub fn pub_key(&self) -> &[u8] {
-        &self.pub_key
+    pub fn pub_key(&mut self) -> RlsResult<Vec<u8>> {
+        let mut pub_key = vec![0; self.pub_key_len];
+        let ret = unsafe { EVP_PKEY_get_raw_public_key(self.evp_key.as_ptr(), pub_key.as_mut_ptr(), &mut self.pub_key_len) };
+        if ret != 1 { return Err(RlsError::GetPubKeyError); }
+        Ok(pub_key)
     }
 
     pub fn diffie_hellman(&mut self, pub_key: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
@@ -67,7 +67,7 @@ mod tests {
     #[test]
     fn test_evp_curve() {
         let mut x25519 = EvpCurve::new_x25519().unwrap();
-        let pub_key = x25519.pub_key();
+        let pub_key = x25519.pub_key().unwrap();
         println!("{} {:?}", pub_key.len(), pub_key);
         let secret = x25519.diffie_hellman([206, 118, 3, 226, 136, 204, 138, 40, 0, 126, 104, 169, 167, 100, 179, 140, 247, 174, 108, 211, 16, 18, 195, 23, 240, 147, 55, 173, 102, 11, 202, 9]).unwrap();
         println!("{} {:?}", secret.len(), secret);

@@ -1,5 +1,5 @@
 use super::super::message::key_exchange::NamedCurve;
-use crate::boring::{EcCurve, EvpCurve};
+use crate::boring::{Buf, EcCurve, EvpCurve};
 use crate::bytes::Bytes;
 use crate::error::RlsResult;
 use crate::{rand, RlsError};
@@ -36,12 +36,12 @@ impl SharedKey {
         }
     }
 
-    pub fn pub_key(&mut self) -> &[u8] {
+    pub fn pub_key(&mut self) -> RlsResult<Buf<'_>> {
         match self {
-            SharedKey::Evp(v) => v.pub_key(),
-            SharedKey::Ec(v) => v.pub_key(),
-            SharedKey::None => &[],
-            SharedKey::PreMasterSecret(bytes) => bytes.as_ref(),
+            SharedKey::Evp(v) => Ok(Buf::Vec(v.pub_key()?)),
+            SharedKey::Ec(v) => Ok(Buf::Ptr(v.pub_key()?)),
+            SharedKey::None => Ok(Buf::Ref(&[])),
+            SharedKey::PreMasterSecret(bytes) => Ok(Buf::Ref(bytes.as_ref())),
         }
     }
 }

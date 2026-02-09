@@ -67,6 +67,7 @@ pub enum RlsError {
     SetRsaMgf1MdError,
     SetRsaPassSaltLenError,
     CertSniInvalid,
+    GenEcPubKeyError,
     StdError(Box<dyn Error>),
     Currently(String),
 }
@@ -130,7 +131,8 @@ impl Display for RlsError {
             RlsError::OpenX509Error => f.write_str("Open X509 error"),
             RlsError::SetRsaMgf1MdError => f.write_str("Set Rsa Mgf1Md error"),
             RlsError::SetRsaPassSaltLenError => f.write_str("Set Rsa Pass Salt Len error"),
-            RlsError::CertSniInvalid => f.write_str("CertSniInvalid"),
+            RlsError::CertSniInvalid => f.write_str("cert sni error"),
+            RlsError::GenEcPubKeyError => f.write_str("gen ec public key error"),
             RlsError::StdError(e) => f.write_fmt(format_args!("{:?}", e)),
             RlsError::Currently(e) => f.write_str(e),
         }

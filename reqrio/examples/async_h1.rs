@@ -64,8 +64,8 @@ async fn main() {
     // req.set_url("https://accounts.pcid.ca/login").await.unwrap();
     // req.set_url("https://xxbg.snssdk.com/fdsf/dsfsdfkdsjfk").await.unwrap();
     // req.set_url("https://www.toutiao.com/article/7600224020776239658/?log_from=99ab1fa2b852c_1769590891442&wid=1769590984039").await.unwrap();
-    req.set_url("https://www.sogou.com").await.unwrap();
-    // req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Asite：wLLyn.com&first=0&FORM=PERE2").await.unwrap();
+    // req.set_url("https://www.sogou.com").await.unwrap();
+    req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Asite：wLLyn.com&first=0&FORM=PERE2").await.unwrap();
     println!("111");
     // req.set_url("https://www.so.com").await.unwrap();
     // req.set_callback(|data| {

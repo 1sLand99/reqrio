@@ -9,7 +9,7 @@ use bindings::*;
 use std::ptr::null_mut;
 use std::{fs, slice};
 pub use certificate::Certificate;
-use crate::boring::ffi::CPointerMut;
+use crate::boring::ffi::{BufPtr, CPointerMut};
 use crate::RlsError::WritePubKeyError;
 
 mod certificate;
@@ -64,18 +64,18 @@ impl RsaKey {
         Ok(String::from_utf8(out)?)
     }
 
-    #[deprecated="mem not drop"]
-    pub fn to_pri_der(&self) -> &[u8] {
-        let mut buf = null_mut();
-        let len = unsafe { i2d_PrivateKey(self.0.as_ptr(), &mut buf) };
-        unsafe { slice::from_raw_parts(buf, len as usize) }
+    pub fn to_pri_der(&self) -> BufPtr {
+        let mut buf = BufPtr::nullptr();
+        let len = unsafe { i2d_PrivateKey(self.0.as_ptr(), buf.ptr_mut()) };
+        buf.set_len(len as usize);
+        buf
     }
 
-    #[deprecated="mem not drop"]
-    pub fn to_pub_der(&self) -> &[u8] {
-        let mut buf = null_mut();
-        let len = unsafe { i2d_PUBKEY(self.0.as_ptr(), &mut buf) };
-        unsafe { slice::from_raw_parts(buf, len as usize) }
+    pub fn to_pub_der(&self) -> BufPtr {
+        let mut buf = BufPtr::nullptr();
+        let len = unsafe { i2d_PUBKEY(self.0.as_ptr(), buf.ptr_mut()) };
+        buf.set_len(len as usize);
+        buf
     }
 
     pub fn from_pri_pem(pem: impl AsRef<[u8]>) -> RlsResult<RsaKey> {
@@ -195,12 +195,12 @@ mod tests {
         println!("{}", key.to_pub_pem().unwrap());
         println!("{:?}", key.to_pri_der());
         println!("{:?}", key.to_pub_der());
-        let nkey = RsaKey::from_pub_der(key.to_pub_der()).unwrap();
+        let nkey = RsaKey::from_pub_der(key.to_pub_der().as_slice()).unwrap();
         let rsa = RsaCipher::from_rsa_key(&nkey).unwrap();
         let encrypted = rsa.encrypt("adsdfds", true).unwrap();
         println!("{} {:?}", encrypted.len(), encrypted);
 
-        let nkey = RsaKey::from_pri_der(key.to_pri_der()).unwrap();
+        let nkey = RsaKey::from_pri_der(key.to_pri_der().as_slice()).unwrap();
         let rsa = RsaCipher::from_rsa_key(&nkey).unwrap();
         let decrypted = rsa.decrypt(encrypted.as_slice(), true).unwrap();
         println!("{} {:?}", decrypted.len(), decrypted);
