@@ -8,7 +8,7 @@ use tokio::io::AsyncReadExt;
 
 pub struct Buffer {
     buffer: Vec<u8>,
-    len: usize,
+    offset: Range<usize>,
 }
 
 impl Default for Buffer {
@@ -20,62 +20,68 @@ impl Default for Buffer {
 impl Buffer {
     pub fn with_capacity(capacity: usize) -> Buffer {
         let buffer = vec![0u8; capacity];
-        Buffer { buffer, len: 0 }
+        Buffer { buffer, offset: 0..0 }
     }
 
     pub fn new_bytes(bytes: Vec<u8>) -> Self {
         let mut res = Buffer::default();
         res.buffer[..bytes.len()].copy_from_slice(&bytes);
-        res.len = bytes.len();
+        res.offset.end += bytes.len();
         res
     }
 
     #[cfg(feature = "tokio")]
     pub async fn async_read<S: AsyncReadExt + Unpin>(&mut self, stream: &mut S) -> HlsResult<()> {
-        self.async_read_limit(stream, self.buffer.capacity() - self.len).await
+        self.async_read_limit(stream, self.buffer.capacity() - self.offset.len()).await
     }
 
     #[cfg(feature = "tokio")]
     pub async fn async_read_limit<S: AsyncReadExt + Unpin>(&mut self, stream: &mut S, limit: usize) -> HlsResult<()> {
-        let len = stream.read(&mut self.buffer[self.len..self.len + limit]).await?;
+        let len = stream.read(&mut self.buffer[self.offset.len()..self.offset.len() + limit]).await?;
         if len == 0 { return Err(HlsError::PeerClosedConnection); }
-        self.len += len;
+        self.offset.end += len;
         Ok(())
     }
 
     pub fn sync_read<S: Read>(&mut self, stream: &mut S) -> HlsResult<()> {
-        self.sync_read_limit(stream, self.buffer.capacity() - self.len)
+        self.sync_read_limit(stream, self.buffer.capacity() - self.offset.len())
     }
 
     pub fn sync_read_limit<S: Read>(&mut self, stream: &mut S, limit: usize) -> HlsResult<()> {
-        let len = stream.read(&mut self.buffer[self.len..self.len + limit])?;
+        let len = stream.read(&mut self.buffer[self.offset.len()..self.offset.len() + limit])?;
         if len == 0 { return Err(HlsError::PeerClosedConnection); }
-        self.len += len;
+        self.offset.end += len;
         Ok(())
     }
 
     pub fn reset(&mut self) {
-        self.len = 0;
+        self.offset = 0..0;
     }
 
     pub fn is_empty(&self) -> bool {
-        self.len == 0
+        self.offset.is_empty()
+    }
+
+    ///使用used字节后是否为空
+    pub fn used_empty(&mut self, used: usize) -> bool {
+        self.offset.start += used;
+        self.is_empty()
     }
 
     pub fn len(&self) -> usize {
-        self.len
+        self.offset.len()
     }
 
     pub fn len_ptr(&mut self) -> *mut usize {
-        &mut self.len
+        &mut self.offset.end
     }
 
     pub fn set_len(&mut self, len: usize) {
-        self.len = len;
+        self.offset.end = self.offset.start + len;
     }
 
     pub fn add_len(&mut self, len: usize) {
-        self.len += len;
+        self.offset.end += len;
     }
 
     pub fn starts_with(&self, bs: &[u8]) -> bool {
@@ -83,7 +89,7 @@ impl Buffer {
     }
 
     pub fn to_vec(&self) -> Vec<u8> {
-        self.buffer[..self.len].to_vec()
+        self.buffer[self.offset.clone()].to_vec()
     }
 
     pub fn capacity(&self) -> usize {
@@ -96,10 +102,10 @@ impl Buffer {
 
     pub fn push_slice(&mut self, slice: &[u8]) {
         unsafe {
-            let dst = self.buffer.as_mut_ptr().add(self.len);
+            let dst = self.buffer.as_mut_ptr().add(self.offset.len());
             ptr::copy_nonoverlapping(slice.as_ref().as_ptr(), dst, slice.len());
             // self.buffer.set_len(self.len + slice.len());
-            self.len += slice.len();
+            self.offset.end += slice.len();
         }
     }
 
@@ -118,15 +124,15 @@ impl Buffer {
     }
 
     pub fn filled(&self) -> &[u8] {
-        &self.buffer[..self.len]
+        &self.buffer[self.offset.clone()]
     }
 
     pub fn filled_mut(&mut self) -> &mut [u8] {
-        &mut self.buffer[..self.len]
+        &mut self.buffer[self.offset.clone()]
     }
 
     pub fn unfilled_mut(&mut self) -> &mut [u8] {
-        &mut self.buffer[self.len..]
+        &mut self.buffer[self.offset.end..]
     }
 
     pub fn copy_within(&mut self, r: Range<usize>, pos: usize) {
@@ -134,14 +140,16 @@ impl Buffer {
     }
 
     pub fn move_to(&mut self, r: Range<usize>, pos: usize) {
-        self.len = r.end - r.start;
+        self.offset = pos..pos;
+        self.offset.end += r.len();
+        // self.len = r.end - r.start;
         self.copy_within(r, pos);
     }
 
     pub fn drain(&mut self, range: RangeTo<usize>) -> Vec<u8> {
         let res = self.buffer[range.clone()].to_vec();
-        self.copy_within(range.end..self.len, 0);
-        self.len = self.len - range.end;
+        self.copy_within(range.end..self.offset.end, 0);
+        self.offset.end -= range.end;
         res
     }
 }
@@ -156,7 +164,7 @@ impl Index<RangeTo<usize>> for Buffer {
 impl Index<RangeFrom<usize>> for Buffer {
     type Output = [u8];
     fn index(&self, i: RangeFrom<usize>) -> &[u8] {
-        &self.buffer[i.start..self.len]
+        &self.buffer[i.start..self.offset.len()]
     }
 }
 

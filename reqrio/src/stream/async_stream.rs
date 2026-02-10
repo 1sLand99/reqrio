@@ -15,6 +15,7 @@ pub struct TlsStream<S> {
     shutdown_wrote: bool,
     wrote_len: usize,
     pending: Vec<usize>,
+    client_hello: Vec<u8>,
 }
 
 impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
@@ -28,6 +29,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
             shutdown_wrote: false,
             wrote_len: 0,
             pending: vec![],
+            client_hello: vec![],
         };
         loop {
             let record_len = stream.read_packet().await?;
@@ -115,6 +117,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             let config = config.as_mut().ok_or("config can't be null")?;
                             let bytes = self.conn.gen_server_hello(v, config.certificate, config.private_key)?;
                             self.stream.write_all(&bytes).await?;
+                            let record_len = record.len as usize + 5;
+                            self.client_hello.extend_from_slice(self.read_buffer[..record_len].as_ref());
+                            break;
                         }
                         Message::ClientKeyExchange(v) => {
                             self.conn.set_by_client_exchange_key(v);
@@ -151,6 +156,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
     pub fn alpn(&self) -> Option<&str> {
         Some(self.conn.alpn()?.value())
     }
+
+    pub fn client_hello(&self) -> &[u8] { &self.client_hello }
 }
 
 
@@ -234,9 +241,11 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for TlsStream<S> {
                 stream.wrote_len += chucks[stream.pending[0]].len();
             }
             match Pin::new(&mut stream.stream).poll_write(cx, stream.write_buffer.filled()) {
-                Poll::Ready(Ok(_)) => {
-                    stream.pending.remove(0);
-                    stream.write_buffer.reset();
+                Poll::Ready(Ok(len)) => {
+                    if stream.write_buffer.used_empty(len) {
+                        stream.pending.remove(0);
+                        stream.write_buffer.reset();
+                    }
                 }
                 Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
                 Poll::Pending => return Poll::Pending,

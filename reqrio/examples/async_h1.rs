@@ -11,11 +11,11 @@ async fn main() {
         .with_fingerprint(fingerprint)
         .with_alpn(ALPN::Http20)
         .with_timeout(timeout)
-        .with_verify(true)
+        .with_verify(false)
         // .with_proxy(Proxy::try_from("http://127.0.0.1:10280").unwrap())
         ;
     let headers = json::object! {
-        "Authorization": "Bearer Upy9fDyueOXiEbON0vRXimg5slXB5wHs+IV75wUbSzZngY0oLn1wJpQw1z3W1yqhu1UUnDUvVg4yrwhyZe9llZUdBEf1DBaF2+N3nSEnwLpmrwQ9iXnSL6LOXKwUhhfc",
+        "Authorization": "Bearer Upy9fDyueOXiEbON0vRXimg4tlrO5wTs+IV75wUbSzZngY0oLn1wJpQw1jnV0Cqku1UUnDUvVg4y/wwkNOljlJJKVRbzDETSjOd0zHotk+s3+wM63SDWeKXOXKwUhhfc",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
         "Accept": "*/*",
         "Sec-Fetch-Site": "none",
@@ -53,7 +53,7 @@ async fn main() {
       "tls": "Chrome-linux-135",
       "url": "https://m.baidu.com"
     };
-    // req.set_url("http://127.0.0.1:8080/v1/api/tlsReq").await.unwrap();
+    // req.set_url("https://127.0.0.1:3453/v1/api/tlsReq").await.unwrap();
     // req.set_json(data);
     // req.set_url("https://www.link114.cn/").await.unwrap();
     // req.set_url("https://127.0.0.1:7878").await.unwrap();

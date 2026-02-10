@@ -188,8 +188,8 @@ impl Connection {
         let signer = AlgorithmSigner::new_sign(pri_key.pkey(), server_key_exchange.hellman_param().signature_algorithm())?;
         server_key_exchange.hellman_param_mut().set_signature(Bytes::new(signer.sign(&sign_data)?));
 
-        let cert = certificate.first_mut().unwrap();
-        AlgorithmSigner::new_verify(cert.pub_key()?, server_key_exchange.hellman_param().signature_algorithm())?.verify(sign_data, server_key_exchange.hellman_param().signature().as_ref())?;
+        // let cert = certificate.first_mut().unwrap();
+        // AlgorithmSigner::new_verify(cert.pub_key()?, server_key_exchange.hellman_param().signature_algorithm())?.verify(sign_data, server_key_exchange.hellman_param().signature().as_ref())?;
         self.exchange_pub_key = server_key_exchange.hellman_param().pub_key().clone();
         self.named_curve = *server_key_exchange.hellman_param().named_curve();
         let server_key_exchange_bytes = server_key_exchange.as_bytes();
