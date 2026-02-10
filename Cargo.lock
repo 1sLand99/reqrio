@@ -325,7 +325,7 @@ checksum = "76afc826de14238e6e8c374ddcc1fa19e374fd8dd986b0d2af0d02377261d83c"
 
 [[package]]
 name = "reqrio"
-version = "0.0.19"
+version = "0.0.20"
 dependencies = [
  "brotli",
  "cfg_aliases",
@@ -345,7 +345,7 @@ dependencies = [
 
 [[package]]
 name = "reqrio-json"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "serde",
  "serde_json",
@@ -353,7 +353,7 @@ dependencies = [
 
 [[package]]
 name = "reqtls"
-version = "0.0.19"
+version = "0.0.20"
 dependencies = [
  "bytemuck",
  "getrandom 0.4.0-rc.0",
