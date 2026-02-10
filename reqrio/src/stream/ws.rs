@@ -5,7 +5,6 @@ use crate::*;
 
 pub struct WebSocketBuilder<S: ReqExt>(S);
 
-
 impl<S: ReqExt> WebSocketBuilder<S> {
     pub fn with_proxy(mut self, proxy: Proxy) -> WebSocketBuilder<S> {
         self.0.set_proxy(proxy);
@@ -70,7 +69,6 @@ impl<S: ReqExt> WebSocketBuilder<S> {
     }
 }
 
-#[cfg(sync)]
 impl WebSocketBuilder<ScReq> {
     pub fn build(mut self) -> HlsResult<WebSocket> {
         self.0.re_conn()?;
@@ -134,7 +132,6 @@ impl WebSocket {
     }
 }
 
-#[cfg(sync)]
 impl WebSocket {
     pub fn sync_build() -> WebSocketBuilder<ScReq> {
         WebSocketBuilder(ScReq::new().with_timeout(Timeout::longer()).with_alpn(ALPN::Http11))

@@ -13,13 +13,11 @@ use crate::stream::proxy::ProxyStream;
 use crate::stream::ConnParam;
 use crate::url::Protocol;
 use crate::*;
-#[cfg(sync)]
 use std::io::Write;
 
 pub enum StreamKind {
     NonConnection,
     //同步
-    #[cfg(any(feature = "std_sync", feature = "cls_sync"))]
     SyncHttp(ProxyStream<std::net::TcpStream>),
     #[cfg(all(feature = "cls_sync", not(feature = "std_sync"), not(feature = "std_async")))]
     SyncHttps(SyncStream<ProxyStream<std::net::TcpStream>>),
@@ -109,7 +107,6 @@ impl StreamKind {
     }
 }
 
-#[cfg(any(feature = "std_sync", feature = "cls_sync"))]
 impl StreamKind {
     pub fn sync_conn(&mut self, param: ConnParam) -> HlsResult<ALPN> {
         let _ = self.sync_shutdown();

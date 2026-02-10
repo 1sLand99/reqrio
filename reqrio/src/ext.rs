@@ -8,7 +8,6 @@ use crate::*;
 use json::JsonValue;
 #[cfg(anys)]
 use crate::coder::HackDecode;
-#[cfg(anys)]
 use crate::stream::Stream;
 
 pub trait ReqExt: Sized {
@@ -75,7 +74,7 @@ pub trait ReqExt: Sized {
         self.set_alpn(alpn);
         self
     }
-    #[cfg(anys)]
+
     fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + 'static);
     #[cfg(use_cls)]
     fn set_fingerprint(&mut self, fingerprint: Fingerprint);
@@ -136,15 +135,14 @@ pub trait ReqExt: Sized {
 
 
 pub(crate) trait ReqPriExt: ReqExt {
-    #[cfg(anys)]
+
     fn into_stream(self) -> Stream;
-    #[cfg(anys)]
+
     fn callback(&mut self) -> &mut Option<ReqCallback>;
 
     #[cfg(anys)]
     fn hack_decoder(&mut self) -> &mut HackDecode;
 
-    #[cfg(anys)]
     fn handle_h1_res(&mut self, buffer: &mut Buffer, response: &mut Response, rd: &mut usize) -> HlsResult<bool> {
         match self.callback() {
             None => response.extend_buffer(buffer),
@@ -221,7 +219,6 @@ pub(crate) trait ReqPriExt: ReqExt {
         Ok(headers.join("\r\n").into_bytes())
     }
 
-    #[cfg(anys)]
     fn update_cookie(&mut self, response: &Response) {
         for cookie in response.header().cookies().unwrap_or(&vec![]) {
             if cookie.name() == "" && cookie.value() == "" { continue; }
@@ -229,7 +226,6 @@ pub(crate) trait ReqPriExt: ReqExt {
         }
     }
 
-    #[cfg(anys)]
     fn check_status(&self, response: &Response) -> HlsResult<()> {
         let status = response.header().status();
         match status.code() {
@@ -238,7 +234,6 @@ pub(crate) trait ReqPriExt: ReqExt {
         }
     }
 
-    #[cfg(anys)]
     fn check_res(&self, response: Response, k: impl AsRef<str>, v: impl ToString, e: Vec<impl AsRef<str>>) -> HlsResult<JsonValue> {
         let data = response.json()?;
         if data[k.as_ref()].to_string() != v.to_string() {

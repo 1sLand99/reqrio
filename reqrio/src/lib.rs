@@ -88,7 +88,6 @@
 //! }
 //! ```
 
-#[cfg(anys)]
 use crate::error::HlsResult;
 #[cfg(aync)]
 pub use acq::AcReq;
@@ -106,11 +105,8 @@ pub use packet::{
 pub use reqrio_json as json;
 #[cfg(use_cls)]
 pub use reqtls::*;
-#[cfg(sync)]
 pub use scq::ScReq;
-pub use stream::Proxy;
-#[cfg(anys)]
-pub use stream::{ProxyStream, WebSocket, WebSocketBuilder};
+pub use stream::{ProxyStream, WebSocket, WebSocketBuilder, Proxy};
 #[cfg(feature = "cls_async")]
 pub use stream::TlsStream;
 #[cfg(use_cls)]
@@ -120,7 +116,6 @@ pub use timeout::Timeout;
 pub use tokio;
 pub use url::{Addr, Protocol, Uri, Url, Param};
 
-#[cfg(anys)]
 pub type ReqCallback = Box<dyn FnMut(&[u8]) -> HlsResult<()>>;
 pub const HTTP_GAP: &[u8; 4] = b"\r\n\r\n";
 pub const CHUNK_END: [u8; 5] = [48, 13, 10, 13, 10];
@@ -137,7 +132,6 @@ mod export;
 mod ext;
 mod file;
 mod packet;
-#[cfg(sync)]
 mod scq;
 mod stream;
 mod timeout;

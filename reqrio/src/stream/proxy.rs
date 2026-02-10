@@ -3,7 +3,6 @@ use crate::url::{Addr, Protocol};
 use crate::*;
 use std::fmt::{Display, Formatter};
 use std::net::SocketAddr;
-#[cfg(sync)]
 use std::net::Shutdown;
 #[cfg(aync)]
 use std::pin::Pin;
@@ -28,7 +27,6 @@ impl Proxy {
         Proxy::Socks5(Addr::new_addr(host, port))
     }
 
-    #[cfg(anys)]
     fn proxy_context(&self, peer_addr: &Addr) -> Vec<u8> {
         match self {
             Proxy::Null => vec![],
@@ -91,7 +89,6 @@ impl TryFrom<String> for Proxy {
     }
 }
 
-#[cfg(anys)]
 pub struct ProxyStream<S> {
     stream: S,
     handle_proxy: bool,
@@ -101,14 +98,12 @@ pub struct ProxyStream<S> {
     resp: Response,
 }
 
-#[cfg(anys)]
 impl<S> ProxyStream<S> {
     pub fn stream_mut(&mut self) -> &mut S {
         &mut self.stream
     }
 }
 
-#[cfg(sync)]
 impl ProxyStream<std::net::TcpStream> {
     fn create_sync(addr: &SocketAddr, timeout: &Timeout) -> HlsResult<std::net::TcpStream> {
         let stream = std::net::TcpStream::connect_timeout(addr, timeout.connect())?;
@@ -139,7 +134,6 @@ impl ProxyStream<std::net::TcpStream> {
     }
 }
 
-#[cfg(sync)]
 impl std::io::Read for ProxyStream<std::net::TcpStream> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         if !self.handle_proxy {
@@ -183,7 +177,6 @@ impl std::io::Read for ProxyStream<std::net::TcpStream> {
     }
 }
 
-#[cfg(sync)]
 impl std::io::Write for ProxyStream<std::net::TcpStream> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         std::io::Write::write(&mut self.stream, buf)
