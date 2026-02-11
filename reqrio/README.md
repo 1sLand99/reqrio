@@ -2,9 +2,11 @@
 
 * Features: Low copy, high concurrency, low overhead
 
-* Supports TLS fingerprinting, which can be configured via hexadecimal, Ja3, or Ja4 TLS handshake settings (**subscription only**).
+* Supports TLS fingerprinting, which can be configured via hexadecimal, Ja3, or Ja4 TLS handshake settings (*
+  *subscription only**).
 
-* Ensures **request header order** (see [Request Header Order Table](#request-header-order-table)), consistent with browsers.
+* Ensures **request header order** (see [Request Header Order Table](#request-header-order-table)), consistent with
+  browsers.
 
 * Uses **BoringSSL** to implement TLS, consistent with browsers like Chrome and Edge.
 
@@ -37,13 +39,12 @@
 | 21  | accept-language             | Cookie                    |
 | 22  | cookie                      | Origin                    |
 | 23  | priority                    |                           |
-|     | //未知                        |                           |
+|     | //unknown                   |                           |
 | 24  | origin                      |                           |
 | 25  | content-encoding            |                           |
 | 26  | content-type                |                           |
 | 27  | authorization               |                           |
 | 28  | content-type                |                           |
-
 
 ### Usage examples (supports Rust, Python, Java and Node.js):
 
@@ -149,7 +150,7 @@ headers = {
 # By default, there are no request headers; you need to configure them yourself.
 session.set_header_json(headers)
 # Set timeout
-session.set_timeout(3, 3, 3, 3)
+session.set_timeout(3000, 3000, 3000, 3000)
 resp = session.get('https://m.so.com')
 # Get response headers
 print(resp.header.__dict__)
