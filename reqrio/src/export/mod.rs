@@ -1,5 +1,4 @@
 use crate::error::HlsResult;
-use std::ptr::null_mut;
 use std::sync::{Arc, Mutex};
 use std::thread::{sleep, spawn, JoinHandle};
 use std::time::Duration;
@@ -92,14 +91,12 @@ impl ThreadPool {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn new_thread_pool(timeout: i32, max_active_count: i32) -> *mut ThreadPool {
-    || -> HlsResult<*mut ThreadPool> {
-        Ok(Box::into_raw(Box::new(ThreadPool {
-            threads: vec![],
-            timeout: timeout as u128,
-            max_active_count: max_active_count as usize,
-            lock: Arc::new(Mutex::new(false)),
-        })))
-    }().unwrap_or_else(|_| null_mut())
+    Box::into_raw(Box::new(ThreadPool {
+        threads: vec![],
+        timeout: timeout as u128,
+        max_active_count: max_active_count as usize,
+        lock: Arc::new(Mutex::new(false)),
+    }))
 }
 
 #[unsafe(no_mangle)]
@@ -108,7 +105,7 @@ pub extern "C" fn thread_pool_run(pool: *mut ThreadPool, callback: ThreadCallbac
         let pool = unsafe { pool.as_mut() }.ok_or("null ptr")?;
         pool.run(callback);
         Ok(0)
-    }().unwrap_or_else(|_| -1)
+    }().unwrap_or(-1)
 }
 
 
@@ -118,7 +115,7 @@ pub extern "C" fn thread_pool_join(pool: *mut ThreadPool) -> i32 {
         let pool = unsafe { pool.as_mut() }.ok_or("null ptr")?;
         pool.join();
         Ok(0)
-    }().unwrap_or_else(|_| -1)
+    }().unwrap_or(-1)
 }
 
 #[unsafe(no_mangle)]
@@ -133,7 +130,7 @@ pub extern "C" fn thread_pool_acquire_lock(pool: *mut ThreadPool) -> i32 {
         let pool = unsafe { pool.as_mut() }.ok_or("null ptr")?;
         pool.acquire_lock()?;
         Ok(0)
-    }().unwrap_or_else(|_| -1)
+    }().unwrap_or(-1)
 }
 
 #[unsafe(no_mangle)]
@@ -142,7 +139,7 @@ pub extern "C" fn thread_pool_release_lock(pool: *mut ThreadPool) -> i32 {
         let pool = unsafe { pool.as_mut() }.ok_or("null ptr")?;
         pool.release_lock()?;
         Ok(0)
-    }().unwrap_or_else(|_| -1)
+    }().unwrap_or(-1)
 }
 
 #[unsafe(no_mangle)]
@@ -151,7 +148,7 @@ pub extern "C" fn thread_pool_set_timeout(pool: *mut ThreadPool, timeout: i32) -
         let pool = unsafe { pool.as_mut() }.ok_or("null ptr")?;
         pool.set_timeout(timeout as u128);
         Ok(0)
-    }().unwrap_or_else(|_| -1)
+    }().unwrap_or(-1)
 }
 
 #[unsafe(no_mangle)]
@@ -160,7 +157,7 @@ pub extern "C" fn thread_pool_set_max_active(pool: *mut ThreadPool, max_active: 
         let pool = unsafe { pool.as_mut() }.ok_or("null ptr")?;
         pool.set_max_active_count(max_active as usize);
         Ok(0)
-    }().unwrap_or_else(|_| -1)
+    }().unwrap_or(-1)
 }
 
 
