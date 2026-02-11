@@ -74,6 +74,7 @@ pub enum RlsError {
     X509StoreCtxNewError,
     X509StoreCtxInitError,
     X509StoreAddError,
+    IssuerUnknown,
     StdError(Box<dyn Error>),
     Currently(String),
 }
@@ -145,6 +146,7 @@ impl Display for RlsError {
             RlsError::X509StoreCtxNewError=> f.write_str("X509 store ctx new error"),
             RlsError::X509StoreCtxInitError=> f.write_str("X509 store ctx init error"),
             RlsError::X509StoreAddError=> f.write_str("X509 store add error"),
+            RlsError::IssuerUnknown=> f.write_str("Issuer unknown"),
             RlsError::StdError(e) => f.write_fmt(format_args!("{:?}", e)),
             RlsError::Currently(e) => f.write_str(e),
         }
@@ -208,6 +210,15 @@ impl From<RlsError> for io::Error {
 impl From<NulError> for RlsError {
     fn from(value: NulError) -> Self {
         RlsError::StdError(Box::new(value))
+    }
+}
+
+impl From<&[u8]> for RlsError {
+    fn from(value: &[u8]) -> Self {
+        match value {
+            b"unable to get local issuer certificate"=>RlsError::IssuerUnknown,
+            _ => RlsError::Currently(String::from_utf8_lossy(value).to_string()),
+        }
     }
 }
 

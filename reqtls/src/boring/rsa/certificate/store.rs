@@ -20,7 +20,6 @@ pub struct CertStore {
 }
 
 impl CertStore {
-    
     pub fn empty() -> RlsResult<CertStore> {
         let store_ptr = CPointer::new_checked(unsafe { X509_STORE_new() }, RlsError::X509StoreNewError)?;
         Ok(CertStore {
@@ -63,8 +62,7 @@ impl CertStore {
         if ret != 1 {
             let err = unsafe { X509_STORE_CTX_get_error(ctx.as_mut_ptr()) };
             let msg_prt = unsafe { X509_verify_cert_error_string(err as _) };
-            let msg = unsafe { CStr::from_ptr(msg_prt) }.to_string_lossy().to_string();
-            return Err(RlsError::Currently(msg));
+            return Err(RlsError::from(unsafe { CStr::from_ptr(msg_prt) }.to_bytes()));
         };
         certs[0].verify_sni(sni)
     }
