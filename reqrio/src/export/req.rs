@@ -1,11 +1,12 @@
 use crate::error::HlsResult;
 use crate::{json, Cookie, HlsError, Method, Proxy, ReqExt, ScReq, ALPN};
-#[cfg(use_cls)]
+#[cfg(feature = "fpr")]
 use crate::Fingerprint;
 use std::ffi::{c_char, CStr, CString};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr::null_mut;
 use std::slice;
+use reqtls::hex;
 use crate::timeout::Timeout;
 
 #[unsafe(no_mangle)]
@@ -49,7 +50,7 @@ pub extern "system" fn set_alpn(req: *mut ScReq, alpn: *const c_char) -> i32 {
     }().unwrap_or(-1)
 }
 
-#[cfg(use_cls)]
+#[cfg(feature = "fpr")]
 #[unsafe(no_mangle)]
 pub extern "system" fn set_random_fingerprint(req: *mut ScReq) -> i32 {
     || -> HlsResult<i32> {
@@ -60,7 +61,7 @@ pub extern "system" fn set_random_fingerprint(req: *mut ScReq) -> i32 {
     }().unwrap_or(-1)
 }
 
-#[cfg(use_cls)]
+#[cfg(feature = "fpr")]
 #[unsafe(no_mangle)]
 pub extern "system" fn set_fingerprint(req: *mut ScReq, fingerprint: *const c_char) -> i32 {
     || -> HlsResult<i32> {
@@ -72,7 +73,7 @@ pub extern "system" fn set_fingerprint(req: *mut ScReq, fingerprint: *const c_ch
     }().unwrap_or(-1)
 }
 
-#[cfg(use_cls)]
+#[cfg(feature = "fpr")]
 #[unsafe(no_mangle)]
 pub extern "system" fn set_ja3(req: *mut ScReq, ja3: *const c_char) -> i32 {
     || -> HlsResult<i32> {
@@ -84,7 +85,7 @@ pub extern "system" fn set_ja3(req: *mut ScReq, ja3: *const c_char) -> i32 {
     }().unwrap_or(-1)
 }
 
-#[cfg(use_cls)]
+#[cfg(feature = "fpr")]
 #[unsafe(no_mangle)]
 pub extern "system" fn set_ja4(req: *mut ScReq, ja4: *const c_char) -> i32 {
     || -> HlsResult<i32> {
@@ -97,19 +98,19 @@ pub extern "system" fn set_ja4(req: *mut ScReq, ja4: *const c_char) -> i32 {
 }
 
 
-#[cfg(use_std)]
+#[cfg(not(feature = "fpr"))]
 #[unsafe(no_mangle)]
 pub extern "system" fn set_random_fingerprint(_: *mut ScReq) -> i32 { -2 }
 
-#[cfg(use_std)]
+#[cfg(not(feature = "fpr"))]
 #[unsafe(no_mangle)]
 pub extern "system" fn set_fingerprint(_: *mut ScReq, _: *const c_char) -> i32 { -2 }
 
-#[cfg(use_std)]
+#[cfg(not(feature = "fpr"))]
 #[unsafe(no_mangle)]
 pub extern "system" fn set_ja3(_: *mut ScReq, _: *const c_char) -> i32 { -2 }
 
-#[cfg(use_std)]
+#[cfg(not(feature = "fpr"))]
 #[unsafe(no_mangle)]
 pub extern "system" fn set_ja4(_: *mut ScReq, _: *const c_char) -> i32 { -2 }
 

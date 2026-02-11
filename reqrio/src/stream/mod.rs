@@ -1,43 +1,26 @@
-#[cfg(anys)]
-use super::url::Url;
-#[cfg(anys)]
-use crate::error::HlsResult;
-#[cfg(anys)]
-use crate::stream::kind::StreamKind;
-#[cfg(anys)]
-use crate::timeout::Timeout;
-#[cfg(anys)]
 use crate::*;
 
 pub use proxy::Proxy;
 
-#[cfg(anys)]
 pub use proxy::ProxyStream;
 
-#[cfg(anys)]
+use crate::stream::kind::StreamKind;
 use crate::Buffer;
-#[cfg(feature = "cls_async")]
+#[cfg(feature = "aync")]
 pub use async_stream::TlsStream;
-#[cfg(anys)]
 pub use ws::{WebSocket, WebSocketBuilder};
 
-#[cfg(feature = "cls_async")]
+#[cfg(feature = "aync")]
 mod async_stream;
 
-#[cfg(cls_sync)]
 mod sync_stream;
 
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 mod astream;
 mod proxy;
-#[cfg(feature = "std_sync")]
-mod cstream;
-#[cfg(anys)]
 mod kind;
-#[cfg(anys)]
 mod ws;
 
-#[cfg(use_cls)]
 pub struct TlsConfig<'a> {
     pub sni: &'a str,
     pub alpn: &'a ALPN,
@@ -47,24 +30,20 @@ pub struct TlsConfig<'a> {
     pub verify: bool,
 }
 
-#[cfg(anys)]
 pub struct ConnParam<'a> {
     pub url: &'a Url,
     pub proxy: &'a Proxy,
     pub timeout: &'a Timeout,
-    #[cfg(use_cls)]
     pub fingerprint: &'a mut Fingerprint,
     pub alpn: &'a ALPN,
     pub verify: bool,
 }
 
-#[cfg(anys)]
 pub struct Stream {
     alpn: ALPN,
     kind: StreamKind,
 }
 
-#[cfg(anys)]
 impl Stream {
     pub fn unconnection() -> Self {
         Stream {
@@ -77,7 +56,7 @@ impl Stream {
     }
 }
 
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 impl Stream {
     pub async fn async_connect(&mut self, param: ConnParam<'_>) -> HlsResult<()> {
         let alpn = self.kind.async_conn(param).await?;
@@ -97,7 +76,6 @@ impl Stream {
     }
 }
 
-#[cfg(sync)]
 impl Stream {
     pub fn sync_connect(&mut self, param: ConnParam) -> HlsResult<()> {
         let alpn = self.kind.sync_conn(param)?;

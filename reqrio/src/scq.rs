@@ -1,17 +1,9 @@
-use crate::alpn::ALPN;
-use crate::body::BodyType;
-use crate::buffer::Buffer;
-use crate::coder::{HPackCoding, HackDecode};
-use crate::error::HlsResult;
-use crate::ext::{ReqExt, ReqGenExt, ReqPriExt};
-use crate::packet::*;
-use crate::stream::{ConnParam, Proxy, Stream};
-use crate::timeout::Timeout;
-use crate::url::Url;
 use crate::*;
 use json::JsonValue;
 use std::mem;
-use crate::ReqCallback;
+use crate::coder::{HPackCoding, HackDecode};
+use crate::ext::ReqPriExt;
+use crate::stream::{ConnParam, Stream};
 
 #[repr(C)]
 pub struct ScReq {
@@ -148,7 +140,6 @@ impl ScReq {
                 url: &self.url,
                 proxy: &self.proxy,
                 timeout: &self.timeout,
-                #[cfg(feature = "cls_sync")]
                 fingerprint: &mut self.fingerprint,
                 alpn: &self.alpn,
                 verify: self.verify,
@@ -174,13 +165,11 @@ impl ScReq {
         Ok(self)
     }
 
-    #[cfg(feature = "cls_sync")]
     pub fn with_fingerprint(mut self, fingerprint: Fingerprint) -> Self {
         self.fingerprint = fingerprint;
         self
     }
 
-    #[cfg(feature = "cls_sync")]
     pub fn set_fingerprint(&mut self, fingerprint: Fingerprint) {
         self.fingerprint = fingerprint;
     }
@@ -320,7 +309,6 @@ impl ReqExt for ScReq {
         self.callback = Some(Box::new(callback));
     }
 
-    #[cfg(use_cls)]
     fn set_fingerprint(&mut self, fingerprint: Fingerprint) {
         self.fingerprint = fingerprint;
     }

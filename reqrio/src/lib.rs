@@ -1,31 +1,51 @@
-//! #### `reqrio` is an HTTP request library designed to enable quick, simple, and convenient use of HTTP requests.
-//! * reqrio features: low copying, high concurrency, low overhead
-//! * Reqrio supports TLS fingerprinting, which can be set via hexadecimal or Ja3 data from the TLS handshake. Only cls_sync and cls_async are supported (**subscription only**).
-//! * By default, reqrio will reorder the request headers in the same way as the browser (it will reorder the request headers).
-//! * CLS mode uses BoringSSL, consistent with browsers such as Chrome and Edge.
-//!
-//! #### By default, reqrio does not enable HTTP requests; it is only exported as an HTTP data stream parsing library. Requests require features to be enabled.
-//! * `std_sync`: Standard TLS library ([rustls](https://github.com/rustls/rustls), synchronous requests)
-//! * `std_async`: Standard TLS library ([tokio-rustls](https://github.com/rustls/tokio-rustls), asynchronous requests)
-//! * `cls_sync`: Self-developed TLS library (**Algorithm is imperfect, does not verify server certificates, do not use in production mode**) [reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), synchronous requests
-//! * `cls_async`: Self-developed TLS library (**Algorithm is imperfect, does not verify server certificates, do not use in production mode**) [reqtls](https://github.com/xllgl2017/reqrio/tree/master/reqtls), asynchronous requests
-//!
-//! **Note:** std and cls cannot exist simultaneously, while sync and async can exist simultaneously.
-//!
-//! ### Usage examples (supports Rust, Python, and Java):
-//!
+//!### reqrio is an HTTP request library designed for fast, simple, and convenient HTTP request usage.                                                                          
+//!                                                                                                                                                                              
+//! * Features: Low copy, high concurrency, low overhead                                                                                                                         
+//!                                                                                                                                                                              
+//! * Supports TLS fingerprinting, which can be configured via hexadecimal, Ja3, or Ja4 TLS handshake settings (**subscription only**).                                          
+//!                                                                                                                                                                              
+//! * Ensures **request header order** (see [Request Header Order Table](#request-header-order-table)), consistent with browsers.                                                
+//!                                                                                                                                                                              
+//! * Uses **BoringSSL** to implement TLS, consistent with browsers like Chrome and Edge.                                                                                        
+//!                                                                                                                                                                              
+//! **Note:** std and cls cannot exist simultaneously, while sync and async can exist simultaneously.                                                                            
+//!                                                                                                                                                                              
+//! ### Request Header Order Table                                                                                                                                               
+//!                                                                                                                                                                              
+//! | No. | HTTP/2.0                    | HTTP/1.1                  |                                                                                                            
+//! |:----|:----------------------------|:--------------------------|                                                                                                            
+//! | 1   | cache-control               | Host                      |                                                                                                            
+//! | 2   | sec-ch-ua                   | Connection                |                                                                                                            
+//! | 3   | sec-ch-ua-mobile            | Content-Length            |                                                                                                            
+//! | 4   | sec-ch-ua-full-version      | Authorization             |                                                                                                            
+//! | 5   | sec-ch-ua-arch              | Content-Type              |                                                                                                            
+//! | 6   | sec-ch-ua-platform          | Cache-Control             |                                                                                                            
+//! | 7   | sec-ch-ua-platform-version  | sec-ch-ua                 |                                                                                                            
+//! | 8   | sec-ch-ua-model             | sec-ch-ua-mobile          |                                                                                                            
+//! | 9   | sec-ch-ua-bitness           | sec-ch-ua-platform        |                                                                                                            
+//! | 10  | sec-ch-ua-full-version-list | Upgrade-Insecure-Requests |                                                                                                            
+//! | 11  | upgrade-insecure-requests   | User-Agent                |                                                                                                            
+//! | 12  | user-agent                  | Accept                    |                                                                                                            
+//! | 13  | accept                      | Sec-Fetch-Site            |                                                                                                            
+//! | 14  | sec-fetch-site              | Sec-Fetch-Mode            |                                                                                                            
+//! | 15  | sec-fetch-mode              | Sec-Fetch-User            |                                                                                                            
+//! | 16  | sec-fetch-user              | Sec-Fetch-Dest            |                                                                                                            
+//! | 17  | sec-fetch-dest              | Sec-Fetch-Storage-Access  |                                                                                                            
+//! | 18  | sec-fetch-storage-access    | Referer                   |                                                                                                            
+//! | 19  | referer                     | Accept-Encoding           |                                                                                                            
+//! | 20  | accept-encoding             | Accept-Language           |                                                                                                            
+//! | 21  | accept-language             | Cookie                    |                                                                                                            
+//! 
+//! 
 //! * Rust HTTP Example
 //!
 //! ```rust
 //! use reqrio::{Fingerprint, ScReq, ALPN};
 //!
 //! fn ff() {
-//!     let fingerprint = Fingerprint::default().unwrap();
-//!     fingerprint.set_ja3("771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,13-11-65037-17613-45-18-16-5-43-10-0-27-23-35-51-65281,4588-29-23-24,0");
 //!     let req = ScReq::new()
 //!         //The default is to use http/1.1
 //!         .with_alpn(ALPN::Http20)
-//!         .with_fingerprint(fingerprint)
 //!         .with_url("https://www.baidu.com").unwrap();
 //!     let headers = json::object! {
 //!         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -88,45 +108,37 @@
 //! }
 //! ```
 
-#[cfg(anys)]
 use crate::error::HlsResult;
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 pub use acq::AcReq;
 pub use alpn::ALPN;
 pub use body::BodyType;
 pub use buffer::Buffer;
 pub use error::HlsError;
 pub use ext::{ReqExt, ReqGenExt};
-#[cfg(anys)]
 pub use fingerprint::Fingerprint;
 pub use packet::{
     Application, Body, ContentType, Cookie, Font, FrameFlag, FrameType, H2Frame, Header, HeaderKey,
     HeaderValue, HttpStatus, Method, Response, Text, WsFrame, WsOpcode,
 };
 pub use reqrio_json as json;
-#[cfg(use_cls)]
 pub use reqtls::*;
-#[cfg(sync)]
 pub use scq::ScReq;
-pub use stream::Proxy;
-#[cfg(anys)]
-pub use stream::{ProxyStream, WebSocket, WebSocketBuilder};
-#[cfg(feature = "cls_async")]
+pub use stream::{ProxyStream, WebSocket, WebSocketBuilder, Proxy};
+#[cfg(feature = "aync")]
 pub use stream::TlsStream;
-#[cfg(use_cls)]
 pub use stream::TlsConfig;
 pub use timeout::Timeout;
 #[cfg(feature = "tokio")]
 pub use tokio;
 pub use url::{Addr, Protocol, Uri, Url, Param};
 
-#[cfg(anys)]
 pub type ReqCallback = Box<dyn FnMut(&[u8]) -> HlsResult<()>>;
 pub const HTTP_GAP: &[u8; 4] = b"\r\n\r\n";
 pub const CHUNK_END: [u8; 5] = [48, 13, 10, 13, 10];
 
 
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 mod acq;
 mod alpn;
 mod buffer;
@@ -137,11 +149,9 @@ mod export;
 mod ext;
 mod file;
 mod packet;
-#[cfg(sync)]
 mod scq;
 mod stream;
 mod timeout;
 mod url;
 mod body;
-#[cfg(anys)]
 mod fingerprint;

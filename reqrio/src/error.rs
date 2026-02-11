@@ -10,12 +10,9 @@ use std::string::FromUtf8Error;
 use std::sync::PoisonError;
 use httlib_hpack::{DecoderError, EncoderError};
 use crate::json::JsonError;
-#[cfg(feature = "rustls")]
-use rustls::pki_types::InvalidDnsNameError;
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 use tokio::time::error::Elapsed;
-#[cfg(use_cls)]
-use reqtls::RlsError;
+use reqtls::{hex, RlsError};
 
 #[derive(Debug)]
 pub enum HlsError {
@@ -82,21 +79,6 @@ impl From<io::Error> for HlsError {
     }
 }
 
-
-#[cfg(feature = "rustls")]
-impl From<InvalidDnsNameError> for HlsError {
-    fn from(value: InvalidDnsNameError) -> Self {
-        HlsError::Currently(value.to_string())
-    }
-}
-
-#[cfg(feature = "rustls")]
-impl From<rustls::Error> for HlsError {
-    fn from(value: rustls::Error) -> Self {
-        HlsError::Currently(value.to_string())
-    }
-}
-
 impl From<Infallible> for HlsError {
     fn from(value: Infallible) -> Self {
         HlsError::Currently(value.to_string())
@@ -133,14 +115,13 @@ impl From<Utf8Error> for HlsError {
     }
 }
 
-#[cfg(use_cls)]
 impl From<RlsError> for HlsError {
     fn from(value: RlsError) -> Self {
         HlsError::Currently(value.to_string())
     }
 }
 
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 impl From<Elapsed> for HlsError {
     fn from(value: Elapsed) -> Self {
         HlsError::Currently(value.to_string())
@@ -159,24 +140,11 @@ impl From<AddrParseError> for HlsError {
     }
 }
 
-#[cfg(use_cls)]
-impl From<reqtls::hex::FromHexError> for HlsError {
-    fn from(value: reqtls::hex::FromHexError) -> Self {
+impl From<hex::FromHexError> for HlsError {
+    fn from(value: hex::FromHexError) -> Self {
         HlsError::Currently(value.to_string())
     }
 }
-
-// impl From<super::coder::EncoderError> for HlsError {
-//     fn from(value: super::coder::EncoderError) -> Self {
-//         HlsError::StdErr(Box::new(value))
-//     }
-// }
-//
-// impl From<super::coder::DecoderError> for HlsError {
-//     fn from(value: super::coder::DecoderError) -> Self {
-//         HlsError::StdErr(Box::new(value))
-//     }
-// }
 
 impl Error for HlsError {}
 
