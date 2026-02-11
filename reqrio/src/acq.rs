@@ -1,4 +1,3 @@
-use crate::alpn::ALPN;
 use crate::body::BodyType;
 use crate::hpack::{HPackCoding, HackDecode};
 use crate::error::HlsResult;

@@ -47,7 +47,7 @@ pub struct Stream {
 impl Stream {
     pub fn unconnection() -> Self {
         Stream {
-            alpn: ALPN::Unknown,
+            alpn: ALPN::None,
             kind: StreamKind::NonConnection,
         }
     }

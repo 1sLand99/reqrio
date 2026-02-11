@@ -111,7 +111,6 @@
 use crate::error::HlsResult;
 #[cfg(feature = "aync")]
 pub use acq::AcReq;
-pub use alpn::ALPN;
 pub use body::BodyType;
 pub use buffer::Buffer;
 pub use error::HlsError;
@@ -140,7 +139,7 @@ pub const CHUNK_END: [u8; 5] = [48, 13, 10, 13, 10];
 
 #[cfg(feature = "aync")]
 mod acq;
-mod alpn;
+// mod alpn;
 mod buffer;
 pub mod hpack;
 mod error;

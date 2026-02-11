@@ -138,7 +138,7 @@ pub use range::RangeExt;
 pub use boring::{hash, hmac, base64, Cipher, Padding, RsaCipher, RsaKey, SignatureAlgorithm, certificate::Certificate, certificate::CertStore};
 pub use hex;
 pub use cipher::suite::CipherSuite;
-pub use extend::{Extension, ExtensionType, group::GroupType, formats::EcPointFormat, SupportVersions};
+pub use extend::{Extension, ExtensionType, group::GroupType, formats::EcPointFormat, SupportVersions, ALPN};
 
 mod extend;
 mod message;
