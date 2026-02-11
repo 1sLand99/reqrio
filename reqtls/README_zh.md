@@ -34,6 +34,7 @@
 * secp521r1
 
 #### 密码算法
+
 * TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
 * TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
 *
@@ -43,7 +44,6 @@
 
 * TLS_RSA_WITH_AES_128_GCM_SHA256
 * TLS_RSA_WITH_AES_256_GCM_SHA384
-
 
 #### 签名算法
 
@@ -70,6 +70,15 @@
 #### 编码支持
 
 * base64
+* urlencoding
+* hex
+
+#### 压缩支持
+
+* gzip
+* deflate
+* br
+* zstd
 
 #### Cipher 加解密示例
 
@@ -110,6 +119,7 @@ fn dd() {
 ```
 
 #### 证书读取示例
+
 ```rust
 fn dd() {
     //读取证书链
@@ -120,8 +130,9 @@ fn dd() {
 ```
 
 #### 哈希计算示例
+
 ```rust
-fn dd(){
+fn dd() {
     let mut hash = Hasher::new(Sha::Sha256).unwrap();
     hash.update("fd").unwrap();
     let bs = hash.current_hash().unwrap();
@@ -131,6 +142,6 @@ fn dd(){
 
     let mut hmac = Hmac::new("key", Sha::Sha256).unwrap();
     hmac.update("fs").unwrap();
-    let bs=hmac.finalize().unwrap();
+    let bs = hmac.finalize().unwrap();
 }
 ```

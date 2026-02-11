@@ -69,6 +69,15 @@
 #### Encoding support
 
 * base64
+* urlencoding
+* hex
+
+#### Compression Support
+
+* gzip
+* deflate
+* br
+* zstd
 
 #### Cipher encryption/decryption examples
 
