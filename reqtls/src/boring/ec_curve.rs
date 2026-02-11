@@ -23,8 +23,7 @@ impl EcCurve {
         EcCurve::new(NID_secp521r1)
     }
     fn new(nid: i32) -> RlsResult<EcCurve> {
-        let ec_key = CPointer::new(unsafe { EC_KEY_new_by_curve_name(nid) });
-        if ec_key.is_null() { return Err(RlsError::InitEcKeyError); }
+        let ec_key = CPointer::new_checked(unsafe { EC_KEY_new_by_curve_name(nid) },RlsError::InitEcKeyError)?;
         unsafe { EC_KEY_generate_key(ec_key.as_mut_ptr()) }.ok(RlsError::GenEcKeyError)?;
         Ok(EcCurve {
             ec_key,
@@ -51,8 +50,7 @@ impl EcCurve {
 
     pub fn diffie_hellman(&self, pub_key: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
         let group = unsafe { EC_KEY_get0_group(self.ec_key.as_ptr()) };
-        let server_point = CPointer::new(unsafe { EC_POINT_new(group) });
-        if server_point.is_null() { return Err(RlsError::InitEcPointError); }
+        let server_point = CPointer::new_checked(unsafe { EC_POINT_new(group) },RlsError::InitEcPointError)?;
         unsafe {
             EC_POINT_oct2point(
                 group,

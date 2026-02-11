@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use rand_core::{CryptoRng, RngCore};
+// use rand_core::{CryptoRng, RngCore};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -102,7 +102,7 @@ impl CryptRand {
     }
 }
 
-impl RngCore for CryptRand {
+impl CryptRand {
     #[inline]
     fn next_u32(&mut self) -> u32 {
         let mut rng = self.rng.borrow_mut();
@@ -112,13 +112,6 @@ impl RngCore for CryptRand {
         let v = rng.buffer[rng.index];
         rng.index += 1;
         v
-    }
-
-    #[inline]
-    fn next_u64(&mut self) -> u64 {
-        let lo = self.next_u32() as u64;
-        let hi = self.next_u32() as u64;
-        lo | (hi << 32)
     }
 
     #[inline]
@@ -137,9 +130,6 @@ impl RngCore for CryptRand {
         }
     }
 }
-
-impl CryptoRng for CryptRand {}
-
 
 pub fn random<T: RandomValue>() -> T {
     let mut rng = CryptRand::new();

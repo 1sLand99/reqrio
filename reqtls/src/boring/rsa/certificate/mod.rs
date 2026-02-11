@@ -33,14 +33,13 @@ impl Certificate {
     }
 
     pub fn from_der(der: impl AsRef<[u8]>) -> RlsResult<Certificate> {
-        let x509 = CPointer::new(unsafe { d2i_X509(null_mut(), &mut der.as_ref().as_ptr(), (der.as_ref().len() as u16).into()) });
-        if x509.is_null() { return Err(RlsError::OpenX509Error); }
-        Ok(Certificate::new(x509))
+        let x509 = unsafe { d2i_X509(null_mut(), &mut der.as_ref().as_ptr(), (der.as_ref().len() as u16).into()) };
+        Ok(Certificate::new(CPointer::new_checked(x509, RlsError::OpenX509Error)?))
     }
 
     pub fn from_pem(pem: impl AsRef<[u8]>) -> RlsResult<Vec<Certificate>> {
-        let bio = CPointer::new(unsafe { BIO_new_mem_buf(pem.as_ref().as_ptr() as *mut _, pem.as_ref().len() as _) });
-        if bio.is_null() { return Err(RlsError::BioNewError); }
+        let bio = unsafe { BIO_new_mem_buf(pem.as_ref().as_ptr() as *mut _, pem.as_ref().len() as _) };
+        let bio = CPointer::new_checked(bio, RlsError::BioNewError)?;
         let mut res = vec![];
         loop {
             let x509 = CPointer::new(unsafe { PEM_read_bio_X509(bio.as_mut_ptr(), null_mut(), None, null_mut()) });
@@ -64,8 +63,7 @@ impl Certificate {
 
     pub(crate) fn pub_key(&mut self) -> RlsResult<&CPointer<EVP_PKEY>> {
         if self.pkey.is_null() {
-            self.pkey = CPointer::new(unsafe { X509_get_pubkey(self.x509.as_mut_ptr()) });
-            if self.pkey.is_null() { return Err(RlsError::PkeyNewError); }
+            self.pkey = CPointer::new_checked(unsafe { X509_get_pubkey(self.x509.as_mut_ptr()) }, RlsError::PkeyNewError)?;
         }
         Ok(&self.pkey)
     }

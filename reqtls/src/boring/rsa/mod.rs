@@ -20,22 +20,18 @@ impl RsaKey {
         RsaKey(CPointer::nullptr())
     }
     pub fn gen_new_key(bits: i32) -> RlsResult<RsaKey> {
-        let mut rsa = CPointer::new(unsafe { RSA_new() });
-        if rsa.is_null() { return Err(RlsError::RsaNewError); }
-        let e = CPointer::new(unsafe { BN_new() });
-        if e.is_null() { return Err(RlsError::BnNewError); };
+        let mut rsa = CPointer::new_checked(unsafe { RSA_new() }, RlsError::RsaNewError)?;
+        let e = CPointer::new_checked(unsafe { BN_new() }, RlsError::BnNewError)?;
         unsafe { BN_set_word(e.as_mut_ptr(), RSA_F4 as u64) }.ok(RlsError::BnSetWordError)?;
         unsafe { RSA_generate_key_ex(rsa.as_mut_ptr(), bits, e.as_mut_ptr(), null_mut()) }.ok(RlsError::RsaGenKeyError)?;
-        let pkey = CPointer::new(unsafe { EVP_PKEY_new() });
-        if pkey.is_null() { return Err(RlsError::PkeyNewError); };
+        let pkey = CPointer::new_checked(unsafe { EVP_PKEY_new() }, RlsError::PkeyNewError)?;
         unsafe { EVP_PKEY_assign_RSA(pkey.as_mut_ptr(), rsa.as_mut_ptr()) }.ok(RlsError::PkeyAssignError)?;
         rsa.disable_auto_free();
         Ok(RsaKey(pkey))
     }
 
     pub fn to_pri_pem(&self) -> RlsResult<String> {
-        let bio = CPointer::new(unsafe { BIO_new(BIO_s_mem()) });
-        if bio.is_null() { return Err(RlsError::BioNewError); }
+        let bio = CPointer::new_checked(unsafe { BIO_new(BIO_s_mem()) }, RlsError::BioNewError)?;
         unsafe {
             PEM_write_bio_PrivateKey(
                 bio.as_mut_ptr(),
@@ -54,8 +50,7 @@ impl RsaKey {
     }
 
     pub fn to_pub_pem(&self) -> RlsResult<String> {
-        let bio = CPointer::new(unsafe { BIO_new(BIO_s_mem()) });
-        if bio.is_null() { return Err(RlsError::BioNewError); }
+        let bio = CPointer::new_checked(unsafe { BIO_new(BIO_s_mem()) }, RlsError::BioNewError)?;
         unsafe { PEM_write_bio_PUBKEY(bio.as_mut_ptr(), self.0.as_mut_ptr()) }.ok(WritePubKeyError)?;
         let mut data = null_mut();
         let len = unsafe { BIO_get_mem_data(bio.as_mut_ptr(), &mut data) };

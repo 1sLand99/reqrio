@@ -16,8 +16,7 @@ pub struct Hasher {
 
 impl Hasher {
     pub fn new(sha: Sha) -> RlsResult<Hasher> {
-        let ctx = CPointer::new(unsafe { EVP_MD_CTX_new() });
-        if ctx.is_null() { return Err(RlsError::InitEvpCtxError); };
+        let ctx = CPointer::new_checked(unsafe { EVP_MD_CTX_new() }, RlsError::InitEvpCtxError)?;
         unsafe { EVP_DigestInit_ex(ctx.as_mut_ptr(), sha.evp_md(), null_mut()) }.ok(RlsError::InitDigestError)?;
         Ok(Hasher {
             ctx,
@@ -31,7 +30,7 @@ impl Hasher {
 
     pub fn update(&mut self, buf: impl AsRef<[u8]>) -> RlsResult<()> {
         self.updated = true;
-       unsafe { EVP_DigestUpdate(self.ctx.as_mut_ptr(), buf.as_ref().as_ptr() as *const _, buf.as_ref().len()) }.ok(RlsError::DigestUpdateError)?;
+        unsafe { EVP_DigestUpdate(self.ctx.as_mut_ptr(), buf.as_ref().as_ptr() as *const _, buf.as_ref().len()) }.ok(RlsError::DigestUpdateError)?;
         Ok(())
     }
 

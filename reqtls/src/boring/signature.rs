@@ -128,11 +128,6 @@ pub struct AlgorithmSigner {
 }
 
 impl AlgorithmSigner {
-    fn init_ctx() -> RlsResult<CPointer<EVP_MD_CTX>> {
-        let md_ctx = CPointer::new(unsafe { EVP_MD_CTX_new() });
-        if md_ctx.is_null() { return Err(RlsError::InitEvpCtxError); }
-        Ok(md_ctx)
-    }
 
     fn new_rsa(md_ctx: CPointer<EVP_MD_CTX>, pkey_ctx: Option<CPointer<EVP_PKEY_CTX>>, signature: &SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
         if let Some(mut pkey_ctx) = pkey_ctx {
@@ -155,7 +150,7 @@ impl AlgorithmSigner {
     }
 
     pub fn new_verify(pkey: &CPointer<EVP_PKEY>, signature: &SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
-        let md_ctx = AlgorithmSigner::init_ctx()?;
+        let md_ctx = CPointer::new_checked(unsafe { EVP_MD_CTX_new() }, RlsError::InitEvpCtxError)?;
         match *signature {
             SignatureAlgorithm::RSA_PKCS1_SHA1 => {
                 unsafe { EVP_DigestVerifyInit(md_ctx.as_mut_ptr(), null_mut(), signature.evp_md(), null_mut(), pkey.as_mut_ptr()) }.ok(RlsError::DigestVerifyError)?;
@@ -177,7 +172,7 @@ impl AlgorithmSigner {
     }
 
     pub fn new_sign(pkey: &CPointer<EVP_PKEY>, signature: &SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
-        let md_ctx = AlgorithmSigner::init_ctx()?;
+        let md_ctx = CPointer::new_checked(unsafe { EVP_MD_CTX_new() }, RlsError::InitEvpCtxError)?;
         match *signature {
             SignatureAlgorithm::RSA_PKCS1_SHA1 => {
                 unsafe { EVP_DigestSignInit(md_ctx.as_mut_ptr(), null_mut(), signature.evp_md(), null_mut(), pkey.as_mut_ptr()) }.ok(RlsError::DigestSignError)?;

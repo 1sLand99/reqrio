@@ -258,12 +258,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 
 [[package]]
-name = "rand_core"
-version = "0.9.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76afc826de14238e6e8c374ddcc1fa19e374fd8dd986b0d2af0d02377261d83c"
-
-[[package]]
 name = "reqrio"
 version = "0.0.20"
 dependencies = [
@@ -295,7 +289,6 @@ dependencies = [
  "bytemuck",
  "getrandom 0.4.0-rc.0",
  "hex",
- "rand_core",
 ]
 
 [[package]]

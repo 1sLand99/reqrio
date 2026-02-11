@@ -19,8 +19,7 @@ impl EvpCurve {
     }
 
     fn new(nid: i32, pub_len: usize, secret_len: usize) -> RlsResult<EvpCurve> {
-        let ctx = CPointer::new(unsafe { EVP_PKEY_CTX_new_id(nid, null_mut()) });
-        if ctx.is_null() { return Err(RlsError::InitEvpPKeyCtxError); }
+        let ctx = CPointer::new_checked(unsafe { EVP_PKEY_CTX_new_id(nid, null_mut()) }, RlsError::InitEvpPKeyCtxError)?;
         unsafe { EVP_PKEY_keygen_init(ctx.as_mut_ptr()) }.ok(RlsError::InitKeygenError)?;
         let mut pkey = CPointer::nullptr();
         unsafe { EVP_PKEY_keygen(ctx.as_mut_ptr(), pkey.as_mut()) }.ok(RlsError::KeyGenError)?;
@@ -40,17 +39,15 @@ impl EvpCurve {
     }
 
     pub fn diffie_hellman(&mut self, pub_key: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
-        let pub_key = CPointer::new(unsafe {
+        let pub_key = CPointer::new_checked(unsafe {
             EVP_PKEY_new_raw_public_key(
                 self.nid,
                 null_mut(),
                 pub_key.as_ref().as_ptr(),
                 pub_key.as_ref().len(),
             )
-        });
-        if pub_key.is_null() { return Err(RlsError::NewPublicKeyError); }
-        let ctx = CPointer::new(unsafe { EVP_PKEY_CTX_new(self.evp_key.as_mut_ptr(), null_mut()) });
-        if ctx.is_null() { return Err(RlsError::InitEvpPKeyCtxError); }
+        }, RlsError::NewPublicKeyError)?;
+        let ctx = CPointer::new_checked(unsafe { EVP_PKEY_CTX_new(self.evp_key.as_mut_ptr(), null_mut()) }, RlsError::InitEvpPKeyCtxError)?;
         unsafe { EVP_PKEY_derive_init(ctx.as_mut_ptr()) }.ok(RlsError::InitDeriveError)?;
         unsafe { EVP_PKEY_derive_set_peer(ctx.as_mut_ptr(), pub_key.as_mut_ptr()) }.ok(RlsError::SetPeerDeriveError)?;
         let mut secret = vec![0u8; self.secret];

@@ -11,7 +11,7 @@ async fn main() {
         .with_fingerprint(fingerprint)
         .with_alpn(ALPN::Http20)
         .with_timeout(timeout)
-        .with_verify(false)
+        .with_verify(true)
         // .with_proxy(Proxy::try_from("http://127.0.0.1:10280").unwrap())
         ;
     let headers = json::object! {
@@ -57,9 +57,9 @@ async fn main() {
     // req.set_json(data);
     // req.set_url("https://www.link114.cn/").await.unwrap();
     // req.set_url("https://127.0.0.1:7878").await.unwrap();
-    req.set_url("https://www.jetstar.com").await.unwrap();
+    // req.set_url("https://www.jetstar.com").await.unwrap();
     // req.set_url("https://m1.pxb7.com/api/search/h5/product/selectSearchPageList").await.unwrap();
-
+    //
     // req.set_url("https://accounts.pcid.ca/login").await.unwrap();
     // req.set_url("https://xxbg.snssdk.com/fdsf/dsfsdfkdsjfk").await.unwrap();
     // req.set_url("https://www.toutiao.com/article/7600224020776239658/?log_from=99ab1fa2b852c_1769590891442&wid=1769590984039").await.unwrap();
@@ -67,7 +67,7 @@ async fn main() {
     // req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Asite：wLLyn.com&first=0&FORM=PERE2").await.unwrap();
     // req.set_url("https://m.baidu.com").await.unwrap();
     println!("111");
-    // req.set_url("https://www.so.com").await.unwrap();
+    req.set_url("https://www.so.com").await.unwrap();
     // req.set_callback(|data| {
     //     println!("{}", data.len());
     //     Ok(())
