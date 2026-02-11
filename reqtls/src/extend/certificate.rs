@@ -1,15 +1,27 @@
 use std::fmt::{Debug, Formatter};
 use crate::error::RlsResult;
 
-
+#[derive(PartialEq)]
 pub struct CompressionType(u16);
 
 impl CompressionType {
     pub const NULL: CompressionType = CompressionType(0);
     pub const DEFLATE: CompressionType = CompressionType(1);
     pub const BROTLI: CompressionType = CompressionType(2);
+    pub const GZIP: CompressionType = CompressionType(0xFFFF);
+    pub const ZSTD: CompressionType = CompressionType(0xFFFE);
     pub fn new(value: u16) -> CompressionType {
         CompressionType(value)
+    }
+
+    pub fn from_bytes(bytes: impl AsRef<[u8]>) -> CompressionType {
+        match bytes.as_ref() {
+            b"deflate" => CompressionType::DEFLATE,
+            b"br" => CompressionType::BROTLI,
+            b"gzip" => CompressionType::GZIP,
+            b"zstd" => CompressionType::ZSTD,
+            _ => CompressionType::NULL
+        }
     }
 
     pub fn as_bytes(&self) -> [u8; 2] {

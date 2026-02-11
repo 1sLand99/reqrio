@@ -10,7 +10,7 @@ reqrio-json = { path = "json", version = "0.1.7" }
 reqtls = { path = "reqtls", version = "0.1.0-alpha1" }
 
 [profile.release]
-opt-level = "z"
+opt-level = 3
 strip = "symbols"
 lto = true
 codegen-units = 1

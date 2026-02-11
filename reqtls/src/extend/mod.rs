@@ -25,7 +25,7 @@ mod psk_key;
 mod pre_share_key;
 
 use crate::error::RlsResult;
-use crate::extend::certificate::CompressionType;
+pub use crate::extend::certificate::CompressionType;
 use crate::extend::pre_share_key::PreSharedKey;
 use crate::Version;
 pub use client_hello::Aead;
