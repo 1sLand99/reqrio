@@ -148,7 +148,6 @@ impl AcReq {
                 url: &self.url,
                 proxy: &self.proxy,
                 timeout: &self.timeout,
-                #[cfg(use_cls)]
                 fingerprint: &mut self.fingerprint,
                 alpn: &self.alpn,
                 verify: self.verify,
@@ -319,7 +318,6 @@ impl ReqExt for AcReq {
         self.callback = Some(Box::new(callback));
     }
 
-    #[cfg(use_cls)]
     fn set_fingerprint(&mut self, fingerprint: Fingerprint) {
         self.fingerprint = fingerprint;
     }

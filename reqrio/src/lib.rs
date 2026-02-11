@@ -89,27 +89,24 @@
 //! ```
 
 use crate::error::HlsResult;
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 pub use acq::AcReq;
 pub use alpn::ALPN;
 pub use body::BodyType;
 pub use buffer::Buffer;
 pub use error::HlsError;
 pub use ext::{ReqExt, ReqGenExt};
-#[cfg(anys)]
 pub use fingerprint::Fingerprint;
 pub use packet::{
     Application, Body, ContentType, Cookie, Font, FrameFlag, FrameType, H2Frame, Header, HeaderKey,
     HeaderValue, HttpStatus, Method, Response, Text, WsFrame, WsOpcode,
 };
 pub use reqrio_json as json;
-#[cfg(use_cls)]
 pub use reqtls::*;
 pub use scq::ScReq;
 pub use stream::{ProxyStream, WebSocket, WebSocketBuilder, Proxy};
-#[cfg(feature = "cls_async")]
+#[cfg(feature = "aync")]
 pub use stream::TlsStream;
-#[cfg(use_cls)]
 pub use stream::TlsConfig;
 pub use timeout::Timeout;
 #[cfg(feature = "tokio")]
@@ -121,7 +118,7 @@ pub const HTTP_GAP: &[u8; 4] = b"\r\n\r\n";
 pub const CHUNK_END: [u8; 5] = [48, 13, 10, 13, 10];
 
 
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 mod acq;
 mod alpn;
 mod buffer;
@@ -137,5 +134,4 @@ mod stream;
 mod timeout;
 mod url;
 mod body;
-#[cfg(anys)]
 mod fingerprint;

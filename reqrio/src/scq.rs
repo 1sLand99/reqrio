@@ -1,7 +1,6 @@
 use crate::*;
 use json::JsonValue;
 use std::mem;
-#[cfg(anys)]
 use crate::coder::{HPackCoding, HackDecode};
 use crate::ext::ReqPriExt;
 use crate::stream::{ConnParam, Stream};
@@ -10,7 +9,6 @@ use crate::stream::{ConnParam, Stream};
 pub struct ScReq {
     header: Header,
     url: Url,
-    #[cfg(anys)]
     hack_coder: HPackCoding,
     stream: Stream,
     body: BodyType,
@@ -19,7 +17,6 @@ pub struct ScReq {
     stream_id: u32,
     alpn: ALPN,
     proxy: Proxy,
-    #[cfg(anys)]
     fingerprint: Fingerprint,
     verify: bool,
 }
@@ -29,7 +26,6 @@ impl ScReq {
         ScReq {
             header: Header::new_req_h1(),
             url: Url::new(),
-            #[cfg(anys)]
             hack_coder: HPackCoding::new(),
             stream: Stream::unconnection(),
             body: BodyType::Text("".to_string()),
@@ -38,7 +34,6 @@ impl ScReq {
             stream_id: 0,
             alpn: ALPN::Http11,
             proxy: Proxy::Null,
-            #[cfg(anys)]
             fingerprint: Fingerprint::default(),
             verify: true,
         }
@@ -93,7 +88,6 @@ impl ScReq {
 
     fn handle_io(&mut self) -> HlsResult<Response> {
         let response = match self.stream.alpn() {
-            #[cfg(sync)]
             ALPN::Http20 => {
                 let headers = self.gen_h2_header()?;
                 let body = self.gen_h2_body()?;
@@ -139,26 +133,21 @@ impl ScReq {
     }
 
     pub fn re_conn(&mut self) -> HlsResult<()> {
-        #[cfg(anys)]
-        { self.hack_coder = HPackCoding::new(); }
+        self.hack_coder = HPackCoding::new();
         self.stream_id = 0;
         for i in 0..self.timeout.connect_times() {
             let param = ConnParam {
                 url: &self.url,
                 proxy: &self.proxy,
                 timeout: &self.timeout,
-                #[cfg(use_cls)]
                 fingerprint: &mut self.fingerprint,
-                #[cfg(anys)]
                 alpn: &self.alpn,
-                #[cfg(use_cls)]
                 verify: self.verify,
             };
             match self.stream.sync_connect(param) {
                 Ok(_) => {
                     // println!("{}", self.stream.alpn().alpn_str());
                     self.header.init_by_alpn(self.stream.alpn());
-                    #[cfg(sync)]
                     if self.stream.alpn() == &ALPN::Http20 { self.handle_h2_setting()?; }
                     return Ok(());
                 }
@@ -176,13 +165,11 @@ impl ScReq {
         Ok(self)
     }
 
-    #[cfg(feature = "cls_sync")]
     pub fn with_fingerprint(mut self, fingerprint: Fingerprint) -> Self {
         self.fingerprint = fingerprint;
         self
     }
 
-    #[cfg(feature = "cls_sync")]
     pub fn set_fingerprint(&mut self, fingerprint: Fingerprint) {
         self.fingerprint = fingerprint;
     }
@@ -219,7 +206,6 @@ impl ScReq {
     }
 }
 
-#[cfg(sync)]
 impl ScReq {
     pub fn handle_h2_setting(&mut self) -> HlsResult<()> {
         let mut handshake = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".as_bytes().to_vec();
@@ -269,7 +255,6 @@ impl ReqPriExt for ScReq {
         &mut self.callback
     }
 
-    #[cfg(anys)]
     fn hack_decoder(&mut self) -> &mut HackDecode {
         self.hack_coder.decoder()
     }
@@ -324,7 +309,6 @@ impl ReqExt for ScReq {
         self.callback = Some(Box::new(callback));
     }
 
-    #[cfg(use_cls)]
     fn set_fingerprint(&mut self, fingerprint: Fingerprint) {
         self.fingerprint = fingerprint;
     }

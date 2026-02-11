@@ -4,11 +4,11 @@ use crate::*;
 use std::fmt::{Display, Formatter};
 use std::net::SocketAddr;
 use std::net::Shutdown;
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 use std::pin::Pin;
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 use std::task::{Context, Poll};
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 use tokio::io::ReadBuf;
 
 #[derive(Clone, Debug)]
@@ -94,7 +94,7 @@ pub struct ProxyStream<S> {
     handle_proxy: bool,
     http_proxy: bool,
     buffer: Buffer,
-    #[cfg(aync)]
+    #[cfg(feature = "aync")]
     resp: Response,
 }
 
@@ -123,7 +123,7 @@ impl ProxyStream<std::net::TcpStream> {
             handle_proxy: proxy_context.is_empty(),
             http_proxy: matches!(proxy, Proxy::HttpPlain(_)),
             buffer: Buffer::with_capacity(1024),
-            #[cfg(aync)]
+            #[cfg(feature = "aync")]
             resp: Response::new(),
         })
     }
@@ -187,7 +187,7 @@ impl std::io::Write for ProxyStream<std::net::TcpStream> {
     }
 }
 
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 impl ProxyStream<tokio::net::TcpStream> {
     pub async fn async_connect(proxy: &Proxy, peer_addr: &Addr) -> HlsResult<ProxyStream<tokio::net::TcpStream>> {
         let addr = proxy.socket_addr(peer_addr)?;
@@ -206,7 +206,7 @@ impl ProxyStream<tokio::net::TcpStream> {
     }
 }
 
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
     fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<std::io::Result<()>> {
         if !self.handle_proxy {
@@ -258,7 +258,7 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
     }
 }
 
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 impl tokio::io::AsyncWrite for ProxyStream<tokio::net::TcpStream> {
     fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize, std::io::Error>> {
         Pin::new(&mut self.stream).poll_write(cx, buf)

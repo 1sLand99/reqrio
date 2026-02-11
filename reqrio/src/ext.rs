@@ -6,7 +6,6 @@ use crate::timeout::Timeout;
 use crate::url::Url;
 use crate::*;
 use json::JsonValue;
-#[cfg(anys)]
 use crate::coder::HackDecode;
 use crate::stream::Stream;
 
@@ -76,9 +75,7 @@ pub trait ReqExt: Sized {
     }
 
     fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + 'static);
-    #[cfg(use_cls)]
     fn set_fingerprint(&mut self, fingerprint: Fingerprint);
-    #[cfg(use_cls)]
     fn with_fingerprint(mut self, fingerprint: Fingerprint) -> Self {
         self.set_fingerprint(fingerprint);
         self
@@ -140,7 +137,6 @@ pub(crate) trait ReqPriExt: ReqExt {
 
     fn callback(&mut self) -> &mut Option<ReqCallback>;
 
-    #[cfg(anys)]
     fn hack_decoder(&mut self) -> &mut HackDecode;
 
     fn handle_h1_res(&mut self, buffer: &mut Buffer, response: &mut Response, rd: &mut usize) -> HlsResult<bool> {
@@ -167,7 +163,6 @@ pub(crate) trait ReqPriExt: ReqExt {
         }
     }
 
-    #[cfg(anys)]
     fn handle_h2_res(&mut self, frame: H2Frame, response: &mut Response) -> HlsResult<bool> {
         if frame.frame_type() == &FrameType::Goaway { return Err("Connection reset by peer".into()); }
         match self.callback() {

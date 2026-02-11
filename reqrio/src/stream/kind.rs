@@ -1,14 +1,9 @@
-#[cfg(feature = "cls_sync")]
 use super::sync_stream::SyncStream;
 use crate::error::HlsResult;
-#[cfg(feature = "cls_async")]
+#[cfg(feature = "aync")]
 use crate::stream::astream::AsyncTlsStream;
-#[cfg(std_async)]
-use crate::stream::astream::StdAsyncTlsStream;
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 use crate::stream::astream::{AsyncTcpStream, TimeoutRW};
-#[cfg(std_sync)]
-use crate::stream::cstream::StdSyncTlsStream;
 use crate::stream::proxy::ProxyStream;
 use crate::stream::ConnParam;
 use crate::url::Protocol;
@@ -19,20 +14,15 @@ pub enum StreamKind {
     NonConnection,
     //同步
     SyncHttp(ProxyStream<std::net::TcpStream>),
-    #[cfg(all(feature = "cls_sync", not(feature = "std_sync"), not(feature = "std_async")))]
     SyncHttps(SyncStream<ProxyStream<std::net::TcpStream>>),
-    #[cfg(std_sync)]
-    StdSyncHttps(StdSyncTlsStream),
     //异步
-    #[cfg(aync)]
+    #[cfg(feature = "aync")]
     AsyncHttp(AsyncTcpStream),
-    #[cfg(std_async)]
-    StdAsyncHttps(StdAsyncTlsStream),
-    #[cfg(cls_async)]
+    #[cfg(feature = "aync")]
     AsyncHttps(AsyncTlsStream),
 }
 
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 impl StreamKind {
     pub async fn async_conn(&mut self, param: ConnParam<'_>) -> HlsResult<ALPN> {
         let _ = self.async_shutdown().await;
@@ -42,14 +32,6 @@ impl StreamKind {
                 *self = StreamKind::AsyncHttp(AsyncTcpStream::from_proxy_stream(stream, param.timeout));
                 Ok(ALPN::Http11)
             }
-            #[cfg(feature = "std_async")]
-            Protocol::Https | Protocol::Wss => {
-                let tls_stream = StdAsyncTlsStream::connect_timeout(param, stream).await?;
-                let alpn = tls_stream.alpn().unwrap_or(ALPN::Http11);
-                *self = StreamKind::StdAsyncHttps(tls_stream);
-                Ok(alpn)
-            }
-            #[cfg(cls_async)]
             Protocol::Https | Protocol::Wss => {
                 let tls_stream = AsyncTlsStream::connect_timeout(param, stream).await?;
                 let alpn = tls_stream.alpn().map(|x| ALPN::from_slice(x.as_bytes())).unwrap_or(ALPN::Http11);
@@ -68,14 +50,7 @@ impl StreamKind {
                 s.flush().await?;
                 Ok(())
             }
-            #[cfg(cls_async)]
             StreamKind::AsyncHttps(s) => {
-                s.write(buf).await?;
-                s.flush().await?;
-                Ok(())
-            }
-            #[cfg(std_async)]
-            StreamKind::StdAsyncHttps(s) => {
                 s.write(buf).await?;
                 s.flush().await?;
                 Ok(())
@@ -87,10 +62,7 @@ impl StreamKind {
     pub async fn async_read(&mut self, buffer: &mut Buffer) -> HlsResult<()> {
         match self {
             StreamKind::AsyncHttp(s) => s.read(buffer).await,
-            #[cfg(cls_async)]
             StreamKind::AsyncHttps(s) => Ok(s.read(buffer).await?),
-            #[cfg(std_async)]
-            StreamKind::StdAsyncHttps(s) => s.read(buffer).await,
             _ => Err("Unsupported async read".into()),
         }
     }
@@ -98,10 +70,7 @@ impl StreamKind {
     pub async fn async_shutdown(&mut self) -> HlsResult<()> {
         match self {
             StreamKind::AsyncHttp(s) => Ok(s.shutdown().await?),
-            #[cfg(cls_async)]
             StreamKind::AsyncHttps(s) => Ok(s.shutdown().await?),
-            #[cfg(std_sync)]
-            StreamKind::StdAsyncHttps(s) => Ok(s.shutdown().await?),
             _ => Err("Unsupported async read".into()),
         }
     }
@@ -116,16 +85,8 @@ impl StreamKind {
                 *self = StreamKind::SyncHttp(stream);
                 Ok(ALPN::Http11)
             }
-            #[cfg(std_sync)]
             Protocol::Https | Protocol::Wss => {
-                let tls_stream = StdSyncTlsStream::connect(param, stream)?;
-                let alpn = tls_stream.alpn().unwrap_or(ALPN::Http11);
-                *self = StreamKind::StdSyncHttps(tls_stream);
-                Ok(alpn)
-            }
-            #[cfg(cls_sync)]
-            Protocol::Https | Protocol::Wss => {
-                let tls_stream = SyncStream::connect(TlsConfig{
+                let tls_stream = SyncStream::connect(TlsConfig {
                     sni: param.url.addr().host(),
                     alpn: param.alpn,
                     fingerprint: param.fingerprint,
@@ -147,13 +108,7 @@ impl StreamKind {
                 s.write_all(buf)?;
                 Ok(())
             }
-            #[cfg(cls_sync)]
             StreamKind::SyncHttps(s) => {
-                s.write_all(buf)?;
-                Ok(())
-            }
-            #[cfg(std_sync)]
-            StreamKind::StdSyncHttps(s) => {
                 s.write_all(buf)?;
                 Ok(())
             }
@@ -164,10 +119,7 @@ impl StreamKind {
     pub fn sync_read(&mut self, buffer: &mut Buffer) -> HlsResult<()> {
         match self {
             StreamKind::SyncHttp(s) => buffer.sync_read(s),
-            #[cfg(cls_sync)]
             StreamKind::SyncHttps(s) => buffer.sync_read(s),
-            #[cfg(std_sync)]
-            StreamKind::StdSyncHttps(s) => buffer.sync_read(s),
             _ => Err("Unsupported async read".into()),
         }
     }
@@ -175,10 +127,7 @@ impl StreamKind {
     pub fn sync_shutdown(&mut self) -> HlsResult<()> {
         match self {
             StreamKind::SyncHttp(s) => Ok(s.shutdown()?),
-            #[cfg(cls_sync)]
             StreamKind::SyncHttps(s) => Ok(s.shutdown()?),
-            #[cfg(std_sync)]
-            StreamKind::StdSyncHttps(s) => Ok(s.shutdown()?),
             _ => Err("Unsupported async read".into()),
         }
     }

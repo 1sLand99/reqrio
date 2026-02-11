@@ -79,7 +79,7 @@ impl WebSocketBuilder<ScReq> {
     }
 }
 
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 impl WebSocketBuilder<AcReq> {
     pub async fn build(mut self) -> HlsResult<WebSocket> {
         self.0.re_conn().await?;
@@ -176,7 +176,7 @@ impl WebSocket {
     }
 }
 
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 impl WebSocket {
     pub fn async_build() -> WebSocketBuilder<AcReq> {
         WebSocketBuilder(AcReq::new().with_timeout(Timeout::longer()).with_alpn(ALPN::Http11))

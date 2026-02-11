@@ -5,27 +5,22 @@ pub use proxy::Proxy;
 pub use proxy::ProxyStream;
 
 use crate::stream::kind::StreamKind;
-#[cfg(anys)]
 use crate::Buffer;
-#[cfg(feature = "cls_async")]
+#[cfg(feature = "aync")]
 pub use async_stream::TlsStream;
 pub use ws::{WebSocket, WebSocketBuilder};
 
-#[cfg(feature = "cls_async")]
+#[cfg(feature = "aync")]
 mod async_stream;
 
-#[cfg(cls_sync)]
 mod sync_stream;
 
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 mod astream;
 mod proxy;
-#[cfg(feature = "std_sync")]
-mod cstream;
 mod kind;
 mod ws;
 
-#[cfg(use_cls)]
 pub struct TlsConfig<'a> {
     pub sni: &'a str,
     pub alpn: &'a ALPN,
@@ -39,11 +34,8 @@ pub struct ConnParam<'a> {
     pub url: &'a Url,
     pub proxy: &'a Proxy,
     pub timeout: &'a Timeout,
-    #[cfg(use_cls)]
     pub fingerprint: &'a mut Fingerprint,
-    #[cfg(anys)]
     pub alpn: &'a ALPN,
-    #[cfg(use_cls)]
     pub verify: bool,
 }
 
@@ -64,7 +56,7 @@ impl Stream {
     }
 }
 
-#[cfg(aync)]
+#[cfg(feature = "aync")]
 impl Stream {
     pub async fn async_connect(&mut self, param: ConnParam<'_>) -> HlsResult<()> {
         let alpn = self.kind.async_conn(param).await?;
