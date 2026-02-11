@@ -222,8 +222,13 @@ impl ClientHello {
 
     pub fn set_server_name(&mut self, server_name: &str) {
         let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ServerName);
-        if let Some(ext) = extend {
-            ext.set_server_name(server_name);
+        match extend {
+            None => {
+                let mut ext = Extension::from_type(ExtensionType::ServerName);
+                ext.set_server_name(server_name);
+                self.extensions.push(ext);
+            }
+            Some(ext) => ext.set_server_name(server_name),
         }
     }
 
