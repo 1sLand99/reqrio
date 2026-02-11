@@ -20,16 +20,28 @@ impl Fingerprint {
         }
     }
 
-    pub fn h2_setting(&self) -> &H2Frame {
+    pub(crate) fn h2_setting(&self) -> &H2Frame {
         &self.h2_setting
     }
 
-    pub fn h2_setting_mut(&mut self) -> &mut H2Frame {
-        &mut self.h2_setting
+    pub(crate) fn h2_window_update(&self) -> &H2Frame {
+        &self.h2_window_update
     }
 
-    pub fn h2_window_update(&self) -> &H2Frame {
-        &self.h2_window_update
+    pub fn client_hello_mut(&mut self) -> &mut [u8] { &mut self.client_hello }
+
+    pub fn client_key_exchange_mut(&mut self) -> &mut [u8] { &mut self.client_key_exchange }
+
+    pub fn change_cipher_spec(&self) -> &[u8] { &self.change_cipher_spec }
+
+
+}
+
+#[cfg(fpr)]
+impl Fingerprint {
+
+    pub fn h2_setting_mut(&mut self) -> &mut H2Frame {
+        &mut self.h2_setting
     }
 
     pub fn h2_window_update_mut(&mut self) -> &mut H2Frame {
@@ -43,9 +55,6 @@ impl Fingerprint {
     pub fn set_h2_window_update(&mut self, setting: H2Frame) {
         self.h2_window_update = setting;
     }
-}
-
-impl Fingerprint {
     pub fn new_ja3(ja3: impl AsRef<str>) -> HlsResult<Fingerprint> {
         let mut res = Fingerprint::default();
         res.set_ja3(ja3)?;
@@ -186,11 +195,7 @@ impl Fingerprint {
         Ok(())
     }
 
-    pub fn client_hello_mut(&mut self) -> &mut [u8] { &mut self.client_hello }
 
-    pub fn client_key_exchange_mut(&mut self) -> &mut [u8] { &mut self.client_key_exchange }
-
-    pub fn change_cipher_spec(&self) -> &[u8] { &self.change_cipher_spec }
 
     pub fn to_hex(&self) -> String {
         let data: Vec<u8> = [self.client_hello.as_slice(), self.client_key_exchange.as_slice(), self.change_cipher_spec.as_slice()].concat();

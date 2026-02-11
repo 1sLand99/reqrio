@@ -89,7 +89,6 @@ impl Connection {
     }
 
     pub fn set_by_certificate(&mut self, certificate: Certificates, sni: &str) -> RlsResult<()> {
-        println!("{:#?}", certificate);
         for certificate in certificate.certificates() {
             self.certificates.push(Certificate::from_der(certificate.as_ref())?);
         }

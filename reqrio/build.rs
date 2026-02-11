@@ -5,5 +5,6 @@ fn main() {
         tls:{
             any(feature = "aync", feature = "sync")
         }
+        ,fpr:{any(feature = "fpr")}
     }
 }

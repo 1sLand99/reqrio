@@ -59,13 +59,13 @@ pub trait ReqExt: Sized {
         self.set_proxy(proxy);
         self
     }
-    
+
     ///是否校验服务器下发的消息，默认校验
     fn with_verify(mut self, verify: bool) -> Self {
         self.set_verify(verify);
         self
     }
-    
+
     fn set_verify(&mut self, verify: bool);
     /// * 必须在建立tls连接（即：set_url/with_url）前设置, 否则需要调re_conn
     fn set_alpn(&mut self, alpn: ALPN);
@@ -75,7 +75,9 @@ pub trait ReqExt: Sized {
     }
 
     fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + 'static);
+    #[cfg(fpr)]
     fn set_fingerprint(&mut self, fingerprint: Fingerprint);
+    #[cfg(fpr)]
     fn with_fingerprint(mut self, fingerprint: Fingerprint) -> Self {
         self.set_fingerprint(fingerprint);
         self
@@ -132,7 +134,6 @@ pub trait ReqExt: Sized {
 
 
 pub(crate) trait ReqPriExt: ReqExt {
-
     fn into_stream(self) -> Stream;
 
     fn callback(&mut self) -> &mut Option<ReqCallback>;
