@@ -3,7 +3,7 @@ mod bindings;
 pub mod hash;
 mod signature;
 
-pub use rsa::{Certificate, RsaCipher, RsaKey};
+pub use rsa::{RsaCipher, RsaKey, certificate};
 mod rsa;
 mod ffi;
 mod evp;

@@ -1,3 +1,5 @@
+mod store;
+
 use super::bindings::*;
 use crate::boring::bindings::*;
 use crate::boring::ffi::{BufPtr, CPointer};
@@ -5,9 +7,10 @@ use crate::boring::BoringResExt;
 use crate::error::RlsResult;
 use crate::RlsError;
 use std::ffi::CString;
+use std::fs;
 use std::path::Path;
 use std::ptr::null_mut;
-use std::fs;
+pub use store::{CertStore, ROOT_STORES};
 
 pub struct Certificate {
     x509: CPointer<X509>,
@@ -73,4 +76,8 @@ impl Certificate {
         let c_sni = CString::new(sni)?;
         unsafe { X509_check_host(self.x509.as_mut_ptr(), c_sni.as_ptr(), sni_len, 0, null_mut()) }.ok(RlsError::CertSniInvalid)
     }
+
+    pub fn x509(&self) -> &CPointer<X509> { &self.x509 }
 }
+
+

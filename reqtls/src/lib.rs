@@ -135,10 +135,10 @@ pub use record::{RecordLayer, RecordType};
 pub use error::RlsError;
 pub use version::Version;
 pub use range::RangeExt;
-pub use boring::{hash, hmac, base64, Cipher, Padding, RsaCipher, RsaKey, SignatureAlgorithm, Certificate};
+pub use boring::{hash, hmac, base64, Cipher, Padding, RsaCipher, RsaKey, SignatureAlgorithm, certificate::Certificate, certificate::CertStore};
 pub use hex;
 pub use cipher::suite::CipherSuite;
-pub use extend::{Extension, ExtensionType, group::GroupType, formats::EcPointFormat,  SupportVersions};
+pub use extend::{Extension, ExtensionType, group::GroupType, formats::EcPointFormat, SupportVersions};
 
 mod extend;
 mod message;

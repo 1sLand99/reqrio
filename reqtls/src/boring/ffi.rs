@@ -2,6 +2,8 @@ use std::fmt::{Debug, Formatter};
 use std::ptr::null_mut;
 use std::slice;
 use crate::boring::bindings::*;
+use crate::error::RlsResult;
+use crate::RlsError;
 use super::rsa::bindings::*;
 
 pub struct CPointer<T: CFree<T>> {
@@ -25,6 +27,11 @@ impl<T: CFree<T>> CPointer<T> {
             ptr,
             auto_free: true,
         }
+    }
+
+    pub fn new_checked(ptr: *mut T, e: RlsError) -> RlsResult<CPointer<T>> {
+        if ptr.is_null() { return Err(e); };
+        Ok(CPointer { ptr, auto_free: true })
     }
     pub fn as_mut(&mut self) -> &mut *mut T { &mut self.ptr }
     pub fn as_mut_ptr(&self) -> *mut T { self.ptr }
@@ -119,3 +126,6 @@ c_pointer_free!(RSA, RSA_free);
 c_pointer_free!(BIGNUM, BN_free);
 c_pointer_free!(BIO, BIO_free);
 c_pointer_free!(X509, X509_free);
+c_pointer_free!(STACK, sk_free);
+c_pointer_free!(X509_STORE, X509_STORE_free);
+c_pointer_free!(X509_STORE_CTX, X509_STORE_CTX_free);

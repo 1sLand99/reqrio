@@ -262,6 +262,42 @@ pub struct X509 {
     _unused: [u8; 0],
 }
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct STACK {
+    pub num: usize,
+    pub data: *mut *mut c_void,
+    pub sorted: c_int,
+    pub num_alloc: usize,
+    pub comp: Option<
+        unsafe extern "C" fn(
+            a: *const *const c_void,
+            b: *const *const c_void,
+        ) -> c_int,
+    >,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+#[allow(non_camel_case_types)]
+pub struct X509_STORE {
+    _unused: [u8; 0],
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+#[allow(non_camel_case_types)]
+pub struct X509_STORE_CTX {
+    _unused: [u8; 0],
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+#[allow(non_camel_case_types)]
+pub struct stack_st_X509 {
+    _unused: [u8; 0],
+}
+
 
 unsafe extern "C" {
     pub fn RSA_new() -> *mut RSA;
@@ -301,6 +337,28 @@ unsafe extern "C" {
     pub fn X509_free(x509: *mut X509);
 
     pub fn i2d_X509(x509: *mut X509, outp: *mut *mut u8) -> c_int;
+
+    pub fn sk_new_null() -> *mut STACK;
+
+    pub fn sk_push(sk: *mut STACK, p: *mut c_void) -> usize;
+
+    pub fn sk_free(sk: *mut STACK);
+
+    pub fn X509_STORE_new() -> *mut X509_STORE;
+
+    pub fn X509_STORE_add_cert(ctx: *mut X509_STORE, x: *mut X509) -> c_int;
+
+    pub fn X509_STORE_free(v: *mut X509_STORE);
+
+    pub fn X509_STORE_CTX_new() -> *mut X509_STORE_CTX;
+
+    pub fn X509_STORE_CTX_free(ctx: *mut X509_STORE_CTX);
+
+    pub fn X509_verify_cert(ctx: *mut X509_STORE_CTX) -> c_int;
+
+    pub fn X509_STORE_CTX_get_error(ctx: *mut X509_STORE_CTX) -> c_int;
+
+    pub fn X509_verify_cert_error_string(err: c_long) -> *const c_char;
 
     pub fn RSA_generate_key_ex(
         rsa: *mut RSA,
@@ -380,5 +438,12 @@ unsafe extern "C" {
         chklen: usize,
         flags: c_uint,
         peername: *mut *mut c_char,
+    ) -> c_int;
+
+    pub fn X509_STORE_CTX_init(
+        ctx: *mut X509_STORE_CTX,
+        store: *mut X509_STORE,
+        x509: *mut X509,
+        chain: *mut stack_st_X509,
     ) -> c_int;
 }

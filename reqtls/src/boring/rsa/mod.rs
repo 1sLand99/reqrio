@@ -8,11 +8,10 @@ use crate::RlsError;
 use bindings::*;
 use std::ptr::null_mut;
 use std::{fs, slice};
-pub use certificate::Certificate;
 use crate::boring::ffi::{BufPtr, CPointer};
 use crate::RlsError::WritePubKeyError;
 
-mod certificate;
+pub mod certificate;
 
 pub struct RsaKey(CPointer<EVP_PKEY>);
 

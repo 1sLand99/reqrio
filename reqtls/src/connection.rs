@@ -8,10 +8,10 @@ use super::message::server_hello::{ServerHello, ServerHelloDone};
 use super::prf::Prf;
 use super::record::{RecordBuffer, RecordLayer, RecordType};
 use super::version::Version;
-use crate::boring::{AlgorithmSigner, Certificate};
+use crate::boring::{certificate, AlgorithmSigner};
 use crate::error::RlsResult;
 use crate::secret::key::SharedKey;
-use crate::{Certificates, ClientHello, ClientKeyExchange, RlsError, RsaCipher, RsaKey};
+use crate::*;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::ops::Range;
@@ -29,9 +29,10 @@ pub struct Connection {
     cipher_suite: CipherSuite,
     session_bytes: Vec<u8>,
     prf: Prf,
-    certificate: Certificate,
+    certificates: Vec<Certificate>,
     shared_key: SharedKey,
     verify: bool,
+    root_stores: &'static CertStore,
 }
 impl Default for Connection {
     fn default() -> Self {
@@ -48,9 +49,10 @@ impl Default for Connection {
             cipher_suite: CipherSuite::new(0),
             session_bytes: vec![],
             prf: Prf::default(),
-            certificate: Certificate::none(),
+            certificates: vec![],
             shared_key: SharedKey::None,
             verify: false,
+            root_stores: &certificate::ROOT_STORES,
         }
     }
 }
@@ -87,10 +89,12 @@ impl Connection {
     }
 
     pub fn set_by_certificate(&mut self, certificate: Certificates, sni: &str) -> RlsResult<()> {
-        let der = certificate.certificates().first().ok_or("Server not sent certificate")?;
-        self.certificate = Certificate::from_der(der.as_ref())?;
+        println!("{:#?}", certificate);
+        for certificate in certificate.certificates() {
+            self.certificates.push(Certificate::from_der(certificate.as_ref())?);
+        }
         if !self.verify { return Ok(()); }
-        self.certificate.verify_sni(sni)
+        self.root_stores.verify_cert(&self.certificates, sni)
     }
 
     fn gen_key_sign_data(&self, server_key: &ServerKeyExchange) -> Vec<u8> {
@@ -108,7 +112,7 @@ impl Connection {
         if self.verify {
             let sign_data = self.gen_key_sign_data(&server_key);
             println!("{:?}", server_key.hellman_param().signature_algorithm());
-            let signature = AlgorithmSigner::new_verify(self.certificate.pub_key()?, server_key.hellman_param().signature_algorithm())?;
+            let signature = AlgorithmSigner::new_verify(self.certificates[0].pub_key()?, server_key.hellman_param().signature_algorithm())?;
             signature.verify(sign_data, server_key.hellman_param().signature().as_ref())?;
         }
         self.exchange_pub_key = server_key.hellman_param().pub_key().clone();
@@ -124,7 +128,7 @@ impl Connection {
     pub fn pub_share_key(&mut self) -> RlsResult<Vec<u8>> {
         if let SharedKey::None = self.shared_key {
             self.shared_key = SharedKey::new_pre_master_secret()?;
-            let rsa = RsaCipher::new(self.certificate.pub_key()?)?;
+            let rsa = RsaCipher::new(self.certificates[0].pub_key()?)?;
             return rsa.encrypt(self.shared_key.pub_key()?.as_slice(), false);
         }
         Ok(self.shared_key.pub_key()?.as_slice().to_vec())
