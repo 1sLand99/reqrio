@@ -3,7 +3,7 @@ use crate::error::RlsResult;
 use crate::RlsError;
 use std::ptr::null_mut;
 use crate::boring::bindings::*;
-use crate::boring::ffi::CPointer;
+use crate::ffi::CPointer;
 
 pub struct EvpCurve {
     evp_key: CPointer<EVP_PKEY>,

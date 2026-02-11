@@ -1,11 +1,10 @@
 mod ec_curve;
-mod bindings;
+pub(crate) mod bindings;
 pub mod hash;
 mod signature;
 
 pub use rsa::{RsaCipher, RsaKey, certificate};
-mod rsa;
-mod ffi;
+pub(crate) mod rsa;
 mod evp;
 mod padding;
 pub mod base64;
@@ -13,8 +12,6 @@ pub mod base64;
 pub use padding::Padding;
 pub use evp::{EvpCurve, Cipher, CipherCrypto, AeadCrypto};
 pub use ec_curve::*;
-pub use ffi::Buf;
-use ffi::CPointer;
 pub use hash::*;
 pub use signature::{AlgorithmSigner, SignatureAlgorithm};
 use std::ffi::c_int;

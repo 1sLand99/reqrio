@@ -1,10 +1,10 @@
 use super::bindings::*;
 use super::*;
-use crate::boring::ffi::BufPtr;
 use crate::error::RlsResult;
 use crate::RlsError;
 use std::ffi::c_void;
 use std::ptr::null_mut;
+use crate::ffi::{BufPtr, CPointer};
 
 pub struct EcCurve {
     ec_key: CPointer<EC_KEY>,

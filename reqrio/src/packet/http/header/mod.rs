@@ -1,4 +1,4 @@
-use crate::coder::HPack;
+use crate::hpack::HPack;
 use crate::error::{HlsError, HlsResult};
 use crate::ALPN;
 use crate::json::JsonValue;

@@ -2,7 +2,6 @@ mod store;
 
 use super::bindings::*;
 use crate::boring::bindings::*;
-use crate::boring::ffi::{BufPtr, CPointer};
 use crate::boring::BoringResExt;
 use crate::error::RlsResult;
 use crate::RlsError;
@@ -11,6 +10,7 @@ use std::fs;
 use std::path::Path;
 use std::ptr::null_mut;
 pub use store::{CertStore, ROOT_STORES};
+use crate::ffi::{BufPtr, CPointer};
 
 pub struct Certificate {
     x509: CPointer<X509>,

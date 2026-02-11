@@ -1,4 +1,4 @@
-pub(super) mod bindings;
+pub(crate) mod bindings;
 
 use std::path::Path;
 use crate::boring::bindings::*;
@@ -8,7 +8,7 @@ use crate::RlsError;
 use bindings::*;
 use std::ptr::null_mut;
 use std::{fs, slice};
-use crate::boring::ffi::{BufPtr, CPointer};
+use crate::ffi::{BufPtr, CPointer};
 use crate::RlsError::WritePubKeyError;
 
 pub mod certificate;

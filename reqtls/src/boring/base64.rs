@@ -1,6 +1,6 @@
 use crate::boring::bindings::*;
-use crate::boring::ffi::CPointer;
 use crate::error::RlsResult;
+use crate::ffi::CPointer;
 
 pub struct Base64 {
     ctx: CPointer<EVP_ENCODE_CTX>,

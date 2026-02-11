@@ -1,10 +1,10 @@
-use crate::boring::ffi::CPointer;
 use crate::boring::rsa::bindings::*;
 use crate::boring::BoringResExt;
 use crate::error::RlsResult;
 use crate::{Certificate, RlsError};
 use std::ffi::CStr;
 use std::sync::LazyLock;
+use crate::ffi::CPointer;
 
 pub static ROOT_STORES: LazyLock<CertStore> = LazyLock::new(|| {
     let certs = Certificate::from_pem(include_bytes!("../../../../roots")).unwrap();

@@ -42,6 +42,7 @@ fn main() {
     let resp = req.get().unwrap();
     // let body = res.decode_body().unwrap().as_string().unwrap();
     println!("{}", resp.header().status());
+    println!("{}", resp.text().unwrap().len());
     // println!("{}", resp.header());
     // println!("{}", resp.text().unwrap());
 }

@@ -1,6 +1,6 @@
 use crate::alpn::ALPN;
 use crate::body::BodyType;
-use crate::coder::{HPackCoding, HackDecode};
+use crate::hpack::{HPackCoding, HackDecode};
 use crate::error::HlsResult;
 use crate::ext::ReqExt;
 use crate::ext::{ReqGenExt, ReqPriExt};

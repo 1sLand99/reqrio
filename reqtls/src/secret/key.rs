@@ -1,8 +1,9 @@
 use super::super::message::key_exchange::NamedCurve;
-use crate::boring::{Buf, EcCurve, EvpCurve};
+use crate::boring::{EcCurve, EvpCurve};
 use crate::bytes::Bytes;
 use crate::error::RlsResult;
 use crate::{rand, RlsError};
+use crate::ffi::Buf;
 
 #[allow(non_camel_case_types)]
 pub enum SharedKey {

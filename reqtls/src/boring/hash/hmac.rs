@@ -1,9 +1,9 @@
 use std::ptr::null_mut;
 use crate::boring::BoringResExt;
-use crate::boring::ffi::CPointer;
 use super::Sha;
 use super::super::bindings::*;
 use crate::error::RlsResult;
+use crate::ffi::CPointer;
 use crate::RlsError;
 
 

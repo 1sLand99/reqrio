@@ -8,11 +8,11 @@ pub use cipher::Cipher;
 pub use curve::EvpCurve;
 pub use aead::AeadCrypto;
 use crate::boring::bindings::*;
-use crate::boring::ffi::CPointer;
 use crate::error::RlsResult;
 use crate::extend::Aead;
 use crate::{hmac, rand, RlsError};
 use crate::boring::CryptParam;
+use crate::ffi::CPointer;
 
 #[allow(non_camel_case_types)]
 enum CipherType {

@@ -1,10 +1,10 @@
 use crate::boring::bindings::*;
-use crate::boring::ffi::CPointer;
 use crate::boring::BoringResExt;
 use crate::error::RlsResult;
 use crate::RlsError;
 use std::fmt::{Debug, Formatter};
 use std::ptr::null_mut;
+use crate::ffi::CPointer;
 
 #[derive(PartialEq)]
 pub struct SignatureAlgorithm(u16);

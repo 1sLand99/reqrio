@@ -142,7 +142,7 @@ pub const CHUNK_END: [u8; 5] = [48, 13, 10, 13, 10];
 mod acq;
 mod alpn;
 mod buffer;
-pub mod coder;
+pub mod hpack;
 mod error;
 #[cfg(feature = "export")]
 mod export;

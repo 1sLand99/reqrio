@@ -1,7 +1,7 @@
 use crate::*;
 use json::JsonValue;
 use std::mem;
-use crate::coder::{HPackCoding, HackDecode};
+use crate::hpack::{HPackCoding, HackDecode};
 use crate::ext::ReqPriExt;
 use crate::stream::{ConnParam, Stream};
 

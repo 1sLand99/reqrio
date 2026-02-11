@@ -1,5 +1,5 @@
 use crate::buffer::Buffer;
-use crate::coder::HackDecode;
+use crate::hpack::HackDecode;
 use crate::error::HlsResult;
 use crate::packet::h2c::{FrameFlag, FrameType};
 use crate::packet::{H2Frame, Header};
@@ -27,10 +27,10 @@ impl Body {
         if let Body::Raw(raw) = self {
             let decoded = if let Some(encoding) = encoding {
                 match encoding.as_string().unwrap_or("") {
-                    "gzip" => coder::gzip_decode(mem::take(raw))?,
-                    "deflate" => coder::deflate_decode(mem::take(raw))?,
-                    "br" => coder::br_decode(mem::take(raw))?,
-                    "zstd" => coder::zstd_decode(mem::take(raw))?,
+                    "gzip" => coder::gzip_decompress(mem::take(raw))?,
+                    "deflate" => coder::deflate_decompress(mem::take(raw))?,
+                    "br" => coder::br_decompress(mem::take(raw))?,
+                    "zstd" => coder::zstd_decompress(mem::take(raw))?,
                     _ => mem::take(raw),
                 }
             } else {

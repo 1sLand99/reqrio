@@ -1,8 +1,8 @@
 use crate::boring::BoringResExt;
 use std::ptr::{null, null_mut};
 use crate::boring::bindings::*;
-use crate::boring::ffi::CPointer;
 use crate::error::RlsResult;
+use crate::ffi::CPointer;
 use crate::RlsError;
 use super::CipherType;
 use super::super::Padding;

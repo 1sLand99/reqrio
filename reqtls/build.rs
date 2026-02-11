@@ -13,6 +13,7 @@ fn main() {
         ("linux", "gnu") => {
             println!("cargo:rustc-link-search={}/lib", manifest_dir);
             println!("cargo:rustc-link-lib=crypto_linux_gnu");
+            println!("cargo:rustc-link-lib=zstd_linux_gnu");
         }
         _ => {}
     }

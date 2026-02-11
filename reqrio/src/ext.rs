@@ -6,7 +6,7 @@ use crate::timeout::Timeout;
 use crate::url::Url;
 use crate::*;
 use json::JsonValue;
-use crate::coder::HackDecode;
+use crate::hpack::HackDecode;
 use crate::stream::Stream;
 
 pub trait ReqExt: Sized {

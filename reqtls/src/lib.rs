@@ -153,3 +153,5 @@ mod error;
 pub mod rand;
 mod boring;
 mod range;
+mod ffi;
+pub mod coder;
