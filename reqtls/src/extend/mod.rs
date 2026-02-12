@@ -30,7 +30,6 @@ use crate::extend::pre_share_key::PreSharedKey;
 use crate::Version;
 pub use client_hello::Aead;
 pub use status::StatusRequest;
-pub use alps::ALPN;
 
 #[derive(PartialEq)]
 pub struct ExtensionType(u16);

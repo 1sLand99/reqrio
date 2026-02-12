@@ -1,13 +1,12 @@
 use super::super::bytes::Bytes;
 use super::super::cipher::suite::CipherSuite;
-use super::super::extend::alps::ALPN;
 use super::super::extend::Extension;
 use super::super::message::HandshakeType;
 use super::super::version::Version;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::ExtensionValue;
-use crate::{rand, ClientHello, ExtensionType};
+use crate::{rand, ClientHello, ExtensionType, ALPN};
 
 #[derive(Debug)]
 pub struct ServerHello {

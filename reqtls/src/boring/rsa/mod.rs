@@ -1,18 +1,17 @@
-pub(crate) mod bindings;
-
-use std::path::Path;
 use crate::boring::bindings::*;
 use crate::boring::BoringResExt;
 use crate::error::RlsResult;
+use crate::ffi::{BufPtr, CPointer};
 use crate::RlsError;
+use crate::RlsError::WritePubKeyError;
 use bindings::*;
+use std::path::Path;
 use std::ptr::null_mut;
 use std::{fs, slice};
-use crate::ffi::{BufPtr, CPointer};
-use crate::RlsError::WritePubKeyError;
 
 pub mod certificate;
-
+#[allow(dead_code)]
+pub(crate) mod bindings;
 pub struct RsaKey(CPointer<EVP_PKEY>);
 
 impl RsaKey {

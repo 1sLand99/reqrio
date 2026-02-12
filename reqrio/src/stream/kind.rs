@@ -1,3 +1,4 @@
+#[cfg(feature = "tls")]
 use super::sync_stream::SyncStream;
 use crate::error::HlsResult;
 #[cfg(feature = "aync")]
@@ -14,6 +15,7 @@ pub enum StreamKind {
     NonConnection,
     //同步
     SyncHttp(ProxyStream<std::net::TcpStream>),
+    #[cfg(feature = "tls")]
     SyncHttps(SyncStream<ProxyStream<std::net::TcpStream>>),
     //异步
     #[cfg(feature = "aync")]
@@ -32,6 +34,7 @@ impl StreamKind {
                 *self = StreamKind::AsyncHttp(AsyncTcpStream::from_proxy_stream(stream, param.timeout));
                 Ok(ALPN::Http11)
             }
+            #[cfg(feature = "tls")]
             Protocol::Https | Protocol::Wss => {
                 let tls_stream = AsyncTlsStream::connect_timeout(param, stream).await?;
                 let alpn = tls_stream.alpn().map(|x| ALPN::from_slice(x.as_bytes())).unwrap_or(ALPN::Http11);
@@ -85,6 +88,7 @@ impl StreamKind {
                 *self = StreamKind::SyncHttp(stream);
                 Ok(ALPN::Http11)
             }
+            #[cfg(feature = "tls")]
             Protocol::Https | Protocol::Wss => {
                 let tls_stream = SyncStream::connect(TlsConfig {
                     sni: param.url.addr().host(),
@@ -108,6 +112,7 @@ impl StreamKind {
                 s.write_all(buf)?;
                 Ok(())
             }
+            #[cfg(feature = "tls")]
             StreamKind::SyncHttps(s) => {
                 s.write_all(buf)?;
                 Ok(())
@@ -119,6 +124,7 @@ impl StreamKind {
     pub fn sync_read(&mut self, buffer: &mut Buffer) -> HlsResult<()> {
         match self {
             StreamKind::SyncHttp(s) => buffer.sync_read(s),
+            #[cfg(feature = "tls")]
             StreamKind::SyncHttps(s) => buffer.sync_read(s),
             _ => Err("Unsupported async read".into()),
         }
@@ -127,6 +133,7 @@ impl StreamKind {
     pub fn sync_shutdown(&mut self) -> HlsResult<()> {
         match self {
             StreamKind::SyncHttp(s) => Ok(s.shutdown()?),
+            #[cfg(feature = "tls")]
             StreamKind::SyncHttps(s) => Ok(s.shutdown()?),
             _ => Err("Unsupported async read".into()),
         }

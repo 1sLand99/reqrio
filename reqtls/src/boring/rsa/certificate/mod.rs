@@ -1,3 +1,4 @@
+#[cfg(feature = "tls")]
 mod store;
 
 use super::bindings::*;
@@ -9,6 +10,7 @@ use std::ffi::CString;
 use std::fs;
 use std::path::Path;
 use std::ptr::null_mut;
+#[cfg(feature = "tls")]
 pub use store::{CertStore, ROOT_STORES};
 use crate::ffi::{BufPtr, CPointer};
 
@@ -63,7 +65,7 @@ impl Certificate {
         &self.der
     }
 
-    pub(crate) fn pub_key(&mut self) -> RlsResult<&CPointer<EVP_PKEY>> {
+    pub fn pub_key(&mut self) -> RlsResult<&CPointer<EVP_PKEY>> {
         if self.pkey.is_null() {
             self.pkey = CPointer::new_checked(unsafe { X509_get_pubkey(self.x509.as_mut_ptr()) }, RlsError::PkeyNewError)?;
         }

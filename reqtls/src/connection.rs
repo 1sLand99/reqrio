@@ -2,7 +2,6 @@ use super::bytes::Bytes;
 use super::cipher::iv::Iv;
 use super::cipher::suite::CipherSuite;
 use super::cipher::Cipher;
-use super::extend::alps::ALPN;
 use super::message::key_exchange::{NamedCurve, ServerKeyExchange};
 use super::message::server_hello::{ServerHello, ServerHelloDone};
 use super::prf::Prf;
