@@ -1,53 +1,52 @@
-use std::mem;
-use super::super::bytes::Bytes;
 use super::super::cipher::suite::CipherSuite;
 use super::super::extend::Extension;
 use super::super::version::Version;
 use super::HandshakeType;
 use crate::boring::hash;
+use crate::bytes::ByteRef;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::ExtensionType;
 use crate::rand;
+use std::mem;
 
 
 #[derive(Debug)]
-pub struct ClientHello {
+pub struct ClientHello<'a> {
     handshake_type: HandshakeType,
     len: u32,
     version: Version,
-    random: Bytes,
+    random: ByteRef<'a>,
     session_id_len: u8,
-    session_id: Bytes,
+    session_id: ByteRef<'a>,
     cipher_suites_len: u16,
     cipher_suites: Vec<CipherSuite>,
     compress_method_len: u8,
-    compress_method: Bytes,
+    compress_method: ByteRef<'a>,
     extend_len: u16,
     extensions: Vec<Extension>,
 }
 
-impl ClientHello {
-    pub fn new() -> ClientHello {
+impl<'a> ClientHello<'a> {
+    pub fn new() -> ClientHello<'a> {
         ClientHello {
             handshake_type: HandshakeType::ClientHello,
             len: 0,
             version: Version::new(0),
-            random: Bytes::none(),
+            random: ByteRef::default(),
             session_id_len: 0,
-            session_id: Bytes::none(),
+            session_id: ByteRef::default(),
             cipher_suites_len: 0,
             cipher_suites: vec![],
             compress_method_len: 0,
-            compress_method: Bytes::none(),
+            compress_method: ByteRef::default(),
             extend_len: 0,
             extensions: vec![],
         }
     }
 
-    pub fn random() -> ClientHello {
+    pub fn random() -> ClientHello<'a> {
         let mut res = ClientHello::new();
-        res.random = Bytes::new(vec![0; 32]);
         res.version = Version::TLS_1_0;
         res.cipher_suites = vec![
             CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
@@ -66,7 +65,6 @@ impl ClientHello {
             if res.cipher_suites.contains(&suite) { continue; }
             res.cipher_suites.push(suite);
         }
-        res.compress_method = Bytes::new(vec![0]);
         res.extensions = vec![
             Extension::from_type(ExtensionType::SignatureAlgorithms),
             Extension::from_type(ExtensionType::SupportedGroup),
@@ -90,21 +88,21 @@ impl ClientHello {
         res
     }
 
-    pub fn from_bytes(ht: HandshakeType, bytes: &[u8]) -> RlsResult<ClientHello> {
+    pub fn from_bytes(ht: HandshakeType, bytes: &'a [u8]) -> RlsResult<ClientHello<'a>> {
         let mut res = ClientHello::new();
         res.handshake_type = ht;
         res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]]);
         res.version = Version::new(u16::from_be_bytes([bytes[4], bytes[5]]));
-        res.random = Bytes::new(bytes[6..38].to_vec());
+        res.random = ByteRef::new(&bytes[6..38]);
         res.session_id_len = bytes[38];
         let index = 39 + res.session_id_len as usize;
         if index > bytes.len() { println!("{:x?}", bytes); }
-        res.session_id = Bytes::new(bytes[39..index].to_vec());
+        res.session_id = ByteRef::new(&bytes[39..index]);
         res.cipher_suites_len = u16::from_be_bytes([bytes[index], bytes[index + 1]]);
         res.cipher_suites = CipherSuite::from_bytes(&bytes[index + 2..index + 2 + res.cipher_suites_len as usize])?;
         let index = index + res.cipher_suites_len as usize + 2;
         res.compress_method_len = bytes[index];
-        res.compress_method = Bytes::new(bytes[index + 1..index + 1 + res.compress_method_len as usize].to_vec());
+        res.compress_method = ByteRef::new(&bytes[index + 1..index + 1 + res.compress_method_len as usize]);
         let index = index + res.compress_method_len as usize + 1;
         res.extend_len = u16::from_be_bytes([bytes[index], bytes[index + 1]]);
         res.extensions = Extension::from_bytes(&bytes[index + 2..index + 2 + res.extend_len as usize], false)?;
@@ -117,9 +115,9 @@ impl ClientHello {
         let mut res = vec![self.handshake_type.as_u8(), 0, 0, 0];
         // res.extend_from_slice(&(self.len as u32).to_be_bytes()[1..]);
         res.extend(self.version.as_bytes());
-        res.extend(self.random.as_bytes());
+        res.extend_from_slice(self.random.as_ref());
         res.push(self.session_id.len() as u8);
-        res.extend(self.session_id.as_bytes());
+        res.extend_from_slice(self.session_id.as_ref());
         let mut cbs = vec![];
         for cipher_suite in &self.cipher_suites {
             cbs.extend(cipher_suite.as_bytes());
@@ -128,7 +126,7 @@ impl ClientHello {
         res.extend((cbs.len() as u16).to_be_bytes());
         res.extend(cbs);
         res.push(self.compress_method.len() as u8);
-        res.extend(self.compress_method.as_bytes());
+        res.extend_from_slice(self.compress_method.as_ref());
         let mut ebs = vec![];
 
         for extension in &self.extensions {
@@ -140,6 +138,8 @@ impl ClientHello {
         res[1..4].copy_from_slice(len.to_be_bytes()[1..].as_ref());
         res
     }
+
+    pub fn client_random(&mut self) -> &ByteRef<'a> { &self.random }
 
     ///### ja3计算方式为
     /// version+','+cipher_suite(u16)+','+extend_type(u16)+','+supported_groud值(u16)+','+ec_point_format(u8)
@@ -208,16 +208,12 @@ impl ClientHello {
         format!("t{}d{:.2}{:02}{}_{}_{}", ver, suite.len(), exts.len(), alps, &suit_hash[..12], &c_hash[..12])
     }
 
-    pub fn set_random(&mut self, random: [u8; 32]) {
-        self.random = Bytes::new(random.to_vec());
+    pub fn set_random(&mut self, random: &'a [u8]) {
+        self.random = ByteRef::new(random);
     }
 
-    pub fn take_random(&mut self) -> Vec<u8> {
-        mem::take(&mut self.random).to_bytes()
-    }
-
-    pub fn set_session_id(&mut self, session_id: [u8; 32]) {
-        self.session_id = Bytes::new(session_id.to_vec());
+    pub fn set_session_id(&mut self, session_id: &'a [u8]) {
+        self.session_id = ByteRef::new(session_id);
     }
 
     pub fn set_server_name(&mut self, server_name: &str) {

@@ -40,19 +40,21 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
         Ok(stream)
     }
     pub async fn connect(mut stream: S, config: TlsConfig<'_>) -> HlsResult<TlsStream<S>> {
-        let client_random = rand::random::<[u8; 32]>();
-        let mut conn = Connection::default().with_client_random(client_random.to_vec()).with_verify(config.verify);
+        let client_random = rand::random::<[u8; 32]>().to_vec();
+        let session_id = rand::random::<[u8; 32]>();
+
         let mut record = RecordLayer::from_bytes(config.fingerprint.client_hello_mut(), false, None)?;
         let message = record.messages.get_mut(0).ok_or(RlsError::ClientHelloNone)?;
-        message.client_mut().ok_or(HlsError::NullPointer)?.set_random(client_random);
+        message.client_mut().ok_or(HlsError::NullPointer)?.set_random(&client_random);
         message.client_mut().ok_or(HlsError::NullPointer)?.set_server_name(config.sni);
-        message.client_mut().ok_or(HlsError::NullPointer)?.set_session_id(rand::random());
+        message.client_mut().ok_or(HlsError::NullPointer)?.set_session_id(&session_id);
         match config.alpn {
             ALPN::Http20 => message.client_mut().ok_or(HlsError::NullPointer)?.add_h2_alpn(),
             _ => message.client_mut().ok_or(HlsError::NullPointer)?.remove_h2_alpn()
         }
         message.client_mut().ok_or(HlsError::NullPointer)?.remove_tls13();
-        let bs = record.handshake_bytes(&CipherSuite::new(0));
+        let bs = record.handshake_bytes(1);
+        let mut conn = Connection::default().with_client_random(client_random).with_verify(config.verify);
         conn.update_session(&bs[5..])?;
         stream.write_all(&bs).await?;
         TlsStream::new(stream, conn, config).await
@@ -99,8 +101,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             let config = config.as_mut().ok_or("config can't be null")?;
                             let mut record = RecordLayer::from_bytes(config.fingerprint.client_key_exchange_mut(), false, None)?;
                             let client_key_exchange = record.messages.get_mut(0).ok_or(HlsError::NullPointer)?;
-                            client_key_exchange.client_key_exchange_mut().unwrap().set_pub_key(self.conn.pub_share_key()?);
-                            let bs = record.handshake_bytes(self.conn.cipher_suite());
+                            let key_size = self.conn.cipher_suite().key_size();
+                            let pub_key = self.conn.pub_share_key()?;
+                            client_key_exchange.client_key_exchange_mut().unwrap().set_pub_key(pub_key.as_slice());
+                            let bs = record.handshake_bytes(key_size);
                             self.conn.update_session(&bs[5..])?;
                             self.write_buffer.push_slice(&bs);
                             self.write_buffer.push_slice(config.fingerprint.change_cipher_spec());

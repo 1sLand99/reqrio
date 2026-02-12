@@ -1,17 +1,18 @@
 use super::HandshakeType;
 use std::fmt::Debug;
+use crate::bytes::ByteRef;
 use crate::error::RlsResult;
 use super::super::bytes::Bytes;
 
 #[derive(Debug)]
-pub struct Certificates {
+pub struct Certificates<'a> {
     handshake_type: HandshakeType,
     len: u32,
     certificate_len: u32,
-    certificates: Vec<Bytes>,
+    certificates: Vec<ByteRef<'a>>,
 }
 
-impl Default for Certificates {
+impl<'a> Default for Certificates<'a> {
     fn default() -> Self {
         Certificates {
             handshake_type: HandshakeType::Certificate,
@@ -22,8 +23,8 @@ impl Default for Certificates {
     }
 }
 
-impl Certificates {
-    pub fn from_bytes(ht: HandshakeType, bytes: &[u8]) -> RlsResult<Certificates> {
+impl<'a> Certificates<'a> {
+    pub fn from_bytes(ht: HandshakeType, bytes: &[u8]) -> RlsResult<Certificates<'_>> {
         let mut res = Certificates::default();
         res.handshake_type = ht;
         res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]]);
@@ -32,7 +33,7 @@ impl Certificates {
         while index < res.certificate_len as usize + 7 {
             let len = u32::from_be_bytes([0, bytes[index], bytes[index + 1], bytes[index + 2]]) as usize;
             index += 3;
-            res.certificates.push(Bytes::new(bytes[index..index + len].to_vec()));
+            res.certificates.push(ByteRef::new(&bytes[index..index + len]));
             index += len
         }
         Ok(res)
@@ -61,11 +62,11 @@ impl Certificates {
         self.len
     }
 
-    pub fn add_certificate(&mut self, cert: impl Into<Vec<u8>>) {
-        self.certificates.push(Bytes::new(cert.into()));
+    pub fn add_certificate(&mut self, cert: &'a [u8]) {
+        self.certificates.push(ByteRef::new(cert));
     }
 
-    pub fn certificates(&self) -> &Vec<Bytes> {
+    pub fn certificates(&self) -> &Vec<ByteRef<'_>> {
         &self.certificates
     }
 }

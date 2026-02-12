@@ -15,6 +15,7 @@ use crate::*;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::ops::Range;
+use crate::ffi::Buf;
 
 pub struct Connection {
     client_random: Bytes,
@@ -124,13 +125,13 @@ impl Connection {
         self.exchange_pub_key = client_key.hellman_param().pub_key().clone();
     }
 
-    pub fn pub_share_key(&mut self) -> RlsResult<Vec<u8>> {
+    pub fn pub_share_key(&mut self) -> RlsResult<Buf<'_>> {
         if let SharedKey::None = self.shared_key {
             self.shared_key = SharedKey::new_pre_master_secret()?;
             let rsa = RsaCipher::new(self.certificates[0].pub_key()?)?;
-            return rsa.encrypt(self.shared_key.pub_key()?.as_slice(), false);
+            return Ok(Buf::Vec(rsa.encrypt(self.shared_key.pub_key()?.as_slice(), false)?));
         }
-        Ok(self.shared_key.pub_key()?.as_slice().to_vec())
+        self.shared_key.pub_key()
     }
 
     pub fn make_cipher(&mut self, server: bool) -> RlsResult<()> {
@@ -171,7 +172,7 @@ impl Connection {
     }
 
     pub fn gen_server_hello(&mut self, mut client_hello: ClientHello, certificate: &mut [Certificate], pri_key: &RsaKey) -> RlsResult<Vec<u8>> {
-        self.set_client_random(client_hello.take_random());
+        self.set_client_random(client_hello.client_random().as_ref().to_vec());
         let server_hello = ServerHello::from_client_hello(client_hello)?;
         let server_hello_bytes = server_hello.as_bytes();
         self.update_session(&server_hello_bytes)?;

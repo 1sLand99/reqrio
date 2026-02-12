@@ -37,9 +37,9 @@ impl SharedKey {
         }
     }
 
-    pub fn pub_key(&mut self) -> RlsResult<Buf<'_>> {
+    pub fn pub_key(&self) -> RlsResult<Buf<'_>> {
         match self {
-            SharedKey::Evp(v) => Ok(Buf::Vec(v.pub_key()?)),
+            SharedKey::Evp(v) => v.pub_key(),
             SharedKey::Ec(v) => Ok(Buf::Ptr(v.pub_key()?)),
             SharedKey::None => Ok(Buf::Ref(&[])),
             SharedKey::PreMasterSecret(bytes) => Ok(Buf::Ref(bytes.as_ref())),

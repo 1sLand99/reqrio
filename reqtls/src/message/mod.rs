@@ -19,12 +19,12 @@ mod alert;
 
 #[derive(Debug)]
 pub enum Message<'a> {
-    ClientHello(ClientHello),
+    ClientHello(ClientHello<'a>),
     ServerHello(ServerHello),
-    Certificate(Certificates),
+    Certificate(Certificates<'a>),
     ServerKeyExchange(ServerKeyExchange),
     ServerHelloDone(ServerHelloDone),
-    ClientKeyExchange(ClientKeyExchange),
+    ClientKeyExchange(ClientKeyExchange<'a>),
     NewSessionTicket(SessionTicket),
     Payload(Payload<'a>),
     CertificateStatus(CertificateStatus),
@@ -66,14 +66,14 @@ impl<'a> Message<'a> {
         }
     }
 
-    pub fn as_bytes(&self, suite: &CipherSuite) -> Vec<u8> {
+    pub fn as_bytes(&self, key_size:u8) -> Vec<u8> {
         match self {
             Message::ClientHello(v) => v.as_bytes(),
             Message::ServerHello(v) => v.as_bytes(),
             Message::Certificate(v) => v.as_bytes(),
             Message::ServerKeyExchange(v) => v.as_bytes(),
             Message::ServerHelloDone(v) => v.as_bytes(),
-            Message::ClientKeyExchange(v) => v.as_bytes(suite),
+            Message::ClientKeyExchange(v) => v.as_bytes(key_size),
             Message::NewSessionTicket(v) => v.as_bytes(),
             Message::CipherSpec => vec![HandshakeType::ClientHello.as_u8()],
             Message::CertificateStatus(v) => v.as_bytes(),
@@ -81,13 +81,13 @@ impl<'a> Message<'a> {
         }
     }
 
-    pub fn client_mut(&mut self) -> Option<&mut ClientHello> {
+    pub fn client_mut(&mut self) -> Option<&mut ClientHello<'a>> {
         match self {
             Message::ClientHello(v) => Some(v),
             _ => None
         }
     }
-    pub fn client(&self) -> Option<&ClientHello> {
+    pub fn client(&self) -> Option<&ClientHello<'a>> {
         match self {
             Message::ClientHello(v) => Some(v),
             _ => None
@@ -108,7 +108,7 @@ impl<'a> Message<'a> {
     //     }
     // }
 
-    pub fn client_key_exchange_mut(&mut self) -> Option<&mut ClientKeyExchange> {
+    pub fn client_key_exchange_mut(&mut self) -> Option<&mut ClientKeyExchange<'a>> {
         match self {
             Message::ClientKeyExchange(v) => Some(v),
             _ => None

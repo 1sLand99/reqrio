@@ -97,9 +97,9 @@ impl<'a> RecordLayer<'a> {
         Ok(res)
     }
 
-    pub fn handshake_bytes(&self, suite: &CipherSuite) -> Vec<u8> {
+    pub fn handshake_bytes(&self, key_size: u8) -> Vec<u8> {
         let mut res = self.head_bytes();
-        let msg = self.messages.iter().map(|x| x.as_bytes(suite)).collect::<Vec<_>>().concat();
+        let msg = self.messages.iter().map(|x| x.as_bytes(key_size)).collect::<Vec<_>>().concat();
         res.extend((msg.len() as u16).to_be_bytes());
         res.extend(msg);
         res

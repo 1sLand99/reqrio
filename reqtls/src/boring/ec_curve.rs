@@ -30,7 +30,7 @@ impl EcCurve {
         })
     }
 
-    pub fn pub_key(&mut self) -> RlsResult<BufPtr> {
+    pub fn pub_key(&self) -> RlsResult<BufPtr> {
         let pub_key = unsafe { EC_KEY_get0_public_key(self.ec_key.as_ptr()) };
         let group = unsafe { EC_KEY_get0_group(self.ec_key.as_ptr()) };
         let mut buf = BufPtr::nullptr();

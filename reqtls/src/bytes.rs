@@ -20,7 +20,7 @@ impl Bytes {
         self.0.as_mut()
     }
 
-    pub fn to_bytes(self) -> Vec<u8> {
+    pub fn into_bytes(self) -> Vec<u8> {
         self.0
     }
 
@@ -36,5 +36,41 @@ impl Bytes {
 impl Debug for Bytes {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&hex::encode(&self.0))
+    }
+}
+
+pub struct ByteRef<'a>(&'a [u8]);
+
+impl<'a> Default for ByteRef<'a> {
+    fn default() -> Self {
+        ByteRef(&[])
+    }
+}
+
+impl<'a> ByteRef<'a> {
+    pub fn new(v: &'a [u8]) -> Self {
+        ByteRef(v)
+    }
+
+    pub fn as_ref(&self) -> &[u8] {
+        self.0
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn clone(&self)->Bytes{
+        Bytes(self.0.to_vec())
+    }
+}
+
+impl<'a> Debug for ByteRef<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", hex::encode(self.0))
     }
 }

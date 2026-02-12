@@ -71,7 +71,7 @@ impl Fingerprint {
         let mut res = Fingerprint::default();
         let mut record = RecordLayer::from_bytes(&mut res.client_hello, false, None)?;
         record.messages = vec![Message::ClientHello(ClientHello::random())];
-        res.client_hello = record.handshake_bytes(&CipherSuite::new(0));
+        res.client_hello = record.handshake_bytes(1);
         Ok(res)
     }
 
@@ -139,7 +139,7 @@ impl Fingerprint {
             formats.add_format(EcPointFormat::from_u8(ft.parse()?).unwrap());
         }
         client_hello.set_extension(extensions);
-        self.client_hello = record.handshake_bytes(&CipherSuite::new(0));
+        self.client_hello = record.handshake_bytes(1);
         Ok(())
     }
 
@@ -191,7 +191,7 @@ impl Fingerprint {
             "h2" => client_hello.add_h2_alpn(),
             _ => client_hello.remove_h2_alpn()
         }
-        self.client_hello = record.handshake_bytes(&CipherSuite::new(0));
+        self.client_hello = record.handshake_bytes(1);
         Ok(())
     }
 

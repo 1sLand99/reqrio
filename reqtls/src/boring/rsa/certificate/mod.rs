@@ -14,6 +14,7 @@ use crate::ffi::{BufPtr, CPointer};
 
 pub struct Certificate {
     x509: CPointer<X509>,
+    der: BufPtr,
     pkey: CPointer<EVP_PKEY>,
 }
 
@@ -21,6 +22,7 @@ impl Certificate {
     pub fn none() -> Certificate {
         Certificate {
             x509: CPointer::nullptr(),
+            der: BufPtr::nullptr(),
             pkey: CPointer::nullptr(),
         }
     }
@@ -28,6 +30,7 @@ impl Certificate {
     pub fn new(x509: CPointer<X509>) -> Certificate {
         Certificate {
             x509,
+            der: BufPtr::nullptr(),
             pkey: CPointer::nullptr(),
         }
     }
@@ -54,11 +57,10 @@ impl Certificate {
         Certificate::from_pem(&pem)
     }
 
-    pub fn as_der(&mut self) -> BufPtr {
-        let mut buf = BufPtr::nullptr();
-        let len = unsafe { i2d_X509(self.x509.as_mut_ptr(), buf.ptr_mut()) };
-        buf.set_len(len as usize);
-        buf
+    pub fn as_der(&mut self) -> &BufPtr {
+        let len = unsafe { i2d_X509(self.x509.as_mut_ptr(), self.der.ptr_mut()) };
+        self.der.set_len(len as usize);
+        &self.der
     }
 
     pub(crate) fn pub_key(&mut self) -> RlsResult<&CPointer<EVP_PKEY>> {

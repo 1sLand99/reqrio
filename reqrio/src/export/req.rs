@@ -1,20 +1,17 @@
 use crate::error::HlsResult;
-use crate::{json, Cookie, HlsError, Method, Proxy, ReqExt, ScReq, ALPN};
+use crate::timeout::Timeout;
 #[cfg(feature = "fpr")]
 use crate::Fingerprint;
+use crate::{json, Cookie, HlsError, Method, Proxy, ReqExt, ScReq, ALPN};
+use reqtls::hex;
 use std::ffi::{c_char, CStr, CString};
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::ptr::null_mut;
 use std::slice;
-use reqtls::hex;
-use crate::timeout::Timeout;
 
 #[unsafe(no_mangle)]
 pub extern "system" fn new_http() -> *mut ScReq {
-    || -> HlsResult<*mut ScReq> {
-        let sc = ScReq::new();
-        Ok(Box::into_raw(Box::new(sc)))
-    }().unwrap_or(null_mut())
+    let sc = ScReq::new();
+    Box::into_raw(Box::new(sc))
 }
 
 #[unsafe(no_mangle)]

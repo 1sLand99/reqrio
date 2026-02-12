@@ -64,6 +64,14 @@ impl<'a> Buf<'a> {
             Buf::Vec(v) => v.as_slice(),
         }
     }
+
+    pub fn len(&self) -> usize {
+        match self {
+            Buf::Ptr(v) => v.len,
+            Buf::Ref(v) => v.len(),
+            Buf::Vec(v) => v.len()
+        }
+    }
 }
 
 pub struct BufPtr {
