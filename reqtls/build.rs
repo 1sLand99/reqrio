@@ -8,6 +8,7 @@ fn main() {
         ("windows", "msvc") => {
             println!("cargo:rustc-link-search={}/lib", manifest_dir);
             println!("cargo:rustc-link-lib=crypto_win_msvc");
+            println!("cargo:rustc-link-lib=zstd_win_msvc");
             println!("cargo:rustc-link-lib=advapi32");
         }
         ("linux", "gnu") => {

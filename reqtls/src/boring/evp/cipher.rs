@@ -94,6 +94,11 @@ impl Cipher {
         Cipher::new(CipherType::DES_ECB)
     }
 
+    pub fn with_secret_key<T:Into<Vec<u8>>>(mut self, key:T,iv:Option<T>) -> Self {
+        self.set_secret_key(key, iv);
+        self
+    }
+
     pub fn set_secret_key<T: Into<Vec<u8>>>(&mut self, key: T, iv: Option<T>) {
         self.key = key.into();
         self.iv = iv.map(|iv| iv.into()).unwrap_or(vec![]);
