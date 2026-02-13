@@ -26,6 +26,8 @@ public:
     [[nodiscard]] QByteArray toByteArray() const;
 
     [[nodiscard]] QJsonDocument toJson() const;
+
+    Headers getHeader();
 };
 
 

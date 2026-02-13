@@ -7,9 +7,15 @@
 
 #include "Session.h"
 
+void callback(const char *data, uint32_t len) {
+    QByteArray bytes = QByteArray::fromRawData(data, len);
+    qDebug() << bytes.length();
+}
+
 int main(int argc, char *argv[]) {
-    Session session(HTTP11);
-    session.setUrl("https://www.baidu.com");
+    Session session(HTTP20);
+    session.setUrl("https://m.so.com");
+    session.set_callback(callback);
     Response resp = session.get();
-    qDebug()<<resp.toString();
+    qDebug() << resp.getHeader().getStatus();
 }

@@ -15,7 +15,9 @@ add_library(reqrio-qt STATIC bindings.h
         Cookie.cpp
         Cookie.h
         Timeout.cpp
-        Timeout.h)
+        Timeout.h
+        WebSocket.cpp
+        WebSocket.h)
 
 link_directories(${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(reqrio-qt PUBLIC Qt${QT_VERSION_MAJOR}::Core reqrio)

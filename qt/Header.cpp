@@ -1,7 +1,7 @@
 //
 // Created by XLX on 2026/1/21.
 //
-
+#include <QJsonArray>
 #include "Header.h"
 
 Header::Header(const QString &name, const QString &value) {
@@ -9,29 +9,29 @@ Header::Header(const QString &name, const QString &value) {
     this->value = value;
 }
 
-Method Headers::to_method(const QString &name) {
+bindings::Method Headers::to_method(const QString &name) {
     if (name == "GET") {
-        return GET;
+        return bindings::GET;
     }
     if (name == "POST") {
-        return POST;
+        return bindings::POST;
     }
     if (name == "PUT") {
-        return PUT;
+        return bindings::PUT;
     }
     if (name == "DELETE") {
-        return DELETE;
+        return bindings::DELETE;
     }
     if (name == "HEAD") {
-        return HEAD;
+        return bindings::HEAD;
     }
     if (name == "OPTIONS") {
-        return OPTIONS;
+        return bindings::OPTIONS;
     }
-    if (name == "TRACH") {
-        return TRACH;
+    if (name == "TRACE") {
+        return bindings::TRACE;
     }
-    return GET;
+    return bindings::GET;
 }
 
 Headers::Headers(const QJsonObject &headers) {

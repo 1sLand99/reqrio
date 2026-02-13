@@ -38,3 +38,8 @@ QJsonDocument Response::toJson() const {
 Response::~Response() {
     this->body.clear();
 }
+
+
+Headers Response::getHeader() {
+    return this->headers;
+}

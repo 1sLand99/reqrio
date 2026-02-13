@@ -4,8 +4,6 @@
 
 #ifndef REQRIO_QT_HEADER_H
 #define REQRIO_QT_HEADER_H
-#include <QJsonObject>
-#include <QJsonArray>
 #include <qlist.h>
 #include <qstring.h>
 #include "bindings.h"
@@ -21,14 +19,14 @@ public:
 };
 
 class Headers {
-    Method method = GET;
+    bindings::Method method = bindings::GET;
     QString agreement;
     QString uri;
     int status = -1;
     QList<Cookie> cookies;
     QList<Header> keys;
 
-    static Method to_method(const QString &name);
+    static bindings::Method to_method(const QString &name);
 
 public:
     Headers() = default;

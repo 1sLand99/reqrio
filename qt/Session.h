@@ -49,6 +49,8 @@ public:
 
     void set_fingerprint(const QString &fingerprint) const;
 
+    void set_callback(bindings::Callback callback);
+
     [[nodiscard]] Response get() const;
 
     [[nodiscard]] Response post() const;
@@ -63,12 +65,12 @@ public:
 
     [[nodiscard]] Response trach() const;
 
-    void setUrl(const QString& url) const;
+    void setUrl(const QString &url) const;
 
     void close() const;
 
 private:
-    [[nodiscard]] Response send(Method method) const;
+    [[nodiscard]] Response send(bindings::Method method) const;
 
     static const char *alpn_str(ALPN alpn) {
         switch (alpn) {
