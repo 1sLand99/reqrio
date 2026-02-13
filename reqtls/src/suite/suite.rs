@@ -316,7 +316,7 @@ impl Debug for CipherSuite {
 #[cfg(test)]
 mod tests {
     use crate::boring::Sha;
-    use crate::cipher::suite::Hasher;
+    use crate::suite::suite::Hasher;
     use std::fs;
 
     #[test]

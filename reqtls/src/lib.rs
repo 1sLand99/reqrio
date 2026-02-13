@@ -155,12 +155,12 @@ pub use error::RlsError;
 #[cfg(feature = "tls")]
 pub use version::Version;
 pub use range::RangeExt;
-pub use boring::{hash, hmac, base64, Cipher, Padding, RsaCipher, RsaKey, certificate::Certificate};
+pub use boring::{hash, hmac, base64, Cipher, CipherType, Padding, RsaCipher, RsaKey, certificate::Certificate, cipher};
 #[cfg(feature = "tls")]
 pub use boring::{certificate::CertStore, SignatureAlgorithm};
 pub use hex;
 #[cfg(feature = "tls")]
-pub use cipher::suite::CipherSuite;
+pub use suite::suite::CipherSuite;
 #[cfg(feature = "tls")]
 pub use extend::{Extension, ExtensionType, group::GroupType, formats::EcPointFormat, SupportVersions, CompressionType};
 pub use alpn::ALPN;
@@ -172,7 +172,7 @@ mod message;
 #[cfg(feature = "tls")]
 mod prf;
 #[cfg(feature = "tls")]
-mod cipher;
+mod suite;
 #[cfg(feature = "tls")]
 mod connection;
 #[cfg(feature = "tls")]

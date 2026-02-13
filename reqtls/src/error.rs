@@ -89,7 +89,7 @@ impl Display for RlsError {
             RlsError::GenKeyFromAeadNone => f.write_str("get key from aead none"),
             RlsError::AeadNone => f.write_str("Aead none"),
             RlsError::HasherNone => f.write_str("Hasher none"),
-            RlsError::InvalidCipherSuite => f.write_str("Invalid cipher suite"),
+            RlsError::InvalidCipherSuite => f.write_str("Invalid suite suite"),
             RlsError::MessageTooShort => f.write_str("Message too short"),
             RlsError::AeadCryptError => f.write_str("Init aead crypto error"),
             RlsError::AeadEncryptError => f.write_str("Aead encrypt error"),

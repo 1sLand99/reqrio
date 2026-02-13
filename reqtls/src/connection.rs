@@ -1,7 +1,7 @@
 use super::bytes::Bytes;
-use super::cipher::iv::Iv;
-use super::cipher::suite::CipherSuite;
-use super::cipher::Cipher;
+use super::suite::iv::Iv;
+use super::suite::suite::CipherSuite;
+use super::suite::TlsCipher;
 use super::message::key_exchange::{NamedCurve, ServerKeyExchange};
 use super::message::server_hello::{ServerHello, ServerHelloDone};
 use super::prf::Prf;
@@ -19,8 +19,8 @@ use crate::ffi::Buf;
 pub struct Connection {
     client_random: Bytes,
     server_random: Bytes,
-    read: Cipher,
-    write: Cipher,
+    read: TlsCipher,
+    write: TlsCipher,
     use_ems: bool,
     master_secret: [u8; 48],
     named_curve: NamedCurve,
@@ -39,8 +39,8 @@ impl Default for Connection {
         Connection {
             client_random: Bytes::none(),
             server_random: Bytes::none(),
-            read: Cipher::none(),
-            write: Cipher::none(),
+            read: TlsCipher::none(),
+            write: TlsCipher::none(),
             use_ems: false,
             master_secret: [0; 48],
             named_curve: NamedCurve::x25519,

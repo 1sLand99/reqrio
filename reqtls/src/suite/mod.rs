@@ -9,16 +9,16 @@ use crate::range::RangeExt;
 pub mod iv;
 pub mod suite;
 
-pub struct Cipher {
+pub struct TlsCipher {
     crypto: Crypto,
     iv: Iv,
     seq: u64,
 }
 
 
-impl Cipher {
-    pub fn none() -> Cipher {
-        Cipher {
+impl TlsCipher {
+    pub fn none() -> TlsCipher {
+        TlsCipher {
             crypto: Crypto::None,
             iv: Iv::new(&[], vec![]),
             seq: 0,
@@ -86,8 +86,8 @@ impl Cipher {
 
 #[cfg(test)]
 mod tests {
-    use crate::cipher::iv::Iv;
-    use crate::cipher::Cipher;
+    use crate::suite::iv::Iv;
+    use crate::suite::TlsCipher;
     use crate::extend::Aead;
     use crate::message::Payload;
     use crate::{rand, Message, RecordLayer, RecordType, Version};
@@ -95,7 +95,7 @@ mod tests {
 
     #[test]
     fn test_cipher() {
-        let mut cipher = Cipher::none();
+        let mut cipher = TlsCipher::none();
         let key_bs = rand::random::<[u8; 32]>().to_vec();
         let iv = rand::random::<[u8; 16]>();
         let explicit = rand::random::<[u8; 8]>();

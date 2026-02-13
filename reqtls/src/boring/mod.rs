@@ -15,7 +15,7 @@ pub mod base64;
 
 pub use padding::Padding;
 
-pub use evp::Cipher;
+pub use evp::{Cipher, CipherType, cipher};
 #[cfg(feature = "tls")]
 pub use evp::{CipherCrypto, EvpCurve, AeadCrypto};
 

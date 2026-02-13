@@ -1,5 +1,5 @@
 use super::super::bytes::Bytes;
-use super::super::cipher::suite::CipherSuite;
+use super::super::suite::suite::CipherSuite;
 use super::super::extend::Extension;
 use super::super::message::HandshakeType;
 use super::super::version::Version;

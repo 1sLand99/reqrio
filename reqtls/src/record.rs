@@ -142,7 +142,7 @@ impl<'a> RecordBuffer<'a> {
             Aead::AES_128_GCM | Aead::AES_256_GCM => &iv[4..],
             Aead::ChaCha20_POLY1305 => &[],
             Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => iv,
-            _ => panic!("unsupported cipher specification"),
+            _ => panic!("unsupported suite specification"),
         };
         let iv_range = self.aead.explicit_range();
         if iv_range.start == iv_range.end { return; }

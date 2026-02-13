@@ -2,7 +2,7 @@
 use crate::boring::BoringResExt;
 #[cfg(feature = "tls")]
 mod curve;
-mod cipher;
+pub mod cipher;
 #[cfg(feature = "tls")]
 mod aead;
 
@@ -27,7 +27,7 @@ use crate::boring::CryptParam;
 use crate::ffi::CPointer;
 
 #[allow(non_camel_case_types)]
-enum CipherType {
+pub enum CipherType {
     AES_128_CBC,
     AES_192_CBC,
     AES_256_CBC,
@@ -86,7 +86,7 @@ impl CipherCrypto {
         let evp_cipher = match aead {
             Aead::AES_128_CBC_SHA => CipherType::AES_128_CBC,
             Aead::AES_256_CBC_SHA => CipherType::AES_256_CBC,
-            _ => return Err("not cipher, but in cipher".into())
+            _ => return Err("not suite, but in suite".into())
         };
         let ctx = CPointer::new(unsafe { EVP_CIPHER_CTX_new() });
         if ctx.is_null() { return Err(RlsError::InitEvpCtxError); }

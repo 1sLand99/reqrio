@@ -1,4 +1,4 @@
-use super::super::cipher::suite::CipherSuite;
+use super::super::suite::suite::CipherSuite;
 use super::super::extend::Extension;
 use super::super::version::Version;
 use super::HandshakeType;

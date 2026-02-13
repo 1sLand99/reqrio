@@ -1,11 +1,11 @@
-use crate::boring::BoringResExt;
-use std::ptr::{null, null_mut};
+use super::super::Padding;
+use super::CipherType;
 use crate::boring::bindings::*;
+use crate::boring::BoringResExt;
 use crate::error::RlsResult;
 use crate::ffi::CPointer;
-use crate::RlsError;
-use super::CipherType;
-use super::super::Padding;
+use crate::{base64, RlsError};
+use std::ptr::{null, null_mut};
 
 pub struct Cipher {
     ctx: CPointer<EVP_CIPHER_CTX>,
@@ -94,7 +94,7 @@ impl Cipher {
         Cipher::new(CipherType::DES_ECB)
     }
 
-    pub fn with_secret_key<T:Into<Vec<u8>>>(mut self, key:T,iv:Option<T>) -> Self {
+    pub fn with_secret_key<T: Into<Vec<u8>>>(mut self, key: T, iv: Option<T>) -> Self {
         self.set_secret_key(key, iv);
         self
     }
@@ -162,4 +162,28 @@ impl Cipher {
         self.padding.remove_padding(&mut context);
         Ok(context)
     }
+}
+
+pub fn en_b64<T: Into<Vec<u8>>>(typ: CipherType, key: T, iv: Option<T>, data: impl Into<Vec<u8>>) -> RlsResult<String> {
+    let cipher = Cipher::new(typ).with_secret_key(key, iv);
+    let en_bs = cipher.encrypt(data)?;
+    Ok(base64::b64encode(en_bs)?)
+}
+
+pub fn de_b64<T: Into<Vec<u8>>>(typ: CipherType, key: T, iv: Option<T>, data: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
+    let de_b64=base64::b64decode(data)?;
+    let cipher = Cipher::new(typ).with_secret_key(key, iv);
+    cipher.decrypt(de_b64)
+}
+
+pub fn en_hex<T: Into<Vec<u8>>>(typ: CipherType, key: T, iv: Option<T>, data: impl Into<Vec<u8>>) -> RlsResult<String> {
+    let cipher = Cipher::new(typ).with_secret_key(key, iv);
+    let en_bs = cipher.encrypt(data)?;
+    Ok(hex::encode(en_bs))
+}
+
+pub fn de_hex<T: Into<Vec<u8>>>(typ: CipherType, key: T, iv: Option<T>, data: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
+    let de_hex=hex::decode(data)?;
+    let cipher = Cipher::new(typ).with_secret_key(key, iv);
+    cipher.decrypt(de_hex)
 }

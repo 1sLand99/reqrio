@@ -1,3 +1,4 @@
+use std::string::FromUtf8Error;
 use crate::boring::bindings::*;
 use crate::error::RlsResult;
 use crate::ffi::CPointer;
@@ -7,12 +8,12 @@ pub struct Base64 {
 }
 
 impl Base64 {
-    fn new() -> Base64 {
+    pub fn new() -> Base64 {
         let ctx = CPointer::new(unsafe { EVP_ENCODE_CTX_new() });
         Base64 { ctx }
     }
 
-    fn encrypt(&self, data: &[u8]) -> RlsResult<String> {
+    pub fn encrypt(&self, data: &[u8]) -> Vec<u8>{
         let mut out = vec![0u8; data.len() * 2];
         let mut len = 0;
         unsafe {
@@ -33,10 +34,11 @@ impl Base64 {
             );
         }
         out.truncate((len + padding) as usize);
-        Ok(String::from_utf8(out)?.replace("\n", ""))
+        let _ = out.extract_if(.., |x| *x == '\n' as u8);
+        out
     }
 
-    fn decrypt(&self, data: &[u8]) -> RlsResult<Vec<u8>> {
+    pub fn decrypt(&self, data: &[u8]) -> RlsResult<Vec<u8>> {
         let mut out = vec![0u8; 3 * data.len() / 4];
         let mut len = 0;
         unsafe {
@@ -62,8 +64,9 @@ impl Base64 {
 }
 
 
-pub fn b64encode(context: impl AsRef<[u8]>) -> RlsResult<String> {
-    Base64::new().encrypt(context.as_ref())
+pub fn b64encode(context: impl AsRef<[u8]>) -> Result<String, FromUtf8Error> {
+    let bs=Base64::new().encrypt(context.as_ref());
+    String::from_utf8(bs)
 }
 
 pub fn b64decode(context: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
