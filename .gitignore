@@ -17,6 +17,7 @@ ClientKeyExchange
 java/target
 java/.idea
 java/src/main/resources/reqrio.dll
+java/src/main/resources/libreqrio.so
 java/src/main/resources/nls_100.json
 qt/.idea
 qt/cmake-build-debug-visual-studio

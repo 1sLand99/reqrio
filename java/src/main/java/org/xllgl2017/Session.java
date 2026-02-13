@@ -11,145 +11,134 @@ public class Session {
     private final Pointer req;
 
     public Session(ALPN alpn) {
-        this.req = INSTANCE.new_http();
-        INSTANCE.set_alpn(this.req, alpn.getValue());
+        this.req = INSTANCE.ScReq_new();
+        INSTANCE.ScReq_set_alpn(this.req, alpn.getValue());
     }
 
     public Session() {
-        this.req = INSTANCE.new_http();
+        this.req = INSTANCE.ScReq_new();
     }
 
     public void setHeaderJson(String header) throws Exception {
-        int res = INSTANCE.set_header_json(this.req, header);
+        int res = INSTANCE.ScReq_set_header_json(this.req, header);
         if (res == -1) throw new Exception("set header json error");
     }
 
     public void useRandomFingerprint() throws Exception {
-        int res = INSTANCE.set_random_fingerprint(this.req);
+        int res = INSTANCE.ScReq_set_random_fingerprint(this.req);
         if (res == -1) throw new Exception("use random fingerprint error");
+        if (res == -2) throw new Exception("unsubscribed");
     }
 
     public void setHeaders(Headers headers) {
         for (Header header : headers.getKeys()) {
-            INSTANCE.add_header(this.req, header.getName(), header.getValue());
+            INSTANCE.ScReq_add_header(this.req, header.getName(), header.getValue());
         }
         for (Cookie cookie : headers.getCookies()) {
-            INSTANCE.add_cookie(this.req, cookie.getName(), cookie.getValue());
+            INSTANCE.ScReq_add_cookie(this.req, cookie.getName(), cookie.getValue());
         }
     }
 
     public void addHeader(Header header) throws Exception {
-        int res = INSTANCE.add_header(this.req, header.getName(), header.getValue());
+        int res = INSTANCE.ScReq_add_header(this.req, header.getName(), header.getValue());
         if (res == -1) throw new Exception("add header error");
     }
 
     public void addHeader(String name, String value) throws Exception {
-        int res = INSTANCE.add_header(this.req, name, value);
+        int res = INSTANCE.ScReq_add_header(this.req, name, value);
         if (res == -1) throw new Exception("add header error");
     }
 
     public void setALPN(ALPN alpn) throws Exception {
-        int res = INSTANCE.set_alpn(this.req, alpn.getValue());
+        int res = INSTANCE.ScReq_set_alpn(this.req, alpn.getValue());
         if (res == -1) throw new Exception("set alpn error");
     }
 
     public void set_fingerprint(String fingerprint) throws Exception {
-        int res = INSTANCE.set_fingerprint(this.req, fingerprint);
+        int res = INSTANCE.ScReq_set_fingerprint(this.req, fingerprint);
         if (res == -1) throw new Exception("set fingerprint error");
+        if (res == -2) throw new Exception("unsubscribed");
     }
 
     public void setJa3(String ja3) throws Exception {
-        int res = INSTANCE.set_ja3(this.req, ja3);
+        int res = INSTANCE.ScReq_set_ja3(this.req, ja3);
         if (res == -1) throw new Exception("set ja3 error");
+        if (res == -2) throw new Exception("unsubscribed");
     }
 
     public void setJa4(String ja4) throws Exception {
-        int res = INSTANCE.set_ja4(this.req, ja4);
+        int res = INSTANCE.ScReq_set_ja4(this.req, ja4);
         if (res == -1) throw new Exception("set ja4 error");
+        if (res == -2) throw new Exception("unsubscribed");
     }
 
     public void setProxy(String proxy) throws Exception {
-        int res = INSTANCE.set_proxy(this.req, proxy);
+        int res = INSTANCE.ScReq_set_proxy(this.req, proxy);
         if (res == -1) throw new Exception("set alpn error");
     }
 
     public void setUrl(String url) throws Exception {
-        int res = INSTANCE.set_url(this.req, url);
+        int res = INSTANCE.ScReq_set_url(this.req, url);
         if (res == -1) throw new Exception("set url error");
     }
 
     public void addParam(String name, String value) throws Exception {
-        int res = INSTANCE.add_param(this.req, name, value);
+        int res = INSTANCE.ScReq_add_param(this.req, name, value);
         if (res == -1) throw new Exception("add param error");
     }
 
     public void setData(JsonObject data) throws Exception {
-        int res = INSTANCE.set_data(this.req, new Gson().toJson(data));
+        int res = INSTANCE.ScReq_set_data(this.req, new Gson().toJson(data));
         if (res == -1) throw new Exception("set data error");
     }
 
     public void setJson(JsonElement json) throws Exception {
-        int res = INSTANCE.set_json(this.req, new Gson().toJson(json));
+        int res = INSTANCE.ScReq_set_json(this.req, new Gson().toJson(json));
         if (res == -1) throw new Exception("set json error");
     }
 
     public void setBytes(byte[] bytes) throws Exception {
-        int res = INSTANCE.set_bytes(this.req, bytes, bytes.length);
+        int res = INSTANCE.ScReq_set_bytes(this.req, bytes, bytes.length);
         if (res == -1) throw new Exception("set bytes error");
     }
 
     public void setText(String text) throws Exception {
-        int res = INSTANCE.set_text(this.req, text);
+        int res = INSTANCE.ScReq_set_text(this.req, text);
         if (res == -1) throw new Exception("set content_type error");
     }
 
     public void setTimeout(Timeout timeout) throws Exception {
         Gson gson = new Gson();
-        int res = INSTANCE.set_timeout(this.req, gson.toJson(timeout));
+        int res = INSTANCE.ScReq_set_timeout(this.req, gson.toJson(timeout));
         if (res == -1) throw new Exception("set timeout error");
     }
 
     public void setCookie(String cookie) throws Exception {
-        int res = INSTANCE.set_cookie(this.req, cookie);
+        int res = INSTANCE.ScReq_set_cookie(this.req, cookie);
         if (res == -1) throw new Exception("set cookie error");
     }
 
     public void addCookie(String name, String value) throws Exception {
-        int res = INSTANCE.add_cookie(this.req, name, value);
+        int res = INSTANCE.ScReq_add_cookie(this.req, name, value);
         if (res == -1) throw new Exception("add cookie error");
+    }
+
+    public void reconnect() throws Exception {
+        int ret = INSTANCE.ScReq_reconnect(this.req);
+        if (ret == -1) throw new Exception("reconnect error");
+    }
+
+    public void set_callback(ScReqCallback cb) throws Exception {
+        int ret = INSTANCE.ScReq_set_callback(this.req, cb);
+        if (ret == -1) throw new Exception("set callback error");
     }
 
 
     public Response send(Method method) throws DecoderException {
-        Pointer ptr;
-        switch (method) {
-            case GET:
-                ptr = INSTANCE.get(this.req);
-                break;
-            case POST:
-                ptr = INSTANCE.post(this.req);
-                break;
-            case PUT:
-                ptr = INSTANCE.put(this.req);
-                break;
-            case OPTIONS:
-                ptr = INSTANCE.options(this.req);
-                break;
-            case DELETE:
-                ptr = INSTANCE.delete(this.req);
-                break;
-            case HEAD:
-                ptr = INSTANCE.head(this.req);
-                break;
-            case TRACH:
-                ptr = INSTANCE.trach(this.req);
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported method: " + method);
-        }
+        Pointer ptr = INSTANCE.ScReq_stream_io(this.req, method.getValue());
         String hex_res = ptr.getString(0);
         Response response = new Response(hex_res);
-        INSTANCE.free_pointer(ptr);
+        INSTANCE.char_free(ptr);
         return response;
     }
 
@@ -177,12 +166,12 @@ public class Session {
         return this.send(Method.DELETE);
     }
 
-    public Response trach() throws Exception {
-        return this.send(Method.TRACH);
+    public Response trace() throws Exception {
+        return this.send(Method.TRACE);
     }
 
     public void close() {
-        INSTANCE.destroy(this.req);
+        INSTANCE.ScReq_drop(this.req);
     }
 
 
