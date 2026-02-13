@@ -39,7 +39,7 @@ class Stream:
 
     # 开始接收数据
     def start(self):
-        r = self.session.dll.register(self.session.hid, self._cb)
+        r = self.session.dll.ScReq_set_callback(self.session.hid, self._cb)
         if r != 0:
             raise RuntimeError("register failed")
         self.thread.start()

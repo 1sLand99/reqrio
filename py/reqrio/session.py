@@ -18,16 +18,17 @@ class Session:
         self.dll = DLL
         self.callback = CALLBACK
 
-        self.hid = self.dll.new_http()
+        self.hid = self.dll.ScReq_new()
         if self.hid == -1: raise Exception('init fail')
-        r = self.dll.set_alpn(self.hid, alpn.value.encode('utf-8'))
+        r = self.dll.ScReq_set_alpn(self.hid, alpn.value.encode('utf-8'))
         if r == -1: raise Exception('set alpn error')
         if rand_tls:
-            r = self.dll.set_random_fingerprint(self.hid)
-            if r==-2:raise Exception("free user, rand_tls can't be used")
+            r = self.dll.ScReq_set_random_fingerprint(self.hid)
+            if r == -2: raise Exception("free user, rand_tls can't be used")
             if r == -1: raise Exception('set rand tls error')
 
-    def set_timeout(self, connect: int = 3000, read: int = 3000, write: int = 3000, handle: int = 30000, connect_times: int = 3,
+    def set_timeout(self, connect: int = 3000, read: int = 3000, write: int = 3000, handle: int = 30000,
+                    connect_times: int = 3,
                     handle_times: int = 3):
         """
         :param connect: 连接超时,默认3s
@@ -46,16 +47,16 @@ class Session:
             'connect_times': connect_times,
             'handle_times': handle_times,
         }
-        r = self.dll.set_timeout(self.hid, json.dumps(timeout).encode('utf-8'))
+        r = self.dll.ScReq_set_timeout(self.hid, json.dumps(timeout).encode('utf-8'))
         if r == -1: raise Exception('set timeout error')
         return
 
     def set_header_json(self, header: dict):
-        r = self.dll.set_header_json(self.hid, json.dumps(header).encode('utf-8'))
+        r = self.dll.ScReq_set_header_json(self.hid, json.dumps(header).encode('utf-8'))
         if r == -1: raise Exception('set header error')
 
     def add_header(self, name: str, value: str):
-        r = self.dll.set_header_json(self.hid, name.encode('utf-8'), value.encode('utf-8'))
+        r = self.dll.ScReq_set_header_json(self.hid, name.encode('utf-8'), value.encode('utf-8'))
         if r == -1: raise Exception('add header error')
 
     def set_fingerprint(self, fingerprint: str):
@@ -66,51 +67,51 @@ class Session:
         2.client_key_exchange
 
         3.change_cipher_spec"""
-        r = self.dll.set_fingerprint(self.hid, fingerprint.encode('utf-8'))
-        if r==-2:raise Exception("free user, set_fingerprint can't be used")
+        r = self.dll.ScReq_set_fingerprint(self.hid, fingerprint.encode('utf-8'))
+        if r == -2: raise Exception("free user, set_fingerprint can't be used")
         if r == -1: raise Exception('set fingerprint error')
 
     def set_ja3(self, ja3: str):
-        r = self.dll.set_ja3(self.hid, ja3.encode('utf-8'))
-        if r==-2:raise Exception("free user, set_ja3 can't be used")
+        r = self.dll.ScReq_set_ja3(self.hid, ja3.encode('utf-8'))
+        if r == -2: raise Exception("free user, set_ja3 can't be used")
         if r == -1: raise Exception('set ja3 error')
 
     def set_ja4(self, ja4: str):
-        r=self.dll.set_ja4(self.hid,ja4.encode('utf-8'))
-        if r==-2:raise Exception("free user, set_ja4 can't be used")
+        r = self.dll.ScReq_set_ja4(self.hid, ja4.encode('utf-8'))
+        if r == -2: raise Exception("free user, set_ja4 can't be used")
         if r == -1: raise Exception('set ja4 error')
 
     def set_proxy(self, proxy: str):
         """设置代理，格式:http://127.0.0.1:10000、socks5://127.0.0.1:10001"""
-        r = self.dll.set_proxy(self.hid, proxy.encode('utf-8'))
+        r = self.dll.ScReq_set_proxy(self.hid, proxy.encode('utf-8'))
         if r == -1: raise Exception('set proxy error,proxy=' + proxy)
 
     def set_url(self, url: str):
-        r = self.dll.set_url(self.hid, url.encode('utf-8'))
+        r = self.dll.ScReq_set_url(self.hid, url.encode('utf-8'))
         if r == -1: raise Exception('set url error,url=' + url)
 
     def set_data(self, data: dict):
-        r = self.dll.set_data(self.hid, json.dumps(data).encode('utf-8'))
+        r = self.dll.ScReq_set_data(self.hid, json.dumps(data).encode('utf-8'))
         if r == -1: raise Exception('set data error')
 
     def set_json(self, data: dict):
-        r = self.dll.set_json(self.hid, json.dumps(data).encode('utf-8'))
+        r = self.dll.ScReq_set_json(self.hid, json.dumps(data).encode('utf-8'))
         if r == -1: raise Exception('set json error')
 
     def set_bytes(self, bs: bytes):
-        r = self.dll.set_bytes(self.hid, bs, len(bs))
+        r = self.dll.ScReq_set_bytes(self.hid, bs, len(bs))
         if r == -1: raise Exception('set bytes error')
 
     def set_text(self, text: str):
-        r = self.dll.set_text(self.hid, text.encode('utf-8'))
+        r = self.dll.ScReq_set_text(self.hid, text.encode('utf-8'))
         if r == -1: raise Exception('set text error')
 
     def set_cookie(self, cookie: str):
-        r = self.dll.set_cookie(self.hid, cookie.encode('utf-8'))
+        r = self.dll.ScReq_set_cookie(self.hid, cookie.encode('utf-8'))
         if r == -1: raise Exception('set json error')
 
     def add_cookie(self, name: str, value: str):
-        r = self.dll.add_cookie(self.hid, name.encode('utf-8'), value.encode('utf-8'))
+        r = self.dll.ScReq_add_cookie(self.hid, name.encode('utf-8'), value.encode('utf-8'))
         if r == -1: raise Exception('set json error')
 
     def set_params(self, param: dict):
@@ -119,92 +120,54 @@ class Session:
         return
 
     def add_param(self, name: str, value: str):
-        r = self.dll.add_param(self.hid, name.encode('utf-8'), value.encode('utf-8'))
+        r = self.dll.ScReq_add_param(self.hid, name.encode('utf-8'), value.encode('utf-8'))
         if r == -1: raise Exception('add param error')
+
+    def send_request(self, method: Method):
+        resp = self.dll.ScReq_stream_io(self.hid, method.value)
+        bs = string_at(resp).decode('utf-8')
+        self.dll.char_free(resp)
+        try:
+            response = Response(json.loads(bytes.fromhex(bs)))
+            response.header.method = method
+            return response
+        except Exception as _:
+            raise Exception(bs)
 
     def get(self, url: str = None) -> Response:
         if url is not None:
             self.set_url(url)
-        resp = self.dll.get(self.hid)
-        bs = string_at(resp).decode('utf-8')
-        self.dll.free_pointer(resp)
-        try:
-            resp = json.loads(bytes.fromhex(bs))
-            return Response(resp)
-        except Exception as _:
-            raise Exception(bs)
+        return self.send_request(Method.GET)
 
     def post(self, url: str = None) -> Response:
         if url is not None:
             self.set_url(url)
-        resp = self.dll.post(self.hid)
-        bs = string_at(resp).decode('utf-8')
-        self.dll.free_pointer(resp)
-        try:
-            resp = json.loads(bytes.fromhex(bs))
-            return Response(resp)
-        except Exception as _:
-            raise Exception(bs)
-
-    def options(self, url: str = None) -> Response:
-        if url is not None:
-            self.set_url(url)
-        resp = self.dll.options(self.hid)
-        bs = string_at(resp).decode('utf-8')
-        self.dll.free_pointer(resp)
-        try:
-            resp = json.loads(bytes.fromhex(bs))
-            return Response(resp)
-        except Exception as _:
-            raise Exception(bs)
+        return self.send_request(Method.POST)
 
     def put(self, url: str = None) -> Response:
         if url is not None:
             self.set_url(url)
-        resp = self.dll.put(self.hid)
-        bs = string_at(resp).decode('utf-8')
-        self.dll.free_pointer(resp)
-        try:
-            resp = json.loads(bytes.fromhex(bs))
-            return Response(resp)
-        except Exception as _:
-            raise Exception(bs)
+        return self.send_request(Method.PUT)
 
     def head(self, url: str = None) -> Response:
         if url is not None:
             self.set_url(url)
-        resp = self.dll.head(self.hid)
-        bs = string_at(resp).decode('utf-8')
-        self.dll.free_pointer(resp)
-        try:
-            resp = json.loads(bytes.fromhex(bs))
-            return Response(resp)
-        except Exception as _:
-            raise Exception(bs)
+        return self.send_request(Method.HEAD)
 
     def delete(self, url: str = None) -> Response:
         if url is not None:
             self.set_url(url)
-        resp = self.dll.delete(self.hid)
-        bs = string_at(resp).decode('utf-8')
-        self.dll.free_pointer(resp)
-        try:
-            resp = json.loads(bytes.fromhex(bs))
-            return Response(resp)
-        except Exception as _:
-            raise Exception(bs)
+        return self.send_request(Method.DELETE)
 
-    def trach(self, url: str = None) -> Response:
+    def options(self, url: str = None) -> Response:
         if url is not None:
             self.set_url(url)
-        resp = self.dll.trach(self.hid)
-        bs = string_at(resp).decode('utf-8')
-        self.dll.free_pointer(resp)
-        try:
-            resp = json.loads(bytes.fromhex(bs))
-            return Response(resp)
-        except Exception as _:
-            raise Exception(bs)
+        return self.send_request(Method.OPTIONS)
+
+    def trace(self, url: str = None) -> Response:
+        if url is not None:
+            self.set_url(url)
+        return self.send_request(Method.TRACE)
 
     def session_reconnect(self):
         r = self.dll.reconnect(self.hid)
@@ -219,4 +182,4 @@ class Session:
 
     def close(self):
         """记得关闭资源，否则容易造成内存溢出"""
-        self.dll.destroy(self.hid)
+        self.dll.ScReq_drop(self.hid)

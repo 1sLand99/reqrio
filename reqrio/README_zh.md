@@ -290,7 +290,7 @@ session.close()
 | 18  | ScReq_add_cookie                | void *, const char *, const char *            |  int   |
 | 19  | ScReq_set_callback              | void *                                        |  int   |
 | 20  | ScReq_reconnect                 | void *                                        | char * |                     |
-| 21  | ScReq_stream_io                 | void *                                        | char * |       返回十六进制        |
+| 21  | ScReq_stream_io                 | void *, Method                                        | char * |       返回十六进制        |
 | 22  | ScReq_drop                      | void *                                        | char * |      销毁ScReq实例      |
 | 23  | char_free                       | void *                                        | char * |     销毁char *指针      |
 | 24  | ws_build                        | void *                                        | char * |                     |

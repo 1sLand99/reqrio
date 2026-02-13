@@ -2,10 +2,11 @@ from enum import Enum
 
 
 class Method(Enum):
-    GET = 1
-    POST = 2
-    PUT = 3
-    OPTIONS = 4
-    HEAD = 5
-    DELETE = 6
-    TRACH = 7
+    GET = 0
+    POST = 1
+    PUT = 2
+    HEAD = 3
+    DELETE = 4
+    OPTIONS = 5
+    TRACE = 6
+    CONNECT = 7

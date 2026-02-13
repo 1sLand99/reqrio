@@ -297,7 +297,7 @@ session.close()
 | 18  | ScReq_add_cookie             | void *, const char *, const char *            | int    |
 | 19  | ScReq_set_callback           | void *, extern "C" fn(const char *, uint32_t) | int    |
 | 20  | ScReq_reconnect              | void *                                        | int    |
-| 21  | ScReq_stream_io              | void *                                        | char * |       Return to hexadecimal       |
+| 21  | ScReq_stream_io              | void *, Method                                | char * |       Return to hexadecimal       |
 | 22  | ScReq_drop                   | void *                                        | -      |   Destroy the new_tttp instance   |
 | 23  | char_free                    | char *                                        | -      |      Destroy char * pointer       |
 | 24  | ws_build                     | -                                             | void * |

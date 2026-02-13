@@ -40,7 +40,7 @@ class WebSocket:
         self.ws = None
 
     def open(self):
-        builder = DLL.build_ws()
+        builder = DLL.ws_build()
         if self.proxy is not None:
             r = DLL.ws_set_proxy(builder, self.proxy.encode('utf-8'))
             if r == -1: raise Exception("设置代理失败-" + self.proxy)
@@ -53,15 +53,15 @@ class WebSocket:
             print(self.uri)
             r = DLL.ws_set_uri(builder, self.uri.encode('utf-8'))
             if r == -1: raise Exception("设置uri失败" + self.uri)
-        self.ws = DLL.open_ws(builder)
+        self.ws = DLL.ws_open(builder)
 
     def open_raw(self, context: str):
-        self.ws = DLL.open_ws_raw(self.url.encode('utf-8'), context.encode('utf-8'))
+        self.ws = DLL.ws_open_raw(self.url.encode('utf-8'), context.encode('utf-8'))
 
     def read(self) -> WsFrame:
         ptr = DLL.ws_read(self.ws)
         bs = string_at(ptr).decode('utf-8')
-        DLL.free_pointer(ptr)
+        DLL.char_free(ptr)
         return WsFrame(bs)
 
     def write(self, opcode: WsOpCode, bs: bytes):
