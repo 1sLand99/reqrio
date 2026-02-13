@@ -60,7 +60,7 @@ pub trait ReqExt: Sized {
         self
     }
 
-    ///是否校验服务器下发的消息，默认校验
+    ///是否校验服务器下发的消息（证书、签名等），默认校验
     fn with_verify(mut self, verify: bool) -> Self {
         self.set_verify(verify);
         self
@@ -68,6 +68,7 @@ pub trait ReqExt: Sized {
 
     fn set_verify(&mut self, verify: bool);
     /// * 必须在建立tls连接（即：set_url/with_url）前设置, 否则需要调re_conn
+    /// * 默认使用http2.0去连接，实际使用协议需要和服务器协商
     fn set_alpn(&mut self, alpn: ALPN);
     fn with_alpn(mut self, alpn: ALPN) -> Self {
         self.set_alpn(alpn);

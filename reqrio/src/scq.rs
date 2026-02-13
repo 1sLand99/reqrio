@@ -1,9 +1,8 @@
+use crate::ext::ReqPriExt;
+use crate::hpack::{HPackCoding, HackDecode};
+use crate::stream::{ConnParam, Stream};
 use crate::*;
 use json::JsonValue;
-use std::mem;
-use crate::hpack::{HPackCoding, HackDecode};
-use crate::ext::ReqPriExt;
-use crate::stream::{ConnParam, Stream};
 
 #[repr(C)]
 pub struct ScReq {
@@ -121,17 +120,6 @@ impl ScReq {
         Err("stream io error".into())
     }
 
-    pub fn with_proxy(mut self, proxy: Proxy) -> Self {
-        self.proxy = proxy;
-        self
-    }
-
-    ///默认使用http2.0去连接，实际使用协议需要和服务器协商
-    pub fn with_alpn(mut self, alpn: ALPN) -> Self {
-        self.alpn = alpn;
-        self
-    }
-
     pub fn re_conn(&mut self) -> HlsResult<()> {
         self.hack_coder = HPackCoding::new();
         self.stream_id = 0;
@@ -184,8 +172,6 @@ impl ScReq {
     }
 
     pub fn set_url(&mut self, url: impl AsRef<str>) -> HlsResult<()> {
-        let body = mem::replace(&mut self.body, BodyType::Text("".to_string()));
-        drop(body);
         let old_host = self.url.addr().host().to_string();
         self.url = Url::try_from(url.as_ref())?;
         if self.url.addr().host() != old_host {

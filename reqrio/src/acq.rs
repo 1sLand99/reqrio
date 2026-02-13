@@ -1,15 +1,12 @@
 use crate::body::BodyType;
-use crate::hpack::{HPackCoding, HackDecode};
 use crate::error::HlsResult;
 use crate::ext::ReqExt;
 use crate::ext::{ReqGenExt, ReqPriExt};
+use crate::hpack::{HPackCoding, HackDecode};
 use crate::json::JsonValue;
-use crate::packet::{H2Frame, FrameFlag, FrameType, Header, HeaderKey, Method, Response};
+use crate::packet::{FrameFlag, FrameType, H2Frame, HeaderKey};
 use crate::stream::{ConnParam, Proxy, Stream};
-use crate::timeout::Timeout;
-use crate::url::Url;
 use crate::*;
-use std::mem;
 
 pub struct AcReq {
     header: Header,
@@ -189,8 +186,6 @@ impl AcReq {
     }
 
     pub async fn set_url(&mut self, url: impl AsRef<str>) -> HlsResult<()> {
-        let body = mem::replace(&mut self.body, BodyType::Text("".to_string()));
-        drop(body);
         let old_host = self.url.addr().host().to_string();
         self.url = Url::try_from(url.as_ref())?;
         if self.url.addr().host() != old_host {

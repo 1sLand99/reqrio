@@ -139,7 +139,6 @@ pub const CHUNK_END: [u8; 5] = [48, 13, 10, 13, 10];
 
 #[cfg(feature = "aync")]
 mod acq;
-// mod alpn;
 mod buffer;
 pub mod hpack;
 mod error;
