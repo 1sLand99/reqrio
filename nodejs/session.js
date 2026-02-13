@@ -1,4 +1,4 @@
-const {library} = require("./bindings");
+const {library, Method, make_ScReq_callback, read_to_string} = require("./bindings");
 const {Response} = require("./Response")
 
 const ALPN = Object.freeze({
@@ -7,29 +7,19 @@ const ALPN = Object.freeze({
     HTTP20: "h2"
 })
 
-const Method = Object.freeze({
-    GET: "GET",
-    POST: "POST",
-    OPTIONS: "OPTIONS",
-    HEAD: "HEAD",
-    DELETE: "DELETE",
-    TRACH: "TRACH",
-
-})
-
 const registry = new FinalizationRegistry(req => {
-    library.destroy(req)
+    library.ScReq_drop(req)
 })
 
 class Session {
     constructor(alpn, rand_tls) {
-        this.req = library.new_http();
+        this.req = library.ScReq_new();
         if (alpn) {
-            let ret = library.set_alpn(this.req, alpn)
+            let ret = library.ScReq_set_alpn(this.req, alpn)
             if (ret === -1) throw "set_alpn error"
         }
         if (rand_tls) {
-            let ret = library.set_random_fingerprint(this.req);
+            let ret = library.ScReq_set_random_fingerprint(this.req);
             if (ret === -2) throw "free user, set_random_fingerprint can't be used"
             if (ret === -1) throw "set_random_fingerprint error"
         }
@@ -37,20 +27,20 @@ class Session {
     }
 
     set_fingerprint(fingerprint) {
-        let ret = library.set_fingerprint(this.req, fingerprint);
+        let ret = library.ScReq_set_fingerprint(this.req, fingerprint);
         if (ret === -2) throw "free user, set_fingerprint can't be used"
         if (ret === -1) throw "set_fingerprint error"
     }
 
     set_ja3(ja3) {
-        let ret = library.set_ja3(this.req, ja3);
+        let ret = library.ScReq_set_ja3(this.req, ja3);
         if (ret === -2) throw "free user, set_ja3 can't be used"
         if (ret === -1) throw "set_ja3 error"
 
     }
 
     set_ja4(ja4) {
-        let ret = library.set_ja4(this.req, ja4);
+        let ret = library.ScReq_set_ja4(this.req, ja4);
         if (ret === -2) throw "free user, set_ja4 can't be used"
         if (ret === -1) throw "set_ja4 error"
 
@@ -58,50 +48,50 @@ class Session {
 
     set_header_json(header) {
         let header_str = JSON.stringify(header);
-        let ret = library.set_header_json(this.req, header_str)
+        let ret = library.ScReq_set_header_json(this.req, header_str)
         if (ret === -1) throw "set_header_json error"
     }
 
     add_header(name, value) {
-        let ret = library.add_header(name, value)
+        let ret = library.ScReq_add_header(name, value)
         if (ret === -1) throw "add_header error"
     }
 
     set_proxy(proxy) {
-        let ret = library.set_proxy(this.req, proxy);
+        let ret = library.ScReq_set_proxy(this.req, proxy);
         if (ret === -1) throw "add_header error"
     }
 
 
     set_url(url) {
-        let ret = library.set_url(this.req, url)
+        let ret = library.ScReq_set_url(this.req, url)
         if (ret === -1) throw "set_url error"
     }
 
     add_param(name, value) {
-        let ret = library.add_param(this.req, name, value);
+        let ret = library.ScReq_add_param(this.req, name, value);
         if (ret === -1) throw "add_param error"
     }
 
     set_data(data) {
         let data_str = JSON.stringify(data)
-        let ret = library.set_data(data_str);
+        let ret = library.ScReq_set_data(data_str);
         if (ret === -1) throw "set_data error"
     }
 
     set_json(json) {
         let json_str = JSON.stringify(this.req, json);
-        let ret = library.set_header_json(this.req, json_str);
+        let ret = library.ScReq_set_header_json(this.req, json_str);
         if (ret === -1) throw "set_json error"
     }
 
     set_bytes(buffer) {
-        let ret = library.set_bytes(this.req, buffer, buffer.length);
+        let ret = library.ScReq_set_bytes(this.req, buffer, buffer.length);
         if (ret === -1) throw "set_bytes error"
     }
 
     set_text(text) {
-        let ret = library.set_text(this.req, text);
+        let ret = library.ScReq_set_text(this.req, text);
         if (ret === -1) throw "set_text error"
     }
 
@@ -117,53 +107,37 @@ class Session {
      */
     set_timeout(timeout) {
         let timeout_str = JSON.stringify(timeout);
-        let ret = library.set_timeout(this.req, timeout_str);
+        let ret = library.ScReq_set_timeout(this.req, timeout_str);
         if (ret === -1) throw "set_timeout error"
     }
 
     set_cookie(cookie) {
-        let ret = library.set_cookie(this.req, cookie)
+        let ret = library.ScReq_set_cookie(this.req, cookie)
         if (ret === -1) throw "set_cookie error"
     }
 
     add_cookie(name, value) {
-        let ret = library.add_cookie(this.req, name, value)
+        let ret = library.ScReq_add_cookie(this.req, name, value)
         if (ret === -1) throw "add_cookie error"
     }
 
     reconnect() {
-        let ret = library.reconnect(this.req)
+        let ret = library.ScReq_reconnect(this.req)
         if (ret === -1) throw "reconnect error"
     }
 
+    set_callback(func) {
+        let callback = make_ScReq_callback(func)
+        library.ScReq_set_callback(this.req, callback)
+    }
+
     send(method) {
-        let resp;
-        switch (method) {
-            case Method.GET:
-                resp = library.get(this.req)
-                break
-            case Method.POST:
-                resp = library.post(this.req)
-                break
-            case Method.OPTIONS:
-                resp = library.options(this.req)
-                break
-            case Method.HEAD:
-                resp = library.head(this.req)
-                break
-            case Method.DELETE:
-                throw "unsupported method"
-            case Method.TRACH:
-                resp = library.trach(this.req)
-                break
-            default:
-                throw "unsupported method :" + method
-        }
-        let response = new Response(Buffer.from(resp, "hex"));
+        let resp = library.ScReq_stream_io(this.req, Method.GET)
+        let buffer = Buffer.from(read_to_string(resp), "hex");
+        let response = new Response(buffer);
         response.header.method = method;
+        library.char_free(resp)//；这里需要手动释放吗
         return response;
-
-
     }
 
     get() {
@@ -182,13 +156,17 @@ class Session {
         return this.send(Method.HEAD)
     }
 
-    trach() {
-        return this.send(Method.TRACH)
+    trace() {
+        return this.send(Method.TRACE)
+    }
+
+    delete() {
+        return this.send(Method.DELETE)
     }
 
     close() {
         registry.unregister(this);
-        library.destroy(this.req)
+        library.ScReq_drop(this.req)
     }
 }
 

@@ -2,15 +2,16 @@ use std::fmt::{Display, Formatter};
 use crate::error::HlsError;
 
 #[derive(Clone, Copy)]
+#[cfg_attr(feature = "export", repr(C))]
 pub enum Method {
-    GET,
-    POST,
-    OPTIONS,
-    HEAD,
-    PUT,
-    DELETE,
-    CONNECT,
-    TRACH,
+    GET = 0,
+    POST = 1,
+    PUT = 2,
+    HEAD = 3,
+    DELETE = 4,
+    OPTIONS = 5,
+    TRACE = 6,
+    CONNECT = 7,
 }
 
 impl Display for Method {
@@ -23,7 +24,7 @@ impl Display for Method {
             Method::PUT => f.write_str("PUT"),
             Method::DELETE => f.write_str("DELETE"),
             Method::CONNECT => f.write_str("CONNECT"),
-            Method::TRACH => f.write_str("TRACH"),
+            Method::TRACE => f.write_str("TRACE"),
         }
     }
 }
@@ -53,7 +54,7 @@ impl TryFrom<&[u8]> for Method {
             b"PUT" => Ok(Method::PUT),
             b"DELETE" => Ok(Method::DELETE),
             b"CONNECT" => Ok(Method::CONNECT),
-            b"TRACH" => Ok(Method::TRACH),
+            b"TRACE" => Ok(Method::TRACE),
             _ => Err("Invalid HTTP method".into())
         }
     }

@@ -4,7 +4,7 @@ use std::ptr::null_mut;
 use crate::{json, HlsError, Proxy, ScReq, Url, WebSocket, WebSocketBuilder, WsFrame, WsOpcode};
 
 #[unsafe(no_mangle)]
-pub extern "system" fn build_ws() -> *mut WebSocketBuilder<ScReq> {
+pub extern "system" fn ws_build() -> *mut WebSocketBuilder<ScReq> {
     Box::into_raw(Box::new(WebSocket::sync_build()))
 }
 
@@ -51,7 +51,7 @@ pub extern "system" fn ws_set_uri(builder: *mut WebSocketBuilder<ScReq>, uri: *c
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn open_ws(builder: *mut WebSocketBuilder<ScReq>) -> *mut WebSocket {
+pub extern "system" fn ws_open(builder: *mut WebSocketBuilder<ScReq>) -> *mut WebSocket {
     || -> HlsResult<*mut WebSocket>{
         let builder = unsafe { Box::from_raw(builder) };
         let ws = builder.build()?;
@@ -63,7 +63,7 @@ pub extern "system" fn open_ws(builder: *mut WebSocketBuilder<ScReq>) -> *mut We
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn open_ws_raw(url: *const c_char, context: *const c_char) -> *mut WebSocket {
+pub extern "system" fn ws_open_raw(url: *const c_char, context: *const c_char) -> *mut WebSocket {
     || -> HlsResult<*mut WebSocket>{
         let url = unsafe { CStr::from_ptr(url) }.to_str()?;
         let context = unsafe { CStr::from_ptr(context) }.to_bytes();

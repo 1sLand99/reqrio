@@ -22,7 +22,7 @@ reqtls = { workspace = true, features = ["zstd", "urlencoding"] }
 fpr = []
 tls = ["reqtls/tls"]
 aync = ["tokio", "tls"]
-export = []
+export = ["tls"]
 dylib = ["reqtls/dylib"]
 
 [build-dependencies]

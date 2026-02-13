@@ -78,7 +78,7 @@ impl AcReq {
     }
 
     pub async fn trach(&mut self) -> HlsResult<Response> {
-        self.header.set_method(Method::TRACH);
+        self.header.set_method(Method::TRACE);
         self.stream_io().await
     }
 

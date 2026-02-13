@@ -9,13 +9,15 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::slice;
 
 #[unsafe(no_mangle)]
-pub extern "system" fn new_http() -> *mut ScReq {
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_new() -> *mut ScReq {
     let sc = ScReq::new();
     Box::into_raw(Box::new(sc))
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_header_json(req: *mut ScReq, header: *const c_char) -> i32 {
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_header_json(req: *mut ScReq, header: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let header = unsafe { CStr::from_ptr(header) }.to_bytes();
@@ -26,7 +28,8 @@ pub extern "system" fn set_header_json(req: *mut ScReq, header: *const c_char) -
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn add_header(req: *mut ScReq, key: *const c_char, value: *const c_char) -> i32 {
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_add_header(req: *mut ScReq, key: *const c_char, value: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let key = unsafe { CStr::from_ptr(key) }.to_str()?;
@@ -37,7 +40,8 @@ pub extern "system" fn add_header(req: *mut ScReq, key: *const c_char, value: *c
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_alpn(req: *mut ScReq, alpn: *const c_char) -> i32 {
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_alpn(req: *mut ScReq, alpn: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let alpn = unsafe { CStr::from_ptr(alpn) }.to_bytes();
@@ -49,7 +53,8 @@ pub extern "system" fn set_alpn(req: *mut ScReq, alpn: *const c_char) -> i32 {
 
 #[cfg(feature = "fpr")]
 #[unsafe(no_mangle)]
-pub extern "system" fn set_random_fingerprint(req: *mut ScReq) -> i32 {
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_random_fingerprint(req: *mut ScReq) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let fingerprint = Fingerprint::random()?;
@@ -60,7 +65,8 @@ pub extern "system" fn set_random_fingerprint(req: *mut ScReq) -> i32 {
 
 #[cfg(feature = "fpr")]
 #[unsafe(no_mangle)]
-pub extern "system" fn set_fingerprint(req: *mut ScReq, fingerprint: *const c_char) -> i32 {
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_fingerprint(req: *mut ScReq, fingerprint: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let fingerprint = unsafe { CStr::from_ptr(fingerprint) }.to_str()?.to_string();
@@ -72,7 +78,8 @@ pub extern "system" fn set_fingerprint(req: *mut ScReq, fingerprint: *const c_ch
 
 #[cfg(feature = "fpr")]
 #[unsafe(no_mangle)]
-pub extern "system" fn set_ja3(req: *mut ScReq, ja3: *const c_char) -> i32 {
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_ja3(req: *mut ScReq, ja3: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let ja3 = unsafe { CStr::from_ptr(ja3) }.to_str()?.to_string();
@@ -84,7 +91,8 @@ pub extern "system" fn set_ja3(req: *mut ScReq, ja3: *const c_char) -> i32 {
 
 #[cfg(feature = "fpr")]
 #[unsafe(no_mangle)]
-pub extern "system" fn set_ja4(req: *mut ScReq, ja4: *const c_char) -> i32 {
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_ja4(req: *mut ScReq, ja4: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let ja3 = unsafe { CStr::from_ptr(ja4) }.to_str()?.to_string();
@@ -97,22 +105,27 @@ pub extern "system" fn set_ja4(req: *mut ScReq, ja4: *const c_char) -> i32 {
 
 #[cfg(not(feature = "fpr"))]
 #[unsafe(no_mangle)]
-pub extern "system" fn set_random_fingerprint(_: *mut ScReq) -> i32 { -2 }
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_random_fingerprint(_: *mut ScReq) -> i32 { -2 }
 
 #[cfg(not(feature = "fpr"))]
 #[unsafe(no_mangle)]
-pub extern "system" fn set_fingerprint(_: *mut ScReq, _: *const c_char) -> i32 { -2 }
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_fingerprint(_: *mut ScReq, _: *const c_char) -> i32 { -2 }
 
 #[cfg(not(feature = "fpr"))]
 #[unsafe(no_mangle)]
-pub extern "system" fn set_ja3(_: *mut ScReq, _: *const c_char) -> i32 { -2 }
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_ja3(_: *mut ScReq, _: *const c_char) -> i32 { -2 }
 
 #[cfg(not(feature = "fpr"))]
 #[unsafe(no_mangle)]
-pub extern "system" fn set_ja4(_: *mut ScReq, _: *const c_char) -> i32 { -2 }
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_ja4(_: *mut ScReq, _: *const c_char) -> i32 { -2 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_proxy(req: *mut ScReq, addr: *const c_char) -> i32 {
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_proxy(req: *mut ScReq, addr: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let addr = unsafe { CStr::from_ptr(addr) }.to_str()?.to_string();
@@ -123,7 +136,8 @@ pub extern "system" fn set_proxy(req: *mut ScReq, addr: *const c_char) -> i32 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_url(req: *mut ScReq, url: *const c_char) -> i32 {
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_url(req: *mut ScReq, url: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let url = unsafe { CStr::from_ptr(url) }.to_str()?.to_string();
@@ -133,7 +147,8 @@ pub extern "system" fn set_url(req: *mut ScReq, url: *const c_char) -> i32 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn add_param(req: *mut ScReq, name: *const c_char, value: *const c_char) -> i32 {
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_add_param(req: *mut ScReq, name: *const c_char, value: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let name = unsafe { CStr::from_ptr(name) }.to_str()?.to_string();
@@ -144,7 +159,8 @@ pub extern "system" fn add_param(req: *mut ScReq, name: *const c_char, value: *c
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_data(req: *mut ScReq, data: *const c_char) -> i32 {
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_data(req: *mut ScReq, data: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let data = unsafe { CStr::from_ptr(data) }.to_bytes();
@@ -155,7 +171,8 @@ pub extern "system" fn set_data(req: *mut ScReq, data: *const c_char) -> i32 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_json(req: *mut ScReq, data: *const c_char) -> i32 {
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_json(req: *mut ScReq, data: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let data = unsafe { CStr::from_ptr(data) }.to_bytes();
@@ -166,7 +183,8 @@ pub extern "system" fn set_json(req: *mut ScReq, data: *const c_char) -> i32 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_bytes(req: *mut ScReq, bytes: *const c_char, len: u32) -> i32 {
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_bytes(req: *mut ScReq, bytes: *const c_char, len: u32) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         println!("{}", len);
@@ -177,7 +195,8 @@ pub extern "system" fn set_bytes(req: *mut ScReq, bytes: *const c_char, len: u32
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_text(req: *mut ScReq, text: *const c_char) -> i32 {
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_text(req: *mut ScReq, text: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let text = unsafe { CStr::from_ptr(text) }.to_str()?;
@@ -187,7 +206,8 @@ pub extern "system" fn set_text(req: *mut ScReq, text: *const c_char) -> i32 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_timeout(req: *mut ScReq, timeout: *const c_char) -> i32 {
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_timeout(req: *mut ScReq, timeout: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let timeout = unsafe { CStr::from_ptr(timeout) }.to_bytes();
@@ -199,7 +219,8 @@ pub extern "system" fn set_timeout(req: *mut ScReq, timeout: *const c_char) -> i
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn set_cookie(req: *mut ScReq, cookie: *const c_char) -> i32 {
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_cookie(req: *mut ScReq, cookie: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let cookie = unsafe { CStr::from_ptr(cookie) }.to_str()?;
@@ -209,7 +230,8 @@ pub extern "system" fn set_cookie(req: *mut ScReq, cookie: *const c_char) -> i32
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn add_cookie(req: *mut ScReq, name: *const c_char, value: *const c_char) -> i32 {
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_add_cookie(req: *mut ScReq, name: *const c_char, value: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let name = unsafe { CStr::from_ptr(name) }.to_str()?;
@@ -220,8 +242,9 @@ pub extern "system" fn add_cookie(req: *mut ScReq, name: *const c_char, value: *
     }().unwrap_or(-1)
 }
 
-
-fn send(req: *mut ScReq, method: Method) -> *mut c_char {
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub unsafe extern "C" fn ScReq_stream_io(req: *mut ScReq, method: Method) -> *mut c_char {
     let res = catch_unwind(AssertUnwindSafe(|| {
         let res = || -> HlsResult<String> {
             let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
@@ -247,7 +270,8 @@ fn send(req: *mut ScReq, method: Method) -> *mut c_char {
     res.unwrap_or_else(|_| CString::new(hex::encode("程序panic")).unwrap().into_raw())
 }
 #[unsafe(no_mangle)]
-pub extern "system" fn reconnect(req: *mut ScReq) -> i32 {
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_reconnect(req: *mut ScReq) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         req.re_conn()?;
@@ -256,47 +280,15 @@ pub extern "system" fn reconnect(req: *mut ScReq) -> i32 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn get(req: *mut ScReq) -> *mut c_char {
-    send(req, Method::GET)
-}
-
-
-#[unsafe(no_mangle)]
-pub extern "system" fn post(req: *mut ScReq) -> *mut c_char {
-    send(req, Method::POST)
-}
-
-#[unsafe(no_mangle)]
-pub extern "system" fn options(req: *mut ScReq) -> *mut c_char { send(req, Method::OPTIONS) }
-
-#[unsafe(no_mangle)]
-pub extern "system" fn put(req: *mut ScReq) -> *mut c_char {
-    send(req, Method::PUT)
-}
-
-#[unsafe(no_mangle)]
-pub extern "system" fn head(req: *mut ScReq) -> *mut c_char {
-    send(req, Method::HEAD)
-}
-
-#[unsafe(no_mangle)]
-pub extern "system" fn delete(req: *mut ScReq) -> *mut c_char {
-    send(req, Method::DELETE)
-}
-
-#[unsafe(no_mangle)]
-pub extern "system" fn trach(req: *mut ScReq) -> *mut c_char {
-    send(req, Method::TRACH)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn destroy(req: *mut ScReq) {
+#[allow(non_snake_case)]
+pub extern "C" fn ScReq_drop(req: *mut ScReq) {
     let req = unsafe { Box::from_raw(req) };
     drop(req);
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn free_pointer(ptr: *mut c_char) {
+#[allow(non_snake_case)]
+pub extern "system" fn char_free(ptr: *mut c_char) {
     if ptr.is_null() { return; }
     unsafe { let _ = CString::from_raw(ptr); }
 }
@@ -305,7 +297,8 @@ pub type Callback = extern "C" fn(*const c_char, u32);
 
 
 #[unsafe(no_mangle)]
-pub extern "C" fn register(req: *mut ScReq, callback: Callback) -> i32 {
+#[allow(non_snake_case)]
+pub extern "C" fn ScReq_set_callback(req: *mut ScReq, callback: Callback) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         req.set_callback(move |bs| {
