@@ -1,6 +1,4 @@
-const {Session, ALPN} = require('./session')
-const {Websocket} = require("./ws");
-
+const {Session, ALPN, Websocket} = require('./index')
 
 let session = new Session(ALPN.HTTP20, false);
 session.set_url("https://m.so.com");

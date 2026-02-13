@@ -35,7 +35,12 @@
 //! | 19  | referer                     | Accept-Encoding           |                                                                                                            
 //! | 20  | accept-encoding             | Accept-Language           |                                                                                                            
 //! | 21  | accept-language             | Cookie                    |                                                                                                            
-//! 
+//! |     | //unknown                   |                           |
+//! | 24  | origin                      |                           |
+//! | 25  | content-encoding            |                           |
+//! | 26  | content-type                |                           |
+//! | 27  | authorization               |                           |
+//! | 28  | content-type                |                           |
 //! 
 //! * Rust HTTP Example
 //!

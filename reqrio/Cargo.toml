@@ -3,7 +3,7 @@ name = "reqrio"
 version = "0.1.0-rc1"
 edition = "2024"
 readme = "README.md"
-description = "A http lib"
+description = "A lightweight, high concurrency HTTP request library"
 license-file = "../LICENSE-APACHE"
 repository = "https://github.com/xllgl2017/reqrio/tree/master/reqrio"
 
