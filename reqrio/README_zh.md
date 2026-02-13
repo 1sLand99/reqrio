@@ -268,41 +268,130 @@ session.close()
 
 ### reqrio导出函数
 
-| No. | Function                        | 参数                                            |   返回   |         备注          |
-|:---:|:--------------------------------|:----------------------------------------------|:------:|:-------------------:|
-|  1  | ScReq_new                       | -                                             | void * |
-|  2  | ScReq_set_header_json           | void *, const char *                          |  int   |
-|  3  | ScReq_add_header                | void *, const char *, const char *            |  int   |
-|  4  | ScReq_set_alpn                  | void *, const char *                          |  int   |
-|  5  | ScReq_set_random_fingerprint    | void *                                        |  int   |      返回-2为未订阅       |
-|  6  | ScReq_set_fingerprint           | void *, const char *                          |  int   |      返回-2为未订阅       |
-|  7  | ScReq_set_ja3                   | void *, const char *                          |  int   |      返回-2为未订阅       |
-|  8  | ScReq_set_ja4                   | void *, const char *                          |  int   |      返回-2为未订阅       |
-|  9  | ScReq_set_proxy                 | void *, const char *                          |  int   | 值为http://或socks5:// |
-| 10  | ScReq_set_url                   | void *, const char *                          |  int   |     在设置body前调用      |
-| 11  | ScReq_add_param                 | void *, const char *, const char *            |  int   |
-| 12  | ScReq_set_data                  | void *, const char *                          |  int   |
-| 13  | ScReq_set_json                  | void *, const char *                          |  int   |
-| 14  | ScReq_set_bytes                 | void *, const char *, uint32_t                |  int   |
-| 15  | ScReq_set_text                  | void *, const char *                          |  int   |
-| 16  | ScReq_set_timeout               | void *, const char *                          |  int   |   Timeout结构转json    |
-| 17  | ScReq_set_cookie                | void *, const char *                          |  int   |
-| 18  | ScReq_add_cookie                | void *, const char *, const char *            |  int   |
-| 19  | ScReq_set_callback              | void *                                        |  int   |
-| 20  | ScReq_reconnect                 | void *                                        | char * |                     |
-| 21  | ScReq_stream_io                 | void *, Method                                        | char * |       返回十六进制        |
-| 22  | ScReq_drop                      | void *                                        | char * |      销毁ScReq实例      |
-| 23  | char_free                       | void *                                        | char * |     销毁char *指针      |
-| 24  | ws_build                        | void *                                        | char * |                     |
-| 25  | ws_add_header                   | void *                                        | char * |                     |
-| 26  | ws_set_proxy                    | void *                                        |   -    | 值为http://或socks5:// |
-| 27  | ws_set_url                      | char *                                        |   -    |                     |
-| 28  | ws_set_uri                      | void *, extern "C" fn(const char *, uint32_t) |  int   |
-| 29  | ws_open                         | -                                             | void * |
-| 30  | ws_open_raw                     | void *, const char *, const char *            |  int   |
-| 31  | ws_read                         | void *, const char *                          |  int   |       以json返回       |
-| 32  | ws_write                        | void *, const char *                          |  int   |   opcode,mask,msg   |
-| 33  | ws_close                        | void *, const char *                          |  int   |       销毁ws实例        |
+| No. | Function                     | 参数                                            |   返回   |         备注          |
+|:---:|:-----------------------------|:----------------------------------------------|:------:|:-------------------:|
+|  1  | ScReq_new                    | -                                             | void * |
+|  2  | ScReq_set_header_json        | void *, const char *                          |  int   |
+|  3  | ScReq_add_header             | void *, const char *, const char *            |  int   |
+|  4  | ScReq_set_alpn               | void *, const char *                          |  int   |
+|  5  | ScReq_set_random_fingerprint | void *                                        |  int   |      返回-2为未订阅       |
+|  6  | ScReq_set_fingerprint        | void *, const char *                          |  int   |      返回-2为未订阅       |
+|  7  | ScReq_set_ja3                | void *, const char *                          |  int   |      返回-2为未订阅       |
+|  8  | ScReq_set_ja4                | void *, const char *                          |  int   |      返回-2为未订阅       |
+|  9  | ScReq_set_proxy              | void *, const char *                          |  int   | 值为http://或socks5:// |
+| 10  | ScReq_set_url                | void *, const char *                          |  int   |     在设置body前调用      |
+| 11  | ScReq_add_param              | void *, const char *, const char *            |  int   |
+| 12  | ScReq_set_data               | void *, const char *                          |  int   |
+| 13  | ScReq_set_json               | void *, const char *                          |  int   |
+| 14  | ScReq_set_bytes              | void *, const char *, uint32_t                |  int   |
+| 15  | ScReq_set_text               | void *, const char *                          |  int   |
+| 16  | ScReq_set_timeout            | void *, const char *                          |  int   |   Timeout结构转json    |
+| 17  | ScReq_set_cookie             | void *, const char *                          |  int   |
+| 18  | ScReq_add_cookie             | void *, const char *, const char *            |  int   |
+| 19  | ScReq_set_callback           | void *                                        |  int   |
+| 20  | ScReq_reconnect              | void *                                        | char * |                     |
+| 21  | ScReq_stream_io              | void *, Method                                | char * |       返回十六进制        |
+| 22  | ScReq_drop                   | void *                                        | char * |      销毁ScReq实例      |
+| 23  | char_free                    | void *                                        | char * |     销毁char *指针      |
+| 24  | ws_build                     | void *                                        | char * |                     |
+| 25  | ws_add_header                | void *                                        | char * |                     |
+| 26  | ws_set_proxy                 | void *                                        |   -    | 值为http://或socks5:// |
+| 27  | ws_set_url                   | char *                                        |   -    |                     |
+| 28  | ws_set_uri                   | void *, extern "C" fn(const char *, uint32_t) |  int   |
+| 29  | ws_open                      | -                                             | void * |
+| 30  | ws_open_raw                  | void *, const char *, const char *            |  int   |
+| 31  | ws_read                      | void *, const char *                          |  int   |       以json返回       |
+| 32  | ws_write                     | void *, const char *                          |  int   |   opcode,mask,msg   |
+| 33  | ws_close                     | void *, const char *                          |  int   |       销毁ws实例        |
 
 * 函数返回-1时，执行不成成功；-2为非订阅状态，功能不可用
-* 实例需要手动释放，否则会导致内存泄露
+* 实例需要手动释放，否则会导致内存泄露# reqrio
+
+### reqrio is an HTTP request library designed for fast, simple, and convenient HTTP request usage.
+
+* Features: Low copy, high concurrency, low overhead
+
+* Supports TLS fingerprinting, which can be configured via hexadecimal, Ja3, or Ja4 TLS handshake settings (*
+  *subscription only**).
+
+* Ensures **request header order** (see [Request Header Order Table](#request-header-order-table)), consistent with
+  browsers.
+
+* Uses **BoringSSL** to implement TLS, consistent with browsers like Chrome and Edge.
+
+**Note:** std and cls cannot exist simultaneously, while sync and async can exist simultaneously.
+
+### Request Header Order Table
+
+| No. | HTTP/2.0                    | HTTP/1.1                  |
+|:----|:----------------------------|:--------------------------|
+| 1   | cache-control               | Host                      |
+| 2   | sec-ch-ua                   | Connection                |
+| 3   | sec-ch-ua-mobile            | Content-Length            |
+| 4   | sec-ch-ua-full-version      | Authorization             |
+| 5   | sec-ch-ua-arch              | Content-Type              |
+| 6   | sec-ch-ua-platform          | Cache-Control             |
+| 7   | sec-ch-ua-platform-version  | sec-ch-ua                 |
+| 8   | sec-ch-ua-model             | sec-ch-ua-mobile          |
+| 9   | sec-ch-ua-bitness           | sec-ch-ua-platform        |
+| 10  | sec-ch-ua-full-version-list | Upgrade-Insecure-Requests |
+| 11  | upgrade-insecure-requests   | User-Agent                |
+| 12  | user-agent                  | Accept                    |
+| 13  | accept                      | Sec-Fetch-Site            |
+| 14  | sec-fetch-site              | Sec-Fetch-Mode            |
+| 15  | sec-fetch-mode              | Sec-Fetch-User            |
+| 16  | sec-fetch-user              | Sec-Fetch-Dest            |
+| 17  | sec-fetch-dest              | Sec-Fetch-Storage-Access  |
+| 18  | sec-fetch-storage-access    | Referer                   |
+| 19  | referer                     | Accept-Encoding           |
+| 20  | accept-encoding             | Accept-Language           |
+| 21  | accept-language             | Cookie                    |
+| 22  | cookie                      | Origin                    |
+| 23  | priority                    |                           |
+|     | //unknown                   |                           |
+| 24  | origin                      |                           |
+| 25  | content-encoding            |                           |
+| 26  | content-type                |                           |
+| 27  | authorization               |                           |
+| 28  | content-type                |                           |
+
+### Reqrio has C export functions that can be called in different languages
+
+| No. | Function                     | Params                                        | Res    |               Note                |
+|:---:|:-----------------------------|:----------------------------------------------|:-------|:---------------------------------:|
+|  1  | ScReq_new                    | -                                             | void * |
+|  2  | ScReq_set_header_json        | void *, const char *                          | int    |
+|  3  | ScReq_add_header             | void *, const char *, const char *            | int    |
+|  4  | ScReq_set_alpn               | void *, const char *                          | int    |
+|  5  | ScReq_set_random_fingerprint | void *                                        | int    |                                   |
+|  6  | ScReq_set_fingerprint        | void *, const char *                          | int    |                                   |
+|  7  | ScReq_set_ja3                | void *, const char *                          | int    |                                   |
+|  8  | ScReq_set_ja4                | void *, const char *                          | int    |                                   |
+|  9  | ScReq_set_proxy              | void *, const char *                          | int    |       http:// or socks5://        |
+| 10  | ScReq_set_url                | void *, const char *                          | int    |  Called before setting the body   |
+| 11  | ScReq_add_param              | void *, const char *, const char *            | int    |
+| 12  | ScReq_set_data               | void *, const char *                          | int    |
+| 13  | ScReq_set_json               | void *, const char *                          | int    |
+| 14  | ScReq_set_bytes              | void *, const char *, uint32_t                | int    |
+| 15  | ScReq_set_text               | void *, const char *                          | int    |
+| 16  | ScReq_set_timeout            | void *, const char *                          | int    |   Tiemout structure to JSON str   |
+| 17  | ScReq_set_cookie             | void *, const char *                          | int    |
+| 18  | ScReq_add_cookie             | void *, const char *, const char *            | int    |
+| 19  | ScReq_set_callback           | void *, extern "C" fn(const char *, uint32_t) | int    |
+| 20  | ScReq_reconnect              | void *                                        | int    |
+| 21  | ScReq_stream_io              | void *, Method                                | char * |       Return to hexadecimal       |
+| 22  | ScReq_drop                   | void *                                        | -      |   Destroy the new_tttp instance   |
+| 23  | char_free                    | char *                                        | -      |      Destroy char * pointer       |
+| 24  | ws_build                     | -                                             | void * |
+| 25  | ws_add_header                | void *, const char *, const char *            | int    |
+| 26  | ws_set_proxy                 | void *, const char *                          | int    | The value is http:// or socks5:// |
+| 27  | ws_set_url                   | void *, const char *                          | int    |
+| 28  | ws_set_uri                   | void *, const char *                          | int    |
+| 29  | ws_open                      | void *                                        | void * |
+| 30  | ws_open_raw                  | const char *, const char *                    | void * |
+| 31  | ws_read                      | void *                                        | char * |          Return as JSON           |
+| 32  | ws_write                     | void *, int, bool, const char *               | int    |          opcode,mask,msg          |
+| 33  | ws_close                     | void *                                        | -      |        Destroy WS instance        |
+
+* When the function returns -1, the function is unavailable
+* The instance needs to be manually released, otherwise it may cause memory leakage
