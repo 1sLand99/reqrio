@@ -1,6 +1,6 @@
 [package]
 name = "reqrio"
-version = "0.1.0-alpha1"
+version = "0.1.0-rc1"
 edition = "2024"
 readme = "README.md"
 description = "A http lib"
@@ -25,6 +25,7 @@ fpr = []
 tls = ["reqtls/tls"]
 aync = ["tokio", "tls"]
 export = []
+dylib = ["reqtls/dylib"]
 
 [build-dependencies]
 cfg_aliases = "0.2.1"

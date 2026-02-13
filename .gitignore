@@ -6,6 +6,8 @@ py/dist
 py/reqrio.egg-info
 py/reqrio/reqrio.dll
 py/reqrio/libreqrio.so
+py/reqrio/libzstd.dll
+py/reqrio/crypto.dll
 ClientHello
 ServerHello
 Certificate
