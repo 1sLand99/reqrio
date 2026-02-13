@@ -157,10 +157,12 @@ pub(crate) trait ReqPriExt: ReqExt {
                     *rd += buffer.filled().len();
                 }
                 if response.header().is_empty() { return Ok(false); }
-                match response.header().content_length() {
-                    None => Ok(buffer.filled().ends_with(&[48, 13, 10, 13, 10])),
-                    Some(len) => Ok(*rd >= len)
-                }
+                let finish = match response.header().content_length() {
+                    None => buffer.filled().ends_with(&[48, 13, 10, 13, 10]),
+                    Some(len) => *rd >= len
+                };
+                buffer.reset();
+                Ok(finish)
             }
         }
     }

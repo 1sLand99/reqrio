@@ -9,7 +9,7 @@ async fn main() {
 
     let mut req = AcReq::new()
         // .with_fingerprint(fingerprint)
-        .with_alpn(ALPN::Http20)
+        .with_alpn(ALPN::Http11)
         .with_timeout(timeout)
         .with_verify(true)
         // .with_proxy(Proxy::try_from("http://127.0.0.1:10280").unwrap())
@@ -70,10 +70,10 @@ async fn main() {
     req.set_url("https://m.so.com").await.unwrap();
     // req.set_url("https://doc.rust-lang.org/").await.unwrap();
     println!("111");
-    // req.set_callback(|data| {
-    //     println!("{}", data.len());
-    //     Ok(())
-    // });
+    req.set_callback(|data| {
+        println!("{}", data.len());
+        Ok(())
+    });
     // let context=req.gen_h1().unwrap();
     // println!("{}",String::from_utf8(context).unwrap());
     // println!("{}", String::from_utf8_lossy(&req.gen_h1().unwrap()));
