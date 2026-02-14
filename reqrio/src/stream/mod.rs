@@ -13,7 +13,6 @@ pub use ws::{WebSocket, WebSocketBuilder};
 #[cfg(feature = "aync")]
 mod async_stream;
 
-#[cfg(feature = "tls")]
 mod sync_stream;
 
 #[cfg(feature = "aync")]
@@ -35,11 +34,8 @@ pub struct ConnParam<'a> {
     pub url: &'a Url,
     pub proxy: &'a Proxy,
     pub timeout: &'a Timeout,
-    #[cfg(feature = "tls")]
     pub fingerprint: &'a mut Fingerprint,
-    #[cfg(feature = "tls")]
     pub alpn: &'a ALPN,
-    #[cfg(feature = "tls")]
     pub verify: bool,
 }
 

@@ -31,7 +31,6 @@ impl Sha {
         }
     }
 
-    #[cfg(feature = "tls")]
     pub(crate) fn hash_size(&self) -> usize {
         match self {
             Sha::MD5 => 32,

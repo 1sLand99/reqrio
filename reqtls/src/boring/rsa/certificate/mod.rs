@@ -1,4 +1,3 @@
-#[cfg(feature = "tls")]
 mod store;
 
 use super::bindings::*;
@@ -10,7 +9,6 @@ use std::ffi::CString;
 use std::fs;
 use std::path::Path;
 use std::ptr::null_mut;
-#[cfg(feature = "tls")]
 pub use store::{CertStore, ROOT_STORES};
 use crate::ffi::{BufPtr, CPointer};
 

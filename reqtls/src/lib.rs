@@ -133,55 +133,33 @@
 //! ```
 //!
 
-#[cfg(feature = "tls")]
 pub use connection::Connection;
-#[cfg(feature = "tls")]
 pub use message::{Message, Alert};
-#[cfg(feature = "tls")]
 pub use message::session_ticket::{SessionTicket, TlsSessionTicket};
-#[cfg(feature = "tls")]
 pub use message::key_exchange::ServerKeyExchange;
-#[cfg(feature = "tls")]
 pub use message::server_hello::ServerHello;
-#[cfg(feature = "tls")]
 pub use message::client_hello::ClientHello;
-#[cfg(feature = "tls")]
 pub use message::key_exchange::ClientKeyExchange;
-#[cfg(feature = "tls")]
 pub use message::certificate::Certificates;
-#[cfg(feature = "tls")]
 pub use record::{RecordLayer, RecordType};
 pub use error::RlsError;
-#[cfg(feature = "tls")]
 pub use version::Version;
 pub use range::RangeExt;
 pub use boring::{hash, hmac, base64, Cipher, CipherType, Padding, RsaCipher, RsaKey, certificate::Certificate, cipher};
-#[cfg(feature = "tls")]
 pub use boring::{certificate::CertStore, SignatureAlgorithm};
 pub use hex;
-#[cfg(feature = "tls")]
 pub use suite::suite::CipherSuite;
-#[cfg(feature = "tls")]
 pub use extend::{Extension, ExtensionType, group::GroupType, formats::EcPointFormat, SupportVersions, CompressionType};
 pub use alpn::ALPN;
 
-#[cfg(feature = "tls")]
 mod extend;
-#[cfg(feature = "tls")]
 mod message;
-#[cfg(feature = "tls")]
 mod prf;
-#[cfg(feature = "tls")]
 mod suite;
-#[cfg(feature = "tls")]
 mod connection;
-#[cfg(feature = "tls")]
 mod record;
-#[cfg(feature = "tls")]
 mod version;
-#[cfg(feature = "tls")]
 mod bytes;
-#[cfg(feature = "tls")]
 mod secret;
 mod error;
 pub mod rand;

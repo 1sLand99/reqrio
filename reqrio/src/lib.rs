@@ -141,7 +141,6 @@ pub type ReqCallback = Box<dyn FnMut(&[u8]) -> HlsResult<()>>;
 pub const HTTP_GAP: &[u8; 4] = b"\r\n\r\n";
 pub const CHUNK_END: [u8; 5] = [48, 13, 10, 13, 10];
 
-
 #[cfg(feature = "aync")]
 mod acq;
 mod buffer;

@@ -1,29 +1,18 @@
-#[cfg(feature = "tls")]
 use crate::boring::BoringResExt;
-#[cfg(feature = "tls")]
 mod curve;
 pub mod cipher;
-#[cfg(feature = "tls")]
 mod aead;
 
-#[cfg(feature = "tls")]
 use std::ptr::null_mut;
 pub use cipher::Cipher;
-#[cfg(feature = "tls")]
 pub use curve::EvpCurve;
-#[cfg(feature = "tls")]
 pub use aead::AeadCrypto;
 use crate::boring::bindings::*;
-#[cfg(feature = "tls")]
 use crate::error::RlsResult;
 
-#[cfg(feature = "tls")]
 use crate::extend::Aead;
-#[cfg(feature = "tls")]
 use crate::{hmac, rand, RlsError};
-#[cfg(feature = "tls")]
 use crate::boring::CryptParam;
-#[cfg(feature = "tls")]
 use crate::ffi::CPointer;
 
 #[allow(non_camel_case_types)]
@@ -72,7 +61,6 @@ impl CipherType {
 }
 
 
-#[cfg(feature = "tls")]
 pub struct CipherCrypto {
     ctx: CPointer<EVP_CIPHER_CTX>,
     mac_key: [u8; 20],
@@ -80,7 +68,6 @@ pub struct CipherCrypto {
     evp_cipher: CipherType,
 }
 
-#[cfg(feature = "tls")]
 impl CipherCrypto {
     pub fn new(aead: &Aead, key: Vec<u8>) -> RlsResult<CipherCrypto> {
         let evp_cipher = match aead {
@@ -162,7 +149,7 @@ impl CipherCrypto {
     }
 }
 
-#[cfg(all(test, feature = "tls"))]
+#[cfg(test)]
 mod tests {
     use crate::boring::CryptParam;
     use crate::extend::Aead;

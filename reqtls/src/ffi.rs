@@ -49,14 +49,12 @@ impl<T: CFree<T>> Drop for CPointer<T> {
         self.ptr = null_mut();
     }
 }
-#[cfg(feature = "tls")]
 pub enum Buf<'a> {
     Ptr(BufPtr),
     Ref(&'a [u8]),
     Vec(Vec<u8>),
 }
 
-#[cfg(feature = "tls")]
 impl<'a> Buf<'a> {
     pub fn as_slice(&self) -> &[u8] {
         match self {

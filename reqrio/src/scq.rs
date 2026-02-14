@@ -128,11 +128,8 @@ impl ScReq {
                 url: &self.url,
                 proxy: &self.proxy,
                 timeout: &self.timeout,
-                #[cfg(feature = "tls")]
                 fingerprint: &mut self.fingerprint,
-                #[cfg(feature = "tls")]
                 alpn: &self.alpn,
-                #[cfg(feature = "tls")]
                 verify: self.verify,
             };
             match self.stream.sync_connect(param) {

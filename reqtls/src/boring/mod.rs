@@ -1,9 +1,6 @@
-#[cfg(feature = "tls")]
 mod ec_curve;
-#[allow(dead_code)]
 pub(crate) mod bindings;
 pub mod hash;
-#[cfg(feature = "tls")]
 mod signature;
 
 pub use rsa::{RsaCipher, RsaKey, certificate};
@@ -16,21 +13,16 @@ pub mod base64;
 pub use padding::Padding;
 
 pub use evp::{Cipher, CipherType, cipher};
-#[cfg(feature = "tls")]
 pub use evp::{CipherCrypto, EvpCurve, AeadCrypto};
 
-#[cfg(feature = "tls")]
 pub use ec_curve::*;
 pub use hash::*;
 
-#[cfg(feature = "tls")]
 pub use signature::{AlgorithmSigner, SignatureAlgorithm};
 use std::ffi::c_int;
 
 use crate::error::RlsResult;
-#[cfg(feature = "tls")]
 use crate::extend::Aead;
-#[cfg(feature = "tls")]
 use crate::message::Payload;
 use crate::RlsError;
 
@@ -46,7 +38,6 @@ impl BoringResExt for c_int {
 }
 
 
-#[cfg(feature = "tls")]
 pub(crate) struct CryptParam<'a, 'b: 'a> {
     pub(crate) aead: &'a Aead,
     pub(crate) nonce: &'a [u8],
@@ -55,14 +46,12 @@ pub(crate) struct CryptParam<'a, 'b: 'a> {
     pub(crate) payload: &'a mut Payload<'b>,
 }
 
-#[cfg(feature = "tls")]
 pub enum Crypto {
     None,
     Aead(Box<AeadCrypto>),
     Cipher(CipherCrypto),
 }
 
-#[cfg(feature = "tls")]
 impl Crypto {
     pub fn from_aead(key: &[u8], aead: &Aead) -> RlsResult<Crypto> {
         match aead {
