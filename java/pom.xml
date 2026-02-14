@@ -6,7 +6,7 @@
 
     <groupId>io.github.xllgl2017</groupId>
     <artifactId>reqrio</artifactId>
-    <version>0.1.0-rc1</version>
+    <version>0.1.0</version>
     <packaging>jar</packaging>
     <name>reqrio</name>
     <description>A lightweight, high concurrency HTTP request library</description>
@@ -114,3 +114,4 @@
     </build>
 
 </project>
+<!--//mvn.cmd clean deploy -P gpg-->

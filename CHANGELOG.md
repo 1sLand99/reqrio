@@ -31,18 +31,18 @@
 | 11  | upgrade-insecure-requests   | User-Agent                |
 | 12  | user-agent                  | Accept                    |
 | 13  | accept                      | Sec-Fetch-Site            |
-| 14  | sec-fetch-site              | Sec-Fetch-Mode            |
-| 15  | sec-fetch-mode              | Sec-Fetch-User            |
-| 16  | sec-fetch-user              | Sec-Fetch-Dest            |
-| 17  | sec-fetch-dest              | Sec-Fetch-Storage-Access  |
-| 18  | sec-fetch-storage-access    | Referer                   |
-| 19  | referer                     | Accept-Encoding           |
-| 20  | accept-encoding             | Accept-Language           |
-| 21  | accept-language             | Cookie                    |
-| 22  | cookie                      | Origin                    |
-| 23  | priority                    |                           |
+| 14  | origin                      | Sec-Fetch-Mode            |
+| 15  | sec-fetch-site              | Sec-Fetch-User            |
+| 16  | sec-fetch-mode              | Sec-Fetch-Dest            |
+| 17  | sec-fetch-user              | Sec-Fetch-Storage-Access  |
+| 18  | sec-fetch-dest              | Referer                   |
+| 19  | sec-fetch-storage-access    | Accept-Encoding           |
+| 20  | referer                     | Accept-Language           |
+| 21  | accept-encoding             | Cookie                    |
+| 22  | accept-language             | Origin                    |
+| 23  | cookie                      |                           |
+| 24  | priority                    |                           |
 |     | //unknown                   |                           |
-| 24  | origin                      |                           |
 | 25  | content-encoding            |                           |
 | 26  | content-type                |                           |
 | 27  | authorization               |                           |

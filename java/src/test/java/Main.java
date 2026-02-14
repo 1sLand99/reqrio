@@ -42,7 +42,7 @@ public class Main {
 //    JsonObject res = util2.postRuiShuOrder(response, data, token, uid);
 //    IO.println(res);
     }
-    //mvn.cmd clean deploy -P gpg
+
 
     private static Headers getHeaders() {
         Headers headers = new Headers();
