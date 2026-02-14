@@ -56,6 +56,7 @@ impl Header {
             HeaderKey::new("upgrade-insecure-requests", HeaderValue::Bool(true)),
             HeaderKey::new("user-agent", HeaderValue::String("".to_string())),
             HeaderKey::new("accept", HeaderValue::String("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".to_string())),
+            HeaderKey::new("origin", HeaderValue::String("".to_string())),
             HeaderKey::new("sec-fetch-site", HeaderValue::String("".to_string())),
             HeaderKey::new("sec-fetch-mode", HeaderValue::String("".to_string())),
             HeaderKey::new("sec-fetch-user", HeaderValue::String("".to_string())),
@@ -67,7 +68,6 @@ impl Header {
             HeaderKey::new("cookie", HeaderValue::Cookies(vec![])),
             HeaderKey::new("priority", HeaderValue::String("".to_string())),
             //unknown or http
-            HeaderKey::new("origin", HeaderValue::String("".to_string())),
             HeaderKey::new("content-encoding", HeaderValue::String("".to_string())),
             HeaderKey::new("content-type", HeaderValue::String("".to_string())),
             HeaderKey::new("authorization", HeaderValue::String("".to_string())),
