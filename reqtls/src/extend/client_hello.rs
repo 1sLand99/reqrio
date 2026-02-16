@@ -1,6 +1,7 @@
-use std::ops::Range;
-use crate::error::RlsResult;
 use super::super::bytes::Bytes;
+use crate::error::RlsResult;
+use crate::WriteExt;
+use std::ops::Range;
 
 #[derive(Debug, Clone, Copy)]
 enum ClientHelloType {
@@ -13,10 +14,6 @@ impl ClientHelloType {
             0 => Some(ClientHelloType::OuterClientHello),
             _ => None
         }
-    }
-
-    pub fn as_u8(&self) -> u8 {
-        *self as u8
     }
 }
 
@@ -32,10 +29,6 @@ impl KDF {
             0x01 => Some(KDF::HKDF_SHA256),
             _ => None
         }
-    }
-
-    pub fn as_bytes(&self) -> [u8; 2] {
-        (*self as u16).to_be_bytes()
     }
 }
 
@@ -62,10 +55,7 @@ impl Aead {
             _ => None
         }
     }
-    pub fn as_bytes(&self) -> [u8; 2] {
-        (*self as u16).to_be_bytes()
-    }
-
+    
     pub fn from_cipher_kind(suite_spec: &str) -> Option<Aead> {
         let text = suite_spec.to_lowercase();
         if text.contains("aes_128_gcm") {
@@ -146,10 +136,11 @@ impl CipherSuite {
         })
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = self.kdf.as_bytes().to_vec();
-        res.extend(self.aead.as_bytes());
-        res
+    pub fn len(&self) -> usize { 4 }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u16(self.kdf as u16);
+        writer.write_u16(self.aead as u16);
     }
 }
 
@@ -194,14 +185,17 @@ impl EncryptClientHello {
         Ok(res)
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = vec![self.type_.as_u8()];
-        res.extend(self.cipher_suite.as_bytes());
-        res.push(self.config_id);
-        res.extend((self.enc.len() as u16).to_be_bytes());
-        res.extend(self.enc.as_bytes());
-        res.extend((self.payload.len() as u16).to_be_bytes());
-        res.extend(self.payload.as_bytes());
-        res
+    pub fn len(&self) -> usize {
+        6 + self.cipher_suite.len() + self.enc.len() + self.payload.len()
+    }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u8(self.type_ as u8);
+        self.cipher_suite.write_to(writer);
+        writer.write_u8(self.config_id);
+        writer.write_u16(self.enc.len() as u16);
+        writer.write_slice(self.enc.as_ref());
+        writer.write_u16(self.payload.len() as u16);
+        writer.write_slice(self.payload.as_ref());
     }
 }

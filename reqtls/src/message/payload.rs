@@ -51,6 +51,10 @@ impl<'a> Payload<'a> {
             value: slice,
         }
     }
+
+    pub fn into_inner(self) -> &'a [u8] {
+        self.value
+    }
 }
 
 impl<'a> Debug for Payload<'a> {

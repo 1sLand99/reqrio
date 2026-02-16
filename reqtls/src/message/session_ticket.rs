@@ -1,10 +1,11 @@
 use crate::error::RlsResult;
+use crate::WriteExt;
 use super::super::bytes::Bytes;
 use super::super::message::HandshakeType;
 
 #[derive(Debug)]
 pub struct TlsSessionTicket {
-    lifetime: i64,
+    lifetime: u32,
     len: u16,
     value: Bytes,
 }
@@ -20,17 +21,20 @@ impl TlsSessionTicket {
 
     pub fn from_bytes(bytes: &[u8]) -> RlsResult<TlsSessionTicket> {
         let mut res = TlsSessionTicket::new();
-        res.lifetime = u32::from_be_bytes(bytes[0..4].try_into()?) as i64;
+        res.lifetime = u32::from_be_bytes(bytes[0..4].try_into()?);
         res.len = u16::from_be_bytes(bytes[4..6].try_into()?);
         res.value = Bytes::new(bytes[6..6 + res.len as usize].to_vec());
         Ok(res)
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = (self.lifetime as u32).to_be_bytes().to_vec();
-        res.extend((self.value.len() as u16).to_be_bytes());
-        res.extend(self.value.as_bytes());
-        res
+    pub fn len(&self) -> usize {
+        6 + self.value.len()
+    }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u32(self.lifetime);
+        writer.write_u16(self.value.len() as u16);
+        writer.write_slice(self.value.as_ref());
     }
 
     pub fn set_value(&mut self, value: Vec<u8>) {
@@ -62,18 +66,16 @@ impl SessionTicket {
         Ok(res)
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = vec![self.handshake_type as u8];
-        let tbs = self.tls_ticket.as_bytes();
-        res.extend_from_slice(&(tbs.len() as u32).to_be_bytes()[1..]);
-        res.extend(tbs);
-        res
+    pub fn len(&self) -> usize {
+        4 + self.tls_ticket.len()
     }
 
-    pub fn len(&self) -> u32 {
-        self.len
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u8(self.handshake_type as u8);
+        writer.write_slice(&(self.tls_ticket.len() as u32).to_be_bytes()[1..]);
+        self.tls_ticket.write_to(writer);
     }
-
+    
     pub fn tls_ticket_mut(&mut self) -> &mut TlsSessionTicket {
         &mut self.tls_ticket
     }

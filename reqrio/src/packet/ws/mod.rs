@@ -1,3 +1,4 @@
+use reqtls::WriteExt;
 pub use payload::WsPayload;
 pub use typ::{WsFrameType, WsOpcode};
 

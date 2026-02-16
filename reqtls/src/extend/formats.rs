@@ -1,4 +1,5 @@
 use crate::error::RlsResult;
+use crate::WriteExt;
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone)]
@@ -16,10 +17,6 @@ impl EcPointFormat {
             0x2 => Some(EcPointFormat::ANSI_X962_CHAR2),
             _ => None,
         }
-    }
-
-    pub fn as_u8(&self) -> u8 {
-        self.clone() as u8
     }
 }
 
@@ -52,13 +49,13 @@ impl EcPointFormats {
         Ok(res)
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = vec![0];
-        for format in &self.formats {
-            res.push(format.as_u8());
+    pub fn len(&self) -> usize { self.formats.len() + 1 }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u8(self.len() as u8 - 1);
+        for format in self.formats {
+            writer.write_u8(format as u8);
         }
-        res[0] = (res.len() - 1) as u8;
-        res
     }
 
     pub fn add_format(&mut self, format: EcPointFormat) {

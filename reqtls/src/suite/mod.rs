@@ -38,7 +38,7 @@ impl TlsCipher {
         let mut res = [0; 13];
         res[0..8].copy_from_slice(self.seq.to_be_bytes().as_ref());
         res[8] = layer.context_type.as_u8();
-        res[9..11].copy_from_slice(&layer.version.as_bytes()); // TLS1.2
+        res[9..11].copy_from_slice(&layer.version.as_u16().to_be_bytes()); // TLS1.2
         let payload = layer.messages[0].payload().ok_or(RlsError::PayloadNone)?;
         let payload_len = payload.value.len() as u16 - aead.explicit_len() as u16 - 16;
         res[11..13].copy_from_slice(&payload_len.to_be_bytes());

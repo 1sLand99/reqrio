@@ -1,5 +1,6 @@
 use std::fmt::{Debug, Formatter};
 use crate::error::RlsResult;
+use crate::WriteExt;
 
 pub struct GroupType(u16);
 
@@ -16,10 +17,8 @@ impl GroupType {
         GroupType(v)
     }
 
-    pub fn as_bytes(&self) -> [u8; 2] {
-        self.0.to_be_bytes()
-    }
-
+    pub fn into_inner(self) -> u16 { self.0 }
+    
     pub fn as_u16(&self) -> u16 {
         self.0
     }
@@ -66,14 +65,15 @@ impl SupportedGroups {
         Ok(res)
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res: Vec<u8> = vec![0, 0];
-        for value in &self.values {
-            res.extend(value.as_bytes())
+    pub fn len(&self) -> usize {
+        self.values.len() * 2 + 2
+    }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u16(self.len() as u16 - 2);
+        for value in self.values {
+            writer.write_u16(value.into_inner());
         }
-        let len = (res.len() - 2) as u16;
-        res[0..2].copy_from_slice(len.to_be_bytes().as_slice());
-        res
     }
 
     pub fn add_group(&mut self, group: GroupType) {

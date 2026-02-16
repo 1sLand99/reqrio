@@ -1,4 +1,5 @@
 use crate::error::RlsResult;
+use crate::WriteExt;
 
 #[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]
@@ -12,10 +13,6 @@ impl PskKeyType {
             0x1 => Some(PskKeyType::PSK_DHE_KE),
             _ => None
         }
-    }
-
-    pub fn as_u8(&self) -> u8 {
-        *self as u8
     }
 }
 
@@ -40,7 +37,10 @@ impl PskKey {
         Ok(res)
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        vec![1, self.mode.as_u8()]
+    pub fn len(&self) -> usize { 2 }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u8(self.len() as u8 - 1);
+        writer.write_u8(self.mode as u8)
     }
 }

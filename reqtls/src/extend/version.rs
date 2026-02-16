@@ -1,4 +1,5 @@
 use super::super::version::Version;
+use crate::WriteExt;
 
 #[derive(Debug)]
 pub struct SupportVersions {
@@ -29,14 +30,17 @@ impl SupportVersions {
         res
     }
 
-    pub fn as_bytes(&self, server: bool) -> Vec<u8> {
-        let mut res = vec![0];
-        for version in &self.versions {
-            res.extend(version.as_bytes());
+    pub fn len(&self, server: bool) -> usize {
+        if !server { self.versions.len() * 2 + 1 } else { self.versions.len() * 2 }
+    }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W, server: bool) {
+        if !server {
+            writer.write_u8(self.len(server) as u8 - 1);
         }
-        res[0] = (res.len() - 1) as u8;
-        if server { res.remove(0); }
-        res
+        for version in self.versions {
+            writer.write_u16(version.into_inner());
+        }
     }
 
     pub fn remove_tls13(&mut self) {

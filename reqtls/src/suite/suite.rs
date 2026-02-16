@@ -258,10 +258,8 @@ impl CipherSuite {
         !CipherSuite::SUITES.contains(&self.value)
     }
 
-    pub fn as_bytes(&self) -> [u8; 2] {
-        self.value.to_be_bytes()
-    }
-
+    pub fn into_inner(self) -> u16 { self.value }
+    
     pub fn as_u16(&self) -> u16 {
         self.value
     }
@@ -310,6 +308,16 @@ impl CipherSuite {
 impl Debug for CipherSuite {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}(0x{:x})", self.spec(), self.value)
+    }
+}
+
+impl Clone for CipherSuite {
+    fn clone(&self) -> Self {
+        CipherSuite {
+            value: self.value,
+            hasher: None,
+            aead: None,
+        }
     }
 }
 

@@ -146,11 +146,12 @@ pub use error::RlsError;
 pub use version::Version;
 pub use range::RangeExt;
 pub use boring::{hash, hmac, base64, Cipher, CipherType, Padding, RsaCipher, RsaKey, certificate::Certificate, cipher};
-pub use boring::{certificate::CertStore, SignatureAlgorithm};
+pub use boring::{certificate::CertStore, SignatureAlgorithm, AlgorithmSigner};
 pub use hex;
 pub use suite::suite::CipherSuite;
 pub use extend::{Extension, ExtensionType, group::GroupType, formats::EcPointFormat, SupportVersions, CompressionType};
 pub use alpn::ALPN;
+pub use ext::WriteExt;
 
 mod extend;
 mod message;
@@ -168,3 +169,5 @@ mod range;
 mod ffi;
 pub mod coder;
 mod alpn;
+mod ext;
+

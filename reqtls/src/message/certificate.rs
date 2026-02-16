@@ -2,6 +2,7 @@ use super::HandshakeType;
 use std::fmt::Debug;
 use crate::bytes::ByteRef;
 use crate::error::RlsResult;
+use crate::WriteExt;
 use super::super::bytes::Bytes;
 
 #[derive(Debug)]
@@ -39,27 +40,22 @@ impl<'a> Certificates<'a> {
         Ok(res)
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = vec![self.handshake_type as u8, 0, 0, 0, 0, 0, 0];
-        // res.extend_from_slice(&(self.len as u32).to_be_bytes()[1..]);
-        // res.extend_from_slice(&(self.certificate_len as u32).to_be_bytes()[1..]);
-        for certificate in &self.certificates {
-            res.extend_from_slice(&(certificate.len() as u32).to_be_bytes()[1..]);
-            res.extend_from_slice(certificate.as_ref())
-        };
-        let len = (res.len() - 4) as u32;
-        res[1..4].copy_from_slice(len.to_be_bytes()[1..].as_ref());
-        let len = (res.len() - 7) as u32;
-        res[4..7].copy_from_slice(len.to_be_bytes()[1..].as_ref());
-        res
+    pub fn len(&self) -> usize {
+        7 + self.certificates.iter().map(|x| 3 + x.len()).sum::<usize>()
+    }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u8(self.handshake_type as u8);
+        writer.write_slice(&(self.len() as u32 - 4).to_be_bytes()[1..]);
+        writer.write_slice(&(self.len() as u32 - 7).to_be_bytes()[1..]);
+        for certificate in self.certificates {
+            writer.write_slice(&(certificate.len() as u32).to_be_bytes()[1..]);
+            writer.write_slice(certificate.as_ref());
+        }
     }
 
     pub fn is_empty(&self) -> bool {
         self.len == 0
-    }
-
-    pub fn len(&self) -> u32 {
-        self.len
     }
 
     pub fn add_certificate(&mut self, cert: &'a [u8]) {
@@ -85,11 +81,9 @@ impl CertificateStatus {
         }
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        self.bytes.as_bytes()
-    }
+    pub fn len(&self) -> usize { self.bytes.len() }
 
-    pub fn len(&self) -> u32 {
-        (self.bytes.len() - 4) as u32
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_slice(self.bytes.as_ref())
     }
 }

@@ -1,4 +1,5 @@
 use crate::error::RlsResult;
+use crate::WriteExt;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ALPN {
@@ -41,9 +42,10 @@ impl ALPN {
         Ok(res)
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = self.value().as_bytes().to_vec();
-        res.insert(0, res.len() as u8);
-        res
+    pub fn len(&self) -> usize { 1 + self.value().len() }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u8(self.value().len() as u8);
+        writer.write_slice(self.value().as_bytes());
     }
 }

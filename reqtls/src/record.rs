@@ -1,6 +1,6 @@
 use crate::error::RlsResult;
 use crate::extend::Aead;
-use crate::{CipherSuite, RlsError};
+use crate::{Alert, CipherSuite, RlsError, WriteExt};
 use super::message::{Message, Payload};
 use super::version::Version;
 
@@ -84,7 +84,7 @@ impl<'a> RecordLayer<'a> {
                     res.messages.push(Message::Payload(Payload::from_slice(messages)));
                     break;
                 } else {
-                    res.messages.push(Message::CipherSpec);
+                    res.messages.push(Message::Alert(Alert::from_bytes(messages)?));
                     break;
                 }
                 RecordType::CipherSpec => {
@@ -97,18 +97,16 @@ impl<'a> RecordLayer<'a> {
         Ok(res)
     }
 
-    pub fn handshake_bytes(&self, key_size: u8) -> Vec<u8> {
-        let mut res = self.head_bytes();
-        let msg = self.messages.iter().map(|x| x.as_bytes(key_size)).collect::<Vec<_>>().concat();
-        res.extend((msg.len() as u16).to_be_bytes());
-        res.extend(msg);
-        res
-    }
-
-    pub fn head_bytes(&self) -> Vec<u8> {
-        let mut res = vec![self.context_type.as_u8()];
-        res.extend(self.version.as_bytes());
-        res
+    pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8, offset: usize) -> usize {
+        // println!("{:#?}", self);
+        writer.write_u8(self.context_type as u8);
+        writer.write_u16(self.version.into_inner());
+        let len = self.messages.iter().map(|x| x.len(key_size)).sum::<usize>();
+        writer.write_u16(len as u16);
+        for message in self.messages {
+            message.write_to(writer, key_size);
+        }
+        writer.flush(offset, "")
     }
 }
 

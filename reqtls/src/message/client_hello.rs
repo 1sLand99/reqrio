@@ -7,7 +7,7 @@ use crate::bytes::ByteRef;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::ExtensionType;
-use crate::rand;
+use crate::{rand, WriteExt};
 use std::mem;
 
 
@@ -111,32 +111,31 @@ impl<'a> ClientHello<'a> {
         Ok(res)
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = vec![self.handshake_type.as_u8(), 0, 0, 0];
-        // res.extend_from_slice(&(self.len as u32).to_be_bytes()[1..]);
-        res.extend(self.version.as_bytes());
-        res.extend_from_slice(self.random.as_ref());
-        res.push(self.session_id.len() as u8);
-        res.extend_from_slice(self.session_id.as_ref());
-        let mut cbs = vec![];
-        for cipher_suite in &self.cipher_suites {
-            cbs.extend(cipher_suite.as_bytes());
-        }
+    pub fn len(&self) -> usize {
+        6 + self.random.len() + 1 + self.session_id.len() + 2 +
+            self.cipher_suites.len() * 2 + 1 + self.compress_method.len() + 2
+            + self.extensions.iter().map(|x| x.len(false)).sum::<usize>()
+    }
 
-        res.extend((cbs.len() as u16).to_be_bytes());
-        res.extend(cbs);
-        res.push(self.compress_method.len() as u8);
-        res.extend_from_slice(self.compress_method.as_ref());
-        let mut ebs = vec![];
-
-        for extension in &self.extensions {
-            ebs.extend(extension.as_bytes(false));
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) { //0, 3, 2, 0, 2, 68, 105, 0
+        writer.write_u8(self.handshake_type as u8);
+        writer.write_slice(&(self.len() as u32 - 4).to_be_bytes()[1..]);
+        writer.write_u16(self.version.into_inner());
+        writer.write_slice(self.random.as_ref());
+        writer.write_u8(self.session_id.len() as u8);
+        writer.write_slice(self.session_id.as_ref());
+        let len = self.cipher_suites.iter().map(|_| 2).sum::<usize>();
+        writer.write_u16(len as u16);
+        for cipher_suite in self.cipher_suites {
+            writer.write_u16(cipher_suite.into_inner());
         }
-        res.extend((ebs.len() as u16).to_be_bytes());
-        res.extend(ebs);
-        let len = (res.len() - 4) as u32;
-        res[1..4].copy_from_slice(len.to_be_bytes()[1..].as_ref());
-        res
+        writer.write_u8(self.compress_method.len() as u8);
+        writer.write_slice(self.compress_method.as_ref());
+        let len = self.extensions.iter().map(|x| x.len(false)).sum::<usize>();
+        writer.write_u16(len as u16);
+        for extension in self.extensions {
+            extension.write_to(writer, false);
+        }
     }
 
     pub fn client_random(&mut self) -> &ByteRef<'a> { &self.random }
@@ -157,7 +156,7 @@ impl<'a> ClientHello<'a> {
         } else { vec![] };
         let extend = self.extensions.iter().find(|x| x.ex_point_formats().is_some());
         let formats = if let Some(extend) = extend && let Some(formats) = extend.ex_point_formats() {
-            formats.formats().iter().map(|x| x.as_u8().to_string()).collect::<Vec<_>>()
+            formats.formats().iter().map(|x| (x.clone() as u8).to_string()).collect::<Vec<_>>()
         } else {
             vec![]
         };
@@ -303,9 +302,9 @@ impl<'a> ClientHello<'a> {
         }
     }
 
-    pub fn len(&self) -> u32 {
-        self.len
-    }
+    // pub fn len(&self) -> u32 {
+    //     self.len
+    // }
 
     pub fn cipher_suites(&self) -> &Vec<CipherSuite> {
         &self.cipher_suites

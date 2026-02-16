@@ -1,14 +1,14 @@
 use crate::error::RlsResult;
 use std::fmt::{Display, Formatter};
-use crate::RlsError;
+use crate::{RlsError, WriteExt};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum AlertLevel {
     Warning = 1,
     Fatal = 2,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum AlertDesc {
     ///正常关闭通知，表示会话正常结束。
     CloseNotify = 0,
@@ -126,6 +126,7 @@ impl Display for AlertDesc {
     }
 }
 
+#[derive(Debug)]
 pub struct Alert {
     level: AlertLevel,
     desc: AlertDesc,
@@ -153,8 +154,9 @@ impl Alert {
         })
     }
 
-    pub fn as_bytes(&self) -> [u8; 2] {
-        [self.level as u8, self.desc as u8]
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u8(self.level as u8);
+        writer.write_u8(self.desc as u8)
     }
 
     pub fn to_bytes(self) -> [u8; 2] {

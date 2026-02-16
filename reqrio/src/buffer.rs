@@ -1,5 +1,5 @@
-use crate::error::{HlsResult, HlsError};
-use std::ffi::c_void;
+use crate::error::{HlsError, HlsResult};
+use reqtls::WriteExt;
 use std::io::Read;
 use std::ops::{Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo};
 use std::ptr;
@@ -68,9 +68,9 @@ impl Buffer {
         self.is_empty()
     }
 
-    pub fn len(&self) -> usize {
-        self.offset.len()
-    }
+    // pub fn len(&self) -> usize {
+    //     self.offset.len()
+    // }
 
     pub fn len_ptr(&mut self) -> *mut usize {
         &mut self.offset.end
@@ -94,23 +94,6 @@ impl Buffer {
 
     pub fn capacity(&self) -> usize {
         self.buffer.capacity()
-    }
-
-    pub fn as_mut_ptr(&mut self) -> *mut c_void {
-        self.buffer.as_mut_ptr() as *mut c_void
-    }
-
-    pub fn push_slice(&mut self, slice: &[u8]) {
-        unsafe {
-            let dst = self.buffer.as_mut_ptr().add(self.offset.len());
-            ptr::copy_nonoverlapping(slice.as_ref().as_ptr(), dst, slice.len());
-            // self.buffer.set_len(self.len + slice.len());
-            self.offset.end += slice.len();
-        }
-    }
-
-    pub fn push_u16(&mut self, val: u16) {
-        self.push_slice(&val.to_be_bytes());
     }
 
     ///必须手动管理len, 返回已push的长度
@@ -210,6 +193,24 @@ impl Index<RangeFull> for Buffer {
 impl IndexMut<RangeFull> for Buffer {
     fn index_mut(&mut self, i: RangeFull) -> &mut [u8] {
         &mut self.buffer[i]
+    }
+}
+
+impl WriteExt for Buffer {
+    fn as_ptr(&self) -> *const u8 {
+        self.buffer.as_ptr()
+    }
+
+    fn as_mut_ptr(&mut self) -> *mut u8 {
+        self.buffer.as_mut_ptr()
+    }
+
+    fn add_len(&mut self, len: usize) {
+        self.offset.end += len;
+    }
+
+    fn offset(&self) -> Range<usize> {
+        self.offset.start..self.offset.end
     }
 }
 

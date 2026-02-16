@@ -19,13 +19,13 @@ pub struct TlsStream<S> {
 }
 
 impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
-    async fn new(stream: S, conn: Connection, mut config: TlsConfig<'_>) -> HlsResult<TlsStream<S>> {
+    async fn new(stream: S, conn: Connection, mut config: TlsConfig<'_>, buffer: Buffer) -> HlsResult<TlsStream<S>> {
         let mut stream = TlsStream {
             stream,
             conn,
             handshake_finished: false,
             read_buffer: Buffer::with_capacity(16413),
-            write_buffer: Buffer::with_capacity(16413),
+            write_buffer: buffer,
             shutdown_wrote: false,
             wrote_len: 0,
             pending: vec![],
@@ -53,15 +53,17 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
             _ => message.client_mut().ok_or(HlsError::NullPointer)?.remove_h2_alpn()
         }
         message.client_mut().ok_or(HlsError::NullPointer)?.remove_tls13();
-        let bs = record.handshake_bytes(1);
+        let mut write_buffer = Buffer::with_capacity(16413);
+        let ret = record.write_to(&mut write_buffer, 1, 0);
         let mut conn = Connection::default().with_client_random(client_random).with_verify(config.verify);
-        conn.update_session(&bs[5..])?;
-        stream.write_all(&bs).await?;
-        TlsStream::new(stream, conn, config).await
+        conn.update_session(&write_buffer[5..ret])?;
+        stream.write_all(&write_buffer[..ret]).await?;
+        write_buffer.reset();
+        TlsStream::new(stream, conn, config, write_buffer).await
     }
 
     pub async fn accept(stream: S, config: TlsConfig<'_>) -> HlsResult<TlsStream<S>> {
-        TlsStream::new(stream, Connection::default(), config).await
+        TlsStream::new(stream, Connection::default(), config, Buffer::with_capacity(16413)).await
     }
 
     pub async fn read_packet(&mut self) -> HlsResult<usize> {
@@ -91,7 +93,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
             RecordType::HandShake => {
                 for message in record.messages {
                     match message {
-                        Message::ServerHello(v) => self.conn.set_by_server_hello(v)?,
+                        Message::ServerHello(v) => self.conn.set_by_server_hello(&v)?,
                         Message::Certificate(v) => {
                             let config = config.as_mut().ok_or("config can't be null")?;
                             self.conn.set_by_certificate(v, config.sni)?;
@@ -104,10 +106,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             let key_size = self.conn.cipher_suite().key_size();
                             let pub_key = self.conn.pub_share_key()?;
                             client_key_exchange.client_key_exchange_mut().unwrap().set_pub_key(pub_key.as_slice());
-                            let bs = record.handshake_bytes(key_size);
-                            self.conn.update_session(&bs[5..])?;
-                            self.write_buffer.push_slice(&bs);
-                            self.write_buffer.push_slice(config.fingerprint.change_cipher_spec());
+                            let len = record.write_to(&mut self.write_buffer, key_size, 0);
+                            self.conn.update_session(&self.write_buffer[5..len])?;
+                            self.write_buffer.set_len(len);
+                            self.write_buffer.write_slice(config.fingerprint.change_cipher_spec());
 
                             self.conn.make_cipher(false)?;
                             let record_len = self.conn.make_finish_message(self.write_buffer.unfilled_mut(), false)?;
@@ -118,11 +120,19 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             return Ok(true);
                         }
                         Message::ClientHello(v) => {
+                            let len = record.len as usize + 5;
                             let config = config.as_mut().ok_or("config can't be null")?;
-                            let bytes = self.conn.gen_server_hello(v, config.certificate, config.private_key)?;
-                            self.stream.write_all(&bytes).await?;
-                            let record_len = record.len as usize + 5;
-                            self.client_hello.extend_from_slice(self.read_buffer[..record_len].as_ref());
+                            let random = rand::random::<[u8; 32]>();
+                            let mut record = self.conn.gen_server_hello(v, config.certificate, config.private_key, &random)?;
+                            let session_id = rand::random::<[u8; 32]>();
+                            record.messages[0].server_mut().ok_or(HlsError::NullPointer)?.set_random(&random);
+                            record.messages[0].server_mut().ok_or(HlsError::NullPointer)?.set_session_id(&session_id);
+
+                            record.write_to(&mut self.write_buffer, 1, 0);
+                            self.conn.update_session(&self.write_buffer.filled()[5..])?;
+                            self.stream.write_all(self.write_buffer.filled()).await?;
+                            self.client_hello.extend_from_slice(self.read_buffer[..len].as_ref());
+                            self.write_buffer.reset();
                             break;
                         }
                         Message::ClientKeyExchange(v) => {
@@ -136,12 +146,11 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
 
                             let mut ticket = SessionTicket::new();
                             ticket.tls_ticket_mut().set_value(rand::random::<[u8; 276]>().to_vec());
-                            let ticket_bytes = ticket.as_bytes();
-                            self.write_buffer.push_slice(&[22, 3, 3]);
-                            self.write_buffer.push_u16(ticket_bytes.len() as u16);
-                            self.write_buffer.push_slice(&ticket_bytes);
-                            self.write_buffer.push_slice(&[20, 3, 3, 0, 1, 1]);
-                            self.conn.update_session(&ticket_bytes)?;
+                            self.write_buffer.write_slice(&[22, 3, 3]);
+                            self.write_buffer.write_u16(ticket.len() as u16);
+                            ticket.write_to(&mut self.write_buffer);
+                            self.conn.update_session(&self.write_buffer.filled()[5..])?;
+                            self.write_buffer.write_slice(&[20, 3, 3, 0, 1, 1]);
                             let record_len = self.conn.make_finish_message(self.write_buffer.unfilled_mut(), true)?;
                             self.write_buffer.add_len(record_len);
                             self.stream.write_all(self.write_buffer.filled()).await?;
@@ -163,7 +172,6 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
 
     pub fn client_hello(&self) -> &[u8] { &self.client_hello }
 }
-
 
 impl<S> TlsStream<S> {
     fn read_message(&mut self, buf: &mut ReadBuf<'_>) -> std::io::Result<usize> {
@@ -228,7 +236,6 @@ impl<S: AsyncRead + Unpin> AsyncRead for TlsStream<S> {
     }
 }
 
-
 impl<S: AsyncWrite + Unpin> AsyncWrite for TlsStream<S> {
     fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize, Error>> {
         let stream = self.get_mut();
@@ -279,7 +286,3 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for TlsStream<S> {
         }
     }
 }
-
-unsafe impl<S> Send for TlsStream<S> {}
-
-unsafe impl<S> Sync for TlsStream<S> {}

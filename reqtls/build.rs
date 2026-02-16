@@ -12,4 +12,5 @@ fn main() {
     }
     println!("cargo:rustc-link-lib={}=crypto", typ);
     println!("cargo:rustc-link-lib={}=zstd", typ);
+    println!("cargo:rustc-link-lib=versus")
 }

@@ -1,3 +1,4 @@
+use reqtls::WriteExt;
 pub use flag::FrameFlag;
 pub use typo::FrameType;
 
