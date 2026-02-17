@@ -43,7 +43,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
         let client_random = rand::random::<[u8; 32]>().to_vec();
         let session_id = rand::random::<[u8; 32]>();
 
-        let mut record = RecordLayer::from_bytes(config.fingerprint.client_hello_mut(), false, None)?;
+        let mut record = RecordLayer::from_bytes(&mut config.fingerprint.client_hello, false, None)?;
         let message = record.messages.get_mut(0).ok_or(RlsError::ClientHelloNone)?;
         message.client_mut().ok_or(HlsError::NullPointer)?.set_random(&client_random);
         message.client_mut().ok_or(HlsError::NullPointer)?.set_server_name(config.sni);
@@ -54,7 +54,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
         }
         message.client_mut().ok_or(HlsError::NullPointer)?.remove_tls13();
         let mut write_buffer = Buffer::with_capacity(16413);
-        let ret = record.write_to(&mut write_buffer, 1, 0);
+        let ret = record.write_to(&mut write_buffer, 1)?;
+        write_buffer.set_len(ret);
         let mut conn = Connection::default().with_client_random(client_random).with_verify(config.verify);
         conn.update_session(&write_buffer[5..ret])?;
         stream.write_all(&write_buffer[..ret]).await?;
@@ -101,20 +102,20 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                         Message::ServerKeyExchange(v) => self.conn.set_by_server_exchange_key(v)?,
                         Message::ServerHelloDone(_) => {
                             let config = config.as_mut().ok_or("config can't be null")?;
-                            let mut record = RecordLayer::from_bytes(config.fingerprint.client_key_exchange_mut(), false, None)?;
+                            let mut record = RecordLayer::from_bytes(&mut config.fingerprint.client_key_exchange, false, None)?;
                             let client_key_exchange = record.messages.get_mut(0).ok_or(HlsError::NullPointer)?;
                             let key_size = self.conn.cipher_suite().key_size();
                             let pub_key = self.conn.pub_share_key()?;
                             client_key_exchange.client_key_exchange_mut().unwrap().set_pub_key(pub_key.as_slice());
-                            let len = record.write_to(&mut self.write_buffer, key_size, 0);
+                            let len = record.write_to(&mut self.write_buffer, key_size)?;
                             self.conn.update_session(&self.write_buffer[5..len])?;
                             self.write_buffer.set_len(len);
-                            self.write_buffer.write_slice(config.fingerprint.change_cipher_spec());
+                            self.write_buffer.write_slice(&config.fingerprint.change_cipher_spec);
 
                             self.conn.make_cipher(false)?;
                             let record_len = self.conn.make_finish_message(self.write_buffer.unfilled_mut(), false)?;
 
-                            self.write_buffer.set_len(self.write_buffer.len() + record_len);
+                            self.write_buffer.add_len(record_len);
                             self.stream.write_all(self.write_buffer.filled()).await?;
                             self.write_buffer.reset();
                             return Ok(true);
@@ -128,7 +129,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             record.messages[0].server_mut().ok_or(HlsError::NullPointer)?.set_random(&random);
                             record.messages[0].server_mut().ok_or(HlsError::NullPointer)?.set_session_id(&session_id);
 
-                            record.write_to(&mut self.write_buffer, 1, 0);
+                            record.write_to(&mut self.write_buffer, 1)?;
                             self.conn.update_session(&self.write_buffer.filled()[5..])?;
                             self.stream.write_all(self.write_buffer.filled()).await?;
                             self.client_hello.extend_from_slice(self.read_buffer[..len].as_ref());

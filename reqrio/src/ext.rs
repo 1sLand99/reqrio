@@ -76,9 +76,7 @@ pub trait ReqExt: Sized {
     }
 
     fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + 'static);
-    #[cfg(fpr)]
     fn set_fingerprint(&mut self, fingerprint: Fingerprint);
-    #[cfg(fpr)]
     fn with_fingerprint(mut self, fingerprint: Fingerprint) -> Self {
         self.set_fingerprint(fingerprint);
         self

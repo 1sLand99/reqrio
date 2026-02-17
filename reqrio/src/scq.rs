@@ -295,7 +295,6 @@ impl ReqExt for ScReq {
         self.callback = Some(Box::new(callback));
     }
 
-    #[cfg(fpr)]
     fn set_fingerprint(&mut self, fingerprint: Fingerprint) {
         self.fingerprint = fingerprint;
     }

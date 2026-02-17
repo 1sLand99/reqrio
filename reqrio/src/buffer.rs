@@ -68,10 +68,6 @@ impl Buffer {
         self.is_empty()
     }
 
-    // pub fn len(&self) -> usize {
-    //     self.offset.len()
-    // }
-
     pub fn len_ptr(&mut self) -> *mut usize {
         &mut self.offset.end
     }
@@ -125,7 +121,6 @@ impl Buffer {
     pub fn move_to(&mut self, r: Range<usize>, pos: usize) {
         self.offset = pos..pos;
         self.offset.end += r.len();
-        // self.len = r.end - r.start;
         self.copy_within(r, pos);
     }
 

@@ -16,7 +16,7 @@ impl ALPN {
             b"http/1.1" => ALPN::Http11,
             b"h2" => ALPN::Http20,
             _ => {
-                println!("unknown alpn {:?}", opt);
+                // println!("unknown alpn {:?}", opt);
                 ALPN::None
             }
         }

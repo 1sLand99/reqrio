@@ -15,7 +15,7 @@ impl<S: Read + Write> SyncStream<S> {
     pub fn connect(mut config: TlsConfig, mut stream: S) -> HlsResult<SyncStream<S>> {
         let client_random = rand::random::<[u8; 32]>().to_vec();
         let session_id = rand::random::<[u8; 32]>();
-        let mut client_hello = RecordLayer::from_bytes(config.fingerprint.client_hello_mut(), false, None)?;
+        let mut client_hello = RecordLayer::from_bytes(&mut config.fingerprint.client_hello, false, None)?;
         client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_random(&client_random);
         client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_server_name(config.sni);
         client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_session_id(&session_id);
@@ -25,7 +25,7 @@ impl<S: Read + Write> SyncStream<S> {
         }
         client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.remove_tls13();
         let mut write_buffer = Buffer::with_capacity(0xFFFF);
-        let len = client_hello.write_to(&mut write_buffer, 1, 0);
+        let len = client_hello.write_to(&mut write_buffer, 1)?;
         write_buffer.set_len(len);
 
         // let bs = client_hello.handshake_bytes(1);
@@ -72,19 +72,17 @@ impl<S: Read + Write> SyncStream<S> {
                             let param = param.as_mut().ok_or("conn param can't be null")?;
                             let key_size = self.conn.cipher_suite().key_size();
                             let pub_key = self.conn.pub_share_key()?;
-                            let mut client_key_exchange = RecordLayer::from_bytes(param.fingerprint.client_key_exchange_mut(), false, None)?;
+                            let mut client_key_exchange = RecordLayer::from_bytes(&mut param.fingerprint.client_key_exchange, false, None)?;
                             client_key_exchange.messages[0].client_key_exchange_mut().unwrap().set_pub_key(pub_key.as_slice());
-                            let len = client_key_exchange.write_to(&mut self.write_buffer, key_size, 0);
+                            let len = client_key_exchange.write_to(&mut self.write_buffer, key_size)?;
                             self.write_buffer.set_len(len);
                             self.conn.update_session(&self.write_buffer.filled()[5..])?;
-                            self.stream.write_all(self.write_buffer.filled())?;
-
-                            self.stream.write_all(param.fingerprint.change_cipher_spec())?;
+                            self.write_buffer.write_slice(&param.fingerprint.change_cipher_spec);
                             self.conn.make_cipher(false)?;
-
+                            let record_len = self.conn.make_finish_message(self.write_buffer.unfilled_mut(), false)?;
+                            self.write_buffer.add_len(record_len);
+                            self.stream.write_all(self.write_buffer.filled())?;
                             self.write_buffer.reset();
-                            let record_len = self.conn.make_finish_message(&mut self.write_buffer[..], false)?;
-                            self.stream.write_all(&self.write_buffer[..record_len])?;
                             return Ok(true);
                         }
                         _ => {}

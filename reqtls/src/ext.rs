@@ -1,4 +1,7 @@
+use std::ffi::CString;
+use crate::error::RlsResult;
 use std::ops::Range;
+use std::os::raw::c_char;
 
 pub trait WriteExt {
     fn write_u8(&mut self, v: u8) { self.write_slice(&v.to_be_bytes()) }
@@ -14,8 +17,17 @@ pub trait WriteExt {
         self.add_len(v.len());
     }
 
-    fn flush(&mut self, offset: usize, token: impl AsRef<[u8]>) -> usize {
-        unsafe { buffer_flush(self.as_mut_ptr(), offset, self.offset().end, token.as_ref().as_ptr(), token.as_ref().len()) }
+    fn flush(&mut self, offset: usize) -> RlsResult<usize> {
+        let len = unsafe { buffer_flush(self.as_mut_ptr().add(offset), self.offset().end - offset) };
+        Ok(len)
+    }
+
+    fn check_subscription(&self, token: impl AsRef<str>) -> RlsResult<i32> {
+        let is_subscribed = unsafe { is_subscription(CString::new(token.as_ref())?.as_ptr()) };
+        if !is_subscribed {
+            println!("\x1b[01;33m[Fingerprint] WARN \x1b[0m You have not subscribed yet, so this call will be ignored.");
+        }
+        Ok(if is_subscribed { 0 } else { -2 })
     }
 
     fn as_ptr(&self) -> *const u8;
@@ -23,15 +35,14 @@ pub trait WriteExt {
     fn is_empty(&self) -> bool { self.len() == 0 }
     fn len(&self) -> usize { self.offset().len() }
     fn add_len(&mut self, len: usize);
-    fn is_subscribed(&self) -> bool {
-        unsafe { is_subscription(self.as_ptr(), self.len()) }
-    }
     fn offset(&self) -> Range<usize>;
 }
 
 
 unsafe extern "C" {
+    pub(crate) fn set_alpn_h2(h2: bool);
+    pub(crate) fn set_sni(offset: usize, sni: *const c_char, len: usize);
     fn buffer_write(buf: *mut u8, ptr: *const u8, len: usize);
-    fn buffer_flush(buf: *mut u8, start: usize, end: usize, token: *const u8, tl: usize) -> usize;
-    fn is_subscription(buf: *const u8, len: usize) -> bool;
+    fn buffer_flush(buf: *mut u8, len: usize) -> usize;
+    pub fn is_subscription(token: *const c_char) -> bool;
 }

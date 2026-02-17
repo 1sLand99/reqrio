@@ -281,10 +281,10 @@ session.close()
 |  2  | ScReq_set_header_json        | void *, const char *                          | int    |
 |  3  | ScReq_add_header             | void *, const char *, const char *            | int    |
 |  4  | ScReq_set_alpn               | void *, const char *                          | int    |
-|  5  | ScReq_set_random_fingerprint | void *                                        | int    |     Return -2 as unsubscribed     |
-|  6  | ScReq_set_fingerprint        | void *, const char *                          | int    |     Return -2 as unsubscribed     |
-|  7  | ScReq_set_ja3                | void *, const char *                          | int    |     Return -2 as unsubscribed     |
-|  8  | ScReq_set_ja4                | void *, const char *                          | int    |     Return -2 as unsubscribed     |
+|  5  | ScReq_set_random_fingerprint | void *, const char *                          | int    |     Return -2 as unsubscribed     |
+|  6  | ScReq_set_fingerprint        | void *, const char *, const char *            | int    |     Return -2 as unsubscribed     |
+|  7  | ScReq_set_ja3                | void *, const char *, const char *            | int    |     Return -2 as unsubscribed     |
+|  8  | ScReq_set_ja4                | void *, const char *, const char *            | int    |     Return -2 as unsubscribed     |
 |  9  | ScReq_set_proxy              | void *, const char *                          | int    |       http:// or socks5://        |
 | 10  | ScReq_set_url                | void *, const char *                          | int    |  Called before setting the body   |
 | 11  | ScReq_add_param              | void *, const char *, const char *            | int    |

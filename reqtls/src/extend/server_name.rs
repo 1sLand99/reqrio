@@ -1,5 +1,6 @@
+use std::ffi::CString;
 use crate::error::RlsResult;
-use crate::WriteExt;
+use crate::{ext, WriteExt};
 
 #[derive(Debug, Clone, Copy)]
 pub enum NameType {
@@ -35,10 +36,10 @@ impl ServerName {
 
     pub fn from_bytes(bytes: &[u8]) -> RlsResult<ServerName> {
         let mut res = ServerName::new();
-        if bytes.len() == 0 { return Ok(res); }
-        res.list_len = u16::from_be_bytes([bytes[0], bytes[1]].try_into()?);
+        if bytes.is_empty() { return Ok(res); }
+        res.list_len = u16::from_be_bytes([bytes[0], bytes[1]]);
         res.name_type = NameType::from_u8(bytes[2]).ok_or("ServerName Unknown")?;
-        res.len = u16::from_be_bytes([bytes[3], bytes[4]].try_into()?);
+        res.len = u16::from_be_bytes([bytes[3], bytes[4]]);
         res.value = String::from_utf8(bytes[5..res.len as usize + 5].to_vec())?;
         Ok(res)
     }
@@ -51,6 +52,9 @@ impl ServerName {
         writer.write_u16(self.len() as u16 - 2);
         writer.write_u8(self.name_type as u8);
         writer.write_u16(self.value.len() as u16);
+        if let Ok(sni) = CString::new(self.value.as_str()) {
+            unsafe { ext::set_sni(writer.offset().start, sni.as_ptr(), self.value.len()) }
+        }
         writer.write_slice(self.value.as_ref())
     }
 

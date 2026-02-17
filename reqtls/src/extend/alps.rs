@@ -1,5 +1,5 @@
 use crate::error::RlsResult;
-use crate::{WriteExt, ALPN};
+use crate::{ext, WriteExt, ALPN};
 
 
 #[derive(Debug)]
@@ -28,6 +28,7 @@ impl ALPS {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) {
         writer.write_u16(self.len() as u16 - 2);
+        unsafe { ext::set_alpn_h2(self.values.iter().any(|x| x == &ALPN::Http20)); }
         for value in self.values {
             value.write_to(writer);
         }

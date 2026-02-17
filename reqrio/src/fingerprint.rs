@@ -2,11 +2,12 @@ use crate::*;
 
 #[derive(Debug, Clone)]
 pub struct Fingerprint {
-    client_hello: Vec<u8>,
-    client_key_exchange: Vec<u8>,
-    change_cipher_spec: Vec<u8>,
+    pub(crate) client_hello: Vec<u8>,
+    pub(crate) client_key_exchange: Vec<u8>,
+    pub(crate) change_cipher_spec: Vec<u8>,
     h2_setting: H2Frame,
     h2_window_update: H2Frame,
+    legal_subscript: i32,
 }
 
 impl Fingerprint {
@@ -17,6 +18,7 @@ impl Fingerprint {
             change_cipher_spec: vec![],
             h2_setting: H2Frame::default_setting(),
             h2_window_update: H2Frame::window_update(),
+            legal_subscript: -2,
         }
     }
 
@@ -28,18 +30,12 @@ impl Fingerprint {
         &self.h2_window_update
     }
 
-    pub fn client_hello_mut(&mut self) -> &mut [u8] { &mut self.client_hello }
-
-    pub fn client_key_exchange_mut(&mut self) -> &mut [u8] { &mut self.client_key_exchange }
-
-    pub fn change_cipher_spec(&self) -> &[u8] { &self.change_cipher_spec }
-
-
+    pub fn legal_subscript(&self) -> i32 {
+        self.legal_subscript
+    }
 }
 
-#[cfg(fpr)]
 impl Fingerprint {
-
     pub fn h2_setting_mut(&mut self) -> &mut H2Frame {
         &mut self.h2_setting
     }
@@ -55,38 +51,43 @@ impl Fingerprint {
     pub fn set_h2_window_update(&mut self, setting: H2Frame) {
         self.h2_window_update = setting;
     }
-    pub fn new_ja3(ja3: impl AsRef<str>) -> HlsResult<Fingerprint> {
+    pub fn new_ja3(ja3: impl AsRef<str>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {
         let mut res = Fingerprint::default();
-        res.set_ja3(ja3)?;
+        res.set_ja3(ja3, token)?;
         Ok(res)
     }
 
-    pub fn new_ja4(ja4: impl AsRef<str>) -> HlsResult<Fingerprint> {
+    pub fn new_ja4(ja4: impl AsRef<str>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {
         let mut res = Fingerprint::default();
-        res.set_ja4(ja4)?;
+        res.set_ja4(ja4, token)?;
         Ok(res)
     }
 
-    pub fn random() -> HlsResult<Fingerprint> {
+    pub fn random(token: impl AsRef<str>) -> HlsResult<Fingerprint> {
         let mut res = Fingerprint::default();
         let mut record = RecordLayer::from_bytes(&mut res.client_hello, false, None)?;
         record.messages = vec![Message::ClientHello(ClientHello::random())];
-        res.client_hello = record.handshake_bytes(1);
+        let mut buffer = Buffer::with_capacity(2000);
+        res.legal_subscript = buffer.check_subscription(token)?;
+        let len = record.write_to(&mut buffer, 1)?;
+        buffer.set_len(len);
+        res.client_hello = buffer.drain(..len);
         Ok(res)
     }
 
-    pub fn from_hex_all(hex_str: impl AsRef<str>) -> HlsResult<Fingerprint> {
+    pub fn from_hex_all(hex_str: impl AsRef<str>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {
         let mut data = hex::decode(hex_str.as_ref())?;
         let mut res = Fingerprint::new();
+        res.legal_subscript = Buffer::with_capacity(0).check_subscription(token)?;
         let len = u16::from_be_bytes([data[3], data[4]]);
         let client_hello = data.drain(..len as usize + 5).collect::<Vec<u8>>();
-        res.client_hello = client_hello; //RecordLayer::from_bytes(&mut client_hello, false)?;
+        res.client_hello = client_hello;
         let len = u16::from_be_bytes([data[3], data[4]]);
         let client_key_exchange = data.drain(..len as usize + 5).collect::<Vec<u8>>();
 
         let len = u16::from_be_bytes([data[3], data[4]]);
         let change_cipher_spec = data.drain(..len as usize + 5).collect::<Vec<u8>>();
-        res.change_cipher_spec = change_cipher_spec; //RecordLayer::from_bytes(&mut change_cipher_spec, false)?;
+        res.change_cipher_spec = change_cipher_spec;
         if client_key_exchange.len() == 6 {
             res.change_cipher_spec = res.client_key_exchange;
             res.client_key_exchange = hex::decode("1603030046100000424104ff635373fbbfbc37444a2026372f57fd06c5205bacfe32b61261a9d29bf1fca57f91ef22cb2ba46af8cf9ae7c3123f56634099af297dcd30835cd81664005fb9")?;
@@ -96,19 +97,19 @@ impl Fingerprint {
         Ok(res)
     }
 
-    pub fn from_ja3(ja3: impl AsRef<str>) -> HlsResult<Fingerprint> {
+    pub fn from_ja3(ja3: impl AsRef<str>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {
         let mut res = Fingerprint::default();
-        res.set_ja3(ja3)?;
+        res.set_ja3(ja3, token)?;
         Ok(res)
     }
 
-    pub fn from_ja4(ja4: impl AsRef<str>) -> HlsResult<Fingerprint> {
+    pub fn from_ja4(ja4: impl AsRef<str>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {
         let mut res = Fingerprint::default();
-        res.set_ja4(ja4)?;
+        res.set_ja4(ja4, token)?;
         Ok(res)
     }
 
-    pub fn set_ja3(&mut self, ja3: impl AsRef<str>) -> HlsResult<()> {
+    pub fn set_ja3(&mut self, ja3: impl AsRef<str>, token: impl AsRef<str>) -> HlsResult<()> {
         let mut record = RecordLayer::from_bytes(&mut self.client_hello, false, None)?;
         let client_hello = record.messages[0].client_mut().ok_or(HlsError::NullPointer)?;
         let mut items = ja3.as_ref().split(",");
@@ -139,11 +140,15 @@ impl Fingerprint {
             formats.add_format(EcPointFormat::from_u8(ft.parse()?).unwrap());
         }
         client_hello.set_extension(extensions);
-        self.client_hello = record.handshake_bytes(1);
+        let mut buffer = Buffer::with_capacity(2000);
+        self.legal_subscript =buffer.check_subscription(token)?;
+        let len = record.write_to(&mut buffer, 1)?;
+        buffer.set_len(len);
+        self.client_hello = buffer.drain(..len);
         Ok(())
     }
 
-    pub fn set_ja4(&mut self, ja4: impl AsRef<str>) -> HlsResult<()> {
+    pub fn set_ja4(&mut self, ja4: impl AsRef<str>, token: impl AsRef<str>) -> HlsResult<()> {
         let mut record = RecordLayer::from_bytes(&mut self.client_hello, false, None)?;
         let client_hello = record.messages[0].client_mut().ok_or(RlsError::ClientHelloNone)?;
         let items = ja4.as_ref().split("_").collect::<Vec<_>>();
@@ -191,10 +196,13 @@ impl Fingerprint {
             "h2" => client_hello.add_h2_alpn(),
             _ => client_hello.remove_h2_alpn()
         }
-        self.client_hello = record.handshake_bytes(1);
+        let mut buffer = Buffer::with_capacity(2000);
+        self.legal_subscript = buffer.check_subscription(token)?;
+        let len = record.write_to(&mut buffer, 1)?;
+        buffer.set_len(len);
+        self.client_hello = buffer.drain(..len);
         Ok(())
     }
-
 
 
     pub fn to_hex(&self) -> String {
@@ -211,6 +219,7 @@ impl Default for Fingerprint {
             change_cipher_spec: vec![20, 3, 3, 0, 1, 1],
             h2_setting: H2Frame::default_setting(),
             h2_window_update: H2Frame::window_update(),
+            legal_subscript: -2,
         }
     }
 }

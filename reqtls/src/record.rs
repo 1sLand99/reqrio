@@ -97,8 +97,8 @@ impl<'a> RecordLayer<'a> {
         Ok(res)
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8, offset: usize) -> usize {
-        // println!("{:#?}", self);
+    pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) -> RlsResult<usize> {
+        let offset = writer.offset().start;
         writer.write_u8(self.context_type as u8);
         writer.write_u16(self.version.into_inner());
         let len = self.messages.iter().map(|x| x.len(key_size)).sum::<usize>();
@@ -106,7 +106,7 @@ impl<'a> RecordLayer<'a> {
         for message in self.messages {
             message.write_to(writer, key_size);
         }
-        writer.flush(offset, "")
+        writer.flush(offset)
     }
 }
 
