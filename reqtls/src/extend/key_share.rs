@@ -1,5 +1,6 @@
-use std::fmt::{Debug, Formatter};
 use super::super::bytes::Bytes;
+use crate::WriteExt;
+use std::fmt::{Debug, Formatter};
 
 pub struct KeyShareType(u16);
 impl KeyShareType {
@@ -7,9 +8,7 @@ impl KeyShareType {
         KeyShareType(v)
     }
 
-    pub fn as_bytes(&self) -> [u8; 2] {
-        self.0.to_be_bytes()
-    }
+    pub fn into_inner(self) -> u16 { self.0 }
 }
 
 impl Debug for KeyShareType {
@@ -84,12 +83,14 @@ impl KeyShareEntry {
         res
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = self.group.as_bytes().to_vec();
-        let vs = self.exchange.as_bytes();
-        res.extend((vs.len() as u16).to_be_bytes());
-        res.extend(vs);
-        res
+    pub fn len(&self) -> usize {
+        4 + self.exchange.len()
+    }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u16(self.group.into_inner());
+        writer.write_u16(self.exchange.len() as u16);
+        writer.write_slice(self.exchange.as_ref())
     }
 }
 
@@ -113,12 +114,15 @@ impl KeyShare {
         res
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = (self.len as u16).to_be_bytes().to_vec();
-        for entry in &self.entries {
-            res.extend(entry.as_bytes());
+    pub fn len(&self) -> usize {
+        self.entries.iter().map(|x| x.len()).sum::<usize>() + 2
+    }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u16(self.len() as u16 - 2);
+        for entry in self.entries {
+            entry.write_to(writer);
         }
-        res
     }
 }
 

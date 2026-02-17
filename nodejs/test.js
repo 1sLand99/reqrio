@@ -1,6 +1,6 @@
 const {Session, ALPN, Websocket} = require('./index')
 
-let session = new Session(ALPN.HTTP20, false);
+let session = new Session(ALPN.HTTP20, true, "sd");
 session.set_url("https://m.so.com");
 session.set_callback(function (data) {
     console.log(data.length)
@@ -12,6 +12,6 @@ session.close();
 
 
 let ws = new Websocket();
-ws.set_url("https://alive.github.com")
+ws.set_url("wss://alive.github.com")
 ws.open()
 ws.read()

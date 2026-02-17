@@ -15,10 +15,8 @@ impl Version {
         Version(v)
     }
 
-    pub(crate) fn as_bytes(&self) -> [u8; 2] {
-        self.0.to_be_bytes()
-    }
-
+    pub fn into_inner(self) -> u16 { self.0 }
+    
     pub(crate) fn as_u16(&self) -> u16 {
         self.0
     }

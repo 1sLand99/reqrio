@@ -9,7 +9,7 @@ from reqrio.response import Response
 
 class Session:
     # alpn值是字符串['http/1.1','h2']
-    def __init__(self, alpn: ALPN = ALPN.HTTP11, rand_tls=False):
+    def __init__(self, alpn: ALPN = ALPN.HTTP11, rand_tls=False, token=""):
         """
         :param
         :param alpn: 版本
@@ -23,8 +23,7 @@ class Session:
         r = self.dll.ScReq_set_alpn(self.hid, alpn.value.encode('utf-8'))
         if r == -1: raise Exception('set alpn error')
         if rand_tls:
-            r = self.dll.ScReq_set_random_fingerprint(self.hid)
-            if r == -2: raise Exception("free user, rand_tls can't be used")
+            r = self.dll.ScReq_set_random_fingerprint(self.hid, token.encode('utf-8'))
             if r == -1: raise Exception('set rand tls error')
 
     def set_timeout(self, connect: int = 3000, read: int = 3000, write: int = 3000, handle: int = 30000,
@@ -59,7 +58,7 @@ class Session:
         r = self.dll.ScReq_set_header_json(self.hid, name.encode('utf-8'), value.encode('utf-8'))
         if r == -1: raise Exception('add header error')
 
-    def set_fingerprint(self, fingerprint: str):
+    def set_fingerprint(self, fingerprint: str, token: str):
         """指纹数据，是tls握手过程中客户端发出的数据（转十六进制）,包含:
 
         1.client_hello
@@ -67,18 +66,15 @@ class Session:
         2.client_key_exchange
 
         3.change_cipher_spec"""
-        r = self.dll.ScReq_set_fingerprint(self.hid, fingerprint.encode('utf-8'))
-        if r == -2: raise Exception("free user, set_fingerprint can't be used")
+        r = self.dll.ScReq_set_fingerprint(self.hid, fingerprint.encode('utf-8'), token.encode('utf-8'))
         if r == -1: raise Exception('set fingerprint error')
 
-    def set_ja3(self, ja3: str):
-        r = self.dll.ScReq_set_ja3(self.hid, ja3.encode('utf-8'))
-        if r == -2: raise Exception("free user, set_ja3 can't be used")
+    def set_ja3(self, ja3: str, token: str):
+        r = self.dll.ScReq_set_ja3(self.hid, ja3.encode('utf-8'), token.encode('utf-8'))
         if r == -1: raise Exception('set ja3 error')
 
-    def set_ja4(self, ja4: str):
-        r = self.dll.ScReq_set_ja4(self.hid, ja4.encode('utf-8'))
-        if r == -2: raise Exception("free user, set_ja4 can't be used")
+    def set_ja4(self, ja4: str, token: str):
+        r = self.dll.ScReq_set_ja4(self.hid, ja4.encode('utf-8'), token.encode('utf-8'))
         if r == -1: raise Exception('set ja4 error')
 
     def set_proxy(self, proxy: str):

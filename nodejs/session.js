@@ -12,36 +12,36 @@ const registry = new FinalizationRegistry(req => {
 })
 
 class Session {
-    constructor(alpn, rand_tls) {
+    constructor(alpn, rand_tls, token) {
         this.req = library.ScReq_new();
         if (alpn) {
             let ret = library.ScReq_set_alpn(this.req, alpn)
             if (ret === -1) throw "set_alpn error"
         }
-        if (rand_tls) {
-            let ret = library.ScReq_set_random_fingerprint(this.req);
-            if (ret === -2) throw "free user, set_random_fingerprint can't be used"
+        if (rand_tls && token) {
+            let ret = library.ScReq_set_random_fingerprint(this.req, token);
+            if (ret === -2) console.log("free user, set_random_fingerprint can't be used")
             if (ret === -1) throw "set_random_fingerprint error"
         }
         registry.register(this, this.req)
     }
 
-    set_fingerprint(fingerprint) {
-        let ret = library.ScReq_set_fingerprint(this.req, fingerprint);
-        if (ret === -2) throw "free user, set_fingerprint can't be used"
+    set_fingerprint(fingerprint, token) {
+        let ret = library.ScReq_set_fingerprint(this.req, fingerprint, token);
+        if (ret === -2) console.log("free user, set_fingerprint can't be used")
         if (ret === -1) throw "set_fingerprint error"
     }
 
-    set_ja3(ja3) {
-        let ret = library.ScReq_set_ja3(this.req, ja3);
-        if (ret === -2) throw "free user, set_ja3 can't be used"
+    set_ja3(ja3, token) {
+        let ret = library.ScReq_set_ja3(this.req, ja3, token);
+        if (ret === -2) console.log("free user, set_ja3 can't be used")
         if (ret === -1) throw "set_ja3 error"
 
     }
 
-    set_ja4(ja4) {
-        let ret = library.ScReq_set_ja4(this.req, ja4);
-        if (ret === -2) throw "free user, set_ja4 can't be used"
+    set_ja4(ja4, token) {
+        let ret = library.ScReq_set_ja4(this.req, ja4, token);
+        if (ret === -2) console.log("free user, set_ja4 can't be used")
         if (ret === -1) throw "set_ja4 error"
 
     }

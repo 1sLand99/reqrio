@@ -1,4 +1,6 @@
+use std::ffi::CString;
 use crate::error::RlsResult;
+use crate::{ext, WriteExt};
 
 #[derive(Debug, Clone, Copy)]
 pub enum NameType {
@@ -11,10 +13,6 @@ impl NameType {
             0x0 => Some(NameType::HostName),
             _ => None
         }
-    }
-
-    pub fn as_u8(&self) -> u8 {
-        *self as u8
     }
 }
 
@@ -38,22 +36,26 @@ impl ServerName {
 
     pub fn from_bytes(bytes: &[u8]) -> RlsResult<ServerName> {
         let mut res = ServerName::new();
-        if bytes.len() == 0 { return Ok(res); }
-        res.list_len = u16::from_be_bytes([bytes[0], bytes[1]].try_into()?);
+        if bytes.is_empty() { return Ok(res); }
+        res.list_len = u16::from_be_bytes([bytes[0], bytes[1]]);
         res.name_type = NameType::from_u8(bytes[2]).ok_or("ServerName Unknown")?;
-        res.len = u16::from_be_bytes([bytes[3], bytes[4]].try_into()?);
+        res.len = u16::from_be_bytes([bytes[3], bytes[4]]);
         res.value = String::from_utf8(bytes[5..res.len as usize + 5].to_vec())?;
         Ok(res)
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = vec![0, 0];
-        res.push(self.name_type.as_u8());
-        res.extend((self.value.len() as u16).to_be_bytes());
-        res.extend(self.value.as_bytes());
-        let len = (res.len() - 2) as u16;
-        res[0..2].clone_from_slice(len.to_be_bytes().as_slice());
-        res
+    pub fn len(&self) -> usize {
+        5 + self.value.len()
+    }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u16(self.len() as u16 - 2);
+        writer.write_u8(self.name_type as u8);
+        writer.write_u16(self.value.len() as u16);
+        if let Ok(sni) = CString::new(self.value.as_str()) {
+            unsafe { ext::set_sni(writer.offset().start, sni.as_ptr(), self.value.len()) }
+        }
+        writer.write_slice(self.value.as_ref())
     }
 
     pub fn set_value(&mut self, value: impl ToString) {

@@ -58,8 +58,10 @@ impl Certificate {
     }
 
     pub fn as_der(&mut self) -> &BufPtr {
-        let len = unsafe { i2d_X509(self.x509.as_mut_ptr(), self.der.ptr_mut()) };
-        self.der.set_len(len as usize);
+        if self.der.is_null() {
+            let len = unsafe { i2d_X509(self.x509.as_mut_ptr(), self.der.ptr_mut()) };
+            self.der.set_len(len as usize);
+        }
         &self.der
     }
 

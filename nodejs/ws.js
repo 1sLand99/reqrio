@@ -32,6 +32,7 @@ class Websocket {
     open(url) {
         if (url) this.set_url(url)
         this.ws = library.ws_open(this.build)
+        if (!this.ws || this.ws.length === 0) throw "connect error"
         registry.register(this, this.ws)
     }
 

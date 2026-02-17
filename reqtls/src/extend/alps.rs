@@ -1,5 +1,5 @@
-use crate::ALPN;
 use crate::error::RlsResult;
+use crate::{ext, WriteExt, ALPN};
 
 
 #[derive(Debug)]
@@ -22,14 +22,16 @@ impl ALPS {
         Ok(res)
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = vec![0, 0];
-        for value in &self.values {
-            res.extend(value.as_bytes());
+    pub fn len(&self) -> usize {
+        self.values.iter().map(|x| x.len()).sum::<usize>() + 2
+    }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u16(self.len() as u16 - 2);
+        unsafe { ext::set_alpn_h2(self.values.iter().any(|x| x == &ALPN::Http20)); }
+        for value in self.values {
+            value.write_to(writer);
         }
-        let len = (res.len() - 2) as u16;
-        res[0..2].clone_from_slice(len.to_be_bytes().as_slice());
-        res
     }
 
     pub fn remove_h2_alpn(&mut self) {
@@ -47,7 +49,7 @@ impl ALPS {
             ALPN::Http11,
         ]
     }
-    
+
     pub fn add_alpn(&mut self, alpn: ALPN) {
         self.values.push(alpn);
     }

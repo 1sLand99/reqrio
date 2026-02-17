@@ -7,11 +7,13 @@
 #include <QJsonDocument>
 
 WebSocket::WebSocket(const QString &url) {
+    this->builder = bindings::ws_build();
     this->setUrl(url);
 }
 
 
 WebSocket::~WebSocket() {
+    if (this->ws == nullptr)return;
     bindings::ws_close(this->ws);
 }
 
@@ -33,6 +35,7 @@ void WebSocket::setProxy(const QString &proxy) const {
 
 void WebSocket::open() {
     this->ws = bindings::ws_open(this->builder);
+    if (this->ws == nullptr) throw std::runtime_error("Cannot open websocket connection");
 }
 
 void WebSocket::openRaw(const QString &url, const QString &raw) {

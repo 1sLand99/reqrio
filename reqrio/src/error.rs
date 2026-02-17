@@ -1,6 +1,7 @@
 use std::array::TryFromSliceError;
 use std::convert::Infallible;
 use std::error::Error;
+use std::ffi::NulError;
 use std::fmt::{Display, Formatter};
 use std::io;
 use std::net::AddrParseError;
@@ -142,6 +143,12 @@ impl From<AddrParseError> for HlsError {
 
 impl From<hex::FromHexError> for HlsError {
     fn from(value: hex::FromHexError) -> Self {
+        HlsError::Currently(value.to_string())
+    }
+}
+
+impl From<NulError> for HlsError {
+    fn from(value: NulError) -> Self {
         HlsError::Currently(value.to_string())
     }
 }

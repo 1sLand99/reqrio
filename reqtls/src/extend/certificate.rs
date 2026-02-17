@@ -1,5 +1,6 @@
 use std::fmt::{Debug, Formatter};
 use crate::error::RlsResult;
+use crate::WriteExt;
 
 #[derive(PartialEq)]
 pub struct CompressionType(u16);
@@ -22,10 +23,6 @@ impl CompressionType {
             b"zstd" => CompressionType::ZSTD,
             _ => CompressionType::NULL
         }
-    }
-
-    pub fn as_bytes(&self) -> [u8; 2] {
-        self.0.to_be_bytes()
     }
 }
 
@@ -68,15 +65,17 @@ impl CompressionCertificate {
         Ok(res)
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = vec![0];
-        for ty in &self.types {
-            res.extend(ty.as_bytes());
-        }
-        res[0] = (res.len() - 1) as u8;
-        res
+    pub fn len(&self) -> usize {
+        self.types.len() * 2 + 1
     }
 
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u8(self.len() as u8 - 1);
+        for ty in self.types {
+            writer.write_u16(ty.0);
+        }
+    }
+    
     pub fn push(&mut self, ty: CompressionType) {
         self.types.push(ty);
     }

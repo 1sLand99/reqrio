@@ -24,10 +24,9 @@ public class Session {
         if (res == -1) throw new Exception("set header json error");
     }
 
-    public void useRandomFingerprint() throws Exception {
-        int res = INSTANCE.ScReq_set_random_fingerprint(this.req);
+    public void useRandomFingerprint(String token) throws Exception {
+        int res = INSTANCE.ScReq_set_random_fingerprint(this.req, token);
         if (res == -1) throw new Exception("use random fingerprint error");
-        if (res == -2) throw new Exception("unsubscribed");
     }
 
     public void setHeaders(Headers headers) {
@@ -54,22 +53,19 @@ public class Session {
         if (res == -1) throw new Exception("set alpn error");
     }
 
-    public void set_fingerprint(String fingerprint) throws Exception {
-        int res = INSTANCE.ScReq_set_fingerprint(this.req, fingerprint);
+    public void set_fingerprint(String fingerprint, String token) throws Exception {
+        int res = INSTANCE.ScReq_set_fingerprint(this.req, fingerprint, token);
         if (res == -1) throw new Exception("set fingerprint error");
-        if (res == -2) throw new Exception("unsubscribed");
     }
 
-    public void setJa3(String ja3) throws Exception {
-        int res = INSTANCE.ScReq_set_ja3(this.req, ja3);
+    public void setJa3(String ja3, String token) throws Exception {
+        int res = INSTANCE.ScReq_set_ja3(this.req, ja3, token);
         if (res == -1) throw new Exception("set ja3 error");
-        if (res == -2) throw new Exception("unsubscribed");
     }
 
-    public void setJa4(String ja4) throws Exception {
-        int res = INSTANCE.ScReq_set_ja4(this.req, ja4);
+    public void setJa4(String ja4, String token) throws Exception {
+        int res = INSTANCE.ScReq_set_ja4(this.req, ja4, token);
         if (res == -1) throw new Exception("set ja4 error");
-        if (res == -2) throw new Exception("unsubscribed");
     }
 
     public void setProxy(String proxy) throws Exception {

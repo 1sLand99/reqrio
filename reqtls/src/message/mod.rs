@@ -7,7 +7,7 @@ use key_exchange::{ClientKeyExchange, ServerKeyExchange};
 use server_hello::{ServerHello, ServerHelloDone};
 use session_ticket::SessionTicket;
 use std::fmt::Debug;
-use crate::CipherSuite;
+use crate::{CipherSuite, WriteExt};
 
 pub mod certificate;
 pub mod client_hello;
@@ -20,7 +20,7 @@ mod alert;
 #[derive(Debug)]
 pub enum Message<'a> {
     ClientHello(ClientHello<'a>),
-    ServerHello(ServerHello),
+    ServerHello(ServerHello<'a>),
     Certificate(Certificates<'a>),
     ServerKeyExchange(ServerKeyExchange),
     ServerHelloDone(ServerHelloDone),
@@ -28,6 +28,7 @@ pub enum Message<'a> {
     NewSessionTicket(SessionTicket),
     Payload(Payload<'a>),
     CertificateStatus(CertificateStatus),
+    Alert(Alert),
     CipherSpec,
 }
 
@@ -51,33 +52,50 @@ impl<'a> Message<'a> {
         }
     }
 
-    pub fn payload_len(&self) -> u32 {
+    // pub fn payload_len(&self) -> u32 {
+    //     match self {
+    //         Message::ClientHello(v) => v.len() as u32,
+    //         Message::ServerHello(v) => v.len(),
+    //         Message::Certificate(v) => v.len() as u32,
+    //         Message::ServerKeyExchange(v) => v.len(),
+    //         Message::ServerHelloDone(v) => v.len(),
+    //         Message::ClientKeyExchange(v) => v.len(),
+    //         Message::NewSessionTicket(v) => v.len(),
+    //         Message::Payload(v) => v.value.len() as u32,
+    //         Message::CertificateStatus(v) => v.len(),
+    //         Message::CipherSpec => 0
+    //     }
+    // }
+
+    pub fn len(&self, key_size: u8) -> usize {
         match self {
             Message::ClientHello(v) => v.len(),
             Message::ServerHello(v) => v.len(),
             Message::Certificate(v) => v.len(),
             Message::ServerKeyExchange(v) => v.len(),
             Message::ServerHelloDone(v) => v.len(),
-            Message::ClientKeyExchange(v) => v.len(),
+            Message::ClientKeyExchange(v) => v.len(key_size),
             Message::NewSessionTicket(v) => v.len(),
-            Message::Payload(v) => v.value.len() as u32,
+            Message::Payload(v) => v.value.len(),
             Message::CertificateStatus(v) => v.len(),
+            Message::Alert(_) => 0,
             Message::CipherSpec => 0
         }
     }
 
-    pub fn as_bytes(&self, key_size:u8) -> Vec<u8> {
+    pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) {
         match self {
-            Message::ClientHello(v) => v.as_bytes(),
-            Message::ServerHello(v) => v.as_bytes(),
-            Message::Certificate(v) => v.as_bytes(),
-            Message::ServerKeyExchange(v) => v.as_bytes(),
-            Message::ServerHelloDone(v) => v.as_bytes(),
-            Message::ClientKeyExchange(v) => v.as_bytes(key_size),
-            Message::NewSessionTicket(v) => v.as_bytes(),
-            Message::CipherSpec => vec![HandshakeType::ClientHello.as_u8()],
-            Message::CertificateStatus(v) => v.as_bytes(),
-            Message::Payload(_) => vec![],
+            Message::ClientHello(v) => v.write_to(writer),
+            Message::ServerHello(v) => v.write_to(writer),
+            Message::Certificate(v) => v.write_to(writer),
+            Message::ServerKeyExchange(v) => v.write_to(writer),
+            Message::ServerHelloDone(v) => v.write_to(writer),
+            Message::ClientKeyExchange(v) => v.write_to(writer, key_size),
+            Message::NewSessionTicket(v) => v.write_to(writer),
+            Message::Payload(v) => writer.write_slice(v.into_inner()),
+            Message::CertificateStatus(v) => v.write_to(writer),
+            Message::Alert(_) => {}
+            Message::CipherSpec => {}
         }
     }
 
@@ -94,12 +112,19 @@ impl<'a> Message<'a> {
         }
     }
 
-    // pub fn server(&self) -> Option<&ServerHello> {
-    //     match self {
-    //         Message::ServerHello(v) => Some(v),
-    //         _ => None
-    //     }
-    // }
+    pub fn server_mut(&mut self) -> Option<&mut ServerHello<'a>> {
+        match self {
+            Message::ServerHello(v) => Some(v),
+            _ => None
+        }
+    }
+
+    pub fn server(&self) -> Option<&ServerHello<'a>> {
+        match self {
+            Message::ServerHello(v) => Some(v),
+            _ => None
+        }
+    }
 
     // pub fn server_key_exchange(&self) -> Option<&ServerKeyExchange> {
     //     match self {

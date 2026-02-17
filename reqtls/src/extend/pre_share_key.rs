@@ -1,6 +1,6 @@
 use crate::bytes::Bytes;
 use crate::error::RlsResult;
-use crate::rand;
+use crate::{rand, WriteExt};
 
 #[derive(Debug)]
 pub struct PskIdentity {
@@ -33,11 +33,14 @@ impl PskIdentity {
         Ok(res)
     }
 
-    fn as_bytes(&self) -> Vec<u8> {
-        let mut res = (self.value.len() as u16).to_be_bytes().to_vec();
-        res.extend(self.value.as_bytes());
-        res.extend(self.age.to_be_bytes());
-        res
+    pub fn len(&self) -> usize {
+        6 + self.value.len()
+    }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u16(self.value.len() as u16);
+        writer.write_slice(self.value.as_ref());
+        writer.write_u32(self.age)
     }
 }
 
@@ -68,10 +71,13 @@ impl PskBinder {
         Ok(res)
     }
 
-    fn as_bytes(&self) -> Vec<u8> {
-        let mut res = vec![self.value.len() as u8];
-        res.extend(self.value.as_bytes());
-        res
+    pub fn len(&self) -> usize {
+        1 + self.value.len()
+    }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u8(self.value.len() as u8);
+        writer.write_slice(self.value.as_ref())
     }
 }
 
@@ -111,14 +117,14 @@ impl PreSharedKey {
         res
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = vec![0, 0];
-        let ibs = self.identity.as_bytes();
-        res[0..2].copy_from_slice(&(ibs.len() as u16).to_be_bytes());
-        res.extend(ibs);
-        let ibs = self.binder.as_bytes();
-        res.extend((ibs.len() as u16).to_be_bytes());
-        res.extend(ibs);
-        res
+    pub fn len(&self) -> usize {
+        4 + self.binder.len() + self.identity.len()
+    }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u16(self.identity.len() as u16);
+        self.identity.write_to(writer);
+        writer.write_u16(self.binder.len() as u16);
+        self.binder.write_to(writer);
     }
 }

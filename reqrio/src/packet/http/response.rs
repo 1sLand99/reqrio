@@ -1,3 +1,4 @@
+use reqtls::WriteExt;
 use crate::buffer::Buffer;
 use crate::hpack::HackDecode;
 use crate::error::HlsResult;

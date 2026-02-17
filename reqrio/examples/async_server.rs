@@ -1,5 +1,5 @@
 use std::fs;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use reqrio::{TlsConfig, TlsStream, ALPN};
 use reqtls::{Certificate, RsaKey};
@@ -13,6 +13,7 @@ async fn main() {
     let pri_key = RsaKey::from_pri_pem(key).unwrap();
     loop {
         let (stream, addr) = listen.accept().await.unwrap();
+        println!("Accepted connection from {}", addr);
         let mut tls_stream = TlsStream::accept(stream, TlsConfig {
             sni: "",
             alpn: &ALPN::Http20,
@@ -23,6 +24,7 @@ async fn main() {
         }).await;
         if let Ok(mut tls_stream) = tls_stream {
             tokio::spawn(async move {
+                tls_stream.write_all("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok".as_bytes()).await.unwrap();
                 let mut buffer = [0; 1024];
                 loop {
                     let len = tls_stream.read(&mut buffer).await.unwrap();
@@ -31,6 +33,5 @@ async fn main() {
                 }
             });
         }
-
     }
 }

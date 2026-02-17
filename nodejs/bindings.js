@@ -16,15 +16,15 @@ const Method = {
     CONNECT: 7,
 }
 
-const library = ffi.Library("./libreqrio.so", {
+const library = ffi.Library("./reqrio", {
     ScReq_new: [voidPtr, []],
     ScReq_set_header_json: ['int', [voidPtr, charPtr]],
     ScReq_add_header: ["int", [voidPtr, charPtr, charPtr]],
     ScReq_set_alpn: ["int", [voidPtr, charPtr]],
-    ScReq_set_random_fingerprint: ["int", [voidPtr]],
-    ScReq_set_fingerprint: ["int", [voidPtr, charPtr]],
-    ScReq_set_ja3: ["int", [voidPtr, charPtr]],
-    ScReq_set_ja4: ['int', [voidPtr, charPtr]],
+    ScReq_set_random_fingerprint: ["int", [voidPtr, charPtr]],
+    ScReq_set_fingerprint: ["int", [voidPtr, charPtr, charPtr]],
+    ScReq_set_ja3: ["int", [voidPtr, charPtr, charPtr]],
+    ScReq_set_ja4: ['int', [voidPtr, charPtr, charPtr]],
     ScReq_set_proxy: ['int', [voidPtr, charPtr]],
     ScReq_set_url: ['int', [voidPtr, charPtr]],
     ScReq_add_param: ['int', [voidPtr, charPtr, charPtr]],

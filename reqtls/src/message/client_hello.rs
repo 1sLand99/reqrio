@@ -7,7 +7,7 @@ use crate::bytes::ByteRef;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::ExtensionType;
-use crate::rand;
+use crate::{rand, WriteExt};
 use std::mem;
 
 
@@ -27,8 +27,8 @@ pub struct ClientHello<'a> {
     extensions: Vec<Extension>,
 }
 
-impl<'a> ClientHello<'a> {
-    pub fn new() -> ClientHello<'a> {
+impl<'a> Default for ClientHello<'a> {
+    fn default() -> Self {
         ClientHello {
             handshake_type: HandshakeType::ClientHello,
             len: 0,
@@ -44,19 +44,38 @@ impl<'a> ClientHello<'a> {
             extensions: vec![],
         }
     }
+}
 
+impl<'a> ClientHello<'a> {
     pub fn random() -> ClientHello<'a> {
-        let mut res = ClientHello::new();
-        res.version = Version::TLS_1_0;
-        res.cipher_suites = vec![
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-            CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
-            //ecdsa
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
-        ];
+        let mut res = ClientHello {
+            version: Version::TLS_1_0,
+            cipher_suites: vec![
+                CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+                CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+                CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+                //ecdsa
+                CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+                CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+                CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+            ],
+            random: ByteRef::new(&[0; 32]),
+            compress_method: ByteRef::new(&[0]),
+            extensions: vec![
+                Extension::from_type(ExtensionType::SignatureAlgorithms),
+                Extension::from_type(ExtensionType::SupportedGroup),
+                Extension::from_type(ExtensionType::CompressionCertificate),
+                Extension::from_type(ExtensionType::SupportedVersions),
+                Extension::from_type(ExtensionType::ApplicationLayerProtocolNegotiation),
+                Extension::from_type(ExtensionType::ServerName),
+                Extension::from_type(ExtensionType::EcPointFormats),
+                // Extension::from_type(ExtensionType::RenegotiationInfo),
+                // Extension::from_type(ExtensionType::ExtendMasterSecret),
+                // Extension::from_type(ExtensionType::SignedCertificateTimestamp),
+                // Extension::from_type(ExtensionType::SessionTicket)
+            ],
+            ..Default::default()
+        };
         let suite_all = CipherSuite::SUITES;
         // suite_all.remove(CipherSuiteKind::TLS_RSA_WITH_AES_128_CBC_SHA)
         while res.cipher_suites.len() < 12 {
@@ -65,31 +84,11 @@ impl<'a> ClientHello<'a> {
             if res.cipher_suites.contains(&suite) { continue; }
             res.cipher_suites.push(suite);
         }
-        res.extensions = vec![
-            Extension::from_type(ExtensionType::SignatureAlgorithms),
-            Extension::from_type(ExtensionType::SupportedGroup),
-            Extension::from_type(ExtensionType::CompressionCertificate),
-            Extension::from_type(ExtensionType::SupportedVersions),
-            Extension::from_type(ExtensionType::ApplicationLayerProtocolNegotiation),
-            Extension::from_type(ExtensionType::ServerName),
-            Extension::from_type(ExtensionType::EcPointFormats),
-            // Extension::from_type(ExtensionType::RenegotiationInfo),
-            // Extension::from_type(ExtensionType::ExtendMasterSecret),
-            // Extension::from_type(ExtensionType::SignedCertificateTimestamp),
-            // Extension::from_type(ExtensionType::SessionTicket)
-        ];
-        // let ext_all = ExtensionKind::all();
-        // while res.extensions.len() < 9 {
-        //     let index = rand::random::<usize>() % ext_all.len();
-        //     let ext = ExtensionType::new(ext_all[index].clone() as u16);
-        //     if res.extensions.iter().find(|x| x.extension_type().as_u16() == ext.as_u16()).is_some() { continue; }
-        //     res.extensions.push(Extension::from_type(ext))
-        // }
         res
     }
 
     pub fn from_bytes(ht: HandshakeType, bytes: &'a [u8]) -> RlsResult<ClientHello<'a>> {
-        let mut res = ClientHello::new();
+        let mut res = ClientHello::default();
         res.handshake_type = ht;
         res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]]);
         res.version = Version::new(u16::from_be_bytes([bytes[4], bytes[5]]));
@@ -111,32 +110,33 @@ impl<'a> ClientHello<'a> {
         Ok(res)
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = vec![self.handshake_type.as_u8(), 0, 0, 0];
-        // res.extend_from_slice(&(self.len as u32).to_be_bytes()[1..]);
-        res.extend(self.version.as_bytes());
-        res.extend_from_slice(self.random.as_ref());
-        res.push(self.session_id.len() as u8);
-        res.extend_from_slice(self.session_id.as_ref());
-        let mut cbs = vec![];
-        for cipher_suite in &self.cipher_suites {
-            cbs.extend(cipher_suite.as_bytes());
-        }
+    pub fn is_empty(&self) -> bool { self.len() == 0 }
 
-        res.extend((cbs.len() as u16).to_be_bytes());
-        res.extend(cbs);
-        res.push(self.compress_method.len() as u8);
-        res.extend_from_slice(self.compress_method.as_ref());
-        let mut ebs = vec![];
+    pub fn len(&self) -> usize {
+        6 + self.random.len() + 1 + self.session_id.len() + 2 +
+            self.cipher_suites.len() * 2 + 1 + self.compress_method.len() + 2
+            + self.extensions.iter().map(|x| x.len(false)).sum::<usize>()
+    }
 
-        for extension in &self.extensions {
-            ebs.extend(extension.as_bytes(false));
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u8(self.handshake_type as u8);
+        writer.write_slice(&(self.len() as u32 - 4).to_be_bytes()[1..]);
+        writer.write_u16(self.version.into_inner());
+        writer.write_slice(self.random.as_ref());
+        writer.write_u8(self.session_id.len() as u8);
+        writer.write_slice(self.session_id.as_ref());
+        let len = self.cipher_suites.iter().map(|_| 2).sum::<usize>();
+        writer.write_u16(len as u16);
+        for cipher_suite in self.cipher_suites {
+            writer.write_u16(cipher_suite.into_inner());
         }
-        res.extend((ebs.len() as u16).to_be_bytes());
-        res.extend(ebs);
-        let len = (res.len() - 4) as u32;
-        res[1..4].copy_from_slice(len.to_be_bytes()[1..].as_ref());
-        res
+        writer.write_u8(self.compress_method.len() as u8);
+        writer.write_slice(self.compress_method.as_ref());
+        let len = self.extensions.iter().map(|x| x.len(false)).sum::<usize>();
+        writer.write_u16(len as u16);
+        for extension in self.extensions {
+            extension.write_to(writer, false);
+        }
     }
 
     pub fn client_random(&mut self) -> &ByteRef<'a> { &self.random }
@@ -157,7 +157,7 @@ impl<'a> ClientHello<'a> {
         } else { vec![] };
         let extend = self.extensions.iter().find(|x| x.ex_point_formats().is_some());
         let formats = if let Some(extend) = extend && let Some(formats) = extend.ex_point_formats() {
-            formats.formats().iter().map(|x| x.as_u8().to_string()).collect::<Vec<_>>()
+            formats.formats().iter().map(|x| (x.clone() as u8).to_string()).collect::<Vec<_>>()
         } else {
             vec![]
         };
@@ -303,9 +303,9 @@ impl<'a> ClientHello<'a> {
         }
     }
 
-    pub fn len(&self) -> u32 {
-        self.len
-    }
+    // pub fn len(&self) -> u32 {
+    //     self.len
+    // }
 
     pub fn cipher_suites(&self) -> &Vec<CipherSuite> {
         &self.cipher_suites

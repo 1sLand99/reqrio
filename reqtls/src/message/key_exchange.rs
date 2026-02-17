@@ -1,5 +1,5 @@
 use crate::bytes::ByteRef;
-use crate::CipherSuite;
+use crate::{CipherSuite, WriteExt};
 use crate::error::RlsResult;
 use super::super::boring::SignatureAlgorithm;
 use super::super::message::HandshakeType;
@@ -42,9 +42,8 @@ impl NamedCurve {
             _ => None
         }
     }
-    pub fn as_bytes(&self) -> [u8; 2] {
-        (*self as u16).to_be_bytes()
-    }
+    
+    pub fn as_u16(&self) -> u16 {self.clone() as u16}
 }
 
 #[derive(Debug)]
@@ -85,17 +84,20 @@ impl ServerHellmanParam {
         Ok(res)
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = vec![self.curve_type.as_u8()];
-        res.extend(self.named_curve.as_bytes());
-        res.push(self.pub_key.len() as u8);
-        res.extend(self.pub_key.as_bytes());
-        res.extend(self.signature_algorithm.as_bytes());
-        res.extend((self.signature.len() as u16).to_be_bytes());
-        res.extend(self.signature.as_bytes());
-        res
+    pub fn len(&self) -> usize {
+        8 + self.pub_key.len() + self.signature.len()
     }
 
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u8(self.curve_type as u8);
+        writer.write_u16(self.named_curve as u16);
+        writer.write_u8(self.pub_key.len() as u8);
+        writer.write_slice(self.pub_key.as_ref());
+        writer.write_u16(self.signature_algorithm.into_inner());
+        writer.write_u16(self.signature.len() as u16);
+        writer.write_slice(self.signature.as_ref());
+    }
+    
     pub fn curve_type(&self) -> &CurveType { &self.curve_type }
 
     pub fn pub_key(&self) -> &Bytes {
@@ -149,12 +151,14 @@ impl ServerKeyExchange {
         Ok(res)
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = vec![self.handshake_type.as_u8()];
-        let vbs = self.hellman_param.as_bytes();
-        res.extend_from_slice(&(vbs.len() as u32).to_be_bytes()[1..]);
-        res.extend(vbs);
-        res
+    pub fn len(&self) -> usize {
+        4 + self.hellman_param.len()
+    }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u8(self.handshake_type as u8);
+        writer.write_slice(&(self.hellman_param.len() as u32).to_be_bytes()[1..]);
+        self.hellman_param.write_to(writer);
     }
 
     pub fn hellman_param(&self) -> &ServerHellmanParam {
@@ -162,10 +166,6 @@ impl ServerKeyExchange {
     }
 
     pub fn hellman_param_mut(&mut self) -> &mut ServerHellmanParam { &mut self.hellman_param }
-
-    pub fn len(&self) -> u32 {
-        self.len
-    }
 }
 
 #[derive(Debug)]
@@ -189,11 +189,16 @@ impl<'a> ClientHellmanParam<'a> {
         res.pub_key = ByteRef::new(&bytes[key_size as usize..res.pub_key_len as usize + key_size as usize]);
         Ok(res)
     }
+    pub fn len(&self, key_size: u8) -> usize {
+        key_size as usize + self.pub_key.len()
+    }
 
-    pub fn as_bytes(&self, key_size: u8) -> Vec<u8> {
-        let mut res = if key_size == 2 { (self.pub_key.len() as u16).to_be_bytes().to_vec() } else { vec![self.pub_key.len() as u8] };
-        res.extend_from_slice(self.pub_key.as_ref());
-        res
+    pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) {
+        match key_size {
+            2 => writer.write_u16(self.pub_key.len() as u16),
+            _ => writer.write_u8(self.pub_key.len() as u8),
+        }
+        writer.write_slice(self.pub_key.as_ref());
     }
 
     pub fn pub_key(&self) -> &ByteRef<'a> {
@@ -227,21 +232,19 @@ impl<'a> ClientKeyExchange<'a> {
         Ok(res)
     }
 
-    pub fn as_bytes(&self, key_size: u8) -> Vec<u8> {
-        let mut res = vec![self.handshake_type.as_u8()];
-        let vbs = self.hellman_param.as_bytes(key_size);
-        res.extend_from_slice(&(vbs.len() as u32).to_be_bytes()[1..]);
-        res.extend(vbs);
-        res
+    pub fn len(&self, key_size: u8) -> usize {
+        4 + self.hellman_param.len(key_size)
+    }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) {
+        writer.write_u8(self.handshake_type as u8);
+        writer.write_slice(&(self.hellman_param.len(key_size) as u32).to_be_bytes()[1..]);
+        self.hellman_param.write_to(writer, key_size);
     }
 
     pub fn set_pub_key(&mut self, pub_key: &'a [u8]) {
         self.hellman_param.pub_key = ByteRef::new(pub_key);
         self.hellman_param.pub_key_len = self.hellman_param.pub_key.len() as u16;
-    }
-
-    pub fn len(&self) -> u32 {
-        self.len
     }
 
     pub fn hellman_param(&self) -> &ClientHellmanParam<'a> {

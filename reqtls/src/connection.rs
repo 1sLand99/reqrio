@@ -73,15 +73,11 @@ impl Connection {
         self
     }
 
-    pub fn set_client_random(&mut self, client_random: Vec<u8>) {
-        self.client_random = Bytes::new(client_random);
-    }
-
-    pub fn set_by_server_hello(&mut self, server_hello: ServerHello) -> RlsResult<()> {
+    pub fn set_by_server_hello(&mut self, server_hello: &ServerHello) -> RlsResult<()> {
         self.use_ems = server_hello.use_ems();
         self.alpn = server_hello.alpn();
-        self.server_random = server_hello.random;
-        self.cipher_suite = server_hello.cipher_suite;
+        self.server_random = server_hello.random.clone();
+        self.cipher_suite = server_hello.cipher_suite.clone();
         self.cipher_suite.init_aead_hasher()?;
         let hasher = self.cipher_suite.hasher().as_ref().ok_or(RlsError::HasherNone)?;
         self.prf = Prf::from_hasher(hasher);
@@ -101,7 +97,7 @@ impl Connection {
         sign_data.extend_from_slice(self.client_random.as_ref());
         sign_data.extend_from_slice(self.server_random.as_ref());
         sign_data.push(*server_key.hellman_param().curve_type() as u8);
-        sign_data.extend(server_key.hellman_param().named_curve().as_bytes());
+        sign_data.extend(server_key.hellman_param().named_curve().as_u16().to_be_bytes());
         sign_data.push(server_key.hellman_param().pub_key().len() as u8);
         sign_data.extend(server_key.hellman_param().pub_key().as_bytes());
         sign_data
@@ -170,50 +166,38 @@ impl Connection {
         Ok(())
     }
 
-    pub fn gen_server_hello(&mut self, mut client_hello: ClientHello, certificate: &mut [Certificate], pri_key: &RsaKey) -> RlsResult<Vec<u8>> {
-        self.set_client_random(client_hello.client_random().as_ref().to_vec());
-        let server_hello = ServerHello::from_client_hello(client_hello)?;
-        let server_hello_bytes = server_hello.as_bytes();
-        self.update_session(&server_hello_bytes)?;
-        self.set_by_server_hello(server_hello)?;
-
+    pub fn gen_server_hello<'a>(&mut self, mut client_hello: ClientHello, certificate: &'a mut [Certificate], pri_key: &RsaKey, random: &'a [u8]) -> RlsResult<RecordLayer<'a>> {
+        self.client_random = client_hello.client_random().clone();
+        let mut record = RecordLayer {
+            context_type: RecordType::HandShake,
+            version: Version::TLS_1_2,
+            len: 0,
+            messages: vec![],
+        };
+        //server hello
+        let mut server_hello = ServerHello::from_client_hello(client_hello)?;
+        server_hello.set_random(random);
+        self.set_by_server_hello(&server_hello)?;
+        record.messages.push(Message::ServerHello(server_hello));
+        //certificate
         let mut certificates = Certificates::default();
         for certificate in certificate.iter_mut() {
             certificates.add_certificate(certificate.as_der().as_slice());
         }
-        let certificate_bytes = certificates.as_bytes();
-        self.update_session(&certificate_bytes)?;
-
+        record.messages.push(Message::Certificate(certificates));
+        //server_key_exchange
         let mut server_key_exchange = ServerKeyExchange::default();
         self.shared_key = SharedKey::new(server_key_exchange.hellman_param().named_curve())?;
         server_key_exchange.hellman_param_mut().set_pub_key(self.shared_key.pub_key()?.as_slice());
         let sign_data = self.gen_key_sign_data(&server_key_exchange);
         let signer = AlgorithmSigner::new_sign(pri_key.pkey(), server_key_exchange.hellman_param().signature_algorithm())?;
         server_key_exchange.hellman_param_mut().set_signature(Bytes::new(signer.sign(&sign_data)?));
-
-        // let cert = certificate.first_mut().unwrap();
-        // AlgorithmSigner::new_verify(cert.pub_key()?, server_key_exchange.hellman_param().signature_algorithm())?.verify(sign_data, server_key_exchange.hellman_param().signature().as_ref())?;
         self.exchange_pub_key = server_key_exchange.hellman_param().pub_key().clone();
         self.named_curve = *server_key_exchange.hellman_param().named_curve();
-        let server_key_exchange_bytes = server_key_exchange.as_bytes();
-        self.update_session(&server_key_exchange_bytes)?;
-
-        let server_hello_done = ServerHelloDone::new();
-        let server_hello_done_bytes = server_hello_done.as_bytes();
-        self.update_session(&server_hello_done_bytes)?;
-
-
-        let mut record = RecordLayer::default();
-        record.version = Version::TLS_1_2;
-        record.context_type = RecordType::HandShake;
-        record.len = (server_hello_bytes.len() + certificate_bytes.len() + server_key_exchange_bytes.len() + server_hello_done_bytes.len()) as u16;
-        let mut bytes = record.head_bytes();
-        bytes.extend(record.len.to_be_bytes());
-        bytes.extend(server_hello_bytes);
-        bytes.extend(certificate_bytes);
-        bytes.extend(server_key_exchange_bytes);
-        bytes.extend(server_hello_done_bytes);
-        Ok(bytes)
+        record.messages.push(Message::ServerKeyExchange(server_key_exchange));
+        //server_hello_done
+        record.messages.push(Message::ServerHelloDone(ServerHelloDone::new()));
+        Ok(record)
     }
 
     ///#### tls Record结构-5bytes(头部)

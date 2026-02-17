@@ -29,3 +29,5 @@ nodejs/libreqrio.so
 node_modules
 package.json
 package-lock.json
+go/.idea
+.idea

@@ -20,6 +20,7 @@
     "name": "xllgl2017"
   },
   "dependencies": {
+    "ffi-napi": "^4.0.3",
     "ref-napi": "^3.0.3"
   }
 }

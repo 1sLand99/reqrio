@@ -13,9 +13,11 @@ Session::Session() {
 }
 
 
-Session::Session(const ALPN alpn) {
+Session::Session(const ALPN alpn, bool rand_tls, const QString &token) {
     this->req = bindings::ScReq_new();
     bindings::ScReq_set_alpn(this->req, alpn_str(alpn));
+    if (rand_tls && !token.isEmpty())
+        bindings::ScReq_set_random_fingerprint(this->req, token.toUtf8());
 }
 
 void Session::set_header_json(const QString &header) const {
@@ -72,8 +74,16 @@ void Session::add_cookie(const QString &name, const QString &value) const {
     bindings::ScReq_add_cookie(this->req, name.toUtf8(), value.toUtf8());
 }
 
-void Session::set_fingerprint(const QString &fingerprint) const {
-    bindings::ScReq_set_fingerprint(this->req, fingerprint.toUtf8());
+void Session::set_fingerprint(const QString &fingerprint, const QString &token) const {
+    bindings::ScReq_set_fingerprint(this->req, fingerprint.toUtf8(), token.toUtf8());
+}
+
+void Session::set_ja3(const QString &ja3, const QString &token) const {
+    bindings::ScReq_set_ja3(this->req, ja3.toUtf8(), token.toUtf8());
+}
+
+void Session::set_ja4(const QString &ja4, const QString &token) const {
+    bindings::ScReq_set_ja4(this->req, ja4.toUtf8(), token.toUtf8());
 }
 
 Response Session::send(const bindings::Method method) const {
@@ -119,5 +129,10 @@ Response Session::delete_() const {
 }
 
 void Session::close() const {
+    if (this->req == nullptr)return;
     bindings::ScReq_drop(this->req);
+}
+
+Session::~Session() {
+    this->close();
 }

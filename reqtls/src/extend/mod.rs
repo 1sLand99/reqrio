@@ -27,7 +27,7 @@ mod pre_share_key;
 use crate::error::RlsResult;
 pub use crate::extend::certificate::CompressionType;
 use crate::extend::pre_share_key::PreSharedKey;
-use crate::Version;
+use crate::{Version, WriteExt};
 pub use client_hello::Aead;
 pub use status::StatusRequest;
 
@@ -37,9 +37,7 @@ pub struct ExtensionType(u16);
 impl ExtensionType {
     pub fn new(value: u16) -> ExtensionType { ExtensionType(value) }
 
-    pub fn as_bytes(&self) -> [u8; 2] {
-        self.0.to_be_bytes()
-    }
+    pub fn into_inner(self) -> u16 { self.0 }
 
     pub fn is_reserved(&self) -> bool {
         !ExtensionType::EXTENSIONS.contains(&self.0)
@@ -152,8 +150,10 @@ impl RenegotiationInfo {
         }
     }
 
-    pub fn as_u8(&self) -> u8 {
-        self.len
+    pub fn len(&self) -> usize { 1 }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+        writer.write_u8(self.len)
     }
 }
 
@@ -207,28 +207,53 @@ impl ExtensionValue {
         }
     }
 
-    pub fn as_bytes(&self, server: bool) -> Vec<u8> {
+    pub fn len(&self, server: bool) -> usize {
         match self {
-            ExtensionValue::PskKeyExchangeMode(v) => v.as_bytes(),
-            ExtensionValue::KeyShare(v) => v.as_bytes(),
-            ExtensionValue::SupportedGroups(v) => v.as_bytes(),
-            ExtensionValue::StatusRequest(v) => if server { vec![] } else { v.as_bytes() },
-            ExtensionValue::SignatureAlgorithms(v) => v.as_bytes(),
-            ExtensionValue::ServerName(v) => v.as_bytes(),
-            ExtensionValue::EcPointFormats(v) => v.as_bytes(),
-            ExtensionValue::SupportedVersions(v) => v.as_bytes(server),
-            ExtensionValue::RenegotiationInfo(v) => vec![v.as_u8()],
-            ExtensionValue::SessionTicket => vec![],
-            ExtensionValue::EncryptTheMac => vec![],
-            ExtensionValue::MasterSecret => vec![],
-            ExtensionValue::CompressionCertificate(v) => v.as_bytes(),
-            ExtensionValue::EncryptedClientHello(v) => v.as_bytes(),
-            ExtensionValue::ApplicationSetting(v) => v.as_bytes(),
-            ExtensionValue::ApplicationLayerProtocolNegotiation(v) => v.as_bytes(),
-            ExtensionValue::Unknown(v) => v.as_bytes(),
-            ExtensionValue::SignedCertificateTimestamp => vec![],
-            ExtensionValue::PreSharedKey(v) => v.as_bytes(),
-            ExtensionValue::ApplicationSettingOld(v) => v.as_bytes()
+            ExtensionValue::PskKeyExchangeMode(v) => v.len(),
+            ExtensionValue::KeyShare(v) => v.len(),
+            ExtensionValue::SupportedGroups(v) => v.len(),
+            ExtensionValue::StatusRequest(v) => if server { 0 } else { v.len() },
+            ExtensionValue::SignatureAlgorithms(v) => v.len(),
+            ExtensionValue::ServerName(v) => v.len(),
+            ExtensionValue::EcPointFormats(v) => v.len(),
+            ExtensionValue::SupportedVersions(v) => v.len(server),
+            ExtensionValue::RenegotiationInfo(v) => v.len(),
+            ExtensionValue::ApplicationSetting(v) => v.len(),
+            ExtensionValue::ApplicationSettingOld(v) => v.len(),
+            ExtensionValue::EncryptedClientHello(v) => v.len(),
+            ExtensionValue::CompressionCertificate(v) => v.len(),
+            ExtensionValue::ApplicationLayerProtocolNegotiation(v) => v.len(),
+            ExtensionValue::SessionTicket => 0,
+            ExtensionValue::EncryptTheMac => 0,
+            ExtensionValue::MasterSecret => 0,
+            ExtensionValue::SignedCertificateTimestamp => 0,
+            ExtensionValue::PreSharedKey(v) => v.len(),
+            ExtensionValue::Unknown(v) => v.len()
+        }
+    }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W, server: bool) {
+        match self {
+            ExtensionValue::PskKeyExchangeMode(v) => v.write_to(writer),
+            ExtensionValue::KeyShare(v) => v.write_to(writer),
+            ExtensionValue::SupportedGroups(v) => v.write_to(writer),
+            ExtensionValue::StatusRequest(v) => if !server { v.write_to(writer) },
+            ExtensionValue::SignatureAlgorithms(v) => v.write_to(writer),
+            ExtensionValue::ServerName(v) => v.write_to(writer),
+            ExtensionValue::EcPointFormats(v) => v.write_to(writer),
+            ExtensionValue::SupportedVersions(v) => v.write_to(writer, server),
+            ExtensionValue::RenegotiationInfo(v) => v.write_to(writer),
+            ExtensionValue::SessionTicket => {}
+            ExtensionValue::EncryptTheMac => {}
+            ExtensionValue::MasterSecret => {}
+            ExtensionValue::CompressionCertificate(v) => v.write_to(writer),
+            ExtensionValue::EncryptedClientHello(v) => v.write_to(writer),
+            ExtensionValue::ApplicationSetting(v) => v.write_to(writer),
+            ExtensionValue::ApplicationLayerProtocolNegotiation(v) => v.write_to(writer),
+            ExtensionValue::Unknown(v) => writer.write_slice(v.as_ref()),
+            ExtensionValue::SignedCertificateTimestamp => {}
+            ExtensionValue::PreSharedKey(v) => v.write_to(writer),
+            ExtensionValue::ApplicationSettingOld(v) => v.write_to(writer),
         }
     }
 }
@@ -348,12 +373,12 @@ impl Extension {
     //     }
     // }
 
-    pub fn as_bytes(&self, server: bool) -> Vec<u8> {
-        let mut res = self.type_.as_bytes().to_vec();
-        let vbs = self.value.as_bytes(server);
-        res.extend((vbs.len() as u16).to_be_bytes());
-        res.extend(vbs);
-        res
+    pub fn len(&self, server: bool) -> usize { 4 + self.value.len(server) }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W, server: bool) {
+        writer.write_u16(self.type_.into_inner());
+        writer.write_u16(self.value.len(server) as u16);
+        self.value.write_to(writer, server);
     }
 
     pub fn set_server_name(&mut self, value: &str) {
