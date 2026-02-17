@@ -103,6 +103,8 @@ pub extern "system" fn ws_write(websocket: *mut WebSocket, op_code: i32, mask: b
 
 #[unsafe(no_mangle)]
 pub extern "system" fn ws_close(websocket: *mut WebSocket) {
+    println!("{}", websocket.is_null());
+    if websocket.is_null() { return; }
     let websocket = unsafe { Box::from_raw(websocket) };
     let _ = websocket.shutdown();
 }

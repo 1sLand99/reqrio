@@ -129,5 +129,10 @@ Response Session::delete_() const {
 }
 
 void Session::close() const {
+    if (this->req == nullptr)return;
     bindings::ScReq_drop(this->req);
+}
+
+Session::~Session() {
+    this->close();
 }

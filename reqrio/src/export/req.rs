@@ -57,7 +57,7 @@ pub extern "system" fn ScReq_set_random_fingerprint(req: *mut ScReq, token: *con
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let token = unsafe { CStr::from_ptr(token) }.to_str()?;
         let fingerprint = Fingerprint::random(token)?;
-        let ret=fingerprint.legal_subscript();
+        let ret = fingerprint.legal_subscript();
         req.set_fingerprint(fingerprint);
         Ok(ret)
     }().unwrap_or(-1)
@@ -263,6 +263,7 @@ pub extern "system" fn ScReq_reconnect(req: *mut ScReq) -> i32 {
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
 pub extern "C" fn ScReq_drop(req: *mut ScReq) {
+    if req.is_null() { return; }
     let req = unsafe { Box::from_raw(req) };
     drop(req);
 }

@@ -54,6 +54,7 @@ class WebSocket:
             r = DLL.ws_set_uri(builder, self.uri.encode('utf-8'))
             if r == -1: raise Exception("设置uri失败" + self.uri)
         self.ws = DLL.ws_open(builder)
+        if self.ws is None: raise Exception("connect fail!")
 
     def open_raw(self, context: str):
         self.ws = DLL.ws_open_raw(self.url.encode('utf-8'), context.encode('utf-8'))

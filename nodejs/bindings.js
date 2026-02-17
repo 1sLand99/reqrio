@@ -16,7 +16,7 @@ const Method = {
     CONNECT: 7,
 }
 
-const library = ffi.Library("./libreqrio.so", {
+const library = ffi.Library("./reqrio", {
     ScReq_new: [voidPtr, []],
     ScReq_set_header_json: ['int', [voidPtr, charPtr]],
     ScReq_add_header: ["int", [voidPtr, charPtr, charPtr]],

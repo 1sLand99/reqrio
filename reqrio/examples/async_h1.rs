@@ -73,23 +73,7 @@ async fn main() {
         println!("{}", data.len());
         Ok(())
     });
-    // let context=req.gen_h1().unwrap();
-    // println!("{}",String::from_utf8(context).unwrap());
-    // println!("{}", String::from_utf8_lossy(&req.gen_h1().unwrap()));
-    // req.set_url(url).await.unwrap();
-    // req.set_json(data);
     let res = req.get().await.unwrap();
-    // let res = req.get().await.unwrap();
-    // println!("{}", res.header());
-    // println!("{}", res.text().unwrap());
-    // req.set_url(res.header().location().unwrap()).await.unwrap();
-    // let res = req.get().await.unwrap();
     println!("{}", res.header());
     println!("{}", res.text().unwrap().len());
-    // println!("{}", res.tex/t().unwrap());
-    // println!("{}", res.raw_string());
-    // let res = req.get().await.unwrap();
-    // let body = res.text().unwrap();
-    // fs::write("1.html", body).unwrap();
-    // println!("{}", body);
 }

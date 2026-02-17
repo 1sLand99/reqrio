@@ -33,8 +33,9 @@ public class WebSocket {
         if (ret == -1) throw new Exception("set uri error");
     }
 
-    public void open() {
+    public void open() throws Exception {
         this.ws = INSTANCE.ws_open(this.builder);
+        if (this.ws == null) throw new Exception("connect fail");
     }
 
     public void openRaw(String url, String raw) {

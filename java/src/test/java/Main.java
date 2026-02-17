@@ -3,6 +3,10 @@ import org.xllgl2017.*;
 
 public class Main {
     public static void main(String[] args) throws Exception {
+        WebSocket socket = new WebSocket("wss://alive.github.com");
+        socket.open();
+
+
         //初始化，可以设置版本
         Session reqrio = new Session(ALPN.HTTP20);
         reqrio.useRandomFingerprint("w");

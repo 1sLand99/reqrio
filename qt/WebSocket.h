@@ -11,8 +11,8 @@
 
 
 class WebSocket {
-    bindings::WsBuilder *builder;
-    bindings::WS_SOCKET *ws;
+    bindings::WsBuilder *builder = nullptr;
+    bindings::WS_SOCKET *ws = nullptr;
 
 public:
     explicit WebSocket(const QString &url);

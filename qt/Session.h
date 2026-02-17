@@ -16,12 +16,14 @@ enum ALPN {
 
 
 class Session {
-    bindings::ScReq *req;
+    bindings::ScReq *req = nullptr;
 
 public:
     explicit Session();
 
-    explicit Session(ALPN alpn, bool rand_tls = false, const QString& token = "");
+    ~Session();
+
+    explicit Session(ALPN alpn, bool rand_tls = false, const QString &token = "");
 
     void set_header_json(const QString &header) const;
 
