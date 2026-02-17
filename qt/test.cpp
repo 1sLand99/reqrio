@@ -13,7 +13,7 @@ void callback(const char *data, uint32_t len) {
 }
 
 int main(int argc, char *argv[]) {
-    Session session(HTTP20);
+    Session session(HTTP20, true, "1");
     session.setUrl("https://m.so.com");
     session.set_callback(callback);
     Response resp = session.get();

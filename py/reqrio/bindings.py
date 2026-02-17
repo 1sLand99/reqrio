@@ -25,16 +25,16 @@ DLL.ScReq_add_header.restype = c_int
 DLL.ScReq_set_alpn.argtypes = [c_void_p, c_char_p]
 DLL.ScReq_set_alpn.restype = c_int
 
-DLL.ScReq_set_random_fingerprint.argtypes = [c_void_p]
+DLL.ScReq_set_random_fingerprint.argtypes = [c_void_p, c_char_p]
 DLL.ScReq_set_random_fingerprint.restype = c_int
 
-DLL.ScReq_set_fingerprint.argtypes = [c_void_p, c_char_p]
+DLL.ScReq_set_fingerprint.argtypes = [c_void_p, c_char_p, c_char_p]
 DLL.ScReq_set_fingerprint.restype = c_int
 
-DLL.ScReq_set_ja3.argtypes = [c_void_p, c_char_p]
+DLL.ScReq_set_ja3.argtypes = [c_void_p, c_char_p, c_char_p]
 DLL.ScReq_set_ja3.restype = c_int
 
-DLL.ScReq_set_ja4.argtypes = [c_void_p, c_char_p]
+DLL.ScReq_set_ja4.argtypes = [c_void_p, c_char_p, c_char_p]
 DLL.ScReq_set_ja4.restype = c_int
 
 DLL.ScReq_set_proxy.argtypes = [c_void_p, c_char_p]

@@ -15,13 +15,13 @@ interface ReqrioLibrary extends Library {
 
     int ScReq_set_alpn(Pointer req, String alpn);
 
-    int ScReq_set_random_fingerprint(Pointer req);
+    int ScReq_set_random_fingerprint(Pointer req, String token);
 
-    int ScReq_set_fingerprint(Pointer req, String tls);
+    int ScReq_set_fingerprint(Pointer req, String tls, String token);
 
-    int ScReq_set_ja3(Pointer req, String ja3);
+    int ScReq_set_ja3(Pointer req, String ja3, String token);
 
-    int ScReq_set_ja4(Pointer req, String ja4);
+    int ScReq_set_ja4(Pointer req, String ja4, String token);
 
     int ScReq_set_proxy(Pointer req, String proxy);
 

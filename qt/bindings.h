@@ -25,13 +25,13 @@ namespace bindings {
 
     int ScReq_set_alpn(ScReq *req, const char *alpn);
 
-    int ScReq_set_random_fingerprint(ScReq *req);
+    int ScReq_set_random_fingerprint(ScReq *req, const char *token);
 
-    int ScReq_set_fingerprint(ScReq *req, const char *fingerprint);
+    int ScReq_set_fingerprint(ScReq *req, const char *fingerprint, const char *token);
 
-    int ScReq_set_ja3(ScReq *req, const char *ja3);
+    int ScReq_set_ja3(ScReq *req, const char *ja3, const char *token);
 
-    int ScReq_set_ja4(ScReq *req, const char *ja4);
+    int ScReq_set_ja4(ScReq *req, const char *ja4, const char *token);
 
     int ScReq_set_proxy(ScReq *req, const char *proxy);
 

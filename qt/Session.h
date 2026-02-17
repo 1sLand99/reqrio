@@ -21,7 +21,7 @@ class Session {
 public:
     explicit Session();
 
-    explicit Session(ALPN alpn);
+    explicit Session(ALPN alpn, bool rand_tls = false, const QString& token = "");
 
     void set_header_json(const QString &header) const;
 
@@ -47,7 +47,11 @@ public:
 
     void add_cookie(const QString &name, const QString &value) const;
 
-    void set_fingerprint(const QString &fingerprint) const;
+    void set_fingerprint(const QString &fingerprint, const QString &token) const;
+
+    void set_ja3(const QString &ja3, const QString &token) const;
+
+    void set_ja4(const QString &ja4, const QString &token) const;
 
     void set_callback(bindings::Callback callback);
 

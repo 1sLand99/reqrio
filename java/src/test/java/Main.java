@@ -5,6 +5,7 @@ public class Main {
     public static void main(String[] args) throws Exception {
         //初始化，可以设置版本
         Session reqrio = new Session(ALPN.HTTP20);
+        reqrio.useRandomFingerprint("w");
         //初始化头部
         Headers headers = getHeaders();
 //    //设置头部
