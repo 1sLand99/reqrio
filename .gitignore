@@ -29,5 +29,7 @@ nodejs/libreqrio.so
 node_modules
 package.json
 package-lock.json
-go/.idea
+reqrio-go/.idea
+reqrio-go/reqrio.dll
+reqrio-go/2.log
 .idea
