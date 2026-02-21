@@ -19,6 +19,7 @@ pub struct ScReq {
     proxy: Proxy,
     fingerprint: Fingerprint,
     verify: bool,
+    buffer: Buffer,
 }
 
 impl ScReq {
@@ -36,6 +37,7 @@ impl ScReq {
             proxy: Proxy::Null,
             fingerprint: Fingerprint::default(),
             verify: true,
+            buffer: Buffer::with_capacity(32826),
         }
     }
 
@@ -107,6 +109,7 @@ impl ScReq {
     pub fn stream_io(&mut self) -> HlsResult<Response> {
         for i in 0..self.timeout.handle_times() {
             let res = self.handle_io();
+            self.buffer.reset();
             match res {
                 Ok(res) => return Ok(res),
                 Err(e) => if i != self.timeout.handle_times() - 1 {
@@ -195,12 +198,13 @@ impl ScReq {
 
 impl ScReq {
     pub fn handle_h2_setting(&mut self) -> HlsResult<()> {
-        let mut handshake = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".as_bytes().to_vec();
+        self.buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
         let setting_frame = self.fingerprint.h2_setting().clone();
-        handshake.extend(setting_frame.to_bytes());
+        setting_frame.write_to(&mut self.buffer);
         let update_frame = self.fingerprint.h2_window_update().clone();
-        handshake.extend(update_frame.to_bytes());
-        self.stream.sync_write(&handshake)?;
+        update_frame.write_to(&mut self.buffer);
+        self.stream.sync_write(self.buffer.filled())?;
+        self.buffer.reset();
         self.stream_id += 1;
         Ok(())
     }
@@ -210,15 +214,20 @@ impl ScReq {
         let mut header_frame = H2Frame::new_header(hdr_bs, body.len(), self.stream_id);
         header_frame.set_weight(146);
         header_frame.add_flag(FrameFlag::Priority);
-        self.stream.sync_write(header_frame.to_bytes().as_slice())?;
+        header_frame.write_to(&mut self.buffer);
         for body_frame in H2Frame::new_body(body, self.stream_id) {
-            self.stream.sync_write(body_frame.to_bytes().as_slice())?;
+            if self.buffer.unfilled_mut().len() < body_frame.payload().len() + 9 {
+                self.stream.sync_write(self.buffer.filled())?;
+                self.buffer.reset();
+            }
+            body_frame.write_to(&mut self.buffer);
         }
+        self.stream.sync_write(self.buffer.filled())?;
+        self.buffer.reset();
         let mut response = Response::new();
-        let mut buffer = Buffer::with_capacity(0xFFFF);
         loop {
-            self.stream.sync_read(&mut buffer)?;
-            while let Ok(frame) = H2Frame::from_bytes(&mut buffer) {
+            self.stream.sync_read(&mut self.buffer)?;
+            while let Ok(frame) = H2Frame::from_bytes(&mut self.buffer) {
                 if frame.frame_type() == &FrameType::Settings && frame.flag().end_stream() {
                     let mut end_frame = H2Frame::none_frame();
                     end_frame.set_frame_type(FrameType::Settings);

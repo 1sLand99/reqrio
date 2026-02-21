@@ -84,6 +84,22 @@ impl H2Frame {
         })
     }
 
+    pub fn write_to<W: WriteExt>(mut self, writer: &mut W) {
+        let len = if self.flag.priority() { self.payload.len() + 5 } else { self.payload.len() } as u32;
+        writer.write_u32(len, true);
+        writer.write_u8(self.frame_type as u8);
+        let priority = self.flag.priority();
+
+        writer.write_u8(self.flag.into_inner());
+        writer.write_u32(self.stream_identifier, false);
+        if priority {
+            self.stream_dependency |= 2147483648;
+            writer.write_u32(self.stream_dependency, false);
+            writer.write_u8(self.weight);
+        }
+        writer.write_slice(self.payload.as_slice());
+    }
+
     pub fn to_bytes(mut self) -> Vec<u8> {
         let mut res = (if self.flag.priority() { self.payload.len() + 5 } else { self.payload.len() } as u32).to_be_bytes()[1..].to_vec();
         res.push(self.frame_type.clone().to_u8());

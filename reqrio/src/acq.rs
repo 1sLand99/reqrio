@@ -21,6 +21,7 @@ pub struct AcReq {
     proxy: Proxy,
     fingerprint: Fingerprint,
     verify: bool,
+    buffer: Buffer,
 }
 
 impl Default for AcReq {
@@ -44,6 +45,7 @@ impl AcReq {
             fingerprint: Fingerprint::default(),
             body: BodyType::Text("".to_string()),
             verify: true,
+            buffer: Buffer::with_capacity(32826),
         }
     }
 
@@ -115,6 +117,7 @@ impl AcReq {
     pub async fn stream_io(&mut self) -> HlsResult<Response> {
         for i in 0..self.timeout.handle_times() {
             let res = tokio::time::timeout(self.timeout.handle(), self.handle_io()).await;
+            self.buffer.reset();
             match &res {
                 Ok(res) => if let Err(e) = res && i != self.timeout.handle_times() - 1 {
                     if e.to_string().to_lowercase().contains("close") || e.to_string().contains("中止了") || e.to_string().contains("关闭") {
@@ -211,12 +214,13 @@ impl AcReq {
 
 impl AcReq {
     pub async fn handle_h2_setting(&mut self) -> HlsResult<()> {
-        let mut handshake = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".as_bytes().to_vec();
+        self.buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
         let setting_frame = self.fingerprint.h2_setting().clone();
-        handshake.extend(setting_frame.to_bytes());
+        setting_frame.write_to(&mut self.buffer);
         let update_frame = self.fingerprint.h2_window_update().clone();
-        handshake.extend(update_frame.to_bytes());
-        self.stream.async_write(&handshake).await?;
+        update_frame.write_to(&mut self.buffer);
+        self.stream.async_write(self.buffer.filled()).await?;
+        self.buffer.reset();
         self.stream_id += 1;
         Ok(())
     }
@@ -226,15 +230,21 @@ impl AcReq {
         let mut header_frame = H2Frame::new_header(hdr_bs, body.len(), self.stream_id);
         header_frame.set_weight(146);
         header_frame.add_flag(FrameFlag::Priority);
-        self.stream.async_write(header_frame.to_bytes().as_slice()).await?;
+        header_frame.write_to(&mut self.buffer);
         for body_frame in H2Frame::new_body(body, self.stream_id) {
-            self.stream.async_write(body_frame.to_bytes().as_slice()).await?;
+            if self.buffer.unfilled_mut().len() < body_frame.payload().len() + 9 {
+                self.stream.async_write(self.buffer.filled()).await?;
+                self.buffer.reset();
+            }
+            body_frame.write_to(&mut self.buffer);
         }
+        self.stream.async_write(self.buffer.filled()).await?;
+        self.buffer.reset();
         let mut response = Response::new();
-        let mut buffer = Buffer::with_capacity(0xFFFF);
+        // let mut buffer = Buffer::with_capacity(0xFFFF);
         loop {
-            self.stream.async_read(&mut buffer).await?;
-            while let Ok(frame) = H2Frame::from_bytes(&mut buffer) {
+            self.stream.async_read(&mut self.buffer).await?;
+            while let Ok(frame) = H2Frame::from_bytes(&mut self.buffer) {
                 if frame.frame_type() == &FrameType::Settings && frame.flag().end_stream() {
                     let mut end_frame = H2Frame::none_frame();
                     end_frame.set_frame_type(FrameType::Settings);
