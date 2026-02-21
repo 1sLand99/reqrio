@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"reqrio-go/reqrio"
+
+	"github.com/xllgl2017/reqrio/reqrio-go/reqrio"
 )
 
 func main() {
