@@ -15,8 +15,16 @@ const Method = {
     TRACE: 6,
     CONNECT: 7,
 }
+let libname;
+if (process.platform === "win32") {
+    libname = "reqrio"
+} else if (process.platform === "linux") {
+    libname = "libreqrio"
+} else {
+    throw "unsupported system platform"
+}
 
-const library = ffi.Library("./libreqrio", {
+const library = ffi.Library("./" + libname, {
     ScReq_new: [voidPtr, []],
     ScReq_set_header_json: ['int', [voidPtr, charPtr]],
     ScReq_add_header: ["int", [voidPtr, charPtr, charPtr]],
