@@ -46,10 +46,10 @@ impl<'a> Certificates<'a> {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) {
         writer.write_u8(self.handshake_type as u8);
-        writer.write_slice(&(self.len() as u32 - 4).to_be_bytes()[1..]);
-        writer.write_slice(&(self.len() as u32 - 7).to_be_bytes()[1..]);
+        writer.write_u32(self.len() as u32 - 4, true);
+        writer.write_u32(self.len() as u32 - 7, true);
         for certificate in self.certificates {
-            writer.write_slice(&(certificate.len() as u32).to_be_bytes()[1..]);
+            writer.write_u32(certificate.len() as u32, true);
             writer.write_slice(certificate.as_ref());
         }
     }

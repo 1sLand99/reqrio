@@ -42,8 +42,8 @@ impl NamedCurve {
             _ => None
         }
     }
-    
-    pub fn as_u16(&self) -> u16 {self.clone() as u16}
+
+    pub fn as_u16(&self) -> u16 { self.clone() as u16 }
 }
 
 #[derive(Debug)]
@@ -97,7 +97,7 @@ impl ServerHellmanParam {
         writer.write_u16(self.signature.len() as u16);
         writer.write_slice(self.signature.as_ref());
     }
-    
+
     pub fn curve_type(&self) -> &CurveType { &self.curve_type }
 
     pub fn pub_key(&self) -> &Bytes {
@@ -157,7 +157,7 @@ impl ServerKeyExchange {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) {
         writer.write_u8(self.handshake_type as u8);
-        writer.write_slice(&(self.hellman_param.len() as u32).to_be_bytes()[1..]);
+        writer.write_u32(self.hellman_param.len() as u32, true);
         self.hellman_param.write_to(writer);
     }
 
@@ -238,7 +238,7 @@ impl<'a> ClientKeyExchange<'a> {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) {
         writer.write_u8(self.handshake_type as u8);
-        writer.write_slice(&(self.hellman_param.len(key_size) as u32).to_be_bytes()[1..]);
+        writer.write_u32(self.hellman_param.len(key_size) as u32,true);
         self.hellman_param.write_to(writer, key_size);
     }
 

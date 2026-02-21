@@ -40,7 +40,7 @@ impl PskIdentity {
     pub fn write_to<W: WriteExt>(self, writer: &mut W) {
         writer.write_u16(self.value.len() as u16);
         writer.write_slice(self.value.as_ref());
-        writer.write_u32(self.age)
+        writer.write_u32(self.age, false)
     }
 }
 

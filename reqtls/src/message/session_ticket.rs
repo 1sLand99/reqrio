@@ -32,7 +32,7 @@ impl TlsSessionTicket {
     }
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u32(self.lifetime);
+        writer.write_u32(self.lifetime, false);
         writer.write_u16(self.value.len() as u16);
         writer.write_slice(self.value.as_ref());
     }
@@ -72,10 +72,10 @@ impl SessionTicket {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) {
         writer.write_u8(self.handshake_type as u8);
-        writer.write_slice(&(self.tls_ticket.len() as u32).to_be_bytes()[1..]);
+        writer.write_u32(self.tls_ticket.len() as u32, true);
         self.tls_ticket.write_to(writer);
     }
-    
+
     pub fn tls_ticket_mut(&mut self) -> &mut TlsSessionTicket {
         &mut self.tls_ticket
     }

@@ -1,12 +1,15 @@
-use std::ffi::CString;
 use crate::error::RlsResult;
+use std::ffi::CString;
 use std::ops::Range;
 use std::os::raw::c_char;
 
 pub trait WriteExt {
     fn write_u8(&mut self, v: u8) { self.write_slice(&v.to_be_bytes()) }
     fn write_u16(&mut self, v: u16) { self.write_slice(&v.to_be_bytes()) }
-    fn write_u32(&mut self, v: u32) { self.write_slice(&v.to_be_bytes()) }
+    fn write_u32(&mut self, v: u32, fix: bool) {
+        let r = if fix { 1..4 } else { 0..4 };
+        self.write_slice(&v.to_be_bytes()[r])
+    }
     fn write_u64(&mut self, v: u64) { self.write_slice(&v.to_be_bytes()) }
     fn write_i8(&mut self, v: i8) { self.write_slice(&v.to_be_bytes()) }
     fn write_i16(&mut self, v: i16) { self.write_slice(&v.to_be_bytes()) }

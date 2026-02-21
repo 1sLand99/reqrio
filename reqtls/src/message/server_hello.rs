@@ -120,7 +120,7 @@ impl<'a> ServerHello<'a> {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) {
         writer.write_u8(self.handshake_type as u8);
-        writer.write_slice(&(self.len() as u32 - 4).to_be_bytes()[1..]);
+        writer.write_u32(self.len() as u32 - 4, true);
         writer.write_u16(self.version.into_inner());
         writer.write_slice(self.random.as_ref());
         writer.write_u8(self.session_id.len() as u8);
@@ -170,6 +170,6 @@ impl ServerHelloDone {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) {
         writer.write_u8(self.handshake_type as u8);
-        writer.write_slice(&self.len.to_be_bytes()[1..]);
+        writer.write_u32(self.len, true);
     }
 }
