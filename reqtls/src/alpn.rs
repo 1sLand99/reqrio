@@ -42,6 +42,8 @@ impl ALPN {
         Ok(res)
     }
 
+    pub fn is_empty(&self) -> bool { self.len() == 0 }
+
     pub fn len(&self) -> usize { 1 + self.value().len() }
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) {

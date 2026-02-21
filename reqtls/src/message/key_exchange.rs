@@ -128,7 +128,7 @@ impl ServerHellmanParam {
 #[derive(Debug)]
 pub struct ServerKeyExchange {
     handshake_type: HandshakeType,
-    len: u32,
+    // len: u32,
     hellman_param: ServerHellmanParam,
 }
 
@@ -136,7 +136,7 @@ impl Default for ServerKeyExchange {
     fn default() -> Self {
         ServerKeyExchange {
             handshake_type: HandshakeType::ServerKeyExchange,
-            len: 0,
+            // len: 0,
             hellman_param: ServerHellmanParam::new(),
         }
     }
@@ -144,12 +144,19 @@ impl Default for ServerKeyExchange {
 
 impl ServerKeyExchange {
     pub fn from_bytes(ht: HandshakeType, bytes: &[u8]) -> RlsResult<ServerKeyExchange> {
-        let mut res = ServerKeyExchange::default();
-        res.handshake_type = ht;
-        res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]].try_into()?);
-        res.hellman_param = ServerHellmanParam::from_bytes(&bytes[4..])?;
-        Ok(res)
+        let len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]].try_into()?) as usize;
+        // let mut res =
+        // let mut res = ServerKeyExchange::default();
+        // res.handshake_type = ht;
+        // res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]].try_into()?);
+        // res.hellman_param = ServerHellmanParam::from_bytes(&bytes[4..])?;
+        Ok(ServerKeyExchange {
+            handshake_type: ht,
+            hellman_param: ServerHellmanParam::from_bytes(&bytes[4..4 + len])?,
+        })
     }
+
+    pub fn is_empty(&self) -> bool { self.len() == 0 }
 
     pub fn len(&self) -> usize {
         4 + self.hellman_param.len()
@@ -209,7 +216,6 @@ impl<'a> ClientHellmanParam<'a> {
 #[derive(Debug)]
 pub struct ClientKeyExchange<'a> {
     handshake_type: HandshakeType,
-    len: u32,
     hellman_param: ClientHellmanParam<'a>,
 }
 
@@ -217,7 +223,6 @@ impl<'a> Default for ClientKeyExchange<'a> {
     fn default() -> Self {
         ClientKeyExchange {
             handshake_type: HandshakeType::ClientHello,
-            len: 0,
             hellman_param: ClientHellmanParam::new(),
         }
     }
@@ -225,11 +230,11 @@ impl<'a> Default for ClientKeyExchange<'a> {
 
 impl<'a> ClientKeyExchange<'a> {
     pub fn from_bytes(ht: HandshakeType, bytes: &'a [u8], suite: Option<&CipherSuite>) -> RlsResult<ClientKeyExchange<'a>> {
-        let mut res = ClientKeyExchange::default();
-        res.handshake_type = ht;
-        res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]].try_into()?);
-        res.hellman_param = ClientHellmanParam::from_bytes(&bytes[4..], suite)?;
-        Ok(res)
+        let len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]]) as usize;
+        Ok(ClientKeyExchange {
+            handshake_type: ht,
+            hellman_param: ClientHellmanParam::from_bytes(&bytes[4..4 + len], suite)?,
+        })
     }
 
     pub fn len(&self, key_size: u8) -> usize {
@@ -238,7 +243,7 @@ impl<'a> ClientKeyExchange<'a> {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) {
         writer.write_u8(self.handshake_type as u8);
-        writer.write_u32(self.hellman_param.len(key_size) as u32,true);
+        writer.write_u32(self.hellman_param.len(key_size) as u32, true);
         self.hellman_param.write_to(writer, key_size);
     }
 

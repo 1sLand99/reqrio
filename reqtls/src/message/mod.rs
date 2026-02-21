@@ -25,7 +25,7 @@ pub enum Message<'a> {
     ServerKeyExchange(ServerKeyExchange),
     ServerHelloDone(ServerHelloDone),
     ClientKeyExchange(ClientKeyExchange<'a>),
-    NewSessionTicket(SessionTicket),
+    NewSessionTicket(SessionTicket<'a>),
     Payload(Payload<'a>),
     CertificateStatus(CertificateStatus),
     Alert(Alert),

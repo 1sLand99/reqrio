@@ -145,8 +145,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             let pdr = self.conn.read_message(&mut record)?;
                             self.conn.verify_finish(&self.read_buffer[pdr], false)?;
 
-                            let mut ticket = SessionTicket::new();
-                            ticket.tls_ticket_mut().set_value(rand::random::<[u8; 276]>().to_vec());
+                            let mut ticket = SessionTicket::default();
+                            let tbs=rand::random::<[u8; 276]>();
+                            ticket.tls_ticket_mut().set_value(&tbs);
                             self.write_buffer.write_slice(&[22, 3, 3]);
                             self.write_buffer.write_u16(ticket.len() as u16);
                             ticket.write_to(&mut self.write_buffer);

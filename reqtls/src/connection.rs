@@ -1,6 +1,6 @@
 use super::bytes::Bytes;
 use super::suite::iv::Iv;
-use super::suite::suite::CipherSuite;
+use super::suite::CipherSuite;
 use super::suite::TlsCipher;
 use super::message::key_exchange::{NamedCurve, ServerKeyExchange};
 use super::message::server_hello::{ServerHello, ServerHelloDone};
@@ -9,7 +9,7 @@ use super::record::{RecordBuffer, RecordLayer, RecordType};
 use super::version::Version;
 use crate::boring::{certificate, AlgorithmSigner};
 use crate::error::RlsResult;
-use crate::secret::key::SharedKey;
+use crate::share_key::SharedKey;
 use crate::*;
 use std::fs::OpenOptions;
 use std::io::Write;

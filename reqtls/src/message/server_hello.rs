@@ -1,6 +1,6 @@
 use super::super::extend::Extension;
 use super::super::message::HandshakeType;
-use super::super::suite::suite::CipherSuite;
+use super::super::suite::CipherSuite;
 use super::super::version::Version;
 use crate::bytes::ByteRef;
 use crate::error::RlsResult;

@@ -1,4 +1,4 @@
-use super::super::suite::suite::CipherSuite;
+use super::super::suite::CipherSuite;
 use super::super::extend::Extension;
 use super::super::version::Version;
 use super::HandshakeType;
@@ -266,26 +266,6 @@ impl<'a> ClientHello<'a> {
         if let Some(pos) = pos {
             self.extensions.remove(pos);
         }
-        // let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::KeyShare);
-        // if let Some(pos) = pos {
-        //     self.extensions.remove(pos);
-        // }
-        // let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::PskKeyExchangeMode);
-        // if let Some(pos) = pos {
-        //     self.extensions.remove(pos);
-        // }
-        // let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::SessionTicket);
-        // if let Some(pos) = pos {
-        //     self.extensions.remove(pos);
-        // }
-        // let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::SignedCertificateTimestamp);
-        // if let Some(pos) = pos {
-        //     self.extensions.remove(pos);
-        // }
-        // let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::EcPointFormats);
-        // if let Some(pos) = pos {
-        //     self.extensions.remove(pos);
-        // }
         let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::SupportedVersions);
         if let Some(ext) = extend {
             ext.remove_tls13()
@@ -302,10 +282,6 @@ impl<'a> ClientHello<'a> {
             ext.add_h2_alpn();
         }
     }
-
-    // pub fn len(&self) -> u32 {
-    //     self.len
-    // }
 
     pub fn cipher_suites(&self) -> &Vec<CipherSuite> {
         &self.cipher_suites

@@ -5,9 +5,10 @@ use crate::error::{RlsError, RlsResult};
 use crate::extend::Aead;
 use iv::Iv;
 use crate::range::RangeExt;
+pub use suite::CipherSuite;
 
 pub mod iv;
-pub mod suite;
+mod suite;
 
 pub struct TlsCipher {
     crypto: Crypto,

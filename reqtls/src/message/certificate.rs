@@ -8,7 +8,6 @@ use super::super::bytes::Bytes;
 #[derive(Debug)]
 pub struct Certificates<'a> {
     handshake_type: HandshakeType,
-    len: u32,
     certificate_len: u32,
     certificates: Vec<ByteRef<'a>>,
 }
@@ -17,7 +16,6 @@ impl<'a> Default for Certificates<'a> {
     fn default() -> Self {
         Certificates {
             handshake_type: HandshakeType::Certificate,
-            len: 0,
             certificate_len: 0,
             certificates: vec![],
         }
@@ -26,10 +24,11 @@ impl<'a> Default for Certificates<'a> {
 
 impl<'a> Certificates<'a> {
     pub fn from_bytes(ht: HandshakeType, bytes: &[u8]) -> RlsResult<Certificates<'_>> {
-        let mut res = Certificates::default();
-        res.handshake_type = ht;
-        res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]]);
-        res.certificate_len = u32::from_be_bytes([0, bytes[4], bytes[5], bytes[6]]);
+        let mut res = Certificates {
+            handshake_type: ht,
+            certificate_len: u32::from_be_bytes([0, bytes[4], bytes[5], bytes[6]]),
+            ..Certificates::default()
+        };
         let mut index = 7;
         while index < res.certificate_len as usize + 7 {
             let len = u32::from_be_bytes([0, bytes[index], bytes[index + 1], bytes[index + 2]]) as usize;
@@ -55,7 +54,7 @@ impl<'a> Certificates<'a> {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.len == 0
+        self.len() == 0
     }
 
     pub fn add_certificate(&mut self, cert: &'a [u8]) {

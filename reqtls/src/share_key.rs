@@ -1,4 +1,4 @@
-use super::super::message::key_exchange::NamedCurve;
+use super::message::key_exchange::NamedCurve;
 use crate::boring::{EcCurve, EvpCurve};
 use crate::bytes::Bytes;
 use crate::error::RlsResult;
