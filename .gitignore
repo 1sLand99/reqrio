@@ -4,10 +4,6 @@
 reqrio-py/build
 reqrio-py/dist
 reqrio-py/reqrio.egg-info
-reqrio-py/reqrio/reqrio.dll
-reqrio-py/reqrio/libreqrio.so
-reqrio-py/reqrio/libzstd.dll
-reqrio-py/reqrio/crypto.dll
 ClientHello
 ServerHello
 Certificate
@@ -16,16 +12,12 @@ ServerHelloDone
 ClientKeyExchange
 reqrio-java/target
 reqrio-java/.idea
-reqrio-java/src/main/resources/reqrio.dll
-reqrio-java/src/main/resources/libreqrio.so
 reqrio-java/src/main/resources/nls_100.json
 reqrio-qt/.idea
 reqrio-qt/cmake-build-debug-visual-studio
 reqrio-qt/cmake-build-release-visual-studio
 reqrio-qt/reqrio.lib
 nls_100.json
-reqrio-js/reqrio.dll
-reqrio-js/libreqrio.so
 node_modules
 package.json
 package-lock.json
