@@ -19,7 +19,7 @@ fn main() {
             "sec-fetch-user":"?1",
             "upgrade-insecure-requests":"1",
             "sec-ch-ua": "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"120\", \"Microsoft Edge\";v=\"120\"",
-            "sec-ch-ua-mobile": "?0",    // req.set_url("https://zhifazhe.top").unwrap();
+            "sec-ch-ua-mobile": "?0",
             "sec-ch-ua-platform": "\"Windows\"",
             "Accept-Language": "zh-CN,zh;q=0.9",
             "Accept-Encoding": "gzip,deflate,br,zstd",
@@ -27,6 +27,7 @@ fn main() {
             "Connection": "keep-alive",
 
         };
+        // req.set_url("https://zhifazhe.top").unwrap();
         // req.set_url("http://3434.characlink.com").unwrap();
         req.set_url("https://m.baidu.com").unwrap();
 

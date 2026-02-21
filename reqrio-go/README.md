@@ -10,7 +10,7 @@
 
 * Uses **BoringSSL** to implement TLS, consistent with browsers like Chrome and Edge.
 
-**Note:** std and cls cannot exist simultaneously, while sync and async can exist simultaneously.
+**Note:** To compile, cgo must be turned on, that is, set CGO-ENABLED=1 
 
 ### Request Header Order Table
 
@@ -45,6 +45,8 @@
 | 26  | content-type                |                           |
 | 27  | authorization               |                           |
 | 28  | content-type                |                           |
+
+
 
 ### Usage examples:
 
