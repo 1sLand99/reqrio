@@ -1,11 +1,11 @@
-use reqtls::WriteExt;
 use crate::buffer::Buffer;
-use crate::hpack::HackDecode;
 use crate::error::HlsResult;
-use crate::packet::h2c::{FrameFlag, FrameType};
+use crate::hpack::HackDecode;
+use crate::json::JsonValue;
+use crate::packet::h2c::FrameType;
 use crate::packet::{H2Frame, Header};
 use crate::{coder, HeaderValue, CHUNK_END, HTTP_GAP};
-use crate::json::JsonValue;
+use reqtls::WriteExt;
 use std::{mem, ptr};
 pub enum Body {
     Raw(Vec<u8>),
@@ -172,7 +172,7 @@ impl Response {
         match frame.frame_type() {
             FrameType::Data => self.raw.extend(frame.to_payload()),
             FrameType::Headers => {
-                if frame.flags().contains(&FrameFlag::EndHeaders) {
+                if frame.flag().end_header() {
                     let mut payload = self.frames.drain(..).map(|x| x.to_payload()).collect::<Vec<_>>();
                     payload.push(frame.to_payload());
                     let mut hdr_bs = payload.concat();

@@ -3,6 +3,7 @@ use crate::hpack::{HPackCoding, HackDecode};
 use crate::stream::{ConnParam, Stream};
 use crate::*;
 use json::JsonValue;
+use crate::packet::FrameFlag;
 
 #[repr(C)]
 pub struct ScReq {
@@ -68,7 +69,7 @@ impl ScReq {
         self.stream_io()
     }
 
-    pub fn trach(&mut self) -> HlsResult<Response> {
+    pub fn trace(&mut self) -> HlsResult<Response> {
         self.header.set_method(Method::TRACE);
         self.stream_io()
     }
@@ -218,10 +219,10 @@ impl ScReq {
         loop {
             self.stream.sync_read(&mut buffer)?;
             while let Ok(frame) = H2Frame::from_bytes(&mut buffer) {
-                if frame.frame_type() == &FrameType::Settings && frame.flags().contains(&FrameFlag::ACK) {
+                if frame.frame_type() == &FrameType::Settings && frame.flag().end_stream() {
                     let mut end_frame = H2Frame::none_frame();
                     end_frame.set_frame_type(FrameType::Settings);
-                    end_frame.set_flags(vec![FrameFlag::EndStream]);
+                    end_frame.set_flag(FrameFlag::EndStream);
                     self.stream.sync_write(end_frame.to_bytes().as_ref())?;
                     continue;
                 }

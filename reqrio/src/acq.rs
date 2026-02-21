@@ -77,7 +77,7 @@ impl AcReq {
         self.stream_io().await
     }
 
-    pub async fn trach(&mut self) -> HlsResult<Response> {
+    pub async fn trace(&mut self) -> HlsResult<Response> {
         self.header.set_method(Method::TRACE);
         self.stream_io().await
     }
@@ -235,10 +235,10 @@ impl AcReq {
         loop {
             self.stream.async_read(&mut buffer).await?;
             while let Ok(frame) = H2Frame::from_bytes(&mut buffer) {
-                if frame.frame_type() == &FrameType::Settings && frame.flags().contains(&FrameFlag::ACK) {
+                if frame.frame_type() == &FrameType::Settings && frame.flag().end_stream() {
                     let mut end_frame = H2Frame::none_frame();
                     end_frame.set_frame_type(FrameType::Settings);
-                    end_frame.set_flags(vec![FrameFlag::EndStream]);
+                    end_frame.set_flag(FrameFlag::EndStream);
                     self.stream.async_write(end_frame.to_bytes().as_ref()).await?;
                     continue;
                 }

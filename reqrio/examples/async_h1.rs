@@ -8,7 +8,7 @@ async fn main() {
 
     let mut req = AcReq::new()
         .with_fingerprint(Fingerprint::random("2d1c7ddndk-cdq2w401k7ddndk-").unwrap())
-        .with_alpn(ALPN::Http11)
+        .with_alpn(ALPN::Http20)
         .with_timeout(timeout)
         .with_verify(true)
         // .with_proxy(Proxy::try_from("http://127.0.0.1:10280").unwrap())

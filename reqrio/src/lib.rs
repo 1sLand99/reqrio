@@ -8,8 +8,7 @@
 //!                                                                                                                                                                              
 //! * Uses **BoringSSL** to implement TLS, consistent with browsers like Chrome and Edge.                                                                                        
 //!                                                                                                                                                                              
-//! **Note:** std and cls cannot exist simultaneously, while sync and async can exist simultaneously.                                                                            
-//!                                                                                                                                                                              
+//!
 //! ### Request Header Order Table                                                                                                                                               
 //!                                                                                                                                                                              
 //! | No. | HTTP/2.0                    | HTTP/1.1                  |                                                                                                            
