@@ -14,7 +14,7 @@ async fn main() {
     loop {
         let (stream, addr) = listen.accept().await.unwrap();
         println!("Accepted connection from {}", addr);
-        let mut tls_stream = TlsStream::accept(stream, TlsConfig {
+        let tls_stream = TlsStream::accept(stream, TlsConfig {
             sni: "",
             alpn: &ALPN::Http20,
             fingerprint: &mut Default::default(),

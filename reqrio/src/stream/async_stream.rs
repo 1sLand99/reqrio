@@ -126,7 +126,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             let random = rand::random::<[u8; 32]>();
                             let mut record = self.conn.gen_server_hello(v, config.certificate, config.private_key, &random)?;
                             let session_id = rand::random::<[u8; 32]>();
-                            record.messages[0].server_mut().ok_or(HlsError::NullPointer)?.set_random(&random);
+                            // record.messages[0].server_mut().ok_or(HlsError::NullPointer)?.set_random(&random);
                             record.messages[0].server_mut().ok_or(HlsError::NullPointer)?.set_session_id(&session_id);
 
                             record.write_to(&mut self.write_buffer, 1)?;

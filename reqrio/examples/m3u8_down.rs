@@ -1,5 +1,4 @@
-use reqrio::{json, HlsError, Method, ReqExt, ScReq, Timeout, ALPN};
-use reqtls::Cipher;
+use reqrio::{json, HlsError, Method, ReqExt, ScReq, Timeout, ALPN, Cipher};
 use std::fs::File;
 use std::io::Write;
 
@@ -16,18 +15,18 @@ impl M3u8DownEngine {
     fn new(index: impl ToString) -> M3u8DownEngine {
         let mut req = ScReq::new().with_alpn(ALPN::Http20); //.with_proxy(Proxy::new_http_plain("127.0.0.1", 10809));
         req.set_headers_json(json::object! {
-            "Host": "xgsammkk2.wkwnts.cn",
+            "Host": "",
             "sec-ch-ua-platform": "Android",
             "user-agent": "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36",
             "sec-ch-ua": r#""Android WebView";v="135", "Not-A.Brand";v="8", "Chromium";v="135""#,
             "sec-ch-ua-mobile": "?1",
             "accept": "*/*",
-            "origin": "https://jxirlhni27kv.shv19sglxg.cc",
+            "origin": "",
             "x-requested-with": "mark.via",
             "sec-fetch-site": "cross-site",
             "sec-fetch-mode": "cors",
             "sec-fetch-dest": "empty",
-            "referer": "https://jxirlhni27kv.shv19sglxg.cc/poster.html?viewkey=ea03b3f85e7c9b3caa4e3f31d8a99f2d&spm=1769954023644.1769953313",
+            "referer": "",
             "accept-encoding": "gzip, deflate, br, zstd",
             "accept-language": "en,zh-CN;q=0.9,zh;q=0.8,en-US;q=0.7",
             "priority": "u=1, i"
