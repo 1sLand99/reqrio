@@ -7,10 +7,11 @@ use crate::boring::BoringResExt;
 use crate::error::RlsResult;
 use crate::RlsError;
 use std::ffi::CString;
-use std::fs;
+use std::{fs, slice};
 use std::path::Path;
 use std::ptr::null_mut;
 pub use store::{CertStore, ROOT_STORES};
+pub use siger::{CertSigner, DnType, KeyUsage, KeyIdentifier, BasicConstraint, CertExtend, SubjectAltName};
 use crate::ffi::{BufPtr, CPointer};
 
 pub struct Certificate {
@@ -26,6 +27,10 @@ impl Certificate {
             der: BufPtr::nullptr(),
             pkey: CPointer::nullptr(),
         }
+    }
+
+    pub(crate) fn is_none(&self) -> bool {
+        self.x509.is_null()
     }
 
     pub fn new(x509: CPointer<X509>) -> Certificate {
@@ -64,6 +69,17 @@ impl Certificate {
             self.der.set_len(len as usize);
         }
         &self.der
+    }
+
+    pub fn as_pem(&mut self) -> RlsResult<String> {
+        let bio = unsafe { BIO_new(BIO_s_mem()) };
+        let bio = CPointer::new_checked(bio, RlsError::BioNewError)?;
+        unsafe { PEM_write_bio_X509(bio.as_mut_ptr(), self.x509.as_mut_ptr()) }.ok(RlsError::BIOWriteError)?;
+        let mut buf = null_mut();
+        let len = unsafe { BIO_get_mem_data(bio.as_mut_ptr(), &mut buf) };
+        if len <= 0 { return Err(RlsError::BIOGetDataError); };
+        let out = unsafe { slice::from_raw_parts(buf as *const u8, len as usize) };
+        Ok(String::from_utf8_lossy(out).to_string())
     }
 
     pub fn pub_key(&mut self) -> RlsResult<&CPointer<EVP_PKEY>> {

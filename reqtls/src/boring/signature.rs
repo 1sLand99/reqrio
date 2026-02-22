@@ -1,10 +1,10 @@
 use crate::boring::bindings::*;
 use crate::boring::BoringResExt;
 use crate::error::RlsResult;
+use crate::ffi::CPointer;
 use crate::RlsError;
 use std::fmt::{Debug, Formatter};
 use std::ptr::null_mut;
-use crate::ffi::CPointer;
 
 #[derive(PartialEq)]
 pub struct SignatureAlgorithm(u16);
@@ -214,7 +214,7 @@ impl AlgorithmSigner {
 
 #[cfg(test)]
 mod tests {
-    use crate::boring::{certificate, AlgorithmSigner};
+    use crate::boring::AlgorithmSigner;
     use crate::{Certificate, SignatureAlgorithm};
 
     #[test]

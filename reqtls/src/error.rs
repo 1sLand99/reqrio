@@ -85,6 +85,8 @@ pub enum RlsError {
     NewX509ExtError,
     X509AddExtFail,
     X509SignError,
+    BIOWriteError,
+    BIOGetDataError,
     StdError(Box<dyn Error>),
     Currently(String),
 }
@@ -167,6 +169,8 @@ impl Display for RlsError {
             RlsError::NewX509ExtError => f.write_str("New X509 ext error"),
             RlsError::X509AddExtFail => f.write_str("X509 add ext fail"),
             RlsError::X509SignError => f.write_str("X509 sign error"),
+            RlsError::BIOWriteError => f.write_str("BIO write error"),
+            RlsError::BIOGetDataError=>f.write_str("BIO get data error"),
             RlsError::StdError(e) => f.write_fmt(format_args!("{:?}", e)),
             RlsError::Currently(e) => f.write_str(e),
         }

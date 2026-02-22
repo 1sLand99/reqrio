@@ -261,6 +261,10 @@ pub const NID_basic_constraints: i32 = 87;
 pub const NID_key_usage: i32 = 83;
 #[allow(non_upper_case_globals)]
 pub const NID_subject_key_identifier: i32 = 82;
+#[allow(non_upper_case_globals)]
+pub const NID_ext_key_usage: i32 = 126;
+#[allow(non_upper_case_globals)]
+pub const NID_subject_alt_name: i32 = 85;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct X509 {
@@ -457,6 +461,8 @@ unsafe extern "C" {
 
     pub fn X509_set_subject_name(x509: *mut X509, name: *const X509_NAME) -> c_int;
 
+    pub fn X509_get_subject_name(x509: *const X509) -> *mut X509_NAME;
+
     pub fn X509_set_issuer_name(x509: *mut X509, name: *const X509_NAME) -> c_int;
 
     pub fn X509_EXTENSION_free(ex: *mut X509_EXTENSION);
@@ -464,6 +470,8 @@ unsafe extern "C" {
     pub fn X509_add_ext(x: *mut X509, ex: *const X509_EXTENSION, loc: c_int) -> c_int;
 
     pub fn X509_sign(x509: *mut X509, pkey: *mut EVP_PKEY, md: *const EVP_MD) -> c_int;
+
+    pub fn PEM_write_bio_X509(bp: *mut BIO, x: *mut X509) -> c_int;
 
     pub fn RSA_generate_key_ex(
         rsa: *mut RSA,
@@ -568,4 +576,15 @@ unsafe extern "C" {
         ext_nid: c_int,
         value: *const c_char,
     ) -> *mut X509_EXTENSION;
+
+    pub fn BN_bin2bn(
+        in_: *const u8,
+        len: usize,
+        ret: *mut BIGNUM,
+    ) -> *mut BIGNUM;
+
+    pub fn BN_to_ASN1_INTEGER(
+        bn: *const BIGNUM,
+        ai: *mut ASN1_INTEGER,
+    ) -> *mut ASN1_INTEGER;
 }
