@@ -22,6 +22,7 @@
 * des_ecb
 * des_cbc
 * rsa
+* rc4
 
 #### TLS supports TLS 1.2.
 

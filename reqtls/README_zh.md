@@ -22,6 +22,7 @@
 * des_ecb
 * des_cbc
 * rsa
+* rc4
 
 #### tls支持tls1.2
 

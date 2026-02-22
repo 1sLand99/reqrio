@@ -157,6 +157,8 @@ unsafe extern "C" {
 
     pub fn EVP_des_cbc() -> *const EVP_CIPHER;
 
+    pub fn EVP_rc4() -> *const EVP_CIPHER;
+
     pub fn EVP_CIPHER_CTX_new() -> *mut EVP_CIPHER_CTX;
 
     pub fn EVP_CIPHER_CTX_free(ctx: *mut EVP_CIPHER_CTX);

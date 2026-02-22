@@ -34,6 +34,7 @@ pub enum CipherType {
     AES_256_OFB,
     DES_CBC,
     DES_ECB,
+    RC4,
 }
 
 impl CipherType {
@@ -56,6 +57,7 @@ impl CipherType {
             CipherType::AES_256_OFB => unsafe { EVP_aes_256_ofb() }
             CipherType::DES_CBC => unsafe { EVP_des_cbc() }
             CipherType::DES_ECB => unsafe { EVP_des_ecb() }
+            CipherType::RC4 => unsafe { EVP_rc4() }
         }
     }
 }

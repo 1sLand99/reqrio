@@ -94,6 +94,8 @@ impl Cipher {
         Cipher::new(CipherType::DES_ECB)
     }
 
+    pub fn rc4() -> Cipher { Cipher::new(CipherType::RC4) }
+
     pub fn with_secret_key<T: Into<Vec<u8>>>(mut self, key: T, iv: Option<T>) -> Self {
         self.set_secret_key(key, iv);
         self
@@ -107,7 +109,7 @@ impl Cipher {
     pub fn encrypt(&self, context: impl Into<Vec<u8>>) -> RlsResult<Vec<u8>> {
         if self.ctx.is_null() { return Err(RlsError::InitEvpCtxError); }
         let mut context = context.into();
-        self.padding.add_padding(&mut context);
+        if !matches!(self.evp_cipher, CipherType::RC4) { self.padding.add_padding(&mut context); }
         let iv = if self.iv.is_empty() { null() } else { self.iv.as_ptr() };
         unsafe { EVP_EncryptInit_ex(self.ctx.as_mut_ptr(), self.evp_cipher.as_boring(), null_mut(), self.key.as_ptr(), iv) }.ok(RlsError::CipherCryptError)?;
         unsafe { EVP_CIPHER_CTX_set_padding(self.ctx.as_mut_ptr(), 0) };
@@ -159,7 +161,7 @@ impl Cipher {
             )
         }.ok(RlsError::CipherDecryptError)?;
         context.truncate((out_len + final_len) as usize);
-        self.padding.remove_padding(&mut context);
+        if !matches!(self.evp_cipher, CipherType::RC4) { self.padding.remove_padding(&mut context); }
         Ok(context)
     }
 }
@@ -171,7 +173,7 @@ pub fn en_b64<T: Into<Vec<u8>>>(typ: CipherType, key: T, iv: Option<T>, data: im
 }
 
 pub fn de_b64<T: Into<Vec<u8>>>(typ: CipherType, key: T, iv: Option<T>, data: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
-    let de_b64=base64::b64decode(data)?;
+    let de_b64 = base64::b64decode(data)?;
     let cipher = Cipher::new(typ).with_secret_key(key, iv);
     cipher.decrypt(de_b64)
 }
@@ -183,7 +185,7 @@ pub fn en_hex<T: Into<Vec<u8>>>(typ: CipherType, key: T, iv: Option<T>, data: im
 }
 
 pub fn de_hex<T: Into<Vec<u8>>>(typ: CipherType, key: T, iv: Option<T>, data: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
-    let de_hex=hex::decode(data)?;
+    let de_hex = hex::decode(data)?;
     let cipher = Cipher::new(typ).with_secret_key(key, iv);
     cipher.decrypt(de_hex)
 }
