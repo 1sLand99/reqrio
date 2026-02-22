@@ -1,6 +1,6 @@
-use crate::boring::certificate::siger::alt_name::SubjectAltName;
-use crate::boring::certificate::siger::basic_constraints::BasicConstraint;
-use crate::boring::certificate::siger::key_identifier::KeyIdentifier;
+use super::alt_name::SubjectAltName;
+use super::basic_constraints::BasicConstraint;
+use super::key_identifier::KeyIdentifier;
 use super::super::super::bindings::*;
 use super::key_usage::KeyUsage;
 
