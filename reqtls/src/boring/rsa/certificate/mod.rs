@@ -1,4 +1,5 @@
 mod store;
+mod siger;
 
 use super::bindings::*;
 use crate::boring::bindings::*;

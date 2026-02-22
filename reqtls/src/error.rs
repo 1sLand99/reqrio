@@ -75,6 +75,16 @@ pub enum RlsError {
     X509StoreCtxInitError,
     X509StoreAddError,
     IssuerUnknown,
+    X509NewError,
+    X509SetVersionFail,
+    NewAsn1IntegerError,
+    NewX509NameError,
+    X509AddNameError,
+    X509SetSubjectError,
+    X509SetIssuerError,
+    NewX509ExtError,
+    X509AddExtFail,
+    X509SignError,
     StdError(Box<dyn Error>),
     Currently(String),
 }
@@ -142,11 +152,21 @@ impl Display for RlsError {
             RlsError::GenEcPubKeyError => f.write_str("gen ec public key error"),
             RlsError::SkNewError => f.write_str("Sk new error"),
             RlsError::SkPushError => f.write_str("sk push error"),
-            RlsError::X509StoreNewError=> f.write_str("X509 store new error"),
-            RlsError::X509StoreCtxNewError=> f.write_str("X509 store ctx new error"),
-            RlsError::X509StoreCtxInitError=> f.write_str("X509 store ctx init error"),
-            RlsError::X509StoreAddError=> f.write_str("X509 store add error"),
-            RlsError::IssuerUnknown=> f.write_str("Issuer unknown"),
+            RlsError::X509StoreNewError => f.write_str("X509 store new error"),
+            RlsError::X509StoreCtxNewError => f.write_str("X509 store ctx new error"),
+            RlsError::X509StoreCtxInitError => f.write_str("X509 store ctx init error"),
+            RlsError::X509StoreAddError => f.write_str("X509 store add error"),
+            RlsError::IssuerUnknown => f.write_str("Issuer unknown"),
+            RlsError::X509NewError => f.write_str("X509 new error"),
+            RlsError::X509SetVersionFail => f.write_str("X509 set version fail"),
+            RlsError::NewAsn1IntegerError => f.write_str("New Asn1 integer error"),
+            RlsError::NewX509NameError => f.write_str("New X509 name error"),
+            RlsError::X509AddNameError => f.write_str("X509 add name error"),
+            RlsError::X509SetSubjectError => f.write_str("X509 set subject error"),
+            RlsError::X509SetIssuerError => f.write_str("X509 set issuer error"),
+            RlsError::NewX509ExtError => f.write_str("New X509 ext error"),
+            RlsError::X509AddExtFail => f.write_str("X509 add ext fail"),
+            RlsError::X509SignError => f.write_str("X509 sign error"),
             RlsError::StdError(e) => f.write_fmt(format_args!("{:?}", e)),
             RlsError::Currently(e) => f.write_str(e),
         }
@@ -216,7 +236,7 @@ impl From<NulError> for RlsError {
 impl From<&[u8]> for RlsError {
     fn from(value: &[u8]) -> Self {
         match value {
-            b"unable to get local issuer certificate"=>RlsError::IssuerUnknown,
+            b"unable to get local issuer certificate" => RlsError::IssuerUnknown,
             _ => RlsError::Currently(String::from_utf8_lossy(value).to_string()),
         }
     }

@@ -142,3 +142,6 @@ c_pointer_free!(X509_STORE_CTX, X509_STORE_CTX_free);
 c_pointer_free!(ZSTD_DStream, ZSTD_freeDStream);
 #[cfg(feature = "zstd")]
 c_pointer_free!(ZSTD_CStream, ZSTD_freeCStream);
+c_pointer_free!(ASN1_INTEGER, ASN1_INTEGER_free);
+c_pointer_free!(X509_NAME, X509_NAME_free);
+c_pointer_free!(X509_EXTENSION, X509_EXTENSION_free);

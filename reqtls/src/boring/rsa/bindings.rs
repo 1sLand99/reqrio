@@ -1,5 +1,5 @@
 use std::os::raw::{c_char, c_int, c_long, c_uchar, c_uint, c_void};
-use crate::boring::bindings::{EVP_CIPHER, EVP_PKEY, EVP_PKEY_CTX};
+use crate::boring::bindings::{EVP_CIPHER, EVP_MD, EVP_PKEY, EVP_PKEY_CTX};
 
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
@@ -254,8 +254,13 @@ pub struct BIO {
 
 pub const RSA_F4: i32 = 65537;
 pub const RSA_PKCS1_OAEP_PADDING: i32 = 4;
-
-
+pub const MBSTRING_ASC: i32 = 4097;
+#[allow(non_upper_case_globals)]
+pub const NID_basic_constraints: i32 = 87;
+#[allow(non_upper_case_globals)]
+pub const NID_key_usage: i32 = 83;
+#[allow(non_upper_case_globals)]
+pub const NID_subject_key_identifier: i32 = 82;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct X509 {
@@ -298,6 +303,72 @@ pub struct stack_st_X509 {
     _unused: [u8; 0],
 }
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+#[allow(non_camel_case_types)]
+pub struct ASN1_INTEGER {
+    pub length: c_int,
+    pub type_: c_int,
+    pub data: *mut c_uchar,
+    pub flags: c_long,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+#[allow(non_camel_case_types)]
+pub struct ASN1_TIME {
+    pub length: c_int,
+    pub type_: c_int,
+    pub data: *mut c_uchar,
+    pub flags: c_long,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+#[allow(non_camel_case_types)]
+pub struct X509_NAME {
+    _unused: [u8; 0],
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+#[allow(non_camel_case_types)]
+pub struct X509_REQ {
+    _unused: [u8; 0],
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+#[allow(non_camel_case_types)]
+pub struct X509_CRL {
+    _unused: [u8; 0],
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+#[allow(non_camel_case_types)]
+pub struct CONF {
+    _unused: [u8; 0],
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+#[allow(non_camel_case_types)]
+pub struct X509V3_CTX {
+    pub flags: c_int,
+    pub issuer_cert: *const X509,
+    pub subject_cert: *const X509,
+    pub subject_req: *const X509_REQ,
+    pub crl: *const X509_CRL,
+    pub db: *const CONF,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+#[allow(non_camel_case_types)]
+pub struct X509_EXTENSION {
+    _unused: [u8; 0],
+}
 
 unsafe extern "C" {
     pub fn RSA_new() -> *mut RSA;
@@ -334,9 +405,13 @@ unsafe extern "C" {
 
     pub fn X509_get_pubkey(x509: *mut X509) -> *mut EVP_PKEY;
 
+    pub fn X509_new() -> *mut X509;
+
     pub fn X509_free(x509: *mut X509);
 
     pub fn i2d_X509(x509: *mut X509, outp: *mut *mut u8) -> c_int;
+
+    pub fn X509_set_version(x509: *mut X509, version: c_long) -> c_int;
 
     pub fn sk_new_null() -> *mut STACK;
 
@@ -359,6 +434,36 @@ unsafe extern "C" {
     pub fn X509_STORE_CTX_get_error(ctx: *mut X509_STORE_CTX) -> c_int;
 
     pub fn X509_verify_cert_error_string(err: c_long) -> *const c_char;
+
+    pub fn ASN1_INTEGER_new() -> *mut ASN1_INTEGER;
+
+    pub fn ASN1_INTEGER_free(str_: *mut ASN1_INTEGER);
+
+    pub fn ASN1_INTEGER_set(a: *mut ASN1_INTEGER, v: c_long) -> c_int;
+
+    pub fn X509_set_serialNumber(x509: *mut X509, serial: *const ASN1_INTEGER) -> c_int;
+
+    pub fn X509_gmtime_adj(s: *mut ASN1_TIME, offset_sec: c_long) -> *mut ASN1_TIME;
+
+    pub fn X509_get_notBefore(x509: *const X509) -> *mut ASN1_TIME;
+
+    pub fn X509_get_notAfter(x509: *const X509) -> *mut ASN1_TIME;
+
+    pub fn X509_set_pubkey(x509: *mut X509, pkey: *mut EVP_PKEY) -> c_int;
+
+    pub fn X509_NAME_new() -> *mut X509_NAME;
+
+    pub fn X509_NAME_free(name: *mut X509_NAME);
+
+    pub fn X509_set_subject_name(x509: *mut X509, name: *const X509_NAME) -> c_int;
+
+    pub fn X509_set_issuer_name(x509: *mut X509, name: *const X509_NAME) -> c_int;
+
+    pub fn X509_EXTENSION_free(ex: *mut X509_EXTENSION);
+
+    pub fn X509_add_ext(x: *mut X509, ex: *const X509_EXTENSION, loc: c_int) -> c_int;
+
+    pub fn X509_sign(x509: *mut X509, pkey: *mut EVP_PKEY, md: *const EVP_MD) -> c_int;
 
     pub fn RSA_generate_key_ex(
         rsa: *mut RSA,
@@ -446,4 +551,21 @@ unsafe extern "C" {
         x509: *mut X509,
         chain: *mut stack_st_X509,
     ) -> c_int;
+
+    pub fn X509_NAME_add_entry_by_txt(
+        name: *mut X509_NAME,
+        field: *const c_char,
+        type_: c_int,
+        bytes: *const u8,
+        len: isize,
+        loc: c_int,
+        set: c_int,
+    ) -> c_int;
+
+    pub fn X509V3_EXT_nconf_nid(
+        conf: *const CONF,
+        ctx: *const X509V3_CTX,
+        ext_nid: c_int,
+        value: *const c_char,
+    ) -> *mut X509_EXTENSION;
 }
