@@ -1,11 +1,7 @@
 use crate::*;
-
 pub use proxy::Proxy;
-
 pub use proxy::ProxyStream;
-
 use crate::stream::kind::StreamKind;
-use crate::Buffer;
 #[cfg(feature = "aync")]
 pub use async_stream::TlsStream;
 pub use ws::{WebSocket, WebSocketBuilder};

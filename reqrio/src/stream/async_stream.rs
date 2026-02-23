@@ -1,4 +1,3 @@
-use crate::error::{HlsError, HlsResult};
 use crate::*;
 use std::io::Error;
 use std::pin::Pin;

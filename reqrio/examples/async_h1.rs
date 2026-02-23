@@ -8,9 +8,9 @@ async fn main() {
 
     let mut req = AcReq::new()
         .with_fingerprint(Fingerprint::random("2d1c7ddndk-cdq2w401k7ddndk-").unwrap())
-        .with_alpn(ALPN::Http20)
+        .with_alpn(ALPN::Http11)
         .with_timeout(timeout)
-        .with_verify(true)
+        .with_verify(false)
         // .with_proxy(Proxy::try_from("http://127.0.0.1:10280").unwrap())
         ;
     let headers = json::object! {
@@ -63,17 +63,18 @@ async fn main() {
     // req.set_url("https://xxbg.snssdk.com/fdsf/dsfsdfkdsjfk").await.unwrap();
     // req.set_url("https://www.toutiao.com/article/7600224020776239658/?log_from=99ab1fa2b852c_1769590891442&wid=1769590984039").await.unwrap();
     // req.set_url("https://www.sogou.com").await.unwrap();
-    req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Asite：wLLyn.com&first=0&FORM=PERE2").await.unwrap();
+    // req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Asite：wLLyn.com&first=0&FORM=PERE2").await.unwrap();
     // req.set_url("https://m.baidu.com").await.unwrap();
 
-    // req.set_url("https://m.so.com").await.unwrap();
+    req.set_url("https://m.so.com").await.unwrap();
     // req.set_url("https://doc.rust-lang.org/").await.unwrap();
     println!("111");
-    // req.set_callback(|data| {
-    //     println!("{}", data.len());
-    //     Ok(())
-    // });
+    req.set_callback(|data| {
+        println!("{}", data.len());
+        Ok(())
+    });
     let res = req.get().await.unwrap();
     println!("{}", res.header());
-    println!("{}", res.text().unwrap());
+    println!("{}",res.raw_body().len());
+    // println!("{}", res.text().unwrap());
 }
