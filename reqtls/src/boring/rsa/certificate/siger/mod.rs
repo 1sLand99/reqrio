@@ -128,9 +128,8 @@ impl CertSigner {
         &self.pkey
     }
 
-    pub fn certificate(&self) -> &Certificate {
-        &self.cert
-    }
+    pub fn cert_mut(&mut self) -> &mut Certificate { &mut self.cert }
+
 }
 
 #[cfg(test)]
@@ -189,6 +188,6 @@ mod tests {
         signer.add_extension(CertExtend::ExtKeyUsage(vec![KeyUsage::ClientAuth])).unwrap();
         signer.sign_by(&ca_signer.pkey).unwrap();
         fs::write("c.der", signer.cert.as_der().as_slice()).unwrap();
-        println!("{}",signer.cert.as_pem().unwrap());
+        println!("{}", signer.cert.as_pem().unwrap());
     }
 }
