@@ -7,6 +7,7 @@ use crate::packet::{H2Frame, Header};
 use crate::{coder, HeaderValue, CHUNK_END, HTTP_GAP};
 use reqtls::WriteExt;
 use std::{mem, ptr};
+
 pub enum Body {
     Raw(Vec<u8>),
     Decoded(Vec<u8>),
@@ -108,14 +109,20 @@ pub struct Response {
     frames: Vec<H2Frame>,
 }
 
-impl Response {
-    pub fn new() -> Response {
+impl Default for Response {
+    fn default() -> Self {
         Response {
             header: Header::new_res(),
             body: Body::Raw(Vec::new()),
             raw: Vec::new(),
             frames: vec![],
         }
+    }
+}
+
+impl Response {
+    pub fn new() -> Response {
+        Response::default()
     }
 
     fn check_status(&self) -> Option<bool> {
@@ -156,9 +163,9 @@ impl Response {
             true => {
                 let pos = buffer.filled().windows(HTTP_GAP.len()).position(|w| w == HTTP_GAP);
                 if let Some(pos) = pos {
-                    let hdr_bs = buffer.drain(..pos + 4);
-                    let hdr_str = String::from_utf8(hdr_bs)?;
-                    self.header = Header::try_from(hdr_str)?;
+                    let hdr_str = String::from_utf8_lossy(&buffer[..pos]);
+                    self.header = Header::try_from(hdr_str.as_ref())?;
+                    buffer.move_to(pos + 4..buffer.len(), 0);
                     println!("{:?}", self.header.get("connection").map(|v| v.to_string()));
                     self.extend_body(buffer)
                 } else { Ok(false) }
@@ -202,8 +209,8 @@ impl Response {
 
     pub fn raw_string(&self) -> String {
         let header = self.header.to_string();
-        let body = String::from_utf8_lossy(&self.raw).to_string();
-        header + "\r\n\r\n" + &body
+        let body = String::from_utf8_lossy(&self.raw);
+        header + "\r\n\r\n" + body.as_ref()
     }
 
     pub fn clear_raw(&mut self) { self.raw.clear() }
