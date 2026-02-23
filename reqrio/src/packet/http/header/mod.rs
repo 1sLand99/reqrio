@@ -348,11 +348,11 @@ impl Header {
         self.insert("authorization", authorization)
     }
 
-    fn parse_req(mut value: String) -> HlsResult<Header> {
+    fn parse_req(value: &str) -> HlsResult<Header> {
         let mut header = Header::new_res();
-        value = value.replace("\r\n", "\n");
+        let value = value.replace("\r\n", "\n");
         for (index, line) in value.split("\n").enumerate() {
-            if line == "" { continue; }
+            if line.is_empty() { continue; }
             if index == 0 {
                 let mut items = line.split(" ");
                 header.method = Method::try_from(items.next().unwrap_or("GET")).unwrap_or(Method::GET);
@@ -368,11 +368,11 @@ impl Header {
         Ok(header)
     }
 
-    fn parse_res(mut value: String) -> HlsResult<Header> {
+    fn parse_res(value: &str) -> HlsResult<Header> {
         let mut header = Header::new_res();
-        value = value.replace("\r\n", "\n");
+        let value = value.replace("\r\n", "\n");
         for (index, line) in value.split("\n").enumerate() {
-            if line == "" { continue; }
+            if line.is_empty() { continue; }
             if index == 0 {
                 let mut items = line.split(" ");
                 header.agreement = items.next().unwrap_or("").to_string();
@@ -456,6 +456,13 @@ impl From<&Header> for JsonValue {
 impl TryFrom<String> for Header {
     type Error = HlsError;
     fn try_from(value: String) -> Result<Self, Self::Error> {
+        Header::try_from(value.as_str())
+    }
+}
+
+impl TryFrom<&str> for Header {
+    type Error = HlsError;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value.to_uppercase().starts_with("HTTP/1") {
             true => Header::parse_res(value),
             false => Header::parse_req(value),
