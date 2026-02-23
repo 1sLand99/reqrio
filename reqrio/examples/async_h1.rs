@@ -11,7 +11,7 @@ async fn main() {
         .with_alpn(ALPN::Http11)
         .with_timeout(timeout)
         .with_verify(false)
-        // .with_proxy(Proxy::try_from("http://127.0.0.1:10280").unwrap())
+        .with_proxy(Proxy::try_from("http://127.0.0.1:10280").unwrap())
         ;
     let headers = json::object! {
         // "Authorization": "Bearer Upy9fDyueOXiEbON0vRXimg4tlrO5wTs+IV75wUbSzZngY0oLn1wJpQw1jnV0Cqku1UUnDUvVg4y/wwkNOljlJJKVRbzDETSjOd0zHotk+s3+wM63SDWeKXOXKwUhhfc",

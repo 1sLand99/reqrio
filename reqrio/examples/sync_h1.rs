@@ -1,4 +1,4 @@
-use reqrio::{json, ReqExt, ScReq, WebSocket, ALPN};
+use reqrio::{json, Proxy, ReqExt, ScReq, ALPN};
 use std::time::SystemTime;
 
 fn main() {
@@ -7,7 +7,7 @@ fn main() {
     let mut req = ScReq::new()
         // .with_fingerprint(fingerprint)
         .with_alpn(ALPN::Http20)
-        // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10280))
+        .with_proxy(Proxy::new_http_plain("127.0.0.1", 10280))
         ;
     let headers = json::object! {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
@@ -41,8 +41,6 @@ fn main() {
     req.set_headers_json(headers).unwrap();
     println!("6");
     for _ in 0..50 {
-
-
         let resp = req.get().unwrap();
         // let body = res.decode_body().unwrap().as_string().unwrap();
         // println!("{}", resp.header().status());
@@ -50,7 +48,4 @@ fn main() {
         let et = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
         println!("{}", et - t);
     }
-    
-
-
 }

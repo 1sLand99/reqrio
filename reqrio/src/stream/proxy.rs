@@ -49,7 +49,7 @@ impl Proxy {
 
     pub fn is_null(&self) -> bool {
         matches!(self, Proxy::Null)
-}
+    }
 
     pub fn socket_addr(&self, peer_addr: &Addr) -> HlsResult<SocketAddr> {
         match self {
@@ -94,7 +94,6 @@ pub struct ProxyStream<S> {
     handle_proxy: bool,
     http_proxy: bool,
     buffer: Buffer,
-    #[cfg(feature = "aync")]
     resp: Response,
 }
 
@@ -123,7 +122,6 @@ impl ProxyStream<std::net::TcpStream> {
             handle_proxy: proxy_context.is_empty(),
             http_proxy: matches!(proxy, Proxy::HttpPlain(_)),
             buffer: Buffer::with_capacity(1024),
-            #[cfg(feature = "aync")]
             resp: Response::new(),
         })
     }
@@ -140,18 +138,12 @@ impl std::io::Read for ProxyStream<std::net::TcpStream> {
             self.handle_proxy = true;
             self.buffer.reset();
             if self.http_proxy {
-                let mut resp = Response::new();
                 loop {
-                    self.buffer.reset();
                     self.buffer.sync_read(&mut self.stream)?;
-                    if resp.extend_buffer(&mut self.buffer)? { break; }
+                    if self.resp.extend_buffer(&mut self.buffer)? { break; }
                 }
-                let status = resp.header().status().code();
+                let status = self.resp.header().status().code();
                 if status != 200 { return Err(std::io::Error::other(format!("connect http proxy error-{}", status))); }
-                let pos = self.buffer.filled().windows(HTTP_GAP.len()).position(|window| window == HTTP_GAP);
-                let pos = pos.ok_or(std::io::Error::other("connect proxy fail"))? + resp.header().content_length().unwrap_or(0);
-                self.buffer.copy_within(pos + 4..self.buffer.len(), 0);
-                self.buffer.set_len(self.buffer.len() - pos - 4);
             } else {
                 self.buffer.sync_read(&mut self.stream)?;
                 if !self.buffer.filled().starts_with(&[5, 0]) {
@@ -225,10 +217,8 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
                         }
                     }
                 }
-                let pos = stream.buffer.filled().windows(HTTP_GAP.len()).position(|window| window == HTTP_GAP);
-                let pos = pos.ok_or(std::io::Error::other("connect proxy fail"))? + stream.resp.header().content_length().unwrap_or(0);
-                stream.buffer.copy_within(pos + 4..stream.buffer.len(), 0);
-                stream.buffer.set_len(stream.buffer.len() - pos - 4);
+                let status = stream.resp.header().status();
+                if status.code() != 200 { return Poll::Ready(Err(std::io::Error::other(format!("connect http proxy fail-{}", status.code())))); }
             } else {
                 loop {
                     let mut pb = ReadBuf::new(stream.buffer.unfilled_mut());
