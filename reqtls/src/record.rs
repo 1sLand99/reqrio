@@ -1,6 +1,6 @@
 use crate::error::RlsResult;
 use crate::extend::Aead;
-use crate::{Alert, CipherSuite, RlsError, WriteExt};
+use crate::{Alert, CipherSuite, RlsError, WriteExt, ALPN};
 use super::message::{Message, Payload};
 use super::version::Version;
 
@@ -99,6 +99,8 @@ impl<'a> RecordLayer<'a> {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) -> RlsResult<usize> {
         let offset = writer.offset().start;
+        let sni = self.messages[0].client().map(|x| x.server_name().unwrap_or("")).unwrap_or("").to_string();
+        let h2 = self.messages[0].client().map(|x| x.alps().map(|x| x.values().iter().any(|x| x == &ALPN::Http20)).unwrap_or(false)).unwrap_or(false);
         writer.write_u8(self.context_type as u8);
         writer.write_u16(self.version.into_inner());
         let len = self.messages.iter().map(|x| x.len(key_size)).sum::<usize>();
@@ -106,7 +108,7 @@ impl<'a> RecordLayer<'a> {
         for message in self.messages {
             message.write_to(writer, key_size);
         }
-        writer.flush(offset)
+        writer.flush(offset, sni, h2)
     }
 }
 

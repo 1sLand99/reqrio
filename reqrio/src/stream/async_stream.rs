@@ -41,7 +41,6 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
     pub async fn connect(mut stream: S, config: TlsConfig<'_>) -> HlsResult<TlsStream<S>> {
         let client_random = rand::random::<[u8; 32]>().to_vec();
         let session_id = rand::random::<[u8; 32]>();
-
         let mut record = RecordLayer::from_bytes(&mut config.fingerprint.client_hello, false, None)?;
         let message = record.messages.get_mut(0).ok_or(RlsError::ClientHelloNone)?;
         message.client_mut().ok_or(HlsError::NullPointer)?.set_random(&client_random);

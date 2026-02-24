@@ -8,7 +8,7 @@ fn main() {
     if typ == "static" { println!("cargo:rustc-link-search={}/lib/{}/{}", manifest_dir, target_os, target_env); }
     println!("cargo:rustc-link-lib={}=crypto", typ);
     println!("cargo:rustc-link-lib={}=zstd", typ);
-    println!("cargo:rustc-link-lib=versus");
+    // println!("cargo:rustc-link-lib=versus");
     match (target_os.as_str(), target_env.as_str()) {
         ("windows", "msvc") => println!("cargo:rustc-link-lib=advapi32"),
         ("windows", "gnu") => {

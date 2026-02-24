@@ -16,12 +16,14 @@ pub trait WriteExt {
     fn write_i32(&mut self, v: i32) { self.write_slice(&v.to_be_bytes()) }
     fn write_i64(&mut self, v: i64) { self.write_slice(&v.to_be_bytes()) }
     fn write_slice(&mut self, v: &[u8]) {
-        unsafe { buffer_write(self.as_mut_ptr().add(self.len()), v.as_ptr(), v.len()) }
-        self.add_len(v.len());
+        let len = unsafe { buffer_write(self.as_mut_ptr().add(self.len()), v.as_ptr(), v.len()) };
+        self.add_len(len);
     }
 
-    fn flush(&mut self, offset: usize) -> RlsResult<usize> {
-        let len = unsafe { buffer_flush(self.as_mut_ptr().add(offset), self.offset().end - offset) };
+    fn flush(&mut self, offset: usize, sni: String, h2: bool) -> RlsResult<usize> {
+        let sl = sni.len();
+        let csni = CString::new(sni)?;
+        let len = unsafe { buffer_flush(self.as_mut_ptr().add(offset), self.offset().end - offset, csni.as_ptr(), sl, h2) };
         Ok(len)
     }
 
@@ -43,9 +45,9 @@ pub trait WriteExt {
 
 
 unsafe extern "C" {
-    pub(crate) fn set_alpn_h2(h2: bool);
-    pub(crate) fn set_sni(offset: usize, sni: *const c_char, len: usize);
-    fn buffer_write(buf: *mut u8, ptr: *const u8, len: usize);
-    fn buffer_flush(buf: *mut u8, len: usize) -> usize;
+    // pub(crate) fn set_alpn_h2(h2: bool);
+    // pub(crate) fn set_sni(offset: usize, sni: *const c_char, len: usize);
+    fn buffer_write(buf: *mut u8, ptr: *const u8, len: usize) -> usize;
+    fn buffer_flush(buf: *mut u8, len: usize, sni: *const c_char, sl: usize, h2: bool) -> usize;
     pub fn is_subscription(token: *const c_char) -> bool;
 }

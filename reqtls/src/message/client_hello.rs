@@ -60,6 +60,7 @@ impl<'a> ClientHello<'a> {
                 CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
             ],
             random: ByteRef::new(&[0; 32]),
+            session_id:ByteRef::new(&[0; 32]),
             compress_method: ByteRef::new(&[0]),
             extensions: vec![
                 Extension::from_type(ExtensionType::SignatureAlgorithms),
@@ -69,15 +70,14 @@ impl<'a> ClientHello<'a> {
                 Extension::from_type(ExtensionType::ApplicationLayerProtocolNegotiation),
                 Extension::from_type(ExtensionType::ServerName),
                 Extension::from_type(ExtensionType::EcPointFormats),
-                // Extension::from_type(ExtensionType::RenegotiationInfo),
-                // Extension::from_type(ExtensionType::ExtendMasterSecret),
+                Extension::from_type(ExtensionType::RenegotiationInfo),
+                Extension::from_type(ExtensionType::ExtendMasterSecret),
                 // Extension::from_type(ExtensionType::SignedCertificateTimestamp),
                 // Extension::from_type(ExtensionType::SessionTicket)
             ],
             ..Default::default()
         };
         let suite_all = CipherSuite::SUITES;
-        // suite_all.remove(CipherSuiteKind::TLS_RSA_WITH_AES_128_CBC_SHA)
         while res.cipher_suites.len() < 12 {
             let index = rand::random::<usize>() % suite_all.len();
             let suite = CipherSuite::new(suite_all[index]);
