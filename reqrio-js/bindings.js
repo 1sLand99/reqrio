@@ -1,5 +1,6 @@
 const ffi = require('ffi-napi');
 const ref = require('ref-napi');
+const path = require("path");
 
 const voidPtr = ref.refType(ref.types.void);
 const charPtr = ref.types.CString;
@@ -23,8 +24,8 @@ if (process.platform === "win32") {
 } else {
     throw "unsupported system platform"
 }
-
-const library = ffi.Library("./" + libname, {
+let libpath = path.join(__dirname, libname)
+const library = ffi.Library(libpath, {
     ScReq_new: [voidPtr, []],
     ScReq_set_header_json: ['int', [voidPtr, charPtr]],
     ScReq_add_header: ["int", [voidPtr, charPtr, charPtr]],
