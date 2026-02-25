@@ -21,6 +21,7 @@ pub enum ContentType {
     Multipart,
     Font(Font),
     Video(Video),
+    Binary(BinaryType),
     Upgrade,
 }
 
@@ -34,7 +35,8 @@ impl Display for ContentType {
             ContentType::Multipart => f.write_str("multipart/form-data"),
             ContentType::Font(v) => f.write_str(&v.to_string()),
             ContentType::Video(v) => f.write_str(&v.to_string()),
-            ContentType::Upgrade => f.write_str("Upgrade")
+            ContentType::Upgrade => f.write_str("Upgrade"),
+            ContentType::Binary(_) => f.write_str("binary/octet-stream"),
         }
     }
 }
@@ -55,6 +57,7 @@ impl TryFrom<&str> for ContentType {
             "video" => Ok(ContentType::Video(Video::try_from(ts)?)),
             "jpeg" => Ok(ContentType::Image(ImageType::Jpeg)),
             "upgrade" => Ok(ContentType::Upgrade),
+            "binary" => Ok(ContentType::Binary(BinaryType::OctetStream)),
             _ => Err(format!("invalid content type: {}", value).into()),
         }
     }
@@ -72,4 +75,9 @@ impl TryFrom<String> for ContentType {
     fn try_from(value: String) -> Result<Self, Self::Error> {
         ContentType::try_from(value.as_str())
     }
+}
+
+#[derive(Clone)]
+pub enum BinaryType {
+    OctetStream
 }

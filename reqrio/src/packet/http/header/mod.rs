@@ -215,6 +215,7 @@ impl Header {
                     self.keys.push(HeaderKey::new(k.as_ref(), HeaderValue::Cookies(cookies)));
                 }
                 "content-length" => self.keys.push(HeaderKey::new(k.as_ref(), HeaderValue::Number(v.to_string().parse()?))),
+                "content-type" => self.keys.push(HeaderKey::new(k.as_ref(), HeaderValue::ContextType(ContentType::try_from(&v.to_string())?))),
                 _ => self.keys.push(HeaderKey::new(k.as_ref(), HeaderValue::String(v.to_string()))),
             }
         }
@@ -225,20 +226,20 @@ impl Header {
         self.insert("user-agent", user_agent)
     }
 
-    pub fn set_sec_ch_ua(&mut self, sec_ch_ua: impl ToString)->HlsResult<()> {
+    pub fn set_sec_ch_ua(&mut self, sec_ch_ua: impl ToString) -> HlsResult<()> {
         self.insert("sec-ch-ua", sec_ch_ua.to_string())
     }
 
 
-    pub fn set_sec_ch_ua_mobile(&mut self, sec_ch_ua_mobile: impl ToString)->HlsResult<()> {
+    pub fn set_sec_ch_ua_mobile(&mut self, sec_ch_ua_mobile: impl ToString) -> HlsResult<()> {
         self.insert("sec-ch-ua-mobile", sec_ch_ua_mobile.to_string())
     }
 
 
-    pub fn set_sec_ch_ua_platform(&mut self, sec_ch_ua_platform: impl ToString)->HlsResult<()> {
+    pub fn set_sec_ch_ua_platform(&mut self, sec_ch_ua_platform: impl ToString) -> HlsResult<()> {
         self.insert("sec-ch-ua-platform", sec_ch_ua_platform.to_string())
     }
-    
+
 
     pub fn user_agent(&self) -> Option<&str> {
         self.get("user-agent")?.as_string()
