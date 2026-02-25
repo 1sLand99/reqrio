@@ -45,8 +45,6 @@ pub trait WriteExt {
 
 
 unsafe extern "C" {
-    // pub(crate) fn set_alpn_h2(h2: bool);
-    // pub(crate) fn set_sni(offset: usize, sni: *const c_char, len: usize);
     fn buffer_write(buf: *mut u8, ptr: *const u8, len: usize) -> usize;
     fn buffer_flush(buf: *mut u8, len: usize, sni: *const c_char, sl: usize, h2: bool) -> usize;
     pub fn is_subscription(token: *const c_char) -> bool;

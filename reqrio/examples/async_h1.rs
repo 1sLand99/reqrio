@@ -76,6 +76,7 @@ async fn main() {
     });
     let res = req.get().await.unwrap();
     println!("{}", res.header());
-    println!("{}",res.raw_body().len());
+    println!("{}", res.raw_body().len());
+    println!("{}",res.header().content_type().is_some());
     // println!("{}", res.text().unwrap());
 }

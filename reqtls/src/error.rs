@@ -7,6 +7,7 @@ use std::io;
 use std::num::ParseIntError;
 use std::string::FromUtf8Error;
 use hex::FromHexError;
+use crate::Alert;
 
 #[derive(Debug)]
 pub enum RlsError {
@@ -89,6 +90,7 @@ pub enum RlsError {
     BIOGetDataError,
     StdError(Box<dyn Error>),
     Currently(String),
+    Alert(Alert),
 }
 
 impl Display for RlsError {
@@ -170,7 +172,8 @@ impl Display for RlsError {
             RlsError::X509AddExtFail => f.write_str("X509 add ext fail"),
             RlsError::X509SignError => f.write_str("X509 sign error"),
             RlsError::BIOWriteError => f.write_str("BIO write error"),
-            RlsError::BIOGetDataError=>f.write_str("BIO get data error"),
+            RlsError::BIOGetDataError => f.write_str("BIO get data error"),
+            RlsError::Alert(alert) => write!(f, "Alert({})", alert.desc()),
             RlsError::StdError(e) => f.write_fmt(format_args!("{:?}", e)),
             RlsError::Currently(e) => f.write_str(e),
         }
@@ -248,4 +251,7 @@ impl From<&[u8]> for RlsError {
 
 impl Error for RlsError {}
 
+unsafe impl Send for RlsError {}
+
+unsafe impl Sync for RlsError {}
 pub type RlsResult<T> = Result<T, RlsError>;

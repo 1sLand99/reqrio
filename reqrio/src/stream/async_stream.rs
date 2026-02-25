@@ -87,7 +87,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
             RecordType::Alert => {
                 let pdr = if self.handshake_finished { self.conn.read_message(&mut record)? } else { 5..record.len as usize + 5 };
                 let alert = Alert::from_bytes(&self.read_buffer[pdr])?;
-                return Err(alert.as_err().into());
+                return Err(RlsError::Alert(alert).into());
             }
             RecordType::HandShake => {
                 for message in record.messages {
@@ -185,7 +185,7 @@ impl<S> TlsStream<S> {
             RecordType::Alert => {
                 let pdr = if self.handshake_finished { self.conn.read_message(&mut record)? } else { 5..record.len as usize + 5 };
                 let alert = Alert::from_bytes(&self.read_buffer[pdr])?;
-                return Err(Error::other(alert.desc().to_string()));
+                return Err(Error::other(Box::new(RlsError::Alert(alert))));
             }
             RecordType::HandShake => {
                 if self.handshake_finished {
