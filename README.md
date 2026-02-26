@@ -189,12 +189,14 @@ custom secure communication protocols.
 
 - MD5, SHA1, SHA224, SHA256, SHA384, SHA512
 - HMAC
-  Signature Algorithm
 
-## RSA Signature (PKCS1, PSS)
+## Signature Algorithm
 
+- RSA Signature (PKCS1, PSS)
 - ECDSA Signature (Multiple Curves)
-- Certificate Processing
+
+## Certificate Processing
+
 - X.509 Certificate Reading and Verification
 - Certificate chain verification
 - Custom Certificate Store
@@ -204,8 +206,7 @@ custom secure communication protocols.
 
 - Base64 Encoding/Decoding
 - URL Encoding/Decoding
-
-## Compression (Gzip, Deflate, Brotli, Zstd)
+- Compression (Gzip, Deflate, Brotli, Zstd)
 
 ## License
 
