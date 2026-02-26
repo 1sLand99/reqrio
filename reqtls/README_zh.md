@@ -1,6 +1,7 @@
 #### reqtls是一个轻量的tls库和加/解密库
 
-&nbsp;&nbsp;&nbsp;&nbsp;reqtls是基于boringssl构建，与浏览器行为保持一致
+&nbsp;&nbsp;&nbsp;&nbsp;reqtls 是为 reqrio 生态打造的高性能 TLS 与密码学基础库，提供完整的加密、签名、证书处理与编码能力。
+它专注于安全性、可扩展性与跨平台支持，适用于构建 HTTPS 客户端、代理服务、证书签发系统以及自定义安全通信协议。
 
 #### 加解密支持：
 

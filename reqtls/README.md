@@ -1,6 +1,6 @@
 #### reqtls is a lightweight TLS library and encryption/decryption library.
 
-&nbsp;&nbsp;&nbsp;&nbsp;reqtls is built on boringssl and maintains consistency with browser behavior.
+&nbsp;&nbsp;&nbsp;&nbsp;reqtls is a high-performance TLS and cryptographic foundation library built for the reqrio ecosystem, providing complete encryption, signing, certificate handling, and encoding capabilities. It focuses on security, scalability, and cross-platform support, making it suitable for building HTTPS clients, proxy services, certificate issuance systems, and custom secure communication protocols.
 
 #### Encryption/decryption support：
 
