@@ -69,7 +69,9 @@ public:
 
     [[nodiscard]] Response delete_() const;
 
-    [[nodiscard]] Response trach() const;
+    [[nodiscard]] Response trace() const;
+
+    [[nodiscard]] Response patch() const;
 
     void setUrl(const QString &url) const;
 

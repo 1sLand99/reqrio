@@ -8,7 +8,8 @@ public enum Method {
     DELETE(4),
     OPTIONS(5),
     TRACE(6),
-    CONNECT(7);
+    CONNECT(7),
+    PATCH(8);
 
     final int value;
 

@@ -120,12 +120,16 @@ Response Session::options() const {
     return send(bindings::OPTIONS);
 }
 
-Response Session::trach() const {
+Response Session::trace() const {
     return send(bindings::TRACE);
 }
 
 Response Session::delete_() const {
     return send(bindings::DELETE);
+}
+
+Response Session::patch() const {
+    return send(bindings::PATCH);
 }
 
 void Session::close() const {

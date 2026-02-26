@@ -164,6 +164,10 @@ class Session {
         return this.send(Method.DELETE)
     }
 
+    patch() {
+        return this.send(Method.PATCH)
+    }
+
     close() {
         registry.unregister(this);
         library.ScReq_drop(this.req)

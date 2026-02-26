@@ -10,3 +10,4 @@ class Method(Enum):
     OPTIONS = 5
     TRACE = 6
     CONNECT = 7
+    PATCH = 8

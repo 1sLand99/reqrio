@@ -83,6 +83,11 @@ impl AcReq {
         self.header.set_method(Method::TRACE);
         self.stream_io().await
     }
+    
+    pub async fn patch(&mut self) -> HlsResult<Response> {
+        self.header.set_method(Method::PATCH);
+        self.stream_io().await
+    }
 
     pub async fn h1_io(&mut self, context: impl AsRef<[u8]>) -> HlsResult<Response> {
         self.stream.async_write(context.as_ref()).await?;

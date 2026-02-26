@@ -12,6 +12,7 @@ pub enum Method {
     OPTIONS = 5,
     TRACE = 6,
     CONNECT = 7,
+    PATCH = 8,
 }
 
 impl Display for Method {
@@ -25,6 +26,7 @@ impl Display for Method {
             Method::DELETE => f.write_str("DELETE"),
             Method::CONNECT => f.write_str("CONNECT"),
             Method::TRACE => f.write_str("TRACE"),
+            Method::PATCH => f.write_str("PATCH"),
         }
     }
 }
@@ -55,6 +57,7 @@ impl TryFrom<&[u8]> for Method {
             b"DELETE" => Ok(Method::DELETE),
             b"CONNECT" => Ok(Method::CONNECT),
             b"TRACE" => Ok(Method::TRACE),
+            b"PATCH" => Ok(Method::PATCH),
             _ => Err("Invalid HTTP method".into())
         }
     }

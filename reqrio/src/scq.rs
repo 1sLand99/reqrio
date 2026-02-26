@@ -76,6 +76,11 @@ impl ScReq {
         self.stream_io()
     }
 
+    pub fn patch(&mut self) -> HlsResult<Response> {
+        self.header.set_method(Method::PATCH);
+        self.stream_io()
+    }
+
     pub fn h1_io(&mut self, context: impl AsRef<[u8]>) -> HlsResult<Response> {
         self.stream.sync_write(context.as_ref())?;
         let mut response = Response::new();

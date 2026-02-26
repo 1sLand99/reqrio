@@ -236,6 +236,10 @@ func (session *Session) Trace() (Response, error) {
 	return session.sendRequest(TRACE)
 }
 
+func (session *Session) Patch() (Response,error){
+    return session.sendRequest(Patch)
+}
+
 func (session *Session) Close() {
 	C.ScReq_drop(session.req)
 }

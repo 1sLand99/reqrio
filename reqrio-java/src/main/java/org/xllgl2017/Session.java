@@ -166,6 +166,10 @@ public class Session {
         return this.send(Method.TRACE);
     }
 
+    public Response patch() throws Exception{
+        return this.send(Method.PATCH);
+    }
+
     public void close() {
         INSTANCE.ScReq_drop(this.req);
     }

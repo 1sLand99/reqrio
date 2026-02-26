@@ -165,6 +165,11 @@ class Session:
             self.set_url(url)
         return self.send_request(Method.TRACE)
 
+    def patch(self, url: str = None) -> Response:
+        if url is not None:
+            self.set_url(url)
+        return self.send_request(Method.PATCH)
+
     def session_reconnect(self):
         r = self.dll.reconnect(self.hid)
         if r == -1:
