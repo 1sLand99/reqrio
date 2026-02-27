@@ -587,4 +587,11 @@ unsafe extern "C" {
         bn: *const BIGNUM,
         ai: *mut ASN1_INTEGER,
     ) -> *mut ASN1_INTEGER;
+
+    pub fn RSA_set0_key(
+        rsa: *mut RSA,
+        n: *mut BIGNUM,
+        e: *mut BIGNUM,
+        d: *mut BIGNUM,
+    ) -> c_int;
 }

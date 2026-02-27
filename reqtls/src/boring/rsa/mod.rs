@@ -18,15 +18,19 @@ impl RsaKey {
     pub fn none() -> RsaKey {
         RsaKey(CPointer::nullptr())
     }
-    pub fn gen_new_key(bits: i32) -> RlsResult<RsaKey> {
-        let mut rsa = CPointer::new_checked(unsafe { RSA_new() }, RlsError::RsaNewError)?;
-        let e = CPointer::new_checked(unsafe { BN_new() }, RlsError::BnNewError)?;
-        unsafe { BN_set_word(e.as_mut_ptr(), RSA_F4 as u64) }.ok(RlsError::BnSetWordError)?;
-        unsafe { RSA_generate_key_ex(rsa.as_mut_ptr(), bits, e.as_mut_ptr(), null_mut()) }.ok(RlsError::RsaGenKeyError)?;
+
+    fn new(mut rsa: CPointer<RSA>) -> RlsResult<RsaKey> {
         let pkey = CPointer::new_checked(unsafe { EVP_PKEY_new() }, RlsError::PkeyNewError)?;
         unsafe { EVP_PKEY_assign_RSA(pkey.as_mut_ptr(), rsa.as_mut_ptr()) }.ok(RlsError::PkeyAssignError)?;
         rsa.disable_auto_free();
         Ok(RsaKey(pkey))
+    }
+    pub fn gen_new_key(bits: i32) -> RlsResult<RsaKey> {
+        let rsa = CPointer::new_checked(unsafe { RSA_new() }, RlsError::RsaNewError)?;
+        let e = CPointer::new_checked(unsafe { BN_new() }, RlsError::BnNewError)?;
+        unsafe { BN_set_word(e.as_mut_ptr(), RSA_F4 as u64) }.ok(RlsError::BnSetWordError)?;
+        unsafe { RSA_generate_key_ex(rsa.as_mut_ptr(), bits, e.as_mut_ptr(), null_mut()) }.ok(RlsError::RsaGenKeyError)?;
+        RsaKey::new(rsa)
     }
 
     pub fn to_pri_pem(&self) -> RlsResult<String> {
@@ -104,8 +108,16 @@ impl RsaKey {
         Ok(RsaKey(pkey))
     }
 
-    pub fn new(pkey: CPointer<EVP_PKEY>) -> RsaKey {
-        RsaKey(pkey)
+    pub fn from_e_n(e: impl AsRef<[u8]>, n: impl AsRef<[u8]>) -> RlsResult<RsaKey> {
+        let e = hex::decode(e)?;
+        let n = hex::decode(n)?;
+        let mut e = CPointer::new_checked(unsafe { BN_bin2bn(e.as_ptr(), e.len(), null_mut()) }, RlsError::BnNewError)?;
+        let mut n = CPointer::new_checked(unsafe { BN_bin2bn(n.as_ptr(), n.len(), null_mut()) }, RlsError::BnNewError)?;
+        let rsa = CPointer::new_checked(unsafe { RSA_new() }, RlsError::RsaNewError)?;
+        unsafe { RSA_set0_key(rsa.as_mut_ptr(), n.as_mut_ptr(), e.as_mut_ptr(), null_mut()) }.ok(RlsError::RsaGenKeyError)?;
+        e.disable_auto_free();
+        n.disable_auto_free();
+        RsaKey::new(rsa)
     }
 
     pub fn pkey(&self) -> &CPointer<EVP_PKEY> {
