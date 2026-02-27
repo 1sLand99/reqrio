@@ -1,0 +1,29 @@
+name: Rust
+#git commit -m "修复bug [skip actions]"
+#git commit -m "更新功能 [skip ci]"
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: build
+        run: cargo build --package reqrio --release --feautres export
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: build
+        run: cargo build --package reqrio --release --feautres export
