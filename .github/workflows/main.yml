@@ -1,4 +1,4 @@
-name: Rust
+name: github
 #git commit -m "修复bug [skip actions]"
 #git commit -m "更新功能 [skip ci]"
 on:
