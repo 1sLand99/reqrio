@@ -253,7 +253,6 @@ pub struct BIO {
 }
 
 pub const RSA_F4: i32 = 65537;
-pub const RSA_PKCS1_OAEP_PADDING: i32 = 4;
 pub const MBSTRING_ASC: i32 = 4097;
 #[allow(non_upper_case_globals)]
 pub const NID_basic_constraints: i32 = 87;

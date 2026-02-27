@@ -444,6 +444,8 @@ pub struct evp_md_pctx_ops {
     _unused: [u8; 0],
 }
 pub const RSA_PKCS1_PADDING: i32 = 1;
+pub const RSA_NO_PADDING: i32 = 3;
+pub const RSA_PKCS1_OAEP_PADDING: i32 = 4;
 pub const RSA_PKCS1_PSS_PADDING: i32 = 6;
 
 unsafe extern "C" {
