@@ -16,7 +16,7 @@ pub struct Cipher {
 }
 
 impl Cipher {
-    fn new(cipher: CipherType) -> Cipher {
+    pub(crate) fn new(cipher: CipherType) -> Cipher {
         let ctx = CPointer::new(unsafe { EVP_CIPHER_CTX_new() });
         Cipher {
             ctx,

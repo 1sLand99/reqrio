@@ -15,26 +15,27 @@ use crate::{hmac, rand, RlsError};
 use crate::boring::CryptParam;
 use crate::ffi::CPointer;
 
+#[cfg_attr(feature = "export", repr(C))]
 #[allow(non_camel_case_types)]
 pub enum CipherType {
-    AES_128_CBC,
-    AES_192_CBC,
-    AES_256_CBC,
-    AES_128_ECB,
-    AES_192_ECB,
-    AES_256_ECB,
-    AES_128_CTR,
-    AES_192_CTR,
-    AES_256_CTR,
-    AES_128_GCM,
-    AES_192_GCM,
-    AES_256_GCM,
-    AES_128_OFB,
-    AES_192_OFB,
-    AES_256_OFB,
-    DES_CBC,
-    DES_ECB,
-    RC4,
+    AES_128_CBC = 0,
+    AES_192_CBC = 1,
+    AES_256_CBC = 2,
+    AES_128_ECB = 3,
+    AES_192_ECB = 4,
+    AES_256_ECB = 5,
+    AES_128_CTR = 6,
+    AES_192_CTR = 7,
+    AES_256_CTR = 8,
+    AES_128_GCM = 9,
+    AES_192_GCM = 10,
+    AES_256_GCM = 11,
+    AES_128_OFB = 12,
+    AES_192_OFB = 13,
+    AES_256_OFB = 14,
+    DES_CBC = 15,
+    DES_ECB = 16,
+    RC4 = 17,
 }
 
 impl CipherType {

@@ -1,5 +1,5 @@
 use super::super::extend::Aead;
-use crate::boring::{Hasher, Sha};
+use crate::boring::{Hasher, HashType};
 use crate::error::RlsResult;
 use crate::RlsError;
 use std::fmt::{Debug, Formatter};
@@ -274,11 +274,11 @@ impl CipherSuite {
     fn find_hasher(&self) -> RlsResult<Hasher> {
         let text = self.spec().to_lowercase();
         if text.contains("sha256") {
-            Ok(Hasher::new(Sha::Sha256)?)
+            Ok(Hasher::new(HashType::Sha256)?)
         } else if text.contains("sha384") {
-            Ok(Hasher::new(Sha::Sha384)?)
+            Ok(Hasher::new(HashType::Sha384)?)
         } else if text.ends_with("_sha") {
-            Ok(Hasher::new(Sha::Sha1)?)
+            Ok(Hasher::new(HashType::Sha1)?)
         } else {
             Err(RlsError::HasherNone)
         }
@@ -323,13 +323,13 @@ impl Clone for CipherSuite {
 
 #[cfg(test)]
 mod tests {
-    use crate::boring::Sha;
+    use crate::boring::HashType;
     use crate::suite::suite::Hasher;
     use std::fs;
 
     #[test]
     fn test_hasher() {
-        let mut hasher = Hasher::new(Sha::Sha256).unwrap();
+        let mut hasher = Hasher::new(HashType::Sha256).unwrap();
         hasher.update(fs::read("../ClientHello").unwrap()).unwrap();
         hasher.update(fs::read("../ServerHello").unwrap()).unwrap();
         hasher.update(fs::read("../Certificate").unwrap()).unwrap();
