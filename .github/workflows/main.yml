@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: build
-        run: cargo build --package reqrio --release --feautres export
+        run: cargo build --package reqrio --release --features export
   build-windows:
     runs-on: windows-latest
     steps:
@@ -26,4 +26,4 @@ jobs:
         with:
           arch: x64
       - name: build
-        run: cargo build --package reqrio --release --feautres export
+        run: cargo build --package reqrio --release --features export
