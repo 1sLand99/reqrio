@@ -1,6 +1,6 @@
 use std::ptr::null_mut;
 use crate::boring::BoringResExt;
-use super::Sha;
+use super::HashType;
 use crate::error::RlsResult;
 use crate::ffi::CPointer;
 use crate::RlsError;
@@ -8,14 +8,14 @@ use super::super::bindings::*;
 
 pub struct Hasher {
     ctx: CPointer<EVP_MD_CTX>,
-    sha: Sha,
+    sha: HashType,
     buf: [u8; 64],
     len: u32,
     updated: bool,
 }
 
 impl Hasher {
-    pub fn new(sha: Sha) -> RlsResult<Hasher> {
+    pub fn new(sha: HashType) -> RlsResult<Hasher> {
         let ctx = CPointer::new_checked(unsafe { EVP_MD_CTX_new() }, RlsError::InitEvpCtxError)?;
         unsafe { EVP_DigestInit_ex(ctx.as_mut_ptr(), sha.evp_md(), null_mut()) }.ok(RlsError::InitDigestError)?;
         Ok(Hasher {
@@ -49,24 +49,24 @@ impl Hasher {
         Ok(self.buf[..self.len as usize].to_vec())
     }
 
-    pub fn sha(&self) -> &Sha {
+    pub fn sha(&self) -> &HashType {
         &self.sha
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::boring::Sha;
+    use crate::boring::HashType;
     use crate::boring::hash::hasher::Hasher;
 
     #[test]
     fn test_hasher() {
-        let mut hasher = Hasher::new(Sha::Sha256).unwrap();
+        let mut hasher = Hasher::new(HashType::Sha256).unwrap();
         hasher.update(b"hello world").unwrap();
         println!("{:?}", hasher.finalize().unwrap());
         println!("{:?}", super::super::sha256("hello world").unwrap());
 
-        let mut hash_md5 = Hasher::new(Sha::MD5).unwrap();
+        let mut hash_md5 = Hasher::new(HashType::MD5).unwrap();
         hash_md5.update(b"hello world").unwrap();
         println!("{:?}", hash_md5.finalize().unwrap());
 

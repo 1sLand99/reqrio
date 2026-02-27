@@ -1,6 +1,6 @@
 use std::ptr::null_mut;
 use crate::boring::BoringResExt;
-use super::Sha;
+use super::HashType;
 use super::super::bindings::*;
 use crate::error::RlsResult;
 use crate::ffi::CPointer;
@@ -14,7 +14,7 @@ pub struct Hmac {
 }
 
 impl Hmac {
-    pub fn new(key: impl AsRef<[u8]>, sha: Sha) -> RlsResult<Hmac> {
+    pub fn new(key: impl AsRef<[u8]>, sha: HashType) -> RlsResult<Hmac> {
         let ctx = CPointer::new_checked(unsafe { HMAC_CTX_new() },RlsError::HmacCtxNull)?;
         unsafe {
             HMAC_Init_ex(
@@ -43,7 +43,7 @@ impl Hmac {
     }
 }
 
-fn hmac(key: &[u8], data: &[u8], out: &mut [u8], sha: Sha) -> RlsResult<usize> {
+fn hmac(key: &[u8], data: &[u8], out: &mut [u8], sha: HashType) -> RlsResult<usize> {
     let mut len = 0;
     let ret = unsafe {
         HMAC(
@@ -62,35 +62,35 @@ fn hmac(key: &[u8], data: &[u8], out: &mut [u8], sha: Sha) -> RlsResult<usize> {
 
 pub fn hmac_sha1(key: impl AsRef<[u8]>, data: impl AsRef<[u8]>) -> RlsResult<[u8; 20]> {
     let mut out = [0; 20];
-    hmac(key.as_ref(), data.as_ref(), &mut out[..], Sha::Sha1)?;
+    hmac(key.as_ref(), data.as_ref(), &mut out[..], HashType::Sha1)?;
     Ok(out)
 }
 
 pub fn hmac_sha256(key: impl AsRef<[u8]>, data: impl AsRef<[u8]>) -> RlsResult<[u8; 32]> {
     let mut out = [0; 32];
-    hmac(key.as_ref(), data.as_ref(), &mut out[..], Sha::Sha1)?;
+    hmac(key.as_ref(), data.as_ref(), &mut out[..], HashType::Sha1)?;
     Ok(out)
 }
 
 pub fn hmac_sha384(key: impl AsRef<[u8]>, data: impl AsRef<[u8]>) -> RlsResult<[u8; 48]> {
     let mut out = [0; 48];
-    hmac(key.as_ref(), data.as_ref(), &mut out[..], Sha::Sha1)?;
+    hmac(key.as_ref(), data.as_ref(), &mut out[..], HashType::Sha1)?;
     Ok(out)
 }
 
 pub fn hmac_sha512(key: impl AsRef<[u8]>, data: impl AsRef<[u8]>) -> RlsResult<[u8; 64]> {
     let mut out = [0; 64];
-    hmac(key.as_ref(), data.as_ref(), &mut out[..], Sha::Sha1)?;
+    hmac(key.as_ref(), data.as_ref(), &mut out[..], HashType::Sha1)?;
     Ok(out)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::boring::hash::{Hmac, Sha};
+    use crate::boring::hash::{Hmac, HashType};
 
     #[test]
     fn test_hmac() {
-        let mut hmac = Hmac::new("test", Sha::Sha256).unwrap();
+        let mut hmac = Hmac::new("test", HashType::Sha256).unwrap();
         hmac.update("sdf").unwrap();
         println!("{:?}", hmac.finalize().unwrap());
     }

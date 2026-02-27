@@ -1,13 +1,13 @@
 use crate::boring;
-use crate::boring::{Hasher, Sha};
+use crate::boring::{Hasher, HashType};
 use crate::error::RlsResult;
 
-pub struct Prf(Sha);
+pub struct Prf(HashType);
 
 
 impl Prf {
     pub fn default() -> Prf {
-        Prf(Sha::Sha256)
+        Prf(HashType::Sha256)
     }
 
     pub fn from_hasher(hasher: &Hasher) -> Prf {
@@ -40,7 +40,7 @@ impl Prf {
 
 #[cfg(test)]
 mod tests {
-    use crate::boring::{Hasher, Sha};
+    use crate::boring::{Hasher, HashType};
     use crate::prf::Prf;
 
     #[test]
@@ -49,7 +49,7 @@ mod tests {
         let share_secret = [189, 131, 30, 96, 115, 185, 113, 187, 225, 41, 170, 137, 172, 238, 155, 134, 67, 209, 193, 147, 14, 95, 123, 199, 218, 123, 24, 132, 246, 107, 134, 13];
         let session_hash = [203, 88, 253, 224, 105, 246, 231, 82, 172, 215, 174, 32, 168, 62, 147, 60, 219, 189, 233, 197, 149, 10, 0, 47, 84, 235, 172, 168, 140, 212, 108, 127];
         let mut master_secret = [0; 48];
-        let mut prf = Prf::from_hasher(&Hasher::new(Sha::Sha256).unwrap());
+        let mut prf = Prf::from_hasher(&Hasher::new(HashType::Sha256).unwrap());
         prf.prf(&share_secret, "extended master secret", &session_hash, &mut master_secret).unwrap();
         println!("{:?}", master_secret);
         let client_random = [168, 102, 144, 116, 168, 105, 73, 53, 141, 158, 97, 68, 2, 18, 204, 19, 248, 142, 178, 215, 223, 48, 197, 110, 19, 11, 72, 208, 168, 74, 129, 61];
