@@ -146,10 +146,11 @@ pub use record::{RecordLayer, RecordType};
 pub use error::RlsError;
 pub use version::Version;
 pub use range::RangeExt;
-pub use boring::{hash, hmac, base64, Cipher, CipherType, Padding, RsaCipher, RsaKey, certificate::Certificate,
-                 cipher, certificate::DnType, certificate::CertSigner, certificate::CertExtend, certificate::BasicConstraint,
-                 certificate::KeyUsage, certificate::KeyIdentifier, certificate::SubjectAltName};
-pub use boring::{certificate::CertStore, SignatureAlgorithm, AlgorithmSigner};
+pub use boring::{hash, hmac, base64, Cipher, CipherType, Padding, RsaCipher, RsaKey, RsaPadding,
+                 certificate::Certificate, cipher, certificate::DnType, certificate::CertSigner,
+                 certificate::CertExtend, certificate::BasicConstraint, certificate::KeyUsage,
+                 certificate::KeyIdentifier, certificate::SubjectAltName, certificate::CertStore,
+                 SignatureAlgorithm, AlgorithmSigner};
 pub use hex;
 pub use suite::CipherSuite;
 pub use extend::{Extension, ExtensionType, group::GroupType, formats::EcPointFormat, SupportVersions, CompressionType};
@@ -173,3 +174,6 @@ pub mod coder;
 mod alpn;
 mod ext;
 mod share_key;
+
+#[cfg(feature = "export")]
+mod export;

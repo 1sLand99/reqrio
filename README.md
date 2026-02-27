@@ -66,7 +66,6 @@ HTTP client capabilities.
     ```yaml
     [dependencies]
     reqrio = "0.1.1"
-    Example
     ```
 
 * Example
@@ -91,12 +90,12 @@ HTTP client capabilities.
     ```
 * Example
     ```python
-    from reqrio import Session, ALPN
-    
-    session = Session(ALPN.HTTP11)
-    resp = session.get("https://httpbin.org/get")
-    print(resp.text())
-    
+  from reqrio import Session, ALPN
+  
+  session = Session(ALPN.HTTP11)
+  resp = session.get("https://httpbin.org/get")
+  print(resp.text())
+  
     ```
 
 ### Java/Maven

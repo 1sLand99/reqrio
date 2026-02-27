@@ -20,7 +20,7 @@ reqtls = { workspace = true, features = ["zstd", "urlencoding"] }
 
 [features]
 aync = ["tokio"]
-export = []
+export = ["reqtls/export"]
 dylib = ["reqtls/dylib"]
 
 
