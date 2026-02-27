@@ -124,7 +124,7 @@ impl Connection {
         if let SharedKey::None = self.shared_key {
             self.shared_key = SharedKey::new_pre_master_secret()?;
             let rsa = RsaCipher::new(self.certificates[0].pub_key()?)?;
-            return Ok(Buf::Vec(rsa.encrypt(self.shared_key.pub_key()?.as_slice(), false)?));
+            return Ok(Buf::Vec(rsa.encrypt(self.shared_key.pub_key()?.as_slice())?));
         }
         self.shared_key.pub_key()
     }

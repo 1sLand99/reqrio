@@ -3,7 +3,7 @@ pub(crate) mod bindings;
 pub mod hash;
 mod signature;
 
-pub use rsa::{RsaCipher, RsaKey, certificate};
+pub use rsa::{RsaCipher, RsaKey, certificate, RsaPadding};
 pub(crate) mod rsa;
 
 mod evp;

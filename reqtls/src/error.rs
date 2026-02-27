@@ -11,6 +11,7 @@ use crate::Alert;
 
 #[derive(Debug)]
 pub enum RlsError {
+    NullPtr,
     ClientHelloNone,
     EncrypterNone,
     DecrypterNone,
@@ -96,6 +97,7 @@ pub enum RlsError {
 impl Display for RlsError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            RlsError::NullPtr => write!(f, "NullPtr"),
             RlsError::ClientHelloNone => f.write_str("Client hello none"),
             RlsError::EncrypterNone => f.write_str("Encrypter none"),
             RlsError::DecrypterNone => f.write_str("Decrypter none"),
