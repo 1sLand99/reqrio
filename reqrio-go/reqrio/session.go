@@ -236,8 +236,8 @@ func (session *Session) Trace() (Response, error) {
 	return session.sendRequest(TRACE)
 }
 
-func (session *Session) Patch() (Response,error){
-    return session.sendRequest(Patch)
+func (session *Session) Patch() (Response, error) {
+	return session.sendRequest(PATCH)
 }
 
 func (session *Session) Close() {
