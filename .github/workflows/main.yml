@@ -17,6 +17,26 @@ jobs:
       - uses: actions/checkout@v4
       - name: build
         run: cargo build --package reqrio --release --features export
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9.7"
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=${{ github.workspace }}/master/reqrio-py" >> $GITHUB_ENV
+      - name: Run Python FFI Test
+        run: python tests-ffi/python_test.py
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+      - name: Install Node deps
+        run: |
+          npm init -y
+          npm install ffi-napi
+          npm install ref-napi
+
+      - name: Run Node FFI Test
+        run: node tests-ffi/node_test.js
   build-windows:
     runs-on: windows-latest
     steps:
