@@ -1,7 +1,9 @@
 use std::string::FromUtf8Error;
 use crate::boring::bindings::*;
+use crate::boring::BoringResExt;
 use crate::error::RlsResult;
 use crate::ffi::CPointer;
+use crate::RlsError;
 
 pub struct Base64 {
     ctx: CPointer<EVP_ENCODE_CTX>,
@@ -40,23 +42,25 @@ impl Base64 {
     pub fn decrypt(&self, data: &[u8]) -> RlsResult<Vec<u8>> {
         let mut out = vec![0u8; 3 * data.len() / 4];
         let mut len = 0;
-        unsafe {
+        let ret = unsafe {
             EVP_DecodeUpdate(
                 self.ctx.as_mut_ptr(),
                 out.as_mut_ptr(),
                 &mut len,
                 data.as_ptr(),
                 data.len(),
-            );
-        }
+            )
+        };
+        if ret == -1 { return Err(RlsError::Currently("b64 decode update fail".to_owned())); };
+        println!("{}", ret);
         let mut padding = 0;
         unsafe {
             EVP_DecodeFinal(
                 self.ctx.as_mut_ptr(),
                 out.as_mut_ptr().add(len as usize),
                 &mut padding,
-            );
-        }
+            )
+        }.ok(RlsError::Currently("b64 decode final fail".to_owned()))?;
         out.truncate((len + padding) as usize);
         Ok(out)
     }
