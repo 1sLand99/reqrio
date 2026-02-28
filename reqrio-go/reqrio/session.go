@@ -4,7 +4,7 @@ package reqrio
 #include <stdint.h>
 #include <stdbool.h>
 
-#cgo LDFLAGS: -LD:/projects/rust/reqrio/target/x86_64-pc-windows-gnu/release -lreqrio
+#cgo LDFLAGS: -lreqrio
 extern void * ScReq_new();
 extern int ScReq_set_header_json(void *req, const char *headers);
 extern int ScReq_add_header(void *req, const char *name, char *value);
