@@ -17,31 +17,34 @@ jobs:
       - uses: actions/checkout@v4
       - name: build
         run: cargo build --package reqrio --release --features export
-#      - name: Setup Python
-#        uses: actions/setup-python@v5
-#        with:
-#          python-version: "3.9.x"
       - name: Copy So
         run: |
-          copy target\release\libreqrio.so reqrio-py\reqrio\
+          cp target/release/libreqrio.so reqrio-py/reqrio/
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=${{ github.workspace }}/reqrio-py" >> $GITHUB_ENV
       - name: Run Python FFI Test
         run: python reqrio-py/tests/test_session.py
+      - name: Run Go FFI Test
+        run: |
+          cp target/release/libreqrio.so reqrio-go/
+          echo "CGO-ENABLED=1 " >> $GITHUB_ENV
+          cd reqrio-go&&go run main.go
+
   build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-#      - name: Install MSVC
-#        uses: ilammy/msvc-dev-cmd@v1
-#        with:
-#          arch: x64
       - name: build
         run: cargo build --package reqrio --release --features export
       - name: Copy DLL
         run: |
-          copy target\release\reqrio.dll reqrio-py\reqrio\
+          copy target\\release\\reqrio.dll reqrio-py\\reqrio\\
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=${{ github.workspace }}\\reqrio-py" >> $env:GITHUB_ENV
       - name: Run Python FFI Test
         run: python reqrio-py/tests/test_session.py
+      - name: Run Go FFI Test
+        run: |
+          copy target\\release\\reqrio.dll reqrio-go\\
+          echo "CGO-ENABLED=1 " >> $env:GITHUB_ENV
+          cd reqrio-go&&go run main.go
