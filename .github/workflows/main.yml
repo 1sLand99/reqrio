@@ -29,11 +29,11 @@ jobs:
 #        uses: actions/setup-node@v4
 #        with:
 #          node-version: "24"
-      - name: Install Node deps
-        run: |
-          npm init -y
-          npm i ffi-napi
-          npm i ref-napi
+#      - name: Install Node deps
+#        run: |
+#          npm init -y
+#          npm i ffi-napi
+#          npm i ref-napi
 
       - name: Run Node FFI Test
         run: node reqrio-js/test.js
@@ -61,7 +61,7 @@ jobs:
 #          node-version: "24"
       - name: Install Node deps
         run: |
-          npm init -y
+#          npm init -y
           npm i ffi-napi
           npm i ref-napi
 
