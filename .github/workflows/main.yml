@@ -26,7 +26,7 @@ jobs:
         run: python reqrio-py/tests/test_session.py
       - name: Run Go FFI Test
         env:
-          LD_LIBRARY_PATH: ${{ github.workspace }}/reqrio.go:${{ env.LD_LIBRARY_PATH }}
+          LD_LIBRARY_PATH: ${{ github.workspace }}/reqrio-go:${{ env.LD_LIBRARY_PATH }}
         run: |
           cp target/release/libreqrio.so reqrio-go/
           echo "CGO-ENABLED=1 " >> $GITHUB_ENV
@@ -52,7 +52,7 @@ jobs:
           go-version: '1.26'
       - name: Run Go FFI Test
         env:
-          PATH: ${{ github.workspace }}\reqrio.go;${{ env.PATH }}
+          PATH: ${{ github.workspace }}\reqrio-go;${{ env.PATH }}
         run: |
           copy target\\x86_64-pc-windows-gnu\\release\\reqrio.dll reqrio-go\\
           echo "CGO-ENABLED=1 " >> $env:GITHUB_ENV
