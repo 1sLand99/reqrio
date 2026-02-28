@@ -52,10 +52,10 @@ func main() {
 
 	ws, err := reqrio.BuildWebSocket("wss://alive.github.com")
 	if err != nil {
-		panic(err)
+		return
 	}
 	err = ws.Open()
 	if err != nil {
-		panic(err)
+		return
 	}
 }
