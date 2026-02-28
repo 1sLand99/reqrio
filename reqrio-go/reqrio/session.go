@@ -2,6 +2,7 @@ package reqrio
 
 /*
 #include <stdint.h>
+#include <stdbool.h>
 
 #cgo LDFLAGS: -LD:/projects/rust/reqrio/target/x86_64-pc-windows-gnu/release -lreqrio
 extern void * ScReq_new();

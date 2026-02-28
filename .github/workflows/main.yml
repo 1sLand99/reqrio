@@ -34,7 +34,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: build
+      - name: build-msvc
         run: cargo build --package reqrio --release --features export
       - name: Copy DLL
         run: |
@@ -43,8 +43,10 @@ jobs:
         run: echo "PYTHONPATH=${{ github.workspace }}\\reqrio-py" >> $env:GITHUB_ENV
       - name: Run Python FFI Test
         run: python reqrio-py/tests/test_session.py
+      - name: build-gnu
+        run: cargo build --package reqrio --release --features export --target x86_64-pc-windows-gnu
       - name: Run Go FFI Test
         run: |
-          copy target\\release\\reqrio.dll reqrio-go\\
+          copy target\\x86_64-pc-windows-gnu\\release\\reqrio.dll reqrio-go\\
           echo "CGO-ENABLED=1 " >> $env:GITHUB_ENV
           cd reqrio-go&&go run main.go
