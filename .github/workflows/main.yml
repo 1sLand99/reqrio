@@ -25,6 +25,8 @@ jobs:
       - name: Run Python FFI Test
         run: python reqrio-py/tests/test_session.py
       - name: Run Go FFI Test
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/reqrio-go
         run: |
           cp target/release/libreqrio.so reqrio-go/
           echo "CGO-ENABLED=1 " >> $GITHUB_ENV
