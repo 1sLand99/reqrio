@@ -24,7 +24,7 @@ jobs:
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=${{ github.workspace }}/master/reqrio-py" >> $GITHUB_ENV
       - name: Run Python FFI Test
-        run: python tests-ffi/python_test.py
+        run: python reqrio-py/tests/test_session.py
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -36,7 +36,7 @@ jobs:
           npm install ref-napi
 
       - name: Run Node FFI Test
-        run: node tests-ffi/node_test.js
+        run: node reqrio-js/test.js
   build-windows:
     runs-on: windows-latest
     steps:
@@ -54,7 +54,7 @@ jobs:
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=${{ github.workspace }}/master/reqrio-py" >> $GITHUB_ENV
       - name: Run Python FFI Test
-        run: python tests-ffi/python_test.py
+        run: python reqrio-py/tests/test_session.py
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -66,4 +66,4 @@ jobs:
           npm install ref-napi
 
       - name: Run Node FFI Test
-        run: node tests-ffi/node_test.js
+        run: node reqrio-js/test.js
