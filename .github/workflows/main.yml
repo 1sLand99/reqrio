@@ -57,4 +57,4 @@ jobs:
           copy target\\x86_64-pc-windows-gnu\\release\\reqrio.dll reqrio-go\\
           echo "CGO-ENABLED=1 " >> $env:GITHUB_ENV
           cd reqrio-go
-          go.exe run main.go
+          go run main.go
