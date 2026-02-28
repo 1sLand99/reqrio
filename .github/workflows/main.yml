@@ -28,7 +28,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "24"
       - name: Install Node deps
         run: |
           npm init -y
@@ -52,13 +52,13 @@ jobs:
         with:
           python-version: "3.9.7"
       - name: Set PYTHONPATH
-        run: echo "PYTHONPATH=${{ github.workspace }}/reqrio-py" >> $GITHUB_ENV
+        run: echo "PYTHONPATH=${{ github.workspace }}\\reqrio-py" >> $env:GITHUB_ENV
       - name: Run Python FFI Test
         run: python reqrio-py/tests/test_session.py
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "24"
       - name: Install Node deps
         run: |
           npm init -y
