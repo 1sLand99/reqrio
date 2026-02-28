@@ -14,6 +14,17 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: |
+            ${{ runner.os }}-cargo-${{ github.ref }}-${{ hashFiles('**/Cargo.lock') }}
+            ${{ runner.os }}-cargo-${{ github.ref }}-
+            ${{ runner.os }}-cargo-
+          cache-on-failure: true
+          cache-directories: |
+            ~/
+          prefix-key: |
+            ${{ runner.os }}-cargo-
       - uses: actions/checkout@v4
       - name: build
         run: cargo build --package reqrio --release --features export
@@ -35,6 +46,17 @@ jobs:
   build-windows:
     runs-on: windows-latest
     steps:
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: |
+            ${{ runner.os }}-cargo-${{ github.ref }}-${{ hashFiles('**/Cargo.lock') }}
+            ${{ runner.os }}-cargo-${{ github.ref }}-
+            ${{ runner.os }}-cargo-
+          cache-on-failure: true
+          cache-directories: |
+            ~/
+          prefix-key: |
+            ${{ runner.os }}-cargo-
       - uses: actions/checkout@v4
       - name: build-msvc
         run: cargo build --package reqrio --release --features export
