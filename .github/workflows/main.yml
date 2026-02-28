@@ -25,10 +25,10 @@ jobs:
         run: echo "PYTHONPATH=${{ github.workspace }}/reqrio-py" >> $GITHUB_ENV
       - name: Run Python FFI Test
         run: python reqrio-py/tests/test_session.py
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
+#      - name: Setup Node
+#        uses: actions/setup-node@v4
+#        with:
+#          node-version: "24"
       - name: Install Node deps
         run: |
           npm init -y
@@ -41,10 +41,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
+#      - name: Install MSVC
+#        uses: ilammy/msvc-dev-cmd@v1
+#        with:
+#          arch: x64
       - name: build
         run: cargo build --package reqrio --release --features export
 #      - name: Setup Python
@@ -55,10 +55,10 @@ jobs:
         run: echo "PYTHONPATH=${{ github.workspace }}\\reqrio-py" >> $env:GITHUB_ENV
       - name: Run Python FFI Test
         run: python reqrio-py/tests/test_session.py
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
+#      - name: Setup Node
+#        uses: actions/setup-node@v4
+#        with:
+#          node-version: "24"
       - name: Install Node deps
         run: |
           npm init -y
