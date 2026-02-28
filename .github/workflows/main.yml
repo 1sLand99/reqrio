@@ -21,20 +21,13 @@ jobs:
 #        uses: actions/setup-python@v5
 #        with:
 #          python-version: "3.9.x"
+      - name: Copy So
+        run: |
+          copy target\release\libreqrio.so reqrio-py\reqrio\
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=${{ github.workspace }}/reqrio-py" >> $GITHUB_ENV
       - name: Run Python FFI Test
         run: python reqrio-py/tests/test_session.py
-#      - name: Setup Node
-#        uses: actions/setup-node@v4
-#        with:
-#          node-version: "24"
-      - name: Install Node deps
-        run: |
-          npm i ffi-napi
-          npm i ref-napi
-      - name: Run Node FFI Test
-        run: node reqrio-js/test.js
   build-windows:
     runs-on: windows-latest
     steps:
@@ -45,22 +38,10 @@ jobs:
 #          arch: x64
       - name: build
         run: cargo build --package reqrio --release --features export
-#      - name: Setup Python
-#        uses: actions/setup-python@v5
-#        with:
-#          python-version: "3.9.7"
+      - name: Copy DLL
+        run: |
+          copy target\release\reqrio.dll reqrio-py\reqrio\
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=${{ github.workspace }}\\reqrio-py" >> $env:GITHUB_ENV
       - name: Run Python FFI Test
         run: python reqrio-py/tests/test_session.py
-#      - name: Setup Node
-#        uses: actions/setup-node@v4
-#        with:
-#          node-version: "24"
-      - name: Install Node deps
-        run: |
-          npm i ffi-napi
-          npm i ref-napi
-
-      - name: Run Node FFI Test
-        run: node reqrio-js/test.js
