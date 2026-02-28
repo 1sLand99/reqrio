@@ -2,6 +2,7 @@ package reqrio
 
 /*
 #include <stdint.h>
+#include <stdbool.h>
 
 extern void * ws_build();
 extern int ws_add_header(void *builder, const char *name, const char *value);
