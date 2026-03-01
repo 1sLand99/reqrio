@@ -71,3 +71,9 @@ class WebSocket:
 
     def close(self):
         DLL.ws_close(self.ws)
+        self.ws = None
+
+    def __del__(self):
+        if hasattr(self, "ws") and self.ws:
+            DLL.ws_close(self.ws)
+            self.ws = None

@@ -2,8 +2,9 @@ package reqrio
 
 /*
 #include <stdint.h>
+#include <stdbool.h>
 
-#cgo LDFLAGS: -LD:/projects/rust/reqrio/target/x86_64-pc-windows-gnu/release -lreqrio
+#cgo LDFLAGS: -L${SRCDIR}/../ -lreqrio
 extern void * ScReq_new();
 extern int ScReq_set_header_json(void *req, const char *headers);
 extern int ScReq_add_header(void *req, const char *name, char *value);
@@ -236,8 +237,8 @@ func (session *Session) Trace() (Response, error) {
 	return session.sendRequest(TRACE)
 }
 
-func (session *Session) Patch() (Response,error){
-    return session.sendRequest(Patch)
+func (session *Session) Patch() (Response, error) {
+	return session.sendRequest(PATCH)
 }
 
 func (session *Session) Close() {

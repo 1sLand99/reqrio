@@ -184,6 +184,7 @@ class Session:
     def close(self):
         """记得关闭资源，否则容易造成内存溢出"""
         self.dll.ScReq_drop(self.hid)
+        self.hid = None
 
     def __del__(self):
         if hasattr(self, 'dll') and self.dll:

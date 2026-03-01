@@ -11,65 +11,62 @@
 
 # reqrio
 
-## Introduction
+## 介绍
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;reqrio is a library designed for making HTTP requests quickly, easily, and conveniently.
-Its goal is to enable fast,
-simple, and convenient use of HTTP requests.
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;reqrio 是一个旨在快速、轻松且便捷地发送 HTTP 请求的库。
+其目标是实现快速、简单便捷的HTTP请求使用。
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Reqrio is an HTTP request library that supports multiple protocols and language bindings,
-providing high-performance
-HTTP client capabilities.
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Reqrio是一个HTTP请求库，支持多种协议和语言绑定，提供高性能的HTTP客户端功能。
 
-## Features
+## 特性/亮点
 
-- HTTP protocol support
-- Support for HTTP/1.1 and HTTP/2 (H2) protocols
-- Synchronous and asynchronous request modes
-- Request/Response Handling
-- Cookie Automatic Inheritance Management
-- Request Header Order Control
-- Data stream processing
+- HTTP协议支持
+- 支持HTTP/1.1和HTTP/2（H2）协议
+- 同步和异步请求模式
+- 请求/响应处理
+- Cookie自动继承管理
+- 请求标头顺序控制
+- 数据流处理
 
-## TLS Security Features
+## TLS安全功能
 
-- TLS 1.2 Support
-- TLS Fingerprint Spoofing (JA3/JA4)
-- Custom fingerprint support
-- Support for multiple cipher suites
+- TLS 1.2支持
+- TLS指纹欺骗（JA3/JA4）
+- 自定义指纹支持
+- 支持多种密码套件
 
-## Proxy Support
+## 代理支持
 
-- HTTP Proxy
-- SOCKS5 Proxy (No Authentication Mode)
+- HTTP代理
+- SOCKS5代理（无身份验证模式）
 
-## Data Processing
+## 数据处理
 
-- JSON support
-- Multiple data formats (forms, JSON, text, binary)
-- Compression support (Gzip, Deflate, Brotli, Zstd)
-- Encoding Support (Base64, Hex, URL Encoding)
+- JSON支持
+- 多种数据格式（表单、JSON、文本、二进制）
+- 压缩支持（Gzip、Deflate、Brotli、Zstd）
+- 编码支持（Base64、十六进制、URL编码）
 
-## Language Bindings
+## 语言绑定
 
-- Rust (Native)
-- Python (FFI)
-- Java (JNA )
-- Node.js (FFI )
-- Qt/C++ (FFI )
-- Go (CGO)
+- 铁锈（原生）
+- Python（FFI）
+- Java（JNA）
+- Node.js（FFI）
+- Qt/C++（FFI）
+- Go（CGO）
 
-## Usage
+## 使用示例
 
 ### Rust
 
-* dependency
+* 添加依赖
     ```yaml
     [dependencies]
     reqrio = "0.1.1"
     ```
 
-* Example
+* 示例
     ```rust
     use reqrio::ScReq;
     
@@ -85,11 +82,11 @@ HTTP client capabilities.
 
 ### Python
 
-* Install
+* 安装
     ```bash
     pip install reqrio
     ```
-* Example
+* 示例
     ```python
   from reqrio import Session, ALPN
   
@@ -101,7 +98,7 @@ HTTP client capabilities.
 
 ### Java/Maven
 
-* dependency
+* 依赖
     ```xml
     <dependency>
         <groupId>io.github.xllgl2017</groupId>
@@ -110,7 +107,7 @@ HTTP client capabilities.
     </dependency>
     ```
 
-* Example
+* 示例
 
   ```java
   import org.xllgl2017.Session;
@@ -125,13 +122,13 @@ HTTP client capabilities.
 
 ### Node.js
 
-* Install
+* 安装
 
   ```bach
   npm install reqrio
   ```
 
-* Example
+* 示例
   ```javascript
   
   const {Session, ALPN} = require('reqrio');
@@ -145,7 +142,7 @@ HTTP client capabilities.
 
 ### Go
 
-* Example
+* 示例
   ```go
   import("github.com/xllgl2017/reqrio/reqrio-go/reqrio")
   
@@ -162,7 +159,7 @@ HTTP client capabilities.
   
   ```
 
-## WebSocket Support
+## WebSocket 支持
 
 ```rust
 let mut ws = WebSocket::open("wss://echo.websocket.org") ?;
@@ -173,50 +170,50 @@ println!("Received: {:?}", frame);
 
 # reqtls
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;reqtls is a high-performance TLS and cryptographic foundation library built for the
-reqrio ecosystem, providing complete
-encryption, signing, certificate handling, and encoding capabilities. It focuses on security, scalability, and
-cross-platform support, making it suitable for building HTTPS clients, proxy services, certificate issuance systems, and
-custom secure communication protocols.
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;reqtls是一个高性能的TLS和加密基础库，专为
+reqrio生态系统，提供完整的
+加密、签名、证书处理和编码功能。它侧重于安全性、可扩展性和
+跨平台支持，使其适用于构建HTTPS客户端、代理服务、证书颁发系统，以及
+自定义安全通信协议。
 
-## Encryption support
+## 加密支持
 
-- Cipher Encryption/Decryption: AES (CBC, ECB, CTR, GCM, OFB), DES
-- RSA Encryption/Decryption: Supports PKCS1 and PSS padding
-- AEAD Encryption: Supports various AEAD algorithms
+- 密码加密/解密：AES（CBC、ECB、CTR、GCM、OFB）、DES
+- RSA加密/解密：支持PKCS1和PSS填充
+- AEAD加密：支持各种AEAD算法
 
-## Hash support
+## 哈希支持
 
-- MD5, SHA1, SHA224, SHA256, SHA384, SHA512
+- MD5、SHA1、SHA224、SHA256、SHA384、SHA512
 - HMAC
 
-## Signature Algorithm
+## 签名算法
 
-- RSA Signature (PKCS1, PSS)
-- ECDSA Signature (Multiple Curves)
+- RSA签名（PKCS1、PSS）
+- ECDSA签名（多曲线）
 
-## Certificate Processing
+## 证书处理
 
-- X.509 Certificate Reading and Verification
-- Certificate chain verification
-- Custom Certificate Store
-- CA, Server, and Client certificate generation
+- X.509证书读取和验证
+- 证书链验证
+- 自定义证书存储
+- CA、服务器和客户端证书生成
 
-## Encoding Support
+## 编码支持
 
-- Base64 Encoding/Decoding
-- URL Encoding/Decoding
-- Compression (Gzip, Deflate, Brotli, Zstd)
+- Base64编码/解码
+- URL编码/解码
+- 压缩（Gzip、Deflate、Brotli、Zstd）
 
-## License
+## 许可证
 
-This project is open source under the Apache 2.0 License.
+该项目是Apache 2.0许可证下的开源项目。
 
-## Contributing
+## 贡献
 
-Welcome to submit Issues and Pull Requests.
+欢迎提交问题和拉取请求。
 
-## Contact
+## 联系方式
 
-* Tg: https://t.me/+VVfbAeug-ohhZjU1
-* QQ: 1083315546
+* Tg：https://t.me/+VVfbAeug-ohhZjU1
+* QQ：1083315546

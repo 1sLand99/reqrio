@@ -1,0 +1,81 @@
+name: github
+#git commit -m "修复bug [skip actions]"
+#git commit -m "更新功能 [skip ci]"
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: |
+            ${{ runner.os }}-cargo-${{ github.ref }}-${{ hashFiles('**/Cargo.lock') }}
+            ${{ runner.os }}-cargo-${{ github.ref }}-
+            ${{ runner.os }}-cargo-
+          cache-on-failure: true
+          cache-directories: |
+            ~/
+          prefix-key: |
+            ${{ runner.os }}-cargo-
+      - uses: actions/checkout@v4
+      - name: build
+        run: cargo build --package reqrio --release --features export
+      - name: Copy So
+        run: |
+          cp target/release/libreqrio.so reqrio-py/reqrio/
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=${{ github.workspace }}/reqrio-py" >> $GITHUB_ENV
+      - name: Run Python FFI Test
+        run: python reqrio-py/tests/test_session.py
+      - name: Run Go FFI Test
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/reqrio-go
+        run: |
+          cp target/release/libreqrio.so reqrio-go/
+          echo "CGO-ENABLED=1 " >> $GITHUB_ENV
+          cd reqrio-go&&go run main.go
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: |
+            ${{ runner.os }}-cargo-${{ github.ref }}-${{ hashFiles('**/Cargo.lock') }}
+            ${{ runner.os }}-cargo-${{ github.ref }}-
+            ${{ runner.os }}-cargo-
+          cache-on-failure: true
+          cache-directories: |
+            ~/
+          prefix-key: |
+            ${{ runner.os }}-cargo-
+      - uses: actions/checkout@v4
+      - name: build-msvc
+        run: cargo build --package reqrio --release --features export
+      - name: Copy DLL
+        run: |
+          copy target\\release\\reqrio.dll reqrio-py\\reqrio\\
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=${{ github.workspace }}\\reqrio-py" >> $env:GITHUB_ENV
+      - name: Run Python FFI Test
+        run: python reqrio-py/tests/test_session.py
+      - name: build-gnu
+        run: cargo build --package reqrio --release --features export --target x86_64-pc-windows-gnu
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - name: Run Go FFI Test
+        run: |
+          copy target\\x86_64-pc-windows-gnu\\release\\reqrio.dll reqrio-go\\
+          echo "CGO-ENABLED=1 " >> $env:GITHUB_ENV
+          cd reqrio-go
+          go mod tidy
+          go run main.go
