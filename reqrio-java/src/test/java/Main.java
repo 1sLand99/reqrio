@@ -9,7 +9,7 @@ public class Main {
 
         //初始化，可以设置版本
         Session session = new Session(ALPN.HTTP20);
-        session.set_verify(false);
+        session.setVerify(false);
         session.useRandomFingerprint("w");
         //初始化头部
         Headers headers = getHeaders();
