@@ -26,6 +26,8 @@ namespace bindings {
 
     int ScReq_set_alpn(ScReq *req, const char *alpn);
 
+    void ScReq_set_verify(ScReq *req, bool);
+
     int ScReq_set_random_fingerprint(ScReq *req, const char *token);
 
     int ScReq_set_fingerprint(ScReq *req, const char *fingerprint, const char *token);

@@ -13,11 +13,12 @@ Session::Session() {
 }
 
 
-Session::Session(const ALPN alpn, bool rand_tls, const QString &token) {
+Session::Session(const ALPN alpn, bool rand_tls, const QString &token, bool verify) {
     this->req = bindings::ScReq_new();
     bindings::ScReq_set_alpn(this->req, alpn_str(alpn));
     if (rand_tls && !token.isEmpty())
         bindings::ScReq_set_random_fingerprint(this->req, token.toUtf8());
+    bindings::ScReq_set_verify(this->req, verify);
 }
 
 void Session::set_header_json(const QString &header) const {

@@ -327,35 +327,36 @@ func main() {
 |  2  | ScReq_set_header_json        | void *, const char *                          |  int   |
 |  3  | ScReq_add_header             | void *, const char *, const char *            |  int   |
 |  4  | ScReq_set_alpn               | void *, const char *                          |  int   |
-|  5  | ScReq_set_random_fingerprint | void *, const char *                          |  int   | Return -2 as unsubscribed |
-|  6  | ScReq_set_fingerprint        | void *, const char *, const char *            |  int   | Return -2 as unsubscribed |
-|  7  | ScReq_set_ja3                | void *, const char *, const char *            |  int   | Return -2 as unsubscribed |
-|  8  | ScReq_set_ja4                | void *, const char *, const char *            |  int   | Return -2 as unsubscribed |
-|  9  | ScReq_set_proxy              | void *, const char *                          |  int   |    值为http://或socks5://    |
-| 10  | ScReq_set_url                | void *, const char *                          |  int   |        在设置body前调用         |
-| 11  | ScReq_add_param              | void *, const char *, const char *            |  int   |
-| 12  | ScReq_set_data               | void *, const char *                          |  int   |
-| 13  | ScReq_set_json               | void *, const char *                          |  int   |
-| 14  | ScReq_set_bytes              | void *, const char *, uint32_t                |  int   |
-| 15  | ScReq_set_text               | void *, const char *                          |  int   |
-| 16  | ScReq_set_timeout            | void *, const char *                          |  int   |      Timeout结构转json       |
-| 17  | ScReq_set_cookie             | void *, const char *                          |  int   |
-| 18  | ScReq_add_cookie             | void *, const char *, const char *            |  int   |
-| 19  | ScReq_set_callback           | void *                                        |  int   |
-| 20  | ScReq_reconnect              | void *                                        | char * |                           |
-| 21  | ScReq_stream_io              | void *, Method                                | char * |          返回十六进制           |
-| 22  | ScReq_drop                   | void *                                        | char * |         销毁ScReq实例         |
-| 23  | char_free                    | void *                                        | char * |        销毁char *指针         |
-| 24  | ws_build                     | void *                                        | char * |                           |
-| 25  | ws_add_header                | void *                                        | char * |                           |
-| 26  | ws_set_proxy                 | void *                                        |   -    |    值为http://或socks5://    |
-| 27  | ws_set_url                   | char *                                        |   -    |                           |
-| 28  | ws_set_uri                   | void *, extern "C" fn(const char *, uint32_t) |  int   |
-| 29  | ws_open                      | -                                             | void * |
-| 30  | ws_open_raw                  | void *, const char *, const char *            |  int   |
-| 31  | ws_read                      | void *, const char *                          |  int   |          以json返回          |
-| 32  | ws_write                     | void *, const char *                          |  int   |      opcode,mask,msg      |
-| 33  | ws_close                     | void *, const char *                          |  int   |          销毁ws实例           |
+|  5  | ScReq_set_verify             | void *,const char *                           |   -    |
+|  6  | ScReq_set_random_fingerprint | void *, const char *                          |  int   | Return -2 as unsubscribed |
+|  7  | ScReq_set_fingerprint        | void *, const char *, const char *            |  int   | Return -2 as unsubscribed |
+|  8  | ScReq_set_ja3                | void *, const char *, const char *            |  int   | Return -2 as unsubscribed |
+|  9  | ScReq_set_ja4                | void *, const char *, const char *            |  int   | Return -2 as unsubscribed |
+| 10  | ScReq_set_proxy              | void *, const char *                          |  int   |    值为http://或socks5://    |
+| 11  | ScReq_set_url                | void *, const char *                          |  int   |        在设置body前调用         |
+| 12  | ScReq_add_param              | void *, const char *, const char *            |  int   |
+| 13  | ScReq_set_data               | void *, const char *                          |  int   |
+| 14  | ScReq_set_json               | void *, const char *                          |  int   |
+| 15  | ScReq_set_bytes              | void *, const char *, uint32_t                |  int   |
+| 16  | ScReq_set_text               | void *, const char *                          |  int   |
+| 17  | ScReq_set_timeout            | void *, const char *                          |  int   |      Timeout结构转json       |
+| 18  | ScReq_set_cookie             | void *, const char *                          |  int   |
+| 19  | ScReq_add_cookie             | void *, const char *, const char *            |  int   |
+| 20  | ScReq_set_callback           | void *                                        |  int   |
+| 21  | ScReq_reconnect              | void *                                        | char * |                           |
+| 22  | ScReq_stream_io              | void *, Method                                | char * |          返回十六进制           |
+| 23  | ScReq_drop                   | void *                                        | char * |         销毁ScReq实例         |
+| 24  | char_free                    | void *                                        | char * |        销毁char *指针         |
+| 25  | ws_build                     | void *                                        | char * |                           |
+| 26  | ws_add_header                | void *                                        | char * |                           |
+| 27  | ws_set_proxy                 | void *                                        |   -    |    值为http://或socks5://    |
+| 28  | ws_set_url                   | char *                                        |   -    |                           |
+| 29  | ws_set_uri                   | void *, extern "C" fn(const char *, uint32_t) |  int   |
+| 30  | ws_open                      | -                                             | void * |
+| 31  | ws_open_raw                  | void *, const char *, const char *            |  int   |
+| 32  | ws_read                      | void *, const char *                          |  int   |          以json返回          |
+| 33  | ws_write                     | void *, const char *                          |  int   |      opcode,mask,msg      |
+| 34  | ws_close                     | void *, const char *                          |  int   |          销毁ws实例           |
 
 * 函数返回-1时，执行不成成功；-2为非订阅状态，功能不可用
 * 实例需要手动释放，否则会导致内存泄露# reqrio

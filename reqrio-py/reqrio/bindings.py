@@ -25,6 +25,8 @@ DLL.ScReq_add_header.restype = c_int
 DLL.ScReq_set_alpn.argtypes = [c_void_p, c_char_p]
 DLL.ScReq_set_alpn.restype = c_int
 
+DLL.ScReq_set_verify.argtypes = [c_void_p, c_bool]
+
 DLL.ScReq_set_random_fingerprint.argtypes = [c_void_p, c_char_p]
 DLL.ScReq_set_random_fingerprint.restype = c_int
 

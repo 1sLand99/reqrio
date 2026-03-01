@@ -12,7 +12,7 @@ const registry = new FinalizationRegistry(req => {
 })
 
 class Session {
-    constructor(alpn, rand_tls, token) {
+    constructor(alpn, rand_tls, token, verify = true) {
         this.req = library.ScReq_new();
         if (alpn) {
             let ret = library.ScReq_set_alpn(this.req, alpn)
@@ -23,6 +23,7 @@ class Session {
             if (ret === -2) console.log("free user, set_random_fingerprint can't be used")
             if (ret === -1) throw "set_random_fingerprint error"
         }
+        library.ScReq_set_verify(this.req, verify)
         registry.register(this, this.req)
     }
 

@@ -9,7 +9,7 @@ from reqrio.response import Response
 
 class Session:
     # alpn值是字符串['http/1.1','h2']
-    def __init__(self, alpn: ALPN = ALPN.HTTP11, rand_tls=False, token=""):
+    def __init__(self, alpn: ALPN = ALPN.HTTP11, rand_tls=False, token="", verify: bool = True):
         """
         :param
         :param alpn: 版本
@@ -25,6 +25,7 @@ class Session:
         if rand_tls:
             r = self.dll.ScReq_set_random_fingerprint(self.hid, token.encode('utf-8'))
             if r == -1: raise Exception('set rand tls error')
+        self.dll.ScReq_set_verify(self.hid, verify)
 
     def set_timeout(self, connect: int = 3000, read: int = 3000, write: int = 3000, handle: int = 30000,
                     connect_times: int = 3,

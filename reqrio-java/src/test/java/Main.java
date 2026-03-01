@@ -3,20 +3,21 @@ import org.xllgl2017.*;
 
 public class Main {
     public static void main(String[] args) throws Exception {
-        WebSocket socket = new WebSocket("wss://alive.github.com");
-        socket.open();
+//        WebSocket socket = new WebSocket("wss://alive.github.com");
+//        socket.open();
 
 
         //初始化，可以设置版本
-        Session reqrio = new Session(ALPN.HTTP20);
-        reqrio.useRandomFingerprint("w");
+        Session session = new Session(ALPN.HTTP20);
+        session.set_verify(false);
+        session.useRandomFingerprint("w");
         //初始化头部
         Headers headers = getHeaders();
 //    //设置头部
-        reqrio.setHeaders(headers);
+        session.setHeaders(headers);
 //    //设置超时
         Timeout timeout = new Timeout();
-        reqrio.setTimeout(timeout);
+        session.setTimeout(timeout);
 
         ScReqCallback cb = new ScReqCallback() {
             @Override
@@ -27,11 +28,11 @@ public class Main {
             }
         };
 
-        reqrio.set_callback(cb);
+        session.set_callback(cb);
 //    reqrio.setUrl("https://ticket.sxhm.com/");
-        reqrio.setUrl("https://m.so.com");
+        session.setUrl("https://m.so.com");
 //    //请求
-        Response response = reqrio.get();
+        Response response = session.get();
         System.out.println(response.toString());
 //    Headers resp_hdr = response.getHeader();
 //    Gson gson = new Gson();

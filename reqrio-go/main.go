@@ -1,4 +1,5 @@
 package main
+
 /*
 git tag reqrio-go/v0.1.2
 git push origin reqrio-go/v0.1.2
@@ -11,6 +12,7 @@ import (
 
 func main() {
 	session := reqrio.NewSession()
+	session.SetVerify(false)
 	e1 := session.SetAlpn(reqrio.HTTP20)
 	if e1 != nil {
 		println(e1.Error())

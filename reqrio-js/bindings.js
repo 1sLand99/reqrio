@@ -31,6 +31,7 @@ const library = ffi.Library(libpath, {
     ScReq_set_header_json: ['int', [voidPtr, charPtr]],
     ScReq_add_header: ["int", [voidPtr, charPtr, charPtr]],
     ScReq_set_alpn: ["int", [voidPtr, charPtr]],
+    ScReq_set_verify: ["int", [voidPtr, 'bool']],
     ScReq_set_random_fingerprint: ["int", [voidPtr, charPtr]],
     ScReq_set_fingerprint: ["int", [voidPtr, charPtr, charPtr]],
     ScReq_set_ja3: ["int", [voidPtr, charPtr, charPtr]],

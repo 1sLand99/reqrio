@@ -23,7 +23,7 @@ public:
 
     ~Session();
 
-    explicit Session(ALPN alpn, bool rand_tls = false, const QString &token = "");
+    explicit Session(ALPN alpn, bool rand_tls = false, const QString &token = "", bool verify = true);
 
     void set_header_json(const QString &header) const;
 

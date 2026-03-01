@@ -19,6 +19,10 @@ public class Session {
         this.req = INSTANCE.ScReq_new();
     }
 
+    public void setVerify(boolean verify) {
+        INSTANCE.ScReq_set_verify(this.req, verify);
+    }
+
     public void setHeaderJson(String header) throws Exception {
         int res = INSTANCE.ScReq_set_header_json(this.req, header);
         if (res == -1) throw new Exception("set header json error");
@@ -166,7 +170,7 @@ public class Session {
         return this.send(Method.TRACE);
     }
 
-    public Response patch() throws Exception{
+    public Response patch() throws Exception {
         return this.send(Method.PATCH);
     }
 

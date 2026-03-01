@@ -10,6 +10,7 @@ extern int ScReq_set_header_json(void *req, const char *headers);
 extern int ScReq_add_header(void *req, const char *name, char *value);
 
 extern int ScReq_set_alpn(void *req, const char *alpn);
+extern void ScReq_set_verify(void *req, bool verify);
 extern int ScReq_set_random_fingerprint(void *req, const char *token);
 extern int ScReq_set_fingerprint(void *req, const char *fingerprint, const char *token);
 extern int ScReq_set_ja3(void *req, const char *ja3, const char *token);
@@ -75,6 +76,10 @@ func (session *Session) SetAlpn(alpn ALPN) error {
 		return errors.New("set alpn error")
 	}
 	return nil
+}
+
+func (session *Session) SetVerify(verify bool) {
+	C.ScReq_set_verify(session.req, C.bool(verify))
 }
 
 func (session *Session) SetRandomFingerprint(token string) error {

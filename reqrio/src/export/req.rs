@@ -52,6 +52,16 @@ pub extern "system" fn ScReq_set_alpn(req: *mut ScReq, alpn: *const c_char) -> i
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_verify(req: *mut ScReq, verify: bool) -> i32 {
+    || -> HlsResult<i32> {
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
+        req.set_verify(verify);
+        Ok(0)
+    }().unwrap_or(-1)
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
 pub extern "system" fn ScReq_set_random_fingerprint(req: *mut ScReq, token: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;

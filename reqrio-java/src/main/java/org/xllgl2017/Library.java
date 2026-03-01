@@ -15,6 +15,8 @@ interface ReqrioLibrary extends Library {
 
     int ScReq_set_alpn(Pointer req, String alpn);
 
+    void ScReq_set_verify(Pointer req, boolean verify);
+
     int ScReq_set_random_fingerprint(Pointer req, String token);
 
     int ScReq_set_fingerprint(Pointer req, String tls, String token);
