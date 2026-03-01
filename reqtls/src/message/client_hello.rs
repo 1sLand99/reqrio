@@ -157,7 +157,7 @@ impl<'a> ClientHello<'a> {
         } else { vec![] };
         let extend = self.extensions.iter().find(|x| x.ex_point_formats().is_some());
         let formats = if let Some(extend) = extend && let Some(formats) = extend.ex_point_formats() {
-            formats.formats().iter().map(|x| (x.clone() as u8).to_string()).collect::<Vec<_>>()
+            formats.formats().iter().map(|x| x.clone().into_inner().to_string()).collect::<Vec<_>>()
         } else {
             vec![]
         };

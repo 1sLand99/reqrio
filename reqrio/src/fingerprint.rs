@@ -137,8 +137,9 @@ impl Fingerprint {
         let fts = items.next().ok_or("fts not found")?.split("-");
         let formats = extensions.iter_mut().find(|x| x.ex_point_formats().is_some()).ok_or("ec format not found")?;
         let formats = formats.ex_point_formats_mut().ok_or("ec format not found")?;
+        formats.clear();
         for ft in fts {
-            formats.add_format(EcPointFormat::from_u8(ft.parse()?).unwrap());
+            formats.add_format(EcPointFormat::new(ft.parse()?));
         }
         client_hello.set_extension(extensions);
         let mut buffer = Buffer::with_capacity(2000);
@@ -167,10 +168,7 @@ impl Fingerprint {
         exts.push(Extension::from_type(ExtensionType::ApplicationLayerProtocolNegotiation));
         for ext in exts.iter_mut() {
             if let Some(sign) = ext.signature_algorithms_mut() {
-                sign.clear();
-                for algo in sign_algo {
-                    sign.push_hash(algo)
-                }
+                sign.set_hashes(sign_algo);
                 break;
             }
         }
@@ -184,10 +182,10 @@ impl Fingerprint {
         let ver_ext = exts.iter_mut().find(|x| x.supported_versions().is_some());
         if let Some(ext) = ver_ext && let Some(vers) = ext.supported_versions_mut() {
             match ver {
-                "13" => vers.push(Version::TLS_1_3),
-                "12" => vers.push(Version::TLS_1_2),
-                "11" => vers.push(Version::TLS_1_1),
-                "10" => vers.push(Version::TLS_1_0),
+                "13" => vers.set_versions(vec![Version::TLS_1_3, Version::TLS_1_2, Version::TLS_1_1, Version::TLS_1_0]),
+                "12" => vers.set_versions(vec![Version::TLS_1_2, Version::TLS_1_1, Version::TLS_1_1]),
+                "11" => vers.set_versions(vec![Version::TLS_1_1, Version::TLS_1_0]),
+                "10" => vers.set_versions(vec![Version::TLS_1_0]),
                 _ => return Err("unknown tls version".into()),
             }
         }

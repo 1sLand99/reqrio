@@ -52,6 +52,12 @@ impl SupportVersions {
 
     pub fn versions(&self) -> &Vec<Version> { &self.versions }
 
+    pub fn set_versions(&mut self, versions: Vec<Version>) { self.versions = versions }
+
+    pub fn clear(&mut self) {
+        self.versions.clear();
+    }
+
     pub fn push(&mut self, version: Version) {
         self.versions.push(version);
     }

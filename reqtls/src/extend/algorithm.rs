@@ -37,9 +37,13 @@ impl SignatureAlgorithms {
         }
         Ok(res)
     }
-    
+
     pub fn hashes(&self) -> &Vec<SignatureAlgorithm> {
         &self.hash
+    }
+
+    pub fn set_hashes(&mut self, hashes: Vec<SignatureAlgorithm>) {
+        self.hash = hashes;
     }
 
     pub fn push_hash(&mut self, hash: SignatureAlgorithm) {

@@ -1,22 +1,36 @@
+use std::fmt::{Debug, Formatter};
 use crate::error::RlsResult;
 use crate::WriteExt;
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, Clone)]
-pub enum EcPointFormat {
-    UNCOMPRESSED = 0x0,
-    ANSI_X962_PRIME = 0x1,
-    ANSI_X962_CHAR2 = 0x2,
-}
+#[derive(Clone, PartialEq)]
+pub struct EcPointFormat(u8);
 
 impl EcPointFormat {
-    pub fn from_u8(v: u8) -> Option<EcPointFormat> {
-        match v {
-            0x0 => Some(EcPointFormat::UNCOMPRESSED),
-            0x1 => Some(EcPointFormat::ANSI_X962_PRIME),
-            0x2 => Some(EcPointFormat::ANSI_X962_CHAR2),
-            _ => None,
+    pub const UNCOMPRESSED: EcPointFormat = EcPointFormat(0x0);
+    pub const ANSI_X962_PRIME: EcPointFormat = EcPointFormat(0x1);
+    pub const ANSI_X962_CHAR2: EcPointFormat = EcPointFormat(0x2);
+
+    pub fn spec(&self) -> &str {
+        match *self {
+            EcPointFormat::UNCOMPRESSED => "UNCOMPRESSED",
+            EcPointFormat::ANSI_X962_PRIME => "ANSI_X962_PRIME",
+            EcPointFormat::ANSI_X962_CHAR2 => "ANSI_X962_CHAR2",
+            _ => "Reserved"
         }
+    }
+    pub fn into_inner(self) -> u8 {
+        self.0
+    }
+
+    pub fn new(v: u8) -> EcPointFormat {
+        EcPointFormat(v)
+    }
+}
+
+impl Debug for EcPointFormat {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(0x{:x})", self.spec(), self.0)
     }
 }
 
@@ -44,7 +58,7 @@ impl EcPointFormats {
         let mut res = EcPointFormats::new();
         res.len = bytes[0];
         for v in &bytes[1..] {
-            res.formats.push(EcPointFormat::from_u8(*v).ok_or("EcPointFormat Unknown")?);
+            res.formats.push(EcPointFormat::new(*v));
         }
         Ok(res)
     }
@@ -54,8 +68,12 @@ impl EcPointFormats {
     pub fn write_to<W: WriteExt>(self, writer: &mut W) {
         writer.write_u8(self.len() as u8 - 1);
         for format in self.formats {
-            writer.write_u8(format as u8);
+            writer.write_u8(format.into_inner());
         }
+    }
+
+    pub fn clear(&mut self) {
+        self.formats.clear();
     }
 
     pub fn add_format(&mut self, format: EcPointFormat) {

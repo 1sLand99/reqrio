@@ -80,6 +80,9 @@ impl SupportedGroups {
         self.values.clear();
     }
 
+    pub fn set_values(&mut self, values: Vec<GroupType>) {
+        self.values = values;
+    }
     pub fn add_group(&mut self, group: GroupType) {
         self.values.push(group)
     }
