@@ -141,6 +141,7 @@ impl Fingerprint {
         for ft in fts {
             formats.add_format(EcPointFormat::new(ft.parse()?));
         }
+        println!("{:#?}", formats);
         client_hello.set_extension(extensions);
         let mut buffer = Buffer::with_capacity(2000);
         self.legal_subscript = buffer.check_subscription(token)?;
