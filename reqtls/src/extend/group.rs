@@ -75,6 +75,10 @@ impl SupportedGroups {
             writer.write_u16(value.into_inner());
         }
     }
+    
+    pub fn clear(&mut self) {
+        self.values.clear();
+    }
 
     pub fn add_group(&mut self, group: GroupType) {
         self.values.push(group)

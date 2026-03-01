@@ -130,6 +130,7 @@ impl Fingerprint {
         let groups = extensions.iter_mut().find(|x| x.supported_groups().is_some()).ok_or("group not found")?;
         let groups = groups.supported_groups_mut().ok_or("group not found")?;
         let gps = items.next().ok_or("groups not found")?.split("-");
+        groups.clear();
         for kid in gps {
             groups.add_group(GroupType::new(kid.parse()?));
         }
@@ -141,7 +142,7 @@ impl Fingerprint {
         }
         client_hello.set_extension(extensions);
         let mut buffer = Buffer::with_capacity(2000);
-        self.legal_subscript =buffer.check_subscription(token)?;
+        self.legal_subscript = buffer.check_subscription(token)?;
         let len = record.write_to(&mut buffer, 1)?;
         buffer.set_len(len);
         self.client_hello = buffer.drain(..len);

@@ -3,12 +3,15 @@ use reqrio::*;
 #[tokio::main]
 async fn main() {
     let mut timeout = Timeout::new();
+    timeout.set_connect(30000);
+    timeout.set_handle(30000);
     timeout.set_read(99999999999);
     timeout.set_write(99999999999);
-
+    let fingerprint = Fingerprint::from_ja3("771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-17513-21,29-23-24,0", "4b107bbnbc-01o-3781k7bbnbc-01v25461k").unwrap();
+    let fingerprint = Fingerprint::from_ja4("t13d1516h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0017,001b,0023,002b,002d,0033,44cd,fe0d,ff01_0403,0804,0401,0503,0805,0501,0806,0601", "4b107bbnbc-01o-3781k7bbnbc-01v25461k").unwrap();
     let mut req = AcReq::new()
-        .with_fingerprint(Fingerprint::random("122-722n2ck-6p7d3u6k722n2ck-6w21166k").unwrap())
-        .with_alpn(ALPN::Http11)
+        .with_fingerprint(fingerprint)
+        .with_alpn(ALPN::Http20)
         .with_timeout(timeout)
         .with_verify(false)
         // .with_proxy(Proxy::try_from("http://127.0.0.1:10240").unwrap())
@@ -67,16 +70,18 @@ async fn main() {
     // req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Asite：wLLyn.com&first=0&FORM=PERE2").await.unwrap();
     // req.set_url("https://m.baidu.com").await.unwrap();
 
-    req.set_url("https://m.so.com").await.unwrap();
+    // req.set_url("https://m.so.com").await.unwrap();
+    // req.set_url("https://www.sephora.com/beauty/giftcards").await.unwrap();
     // req.set_url("https://doc.rust-lang.org/").await.unwrap();
+    req.set_url("https://tls.123408.xyz/api/clean").await.unwrap();
     println!("111");
-    req.set_callback(|data| {
-        println!("{}", data.len());
-        Ok(())
-    });
+    // req.set_callback(|data| {
+    //     println!("{}", data.len());
+    //     Ok(())
+    // });
     let res = req.get().await.unwrap();
     println!("{}", res.header());
-    println!("{}", res.raw_body().len());
-    println!("{}", res.header().content_type().is_some());
-    // println!("{}", res.text().unwrap());
+    // println!("{}", res.raw_body().len());
+    // println!("{}", res.header().content_type().is_some());
+    println!("{}", res.text().unwrap());
 }
