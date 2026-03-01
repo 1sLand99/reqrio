@@ -21,8 +21,6 @@ jobs:
             ${{ runner.os }}-cargo-${{ github.ref }}-
             ${{ runner.os }}-cargo-
           cache-on-failure: true
-          cache-directories: |
-            ~/
           prefix-key: |
             ${{ runner.os }}-cargo-
       - uses: actions/checkout@v4
@@ -53,8 +51,6 @@ jobs:
             ${{ runner.os }}-cargo-${{ github.ref }}-
             ${{ runner.os }}-cargo-
           cache-on-failure: true
-          cache-directories: |
-            ~/
           prefix-key: |
             ${{ runner.os }}-cargo-
       - uses: actions/checkout@v4
