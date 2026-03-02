@@ -1,7 +1,7 @@
 use std::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
-use reqrio::{TlsConfig, TlsStream, ALPN};
+use reqrio::{ServerConfig, TlsStream, ALPN};
 use reqtls::{Certificate, RsaKey};
 
 #[tokio::main]
@@ -14,12 +14,11 @@ async fn main() {
     loop {
         let (stream, addr) = listen.accept().await.unwrap();
         println!("Accepted connection from {}", addr);
-        let tls_stream = TlsStream::accept(stream, TlsConfig {
-            sni: "",
+        let tls_stream = TlsStream::accept(stream, ServerConfig {
             alpn: &ALPN::Http20,
-            fingerprint: &mut Default::default(),
-            certificate: &mut certificates,
-            private_key: &pri_key,
+            ca: &mut Certificate::none(),
+            server_cert: &mut certificates,
+            cert_key: &pri_key,
             verify: false,
         }).await;
         if let Ok(mut tls_stream) = tls_stream {

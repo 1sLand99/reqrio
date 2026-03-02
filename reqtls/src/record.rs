@@ -38,23 +38,24 @@ pub struct RecordLayer<'a> {
     pub messages: Vec<Message<'a>>,
 }
 
-impl<'a> Default for RecordLayer<'a> {
-    fn default() -> Self {
+impl<'a> RecordLayer<'a> {
+    pub fn new(rt: RecordType) -> RecordLayer<'a> {
         RecordLayer {
-            context_type: RecordType::CipherSpec,
-            version: Version::new(0),
+            context_type: rt,
+            version: Version::TLS_1_2,
             len: 0,
             messages: vec![],
         }
     }
-}
 
-impl<'a> RecordLayer<'a> {
+    pub fn handshake() -> RecordLayer<'a> {
+        RecordLayer::new(RecordType::HandShake)
+    }
+
     pub fn from_bytes(bytes: &'a mut [u8], payload: bool, suite: Option<&CipherSuite>) -> RlsResult<RecordLayer<'a>> {
         if bytes.len() < 5 { return Err(RlsError::MessageTooShort); }
         let (head, messages) = bytes.split_at_mut(5);
-        let mut res = RecordLayer::default();
-        res.context_type = RecordType::from_byte(head[0]).ok_or("LayerType Unknown")?;
+        let mut res = RecordLayer::new(RecordType::from_byte(head[0]).ok_or("LayerType Unknown")?);
         res.version = Version::new(u16::from_be_bytes([head[1], head[2]]));
         res.len = u16::from_be_bytes([head[3], head[4]]);
         if messages.len() < res.len as usize { return Err("record body not enough".into()); }
@@ -98,7 +99,7 @@ impl<'a> RecordLayer<'a> {
     }
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) -> RlsResult<usize> {
-        let offset = writer.offset().start;
+        let offset = writer.offset().end;
         let sni = self.messages[0].client().map(|x| x.server_name().unwrap_or("")).unwrap_or("").to_string();
         let h2 = self.messages[0].client().map(|x| x.alps().map(|x| x.values().iter().any(|x| x == &ALPN::Http20)).unwrap_or(false)).unwrap_or(false);
         writer.write_u8(self.context_type as u8);

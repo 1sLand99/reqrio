@@ -6,7 +6,7 @@ use crate::RlsError;
 use std::fmt::{Debug, Formatter};
 use std::ptr::null_mut;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct SignatureAlgorithm(u16);
 
 impl SignatureAlgorithm {
@@ -219,7 +219,7 @@ mod tests {
 
     #[test]
     fn test_sign() {
-        let mut cert =Certificate::from_pem(r#"-----BEGIN CERTIFICATE-----
+        let mut cert = Certificate::from_pem(r#"-----BEGIN CERTIFICATE-----
 MIIE9jCCA96gAwIBAgISBQ+X8QE48dpOklzldVn/OEVOMA0GCSqGSIb3DQEBCwUA
 MDMxCzAJBgNVBAYTAlVTMRYwFAYDVQQKEw1MZXQncyBFbmNyeXB0MQwwCgYDVQQD
 EwNSMTMwHhcNMjYwMjI4MDgwODMzWhcNMjYwNTI5MDgwODMyWjAZMRcwFQYDVQQD
@@ -249,7 +249,7 @@ g9U5uU08VzDV+0LlZXpkCTH5IPlf7JucxTsO0W0uEfUCzLPl8CufKtfV5Mn2q9SA
 Ep0DDNAFIybHWSxAYZ8S6I2Jl9ET4tbakNY=
 -----END CERTIFICATE-----"#).unwrap();
         cert[0].get_aia().unwrap();
-        ROOT_STORES.verify_cert(&mut cert,"tls.123408.xyz").unwrap();
+        ROOT_STORES.verify_cert(&mut cert, "tls.123408.xyz").unwrap();
 
 
         // let mut certs = vec![];

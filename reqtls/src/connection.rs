@@ -1,20 +1,22 @@
 use super::bytes::Bytes;
-use super::suite::iv::Iv;
-use super::suite::CipherSuite;
-use super::suite::TlsCipher;
 use super::message::key_exchange::{NamedCurve, ServerKeyExchange};
 use super::message::server_hello::{ServerHello, ServerHelloDone};
 use super::prf::Prf;
 use super::record::{RecordBuffer, RecordLayer, RecordType};
+use super::suite::iv::Iv;
+use super::suite::CipherSuite;
+use super::suite::TlsCipher;
 use super::version::Version;
 use crate::boring::{certificate, AlgorithmSigner};
 use crate::error::RlsResult;
+use crate::ffi::Buf;
+use crate::message::certificate::CertificateRequest;
 use crate::share_key::SharedKey;
 use crate::*;
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::mem;
 use std::ops::Range;
-use crate::ffi::Buf;
 
 pub struct Connection {
     client_random: Bytes,
@@ -33,6 +35,7 @@ pub struct Connection {
     shared_key: SharedKey,
     verify: bool,
     root_stores: &'static CertStore,
+    mtls_hash: SignatureAlgorithm,
 }
 impl Default for Connection {
     fn default() -> Self {
@@ -53,6 +56,7 @@ impl Default for Connection {
             shared_key: SharedKey::None,
             verify: false,
             root_stores: &certificate::ROOT_STORES,
+            mtls_hash: SignatureAlgorithm::new(0),
         }
     }
 }
@@ -79,6 +83,7 @@ impl Connection {
         self.server_random = server_hello.random.clone();
         self.cipher_suite = server_hello.cipher_suite.clone();
         self.cipher_suite.init_aead_hasher()?;
+        self.cipher_suite.update(&self.session_bytes)?;
         let hasher = self.cipher_suite.hasher().as_ref().ok_or(RlsError::HasherNone)?;
         self.prf = Prf::from_hasher(hasher);
         Ok(())
@@ -101,6 +106,25 @@ impl Connection {
         sign_data.push(server_key.hellman_param().pub_key().len() as u8);
         sign_data.extend(server_key.hellman_param().pub_key().as_bytes());
         sign_data
+    }
+
+    pub fn set_by_cert_req(&mut self, req: CertificateRequest) {
+        for hash in req.into_hashes() {
+            match hash {
+                SignatureAlgorithm::RSA_PSS_RSAE_SHA256 => self.mtls_hash = hash,
+                SignatureAlgorithm::RSA_PSS_RSAE_SHA384 => self.mtls_hash = hash,
+                SignatureAlgorithm::RSA_PSS_RSAE_SHA512 => self.mtls_hash = hash,
+                // SignatureAlgorithm::ECDSA_SECP256R1_SHA256 => self.mtls_hash = hash,
+                // SignatureAlgorithm::ECDSA_SECP384R1_SHA384 => self.mtls_hash = hash,
+                // SignatureAlgorithm::ECDSA_SECP521R1_SHA512 => self.mtls_hash = hash,
+                SignatureAlgorithm::RSA_PKCS1_SHA1 => self.mtls_hash = hash,
+                SignatureAlgorithm::RSA_PKCS1_SHA256 => self.mtls_hash = hash,
+                SignatureAlgorithm::RSA_PKCS1_SHA384 => self.mtls_hash = hash,
+                SignatureAlgorithm::RSA_PKCS1_SHA512 => self.mtls_hash = hash,
+                _ => continue,
+            }
+            break;
+        }
     }
 
     pub fn set_by_server_exchange_key(&mut self, server_key: ServerKeyExchange) -> RlsResult<()> {
@@ -245,17 +269,26 @@ impl Connection {
     }
 
     pub fn update_session(&mut self, data: impl AsRef<[u8]>) -> RlsResult<()> {
-        if self.cipher_suite.hasher().is_none() {
+        if self.mtls() || self.cipher_suite.hasher().is_none() {
             self.session_bytes.extend_from_slice(data.as_ref());
-        } else {
-            if !self.session_bytes.is_empty() {
-                self.cipher_suite.update(&self.session_bytes)?;
-                self.session_bytes.clear();
-            }
+        }
+        if self.cipher_suite.hasher().is_some() {
             self.cipher_suite.update(data)?;
         }
         Ok(())
     }
 
     pub fn cipher_suite(&self) -> &CipherSuite { &self.cipher_suite }
+
+    pub fn mtls(&self) -> bool { self.mtls_hash.as_u16() != 0 }
+    pub fn handle_mtls_client<W: WriteExt>(&mut self, writer: &mut W, key: &RsaKey) -> RlsResult<usize> {
+        let mut cert_verify = CertificateVerify::default();
+        cert_verify.set_hash(self.mtls_hash.clone());
+        let signer = AlgorithmSigner::new_sign(key.pkey(), &self.mtls_hash)?;
+        let sign = signer.sign(mem::take(&mut self.session_bytes))?;
+        cert_verify.set_sign(&sign);
+        let mut record = RecordLayer::handshake();
+        record.messages.push(Message::CertificateVerify(cert_verify));
+        record.write_to(writer, 1)
+    }
 }

@@ -2,6 +2,7 @@ use crate::error::{HlsError, HlsResult};
 use crate::*;
 use std::io;
 use std::io::{Read, Write};
+use crate::stream::config::Config;
 
 pub struct SyncStream<S> {
     conn: Connection,
@@ -12,7 +13,7 @@ pub struct SyncStream<S> {
 }
 
 impl<S: Read + Write> SyncStream<S> {
-    pub fn connect(mut config: TlsConfig, mut stream: S) -> HlsResult<SyncStream<S>> {
+    pub fn connect(config: ClientConfig, mut stream: S) -> HlsResult<SyncStream<S>> {
         let client_random = rand::random::<[u8; 32]>().to_vec();
         let session_id = rand::random::<[u8; 32]>();
         let mut client_hello = RecordLayer::from_bytes(&mut config.fingerprint.client_hello, false, None)?;
@@ -40,6 +41,7 @@ impl<S: Read + Write> SyncStream<S> {
             read_buffer: Buffer::with_capacity(0xFFFF),
             write_buffer,
         };
+        let mut config = Config::Client(config);
         loop {
             let record_len = stream.read_next_packet()?;
             let len = stream.read_buffer.len();
@@ -50,7 +52,7 @@ impl<S: Read + Write> SyncStream<S> {
         Ok(stream)
     }
 
-    fn handle_message(&mut self, mut param: Option<&mut TlsConfig>) -> HlsResult<bool> {
+    fn handle_message(&mut self, mut param: Option<&mut Config>) -> HlsResult<bool> {
         let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, Some(self.conn.cipher_suite()))?;
         for message in record.messages {
             match record.context_type {
@@ -61,7 +63,7 @@ impl<S: Read + Write> SyncStream<S> {
                         Message::ServerHello(v) => self.conn.set_by_server_hello(&v)?,
                         Message::Certificate(v) => {
                             let param = param.as_mut().ok_or("conn param can't be null")?;
-                            self.conn.set_by_certificate(v, param.sni)?;
+                            self.conn.set_by_certificate(v, param.client_mut().ok_or("missing config")?.sni)?;
                         }
                         Message::ServerKeyExchange(v) => {
                             // println!("{:#?}", v);
@@ -71,12 +73,12 @@ impl<S: Read + Write> SyncStream<S> {
                             let param = param.as_mut().ok_or("conn param can't be null")?;
                             let key_size = self.conn.cipher_suite().key_size();
                             let pub_key = self.conn.pub_share_key()?;
-                            let mut client_key_exchange = RecordLayer::from_bytes(&mut param.fingerprint.client_key_exchange, false, None)?;
+                            let mut client_key_exchange = RecordLayer::from_bytes(&mut param.client_mut().ok_or("missing config")?.fingerprint.client_key_exchange, false, None)?;
                             client_key_exchange.messages[0].client_key_exchange_mut().unwrap().set_pub_key(pub_key.as_slice());
                             let len = client_key_exchange.write_to(&mut self.write_buffer, key_size)?;
                             self.write_buffer.set_len(len);
                             self.conn.update_session(&self.write_buffer.filled()[5..])?;
-                            self.write_buffer.write_slice(&param.fingerprint.change_cipher_spec);
+                            self.write_buffer.write_slice(&param.client_mut().ok_or("missing config")?.fingerprint.change_cipher_spec);
                             self.conn.make_cipher(false)?;
                             let record_len = self.conn.make_finish_message(self.write_buffer.unfilled_mut(), false)?;
                             self.write_buffer.add_len(record_len);

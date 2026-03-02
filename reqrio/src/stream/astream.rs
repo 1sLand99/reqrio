@@ -4,7 +4,6 @@ use crate::error::HlsResult;
 use crate::stream::proxy::ProxyStream;
 use crate::stream::ConnParam;
 use crate::*;
-use reqtls::RsaKey;
 use std::time::Duration;
 use tokio::io;
 #[cfg(feature = "aync")]
@@ -88,12 +87,13 @@ impl AsyncTlsStream {
         let connect_timeout = param.timeout.connect();
         let read_timeout = param.timeout.read();
         let write_timeout = param.timeout.write();
-        let config = TlsConfig {
+        let config = ClientConfig {
             sni: param.url.addr().host(),
             alpn: param.alpn,
             fingerprint: param.fingerprint,
-            certificate: &mut vec![],
-            private_key: &RsaKey::none(),
+            ca: &mut Certificate::none(),
+            client_cert: param.cert,
+            cert_key: param.key,
             verify: param.verify,
         };
         let stream = TlsStream::connect(tcp, config);

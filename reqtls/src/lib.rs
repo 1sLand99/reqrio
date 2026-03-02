@@ -135,7 +135,7 @@
 //!
 
 pub use connection::Connection;
-pub use message::{Message, Alert};
+pub use message::{Message, Alert, CertificateRequest, CertificateVerify};
 pub use message::session_ticket::{SessionTicket, TlsSessionTicket};
 pub use message::key_exchange::ServerKeyExchange;
 pub use message::server_hello::ServerHello;

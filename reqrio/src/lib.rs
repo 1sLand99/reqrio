@@ -129,10 +129,9 @@ pub use packet::{
 pub use reqrio_json as json;
 pub use reqtls::*;
 pub use scq::ScReq;
-pub use stream::{ProxyStream, WebSocket, WebSocketBuilder, Proxy};
+pub use stream::{ProxyStream, WebSocket, WebSocketBuilder, Proxy, ServerConfig, ClientConfig};
 #[cfg(feature = "aync")]
 pub use stream::TlsStream;
-pub use stream::TlsConfig;
 pub use timeout::Timeout;
 #[cfg(feature = "tokio")]
 pub use tokio;

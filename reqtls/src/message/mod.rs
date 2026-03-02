@@ -8,6 +8,7 @@ use server_hello::{ServerHello, ServerHelloDone};
 use session_ticket::SessionTicket;
 use std::fmt::Debug;
 use crate::{CipherSuite, WriteExt};
+pub use certificate::{CertificateVerify, CertificateRequest};
 
 pub mod certificate;
 pub mod client_hello;
@@ -28,6 +29,8 @@ pub enum Message<'a> {
     NewSessionTicket(SessionTicket<'a>),
     Payload(Payload<'a>),
     CertificateStatus(CertificateStatus),
+    CertificateRequest(CertificateRequest<'a>),
+    CertificateVerify(CertificateVerify<'a>),
     Alert(Alert),
     CipherSpec,
 }
@@ -45,6 +48,8 @@ impl<'a> Message<'a> {
                 HandshakeType::ClientKeyExchange => Ok(Message::ClientKeyExchange(ClientKeyExchange::from_bytes(handshake_type, bytes, suite)?)),
                 HandshakeType::NewSessionTicket => Ok(Message::NewSessionTicket(SessionTicket::from_bytes(handshake_type, bytes)?)),
                 HandshakeType::CertificateStatus => Ok(Message::CertificateStatus(CertificateStatus::from_bytes(handshake_type, bytes))),
+                HandshakeType::CertificateRequest => Ok(Message::CertificateRequest(CertificateRequest::from_bytes(handshake_type, bytes))),
+                HandshakeType::CertificateVerify => Ok(Message::CertificateVerify(CertificateVerify::from_bytes(handshake_type, bytes))),
                 HandshakeType::CipherSpec => Ok(Message::CipherSpec),
             }
         } else {
@@ -78,6 +83,8 @@ impl<'a> Message<'a> {
             Message::NewSessionTicket(v) => v.len(),
             Message::Payload(v) => v.value.len(),
             Message::CertificateStatus(v) => v.len(),
+            Message::CertificateRequest(v) => v.len(),
+            Message::CertificateVerify(v) => v.len(),
             Message::Alert(_) => 0,
             Message::CipherSpec => 0
         }
@@ -94,6 +101,8 @@ impl<'a> Message<'a> {
             Message::NewSessionTicket(v) => v.write_to(writer),
             Message::Payload(v) => writer.write_slice(v.into_inner()),
             Message::CertificateStatus(v) => v.write_to(writer),
+            Message::CertificateRequest(v) => v.write_to(writer),
+            Message::CertificateVerify(v) => v.write_to(writer),
             Message::Alert(_) => {}
             Message::CipherSpec => {}
         }
@@ -176,10 +185,13 @@ pub enum HandshakeType {
     NewSessionTicket = 0x4,
     Certificate = 0xb,
     ServerKeyExchange = 0xc,
+    CertificateRequest = 0xd,
     ServerHelloDone = 0xe,
+    CertificateVerify = 0xf,
     ClientKeyExchange = 0x10,
     CipherSpec = 0x14,
     CertificateStatus = 0x16,
+
 }
 
 impl HandshakeType {
@@ -190,7 +202,9 @@ impl HandshakeType {
             0x4 => Some(HandshakeType::NewSessionTicket),
             0xb => Some(HandshakeType::Certificate),
             0xc => Some(HandshakeType::ServerKeyExchange),
+            0xd => Some(HandshakeType::CertificateRequest),
             0xe => Some(HandshakeType::ServerHelloDone),
+            0xf => Some(HandshakeType::CertificateVerify),
             0x10 => Some(HandshakeType::ClientKeyExchange),
             0x14 => Some(HandshakeType::CipherSpec),
             0x16 => Some(HandshakeType::CertificateStatus),

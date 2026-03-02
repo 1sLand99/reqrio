@@ -5,6 +5,7 @@ use crate::stream::kind::StreamKind;
 #[cfg(feature = "aync")]
 pub use async_stream::TlsStream;
 pub use ws::{WebSocket, WebSocketBuilder};
+pub use config::{ServerConfig, ClientConfig};
 
 #[cfg(feature = "aync")]
 mod async_stream;
@@ -16,15 +17,8 @@ mod astream;
 mod proxy;
 mod kind;
 mod ws;
+mod config;
 
-pub struct TlsConfig<'a> {
-    pub sni: &'a str,
-    pub alpn: &'a ALPN,
-    pub fingerprint: &'a mut Fingerprint,
-    pub certificate: &'a mut Vec<Certificate>,
-    pub private_key: &'a RsaKey,
-    pub verify: bool,
-}
 
 pub struct ConnParam<'a> {
     pub url: &'a Url,
@@ -33,6 +27,8 @@ pub struct ConnParam<'a> {
     pub fingerprint: &'a mut Fingerprint,
     pub alpn: &'a ALPN,
     pub verify: bool,
+    pub cert: &'a mut Vec<Certificate>,
+    pub key: &'a RsaKey,
 }
 
 pub struct Stream {

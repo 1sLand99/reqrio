@@ -20,10 +20,12 @@ pub struct ScReq {
     fingerprint: Fingerprint,
     verify: bool,
     buffer: Buffer,
+    certs: Vec<Certificate>,
+    key: RsaKey,
 }
 
-impl ScReq {
-    pub fn new() -> ScReq {
+impl Default for ScReq {
+    fn default() -> Self {
         ScReq {
             header: Header::new_req_h1(),
             url: Url::new(),
@@ -38,7 +40,15 @@ impl ScReq {
             fingerprint: Fingerprint::default(),
             verify: true,
             buffer: Buffer::with_capacity(32826),
+            certs: vec![],
+            key: RsaKey::none(),
         }
+    }
+}
+
+impl ScReq {
+    pub fn new() -> ScReq {
+        ScReq::default()
     }
 
     pub fn get(&mut self) -> HlsResult<Response> {
@@ -140,6 +150,8 @@ impl ScReq {
                 fingerprint: &mut self.fingerprint,
                 alpn: &self.alpn,
                 verify: self.verify,
+                cert: &mut self.certs,
+                key: &self.key,
             };
             match self.stream.sync_connect(param) {
                 Ok(_) => {
@@ -304,6 +316,11 @@ impl ReqExt for ScReq {
 
     fn set_alpn(&mut self, alpn: ALPN) {
         self.alpn = alpn;
+    }
+
+    fn set_mtls(&mut self, certs: Vec<Certificate>, key: RsaKey) {
+        self.certs = certs;
+        self.key = key;
     }
 
     fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + 'static) {

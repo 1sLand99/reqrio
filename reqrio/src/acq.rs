@@ -22,16 +22,12 @@ pub struct AcReq {
     fingerprint: Fingerprint,
     verify: bool,
     buffer: Buffer,
+    certs: Vec<Certificate>,
+    key: RsaKey,
 }
 
 impl Default for AcReq {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl AcReq {
-    pub fn new() -> AcReq {
         AcReq {
             header: Header::new_req_h1(),
             url: Url::new(),
@@ -46,7 +42,15 @@ impl AcReq {
             body: BodyType::Text("".to_string()),
             verify: true,
             buffer: Buffer::with_capacity(32826),
+            certs: vec![],
+            key: RsaKey::none(),
         }
+    }
+}
+
+impl AcReq {
+    pub fn new() -> AcReq {
+        AcReq::default()
     }
 
     pub async fn get(&mut self) -> HlsResult<Response> {
@@ -83,7 +87,7 @@ impl AcReq {
         self.header.set_method(Method::TRACE);
         self.stream_io().await
     }
-    
+
     pub async fn patch(&mut self) -> HlsResult<Response> {
         self.header.set_method(Method::PATCH);
         self.stream_io().await
@@ -155,6 +159,8 @@ impl AcReq {
                 fingerprint: &mut self.fingerprint,
                 alpn: &self.alpn,
                 verify: self.verify,
+                cert: &mut self.certs,
+                key: &mut self.key,
             };
             let res = tokio::time::timeout(self.timeout.connect(), self.stream.async_connect(param)).await;
             match &res {
@@ -321,6 +327,11 @@ impl ReqExt for AcReq {
 
     fn set_alpn(&mut self, alpn: ALPN) {
         self.alpn = alpn;
+    }
+
+    fn set_mtls(&mut self, certs: Vec<Certificate>, key: RsaKey) {
+        self.certs = certs;
+        self.key = key;
     }
 
     fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + 'static) {

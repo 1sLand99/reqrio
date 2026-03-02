@@ -85,12 +85,13 @@ impl StreamKind {
                 Ok(ALPN::Http11)
             }
             Protocol::Https | Protocol::Wss => {
-                let tls_stream = SyncStream::connect(TlsConfig {
+                let tls_stream = SyncStream::connect(ClientConfig {
                     sni: param.url.addr().host(),
                     alpn: param.alpn,
                     fingerprint: param.fingerprint,
-                    certificate: &mut vec![],
-                    private_key: &RsaKey::none(),
+                    ca: &mut Certificate::none(),
+                    client_cert: &mut vec![],
+                    cert_key: &RsaKey::none(),
                     verify: param.verify,
                 }, stream)?;
                 let alpn = tls_stream.alpn().map(|x| ALPN::from_slice(x.as_bytes())).unwrap_or(ALPN::Http11);
