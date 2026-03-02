@@ -15,7 +15,7 @@ impl Base64 {
         Base64 { ctx }
     }
 
-    pub fn encrypt(&self, data: &[u8]) -> Vec<u8> {
+    pub fn encode(&self, data: &[u8]) -> Vec<u8> {
         let mut out = vec![0u8; data.len() * 2];
         let mut len = 0;
         unsafe {
@@ -39,7 +39,7 @@ impl Base64 {
         out.into_iter().filter(|x| *x != b'\n').collect()
     }
 
-    pub fn decrypt(&self, data: &[u8]) -> RlsResult<Vec<u8>> {
+    pub fn decode(&self, data: &[u8]) -> RlsResult<Vec<u8>> {
         let mut out = vec![0u8; 3 * data.len() / 4];
         let mut len = 0;
         let ret = unsafe {
@@ -68,10 +68,10 @@ impl Base64 {
 
 
 pub fn b64encode(context: impl AsRef<[u8]>) -> Result<String, FromUtf8Error> {
-    let bs = Base64::new().encrypt(context.as_ref());
+    let bs = Base64::new().encode(context.as_ref());
     String::from_utf8(bs)
 }
 
 pub fn b64decode(context: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
-    Base64::new().decrypt(context.as_ref())
+    Base64::new().decode(context.as_ref())
 }
