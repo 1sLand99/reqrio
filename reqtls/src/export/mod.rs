@@ -1,5 +1,6 @@
 mod cipher;
 mod hasher;
+mod coder;
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]

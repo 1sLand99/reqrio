@@ -6,6 +6,7 @@ use std::fmt::{Display, Formatter};
 use std::io;
 use std::net::AddrParseError;
 use std::num::ParseIntError;
+use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 use hex::FromHexError;
 use crate::Alert;
@@ -249,6 +250,12 @@ impl From<NulError> for RlsError {
 
 impl From<AddrParseError> for RlsError {
     fn from(value: AddrParseError) -> Self {
+        RlsError::StdError(Box::new(value))
+    }
+}
+
+impl From<Utf8Error> for RlsError {
+    fn from(value: Utf8Error) -> Self {
         RlsError::StdError(Box::new(value))
     }
 }
