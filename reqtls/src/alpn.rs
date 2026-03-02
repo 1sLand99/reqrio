@@ -6,7 +6,7 @@ pub enum ALPN {
     Http20,
     Http11,
     Http10,
-    None,
+    Custom(Vec<u8>),
 }
 
 impl ALPN {
@@ -15,19 +15,16 @@ impl ALPN {
             b"http/1.0" => ALPN::Http10,
             b"http/1.1" => ALPN::Http11,
             b"h2" => ALPN::Http20,
-            _ => {
-                // println!("unknown alpn {:?}", opt);
-                ALPN::None
-            }
+            _ => ALPN::Custom(opt.to_vec()),
         }
     }
 
-    pub fn value(&self) -> &'static str {
+    pub fn value(&self) -> &str {
         match self {
             ALPN::Http10 => "http/1.0",
             ALPN::Http11 => "http/1.1",
             ALPN::Http20 => "h2",
-            ALPN::None => ""
+            ALPN::Custom(v) => unsafe { std::str::from_utf8_unchecked(v.as_slice()) }
         }
     }
 
