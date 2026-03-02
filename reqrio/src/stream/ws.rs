@@ -44,7 +44,7 @@ impl<S: ReqExt> WebSocketBuilder<S> {
         self
     }
 
-    pub fn set_uri(&mut self, uri: impl AsRef<str>) -> HlsResult<()> {
+    pub fn set_uri(&mut self, uri: impl AsRef<str>) -> Result<(), RlsError> {
         self.0.url_mut().set_uri(uri)
     }
 

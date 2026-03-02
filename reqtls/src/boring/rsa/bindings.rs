@@ -1,5 +1,5 @@
 use std::os::raw::{c_char, c_int, c_long, c_uchar, c_uint, c_void};
-use crate::boring::bindings::{EVP_CIPHER, EVP_MD, EVP_PKEY, EVP_PKEY_CTX};
+use crate::boring::bindings::*;
 
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
@@ -264,6 +264,16 @@ pub const NID_subject_key_identifier: i32 = 82;
 pub const NID_ext_key_usage: i32 = 126;
 #[allow(non_upper_case_globals)]
 pub const NID_subject_alt_name: i32 = 85;
+#[allow(non_upper_case_globals)]
+pub const NID_info_access: i32 = 177;
+#[allow(non_upper_case_globals)]
+pub const NID_ad_ca_issuers: i32 = 179;
+
+pub const X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT: i32 = 2;
+
+pub const X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY: i32 = 20;
+
+pub const GEN_URI: i32 = 6;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct X509 {
@@ -373,6 +383,108 @@ pub struct X509_EXTENSION {
     _unused: [u8; 0],
 }
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+#[allow(non_camel_case_types)]
+pub struct AUTHORITY_INFO_ACCESS {
+    _unused: [u8; 0],
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+#[allow(non_camel_case_types)]
+pub struct ASN1_OBJECT {
+    _unused: [u8; 0],
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub struct ACCESS_DESCRIPTION {
+    pub method: *mut ASN1_OBJECT,
+    pub location: *mut GENERAL_NAME,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+#[allow(non_camel_case_types)]
+pub struct GENERAL_NAME {
+    pub type_: c_int,
+    pub d: GENERAL_NAME_st__bindgen_ty_1,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+#[allow(non_camel_case_types)]
+pub struct ASN1_TYPE;
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct OTHERNAME {
+    pub type_id: *mut ASN1_OBJECT,
+    pub value: *mut ASN1_TYPE,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub struct ASN1_IA5STRING {
+    pub length: c_int,
+    pub type_: c_int,
+    pub data: *mut c_uchar,
+    pub flags: c_long,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub struct ASN1_STRING {
+    pub length: c_int,
+    pub type_: c_int,
+    pub data: *mut c_uchar,
+    pub flags: c_long,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+#[allow(non_snake_case)]
+pub struct EDIPARTYNAME {
+    pub nameAssigner: *mut ASN1_STRING,
+    pub partyName: *mut ASN1_STRING,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub struct ASN1_OCTET_STRING {
+    pub length: c_int,
+    pub type_: c_int,
+    pub data: *mut c_uchar,
+    pub flags: c_long,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+#[allow(non_camel_case_types)]
+#[allow(non_snake_case)]
+pub union GENERAL_NAME_st__bindgen_ty_1 {
+    pub ptr: *mut c_char,
+    pub otherName: *mut OTHERNAME,
+    pub rfc822Name: *mut ASN1_IA5STRING,
+    pub dNSName: *mut ASN1_IA5STRING,
+    pub x400Address: *mut ASN1_STRING,
+    pub directoryName: *mut X509_NAME,
+    pub ediPartyName: *mut EDIPARTYNAME,
+    pub uniformResourceIdentifier: *mut ASN1_IA5STRING,
+    pub iPAddress: *mut ASN1_OCTET_STRING,
+    pub registeredID: *mut ASN1_OBJECT,
+    pub ip: *mut ASN1_OCTET_STRING,
+    pub dirn: *mut X509_NAME,
+    pub ia5: *mut ASN1_IA5STRING,
+    pub rid: *mut ASN1_OBJECT,
+}
+
 unsafe extern "C" {
     pub fn RSA_new() -> *mut RSA;
 
@@ -421,6 +533,10 @@ unsafe extern "C" {
     pub fn sk_push(sk: *mut STACK, p: *mut c_void) -> usize;
 
     pub fn sk_free(sk: *mut STACK);
+
+    pub fn sk_num(sk: *const STACK) -> usize;
+
+    pub fn sk_value(sk: *const STACK, i: usize) -> *mut c_void;
 
     pub fn X509_STORE_new() -> *mut X509_STORE;
 
@@ -471,6 +587,14 @@ unsafe extern "C" {
     pub fn X509_sign(x509: *mut X509, pkey: *mut EVP_PKEY, md: *const EVP_MD) -> c_int;
 
     pub fn PEM_write_bio_X509(bp: *mut BIO, x: *mut X509) -> c_int;
+
+    pub fn AUTHORITY_INFO_ACCESS_free(a: *mut AUTHORITY_INFO_ACCESS);
+
+    pub fn OBJ_obj2nid(obj: *const ASN1_OBJECT) -> c_int;
+
+    pub fn ASN1_STRING_get0_data(str_: *const ASN1_STRING) -> *const c_uchar;
+
+    pub fn ASN1_STRING_length(str_: *const ASN1_STRING) -> c_int;
 
     pub fn RSA_generate_key_ex(
         rsa: *mut RSA,
@@ -593,4 +717,11 @@ unsafe extern "C" {
         e: *mut BIGNUM,
         d: *mut BIGNUM,
     ) -> c_int;
+
+    pub unsafe fn X509_get_ext_d2i(
+        x509: *const X509,
+        nid: c_int,
+        out_critical: *mut c_int,
+        out_idx: *mut c_int,
+    ) -> *mut c_void;
 }

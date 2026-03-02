@@ -1,5 +1,5 @@
 use std::fmt::Display;
-use crate::error::HlsError;
+use crate::RlsError;
 
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub enum Protocol {
@@ -39,7 +39,7 @@ impl Display for Protocol {
 }
 
 impl TryFrom<&str> for Protocol {
-    type Error = HlsError;
+    type Error = RlsError;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             "http" => Ok(Protocol::Http),

@@ -6,7 +6,6 @@ use crate::stream::astream::AsyncTlsStream;
 use crate::stream::astream::{AsyncTcpStream, TimeoutRW};
 use crate::stream::proxy::ProxyStream;
 use crate::stream::ConnParam;
-use crate::url::Protocol;
 use crate::*;
 use std::io::Write;
 

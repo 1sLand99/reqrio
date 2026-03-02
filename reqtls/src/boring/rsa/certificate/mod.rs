@@ -97,6 +97,35 @@ impl Certificate {
     }
 
     pub fn x509(&self) -> &CPointer<X509> { &self.x509 }
+
+    //Authority Information Access
+    pub fn get_aia(&self) -> RlsResult<Vec<String>> {
+        let mut crit = 0;
+        let aia = unsafe {
+            X509_get_ext_d2i(
+                self.x509.as_ptr(),
+                NID_info_access,
+                &mut crit,
+                null_mut(),
+            )
+        } as *mut AUTHORITY_INFO_ACCESS;
+        let aia = CPointer::new_checked(aia, RlsError::GetAiaFail)?;
+        let count = unsafe { sk_num(aia.as_ptr() as _) };
+        let mut res =vec![];
+        for i in 0..count {
+            let ad = unsafe { sk_value(aia.as_ptr() as _, i) } as *mut ACCESS_DESCRIPTION;
+            let nid = unsafe { OBJ_obj2nid((*ad).method) };
+            let location = unsafe { (*ad).location.as_mut() }.ok_or(RlsError::NullPtr)?;
+            if nid == NID_ad_ca_issuers && location.type_ == GEN_URI {
+                let uri = unsafe { location.d.uniformResourceIdentifier };
+                let data = unsafe { ASN1_STRING_get0_data(uri as _) };
+                let len = unsafe { ASN1_STRING_length(uri as _) };
+                let slice = unsafe { std::slice::from_raw_parts(data, len as _) };
+                res.push(String::from_utf8_lossy(slice).to_string())
+            }
+        }
+        Ok(res)
+    }
 }
 
 

@@ -156,6 +156,7 @@ pub use suite::CipherSuite;
 pub use extend::{Extension, ExtensionType, group::GroupType, formats::EcPointFormat, SupportVersions, CompressionType};
 pub use alpn::ALPN;
 pub use ext::WriteExt;
+pub use url::{Addr, Protocol, Uri, Url, Param};
 
 mod extend;
 mod message;
@@ -174,6 +175,7 @@ pub mod coder;
 mod alpn;
 mod ext;
 mod share_key;
+mod url;
 
 #[cfg(feature = "export")]
 mod export;

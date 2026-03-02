@@ -1,6 +1,5 @@
 use std::fmt::{Display, Formatter};
-use crate::coder;
-use crate::error::HlsError;
+use crate::{coder, RlsError};
 
 #[derive(Debug, Clone)]
 pub struct Param {
@@ -48,7 +47,7 @@ impl Display for Param {
 }
 
 impl TryFrom<&str> for Param {
-    type Error = HlsError;
+    type Error = RlsError;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let mut items = value.split("=");
         let mut res = Param::new();

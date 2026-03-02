@@ -1,7 +1,7 @@
-use std::fmt::{Display, Formatter};
-use crate::error::HlsResult;
-use crate::HlsError;
 use super::param::Param;
+use crate::error::RlsResult;
+use crate::RlsError;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub struct Uri {
@@ -19,11 +19,11 @@ impl Uri {
 
     pub fn value(&self) -> &str { &self.uri }
 
-    pub(crate) fn set_uri(&mut self, uri: impl ToString) {
+    pub fn set_uri(&mut self, uri: impl ToString) {
         self.uri = uri.to_string();
     }
 
-    pub(crate) fn parse_param(&mut self, item: &str) -> HlsResult<()> {
+    pub fn parse_param(&mut self, item: &str) -> RlsResult<()> {
         for kv in item.split("&") {
             self.params.push(Param::try_from(kv)?);
         }
@@ -70,8 +70,8 @@ impl Display for Uri {
 }
 
 impl TryFrom<&str> for Uri {
-    type Error = HlsError;
-    fn try_from(value: &str) -> HlsResult<Uri> {
+    type Error = RlsError;
+    fn try_from(value: &str) -> RlsResult<Uri> {
         let mut items = value.split("?");
         let mut res = Uri::new();
         res.uri = items.next().unwrap_or("").to_string();

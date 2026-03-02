@@ -4,6 +4,7 @@ use std::error::Error;
 use std::ffi::NulError;
 use std::fmt::{Display, Formatter};
 use std::io;
+use std::net::AddrParseError;
 use std::num::ParseIntError;
 use std::string::FromUtf8Error;
 use hex::FromHexError;
@@ -89,6 +90,8 @@ pub enum RlsError {
     X509SignError,
     BIOWriteError,
     BIOGetDataError,
+    GetAiaFail,
+    MissingCertificateChain,
     StdError(Box<dyn Error>),
     Currently(String),
     Alert(Alert),
@@ -175,6 +178,8 @@ impl Display for RlsError {
             RlsError::X509SignError => f.write_str("X509 sign error"),
             RlsError::BIOWriteError => f.write_str("BIO write error"),
             RlsError::BIOGetDataError => f.write_str("BIO get data error"),
+            RlsError::GetAiaFail => f.write_str("Get authority information access fail"),
+            RlsError::MissingCertificateChain => f.write_str("Missing certificate chain"),
             RlsError::Alert(alert) => write!(f, "Alert({})", alert.desc()),
             RlsError::StdError(e) => f.write_fmt(format_args!("{:?}", e)),
             RlsError::Currently(e) => f.write_str(e),
@@ -238,6 +243,12 @@ impl From<RlsError> for io::Error {
 
 impl From<NulError> for RlsError {
     fn from(value: NulError) -> Self {
+        RlsError::StdError(Box::new(value))
+    }
+}
+
+impl From<AddrParseError> for RlsError {
+    fn from(value: AddrParseError) -> Self {
         RlsError::StdError(Box::new(value))
     }
 }

@@ -1,5 +1,4 @@
 use crate::error::{HlsError, HlsResult};
-use crate::url::{Addr, Protocol};
 use crate::*;
 use std::fmt::{Display, Formatter};
 use std::net::SocketAddr;

@@ -1,6 +1,6 @@
 use crate::hpack::HPack;
 use crate::error::{HlsError, HlsResult};
-use crate::ALPN;
+use crate::*;
 use crate::json::JsonValue;
 pub use key::HeaderKey;
 pub use method::Method;
@@ -9,7 +9,6 @@ use std::fmt::Display;
 use std::mem;
 pub use value::HeaderValue;
 
-use super::super::super::url::Uri;
 use super::content_type::ContentType;
 use super::cookie::Cookie;
 

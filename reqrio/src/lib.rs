@@ -136,7 +136,6 @@ pub use stream::TlsConfig;
 pub use timeout::Timeout;
 #[cfg(feature = "tokio")]
 pub use tokio;
-pub use url::{Addr, Protocol, Uri, Url, Param};
 
 pub type ReqCallback = Box<dyn FnMut(&[u8]) -> HlsResult<()>>;
 pub const HTTP_GAP: &[u8; 4] = b"\r\n\r\n";
@@ -155,7 +154,6 @@ mod packet;
 mod scq;
 mod stream;
 mod timeout;
-mod url;
 mod body;
 mod fingerprint;
 

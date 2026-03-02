@@ -1,8 +1,10 @@
 use crate::boring::rsa::bindings::*;
 use crate::boring::BoringResExt;
 use crate::error::RlsResult;
-use crate::{Certificate, RlsError};
+use crate::{Certificate, RlsError, Url};
 use std::ffi::CStr;
+use std::io::{Read, Write};
+use std::net::TcpStream;
 use std::sync::LazyLock;
 use crate::ffi::CPointer;
 
@@ -43,7 +45,7 @@ impl CertStore {
 
     pub fn pointer(&self) -> &CPointer<X509_STORE> { &self.store_ptr }
 
-    pub fn verify_cert(&self, certs: &[Certificate], sni: &str) -> RlsResult<()> {
+    pub fn verify_cert(&self, certs: &mut Vec<Certificate>, sni: &str) -> RlsResult<()> {
         let stack = CPointer::new_checked(unsafe { sk_new_null() }, RlsError::SkNewError)?;
         for cert in &certs[1..] {
             let len = unsafe { sk_push(stack.as_mut_ptr(), cert.x509().as_mut_ptr() as _) };
@@ -61,9 +63,45 @@ impl CertStore {
         let ret = unsafe { X509_verify_cert(ctx.as_mut_ptr()) };
         if ret != 1 {
             let err = unsafe { X509_STORE_CTX_get_error(ctx.as_mut_ptr()) };
+            if err == X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT || err == X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY {
+                let aia = certs.last().ok_or("cert empty")?.get_aia().or(Err(RlsError::IssuerUnknown))?;
+                for uri in aia {
+                    let cert = download_cert(uri)?;
+                    certs.push(cert);
+                }
+                return self.verify_cert(certs, sni);
+            }
             let msg_prt = unsafe { X509_verify_cert_error_string(err as _) };
             return Err(RlsError::from(unsafe { CStr::from_ptr(msg_prt) }.to_bytes()));
         };
         certs[0].verify_sni(sni)
     }
+}
+
+
+pub fn download_cert(url: impl AsRef<str>) -> RlsResult<Certificate> {
+    let url = Url::try_from(url.as_ref())?;
+    let mut tcp = TcpStream::connect(url.addr().to_string())?;
+    let context = format!("GET {} HTTP/1.1\r\nHost: {}\r\nAccept: */*\r\n\r\n", url.uri(), url.addr().host());
+    tcp.write_all(context.into_bytes().as_ref())?;
+    let mut res = vec![];
+    let mut context_len = 0;
+    loop {
+        let mut buf = [0; 1024];
+        let len = tcp.read(&mut buf)?;
+        res.extend_from_slice(&buf[..len]);
+        if context_len == 0 {
+            if let Some(pos) = res.windows(4).position(|w| w == b"\r\n\r\n") {
+                let header = String::from_utf8_lossy(&res[..pos]).to_string();
+                for line in header.split("\r\n") {
+                    if line.to_lowercase().starts_with("content-length") {
+                        context_len = line.split(": ").last().ok_or("context-length empty")?.parse()?;
+                        res.drain(0..pos + 4);
+                        break;
+                    }
+                }
+            }
+        } else if res.len() >= context_len { break; }
+    }
+    Ok(Certificate::from_der(&res)?)
 }

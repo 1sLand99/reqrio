@@ -14,7 +14,7 @@ async fn main() {
         .with_fingerprint(fingerprint)
         .with_alpn(ALPN::Http20)
         .with_timeout(timeout)
-        .with_verify(false)
+        .with_verify(true)
         // .with_proxy(Proxy::try_from("http://127.0.0.1:10240").unwrap())
         ;
     let headers = json::object! {
@@ -74,9 +74,8 @@ async fn main() {
     // req.set_url("https://m.so.com").await.unwrap();
     // req.set_url("https://www.sephora.com/beauty/giftcards").await.unwrap();
     // req.set_url("https://doc.rust-lang.org/").await.unwrap();
-    // req.set_url("https://tls.123408.xyz/api/clean").await.unwrap();
-    req.set_url("https://mcs-mimp-web.sf-express.com/mcs-mimp/sendValidCode").await.unwrap();
-    println!("111");
+    req.set_url("https://tls.123408.xyz/api/clean").await.unwrap();
+    // req.set_url("https://mcs-mimp-web.sf-express.com/mcs-mimp/sendValidCode").await.unwrap();
     // req.set_callback(|data| {
     //     println!("{}", data.len());
     //     Ok(())

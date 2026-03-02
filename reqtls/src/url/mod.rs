@@ -1,9 +1,10 @@
-use crate::error::{HlsError, HlsResult};
 pub use addr::Addr;
 pub use protocol::Protocol;
 use std::fmt::Display;
 pub use uri::Uri;
 pub use param::Param;
+use crate::error::RlsResult;
+use crate::RlsError;
 
 mod addr;
 mod param;
@@ -36,7 +37,7 @@ impl Url {
 
     pub fn into_uri(self) -> Uri { self.uri }
 
-    pub fn set_uri(&mut self, uri: impl AsRef<str>) -> HlsResult<()> {
+    pub fn set_uri(&mut self, uri: impl AsRef<str>) -> RlsResult<()> {
         let mut i = uri.as_ref().split("?");
         self.uri.set_uri(i.next().ok_or("Invalid uri")?);
         if let Some(param) = i.next() {
@@ -74,14 +75,14 @@ impl Display for Url {
 }
 
 impl TryFrom<String> for Url {
-    type Error = HlsError;
+    type Error = RlsError;
     fn try_from(t: String) -> Result<Self, Self::Error> {
         Url::try_from(t.as_ref())
     }
 }
 
 impl TryFrom<&str> for Url {
-    type Error = HlsError;
+    type Error = RlsError;
     fn try_from(t: &str) -> Result<Self, Self::Error> {
         let mut res = Url::new();
         let mut t = t.split("?");

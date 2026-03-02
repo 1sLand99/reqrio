@@ -3,7 +3,6 @@ use crate::error::HlsResult;
 use crate::file::HttpFile;
 use crate::packet::*;
 use crate::timeout::Timeout;
-use crate::url::Url;
 use crate::*;
 use json::JsonValue;
 use crate::hpack::HackDecode;

@@ -89,7 +89,7 @@ impl Connection {
             self.certificates.push(Certificate::from_der(certificate.as_ref())?);
         }
         if !self.verify { return Ok(()); }
-        self.root_stores.verify_cert(&self.certificates, sni)
+        self.root_stores.verify_cert(&mut self.certificates, sni)
     }
 
     fn gen_key_sign_data(&self, server_key: &ServerKeyExchange) -> Vec<u8> {

@@ -21,12 +21,10 @@ pub fn zstd_decompress(data: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
     zstd::decompress(data)
 }
 
-#[cfg(feature = "urlencoding")]
 pub fn url_encode(url: impl AsRef<str>) -> String {
     urlencoding::encode(url.as_ref()).to_string()
 }
 
-#[cfg(feature = "urlencoding")]
 pub fn url_decode(url: impl AsRef<str>) -> RlsResult<String> {
     Ok(urlencoding::decode(url.as_ref())?.to_string())
 }
