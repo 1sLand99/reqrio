@@ -89,9 +89,8 @@ impl StreamKind {
                     sni: param.url.addr().host(),
                     alpn: param.alpn,
                     fingerprint: param.fingerprint,
-                    ca: &mut Certificate::none(),
-                    client_cert: &mut vec![],
-                    cert_key: &RsaKey::none(),
+                    client_cert: param.cert,
+                    cert_key: param.key,
                     verify: param.verify,
                 }, stream)?;
                 let alpn = tls_stream.alpn().map(|x| ALPN::from_slice(x.as_bytes())).unwrap_or(ALPN::Http11);

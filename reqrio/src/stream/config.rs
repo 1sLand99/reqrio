@@ -28,7 +28,6 @@ pub struct ClientConfig<'a> {
     pub sni: &'a str,
     pub alpn: &'a ALPN,
     pub fingerprint: &'a mut Fingerprint,
-    pub ca: &'a mut Certificate,
     pub client_cert: &'a mut Vec<Certificate>,
     pub cert_key: &'a RsaKey,
     pub verify: bool,

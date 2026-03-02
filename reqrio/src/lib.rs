@@ -129,7 +129,7 @@ pub use packet::{
 pub use reqrio_json as json;
 pub use reqtls::*;
 pub use scq::ScReq;
-pub use stream::{ProxyStream, WebSocket, WebSocketBuilder, Proxy, ServerConfig, ClientConfig};
+pub use stream::{ProxyStream, WebSocket, WebSocketBuilder, Proxy, ServerConfig, ClientConfig, SyncStream};
 #[cfg(feature = "aync")]
 pub use stream::TlsStream;
 pub use timeout::Timeout;

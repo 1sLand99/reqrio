@@ -18,7 +18,7 @@ async fn main() {
         .with_alpn(ALPN::Http20)
         .with_timeout(timeout)
         .with_verify(false)
-        // .with_mtls(certs, key)
+        .with_mtls(certs, key)
         // .with_proxy(Proxy::try_from("http://127.0.0.1:10240").unwrap())
         ;
     let headers = json::object! {

@@ -3,6 +3,7 @@ use crate::*;
 use std::io;
 use std::io::{Read, Write};
 use crate::stream::config::Config;
+use crate::stream::TlsStreamHandle;
 
 pub struct SyncStream<S> {
     conn: Connection,
@@ -13,35 +14,14 @@ pub struct SyncStream<S> {
 }
 
 impl<S: Read + Write> SyncStream<S> {
-    pub fn connect(config: ClientConfig, mut stream: S) -> HlsResult<SyncStream<S>> {
-        let client_random = rand::random::<[u8; 32]>().to_vec();
-        let session_id = rand::random::<[u8; 32]>();
-        let mut client_hello = RecordLayer::from_bytes(&mut config.fingerprint.client_hello, false, None)?;
-        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_random(&client_random);
-        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_server_name(config.sni);
-        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_session_id(&session_id);
-        match config.alpn {
-            ALPN::Http20 => client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.add_h2_alpn(),
-            _ => client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.remove_h2_alpn()
-        }
-        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.remove_tls13();
-        let mut write_buffer = Buffer::with_capacity(0xFFFF);
-        let len = client_hello.write_to(&mut write_buffer, 1)?;
-        write_buffer.set_len(len);
-
-        // let bs = client_hello.handshake_bytes(1);
-        let mut conn = Connection::default().with_client_random(client_random).with_verify(config.verify);
-        conn.update_session(&write_buffer.filled()[5..])?;
-        stream.write_all(write_buffer.filled())?;
-        write_buffer.reset();
+    fn new(stream: S, conn: Connection, mut config: Config<'_>, buffer: Buffer) -> HlsResult<SyncStream<S>> {
         let mut stream = SyncStream {
             stream,
             conn,
             handshake_finished: false,
             read_buffer: Buffer::with_capacity(0xFFFF),
-            write_buffer,
+            write_buffer: buffer,
         };
-        let mut config = Config::Client(config);
         loop {
             let record_len = stream.read_next_packet()?;
             let len = stream.read_buffer.len();
@@ -51,46 +31,48 @@ impl<S: Read + Write> SyncStream<S> {
         }
         Ok(stream)
     }
+    pub fn connect(mut config: ClientConfig, mut stream: S) -> HlsResult<SyncStream<S>> {
+        let mut write_buffer = Buffer::with_capacity(0xFFFF);
+        let conn = Self::handle_client_hello(&mut config, &mut write_buffer)?;
+        stream.write_all(write_buffer.filled())?;
+        write_buffer.reset();
+        SyncStream::new(stream, conn, Config::Client(config), write_buffer)
+    }
 
-    fn handle_message(&mut self, mut param: Option<&mut Config>) -> HlsResult<bool> {
-        let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, Some(self.conn.cipher_suite()))?;
-        for message in record.messages {
-            match record.context_type {
-                RecordType::CipherSpec => self.handshake_finished = true,
-                RecordType::Alert => {}
-                RecordType::HandShake => {
+    pub fn accept(stream: S, config: ServerConfig<'_>) -> HlsResult<SyncStream<S>> {
+        SyncStream::new(stream, Connection::default(), Config::Server(config), Buffer::with_capacity(16413))
+    }
+
+    fn handle_message(&mut self, mut config: Option<&mut Config>) -> HlsResult<bool> {
+        let mut record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, Some(self.conn.cipher_suite()))?;
+        match record.context_type {
+            RecordType::CipherSpec => self.handshake_finished = true,
+            RecordType::Alert => {
+                let pdr = if self.handshake_finished { self.conn.read_message(&mut record)? } else { 5..record.len as usize + 5 };
+                let alert = Alert::from_bytes(&self.read_buffer[pdr])?;
+                return Err(RlsError::Alert(alert).into());
+            }
+            RecordType::HandShake => {
+                for message in record.messages {
                     match message {
                         Message::ServerHello(v) => self.conn.set_by_server_hello(&v)?,
                         Message::Certificate(v) => {
-                            let param = param.as_mut().ok_or("conn param can't be null")?;
+                            let param = config.as_mut().ok_or("conn param can't be null")?;
                             self.conn.set_by_certificate(v, param.client_mut().ok_or("missing config")?.sni)?;
                         }
-                        Message::ServerKeyExchange(v) => {
-                            // println!("{:#?}", v);
-                            self.conn.set_by_server_exchange_key(v)?
-                        }
+                        Message::ServerKeyExchange(v) => self.conn.set_by_server_exchange_key(v)?,
                         Message::ServerHelloDone(_) => {
-                            let param = param.as_mut().ok_or("conn param can't be null")?;
-                            let key_size = self.conn.cipher_suite().key_size();
-                            let pub_key = self.conn.pub_share_key()?;
-                            let mut client_key_exchange = RecordLayer::from_bytes(&mut param.client_mut().ok_or("missing config")?.fingerprint.client_key_exchange, false, None)?;
-                            client_key_exchange.messages[0].client_key_exchange_mut().unwrap().set_pub_key(pub_key.as_slice());
-                            let len = client_key_exchange.write_to(&mut self.write_buffer, key_size)?;
-                            self.write_buffer.set_len(len);
-                            self.conn.update_session(&self.write_buffer.filled()[5..])?;
-                            self.write_buffer.write_slice(&param.client_mut().ok_or("missing config")?.fingerprint.change_cipher_spec);
-                            self.conn.make_cipher(false)?;
-                            let record_len = self.conn.make_finish_message(self.write_buffer.unfilled_mut(), false)?;
-                            self.write_buffer.add_len(record_len);
+                            self.handle_by_server_hello_done(config)?;
                             self.stream.write_all(self.write_buffer.filled())?;
                             self.write_buffer.reset();
                             return Ok(true);
                         }
+                        Message::CertificateRequest(v) => self.conn.set_by_cert_req(v),
                         _ => {}
                     }
                 }
-                RecordType::ApplicationData => {}
             }
+            RecordType::ApplicationData => {}
         }
 
         Ok(false)
@@ -105,6 +87,12 @@ impl<S: Read + Write> SyncStream<S> {
 
     pub fn alpn(&self) -> Option<&str> {
         Some(self.conn.alpn()?.value())
+    }
+}
+
+impl<S: Read + Write> TlsStreamHandle for SyncStream<S> {
+    fn conn_buf(&mut self) -> (&mut Connection, &mut Buffer) {
+        (&mut self.conn, &mut self.write_buffer)
     }
 }
 

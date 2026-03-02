@@ -91,7 +91,6 @@ impl AsyncTlsStream {
             sni: param.url.addr().host(),
             alpn: param.alpn,
             fingerprint: param.fingerprint,
-            ca: &mut Certificate::none(),
             client_cert: param.cert,
             cert_key: param.key,
             verify: param.verify,

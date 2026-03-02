@@ -1,11 +1,13 @@
-use crate::*;
-pub use proxy::Proxy;
-pub use proxy::ProxyStream;
+use crate::stream::config::Config;
 use crate::stream::kind::StreamKind;
+use crate::*;
+pub use sync_stream::SyncStream;
 #[cfg(feature = "aync")]
 pub use async_stream::TlsStream;
+pub use config::{ClientConfig, ServerConfig};
+pub use proxy::Proxy;
+pub use proxy::ProxyStream;
 pub use ws::{WebSocket, WebSocketBuilder};
-pub use config::{ServerConfig, ClientConfig};
 
 #[cfg(feature = "aync")]
 mod async_stream;
@@ -87,3 +89,69 @@ impl Stream {
     }
 }
 
+
+pub trait TlsStreamHandle {
+    fn conn_buf(&mut self) -> (&mut Connection, &mut Buffer);
+
+    fn handle_client_hello(config: &mut ClientConfig, buffer: &mut Buffer) -> HlsResult<Connection> {
+        let client_random = rand::random::<[u8; 32]>().to_vec();
+        let session_id = rand::random::<[u8; 32]>();
+        let mut client_hello = RecordLayer::from_bytes(&mut config.fingerprint.client_hello, false, None)?;
+        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_random(&client_random);
+        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_server_name(config.sni);
+        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_session_id(&session_id);
+        match config.alpn {
+            ALPN::Http20 => client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.add_h2_alpn(),
+            _ => client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.remove_h2_alpn()
+        }
+        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.remove_tls13();
+        let len = client_hello.write_to(buffer, 1)?;
+        buffer.set_len(len);
+
+        let mut conn = Connection::default().with_client_random(client_random).with_verify(config.verify);
+        conn.update_session(&buffer.filled()[5..])?;
+        Ok(conn)
+    }
+
+    fn handle_by_server_hello_done(&mut self, mut config: Option<&mut Config>) -> HlsResult<()> {
+        let config = config.as_mut().ok_or("config can't be null")?;
+        let config = config.client_mut().ok_or("missing config")?;
+        let (conn, buffer) = self.conn_buf();
+        let offset = buffer.len();
+        if conn.mtls() {
+            //client certificate
+            if config.client_cert.is_empty() { return Err("Server request cert, but not provided".into()); }
+            let mut certificate = Certificates::default();
+            certificate.add_certificate(config.client_cert[0].as_der().as_slice());
+            let mut record = RecordLayer::handshake();
+            record.messages.push(Message::Certificate(certificate));
+            let len = record.write_to(buffer, 1)?;
+            buffer.set_len(offset + len);
+            conn.update_session(&buffer[offset + 5..offset + len])?;
+        }
+        let offset = buffer.len();
+        //client key exchange
+        let mut record = RecordLayer::from_bytes(&mut config.fingerprint.client_key_exchange, false, None)?;
+        let client_key_exchange = record.messages.get_mut(0).ok_or(HlsError::NullPointer)?;
+        let key_size = conn.cipher_suite().key_size();
+        let pub_key = conn.pub_share_key()?;
+        client_key_exchange.client_key_exchange_mut().unwrap().set_pub_key(pub_key.as_slice());
+        let len = record.write_to(buffer, key_size)?;
+        buffer.set_len(offset + len);
+        conn.update_session(&buffer[offset + 5..offset + len])?;
+        conn.make_cipher(false)?;
+        //certificate verify
+        if conn.mtls() {
+            let offset = buffer.len();
+            let len = conn.handle_mtls_client(buffer, config.cert_key)?;
+            buffer.set_len(offset + len);
+            conn.update_session(&buffer[offset + 5..offset + len])?;
+        }
+        buffer.write_slice(&config.fingerprint.change_cipher_spec);
+
+
+        let record_len = conn.make_finish_message(buffer.unfilled_mut(), false)?;
+        buffer.add_len(record_len);
+        Ok(())
+    }
+}
