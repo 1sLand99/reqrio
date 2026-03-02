@@ -67,7 +67,11 @@ impl<S: Read + Write> SyncStream<S> {
                             self.write_buffer.reset();
                             return Ok(true);
                         }
-                        Message::CertificateRequest(v) => self.conn.set_by_cert_req(v),
+                        Message::CertificateRequest(v) => {
+                            let config = config.as_mut().ok_or("config can't be null")?;
+                            let config = config.client_mut().ok_or("missing config")?;
+                            self.conn.set_by_cert_req(v, config.client_cert.first_mut().ok_or("Server request cert, but not provided")?)?;
+                        }
                         _ => {}
                     }
                 }

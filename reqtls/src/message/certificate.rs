@@ -1,9 +1,9 @@
+use super::super::bytes::Bytes;
 use super::HandshakeType;
-use std::fmt::{Debug, Formatter};
 use crate::bytes::ByteRef;
 use crate::error::RlsResult;
-use crate::{SignatureAlgorithm, WriteExt};
-use super::super::bytes::Bytes;
+use crate::{CertType, SignatureAlgorithm, WriteExt};
+use std::fmt::Debug;
 
 #[derive(Debug)]
 pub struct Certificates<'a> {
@@ -87,29 +87,7 @@ impl CertificateStatus {
     }
 }
 
-#[derive(PartialEq)]
-pub struct CertType(u8);
-impl CertType {
-    pub const RSA: CertType = CertType(1);
-    pub const ECDSA: CertType = CertType(64);
 
-    pub fn spec(&self) -> &str {
-        match *self {
-            CertType::RSA => "RSA",
-            CertType::ECDSA => "ECDSA",
-            _ => "Reserved"
-        }
-    }
-    pub fn new(v: u8) -> CertType {
-        CertType(v)
-    }
-}
-
-impl Debug for CertType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}(0x{})", self.spec(), self.0)
-    }
-}
 
 #[derive(Debug)]
 pub struct CertificateRequest<'a> {

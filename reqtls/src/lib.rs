@@ -150,6 +150,7 @@ pub use boring::{hash, hmac, base64, Cipher, CipherType, Padding, RsaCipher, Rsa
                  certificate::Certificate, cipher, certificate::DnType, certificate::CertSigner,
                  certificate::CertExtend, certificate::BasicConstraint, certificate::KeyUsage,
                  certificate::KeyIdentifier, certificate::SubjectAltName, certificate::CertStore,
+                 certificate::CertType,
                  SignatureAlgorithm, AlgorithmSigner};
 pub use hex;
 pub use suite::CipherSuite;

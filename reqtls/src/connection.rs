@@ -108,23 +108,24 @@ impl Connection {
         sign_data
     }
 
-    pub fn set_by_cert_req(&mut self, req: CertificateRequest) {
+    pub fn set_by_cert_req(&mut self, req: CertificateRequest, cert: &mut Certificate) -> RlsResult<()> {
         for hash in req.into_hashes() {
-            match hash {
-                SignatureAlgorithm::RSA_PSS_RSAE_SHA256 => self.mtls_hash = hash,
-                SignatureAlgorithm::RSA_PSS_RSAE_SHA384 => self.mtls_hash = hash,
-                SignatureAlgorithm::RSA_PSS_RSAE_SHA512 => self.mtls_hash = hash,
-                // SignatureAlgorithm::ECDSA_SECP256R1_SHA256 => self.mtls_hash = hash,
-                // SignatureAlgorithm::ECDSA_SECP384R1_SHA384 => self.mtls_hash = hash,
-                // SignatureAlgorithm::ECDSA_SECP521R1_SHA512 => self.mtls_hash = hash,
-                SignatureAlgorithm::RSA_PKCS1_SHA1 => self.mtls_hash = hash,
-                SignatureAlgorithm::RSA_PKCS1_SHA256 => self.mtls_hash = hash,
-                SignatureAlgorithm::RSA_PKCS1_SHA384 => self.mtls_hash = hash,
-                SignatureAlgorithm::RSA_PKCS1_SHA512 => self.mtls_hash = hash,
+            match (&hash, cert.cert_type()?) {
+                (&SignatureAlgorithm::RSA_PSS_RSAE_SHA256, CertType::RSA) => self.mtls_hash = hash,
+                (&SignatureAlgorithm::RSA_PSS_RSAE_SHA384, CertType::RSA) => self.mtls_hash = hash,
+                (&SignatureAlgorithm::RSA_PSS_RSAE_SHA512, CertType::RSA) => self.mtls_hash = hash,
+                (&SignatureAlgorithm::ECDSA_SECP256R1_SHA256, CertType::ECDSA) => self.mtls_hash = hash,
+                (&SignatureAlgorithm::ECDSA_SECP384R1_SHA384, CertType::ECDSA) => self.mtls_hash = hash,
+                (&SignatureAlgorithm::ECDSA_SECP521R1_SHA512, CertType::ECDSA) => self.mtls_hash = hash,
+                (&SignatureAlgorithm::RSA_PKCS1_SHA1, CertType::RSA) => self.mtls_hash = hash,
+                (&SignatureAlgorithm::RSA_PKCS1_SHA256, CertType::RSA) => self.mtls_hash = hash,
+                (&SignatureAlgorithm::RSA_PKCS1_SHA384, CertType::RSA) => self.mtls_hash = hash,
+                (&SignatureAlgorithm::RSA_PKCS1_SHA512, CertType::RSA) => self.mtls_hash = hash,
                 _ => continue,
             }
             break;
         }
+        Ok(())
     }
 
     pub fn set_by_server_exchange_key(&mut self, server_key: ServerKeyExchange) -> RlsResult<()> {

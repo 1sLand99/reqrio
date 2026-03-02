@@ -79,12 +79,12 @@ async fn main() {
     // req.set_url("https://www.sephora.com/beauty/giftcards").await.unwrap();
     // req.set_url("https://doc.rust-lang.org/").await.unwrap();
     // req.set_url("https://tls.123408.xyz/api/clean").await.unwrap();
-    req.set_url("https://mcs-mimp-web.sf-express.com/mcs-mimp/sendValidCode").await.unwrap();
+    // req.set_url("https://mcs-mimp-web.sf-express.com/mcs-mimp/sendValidCode").await.unwrap();
     // req.set_callback(|data| {
     //     println!("{}", data.len());
     //     Ok(())
     // });
-    // req.set_url("https://127.0.0.1:8000").await.unwrap();
+    req.set_url("https://127.0.0.1:8000").await.unwrap();
     let res = req.get().await.unwrap();
     println!("{}", res.header());
     // println!("{}", res.raw_body().len());

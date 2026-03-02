@@ -57,21 +57,6 @@ impl<'a> Message<'a> {
         }
     }
 
-    // pub fn payload_len(&self) -> u32 {
-    //     match self {
-    //         Message::ClientHello(v) => v.len() as u32,
-    //         Message::ServerHello(v) => v.len(),
-    //         Message::Certificate(v) => v.len() as u32,
-    //         Message::ServerKeyExchange(v) => v.len(),
-    //         Message::ServerHelloDone(v) => v.len(),
-    //         Message::ClientKeyExchange(v) => v.len(),
-    //         Message::NewSessionTicket(v) => v.len(),
-    //         Message::Payload(v) => v.value.len() as u32,
-    //         Message::CertificateStatus(v) => v.len(),
-    //         Message::CipherSpec => 0
-    //     }
-    // }
-
     pub fn len(&self, key_size: u8) -> usize {
         match self {
             Message::ClientHello(v) => v.len(),

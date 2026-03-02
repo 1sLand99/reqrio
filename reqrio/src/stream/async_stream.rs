@@ -97,7 +97,6 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             let server = config.server_mut().ok_or("missing config")?;
                             let mut record = self.conn.gen_server_hello(v, server.server_cert, server.cert_key, &random)?;
                             let session_id = rand::random::<[u8; 32]>();
-                            // record.messages[0].server_mut().ok_or(HlsError::NullPointer)?.set_random(&random);
                             record.messages[0].server_mut().ok_or(HlsError::NullPointer)?.set_session_id(&session_id);
 
                             record.write_to(&mut self.write_buffer, 1)?;
@@ -130,7 +129,11 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             self.write_buffer.reset();
                             return Ok(true);
                         }
-                        Message::CertificateRequest(v) => self.conn.set_by_cert_req(v),
+                        Message::CertificateRequest(v) => {
+                            let config = config.as_mut().ok_or("config can't be null")?;
+                            let config = config.client_mut().ok_or("missing config")?;
+                            self.conn.set_by_cert_req(v, config.client_cert.first_mut().ok_or("Server request cert, but not provided")?)?;
+                        }
                         _ => {}
                     }
                 }

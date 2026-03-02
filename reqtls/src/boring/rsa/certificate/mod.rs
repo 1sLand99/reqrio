@@ -1,18 +1,20 @@
 mod store;
 mod siger;
+mod cert_type;
 
 use super::bindings::*;
 use crate::boring::bindings::*;
+pub use cert_type::CertType;
 use crate::boring::BoringResExt;
 use crate::error::RlsResult;
+use crate::ffi::{BufPtr, CPointer};
 use crate::RlsError;
+pub use siger::{BasicConstraint, CertExtend, CertSigner, DnType, KeyIdentifier, KeyUsage, SubjectAltName};
 use std::ffi::CString;
-use std::{fs, slice};
 use std::path::Path;
 use std::ptr::null_mut;
+use std::{fs, slice};
 pub use store::{CertStore, ROOT_STORES};
-pub use siger::{CertSigner, DnType, KeyUsage, KeyIdentifier, BasicConstraint, CertExtend, SubjectAltName};
-use crate::ffi::{BufPtr, CPointer};
 
 pub struct Certificate {
     x509: CPointer<X509>,
@@ -98,7 +100,7 @@ impl Certificate {
 
     pub fn x509(&self) -> &CPointer<X509> { &self.x509 }
 
-    //Authority Information Access
+    ///Authority Information Access
     pub fn get_aia(&self) -> RlsResult<Vec<String>> {
         let mut crit = 0;
         let aia = unsafe {
@@ -111,7 +113,7 @@ impl Certificate {
         } as *mut AUTHORITY_INFO_ACCESS;
         let aia = CPointer::new_checked(aia, RlsError::GetAiaFail)?;
         let count = unsafe { sk_num(aia.as_ptr() as _) };
-        let mut res =vec![];
+        let mut res = vec![];
         for i in 0..count {
             let ad = unsafe { sk_value(aia.as_ptr() as _, i) } as *mut ACCESS_DESCRIPTION;
             let nid = unsafe { OBJ_obj2nid((*ad).method) };
@@ -125,6 +127,17 @@ impl Certificate {
             }
         }
         Ok(res)
+    }
+
+    pub fn cert_type(&mut self) -> RlsResult<CertType> {
+        let pkey = self.pub_key()?;
+        let key_type = unsafe { EVP_PKEY_id(pkey.as_ptr()) };
+        match key_type {
+            EVP_PKEY_RSA => Ok(CertType::RSA),
+            EVP_PKEY_EC => Ok(CertType::ECDSA),
+            EVP_PKEY_ED25519 => Ok(CertType::ED25519),
+            _ => Ok(CertType::new(0)),
+        }
     }
 }
 

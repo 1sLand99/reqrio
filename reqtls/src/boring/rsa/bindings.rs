@@ -274,6 +274,13 @@ pub const X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT: i32 = 2;
 pub const X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY: i32 = 20;
 
 pub const GEN_URI: i32 = 6;
+
+pub const EVP_PKEY_RSA: i32 = 6;
+
+pub const EVP_PKEY_EC: i32 = 408;
+
+pub const EVP_PKEY_ED25519: i32 = 949;
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct X509 {
@@ -595,6 +602,8 @@ unsafe extern "C" {
     pub fn ASN1_STRING_get0_data(str_: *const ASN1_STRING) -> *const c_uchar;
 
     pub fn ASN1_STRING_length(str_: *const ASN1_STRING) -> c_int;
+
+    pub unsafe fn EVP_PKEY_id(pkey: *const EVP_PKEY) -> c_int;
 
     pub fn RSA_generate_key_ex(
         rsa: *mut RSA,

@@ -89,7 +89,7 @@ impl<'a> RecordLayer<'a> {
                     break;
                 }
                 RecordType::CipherSpec => {
-                    index = index + 1;
+                    index += 1;
                     res.messages.push(Message::CipherSpec)
                 }
             };
