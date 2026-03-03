@@ -2,7 +2,7 @@ use crate::error::RlsResult;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::ptr::null_mut;
-use std::slice;
+use std::{mem, slice};
 use crate::base64::Base64;
 use crate::RlsError;
 
@@ -28,23 +28,29 @@ pub extern "C" fn url_decode(url: *const c_char) -> *mut c_char {
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "C" fn hex_decode(url: *const c_char) -> *mut c_char {
+pub extern "C" fn hex_encode(data: *const u8, data_len: usize) -> *mut c_char {
     || -> RlsResult<*mut c_char> {
-        let uri = unsafe { CStr::from_ptr(url) }.to_str()?;
-        let res = hex::decode(uri)?;
+        let data = unsafe { slice::from_raw_parts(data, data_len) };
+        let res = hex::encode(data);
         Ok(CString::new(res)?.into_raw())
     }().unwrap_or(null_mut())
 }
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "C" fn hex_encode(url: *const c_char) -> *mut c_char {
-    || -> RlsResult<*mut c_char> {
-        let uri = unsafe { CStr::from_ptr(url) }.to_str()?;
-        let res = hex::encode(uri);
-        Ok(CString::new(res)?.into_raw())
-    }().unwrap_or(null_mut())
+pub extern "C" fn hex_decode(data: *const c_char, out: *mut *mut u8, len: &mut usize) -> i32 {
+    || -> RlsResult<i32> {
+        let uri = unsafe { CStr::from_ptr(data) }.to_str()?;
+        let mut res = hex::decode(uri)?;
+        unsafe {
+            *out = res.as_mut_ptr();
+            *len = res.len();
+        }
+        mem::forget(res);
+        Ok(0)
+    }().unwrap_or(-1)
 }
+
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
@@ -54,24 +60,29 @@ pub fn Base64_new() -> *mut Base64 {
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub fn Base64_decode(base64: *mut Base64, data: *const u8, len: u32) -> *mut c_char {
-    || -> RlsResult<*mut c_char> {
-        let base64 = unsafe { base64.as_mut() }.ok_or(RlsError::NullPtr)?;
-        let data = unsafe { slice::from_raw_parts(data, len as usize) };
-        let res = base64.decode(data)?;
-        Ok(CString::new(res)?.into_raw())
-    }().unwrap_or(null_mut())
-}
-
-#[unsafe(no_mangle)]
-#[allow(non_snake_case)]
-pub fn Base64_encode(base64: *mut Base64, data: *const u8, len: u32) -> *mut c_char {
+pub fn Base64_encode(base64: *mut Base64, data: *const u8, len: usize) -> *mut c_char {
     || -> RlsResult<*mut c_char> {
         let base64 = unsafe { base64.as_mut() }.ok_or(RlsError::NullPtr)?;
         let data = unsafe { slice::from_raw_parts(data, len as usize) };
         let res = base64.encode(data);
         Ok(CString::new(res)?.into_raw())
     }().unwrap_or(null_mut())
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub fn Base64_decode(base64: *mut Base64, data: *const u8, len: usize, out: *mut *mut u8, out_len: &mut usize) -> i32 {
+    || -> RlsResult<i32> {
+        let base64 = unsafe { base64.as_mut() }.ok_or(RlsError::NullPtr)?;
+        let data = unsafe { slice::from_raw_parts(data, len) };
+        let mut res = base64.decode(data)?;
+        unsafe {
+            *out = res.as_mut_ptr();
+            *out_len = res.len();
+        }
+        mem::forget(res);
+        Ok(0)
+    }().unwrap_or(-1)
 }
 
 

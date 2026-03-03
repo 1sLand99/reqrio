@@ -23,13 +23,13 @@ pub extern "C" fn Hasher_update(hasher: *mut Hasher, data: *const u8, len: usize
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "C" fn Hasher_finalize(hasher: *mut Hasher, out: *mut *mut u8, out_len: &mut u32) -> i32 {
+pub extern "C" fn Hasher_finalize(hasher: *mut Hasher, out: *mut *mut u8, out_len: &mut usize) -> i32 {
     || -> RlsResult<i32>{
         let hasher = unsafe { Box::from_raw(hasher) };
         let mut hash_bs = hasher.finalize()?;
         unsafe {
             *out = hash_bs.as_mut_ptr();
-            *out_len = hash_bs.len() as u32;
+            *out_len = hash_bs.len();
         }
         mem::forget(hash_bs);
         Ok(0)
@@ -46,8 +46,8 @@ pub extern "C" fn Hasher_free(hasher: *mut Hasher) {
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "C" fn Hmac_new(key: *const u8, len: u32, ht: HashType) -> *mut Hmac {
-    let key = unsafe { slice::from_raw_parts(key, len as usize) };
+pub extern "C" fn Hmac_new(key: *const u8, len: usize, ht: HashType) -> *mut Hmac {
+    let key = unsafe { slice::from_raw_parts(key, len) };
     Hmac::new(key, ht).map(|h| Box::into_raw(Box::new(h))).unwrap_or(null_mut())
 }
 
@@ -64,13 +64,13 @@ pub extern "C" fn Hmac_update(hasher: *mut Hmac, data: *const u8, len: usize) ->
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "C" fn Hmac_finalize(hasher: *mut Hmac, out: *mut *mut u8, out_len: &mut u32) -> i32 {
+pub extern "C" fn Hmac_finalize(hasher: *mut Hmac, out: *mut *mut u8, out_len: &mut usize) -> i32 {
     || -> RlsResult<i32>{
         let mut hmac = unsafe { Box::from_raw(hasher) };
         let mut hash_bs = hmac.finalize()?.to_vec();
         unsafe {
             *out = hash_bs.as_mut_ptr();
-            *out_len = hash_bs.len() as u32;
+            *out_len = hash_bs.len();
         }
         mem::forget(hash_bs);
         Ok(0)

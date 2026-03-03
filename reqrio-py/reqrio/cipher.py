@@ -1,8 +1,8 @@
-from _ctypes import byref, addressof
-from ctypes import c_ubyte, POINTER, c_uint32
+from ctypes import c_ubyte, POINTER, c_size_t
 from enum import Enum
 from typing import Union
 
+from _ctypes import byref, addressof
 from reqrio.bindings import DLL
 
 
@@ -68,7 +68,7 @@ class Cipher:
         else:
             data_u8 = (c_ubyte * data_len).from_buffer_copy(data)
         out_ptr = POINTER(c_ubyte)()
-        out_len = c_uint32()
+        out_len = c_size_t()
         ret = DLL.Cipher_encrypt(self.cipher, data_u8, data_len, byref(out_ptr), byref(out_len))
         try:
             if ret == -1:
@@ -86,11 +86,11 @@ class Cipher:
         else:
             data_u8 = (c_ubyte * data_len).from_buffer_copy(data)
         out_ptr = POINTER(c_ubyte)()
-        out_len = c_uint32()
+        out_len = c_size_t()
         ret = DLL.Cipher_decrypt(self.cipher, data_u8, data_len, byref(out_ptr), byref(out_len))
-        if ret == -1:
-            raise Exception("decrypt error")
         try:
+            if ret == -1:
+               raise Exception("decrypt error")
             array_bytes = c_ubyte * out_len.value
             byte_array = array_bytes.from_address(addressof(out_ptr.contents))
             return bytes(byte_array)

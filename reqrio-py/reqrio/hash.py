@@ -1,5 +1,5 @@
 from _ctypes import byref, addressof
-from ctypes import c_ubyte, POINTER, c_uint32
+from ctypes import c_ubyte, POINTER, c_size_t
 from enum import Enum
 from typing import Union
 
@@ -32,7 +32,7 @@ class Hasher:
 
     def finalize(self) -> bytes:
         out_ptr = POINTER(c_ubyte)()
-        out_len = c_uint32()
+        out_len = c_size_t()
         ret = DLL.Hasher_finalize(self.hasher, byref(out_ptr), byref(out_len))
         try:
             if ret == -1:
@@ -72,7 +72,7 @@ class Hmac:
 
     def finalize(self) -> bytes:
         out_ptr = POINTER(c_ubyte)()
-        out_len = c_uint32()
+        out_len = c_size_t()
         ret = DLL.Hmac_finalize(self.hmac, byref(out_ptr), byref(out_len))
         try:
             if ret == -1:

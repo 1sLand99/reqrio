@@ -1,6 +1,6 @@
 import os
 import sys
-from ctypes import cdll, CFUNCTYPE, c_void_p, c_int, c_char, c_uint32, c_char_p, c_bool, c_ubyte
+from ctypes import cdll, CFUNCTYPE, c_void_p, c_int, c_char, c_uint32, c_char_p, c_bool, c_ubyte, c_size_t
 
 from _ctypes import POINTER
 
@@ -145,53 +145,76 @@ DLL.Cipher_new.restype = c_void_p
 DLL.Cipher_set_secret_key.argtypes = [
     c_void_p,
     POINTER(c_ubyte),
-    c_uint32,
+    c_size_t,
     POINTER(c_ubyte),
-    c_uint32
+    c_size_t
 ]
 DLL.Cipher_set_secret_key.restype = c_int
 
 DLL.Cipher_encrypt.argtypes = [
     c_void_p,
     POINTER(c_ubyte),
-    c_uint32,
+    c_size_t,
     POINTER(POINTER(c_ubyte)),
-    POINTER(c_uint32),
+    POINTER(c_size_t),
 ]
 DLL.Cipher_encrypt.restype = c_int
 
 DLL.Cipher_decrypt.argtypes = [
     c_void_p,
     POINTER(c_ubyte),
-    c_uint32,
+    c_size_t,
     POINTER(POINTER(c_ubyte)),
-    POINTER(c_uint32),
+    POINTER(c_size_t),
 ]
 DLL.Cipher_decrypt.restype = c_int
 
 DLL.Cipher_free.argtypes = [c_void_p]
 
-DLL.u8_free.argtypes = [POINTER(c_ubyte), c_uint32]
+DLL.u8_free.argtypes = [POINTER(c_ubyte), c_size_t]
 DLL.u8_free.restype = None
 
 DLL.Hasher_new.argtypes = [c_int]
 DLL.Hasher_new.restype = c_void_p
 
-DLL.Hasher_update.argtypes = [c_void_p, POINTER(c_ubyte), c_uint32]
+DLL.Hasher_update.argtypes = [c_void_p, POINTER(c_ubyte), c_size_t]
 DLL.Hasher_update.restype = c_int
 
-DLL.Hasher_finalize.argtypes = [c_void_p, POINTER(POINTER(c_ubyte)), POINTER(c_uint32)]
+DLL.Hasher_finalize.argtypes = [c_void_p, POINTER(POINTER(c_ubyte)), POINTER(c_size_t)]
 DLL.Hasher_finalize.restype = c_int
 
 DLL.Hasher_free.argtypes = [c_void_p]
 
-DLL.Hmac_new.argtypes = [POINTER(c_ubyte), c_uint32, c_int]
+DLL.Hmac_new.argtypes = [POINTER(c_ubyte), c_size_t, c_int]
 DLL.Hmac_new.restype = c_void_p
 
-DLL.Hmac_update.argtypes = [c_void_p, POINTER(c_ubyte), c_uint32]
+DLL.Hmac_update.argtypes = [c_void_p, POINTER(c_ubyte), c_size_t]
 DLL.Hmac_update.restype = c_int
 
-DLL.Hmac_finalize.argtypes = [c_void_p, POINTER(POINTER(c_ubyte)), POINTER(c_uint32)]
+DLL.Hmac_finalize.argtypes = [c_void_p, POINTER(POINTER(c_ubyte)), POINTER(c_size_t)]
 DLL.Hmac_finalize.restype = c_int
 
 DLL.Hmac_free.argtypes = [c_void_p]
+
+DLL.Base64_new.argtypes = []
+DLL.Base64_new.restype = c_void_p
+
+DLL.Base64_encode.argtypes = [c_void_p, POINTER(c_ubyte), c_size_t]
+DLL.Base64_encode.restype = c_void_p
+
+DLL.Base64_decode.argtypes = [c_void_p, POINTER(c_ubyte), c_size_t, POINTER(POINTER(c_ubyte)), POINTER(c_size_t)]
+DLL.Base64_decode.restype = int
+
+DLL.Base64_free.argtypes = [c_void_p]
+
+DLL.url_encode.argtypes = [c_char_p]
+DLL.url_encode.restype = c_void_p
+
+DLL.url_decode.argtypes = [c_char_p]
+DLL.url_decode.restype = c_void_p
+
+DLL.hex_encode.argtypes = [POINTER(c_ubyte), c_size_t]
+DLL.hex_encode.restype = c_void_p
+
+DLL.hex_decode.argtypes = [c_char_p, POINTER(POINTER(c_ubyte)), POINTER(c_size_t)]
+DLL.hex_decode.restype = int

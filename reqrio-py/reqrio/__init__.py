@@ -6,6 +6,9 @@ from reqrio.pool import ThreadPool
 from reqrio.websocket import WebSocket, WsOpCode, WsFrame
 from reqrio.cipher import CipherType, Cipher
 from reqrio.hash import HashType, Hasher, Hmac
+from reqrio.b64 import Base64, b64encode, b64decode
+from typing import Union
+from reqrio.rcode import url_encode, url_decode, hex_encode, hex_decode
 
 
 # pyinstaller.exe -F --collect-binaries reqrio .\1.py
@@ -54,3 +57,26 @@ def post(url: str, headers: dict, params: dict = None, data: dict = None, json: 
     resp = s.post()
     s.close()
     return resp
+
+
+def en_b64(ct: CipherType, data: Union[str, bytes], key: Union[str, bytes], iv: Union[str, bytes] = None) -> str:
+    cipher = Cipher(ct, key, iv)
+    en_bs = cipher.encrypt(data)
+    return b64encode(en_bs)
+
+
+def de_b64(ct: CipherType, data: str, key: Union[str, bytes], iv: Union[str, bytes] = None) -> bytes:
+    de_b64 = b64decode(data)
+    cipher = Cipher(ct, key, iv)
+    return cipher.decrypt(de_b64)
+
+def en_hex(ct: CipherType, data: Union[str, bytes], key: Union[str, bytes], iv: Union[str, bytes] = None) -> str:
+    cipher = Cipher(ct, key, iv)
+    en_bs = cipher.encrypt(data)
+    return hex_encode(en_bs)
+
+
+def de_hex(ct: CipherType, data: str, key: Union[str, bytes], iv: Union[str, bytes] = None) -> bytes:
+    de_b64 = hex_decode(data)
+    cipher = Cipher(ct, key, iv)
+    return cipher.decrypt(de_b64)
