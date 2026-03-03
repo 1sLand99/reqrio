@@ -51,7 +51,7 @@ class Session:
         if r == -1: raise Exception('set timeout error')
         return
 
-    def set_header_json(self, header: dict):
+    def set_headers(self, header: dict):
         r = self.dll.ScReq_set_header_json(self.hid, json.dumps(header).encode('utf-8'))
         if r == -1: raise Exception('set header error')
 

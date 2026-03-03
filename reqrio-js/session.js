@@ -47,7 +47,7 @@ class Session {
 
     }
 
-    set_header_json(header) {
+    set_headers(header) {
         let header_str = JSON.stringify(header);
         let ret = library.ScReq_set_header_json(this.req, header_str)
         if (ret === -1) throw "set_header_json error"

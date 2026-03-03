@@ -106,7 +106,7 @@ HTTP client capabilities.
     <dependency>
         <groupId>io.github.xllgl2017</groupId>
         <artifactId>reqrio</artifactId>
-        <version>0.1.1</version>
+        <version>0.1.3</version>
     </dependency>
     ```
 
