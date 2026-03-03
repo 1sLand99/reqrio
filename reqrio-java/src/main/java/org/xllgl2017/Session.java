@@ -6,9 +6,10 @@ import com.google.gson.JsonObject;
 import com.sun.jna.Pointer;
 import org.apache.commons.codec.DecoderException;
 
-public class Session {
+public class Session implements AutoCloseable {
     private static final ReqrioLibrary INSTANCE = ReqrioLibrary.loadLibrary();
     private final Pointer req;
+    private boolean closed = false;
 
     public Session(ALPN alpn) {
         this.req = INSTANCE.ScReq_new();
@@ -174,8 +175,13 @@ public class Session {
         return this.send(Method.PATCH);
     }
 
+    @Override
     public void close() {
-        INSTANCE.ScReq_drop(this.req);
+        if (!closed) {
+            INSTANCE.ScReq_drop(this.req);
+            closed = true;
+        }
+
     }
 
 
