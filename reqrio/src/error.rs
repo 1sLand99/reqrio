@@ -13,7 +13,7 @@ use httlib_hpack::{DecoderError, EncoderError};
 use crate::json::JsonError;
 #[cfg(feature = "aync")]
 use tokio::time::error::Elapsed;
-use reqtls::{hex, RlsError};
+use reqtls::{hex, Alert, RlsError};
 
 #[derive(Debug)]
 pub enum HlsError {
@@ -149,6 +149,12 @@ impl From<hex::FromHexError> for HlsError {
 
 impl From<NulError> for HlsError {
     fn from(value: NulError) -> Self {
+        HlsError::Currently(value.to_string())
+    }
+}
+
+impl From<Alert> for HlsError {
+    fn from(value: Alert) -> Self {
         HlsError::Currently(value.to_string())
     }
 }

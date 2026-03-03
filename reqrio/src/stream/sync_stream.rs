@@ -1,9 +1,9 @@
-use crate::error::{HlsError, HlsResult};
+use crate::error::HlsResult;
+use crate::stream::config::Config;
+use crate::stream::TlsStreamHandle;
 use crate::*;
 use std::io;
 use std::io::{Read, Write};
-use crate::stream::config::Config;
-use crate::stream::TlsStreamHandle;
 
 pub struct SyncStream<S> {
     conn: Connection,
@@ -44,13 +44,12 @@ impl<S: Read + Write> SyncStream<S> {
     }
 
     fn handle_message(&mut self, mut config: Option<&mut Config>) -> HlsResult<bool> {
-        let mut record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, Some(self.conn.cipher_suite()))?;
+        let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, Some(self.conn.cipher_suite()))?;
         match record.context_type {
             RecordType::CipherSpec => self.handshake_finished = true,
             RecordType::Alert => {
-                let pdr = if self.handshake_finished { self.conn.read_message(&mut record)? } else { 5..record.len as usize + 5 };
-                let alert = Alert::from_bytes(&self.read_buffer[pdr])?;
-                return Err(RlsError::Alert(alert).into());
+                let record_len = record.len as usize + 5;
+                return Err(self.handle_by_alert(self.handshake_finished, record_len)?.into());
             }
             RecordType::HandShake => {
                 for message in record.messages {
@@ -95,8 +94,12 @@ impl<S: Read + Write> SyncStream<S> {
 }
 
 impl<S: Read + Write> TlsStreamHandle for SyncStream<S> {
-    fn conn_buf(&mut self) -> (&mut Connection, &mut Buffer) {
+    fn conn_wbuf(&mut self) -> (&mut Connection, &mut Buffer) {
         (&mut self.conn, &mut self.write_buffer)
+    }
+
+    fn conn_rbuf(&mut self) -> (&mut Connection, &mut Buffer) {
+        (&mut self.conn, &mut self.read_buffer)
     }
 }
 
@@ -139,23 +142,19 @@ impl<S: Read + Write> Read for SyncStream<S> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         loop {
             let record_len = self.read_next_packet()?;
-            let mut record = RecordLayer::from_bytes(&mut self.read_buffer[0..record_len], self.handshake_finished, None)?;
-            match record.context_type {
+            match RecordType::from_byte(self.read_buffer[0]).ok_or(io::Error::other("Unknown record type"))? {
                 RecordType::CipherSpec | RecordType::HandShake => {
-                    if self.handshake_finished { self.conn.read_message(&mut record)?; } else { let _ = self.handle_message(None)?; }
+                    if self.handshake_finished {
+                        self.conn.read_message(&self.read_buffer[..record_len], buf)?;
+                    } else { let _ = self.handle_message(None)?; }
                     self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
                     continue;
                 }
-                RecordType::Alert => {
-                    let pdr = if self.handshake_finished { self.conn.read_message(&mut record)? } else { 5..record_len };
-                    if self.read_buffer[pdr.clone()] == [1, 0] { return Err(HlsError::PeerClosedConnection.into()); }
-                    self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
-                }
+                RecordType::Alert => return Err(self.handle_by_alert(self.handshake_finished, record_len)?.into()),
                 RecordType::ApplicationData => {
-                    let pdr = self.conn.read_message(&mut record)?;
-                    buf[..pdr.len()].copy_from_slice(&self.read_buffer[pdr.clone()]);
+                    let len = self.conn.read_message(&self.read_buffer[..record_len], buf)?;
                     self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
-                    return Ok(pdr.len());
+                    return Ok(len);
                 }
             }
         };

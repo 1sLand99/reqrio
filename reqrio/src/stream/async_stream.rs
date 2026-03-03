@@ -67,13 +67,12 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
     }
 
     async fn handle_message(&mut self, mut config: Option<&mut Config<'_>>) -> HlsResult<bool> {
-        let mut record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, Some(self.conn.cipher_suite()))?;
+        let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, Some(self.conn.cipher_suite()))?;
         match record.context_type {
             RecordType::CipherSpec => self.handshake_finished = true,
             RecordType::Alert => {
-                let pdr = if self.handshake_finished { self.conn.read_message(&mut record)? } else { 5..record.len as usize + 5 };
-                let alert = Alert::from_bytes(&self.read_buffer[pdr])?;
-                return Err(RlsError::Alert(alert).into());
+                let record_len = record.len as usize + 5;
+                return Err(self.handle_by_alert(self.handshake_finished, record_len)?.into());
             }
             RecordType::HandShake => {
                 for message in record.messages {
@@ -111,9 +110,11 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             self.conn.make_cipher(true)?;
                         }
                         Message::Payload(_) => {
-                            let mut record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, None)?;
-                            let pdr = self.conn.read_message(&mut record)?;
-                            self.conn.verify_finish(&self.read_buffer[pdr], false)?;
+                            // let mut record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, None)?;
+                            let record_len = record.len as usize + 5;
+                            let mut out = vec![0; record_len];
+                            let len = self.conn.read_message(&self.read_buffer[..record_len], &mut out)?;
+                            self.conn.verify_finish(&out[..len], false)?;
 
                             let mut ticket = SessionTicket::default();
                             let tbs = rand::random::<[u8; 276]>();
@@ -150,40 +151,40 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
     pub fn client_hello(&self) -> &[u8] { &self.client_hello }
 }
 
-impl<S: AsyncRead + AsyncWrite + Unpin> TlsStreamHandle for TlsStream<S> {
-    fn conn_buf(&mut self) -> (&mut Connection, &mut Buffer) {
+impl<S> TlsStreamHandle for TlsStream<S> {
+    fn conn_wbuf(&mut self) -> (&mut Connection, &mut Buffer) {
         (&mut self.conn, &mut self.write_buffer)
+    }
+
+    fn conn_rbuf(&mut self) -> (&mut Connection, &mut Buffer) {
+        (&mut self.conn, &mut self.read_buffer)
     }
 }
 
 impl<S> TlsStream<S> {
     fn read_message(&mut self, buf: &mut ReadBuf<'_>) -> std::io::Result<usize> {
-        let mut record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, None)?;
+        let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, None)?;
         let record_len = record.len as usize + 5;
         match record.context_type {
             RecordType::CipherSpec => {
                 self.handshake_finished = true;
                 self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
             }
-            RecordType::Alert => {
-                let pdr = if self.handshake_finished { self.conn.read_message(&mut record)? } else { 5..record.len as usize + 5 };
-                let alert = Alert::from_bytes(&self.read_buffer[pdr])?;
-                return Err(Error::other(Box::new(RlsError::Alert(alert))));
-            }
+            RecordType::Alert => return Err(self.handle_by_alert(self.handshake_finished, record_len)?.into()),
             RecordType::HandShake => {
                 if self.handshake_finished {
-                    let pdr = self.conn.read_message(&mut record)?;
-                    self.conn.verify_finish(&self.read_buffer[pdr], true)?;
+                    let len = self.conn.read_message(&self.read_buffer[..record_len], buf.initialized_mut())?;
+                    self.conn.verify_finish(&buf.initialized()[..len], true)?;
                 } else {
                     self.conn.update_session(&self.read_buffer[5..record_len])?;
                 }
                 self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
             }
             RecordType::ApplicationData => {
-                let pdr = self.conn.read_message(&mut record)?;
-                buf.put_slice(&self.read_buffer[pdr]);
+                let len = self.conn.read_message(&self.read_buffer[..record_len], buf.initialized_mut())?;
+                buf.set_filled(len);
                 self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
-                return Ok(record_len);
+                return Ok(len);
             }
         }
         Ok(0)

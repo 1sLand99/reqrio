@@ -3,7 +3,7 @@ pub(crate) mod bindings;
 pub mod hash;
 mod signature;
 
-pub use rsa::{RsaCipher, RsaKey, certificate, RsaPadding};
+pub use rsa::{certificate, RsaCipher, RsaKey, RsaPadding};
 pub(crate) mod rsa;
 
 mod evp;
@@ -12,19 +12,18 @@ pub mod base64;
 
 pub use padding::Padding;
 
-pub use evp::{Cipher, CipherType, cipher};
-pub use evp::{CipherCrypto, EvpCurve, AeadCrypto};
+pub use evp::{cipher, Cipher, CipherType};
+pub use evp::{AeadCrypto, CipherCrypto, EvpCurve};
 
 pub use ec_curve::*;
 pub use hash::*;
 
-pub use signature::{AlgorithmSigner, SignatureAlgorithm};
-use std::ffi::c_int;
-
+use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
 use crate::error::RlsResult;
 use crate::extend::Aead;
-use crate::message::Payload;
 use crate::RlsError;
+pub use signature::{AlgorithmSigner, SignatureAlgorithm};
+use std::ffi::c_int;
 
 trait BoringResExt {
     fn ok(self, error: RlsError) -> RlsResult<()>;
@@ -38,12 +37,18 @@ impl BoringResExt for c_int {
 }
 
 
-pub(crate) struct CryptParam<'a, 'b: 'a> {
-    pub(crate) aead: &'a Aead,
+pub(crate) struct CryptEncodeParam<'a, 'b: 'a> {
     pub(crate) nonce: &'a [u8],
     pub(crate) iv: &'a [u8],
     pub(crate) aad: &'a [u8; 13],
-    pub(crate) payload: &'a mut Payload<'b>,
+    pub(crate) buffer: &'a mut RecordEncodeBuffer<'b>,
+}
+
+pub(crate) struct CryptDecodeParam<'a, 'b: 'a> {
+    pub(crate) nonce: &'a [u8],
+    pub(crate) iv: &'a [u8],
+    pub(crate) aad: &'a [u8; 13],
+    pub(crate) buffer: &'a mut RecordDecodeBuffer<'b>,
 }
 
 pub enum Crypto {
@@ -61,7 +66,7 @@ impl Crypto {
         }
     }
 
-    pub fn encrypt(&self, param: CryptParam) -> RlsResult<usize> {
+    pub fn encrypt(&self, param: CryptEncodeParam) -> RlsResult<()> {
         match self {
             Crypto::Aead(cryptor) => cryptor.encrypt(param),
             Crypto::Cipher(cipher) => cipher.encrypt(param),
@@ -69,7 +74,7 @@ impl Crypto {
         }
     }
 
-    pub fn decrypt(&self, param: CryptParam) -> RlsResult<usize> {
+    pub fn decrypt(&self, param: CryptDecodeParam) -> RlsResult<usize> {
         match self {
             Crypto::Aead(crypto) => crypto.decrypt(param),
             Crypto::Cipher(cipher) => cipher.decrypt(param),

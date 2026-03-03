@@ -1,6 +1,7 @@
 use crate::error::RlsResult;
+use crate::WriteExt;
 use std::fmt::{Display, Formatter};
-use crate::{RlsError, WriteExt};
+use std::io;
 
 #[derive(Copy, Clone, Debug)]
 pub enum AlertLevel {
@@ -141,10 +142,6 @@ impl Alert {
         }
     }
 
-    pub fn as_err(&self) -> RlsError {
-        RlsError::Currently(self.desc.to_string())
-    }
-
     pub fn desc(&self) -> &AlertDesc { &self.desc }
 
     pub fn from_bytes(bytes: &[u8]) -> RlsResult<Alert> {
@@ -161,5 +158,17 @@ impl Alert {
 
     pub fn to_bytes(self) -> [u8; 2] {
         [self.level as u8, self.desc as u8]
+    }
+}
+
+impl Display for Alert {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Alert({})", self.desc)
+    }
+}
+
+impl From<Alert> for io::Error {
+    fn from(value: Alert) -> Self {
+        io::Error::other(value.to_string())
     }
 }

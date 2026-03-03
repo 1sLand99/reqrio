@@ -94,8 +94,8 @@ pub struct CryptRand {
     rng: Rc<RefCell<Random>>,
 }
 
-impl CryptRand {
-    pub fn new() -> CryptRand {
+impl Default for CryptRand {
+    fn default() -> Self {
         CryptRand {
             rng: RANDOM.with(|c| c.clone())
         }
@@ -132,7 +132,7 @@ impl CryptRand {
 }
 
 pub fn random<T: RandomValue>() -> T {
-    let mut rng = CryptRand::new();
+    let mut rng = CryptRand::default();
     T::random(&mut rng)
 }
 
@@ -149,6 +149,15 @@ impl RandomValue for f32 {
     #[inline(always)]
     fn random(rng: &mut CryptRand) -> f32 {
         let mut res = 0.0;
+        rng.fill_bytes(bytemuck::bytes_of_mut(&mut res));
+        res
+    }
+}
+
+impl RandomValue for u8 {
+    #[inline(always)]
+    fn random(rng: &mut CryptRand) -> Self {
+        let mut res = 0u8;
         rng.fill_bytes(bytemuck::bytes_of_mut(&mut res));
         res
     }
@@ -194,7 +203,6 @@ where
         res
     }
 }
-
 
 
 #[cfg(test)]

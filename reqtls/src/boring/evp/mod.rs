@@ -1,19 +1,19 @@
-use crate::boring::BoringResExt;
+use crate::boring::{BoringResExt, CryptDecodeParam};
 mod curve;
 pub mod cipher;
 mod aead;
 
-use std::ptr::null_mut;
-pub use cipher::Cipher;
-pub use curve::EvpCurve;
-pub use aead::AeadCrypto;
 use crate::boring::bindings::*;
 use crate::error::RlsResult;
+pub use aead::AeadCrypto;
+pub use cipher::Cipher;
+pub use curve::EvpCurve;
+use std::ptr::null_mut;
 
+use crate::boring::CryptEncodeParam;
 use crate::extend::Aead;
-use crate::{hmac, rand, RlsError};
-use crate::boring::CryptParam;
 use crate::ffi::CPointer;
+use crate::{hmac, rand, RlsError};
 
 #[cfg_attr(feature = "export", repr(C))]
 #[allow(non_camel_case_types)]
@@ -93,36 +93,39 @@ impl CipherCrypto {
     /// mac = HMAC_SHA1(mac_key, seq_num + hdr + plaintext) //20位
     /// ciphertext = AES_CBC(key, iv, plaintext || mac || padding) //pcsk7
     ///```
-    pub fn encrypt(&self, param: CryptParam) -> RlsResult<usize> {
+    pub fn encrypt(&self, param: CryptEncodeParam) -> RlsResult<()> {
         unsafe { EVP_EncryptInit_ex(self.ctx.as_mut_ptr(), self.evp_cipher.as_boring(), null_mut(), self.key.as_ptr(), param.iv.as_ptr()) }.ok(RlsError::CipherCryptError)?;
         let mut out_len = 0;
         unsafe {
             EVP_EncryptUpdate(
                 self.ctx.as_mut_ptr(),
-                param.payload.encrypting_out(param.aead).as_mut_ptr(),
+                param.buffer.encrypted_buffer().as_mut_ptr(),
                 &mut out_len,
-                param.payload.encrypting_in(param.aead).as_ptr(),
-                param.payload.len as i32)
+                param.buffer.origin_payload().as_ptr(),
+                param.buffer.origin_payload().len() as i32)
         }.ok(RlsError::CipherEncryptError)?;
         let mut final_len = 0;
         unsafe {
             EVP_EncryptFinal_ex(
                 self.ctx.as_mut_ptr(),
-                param.payload.value[16 + out_len as usize..].as_mut_ptr(),
+                param.buffer.encrypted_buffer()[out_len as usize..].as_mut_ptr(),
                 &mut final_len,
             )
         }.ok(RlsError::CipherEncryptError)?;
         let len = (16 + out_len + final_len) as usize;
-        let mac = hmac::hmac_sha1(self.mac_key, &param.payload.value[..len])?;
-        param.payload.value[len..len + 20].copy_from_slice(&mac);
-        Ok((16 + out_len + final_len + 20) as usize)
+        println!("auth_data={:?}", param.buffer.auth_data(len));
+        let mac = hmac::hmac_sha1(self.mac_key, param.buffer.auth_data(len))?;
+        println!("111{:?}", mac);
+        param.buffer.add_verify_mac(len, &mac);
+        param.buffer.set_encrypted_len(len + 20);
+        Ok(())
     }
 
-    pub fn decrypt(&self, param: CryptParam) -> RlsResult<usize> {
-        let auth_data = &param.payload.value[..param.payload.value.len() - 20];
-        let mac = &param.payload.value[param.payload.value.len() - 20..];
+    pub fn decrypt(&self, param: CryptDecodeParam) -> RlsResult<usize> {
+        println!("auth_data={:?}", param.buffer.auto_data());
+        let mac = param.buffer.verify_mac();
         // 2. 校验 HMAC (必须先于解密)
-        let computed_mac = hmac::hmac_sha1(self.mac_key, auth_data)?;
+        let computed_mac = hmac::hmac_sha1(self.mac_key, param.buffer.auto_data())?;
         // 使用恒定时间比较 (Constant-time comparison) 防止侧信道攻击
         let res = unsafe { CRYPTO_memcmp(computed_mac.as_ptr() as *const _, mac.as_ptr() as *const _, mac.len()) };
         if res != 0 { return Err(RlsError::CipherMacError); }
@@ -135,16 +138,16 @@ impl CipherCrypto {
         unsafe {
             EVP_DecryptUpdate(
                 self.ctx.as_mut_ptr(),
-                param.payload.decrypting_payload(param.aead).as_mut_ptr(),
+                param.buffer.decrypted_buffer().as_mut_ptr(),
                 &mut out_len,
-                param.payload.decrypting_payload(param.aead).as_ptr(),
-                param.payload.decrypting_payload(param.aead).len() as i32,
+                param.buffer.encrypted_payload().as_ptr(),
+                param.buffer.encrypted_payload().len() as i32,
             )
         }.ok(RlsError::CipherDecryptError)?;
         unsafe {
             EVP_DecryptFinal_ex(
                 self.ctx.as_mut_ptr(),
-                param.payload.decrypting_payload(param.aead).as_mut_ptr().add(out_len as usize),
+                param.buffer.decrypted_buffer().as_mut_ptr().add(out_len as usize),
                 &mut final_len,
             )
         }.ok(RlsError::CipherDecryptError)?;
@@ -154,11 +157,11 @@ impl CipherCrypto {
 
 #[cfg(test)]
 mod tests {
-    use crate::boring::CryptParam;
-    use crate::extend::Aead;
-    use crate::record::RecordBuffer;
-    use crate::{base64, rand, Cipher};
     use crate::boring::evp::CipherCrypto;
+    use crate::boring::{CryptDecodeParam, CryptEncodeParam};
+    use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
+    use crate::extend::Aead;
+    use crate::{base64, rand, Cipher, RecordType};
 
     #[test]
     fn test_cipher() {
@@ -176,33 +179,30 @@ mod tests {
         let aead = Aead::AES_128_CBC_SHA;
         let key = rand::random::<[u8; 16]>().to_vec();
         let iv = rand::random::<[u8; 16]>();
-        println!("{:?}", iv);
+        // println!("{:?}", iv);
         let mut buffer = [0; 1024];
         // payload.extend(&[0; 20]);
-        let mut record_buffer = RecordBuffer::from_buffer(&aead, &mut buffer);
+        let payload = [1, 2, 3, 4, 5, 61, 2, 3, 4, 5, 6, 7, 8, 9, 23, 23];
+        let mut record_buffer = RecordEncodeBuffer::new(RecordType::HandShake, &mut buffer, &payload, &aead);
         record_buffer.add_explicit_iv(&iv);
-        record_buffer.set_payload(&[1, 2, 3, 4, 5, 61, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 67, 8, ]);
-        println!("{:?}", &record_buffer.payload.value[..50]);
 
         let crypto = CipherCrypto::new(&aead, key).unwrap();
-        let encrypted = crypto.encrypt(CryptParam {
-            aead: record_buffer.aead,
+        crypto.encrypt(CryptEncodeParam {
             nonce: &[0; 12],
             iv: &iv,
             aad: &[0; 13],
-            payload: &mut record_buffer.payload,
+            buffer: &mut record_buffer,
         }).unwrap();
-        println!("{:?}", &buffer[..encrypted + 10]);
-        let mut record_buffer = RecordBuffer::from_buffer(&aead, &mut buffer[..encrypted + 5]);
-        // let decrypted = cryptor.decrypt(&encrypted, &key).unwrap();
-        // println!("{:?}", decrypted);
-        let len = crypto.decrypt(CryptParam {
-            aead: &aead,
+        let len = record_buffer.record_len();
+        println!("{:?}", &buffer[..len + 10]);
+        let mut decoded_buffer = vec![0; 1024];
+        let mut record_buffer = RecordDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, &aead).unwrap();
+        let len = crypto.decrypt(CryptDecodeParam {
             nonce: &[0; 12],
             iv: &iv,
             aad: &[0; 13],
-            payload: &mut record_buffer.payload,
+            buffer: &mut record_buffer,
         }).unwrap();
-        println!("{:?}", &buffer[..len + 30]);
+        println!("{:?}", &decoded_buffer[..len]);
     }
 }

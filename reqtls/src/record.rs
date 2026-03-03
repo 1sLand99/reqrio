@@ -1,8 +1,7 @@
-use crate::error::RlsResult;
-use crate::extend::Aead;
-use crate::{Alert, CipherSuite, RlsError, WriteExt, ALPN};
 use super::message::{Message, Payload};
 use super::version::Version;
+use crate::error::RlsResult;
+use crate::{Alert, CipherSuite, RlsError, WriteExt, ALPN};
 
 #[derive(Debug, Copy, Clone)]
 pub enum RecordType {
@@ -113,57 +112,3 @@ impl<'a> RecordLayer<'a> {
     }
 }
 
-
-pub struct RecordBuffer<'a> {
-    pub(crate) aead: &'a Aead,
-    head: &'a mut [u8],
-    pub(crate) payload: Payload<'a>,
-}
-
-
-impl<'a> RecordBuffer<'a> {
-    pub fn set_payload_len(&mut self, len: usize) {
-        let len = len as u16;
-        self.head[3..5].copy_from_slice(&len.to_be_bytes());
-    }
-
-    pub fn set_head(&mut self, rt: RecordType, v: Version) {
-        self.head[0] = rt as u8;
-        self.head[1..3].copy_from_slice(&v.as_u16().to_be_bytes());
-    }
-
-    pub fn set_payload(&mut self, payload: &[u8]) {
-        let payload_range = self.aead.payload_range(payload.len());
-        self.payload.value[payload_range].copy_from_slice(payload);
-        self.payload.len = payload.len();
-    }
-
-    pub fn add_explicit_iv(&mut self, iv: &[u8]) {
-        let explicit = match self.aead {
-            Aead::AES_128_GCM | Aead::AES_256_GCM => &iv[4..],
-            Aead::ChaCha20_POLY1305 => &[],
-            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => iv,
-            _ => panic!("unsupported suite specification"),
-        };
-        let iv_range = self.aead.explicit_range();
-        if iv_range.start == iv_range.end { return; }
-        self.payload.value[iv_range].copy_from_slice(explicit);
-    }
-
-    pub fn from_buffer(aead: &'a Aead, buffer: &'a mut [u8]) -> RecordBuffer<'a> {
-        let (head, payload) = buffer.split_at_mut(5);
-        RecordBuffer {
-            aead,
-            head,
-            payload: Payload::from_slice(payload),
-        }
-    }
-
-    pub fn aad(&self, seq: u64) -> [u8; 13] {
-        let mut res = [0; 13];
-        res[0..8].copy_from_slice(&seq.to_be_bytes());
-        res[8..11].copy_from_slice(&self.head[..3]);
-        res[11..13].copy_from_slice(&(self.payload.len as u16).to_be_bytes());
-        res
-    }
-}

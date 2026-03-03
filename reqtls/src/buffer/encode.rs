@@ -1,0 +1,87 @@
+use crate::extend::Aead;
+use crate::RecordType;
+
+pub struct PayloadEncodeBuffer<'a> {
+    encoded: &'a mut [u8],
+    origin: &'a [u8],
+}
+
+impl<'a> PayloadEncodeBuffer<'a> {
+    pub fn add_explicit_iv(&mut self, aead: &Aead, iv: &[u8]) {
+        let explicit = match aead {
+            Aead::AES_128_GCM | Aead::AES_256_GCM => &iv[4..],
+            Aead::ChaCha20_POLY1305 => &[],
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => iv,
+            _ => panic!("unsupported suite specification"),
+        };
+        let iv_range = aead.explicit_range();
+        if iv_range.start == iv_range.end { return; }
+        self.encoded[iv_range].copy_from_slice(explicit);
+    }
+}
+
+pub struct RecordEncodeBuffer<'a> {
+    aead: &'a Aead,
+    head: &'a mut [u8],
+    record_len: usize,
+    payload: PayloadEncodeBuffer<'a>,
+}
+
+impl<'a> RecordEncodeBuffer<'a> {
+    pub(crate) fn new(rt: RecordType, buffer: &'a mut [u8], origin: &'a [u8], aead: &'a Aead) -> RecordEncodeBuffer<'a> {
+        let (head, payload) = buffer.split_at_mut(5);
+        head[0] = rt as u8;
+        head[1] = 3;
+        head[2] = 3;
+        RecordEncodeBuffer {
+            aead,
+            head,
+            record_len: 0,
+            payload: PayloadEncodeBuffer {
+                encoded: payload,
+                origin,
+            },
+        }
+    }
+
+    pub fn add_explicit_iv(&mut self, iv: &[u8]) {
+        self.payload.add_explicit_iv(self.aead, iv)
+    }
+
+    pub fn origin_payload(&self) -> &[u8] {
+        self.payload.origin
+    }
+
+    pub fn set_encrypted_len(&mut self, len: usize) {
+        let len = self.aead.explicit_len() + len;
+        self.record_len = len + 5;
+        self.head[3..5].copy_from_slice(&(len as u16).to_be_bytes());
+    }
+
+    pub fn encrypted_buffer(&mut self) -> &mut [u8] {
+        match self.aead {
+            Aead::AES_128_GCM | Aead::AES_256_GCM => &mut self.payload.encoded[8..],
+            Aead::ChaCha20_POLY1305 => self.payload.encoded,
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => &mut self.payload.encoded[16..],
+            _ => self.payload.encoded
+        }
+    }
+
+    pub fn auth_data(&self, end: usize) -> &[u8] {
+        &self.payload.encoded[..end]
+    }
+
+    pub fn aad(&self, seq: u64) -> [u8; 13] {
+        let mut res = [0; 13];
+        res[0..8].copy_from_slice(&seq.to_be_bytes());
+        res[8..11].copy_from_slice(&self.head[..3]);
+        res[11..13].copy_from_slice(&(self.payload.origin.len() as u16).to_be_bytes());
+        res
+    }
+
+    pub fn add_verify_mac(&mut self, len: usize, mac: &[u8]) {
+        self.payload.encoded[len..len + 20].copy_from_slice(mac);
+    }
+
+    pub fn record_len(&self) -> usize { self.record_len }
+}

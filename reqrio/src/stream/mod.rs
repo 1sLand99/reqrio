@@ -91,7 +91,9 @@ impl Stream {
 
 
 pub trait TlsStreamHandle {
-    fn conn_buf(&mut self) -> (&mut Connection, &mut Buffer);
+    fn conn_wbuf(&mut self) -> (&mut Connection, &mut Buffer);
+
+    fn conn_rbuf(&mut self) -> (&mut Connection, &mut Buffer);
 
     fn handle_client_hello(config: &mut ClientConfig, buffer: &mut Buffer) -> HlsResult<Connection> {
         let client_random = rand::random::<[u8; 32]>().to_vec();
@@ -116,7 +118,7 @@ pub trait TlsStreamHandle {
     fn handle_by_server_hello_done(&mut self, mut config: Option<&mut Config>) -> HlsResult<()> {
         let config = config.as_mut().ok_or("config can't be null")?;
         let config = config.client_mut().ok_or("missing config")?;
-        let (conn, buffer) = self.conn_buf();
+        let (conn, buffer) = self.conn_wbuf();
         let offset = buffer.len();
         if conn.mtls() {
             //client certificate
@@ -155,4 +157,15 @@ pub trait TlsStreamHandle {
         Ok(())
     }
 
+    fn handle_by_alert(&mut self, handshake: bool, record_len: usize) -> Result<Alert, RlsError> {
+        let (conn, buffer) = self.conn_rbuf();
+        match handshake {
+            true => {
+                let mut out = vec![0; 40];
+                let len = conn.read_message(&buffer[..record_len], &mut out)?;
+                Ok(Alert::from_bytes(&out[..len])?)
+            }
+            false => Ok(Alert::from_bytes(&buffer[5..7])?)
+        }
+    }
 }

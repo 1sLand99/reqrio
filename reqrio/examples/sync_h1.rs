@@ -1,6 +1,5 @@
-use reqrio::{json, Fingerprint, Proxy, ReqExt, ScReq, ALPN};
+use reqrio::{json, Fingerprint, ReqExt, ScReq, ALPN};
 use std::time::SystemTime;
-use reqtls::{Certificate, RsaKey};
 
 fn main() {
     let t = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
@@ -12,7 +11,7 @@ fn main() {
         .with_fingerprint(fingerprint)
         .with_alpn(ALPN::Http20)
         // .with_mtls(certs, key)
-        .with_verify(false)
+        .with_verify(true)
         // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10280))
         ;
     let headers = json::object! {
@@ -34,12 +33,12 @@ fn main() {
         };
     // req.set_url("https://zhifazhe.top").unwrap();
     // req.set_url("http://3434.characlink.com").unwrap();
-    // req.set_url("https://m.so.com").unwrap();
+    req.set_url("https://m.so.com").unwrap();
 
     // req.set_url("https://ms.xllgl.top").unwrap();
     // req.set_url("https://m.so.com").unwrap();
 
-    req.set_url("https://jetstar.com").unwrap();
+    // req.set_url("https://jetstar.com").unwrap();
     // req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Aqq.com&first=150&FORM=PERE2").unwrap();
     // req.set_url("https://accounts.pcid.ca/login").unwrap();
     // req.set_url("https://ccppdd.zzzzzzyyyyy.shop/api/v1/client/s9FkyFPBngt80pFn1?token=a0cedb7c6645280ec2402db62d550a17").unwrap();

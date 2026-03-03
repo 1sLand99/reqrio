@@ -39,13 +39,8 @@ impl Debug for Bytes {
     }
 }
 
+#[derive(Default)]
 pub struct ByteRef<'a>(&'a [u8]);
-
-impl<'a> Default for ByteRef<'a> {
-    fn default() -> Self {
-        ByteRef(&[])
-    }
-}
 
 impl<'a> ByteRef<'a> {
     pub fn new(v: &'a [u8]) -> Self {
@@ -64,7 +59,7 @@ impl<'a> ByteRef<'a> {
         self.0.len()
     }
 
-    pub fn clone(&self)->Bytes{
+    pub fn clone(&self) -> Bytes {
         Bytes(self.0.to_vec())
     }
 }

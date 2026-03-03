@@ -145,7 +145,6 @@ pub use message::certificate::Certificates;
 pub use record::{RecordLayer, RecordType};
 pub use error::RlsError;
 pub use version::Version;
-pub use range::RangeExt;
 pub use boring::{hash, hmac, base64, Cipher, CipherType, Padding, RsaCipher, RsaKey, RsaPadding,
                  certificate::Certificate, cipher, certificate::DnType, certificate::CertSigner,
                  certificate::CertExtend, certificate::BasicConstraint, certificate::KeyUsage,
@@ -158,6 +157,7 @@ pub use extend::{Extension, ExtensionType, group::GroupType, formats::EcPointFor
 pub use alpn::ALPN;
 pub use ext::WriteExt;
 pub use url::{Addr, Protocol, Uri, Url, Param};
+pub use buffer::RecordDecodeBuffer;
 
 mod extend;
 mod message;
@@ -170,7 +170,6 @@ mod bytes;
 mod error;
 pub mod rand;
 mod boring;
-mod range;
 mod ffi;
 pub mod coder;
 mod alpn;
@@ -180,3 +179,4 @@ mod url;
 
 #[cfg(feature = "export")]
 mod export;
+mod buffer;

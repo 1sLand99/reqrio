@@ -44,7 +44,7 @@
 | 27  | authorization               |                           |
 | 28  | content-type                |                           |
 
-### 使用示例:
+### Usage Example:
 
 ```python
 import reqrio
@@ -95,7 +95,7 @@ print(stream.response.header.__dict__)
 session.close()
 ```
 
-* ws示例
+* Websocket Example
 ```python
 from reqrio import WebSocket, WsOpCode
 

@@ -2,12 +2,13 @@ use super::bytes::Bytes;
 use super::message::key_exchange::{NamedCurve, ServerKeyExchange};
 use super::message::server_hello::{ServerHello, ServerHelloDone};
 use super::prf::Prf;
-use super::record::{RecordBuffer, RecordLayer, RecordType};
+use super::record::{RecordLayer, RecordType};
 use super::suite::iv::Iv;
 use super::suite::CipherSuite;
 use super::suite::TlsCipher;
 use super::version::Version;
 use crate::boring::{certificate, AlgorithmSigner};
+use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
 use crate::error::RlsResult;
 use crate::ffi::Buf;
 use crate::message::certificate::CertificateRequest;
@@ -16,7 +17,6 @@ use crate::*;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::mem;
-use std::ops::Range;
 
 pub struct Connection {
     client_random: Bytes,
@@ -255,14 +255,14 @@ impl Connection {
 
     pub fn make_message(&mut self, cty: RecordType, buffer: &mut [u8], payload: &[u8]) -> RlsResult<usize> {
         let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
-        let mut buffer = RecordBuffer::from_buffer(aead, buffer);
-        buffer.set_head(cty, Version::TLS_1_2);
-        buffer.set_payload(payload);
+        let buffer = RecordEncodeBuffer::new(cty, buffer, payload, aead);
         self.write.encrypt(buffer)
     }
 
-    pub fn read_message<'a>(&mut self, layer: &'a mut RecordLayer<'a>) -> RlsResult<Range<usize>> {
-        self.read.decrypt(layer, self.cipher_suite.aead().ok_or(RlsError::AeadNone)?)
+    pub fn read_message(&mut self, origin: &[u8], buffer: &mut [u8]) -> RlsResult<usize> {
+        let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
+        let buffer = RecordDecodeBuffer::from_buffer(origin, buffer, aead)?;
+        self.read.decrypt(buffer)
     }
 
     pub fn alpn(&self) -> Option<&ALPN> {
