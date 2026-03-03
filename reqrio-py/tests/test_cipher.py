@@ -36,7 +36,7 @@ print(ebs)
 dbs = de_hex(CipherType.AES_128_CBC, ebs, "1234567812345678", "1234567812345678")
 print(dbs)
 
-uen = url_encode("https://122.233?士大夫")
+uen = url_encode("https://122.233?")
 print(uen)
 dus = url_decode(uen)
 print(dus)

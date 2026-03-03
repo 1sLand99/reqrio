@@ -66,6 +66,14 @@ pub trait ReqExt: Sized {
         self
     }
 
+    ///是否自动进行跳转
+    fn set_auto_redirect(&mut self, auto_redirect: bool);
+
+    fn with_auto_redirect(mut self, auto_redirect: bool) -> Self {
+        self.set_auto_redirect(auto_redirect);
+        self
+    }
+
     /// * 必须在建立tls连接（即：set_url/with_url）前设置, 否则需要调re_conn
     /// * 默认使用http2.0去连接，实际使用协议需要和服务器协商
     fn set_alpn(&mut self, alpn: ALPN);

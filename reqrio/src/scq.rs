@@ -19,6 +19,7 @@ pub struct ScReq {
     proxy: Proxy,
     fingerprint: Fingerprint,
     verify: bool,
+    auto_redirect: bool,
     buffer: Buffer,
     certs: Vec<Certificate>,
     key: RsaKey,
@@ -39,6 +40,7 @@ impl Default for ScReq {
             proxy: Proxy::Null,
             fingerprint: Fingerprint::default(),
             verify: true,
+            auto_redirect: true,
             buffer: Buffer::with_capacity(32826),
             certs: vec![],
             key: RsaKey::none(),
@@ -126,7 +128,20 @@ impl ScReq {
             let res = self.handle_io();
             self.buffer.reset();
             match res {
-                Ok(res) => return Ok(res),
+                Ok(res) => {
+                    let code = res.header().status().code();
+                    if self.auto_redirect && (300..400).contains(&code) {
+                        let location = res.header().location().ok_or("missing location")?;
+                        if location.starts_with("http") {
+                            self.set_url(location)?;
+                        } else {
+                            self.url.set_uri(location)?;
+                        }
+                        return self.stream_io();
+                    } else {
+                        return Ok(res);
+                    }
+                }
                 Err(e) => if i != self.timeout.handle_times() - 1 {
                     if self.timeout.is_peer_closed(e.to_string()) {
                         self.re_conn()?;
@@ -312,6 +327,10 @@ impl ReqExt for ScReq {
 
     fn set_verify(&mut self, verify: bool) {
         self.verify = verify;
+    }
+
+    fn set_auto_redirect(&mut self, auto_redirect: bool) {
+        self.auto_redirect = auto_redirect;
     }
 
     fn set_alpn(&mut self, alpn: ALPN) {

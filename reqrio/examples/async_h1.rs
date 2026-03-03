@@ -91,11 +91,11 @@ async fn main() {
     // println!("{}", res.raw_body().len());
     // println!("{}", res.header().content_type().is_some());
     // println!("{}", res.text().unwrap());
-    req.set_url(res.header().location().unwrap()).await.unwrap();
-    let res = req.get().await.unwrap();
-    println!("{}", res.header());
+    // req.set_url(res.header().location().unwrap()).await.unwrap();
+    // let res = req.get().await.unwrap();
+    // println!("{}", res.header());
 
-    req.set_url(res.header().location().unwrap()).await.unwrap();
-    let res = req.get().await.unwrap();
-    println!("{}", res.header());
+    // req.set_url(res.header().location().unwrap()).await.unwrap();
+    // let res = req.get().await.unwrap();
+    // println!("{}", res.header());
 }

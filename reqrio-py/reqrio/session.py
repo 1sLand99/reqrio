@@ -12,7 +12,7 @@ class Session:
     def __init__(self, alpn: ALPN = ALPN.HTTP11, rand_tls=False, token="", verify: bool = True):
         """
         :param
-        :param alpn: 版本
+        :param alpn: HTTP版本
         :param rand_tls:使用随机指纹，仅订阅版本
         """
         self.dll = DLL

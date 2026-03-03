@@ -6,58 +6,59 @@
 |  2  | ScReq_set_header_json        | void *, const char *                                     | int    |
 |  3  | ScReq_add_header             | void *, const char *, const char *                       | int    |
 |  4  | ScReq_set_alpn               | void *, const char *                                     | int    |
-|  5  | ScReq_set_verify             | void *, const char *                                     | -      |
-|  6  | ScReq_set_random_fingerprint | void *, const char *                                     | int    |     Return -2 as unsubscribed     |
-|  7  | ScReq_set_fingerprint        | void *, const char *, const char *                       | int    |     Return -2 as unsubscribed     |
-|  8  | ScReq_set_ja3                | void *, const char *, const char *                       | int    |     Return -2 as unsubscribed     |
-|  9  | ScReq_set_ja4                | void *, const char *, const char *                       | int    |     Return -2 as unsubscribed     |
-| 10  | ScReq_set_proxy              | void *, const char *                                     | int    |       http:// or socks5://        |
-| 11  | ScReq_set_url                | void *, const char *                                     | int    |  Called before setting the body   |
-| 12  | ScReq_add_param              | void *, const char *, const char *                       | int    |
-| 13  | ScReq_set_data               | void *, const char *                                     | int    |
-| 14  | ScReq_set_json               | void *, const char *                                     | int    |
-| 15  | ScReq_set_bytes              | void *, const char *, uint32_t                           | int    |
-| 16  | ScReq_set_text               | void *, const char *                                     | int    |
-| 17  | ScReq_set_timeout            | void *, const char *                                     | int    |   Tiemout structure to JSON str   |
-| 18  | ScReq_set_cookie             | void *, const char *                                     | int    |
-| 19  | ScReq_add_cookie             | void *, const char *, const char *                       | int    |
-| 20  | ScReq_set_callback           | void *, extern "C" fn(const char *, uint32_t)            | int    |
-| 21  | ScReq_reconnect              | void *                                                   | int    |
-| 22  | ScReq_stream_io              | void *, Method                                           | char * |       Return to hexadecimal       |
-| 23  | ScReq_drop                   | void *                                                   | -      |   Destroy the new_tttp instance   |
-| 24  | ws_build                     | -                                                        | void * |
-| 25  | ws_add_header                | void *, const char *, const char *                       | int    |
-| 26  | ws_set_proxy                 | void *, const char *                                     | int    | The value is http:// or socks5:// |
-| 27  | ws_set_url                   | void *, const char *                                     | int    |
-| 28  | ws_set_uri                   | void *, const char *                                     | int    |
-| 29  | ws_open                      | void *                                                   | void * |
-| 30  | ws_open_raw                  | const char *, const char *                               | void * |
-| 31  | ws_read                      | void *                                                   | char * |          Return as JSON           |
-| 32  | ws_write                     | void *, int, bool, const char *                          | int    |          opcode,mask,msg          |
-| 33  | ws_close                     | void *                                                   | -      |        Destroy WS instance        |
-| 34  | Cipher_new                   | CipherType                                               | void * |
-| 35  | Cipher_set_secret_key        | void *, const uint8_t *, size_t, const uint8_t *, size_t | int    |
-| 36  | Cipher_encrypt               | void *, const uint8_t *, size_t, uint8_t **, size_t      | int    |
-| 37  | Cipher_decrypt               | void *, const uint8_t *, size_t, uint8_t **, size_t      | int    |
-| 38  | Cipher_free                  | void *                                                   | -      |     Destroy Cipher * pointer      |
-| 39  | Hasher_new                   | HashType                                                 | void * |
-| 40  | Hasher_update                | void *, const uint8_t *, size_t                          | int    |
-| 41  | Hasher_finalize              | void *, uint8_t **, size_t                               | int    |
-| 42  | Hasher_free                  | void *                                                   | -      |
-| 43  | Hmac_new                     | uint8_t **, size_t, HashType                             | void * |
-| 44  | Hmac_update                  | void *, const uint8_t *, size_t                          | int    |
-| 45  | Hmac_finalize                | void *, uint8_t **, size_t                               | int    |
-| 46  | Hmac_free                    | void *                                                   | -      |
-| 47  | Base64_new                   | -                                                        | void * |
-| 48  | Base64_encode                | void *, const uint8_t *, size_t                          | char * |
-| 49  | Base64_decode                | void *, const uint8_t *, size_t, uint8_t **, size_t      | int    |
-| 50  | Base64_free                  | void *                                                   | -      |
-| 51  | url_encode                   | const char *                                             | char * |
-| 52  | url_decode                   | const char *                                             | char * |
-| 53  | hex_encode                   | const unt8_t, size_t                                     | char * |
-| 54  | hex_decode                   | const char *, uint8_t **, size_t                         | int    |
-| 55  | char_free                    | char *                                                   | -      |      Destroy char * pointer       |
-| 56  | u8_free                      | uint8_t *, size_t                                        | -      |     Destroy uint8_t * pointer     |
+|  5  | ScReq_set_verify             | void *, bool                                             | -      |
+|  6  | ScReq_set_redirect           | void *, bool                                             | -      |
+|  7  | ScReq_set_random_fingerprint | void *, const char *                                     | int    |     Return -2 as unsubscribed     |
+|  8  | ScReq_set_fingerprint        | void *, const char *, const char *                       | int    |     Return -2 as unsubscribed     |
+|  9  | ScReq_set_ja3                | void *, const char *, const char *                       | int    |     Return -2 as unsubscribed     |
+| 10  | ScReq_set_ja4                | void *, const char *, const char *                       | int    |     Return -2 as unsubscribed     |
+| 11  | ScReq_set_proxy              | void *, const char *                                     | int    |       http:// or socks5://        |
+| 12  | ScReq_set_url                | void *, const char *                                     | int    |  Called before setting the body   |
+| 13  | ScReq_add_param              | void *, const char *, const char *                       | int    |
+| 14  | ScReq_set_data               | void *, const char *                                     | int    |
+| 15  | ScReq_set_json               | void *, const char *                                     | int    |
+| 16  | ScReq_set_bytes              | void *, const char *, uint32_t                           | int    |
+| 17  | ScReq_set_text               | void *, const char *                                     | int    |
+| 18  | ScReq_set_timeout            | void *, const char *                                     | int    |   Tiemout structure to JSON str   |
+| 19  | ScReq_set_cookie             | void *, const char *                                     | int    |
+| 20  | ScReq_add_cookie             | void *, const char *, const char *                       | int    |
+| 21  | ScReq_set_callback           | void *, extern "C" fn(const char *, uint32_t)            | int    |
+| 22  | ScReq_reconnect              | void *                                                   | int    |
+| 23  | ScReq_stream_io              | void *, Method                                           | char * |       Return to hexadecimal       |
+| 24  | ScReq_drop                   | void *                                                   | -      |   Destroy the new_tttp instance   |
+| 25  | ws_build                     | -                                                        | void * |
+| 26  | ws_add_header                | void *, const char *, const char *                       | int    |
+| 27  | ws_set_proxy                 | void *, const char *                                     | int    | The value is http:// or socks5:// |
+| 28  | ws_set_url                   | void *, const char *                                     | int    |
+| 29  | ws_set_uri                   | void *, const char *                                     | int    |
+| 30  | ws_open                      | void *                                                   | void * |
+| 31  | ws_open_raw                  | const char *, const char *                               | void * |
+| 32  | ws_read                      | void *                                                   | char * |          Return as JSON           |
+| 33  | ws_write                     | void *, int, bool, const char *                          | int    |          opcode,mask,msg          |
+| 34  | ws_close                     | void *                                                   | -      |        Destroy WS instance        |
+| 35  | Cipher_new                   | CipherType                                               | void * |
+| 36  | Cipher_set_secret_key        | void *, const uint8_t *, size_t, const uint8_t *, size_t | int    |
+| 37  | Cipher_encrypt               | void *, const uint8_t *, size_t, uint8_t **, size_t      | int    |
+| 38  | Cipher_decrypt               | void *, const uint8_t *, size_t, uint8_t **, size_t      | int    |
+| 39  | Cipher_free                  | void *                                                   | -      |     Destroy Cipher * pointer      |
+| 40  | Hasher_new                   | HashType                                                 | void * |
+| 41  | Hasher_update                | void *, const uint8_t *, size_t                          | int    |
+| 42  | Hasher_finalize              | void *, uint8_t **, size_t                               | int    |
+| 43  | Hasher_free                  | void *                                                   | -      |
+| 44  | Hmac_new                     | uint8_t **, size_t, HashType                             | void * |
+| 45  | Hmac_update                  | void *, const uint8_t *, size_t                          | int    |
+| 46  | Hmac_finalize                | void *, uint8_t **, size_t                               | int    |
+| 47  | Hmac_free                    | void *                                                   | -      |
+| 48  | Base64_new                   | -                                                        | void * |
+| 49  | Base64_encode                | void *, const uint8_t *, size_t                          | char * |
+| 50  | Base64_decode                | void *, const uint8_t *, size_t, uint8_t **, size_t      | int    |
+| 51  | Base64_free                  | void *                                                   | -      |
+| 52  | url_encode                   | const char *                                             | char * |
+| 53  | url_decode                   | const char *                                             | char * |
+| 54  | hex_encode                   | const unt8_t, size_t                                     | char * |
+| 55  | hex_decode                   | const char *, uint8_t **, size_t                         | int    |
+| 56  | char_free                    | char *                                                   | -      |      Destroy char * pointer       |
+| 57  | u8_free                      | uint8_t *, size_t                                        | -      |     Destroy uint8_t * pointer     |
 
 * When the function returns -1, the execution fails; -2 is in non subscription status and the function is unavailable
 * The instance needs to be manually released, otherwise it may cause memory leakage

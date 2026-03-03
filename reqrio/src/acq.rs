@@ -21,6 +21,7 @@ pub struct AcReq {
     proxy: Proxy,
     fingerprint: Fingerprint,
     verify: bool,
+    auto_redirect: bool,
     buffer: Buffer,
     certs: Vec<Certificate>,
     key: RsaKey,
@@ -41,6 +42,7 @@ impl Default for AcReq {
             fingerprint: Fingerprint::default(),
             body: BodyType::Text("".to_string()),
             verify: true,
+            auto_redirect: true,
             buffer: Buffer::with_capacity(32826),
             certs: vec![],
             key: RsaKey::none(),
@@ -127,23 +129,38 @@ impl AcReq {
         for i in 0..self.timeout.handle_times() {
             let res = tokio::time::timeout(self.timeout.handle(), self.handle_io()).await;
             self.buffer.reset();
-            match &res {
-                Ok(res) => if let Err(e) = res && i != self.timeout.handle_times() - 1 {
-                    if e.to_string().to_lowercase().contains("close") || e.to_string().contains("中止了") || e.to_string().contains("关闭") {
-                        self.re_conn().await?;
+            match res {
+                Ok(res) => match res {
+                    Ok(res) => {
+                        let code = res.header().status().code();
+                        return if self.auto_redirect && (300..400).contains(&code) {
+                            let location = res.header().location().ok_or("missing location")?;
+                            if location.starts_with("http") {
+                                self.set_url(location).await?;
+                            } else {
+                                self.url.set_uri(location)?;
+                            }
+                            Box::pin(self.stream_io()).await
+                        } else {
+                            Ok(res)
+                        }
                     }
-                    println!("[AcReq] write/recv with error-{}, handle: {}/{}", e, i + 2, self.timeout.handle_times());
-                    continue;
+                    Err(e) => {
+                        if i != self.timeout.handle_times() - 1 {
+                            if e.to_string().to_lowercase().contains("close") || e.to_string().contains("中止了") || e.to_string().contains("关闭") {
+                                self.re_conn().await?;
+                            }
+                            println!("[AcReq] write/recv with error-{}, handle: {}/{}", e, i + 2, self.timeout.handle_times());
+                            continue;
+                        }
+                    }
                 }
+
                 Err(_) => if i != self.timeout.handle_times() - 1 {
                     println!("[AcReq] write/recv timeout, timeout: {:?}, handle: {}/{}", self.timeout.handle(), i + 2, self.timeout.handle_times());
                     continue;
                 }
             }
-            return match res {
-                Ok(res) => res,
-                Err(_) => Err(format!("handle timeout, handle:{}; timeout: {:?}", self.timeout.handle_times(), self.timeout.handle()).into())
-            };
         }
         Err("stream io error".into())
     }
@@ -252,7 +269,6 @@ impl AcReq {
         self.stream.async_write(self.buffer.filled()).await?;
         self.buffer.reset();
         let mut response = Response::new();
-        // let mut buffer = Buffer::with_capacity(0xFFFF);
         loop {
             self.stream.async_read(&mut self.buffer).await?;
             while let Ok(frame) = H2Frame::from_bytes(&mut self.buffer) {
@@ -323,6 +339,10 @@ impl ReqExt for AcReq {
 
     fn set_verify(&mut self, verify: bool) {
         self.verify = verify;
+    }
+
+    fn set_auto_redirect(&mut self, auto_redirect: bool) {
+        self.auto_redirect = auto_redirect;
     }
 
     fn set_alpn(&mut self, alpn: ALPN) {
