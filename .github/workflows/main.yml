@@ -36,8 +36,6 @@ jobs:
           python reqrio-py/tests/test_session.py
           python reqrio-py/tests/test_cipher.py
       - name: Run Go FFI Test
-        with:
-          cache-dependency-path: go_proxy/go.sum
         env:
           LD_LIBRARY_PATH: ${{ github.workspace }}/reqrio-go
         run: |
