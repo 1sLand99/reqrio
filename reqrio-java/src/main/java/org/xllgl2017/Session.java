@@ -6,6 +6,8 @@ import com.google.gson.JsonObject;
 import com.sun.jna.Pointer;
 import org.apache.commons.codec.DecoderException;
 
+import java.util.HashMap;
+
 public class Session implements AutoCloseable {
     private static final ReqrioLibrary INSTANCE = ReqrioLibrary.loadLibrary();
     private final Pointer req;
@@ -35,17 +37,13 @@ public class Session implements AutoCloseable {
     }
 
     public void setHeaders(Headers headers) {
-        for (Header header : headers.getKeys()) {
-            INSTANCE.ScReq_add_header(this.req, header.getName(), header.getValue());
+        HashMap<String, String> keys = headers.getKeys();
+        for (String name : keys.keySet()) {
+            INSTANCE.ScReq_add_header(this.req, name, keys.get(name));
         }
         for (Cookie cookie : headers.getCookies()) {
             INSTANCE.ScReq_add_cookie(this.req, cookie.getName(), cookie.getValue());
         }
-    }
-
-    public void addHeader(Header header) throws Exception {
-        int res = INSTANCE.ScReq_add_header(this.req, header.getName(), header.getValue());
-        if (res == -1) throw new Exception("add header error");
     }
 
     public void addHeader(String name, String value) throws Exception {

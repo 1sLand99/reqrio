@@ -1,4 +1,3 @@
-import com.sun.jna.Pointer;
 import org.xllgl2017.*;
 
 public class Main {
@@ -15,12 +14,10 @@ public class Main {
         Timeout timeout = new Timeout();
         session.setTimeout(timeout);
 
-        ScReqCallback cb = (msg, len) -> {
+        session.set_callback((msg, len) -> {
             byte[] data = msg.getByteArray(0, len);
             System.out.println("len = " + data.length);
-        };
-
-        session.set_callback(cb);
+        });
         session.setUrl("https://m.so.com");
         //请求
         Response response = session.get();

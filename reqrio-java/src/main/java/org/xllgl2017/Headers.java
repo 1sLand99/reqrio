@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 public class Headers {
@@ -13,11 +14,11 @@ public class Headers {
     private Method method;
     private int status;
     private String agreement;
-    private final List<Header> keys;
+    private final HashMap<String, String> keys;
     private final List<Cookie> cookies;
 
     public Headers() {
-        this.keys = new ArrayList<>();
+        this.keys = new HashMap<>();
         this.cookies = new ArrayList<>();
     }
 
@@ -27,7 +28,7 @@ public class Headers {
         this.method = gson.fromJson(header.get("method").getAsString(), Method.class);
         this.status = header.get("status").getAsInt();
         this.agreement = header.get("agreement").toString();
-        this.keys = new ArrayList<>();
+        this.keys = new HashMap<>();
         this.cookies = new ArrayList<>();
         JsonObject ks = header.get("keys").getAsJsonObject();
 
@@ -39,17 +40,13 @@ public class Headers {
                     this.cookies.add(gson.fromJson(cookie, Cookie.class));
                 }
             } else {
-                this.keys.add(new Header(k, ks.get(k).getAsString()));
+                this.keys.put(k, ks.get(k).getAsString());
             }
         }
     }
 
-    public void addHeader(Header header) {
-        this.keys.add(header);
-    }
-
     public void addHeader(String name, String value) {
-        this.keys.add(new Header(name, value));
+        this.keys.put(name, value);
     }
 
     public List<Cookie> getCookies() {
@@ -58,6 +55,10 @@ public class Headers {
 
     public void addCookie(Cookie cookie) {
         this.cookies.add(cookie);
+    }
+
+    public void addCookie(String name, String value) {
+        this.cookies.add(new Cookie(name, value));
     }
 
     public void setCookies(String cookies) {
@@ -76,7 +77,7 @@ public class Headers {
         return status;
     }
 
-    public List<Header> getKeys() {
+    public HashMap<String, String> getKeys() {
         return keys;
     }
 }

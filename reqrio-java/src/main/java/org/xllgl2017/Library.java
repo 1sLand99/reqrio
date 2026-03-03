@@ -91,8 +91,10 @@ interface ReqrioLibrary extends Library {
                 java.io.OutputStream out = new java.io.FileOutputStream(dll_file);
                 byte[] buffer = new byte[4096];
                 int read;
-                while ((read = in.read(buffer)) != -1) {
-                    out.write(buffer, 0, read);
+                if (in != null) {
+                    while ((read = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, read);
+                    }
                 }
                 out.flush();
                 out.close();

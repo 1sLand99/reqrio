@@ -6,10 +6,10 @@ public class Cookie {
     private int age;
     private String domain;
     private String path;
-    private boolean http_only;
+    private boolean httpOnly;
     private boolean secure;
     private String expires;
-    private String same_site;
+    private String sameSite;
     private boolean icpsp;
 
     public Cookie(String name, String value) {
@@ -23,5 +23,37 @@ public class Cookie {
 
     public String getName() {
         return name;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public String getDomain() {
+        return domain;
+    }
+
+    public String getPath() {
+        return path;
+    }
+
+    public boolean isHttpOnly() {
+        return httpOnly;
+    }
+
+    public boolean isSecure() {
+        return secure;
+    }
+
+    public String getExpires() {
+        return expires;
+    }
+
+    public String getSameSite() {
+        return sameSite;
+    }
+
+    public boolean isIcpsp() {
+        return icpsp;
     }
 }
