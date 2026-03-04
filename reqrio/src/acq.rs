@@ -143,6 +143,7 @@ impl AcReq {
                             } else {
                                 self.header.set_uri(Uri::try_from(location)?);
                             }
+                            self.header.set_method(Method::GET);
                             Box::pin(self.stream_io()).await
                         } else {
                             Ok(res)

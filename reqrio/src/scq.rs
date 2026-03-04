@@ -140,6 +140,7 @@ impl ScReq {
                         } else {
                             self.header.set_uri(Uri::try_from(location)?);
                         }
+                        self.header.set_method(Method::GET);
                         self.stream_io()
                     } else {
                         Ok(res)
