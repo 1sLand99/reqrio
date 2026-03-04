@@ -1,31 +1,36 @@
 pub use addr::Addr;
-pub use protocol::Protocol;
+pub use scheme::Scheme;
 use std::fmt::Display;
 pub use uri::Uri;
 pub use param::Param;
 use crate::error::RlsResult;
 use crate::RlsError;
+pub use error::UrlError;
 
 mod addr;
 mod param;
-mod protocol;
+mod scheme;
 mod uri;
+mod error;
 
 #[derive(Debug, Clone)]
 pub struct Url {
-    protocol: Protocol,
+    scheme: Scheme,
     addr: Addr,
     uri: Uri,
 }
 
-impl Url {
-    pub fn new() -> Url {
+impl Default for Url {
+    fn default() -> Self {
         Url {
-            protocol: Protocol::Http,
-            addr: Addr::new(),
-            uri: Uri::new(),
+            scheme: Scheme::Http,
+            addr: Addr::default(),
+            uri: Uri::default(),
         }
     }
+}
+
+impl Url {
 
     pub fn uri(&self) -> &Uri {
         &self.uri
@@ -54,19 +59,23 @@ impl Url {
         self.addr = addr;
     }
 
-    pub fn set_protocol(&mut self, proto: Protocol) {
-        self.protocol = proto;
+    pub fn set_protocol(&mut self, proto: Scheme) {
+        self.scheme = proto;
     }
 
-    pub fn protocol(&self) -> &Protocol {
-        &self.protocol
+    pub fn protocol(&self) -> &Scheme {
+        &self.scheme
+    }
+
+    pub fn into_inner(self) -> (Scheme, Addr, Uri) {
+        (self.scheme, self.addr, self.uri)
     }
 }
 
 impl Display for Url {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let addr = self.addr.to_string().replace(":443", "").replace(":80", "");
-        let mut res = format!("{}://{}{}", self.protocol, addr, self.uri());
+        let mut res = format!("{}://{}{}", self.scheme, addr, self.uri());
         if res.ends_with("?") {
             res = res[..res.len() - 1].to_string();
         }
@@ -84,13 +93,13 @@ impl TryFrom<String> for Url {
 impl TryFrom<&str> for Url {
     type Error = RlsError;
     fn try_from(t: &str) -> Result<Self, Self::Error> {
-        let mut res = Url::new();
+        let mut res = Url::default();
         let mut t = t.split("?");
         let base = t.next().ok_or("not found url base")?;
         let mut i = base.split("://");
-        let protocol = i.next().ok_or("not found protocol")?;
-        res.protocol = Protocol::try_from(protocol)?;
-        let addr = i.next().ok_or("not found addr")?;
+        let protocol = i.next().ok_or(UrlError::MissingScheme)?;
+        res.scheme = Scheme::try_from(protocol)?;
+        let addr = i.next().ok_or(UrlError::MissingDomain)?;
         let pos = addr.find("/");
         res.addr = match pos {
             None => {
@@ -103,7 +112,7 @@ impl TryFrom<&str> for Url {
             }
         };
         if res.addr.port() == 0 {
-            res.addr.set_port(res.protocol.default_port())
+            res.addr.set_port(res.scheme.default_port())
         }
         if let Some(param) = t.next() {
             res.uri.parse_param(param)?;

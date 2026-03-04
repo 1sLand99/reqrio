@@ -10,6 +10,7 @@ use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 use hex::FromHexError;
 use crate::Alert;
+use crate::url::UrlError;
 
 #[derive(Debug)]
 pub enum RlsError {
@@ -257,6 +258,13 @@ impl From<AddrParseError> for RlsError {
 impl From<Utf8Error> for RlsError {
     fn from(value: Utf8Error) -> Self {
         RlsError::StdError(Box::new(value))
+    }
+}
+
+impl From<UrlError> for RlsError {
+    fn from(value: UrlError) -> Self {
+        RlsError::StdError(Box::new(value))
+
     }
 }
 

@@ -88,7 +88,7 @@ impl AsyncTlsStream {
         let read_timeout = param.timeout.read();
         let write_timeout = param.timeout.write();
         let config = ClientConfig {
-            sni: param.url.addr().host(),
+            sni: param.addr.host(),
             alpn: param.alpn,
             fingerprint: param.fingerprint,
             client_cert: param.cert,

@@ -4,6 +4,7 @@ use std::fmt::Display;
 use std::net::{Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::str::FromStr;
 use std::vec::IntoIter;
+use crate::url::UrlError;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Addr {
@@ -11,23 +12,26 @@ pub struct Addr {
     port: u16,
 }
 
-impl Addr {
-    pub fn new() -> Addr {
+impl Default for Addr {
+    fn default() -> Self {
         Addr {
             host: "".to_string(),
             port: 0,
         }
     }
+}
+
+impl Addr {
 
     pub fn new_addr(host: impl ToString, port: u16) -> Addr {
-        let mut res = Addr::new();
+        let mut res = Addr::default();
         res.host = host.to_string();
         res.port = port;
         res
     }
 
     pub fn new_bits(host: u32, port: u16) -> Addr {
-        let mut res = Addr::new();
+        let mut res = Addr::default();
         let ip = Ipv4Addr::from_bits(host);
         res.host = ip.to_string();
         res.port = port;
@@ -79,10 +83,10 @@ impl TryFrom<&str> for Addr {
     type Error = RlsError;
     fn try_from(value: &str) -> RlsResult<Addr> {
         let mut i = value.split(':');
-        let mut res = Addr::new();
-        res.host = i.next().ok_or("addr error")?.to_string();
+        let mut res = Addr::default();
+        res.host = i.next().ok_or(UrlError::MissingDomain)?.to_string();
         if let Some(port) = i.next() {
-            res.port = port.parse()?;
+            res.port = port.parse().or(Err(UrlError::InvalidPort))?;
         }
         Ok(res)
     }

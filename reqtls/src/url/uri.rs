@@ -5,25 +5,28 @@ use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub struct Uri {
-    uri: String,
+    path: String,
     params: Vec<Param>,
 }
 
-impl Uri {
-    pub fn new() -> Uri {
+impl Default for Uri {
+    fn default() -> Self {
         Uri {
-            uri: "".to_string(),
+            path: "".to_string(),
             params: vec![],
         }
     }
+}
 
-    pub fn value(&self) -> &str { &self.uri }
+impl Uri {
+    pub fn value(&self) -> &str { &self.path }
 
     pub fn set_uri(&mut self, uri: impl ToString) {
-        self.uri = uri.to_string();
+        self.path = uri.to_string();
     }
 
     pub fn parse_param(&mut self, item: &str) -> RlsResult<()> {
+        self.params.clear();
         for kv in item.split("&") {
             self.params.push(Param::try_from(kv)?);
         }
@@ -55,16 +58,16 @@ impl Uri {
         self.params.clear();
     }
 
-    pub fn without_param(&self) -> &str { &self.uri }
+    pub fn without_param(&self) -> &str { &self.path }
 }
 
 impl Display for Uri {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let param = self.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join("&");
         if param.is_empty() {
-            f.write_str(&self.uri)
+            f.write_str(&self.path)
         } else {
-            f.write_str(&format!("{}?{}", self.uri, param))
+            f.write_str(&format!("{}?{}", self.path, param))
         }
     }
 }
@@ -73,12 +76,11 @@ impl TryFrom<&str> for Uri {
     type Error = RlsError;
     fn try_from(value: &str) -> RlsResult<Uri> {
         let mut items = value.split("?");
-        let mut res = Uri::new();
-        res.uri = items.next().unwrap_or("").to_string();
+        let mut res = Uri::default();
+        res.path = items.next().unwrap_or("").to_string();
         if let Some(param) = items.next() {
             res.parse_param(param)?;
         }
-
         Ok(res)
     }
 }

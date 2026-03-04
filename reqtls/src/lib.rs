@@ -156,7 +156,7 @@ pub use suite::CipherSuite;
 pub use extend::{Extension, ExtensionType, group::GroupType, formats::EcPointFormat, SupportVersions, CompressionType};
 pub use alpn::ALPN;
 pub use ext::WriteExt;
-pub use url::{Addr, Protocol, Uri, Url, Param};
+pub use url::{Addr, Scheme, Uri, Url, Param, UrlError};
 pub use buffer::RecordDecodeBuffer;
 
 mod extend;

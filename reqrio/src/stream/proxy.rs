@@ -74,8 +74,8 @@ impl TryFrom<&str> for Proxy {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let url = Url::try_from(value)?;
         match url.protocol() {
-            Protocol::Http => Ok(Proxy::HttpPlain(url.addr().clone())),
-            Protocol::Socks5 => Ok(Proxy::Socks5(url.addr().clone())),
+            Scheme::Http => Ok(Proxy::HttpPlain(url.addr().clone())),
+            Scheme::Socks5 => Ok(Proxy::Socks5(url.addr().clone())),
             _ => Err("unsupported proxy scheme".into())
         }
     }

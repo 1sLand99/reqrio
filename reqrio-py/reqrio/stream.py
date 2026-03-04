@@ -30,6 +30,8 @@ class Stream:
             self.response = self.session.options(),
         elif self.method == Method.TRACH:
             self.response = self.session.trach()
+        elif self.method == Method.PATCH:
+            self.response = self.session.patch()
 
     # 这个是 ctypes 回调
     def _callback(self, p, l):

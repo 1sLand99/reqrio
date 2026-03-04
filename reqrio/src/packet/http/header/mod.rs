@@ -31,7 +31,7 @@ impl Header {
         Self {
             method: Method::GET,
             agreement: "".to_string(),
-            uri: Uri::new(),
+            uri: Uri::default(),
             status: HttpStatus::None,
             keys: vec![],
         }
@@ -310,6 +310,8 @@ impl Header {
     pub fn uri(&self) -> &Uri {
         &self.uri
     }
+    
+    pub fn uri_mut(&mut self) -> &mut Uri {&mut self.uri}
 
     pub fn is_empty(&self) -> bool { self.agreement.is_empty() }
 
@@ -327,13 +329,8 @@ impl Header {
 
     pub fn set_method(&mut self, method: Method) { self.method = method; }
 
-    pub fn set_uri(&mut self, uri: impl AsRef<str>) -> HlsResult<()> {
-        let mut items = uri.as_ref().split("?");
-        self.uri.set_uri(items.next().ok_or("invalid uri")?);
-        if let Some(param) = items.next() {
-            self.uri.parse_param(param)?;
-        }
-        Ok(())
+    pub fn set_uri(&mut self, uri: Uri) {
+        self.uri = uri;
     }
 
     pub fn location(&self) -> Option<&str> {
@@ -356,7 +353,7 @@ impl Header {
             if index == 0 {
                 let mut items = line.split(" ");
                 header.method = Method::try_from(items.next().unwrap_or("GET")).unwrap_or(Method::GET);
-                let _ = header.set_uri(items.next().unwrap_or(""));
+                let _ = header.set_uri(Uri::try_from(items.next().unwrap_or(""))?);
                 header.agreement = items.collect::<Vec<_>>().join(" ").to_uppercase();
                 continue;
             }

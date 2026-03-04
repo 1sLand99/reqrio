@@ -23,7 +23,8 @@ mod config;
 
 
 pub struct ConnParam<'a> {
-    pub url: &'a Url,
+    pub scheme: &'a Scheme,
+    pub addr: &'a Addr,
     pub proxy: &'a Proxy,
     pub timeout: &'a Timeout,
     pub fingerprint: &'a mut Fingerprint,

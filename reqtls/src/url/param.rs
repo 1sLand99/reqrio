@@ -1,5 +1,6 @@
+use super::error::UrlError;
+use crate::coder;
 use std::fmt::{Display, Formatter};
-use crate::{coder, RlsError};
 
 #[derive(Debug, Clone)]
 pub struct Param {
@@ -7,16 +8,19 @@ pub struct Param {
     value: String,
 }
 
-impl Param {
-    pub fn new() -> Param {
+impl Default for Param {
+    fn default() -> Self {
         Param {
             name: "".to_string(),
             value: "".to_string(),
         }
     }
+}
+
+impl Param {
 
     pub fn new_param(name: impl ToString, value: impl ToString) -> Param {
-        let mut res = Param::new();
+        let mut res = Param::default();
         res.name = name.to_string();
         res.value = value.to_string();
         res
@@ -47,13 +51,13 @@ impl Display for Param {
 }
 
 impl TryFrom<&str> for Param {
-    type Error = RlsError;
+    type Error = UrlError;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let mut items = value.split("=");
-        let mut res = Param::new();
-        res.name = items.next().ok_or("name not found")?.to_string();
+        let mut res = Param::default();
+        res.name = items.next().ok_or(UrlError::MissingParamName)?.to_string();
         let value = items.collect::<Vec<_>>().join("=");
-        res.value = coder::url_decode(value)?.to_string();
+        res.value = coder::url_decode(value).or(Err(UrlError::InvalidParamEncoded))?.to_string();
         Ok(res)
     }
 }

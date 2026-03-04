@@ -25,13 +25,13 @@ pub enum StreamKind {
 impl StreamKind {
     pub async fn async_conn(&mut self, param: ConnParam<'_>) -> HlsResult<ALPN> {
         let _ = self.async_shutdown().await;
-        let stream = tokio::time::timeout(param.timeout.connect(), ProxyStream::async_connect(param.proxy, param.url.addr())).await??;
-        match param.url.protocol() {
-            Protocol::Http | Protocol::Ws => {
+        let stream = tokio::time::timeout(param.timeout.connect(), ProxyStream::async_connect(param.proxy, param.addr)).await??;
+        match param.scheme {
+            Scheme::Http | Scheme::Ws => {
                 *self = StreamKind::AsyncHttp(AsyncTcpStream::from_proxy_stream(stream, param.timeout));
                 Ok(ALPN::Http11)
             }
-            Protocol::Https | Protocol::Wss => {
+            Scheme::Https | Scheme::Wss => {
                 let tls_stream = AsyncTlsStream::connect_timeout(param, stream).await?;
                 let alpn = tls_stream.alpn().map(|x| ALPN::from_slice(x.as_bytes())).unwrap_or(ALPN::Http11);
                 *self = StreamKind::AsyncHttps(tls_stream);
@@ -78,15 +78,15 @@ impl StreamKind {
 impl StreamKind {
     pub fn sync_conn(&mut self, param: ConnParam) -> HlsResult<ALPN> {
         let _ = self.sync_shutdown();
-        let stream = ProxyStream::sync_connect(param.proxy, param.url.addr(), param.timeout)?; //param.proxy.create_sync_stream(param.url.addr(), param.timeout)?;
-        match param.url.protocol() {
-            Protocol::Http | Protocol::Ws => {
+        let stream = ProxyStream::sync_connect(param.proxy, param.addr, param.timeout)?;
+        match param.scheme {
+            Scheme::Http | Scheme::Ws => {
                 *self = StreamKind::SyncHttp(stream);
                 Ok(ALPN::Http11)
             }
-            Protocol::Https | Protocol::Wss => {
+            Scheme::Https | Scheme::Wss => {
                 let tls_stream = SyncStream::connect(ClientConfig {
-                    sni: param.url.addr().host(),
+                    sni: param.addr.host(),
                     alpn: param.alpn,
                     fingerprint: param.fingerprint,
                     client_cert: param.cert,

@@ -1,3 +1,6 @@
+use crate::json::JsonError;
+use httlib_hpack::{DecoderError, EncoderError};
+use reqtls::{hex, Alert, RlsError};
 use std::array::TryFromSliceError;
 use std::convert::Infallible;
 use std::error::Error;
@@ -9,11 +12,8 @@ use std::num::ParseIntError;
 use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 use std::sync::PoisonError;
-use httlib_hpack::{DecoderError, EncoderError};
-use crate::json::JsonError;
 #[cfg(feature = "aync")]
 use tokio::time::error::Elapsed;
-use reqtls::{hex, Alert, RlsError};
 
 #[derive(Debug)]
 pub enum HlsError {

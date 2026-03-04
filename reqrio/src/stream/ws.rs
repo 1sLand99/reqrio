@@ -39,34 +39,15 @@ impl<S: ReqExt> WebSocketBuilder<S> {
         self.0.header_mut().insert(key, val)
     }
 
-    pub fn with_addr(mut self, addr: Addr) -> WebSocketBuilder<S> {
-        self.0.url_mut().set_addr(addr);
-        self
+    pub fn set_uri(&mut self, uri: impl TryInto<Uri>) -> Result<(), RlsError> {
+        self.0.set_uri(uri)
     }
 
-    pub fn set_uri(&mut self, uri: impl AsRef<str>) -> Result<(), RlsError> {
-        self.0.url_mut().set_uri(uri)
-    }
-
-    pub fn with_uri(mut self, uri: impl AsRef<str>) -> HlsResult<WebSocketBuilder<S>> {
-        self.0.url_mut().set_uri(uri)?;
+    pub fn with_uri(mut self, uri: impl TryInto<Uri>) -> HlsResult<WebSocketBuilder<S>> {
+        self.0.set_uri(uri)?;
         Ok(self)
     }
 
-    pub fn with_protocol(mut self, protocol: Protocol) -> WebSocketBuilder<S> {
-        self.0.url_mut().set_protocol(protocol);
-        self
-    }
-
-    pub fn set_url(&mut self, url: impl AsRef<str>) -> HlsResult<()> {
-        *self.0.url_mut() = Url::try_from(url.as_ref())?;
-        Ok(())
-    }
-
-    pub fn with_url(mut self, url: impl AsRef<str>) -> HlsResult<WebSocketBuilder<S>> {
-        *self.0.url_mut() = Url::try_from(url.as_ref())?;
-        Ok(self)
-    }
 }
 
 impl WebSocketBuilder<ScReq> {
@@ -76,6 +57,16 @@ impl WebSocketBuilder<ScReq> {
         let context = self.0.gen_h1()?;
         println!("{}", String::from_utf8_lossy(&context));
         Ok(WebSocket::new(WebSocket::connect_sync(self.0, context)?))
+    }
+
+    pub fn set_url(&mut self, url: impl AsRef<str>) -> HlsResult<()> {
+        self.0.set_url(url)?;
+        Ok(())
+    }
+
+    pub fn with_url(mut self, url: impl AsRef<str>) -> HlsResult<Self> {
+        self.set_url(url)?;
+        Ok(self)
     }
 }
 
@@ -87,6 +78,16 @@ impl WebSocketBuilder<AcReq> {
         let context = self.0.gen_h1()?;
         println!("{}", String::from_utf8_lossy(&context));
         Ok(WebSocket::new(WebSocket::connect_async(self.0, context).await?))
+    }
+
+    pub async fn set_async_url(&mut self, url: impl AsRef<str>) -> HlsResult<()> {
+        self.0.set_url(url).await?;
+        Ok(())
+    }
+
+    pub async fn with_async_url(mut self, url: impl AsRef<str>) -> HlsResult<Self> {
+        self.set_async_url(url).await?;
+        Ok(self)
     }
 }
 
@@ -191,7 +192,7 @@ impl WebSocket {
     }
 
     pub async fn open_async(url: impl AsRef<str>) -> HlsResult<WebSocket> {
-        Self::async_build().with_url(url)?.build().await
+        Self::async_build().with_async_url(url).await?.build().await
     }
 
     pub async fn open_async_raw(url: impl AsRef<str>, context: impl AsRef<[u8]>) -> HlsResult<WebSocket> {

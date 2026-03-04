@@ -1,3 +1,4 @@
+use std::mem;
 use crate::ext::ReqPriExt;
 use crate::hpack::{HPackCoding, HackDecode};
 use crate::stream::{ConnParam, Stream};
@@ -8,7 +9,8 @@ use crate::packet::FrameFlag;
 #[repr(C)]
 pub struct ScReq {
     header: Header,
-    url: Url,
+    scheme: Scheme,
+    addr: Addr,
     hack_coder: HPackCoding,
     stream: Stream,
     body: BodyType,
@@ -29,7 +31,8 @@ impl Default for ScReq {
     fn default() -> Self {
         ScReq {
             header: Header::new_req_h1(),
-            url: Url::new(),
+            scheme: Scheme::Http,
+            addr: Addr::default(),
             hack_coder: HPackCoding::new(),
             stream: Stream::unconnection(),
             body: BodyType::Text("".to_string()),
@@ -130,17 +133,17 @@ impl ScReq {
             match res {
                 Ok(res) => {
                     let code = res.header().status().code();
-                    if self.auto_redirect && (300..400).contains(&code) {
+                    return if self.auto_redirect && (300..400).contains(&code) {
                         let location = res.header().location().ok_or("missing location")?;
                         if location.starts_with("http") {
                             self.set_url(location)?;
                         } else {
-                            self.url.set_uri(location)?;
+                            self.header.set_uri(Uri::try_from(location)?);
                         }
-                        return self.stream_io();
+                        self.stream_io()
                     } else {
-                        return Ok(res);
-                    }
+                        Ok(res)
+                    };
                 }
                 Err(e) => if i != self.timeout.handle_times() - 1 {
                     if self.timeout.is_peer_closed(e.to_string()) {
@@ -159,7 +162,8 @@ impl ScReq {
         self.stream_id = 0;
         for i in 0..self.timeout.connect_times() {
             let param = ConnParam {
-                url: &self.url,
+                scheme: &self.scheme,
+                addr: &self.addr,
                 proxy: &self.proxy,
                 timeout: &self.timeout,
                 fingerprint: &mut self.fingerprint,
@@ -205,10 +209,12 @@ impl ScReq {
     }
 
     pub fn set_url(&mut self, url: impl AsRef<str>) -> HlsResult<()> {
-        let old_host = self.url.addr().host().to_string();
-        self.url = Url::try_from(url.as_ref())?;
-        if self.url.addr().host() != old_host {
-            let host = self.url.addr().to_string().replace(":80", "").replace(":443", "");
+        let (protocol, addr, uri) = Url::try_from(url.as_ref())?.into_inner();
+        let old_addr = mem::replace(&mut self.addr, addr);
+        self.scheme = protocol;
+        self.header.set_uri(uri);
+        if old_addr.host() != self.addr.host() {
+            let host = self.addr.to_string().replace(":80", "").replace(":443", "");
             self.header.set_host(host)?;
             self.re_conn()?;
         }
@@ -286,6 +292,14 @@ impl ReqPriExt for ScReq {
     fn hack_decoder(&mut self) -> &mut HackDecode {
         self.hack_coder.decoder()
     }
+
+    fn addr(&self) -> &Addr {
+        &self.addr
+    }
+
+    fn scheme(&self) -> &Scheme {
+        &self.scheme
+    }
 }
 
 impl ReqExt for ScReq {
@@ -313,12 +327,8 @@ impl ReqExt for ScReq {
         &self.timeout
     }
 
-    fn url(&self) -> &Url {
-        &self.url
-    }
-
-    fn url_mut(&mut self) -> &mut Url {
-        &mut self.url
+    fn url(&self) -> String {
+        format!("{}://{}{}", self.scheme, self.addr, self.header.uri()).replace(":80", "").replace(":443", "")
     }
 
     fn set_proxy(&mut self, proxy: Proxy) {

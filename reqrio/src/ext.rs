@@ -51,8 +51,11 @@ pub trait ReqExt: Sized {
     }
     fn set_timeout(&mut self, timeout: Timeout);
     fn timeout(&self) -> &Timeout;
-    fn url(&self) -> &Url;
-    fn url_mut(&mut self) -> &mut Url;
+    fn url(&self) -> String;
+    fn set_uri(&mut self, uri: impl TryInto<Uri>) -> Result<(), RlsError> {
+        self.header_mut().set_uri(uri.try_into().or(Err(UrlError::ParseUriError))?);
+        Ok(())
+    }
     fn set_proxy(&mut self, proxy: Proxy);
     fn with_proxy(mut self, proxy: Proxy) -> Self {
         self.set_proxy(proxy);
@@ -128,7 +131,7 @@ pub trait ReqExt: Sized {
     }
 
     fn set_params(&mut self, params: JsonValue) {
-        let uri = self.url_mut().uri_mut();
+        let uri = self.header_mut().uri_mut();
         uri.clear_params();
         for (k, v) in params.entries() {
             uri.insert_param(k, v);
@@ -136,12 +139,12 @@ pub trait ReqExt: Sized {
     }
 
     fn add_param(&mut self, name: impl ToString, value: impl ToString) {
-        let uri = self.url_mut().uri_mut();
+        let uri = self.header_mut().uri_mut();
         uri.insert_param(name, value);
     }
 
     fn remove_param(&mut self, name: impl ToString) -> Option<String> {
-        let uri = self.url_mut().uri_mut();
+        let uri = self.header_mut().uri_mut();
         uri.remove_param(name)
     }
 }
@@ -153,6 +156,9 @@ pub(crate) trait ReqPriExt: ReqExt {
     fn callback(&mut self) -> &mut Option<ReqCallback>;
 
     fn hack_decoder(&mut self) -> &mut HackDecode;
+    fn addr(&self) -> &Addr;
+
+    fn scheme(&self) -> &Scheme;
 
     fn handle_h1_res(&mut self, buffer: &mut Buffer, response: &mut Response, rd: &mut usize) -> HlsResult<bool> {
         match self.callback() {
@@ -225,7 +231,7 @@ pub(crate) trait ReqPriExt: ReqExt {
             self.header_mut().set_content_type(ContentType::File(md5.to_string()));
         }
         let mut headers = self.header_mut().as_raw(body_len)?;
-        headers.insert(0, format!("{} {} HTTP/1.1", self.header().method(), self.url().uri()));
+        headers.insert(0, format!("{} {} HTTP/1.1", self.header().method(), self.header().uri()));
         headers.push("".to_string());
         headers.push("".to_string());
         Ok(headers.join("\r\n").into_bytes())
@@ -276,7 +282,7 @@ pub trait ReqGenExt: ReqPriExt {
     }
 
     fn gen_h1(&mut self) -> HlsResult<Vec<u8>> {
-        let host = self.url().addr().to_string().replace(":80", "").replace(":443", "");
+        let host = self.addr().to_string().replace(":80", "").replace(":443", "");
         match self.header().host() {
             None => self.header_mut().set_host(host)?,
             Some(key_host) => if key_host.is_empty() || key_host != host { self.header_mut().set_host(host)? }
@@ -290,9 +296,9 @@ pub trait ReqGenExt: ReqPriExt {
 
     fn gen_h2_header(&mut self) -> HlsResult<Vec<HeaderKey>> {
         let mut headers = self.header().as_h2c()?;
-        headers.insert(1, HeaderKey::new(":authority".to_string(), HeaderValue::String(self.url().addr().to_string().replace(":80", "").replace(":443", ""))));
-        headers.insert(2, HeaderKey::new(":scheme".to_string(), HeaderValue::String(self.url().protocol().to_string())));
-        headers.insert(3, HeaderKey::new(":path".to_string(), HeaderValue::String(self.url().uri().to_string())));
+        headers.insert(1, HeaderKey::new(":authority".to_string(), HeaderValue::String(self.addr().to_string().replace(":80", "").replace(":443", ""))));
+        headers.insert(2, HeaderKey::new(":scheme".to_string(), HeaderValue::String(self.scheme().to_string())));
+        headers.insert(3, HeaderKey::new(":path".to_string(), HeaderValue::String(self.header().uri().to_string())));
         Ok(headers)
     }
 
