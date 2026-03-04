@@ -155,7 +155,7 @@ impl Connection {
     }
 
     pub fn make_cipher(&mut self, server: bool) -> RlsResult<()> {
-        println!("{:?} {:?} {:?}", self.cipher_suite, self.cipher_suite.aead(), self.named_curve);
+        // println!("{:?} {:?} {:?}", self.cipher_suite, self.cipher_suite.aead(), self.named_curve);
         let share_secret = self.shared_key.diffie_hellman(self.exchange_pub_key.as_ref())?;
         let (label, seed) = match self.use_ems {
             true => ("extended master secret", self.cipher_suite.current_session_hash()?.to_vec()),

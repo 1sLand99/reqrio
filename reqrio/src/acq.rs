@@ -146,7 +146,7 @@ impl AcReq {
                             Box::pin(self.stream_io()).await
                         } else {
                             Ok(res)
-                        };
+                        }
                     }
                     Err(e) => {
                         if i != self.timeout.handle_times() - 1 {

@@ -125,7 +125,7 @@ impl Buffer {
     }
 
     pub fn drain(&mut self, range: RangeTo<usize>) -> Vec<u8> {
-        let res = self.buffer[range.clone()].to_vec();
+        let res = self.buffer[range].to_vec();
         self.copy_within(range.end..self.offset.end, 0);
         self.offset.end -= range.end;
         res

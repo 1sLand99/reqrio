@@ -128,7 +128,7 @@ impl Response {
     fn check_status(&self) -> Option<bool> {
         let chucked = self.header.get("transfer-encoding");
         if let Some(chucked) = chucked {
-            if chucked.as_string()? != "chunked" {
+            if chucked.as_string()?.trim() != "chunked" {
                 println!("have transfer-encoding, but unknow-{}", chucked.as_string()?);
                 return None;
             }
@@ -166,7 +166,6 @@ impl Response {
                     let hdr_str = String::from_utf8_lossy(&buffer[..pos]);
                     self.header = Header::try_from(hdr_str.as_ref())?;
                     buffer.move_to(pos + 4..buffer.len(), 0);
-                    println!("{:?}", self.header.get("connection").map(|v| v.to_string()));
                     self.extend_body(buffer)
                 } else { Ok(false) }
             }
