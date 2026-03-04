@@ -210,11 +210,11 @@ impl ScReq {
     }
 
     pub fn set_url(&mut self, url: impl AsRef<str>) -> HlsResult<()> {
-        let (protocol, addr, uri) = Url::try_from(url.as_ref())?.into_inner();
+        let (scheme, addr, uri) = Url::try_from(url.as_ref())?.into_inner();
         let old_addr = mem::replace(&mut self.addr, addr);
-        self.scheme = protocol;
+        let old_scheme = mem::replace(&mut self.scheme, scheme);
         self.header.set_uri(uri);
-        if old_addr.host() != self.addr.host() {
+        if old_addr.host() != self.addr.host() || self.scheme != old_scheme {
             let host = self.addr.to_string().replace(":80", "").replace(":443", "");
             self.header.set_host(host)?;
             self.re_conn()?;
@@ -326,6 +326,10 @@ impl ReqExt for ScReq {
 
     fn timeout(&self) -> &Timeout {
         &self.timeout
+    }
+
+    fn timeout_mut(&mut self) -> &mut Timeout {
+        &mut self.timeout
     }
 
     fn url(&self) -> String {

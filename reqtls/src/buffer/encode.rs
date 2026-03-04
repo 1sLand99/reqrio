@@ -8,15 +8,12 @@ pub struct PayloadEncodeBuffer<'a> {
 
 impl<'a> PayloadEncodeBuffer<'a> {
     pub fn add_explicit_iv(&mut self, aead: &Aead, iv: &[u8]) {
-        let explicit = match aead {
-            Aead::AES_128_GCM | Aead::AES_256_GCM => &iv[4..],
-            Aead::ChaCha20_POLY1305 => &[],
-            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => iv,
+        match aead {
+            Aead::AES_128_GCM | Aead::AES_256_GCM => self.encoded[..8].copy_from_slice(&iv[4..]),
+            Aead::ChaCha20_POLY1305 => {}
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => self.encoded[..16].copy_from_slice(&iv[..16]),
             _ => panic!("unsupported suite specification"),
         };
-        let iv_range = aead.explicit_range();
-        if iv_range.start == iv_range.end { return; }
-        self.encoded[iv_range].copy_from_slice(explicit);
     }
 }
 
@@ -67,9 +64,11 @@ impl<'a> RecordEncodeBuffer<'a> {
         }
     }
 
-    pub fn auth_data(&self, end: usize) -> &[u8] {
-        &self.payload.encoded[..end]
-    }
+    // pub fn auth_data(&self, end: usize) -> &[u8] {
+    //     &self.payload.encoded[..end]
+    // }
+
+    pub fn head(&self) -> &[u8] { self.head }
 
     pub fn aad(&self, seq: u64) -> [u8; 13] {
         let mut res = [0; 13];

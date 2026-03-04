@@ -103,6 +103,15 @@ pub trait TlsStreamHandle {
         client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_random(&client_random);
         client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_server_name(config.sni);
         client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_session_id(&session_id);
+        // client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_cipher_suites(vec![
+        //     CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+        //     CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+        //     CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+        //     //ecdsa
+        //     CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+        //     CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+        //     CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+        // ]);
         match config.alpn {
             ALPN::Http20 => client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.add_h2_alpn(),
             _ => client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.remove_h2_alpn()
@@ -123,9 +132,11 @@ pub trait TlsStreamHandle {
         let offset = buffer.len();
         if conn.mtls() {
             //client certificate
-            if config.client_cert.is_empty() { return Err("Server request cert, but not provided".into()); }
+            // if config.client_cert.is_empty() { return Err("Server request cert, but not provided".into()); }
             let mut certificate = Certificates::default();
-            certificate.add_certificate(config.client_cert[0].as_der().as_slice());
+            if let Some(cert) = config.client_cert.get_mut(0) {
+                certificate.add_certificate(cert.as_der().as_slice());
+            }
             let mut record = RecordLayer::handshake();
             record.messages.push(Message::Certificate(certificate));
             let len = record.write_to(buffer, 1)?;
@@ -144,7 +155,7 @@ pub trait TlsStreamHandle {
         conn.update_session(&buffer[offset + 5..offset + len])?;
         conn.make_cipher(false)?;
         //certificate verify
-        if conn.mtls() {
+        if conn.mtls() && config.client_cert.len() > 0 {
             let offset = buffer.len();
             let len = conn.handle_mtls_client(buffer, config.cert_key)?;
             buffer.set_len(offset + len);

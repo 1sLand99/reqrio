@@ -15,7 +15,7 @@ pub struct Hmac {
 
 impl Hmac {
     pub fn new(key: impl AsRef<[u8]>, sha: HashType) -> RlsResult<Hmac> {
-        let ctx = CPointer::new_checked(unsafe { HMAC_CTX_new() },RlsError::HmacCtxNull)?;
+        let ctx = CPointer::new_checked(unsafe { HMAC_CTX_new() }, RlsError::HmacCtxNull)?;
         unsafe {
             HMAC_Init_ex(
                 ctx.as_mut_ptr(),

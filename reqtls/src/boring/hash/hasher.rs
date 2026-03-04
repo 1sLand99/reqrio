@@ -8,7 +8,7 @@ use super::super::bindings::*;
 
 pub struct Hasher {
     ctx: CPointer<EVP_MD_CTX>,
-    sha: HashType,
+    hash_type: HashType,
     buf: [u8; 64],
     len: u32,
     updated: bool,
@@ -20,7 +20,7 @@ impl Hasher {
         unsafe { EVP_DigestInit_ex(ctx.as_mut_ptr(), sha.evp_md(), null_mut()) }.ok(RlsError::InitDigestError)?;
         Ok(Hasher {
             ctx,
-            sha,
+            hash_type: sha,
             buf: [0; 64],
             len: 0,
             updated: false,
@@ -49,8 +49,8 @@ impl Hasher {
         Ok(self.buf[..self.len as usize].to_vec())
     }
 
-    pub fn sha(&self) -> &HashType {
-        &self.sha
+    pub fn hash_type(&self) -> &HashType {
+        &self.hash_type
     }
 }
 

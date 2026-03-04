@@ -108,30 +108,31 @@ impl Connection {
         sign_data
     }
 
-    pub fn set_by_cert_req(&mut self, req: CertificateRequest, cert: &mut Certificate) -> RlsResult<()> {
-        for hash in req.into_hashes() {
-            match (&hash, cert.cert_type()?) {
-                (&SignatureAlgorithm::RSA_PSS_RSAE_SHA256, CertType::RSA) => self.mtls_hash = hash,
-                (&SignatureAlgorithm::RSA_PSS_RSAE_SHA384, CertType::RSA) => self.mtls_hash = hash,
-                (&SignatureAlgorithm::RSA_PSS_RSAE_SHA512, CertType::RSA) => self.mtls_hash = hash,
-                (&SignatureAlgorithm::ECDSA_SECP256R1_SHA256, CertType::ECDSA) => self.mtls_hash = hash,
-                (&SignatureAlgorithm::ECDSA_SECP384R1_SHA384, CertType::ECDSA) => self.mtls_hash = hash,
-                (&SignatureAlgorithm::ECDSA_SECP521R1_SHA512, CertType::ECDSA) => self.mtls_hash = hash,
-                (&SignatureAlgorithm::RSA_PKCS1_SHA1, CertType::RSA) => self.mtls_hash = hash,
-                (&SignatureAlgorithm::RSA_PKCS1_SHA256, CertType::RSA) => self.mtls_hash = hash,
-                (&SignatureAlgorithm::RSA_PKCS1_SHA384, CertType::RSA) => self.mtls_hash = hash,
-                (&SignatureAlgorithm::RSA_PKCS1_SHA512, CertType::RSA) => self.mtls_hash = hash,
-                _ => continue,
+    pub fn set_by_cert_req(&mut self, req: CertificateRequest, cert: Option<&mut Certificate>) -> RlsResult<()> {
+        if let Some(cert) = cert {
+            for hash in req.into_hashes() {
+                match (&hash, cert.cert_type()?) {
+                    (&SignatureAlgorithm::RSA_PSS_RSAE_SHA256, CertType::RSA) => self.mtls_hash = hash,
+                    (&SignatureAlgorithm::RSA_PSS_RSAE_SHA384, CertType::RSA) => self.mtls_hash = hash,
+                    (&SignatureAlgorithm::RSA_PSS_RSAE_SHA512, CertType::RSA) => self.mtls_hash = hash,
+                    (&SignatureAlgorithm::ECDSA_SECP256R1_SHA256, CertType::ECDSA) => self.mtls_hash = hash,
+                    (&SignatureAlgorithm::ECDSA_SECP384R1_SHA384, CertType::ECDSA) => self.mtls_hash = hash,
+                    (&SignatureAlgorithm::ECDSA_SECP521R1_SHA512, CertType::ECDSA) => self.mtls_hash = hash,
+                    (&SignatureAlgorithm::RSA_PKCS1_SHA1, CertType::RSA) => self.mtls_hash = hash,
+                    (&SignatureAlgorithm::RSA_PKCS1_SHA256, CertType::RSA) => self.mtls_hash = hash,
+                    (&SignatureAlgorithm::RSA_PKCS1_SHA384, CertType::RSA) => self.mtls_hash = hash,
+                    (&SignatureAlgorithm::RSA_PKCS1_SHA512, CertType::RSA) => self.mtls_hash = hash,
+                    _ => continue,
+                }
+                break;
             }
-            break;
-        }
+        } else { self.mtls_hash = SignatureAlgorithm::RSA_PKCS1_SHA1 }
         Ok(())
     }
 
     pub fn set_by_server_exchange_key(&mut self, server_key: ServerKeyExchange) -> RlsResult<()> {
         if self.verify {
             let sign_data = self.gen_key_sign_data(&server_key);
-            println!("{:?}", server_key.hellman_param().signature_algorithm());
             let signature = AlgorithmSigner::new_verify(self.certificates[0].pub_key()?, server_key.hellman_param().signature_algorithm())?;
             signature.verify(sign_data, server_key.hellman_param().signature().as_ref())?;
         }
@@ -165,25 +166,30 @@ impl Connection {
         let mut f = OpenOptions::new().create(true).append(true).open("2.log")?;
         f.write_all(format!("CLIENT_RANDOM {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(self.master_secret)).as_bytes())?;
         let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
-        let block_size = (aead.key_len() + aead.fix_iv_len()) * 2 + aead.explicit_len();
+        let block_size = (aead.mac_key_len() + aead.key_len() + aead.fix_iv_len()) * 2 + aead.explicit_len();
         let mut key_block = vec![0; block_size];
         let seed = [self.server_random.as_bytes(), self.client_random.as_bytes()].concat();
         self.prf.prf(&self.master_secret, "key expansion", &seed, key_block.as_mut_slice())?;
-        let (client_key, remain) = key_block.split_at(aead.key_len());
+        let (client_mac_key, remain) = key_block.split_at(aead.mac_key_len());
+        let (server_mac_key, remain) = remain.split_at(aead.mac_key_len());
+        let (client_key, remain) = remain.split_at(aead.key_len());
         let (server_key, remain) = remain.split_at(aead.key_len());
         let (client_iv, remain) = remain.split_at(aead.fix_iv_len());
         let (server_iv, explicit) = remain.split_at(aead.fix_iv_len());
+        // println!("{:3?}", client_mac_key);
+        // println!("{:3?}", client_key);
+        // println!("{:3?}", client_iv);
         match server {
             true => {
-                self.write.set_key(server_key, aead)?;
+                self.write.set_key(server_key, server_mac_key, aead)?;
                 self.write.set_iv(Iv::new(server_iv, vec![0; 8]));
-                self.read.set_key(client_key, aead)?;
+                self.read.set_key(client_key, client_mac_key, aead)?;
                 self.read.set_iv(Iv::new(client_iv, vec![]));
             }
             false => {
-                self.write.set_key(client_key, aead)?;
+                self.write.set_key(client_key, client_mac_key, aead)?;
                 self.write.set_iv(Iv::new(client_iv, explicit.to_vec()));
-                self.read.set_key(server_key, aead)?;
+                self.read.set_key(server_key, server_mac_key, aead)?;
                 self.read.set_iv(Iv::new(server_iv, vec![]));
             }
         }

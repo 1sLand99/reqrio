@@ -41,6 +41,7 @@ pub(crate) struct CryptEncodeParam<'a, 'b: 'a> {
     pub(crate) nonce: &'a [u8],
     pub(crate) iv: &'a [u8],
     pub(crate) aad: &'a [u8; 13],
+    pub(crate) seq: &'a u64,
     pub(crate) buffer: &'a mut RecordEncodeBuffer<'b>,
 }
 
@@ -48,6 +49,7 @@ pub(crate) struct CryptDecodeParam<'a, 'b: 'a> {
     pub(crate) nonce: &'a [u8],
     pub(crate) iv: &'a [u8],
     pub(crate) aad: &'a [u8; 13],
+    pub(crate) seq: &'a u64,
     pub(crate) buffer: &'a mut RecordDecodeBuffer<'b>,
 }
 
@@ -58,10 +60,10 @@ pub enum Crypto {
 }
 
 impl Crypto {
-    pub fn from_aead(key: &[u8], aead: &Aead) -> RlsResult<Crypto> {
+    pub fn from_aead(key: &[u8], mac_key: &[u8], aead: &Aead) -> RlsResult<Crypto> {
         match aead {
             Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::ChaCha20_POLY1305 => Ok(Crypto::Aead(Box::new(AeadCrypto::new(aead, key)?))),
-            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => Ok(Crypto::Cipher(CipherCrypto::new(aead, key.to_vec())?)),
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => Ok(Crypto::Cipher(CipherCrypto::new(aead, key.to_vec(), mac_key.to_vec())?)),
             _ => Err("unsupported cryptor".into()),
         }
     }

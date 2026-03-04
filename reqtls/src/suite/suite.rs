@@ -278,7 +278,7 @@ impl CipherSuite {
         } else if text.contains("sha384") {
             Ok(Hasher::new(HashType::Sha384)?)
         } else if text.ends_with("_sha") {
-            Ok(Hasher::new(HashType::Sha1)?)
+            Ok(Hasher::new(HashType::Sha256)?)
         } else {
             Err(RlsError::HasherNone)
         }

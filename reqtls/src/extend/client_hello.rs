@@ -55,7 +55,7 @@ impl Aead {
             _ => None
         }
     }
-    
+
     pub fn from_cipher_kind(suite_spec: &str) -> Option<Aead> {
         let text = suite_spec.to_lowercase();
         if text.contains("aes_128_gcm") {
@@ -64,14 +64,20 @@ impl Aead {
             Some(Aead::AES_256_GCM)
         } else if text.contains("chacha20_poly1305") {
             Some(Aead::ChaCha20_POLY1305)
-        }
-        // else if text.contains("aes_128_cbc") {
-        //     Some(Aead::AES_128_CBC_SHA)
-        // } else if text.contains("aes_256_cbc") {
-        //     Some(Aead::AES_256_CBC_SHA)
-        // }
-        else {
+        } else if text.contains("aes_128_cbc") {
+            Some(Aead::AES_128_CBC_SHA)
+        } else if text.contains("aes_256_cbc") {
+            Some(Aead::AES_256_CBC_SHA)
+        } else {
+            println!("{}", text);
             None
+        }
+    }
+
+    pub fn mac_key_len(&self) -> usize {
+        match self {
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => 20,
+            _ => 0
         }
     }
 
@@ -80,7 +86,8 @@ impl Aead {
             Aead::AES_128_GCM => 16,
             Aead::AES_256_GCM => 32,
             Aead::ChaCha20_POLY1305 => 32,
-            // Aead::AES_128_CBC => 16,
+            Aead::AES_128_CBC_SHA => 16,
+            Aead::AES_256_CBC_SHA => 32,
             _ => 0
         }
     }
@@ -89,7 +96,7 @@ impl Aead {
         match self {
             Aead::AES_128_GCM | Aead::AES_256_GCM => 4,
             Aead::ChaCha20_POLY1305 => 12,
-            // Aead::AES_128_CBC => 16,
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => 16,
             _ => 0
         }
     }
@@ -98,25 +105,8 @@ impl Aead {
         match self {
             Aead::AES_128_GCM | Aead::AES_256_GCM => 8,
             Aead::ChaCha20_POLY1305 => 0,
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => 16,
             _ => 0
-        }
-    }
-
-    pub fn payload_range(&self, len: usize) -> Range<usize> {
-        match self {
-            Aead::AES_128_GCM | Aead::AES_256_GCM => 8..8 + len,
-            Aead::ChaCha20_POLY1305 => 0..len,
-            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => 16..16 + len,
-            _ => 0..len
-        }
-    }
-
-    pub fn explicit_range(&self) -> Range<usize> {
-        match self {
-            Aead::AES_128_GCM | Aead::AES_256_GCM => 0..8,
-            Aead::ChaCha20_POLY1305 => 0..0,
-            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => 0..16,
-            _ => 0..0
         }
     }
 }

@@ -51,6 +51,7 @@ pub trait ReqExt: Sized {
     }
     fn set_timeout(&mut self, timeout: Timeout);
     fn timeout(&self) -> &Timeout;
+    fn timeout_mut(&mut self) -> &mut Timeout;
     fn url(&self) -> String;
     fn set_uri(&mut self, uri: impl TryInto<Uri>) -> Result<(), RlsError> {
         self.header_mut().set_uri(uri.try_into().or(Err(UrlError::ParseUriError))?);

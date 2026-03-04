@@ -138,6 +138,7 @@ impl AcReq {
                         let code = res.header().status().code();
                         return if self.auto_redirect && (300..400).contains(&code) {
                             let location = res.header().location().ok_or("missing location")?;
+                            println!("{}", location);
                             if location.starts_with("http") {
                                 self.set_url(location).await?;
                             } else {
@@ -147,7 +148,7 @@ impl AcReq {
                             Box::pin(self.stream_io()).await
                         } else {
                             Ok(res)
-                        }
+                        };
                     }
                     Err(e) => {
                         if i != self.timeout.handle_times() - 1 {
@@ -224,9 +225,9 @@ impl AcReq {
     pub async fn set_url(&mut self, url: impl AsRef<str>) -> HlsResult<()> {
         let (scheme, addr, uri) = Url::try_from(url.as_ref())?.into_inner();
         let old_addr = mem::replace(&mut self.addr, addr);
-        self.scheme=scheme;
+        let old_scheme = mem::replace(&mut self.scheme, scheme);
         self.header.set_uri(uri);
-        if self.addr.host() != old_addr.host() {
+        if self.addr.host() != old_addr.host() || self.scheme != old_scheme {
             let host = self.addr.to_string().replace(":80", "").replace(":443", "");
             self.header.set_host(host)?;
             self.re_conn().await?;
@@ -338,6 +339,10 @@ impl ReqExt for AcReq {
 
     fn timeout(&self) -> &Timeout {
         &self.timeout
+    }
+
+    fn timeout_mut(&mut self) -> &mut Timeout {
+        &mut self.timeout
     }
 
     fn url(&self) -> String {

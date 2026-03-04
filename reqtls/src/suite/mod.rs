@@ -24,8 +24,8 @@ impl TlsCipher {
         }
     }
 
-    pub fn set_key(&mut self, key: &[u8], aead: &Aead) -> RlsResult<()> {
-        self.crypto = Crypto::from_aead(key, aead)?;
+    pub fn set_key(&mut self, key: &[u8], mac_key: &[u8], aead: &Aead) -> RlsResult<()> {
+        self.crypto = Crypto::from_aead(key, mac_key, aead)?;
         Ok(())
     }
 
@@ -42,6 +42,7 @@ impl TlsCipher {
             nonce: &nonce,
             iv: &nonce,
             aad: &add_arr,
+            seq: &self.seq,
             buffer: &mut buffer,
         })?;
         self.seq += 1;
@@ -61,6 +62,7 @@ impl TlsCipher {
             nonce: &nonce,
             iv: &nonce,
             aad: &add_arr,
+            seq: &self.seq,
             buffer: &mut buffer,
         })?;
         self.seq += 1;
@@ -83,8 +85,9 @@ mod tests {
         let key_bs = rand::random::<[u8; 32]>().to_vec();
         let iv = rand::random::<[u8; 12]>();
         let explicit = rand::random::<[u8; 8]>();
+        let mac_key = rand::random::<[u8; 20]>();
         let aead = Aead::ChaCha20_POLY1305;
-        cipher.set_key(&key_bs, &aead).unwrap();
+        cipher.set_key(&key_bs, &mac_key, &aead).unwrap();
         let iv = Iv::new(&iv, explicit.to_vec());
         cipher.set_iv(iv);
         let mut buffer = [0u8; 1024];
