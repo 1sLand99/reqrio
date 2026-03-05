@@ -40,7 +40,7 @@ impl<S: Read + Write> SyncStream<S> {
     }
 
     pub fn accept(stream: S, config: ServerConfig<'_>) -> HlsResult<SyncStream<S>> {
-        SyncStream::new(stream, Connection::default(), Config::Server(config), Buffer::with_capacity(16413))
+        SyncStream::new(stream, Connection::default(), Config::Server(config), Buffer::with_capacity(16432))
     }
 
     fn handle_message(&mut self, mut config: Option<&mut Config>) -> HlsResult<bool> {

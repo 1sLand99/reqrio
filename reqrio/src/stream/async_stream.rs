@@ -24,7 +24,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
             stream,
             conn,
             handshake_finished: false,
-            read_buffer: Buffer::with_capacity(16413),
+            read_buffer: Buffer::with_capacity(16432),
             write_buffer: buffer,
             shutdown_wrote: false,
             wrote_len: 0,
@@ -48,7 +48,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
     }
 
     pub async fn accept(stream: S, config: ServerConfig<'_>) -> HlsResult<TlsStream<S>> {
-        TlsStream::new(stream, Connection::default(), Config::Server(config), Buffer::with_capacity(16413)).await
+        TlsStream::new(stream, Connection::default(), Config::Server(config), Buffer::with_capacity(16432)).await
     }
 
     pub async fn read_packet(&mut self) -> HlsResult<usize> {

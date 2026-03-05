@@ -38,7 +38,7 @@ fn main() {
         // req.set_url("https://m.so.com").unwrap();
 
         // req.set_url("https://ms.xllgl.top").unwrap();
-        req.set_url("https://www.baidu.com").unwrap();
+        // req.set_url("https://www.baidu.com").unwrap();
 
         // req.set_url("https://jetstar.com").unwrap();
         // let et = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
@@ -48,6 +48,7 @@ fn main() {
         // req.set_url("https://ccppdd.zzzzzzyyyyy.shop/api/v1/client/s9FkyFPBngt80pFn1?token=a0cedb7c6645280ec2402db62d550a17").unwrap();
         // req.set_url("https://www.link114.cn/").unwrap();
         // req.set_url("https://127.0.0.1:8000").unwrap();
+        req.set_url("http://zwfw.hubei.gov.cn/web/user/uias_login.do?appCode=hbzwfw&gotoUrl=http%3A%2F%2Fzwfw.hubei.gov.cn%2Fwebview%2Fgrkj%2Fwelcome.html&p01=").unwrap();
         req.set_auto_redirect(true);
         req.set_headers_json(headers).unwrap();
         // println!("6");
@@ -67,6 +68,7 @@ fn main() {
         let et = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
         tss+=et-t;
         println!("{}", et - t);
+        // break;
     }
     println!("{}", tss/100);
 }

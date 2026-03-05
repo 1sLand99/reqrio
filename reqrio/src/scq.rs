@@ -99,7 +99,7 @@ impl ScReq {
     pub fn h1_io(&mut self, context: impl AsRef<[u8]>) -> HlsResult<Response> {
         self.stream.sync_write(context.as_ref())?;
         let mut response = Response::new();
-        let mut buffer = Buffer::with_capacity(16413);
+        let mut buffer = Buffer::with_capacity(16432);
         let mut read_len = 0;
         loop {
             self.stream.sync_read(&mut buffer)?;
@@ -135,6 +135,7 @@ impl ScReq {
                     let code = res.header().status().code();
                     return if self.auto_redirect && (300..400).contains(&code) {
                         let location = res.header().location().ok_or("missing location")?;
+                        println!("{:?}", location);
                         if location.starts_with("http") {
                             self.set_url(location)?;
                         } else {

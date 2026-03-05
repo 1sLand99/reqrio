@@ -101,7 +101,7 @@ impl AcReq {
     pub async fn h1_io(&mut self, context: impl AsRef<[u8]>) -> HlsResult<Response> {
         self.stream.async_write(context.as_ref()).await?;
         let mut response = Response::new();
-        let mut buffer = Buffer::with_capacity(16413);
+        let mut buffer = Buffer::with_capacity(16432);
         let mut read_len = 0;
         loop {
             self.stream.async_read(&mut buffer).await?;
