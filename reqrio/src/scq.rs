@@ -135,7 +135,6 @@ impl ScReq {
                     let code = res.header().status().code();
                     return if self.auto_redirect && (300..400).contains(&code) {
                         let location = res.header().location().ok_or("missing location")?;
-                        println!("{:?}", location);
                         if location.starts_with("http") {
                             self.set_url(location)?;
                         } else {
@@ -176,7 +175,6 @@ impl ScReq {
             };
             match self.stream.sync_connect(param) {
                 Ok(_) => {
-                    // println!("{}", self.stream.alpn().alpn_str());
                     self.header.init_by_alpn(self.stream.alpn());
                     if self.stream.alpn() == &ALPN::Http20 { self.handle_h2_setting()?; }
                     return Ok(());

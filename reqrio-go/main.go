@@ -48,7 +48,7 @@ func main() {
 		println(err.Error())
 		return
 	}
-	println(resp.Text())
+// 	println(resp.Text())
 	fmt.Printf("%#v\n", resp.Header())
 	session.Close()
 

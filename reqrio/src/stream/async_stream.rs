@@ -258,13 +258,18 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for TlsStream<S> {
         Pin::new(&mut self.stream).poll_flush(cx)
     }
 
-    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Error>> {
-        match self.shutdown_wrote {
-            true => Pin::new(&mut self.stream).poll_shutdown(cx),
-            false => match self.as_mut().poll_write(cx, &Alert::close_notify().to_bytes()) {
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Error>> {
+        let stream = self.get_mut();
+        if stream.write_buffer.is_empty() {
+            let len = stream.conn.make_message(RecordType::Alert, &mut stream.write_buffer[..], &Alert::close_notify().to_bytes())?;
+            stream.write_buffer.set_len(len);
+        }
+        match stream.shutdown_wrote {
+            true => Pin::new(&mut stream.stream).poll_shutdown(cx),
+            false => match Pin::new(&mut stream.stream).poll_write(cx, stream.write_buffer.filled()) {
                 Poll::Ready(Ok(_)) => {
-                    self.shutdown_wrote = true;
-                    Pin::new(&mut self.stream).poll_shutdown(cx)
+                    stream.shutdown_wrote = true;
+                    Pin::new(&mut stream.stream).poll_shutdown(cx)
                 }
                 Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
                 Poll::Pending => Poll::Pending,

@@ -138,7 +138,6 @@ impl AcReq {
                         let code = res.header().status().code();
                         return if self.auto_redirect && (300..400).contains(&code) {
                             let location = res.header().location().ok_or("missing location")?;
-                            println!("{}", location);
                             if location.starts_with("http") {
                                 self.set_url(location).await?;
                             } else {
@@ -151,7 +150,6 @@ impl AcReq {
                         };
                     }
                     Err(e) => {
-                        println!("{}", e.to_string());
                         if i != self.timeout.handle_times() - 1 {
                             if e.to_string().to_lowercase().contains("close") || e.to_string().contains("中止了") || e.to_string().contains("关闭") {
                                 self.re_conn().await?;
