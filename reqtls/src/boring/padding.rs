@@ -8,20 +8,21 @@ pub enum Padding {
 }
 
 impl Padding {
-    pub fn add_padding(&self, data: &mut Vec<u8>) {
+    pub fn add_padding(&self, data: &[u8]) -> Vec<u8> {
         let padding_size = 16 - data.len() % 16;
         match self {
             Padding::BitPadding => {
-                data.push(1);
-                data.extend(vec![0; padding_size - 1]);
+                let mut padding = vec![0; padding_size];
+                padding[0] = 1;
+                padding
             }
             Padding::PKCS5Padding => {
                 let padding_size = data.len() % 8;
-                data.extend(vec![padding_size as u8; padding_size]);
+                vec![padding_size as u8; padding_size]
             }
-            Padding::PKCS7Padding => data.extend(vec![padding_size as u8; padding_size]),
-            Padding::NoPadding => {}
-            Padding::ZeroPadding => data.extend(vec![0; padding_size])
+            Padding::PKCS7Padding => vec![padding_size as u8; padding_size],
+            Padding::NoPadding => vec![],
+            Padding::ZeroPadding => vec![0; padding_size]
         }
     }
 

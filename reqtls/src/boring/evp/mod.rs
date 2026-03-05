@@ -89,7 +89,7 @@ impl CipherCrypto {
     /// ciphertext = AES_CBC(key, iv, plaintext || mac || padding) //pcsk7
     ///```
     pub fn encrypt(&self, param: CryptEncodeParam) -> RlsResult<()> {
-        self.cipher.init_encrypt(self.key.as_ref(), Some(param.iv))?;
+        self.cipher.init_encrypt(self.key.as_ptr(), param.iv.as_ptr())?;
         let mut hmac = Hmac::new(&self.mac_key, HashType::Sha1)?;
         hmac.update(param.seq.to_be_bytes())?;
         hmac.update(&param.buffer.head()[..3])?;
@@ -113,7 +113,7 @@ impl CipherCrypto {
     }
 
     pub fn decrypt(&self, param: CryptDecodeParam) -> RlsResult<usize> {
-        self.cipher.init_decrypt(self.key.as_slice(), Some(param.iv))?;
+        self.cipher.init_decrypt(self.key.as_ptr(), param.iv.as_ptr())?;
         let context = param.buffer.encrypted_payload().as_ptr();
         let out = param.buffer.decrypted_buffer().as_mut_ptr();
         let out_len = self.cipher.decrypt_update(context, param.buffer.encrypted_payload().len(), out)?;

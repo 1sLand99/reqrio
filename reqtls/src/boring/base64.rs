@@ -52,7 +52,6 @@ impl Base64 {
             )
         };
         if ret == -1 { return Err(RlsError::Currently("b64 decode update fail".to_owned())); };
-        println!("{}", ret);
         let mut padding = 0;
         unsafe {
             EVP_DecodeFinal(

@@ -2,6 +2,12 @@ use reqrio::*;
 
 #[tokio::main]
 async fn main() {
+    let data = "gvdajMqroeG2AsP+AvEVY82y74tvh5XkwBjkNzFIFt6TZbi60f+SHYPGA8J+0lvj/p01XUMGygfCbcBT5M3PTW10bH7N83JLo2iJ2Jl/EFFOTNdOj+fIr5O903oAuSf/WzQKRZpCGsaARvuvVFHZJ+KPetSIFI+o3q3xizSf8cOW3L4viABKjl+NKX7CLIMMd2RRZxKx/yLtRI2OTt2TuTzPShSXFrdvcyCIjfIHhPVAfgkX6T0rY57hCj8w4JonMOmXhw4WzJgNP0meeuBsAaGY8UNLY9x7yNBP8IoSTFCv8peLBC0giq+h9E648sg8C4E2N+kbDHpQ7vzqVoJHDy6KfoaKL8egmEI4tv6NQEtZ/fHn7IQGEZiERQqflHJASVknJk3ix+O03Q6ca4inoeb5n2Y/i4Yq5oiqd+S/ILGpRa9SpgjnAXeStnZoVzpRYrLv/+ZDBdk9v01WJIB7RwstB1XgXkAoMwYSniiKsRQvrWyXLFt3Gm+HV1Xf8m2Xcb+LkLeLr/Z1xzp9pfh/bngvNlEzQxmPlIh/GReKIEA=";
+    let res = cipher::de_b64(CipherType::AES_128_ECB, "tqN6QaM1Xnk5HetF", None, data).unwrap();
+    // let res = cipher::de_b64(CipherType::AES_128_CBC, "tqN6QaM1Xnk5HetF", Some("tqN6QaM1Xnk5HetF"), "fFL1/wy9EqmeL77Bo8jXTA==").unwrap();
+    // println!("{}", res);
+    println!("{}", String::from_utf8_lossy(&res));
+
     let mut timeout = Timeout::new();
     timeout.set_connect(30000000);
     timeout.set_handle(300000000);

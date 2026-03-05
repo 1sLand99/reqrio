@@ -105,75 +105,46 @@ impl Cipher {
         self.iv = iv.map(|iv| iv.into()).unwrap_or(vec![]);
     }
 
-    pub fn encrypt(&self, context: impl Into<Vec<u8>>) -> RlsResult<Vec<u8>> {
+    pub fn encrypt(&self, context: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
         if self.ctx.is_null() { return Err(RlsError::InitEvpCtxError); }
-        let mut context = context.into();
-        if !matches!(self.evp_cipher, CipherType::RC4) { self.padding.add_padding(&mut context); }
+        let mut out = vec![0; context.as_ref().len() + 16];
+        let padding = if !matches!(self.evp_cipher, CipherType::RC4) { self.padding.add_padding(context.as_ref()) } else { vec![] };
         let iv = if self.iv.is_empty() { null() } else { self.iv.as_ptr() };
-        unsafe { EVP_EncryptInit_ex(self.ctx.as_mut_ptr(), self.evp_cipher.as_boring(), null_mut(), self.key.as_ptr(), iv) }.ok(RlsError::CipherCryptError)?;
-        unsafe { EVP_CIPHER_CTX_set_padding(self.ctx.as_mut_ptr(), 0) };
-        context.resize(context.len() + 16, 0);
-        let mut block_len = 0;
-        unsafe {
-            EVP_EncryptUpdate(
-                self.ctx.as_mut_ptr(),
-                context.as_mut_ptr(),
-                &mut block_len,
-                context.as_ptr(),
-                context.len() as i32 - 16)
-        }.ok(RlsError::CipherEncryptError)?;
-        let mut final_len = 0;
-        unsafe {
-            EVP_EncryptFinal_ex(
-                self.ctx.as_mut_ptr(),
-                context[block_len as usize..].as_mut_ptr(),
-                &mut final_len,
-            )
-        }.ok(RlsError::CipherEncryptError)?;
-        context.truncate((block_len + final_len) as usize);
-        Ok(context)
+        self.init_encrypt(self.key.as_ptr(), iv)?;
+        let ptr = context.as_ref().as_ptr();
+        let out_ptr = out.as_mut_ptr();
+        let block_len = self.encrypt_update(ptr, context.as_ref().len(), out_ptr)?;
+        let out_ptr = unsafe { out_ptr.add(block_len) };
+        let padding_len = self.encrypt_update(padding.as_ptr(), padding.len(), out_ptr)?;
+        let out_ptr = unsafe { out_ptr.add(padding_len) };
+        let final_len = self.encrypt_finalize(out_ptr)?;
+        out.truncate(block_len + padding_len + final_len);
+        Ok(out)
     }
 
     pub fn decrypt(&self, context: impl Into<Vec<u8>>) -> RlsResult<Vec<u8>> {
         if self.ctx.is_null() { return Err(RlsError::InitEvpCtxError); }
         let iv = if self.iv.is_empty() { null() } else { self.iv.as_ptr() };
-        unsafe { EVP_DecryptInit_ex(self.ctx.as_mut_ptr(), self.evp_cipher.as_boring(), null_mut(), self.key.as_ptr(), iv) }.ok(RlsError::CipherCryptError)?;
-        unsafe { EVP_CIPHER_CTX_set_padding(self.ctx.as_mut_ptr(), 0) };
+        self.init_decrypt(self.key.as_ptr(), iv)?;
         let mut context = context.into();
-        // 4. 执行解密
-        let mut out_len = 0i32;
-        let mut final_len = 0i32;
-        unsafe {
-            EVP_DecryptUpdate(
-                self.ctx.as_mut_ptr(),
-                context.as_mut_ptr(),
-                &mut out_len,
-                context.as_ptr(),
-                context.len() as i32,
-            )
-        }.ok(RlsError::CipherDecryptError)?;
-        unsafe {
-            EVP_DecryptFinal_ex(
-                self.ctx.as_mut_ptr(),
-                context.as_mut_ptr().add(out_len as usize),
-                &mut final_len,
-            )
-        }.ok(RlsError::CipherDecryptError)?;
-        context.truncate((out_len + final_len) as usize);
+        let ptr = context.as_ptr();
+        let out = context.as_mut_ptr();
+        let out_len = self.decrypt_update(ptr, context.len(), out)?;
+        let out = unsafe { out.add(out_len) };
+        let final_len = self.decrypt_finalize(out)?;
+        context.truncate(out_len + final_len);
         if !matches!(self.evp_cipher, CipherType::RC4) { self.padding.remove_padding(&mut context); }
         Ok(context)
     }
 
-    pub fn init_encrypt<T: AsRef<[u8]>>(&self, key: T, iv: Option<T>) -> RlsResult<()> {
-        let iv = iv.map(|x| x.as_ref().as_ptr()).unwrap_or(null());
-        unsafe { EVP_EncryptInit_ex(self.ctx.as_mut_ptr(), self.evp_cipher.as_boring(), null_mut(), key.as_ref().as_ptr(), iv) }.ok(RlsError::CipherCryptError)?;
+    pub(crate) fn init_encrypt(&self, key: *const u8, iv: *const u8) -> RlsResult<()> {
+        unsafe { EVP_EncryptInit_ex(self.ctx.as_mut_ptr(), self.evp_cipher.as_boring(), null_mut(), key, iv) }.ok(RlsError::CipherCryptError)?;
         unsafe { EVP_CIPHER_CTX_set_padding(self.ctx.as_mut_ptr(), 0) };
         Ok(())
     }
 
-    pub fn init_decrypt<T: AsRef<[u8]>>(&self, key: T, iv: Option<T>) -> RlsResult<()> {
-        let iv = iv.map(|x| x.as_ref().as_ptr()).unwrap_or(null());
-        unsafe { EVP_DecryptInit_ex(self.ctx.as_mut_ptr(), self.evp_cipher.as_boring(), null_mut(), key.as_ref().as_ptr(), iv) }.ok(RlsError::CipherCryptError)?;
+    pub(crate) fn init_decrypt(&self, key: *const u8, iv: *const u8) -> RlsResult<()> {
+        unsafe { EVP_DecryptInit_ex(self.ctx.as_mut_ptr(), self.evp_cipher.as_boring(), null_mut(), key, iv) }.ok(RlsError::CipherCryptError)?;
         unsafe { EVP_CIPHER_CTX_set_padding(self.ctx.as_mut_ptr(), 0) };
         Ok(())
     }
@@ -230,7 +201,7 @@ impl Cipher {
     }
 }
 
-pub fn en_b64<T: Into<Vec<u8>>>(typ: CipherType, key: T, iv: Option<T>, data: impl Into<Vec<u8>>) -> RlsResult<String> {
+pub fn en_b64<T: Into<Vec<u8>>>(typ: CipherType, key: T, iv: Option<T>, data: impl AsRef<[u8]>) -> RlsResult<String> {
     let cipher = Cipher::new(typ).with_secret_key(key, iv);
     let en_bs = cipher.encrypt(data)?;
     Ok(base64::b64encode(en_bs)?)
@@ -242,7 +213,7 @@ pub fn de_b64<T: Into<Vec<u8>>>(typ: CipherType, key: T, iv: Option<T>, data: im
     cipher.decrypt(de_b64)
 }
 
-pub fn en_hex<T: Into<Vec<u8>>>(typ: CipherType, key: T, iv: Option<T>, data: impl Into<Vec<u8>>) -> RlsResult<String> {
+pub fn en_hex<T: Into<Vec<u8>>>(typ: CipherType, key: T, iv: Option<T>, data: impl AsRef<[u8]>) -> RlsResult<String> {
     let cipher = Cipher::new(typ).with_secret_key(key, iv);
     let en_bs = cipher.encrypt(data)?;
     Ok(hex::encode(en_bs))
