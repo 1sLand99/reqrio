@@ -209,7 +209,6 @@ impl<S: AsyncRead + Unpin> AsyncRead for TlsStream<S> {
             match Pin::new(&mut stream.stream).poll_read(cx, &mut rd) {
                 Poll::Ready(Ok(_)) => {
                     let fl = rd.filled().len();
-                    println!("{}", fl);
                     if fl == 0 { return Poll::Ready(Ok(())); }
                     let nl = stream.read_buffer.len() + fl;
                     stream.read_buffer.set_len(nl);

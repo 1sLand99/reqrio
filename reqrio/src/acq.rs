@@ -105,7 +105,6 @@ impl AcReq {
         let mut read_len = 0;
         loop {
             self.stream.async_read(&mut buffer).await?;
-            println!("{}", String::from_utf8_lossy(buffer.filled()));
             if self.handle_h1_res(&mut buffer, &mut response, &mut read_len)? { break; }
         }
         Ok(response)
@@ -137,7 +136,6 @@ impl AcReq {
                 Ok(res) => match res {
                     Ok(res) => {
                         let code = res.header().status().code();
-                        println!("{}", code);
                         return if self.auto_redirect && (300..400).contains(&code) {
                             let location = res.header().location().ok_or("missing location")?;
                             println!("{}", location);
@@ -147,9 +145,7 @@ impl AcReq {
                                 self.header.set_uri(Uri::try_from(location)?);
                             }
                             self.header.set_method(Method::GET);
-                            let res = Box::pin(self.stream_io()).await;
-                            println!("{}", res.is_ok());
-                            res
+                            Box::pin(self.stream_io()).await
                         } else {
                             Ok(res)
                         };
