@@ -27,7 +27,6 @@ impl Cipher {
         }
     }
 
-
     pub fn aes_128_cbc() -> Cipher { Cipher::new(CipherType::AES_128_CBC) }
 
     pub fn aes_192_cbc() -> Cipher {
@@ -163,6 +162,71 @@ impl Cipher {
         context.truncate((out_len + final_len) as usize);
         if !matches!(self.evp_cipher, CipherType::RC4) { self.padding.remove_padding(&mut context); }
         Ok(context)
+    }
+
+    pub fn init_encrypt<T: AsRef<[u8]>>(&self, key: T, iv: Option<T>) -> RlsResult<()> {
+        let iv = iv.map(|x| x.as_ref().as_ptr()).unwrap_or(null());
+        unsafe { EVP_EncryptInit_ex(self.ctx.as_mut_ptr(), self.evp_cipher.as_boring(), null_mut(), key.as_ref().as_ptr(), iv) }.ok(RlsError::CipherCryptError)?;
+        unsafe { EVP_CIPHER_CTX_set_padding(self.ctx.as_mut_ptr(), 0) };
+        Ok(())
+    }
+
+    pub fn init_decrypt<T: AsRef<[u8]>>(&self, key: T, iv: Option<T>) -> RlsResult<()> {
+        let iv = iv.map(|x| x.as_ref().as_ptr()).unwrap_or(null());
+        unsafe { EVP_DecryptInit_ex(self.ctx.as_mut_ptr(), self.evp_cipher.as_boring(), null_mut(), key.as_ref().as_ptr(), iv) }.ok(RlsError::CipherCryptError)?;
+        unsafe { EVP_CIPHER_CTX_set_padding(self.ctx.as_mut_ptr(), 0) };
+        Ok(())
+    }
+
+    pub(crate) fn encrypt_update(&self, context: *const u8, len: usize, out: *mut u8) -> RlsResult<usize> {
+        let mut out_len = 0;
+        unsafe {
+            EVP_EncryptUpdate(
+                self.ctx.as_mut_ptr(),
+                out,
+                &mut out_len,
+                context,
+                len as i32)
+        }.ok(RlsError::CipherEncryptError)?;
+        Ok(out_len as usize)
+    }
+
+    pub(crate) fn encrypt_finalize(&self, out: *mut u8) -> RlsResult<usize> {
+        let mut final_len = 0;
+        unsafe {
+            EVP_EncryptFinal_ex(
+                self.ctx.as_mut_ptr(),
+                out,
+                &mut final_len,
+            )
+        }.ok(RlsError::CipherEncryptError)?;
+        Ok(final_len as usize)
+    }
+
+    pub(crate) fn decrypt_update(&self, context: *const u8, len: usize, out: *mut u8) -> RlsResult<usize> {
+        let mut out_len = 0;
+        unsafe {
+            EVP_DecryptUpdate(
+                self.ctx.as_mut_ptr(),
+                out,
+                &mut out_len,
+                context,
+                len as i32,
+            )
+        }.ok(RlsError::CipherDecryptError)?;
+        Ok(out_len as usize)
+    }
+
+    pub(crate) fn decrypt_finalize(&self, out: *mut u8) -> RlsResult<usize> {
+        let mut final_len = 0;
+        unsafe {
+            EVP_DecryptFinal_ex(
+                self.ctx.as_mut_ptr(),
+                out,
+                &mut final_len,
+            )
+        }.ok(RlsError::CipherDecryptError)?;
+        Ok(final_len as usize)
     }
 }
 

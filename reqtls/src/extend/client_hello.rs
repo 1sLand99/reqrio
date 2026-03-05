@@ -1,7 +1,6 @@
 use super::super::bytes::Bytes;
 use crate::error::RlsResult;
 use crate::WriteExt;
-use std::ops::Range;
 
 #[derive(Debug, Clone, Copy)]
 enum ClientHelloType {

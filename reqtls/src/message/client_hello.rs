@@ -51,14 +51,14 @@ impl<'a> ClientHello<'a> {
         let mut res = ClientHello {
             version: Version::TLS_1_0,
             cipher_suites: vec![
-                CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
-                // CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-                // CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-                // CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
-                // //ecdsa
-                // CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-                // CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-                // CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+                CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+                CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+                CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+                CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+                //ecdsa
+                CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+                CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+                CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
             ],
             random: ByteRef::new(&[0; 32]),
             session_id:ByteRef::new(&[0; 32]),
@@ -79,12 +79,12 @@ impl<'a> ClientHello<'a> {
             ..Default::default()
         };
         let suite_all = CipherSuite::SUITES;
-        // while res.cipher_suites.len() < 12 {
-        //     let index = rand::random::<usize>() % suite_all.len();
-        //     let suite = CipherSuite::new(suite_all[index]);
-        //     if res.cipher_suites.contains(&suite) { continue; }
-        //     res.cipher_suites.push(suite);
-        // }
+        while res.cipher_suites.len() < 12 {
+            let index = rand::random::<usize>() % suite_all.len();
+            let suite = CipherSuite::new(suite_all[index]);
+            if res.cipher_suites.contains(&suite) { continue; }
+            res.cipher_suites.push(suite);
+        }
         res
     }
 

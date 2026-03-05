@@ -1,6 +1,5 @@
 use crate::error::RlsResult;
 use crate::extend::Aead;
-use crate::RecordType;
 
 pub struct PayloadDecodeBuffer<'a> {
     origin: &'a [u8],
@@ -57,9 +56,9 @@ impl<'a> RecordDecodeBuffer<'a> {
         self.payload.decoded
     }
 
-    pub fn origin_payload(&self) -> &[u8] {
-        self.payload.origin
-    }
+    // pub fn origin_payload(&self) -> &[u8] {
+    //     self.payload.origin
+    // }
 
     pub fn head(&self) -> &[u8] { &self.head }
 }

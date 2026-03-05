@@ -64,10 +64,6 @@ impl<'a> RecordEncodeBuffer<'a> {
         }
     }
 
-    // pub fn auth_data(&self, end: usize) -> &[u8] {
-    //     &self.payload.encoded[..end]
-    // }
-
     pub fn head(&self) -> &[u8] { self.head }
 
     pub fn aad(&self, seq: u64) -> [u8; 13] {
@@ -76,10 +72,6 @@ impl<'a> RecordEncodeBuffer<'a> {
         res[8..11].copy_from_slice(&self.head[..3]);
         res[11..13].copy_from_slice(&(self.payload.origin.len() as u16).to_be_bytes());
         res
-    }
-
-    pub fn add_verify_mac(&mut self, len: usize, mac: &[u8]) {
-        self.payload.encoded[len..len + 20].copy_from_slice(mac);
     }
 
     pub fn record_len(&self) -> usize { self.record_len }
