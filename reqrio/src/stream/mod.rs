@@ -1,5 +1,5 @@
+use std::io::Write;
 use crate::stream::config::Config;
-use crate::stream::kind::StreamKind;
 use crate::*;
 pub use sync_stream::SyncStream;
 #[cfg(feature = "aync")]
@@ -8,6 +8,7 @@ pub use config::{ClientConfig, ServerConfig};
 pub use proxy::Proxy;
 pub use proxy::ProxyStream;
 pub use ws::{WebSocket, WebSocketBuilder};
+use crate::stream::astream::{AsyncTcpStream, AsyncTlsStream, TimeoutRW};
 
 #[cfg(feature = "aync")]
 mod async_stream;
@@ -17,7 +18,6 @@ mod sync_stream;
 #[cfg(feature = "aync")]
 mod astream;
 mod proxy;
-mod kind;
 mod ws;
 mod config;
 
@@ -34,60 +34,126 @@ pub struct ConnParam<'a> {
     pub key: &'a RsaKey,
 }
 
-pub struct Stream {
-    alpn: ALPN,
-    kind: StreamKind,
-}
-
-impl Stream {
-    pub fn unconnection() -> Self {
-        Stream {
-            alpn: ALPN::Http11,
-            kind: StreamKind::NonConnection,
-        }
-    }
-    pub fn alpn(&self) -> &ALPN {
-        &self.alpn
-    }
+pub enum Stream {
+    NonConnection,
+    //同步
+    SyncHttp(ProxyStream<std::net::TcpStream>),
+    SyncHttps(SyncStream<ProxyStream<std::net::TcpStream>>),
+    //异步
+    #[cfg(feature = "aync")]
+    AsyncHttp(AsyncTcpStream),
+    #[cfg(feature = "aync")]
+    AsyncHttps(AsyncTlsStream),
 }
 
 #[cfg(feature = "aync")]
 impl Stream {
-    pub async fn async_connect(&mut self, param: ConnParam<'_>) -> HlsResult<()> {
-        let alpn = self.kind.async_conn(param).await?;
-        self.alpn = alpn;
-        Ok(())
-    }
-    pub async fn async_read(&mut self, buffer: &mut Buffer) -> HlsResult<()> {
-        self.kind.async_read(buffer).await
+    pub async fn async_conn(&mut self, param: ConnParam<'_>) -> HlsResult<ALPN> {
+        let _ = self.async_shutdown().await;
+        let stream = tokio::time::timeout(param.timeout.connect(), ProxyStream::async_connect(param.proxy, param.addr)).await??;
+        match param.scheme {
+            Scheme::Http | Scheme::Ws => {
+                *self = Stream::AsyncHttp(AsyncTcpStream::from_proxy_stream(stream, param.timeout));
+                Ok(ALPN::Http11)
+            }
+            Scheme::Https | Scheme::Wss => {
+                let tls_stream = AsyncTlsStream::connect_timeout(param, stream).await?;
+                let alpn = tls_stream.alpn().map(|x| ALPN::from_slice(x.as_bytes())).unwrap_or(ALPN::Http11);
+                *self = Stream::AsyncHttps(tls_stream);
+                Ok(alpn)
+            }
+            _ => Err("stream not supported".into())
+        }
     }
 
-    pub async fn async_write(&mut self, data: &[u8]) -> HlsResult<()> {
-        self.kind.async_write(data).await
+
+    pub async fn async_write(&mut self, buf: &[u8]) -> HlsResult<()> {
+        match self {
+            Stream::AsyncHttp(s) => {
+                s.write(buf).await?;
+                s.flush().await?;
+                Ok(())
+            }
+            Stream::AsyncHttps(s) => {
+                s.write(buf).await?;
+                s.flush().await?;
+                Ok(())
+            }
+            _ => Err("Unsupported async write".into()),
+        }
+    }
+
+    pub async fn async_read(&mut self, buffer: &mut Buffer) -> HlsResult<()> {
+        match self {
+            Stream::AsyncHttp(s) => s.read(buffer).await,
+            Stream::AsyncHttps(s) => Ok(s.read(buffer).await?),
+            _ => Err("Unsupported async read".into()),
+        }
     }
 
     pub async fn async_shutdown(&mut self) -> HlsResult<()> {
-        self.kind.async_shutdown().await
+        match self {
+            Stream::AsyncHttp(s) => Ok(s.shutdown().await?),
+            Stream::AsyncHttps(s) => Ok(s.shutdown().await?),
+            _ => Err("Unsupported async read".into()),
+        }
     }
 }
 
 impl Stream {
-    pub fn sync_connect(&mut self, param: ConnParam) -> HlsResult<()> {
+    pub fn sync_conn(&mut self, param: ConnParam) -> HlsResult<ALPN> {
         let _ = self.sync_shutdown();
-        let alpn = self.kind.sync_conn(param)?;
-        self.alpn = alpn;
-        Ok(())
-    }
-    pub fn sync_read(&mut self, buffer: &mut Buffer) -> HlsResult<()> {
-        self.kind.sync_read(buffer)
+        let stream = ProxyStream::sync_connect(param.proxy, param.addr, param.timeout)?;
+        match param.scheme {
+            Scheme::Http | Scheme::Ws => {
+                *self = Stream::SyncHttp(stream);
+                Ok(ALPN::Http11)
+            }
+            Scheme::Https | Scheme::Wss => {
+                let tls_stream = SyncStream::connect(ClientConfig {
+                    sni: param.addr.host(),
+                    alpn: param.alpn,
+                    fingerprint: param.fingerprint,
+                    client_cert: param.cert,
+                    cert_key: param.key,
+                    verify: param.verify,
+                }, stream)?;
+                let alpn = tls_stream.alpn().map(|x| ALPN::from_slice(x.as_bytes())).unwrap_or(ALPN::Http11);
+                *self = Stream::SyncHttps(tls_stream);
+                Ok(alpn)
+            }
+            _ => Err("stream not supported".into())
+        }
     }
 
-    pub fn sync_write(&mut self, data: &[u8]) -> HlsResult<()> {
-        self.kind.sync_write(data)
+    pub fn sync_write(&mut self, buf: &[u8]) -> HlsResult<()> {
+        match self {
+            Stream::SyncHttp(s) => {
+                s.write_all(buf)?;
+                Ok(())
+            }
+            Stream::SyncHttps(s) => {
+                s.write_all(buf)?;
+                Ok(())
+            }
+            _ => Err("Unsupported sync write".into()),
+        }
+    }
+
+    pub fn sync_read(&mut self, buffer: &mut Buffer) -> HlsResult<()> {
+        match self {
+            Stream::SyncHttp(s) => buffer.sync_read(s),
+            Stream::SyncHttps(s) => buffer.sync_read(s),
+            _ => Err("Unsupported async read".into()),
+        }
     }
 
     pub fn sync_shutdown(&mut self) -> HlsResult<()> {
-        self.kind.sync_shutdown()
+        match self {
+            Stream::SyncHttp(s) => Ok(s.shutdown()?),
+            Stream::SyncHttps(s) => Ok(s.shutdown()?),
+            _ => Err("Unsupported async read".into()),
+        }
     }
 }
 

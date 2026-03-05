@@ -17,7 +17,6 @@ pub struct ScReq {
     callback: Option<ReqCallback>,
     timeout: Timeout,
     stream_id: u32,
-    alpn: ALPN,
     proxy: Proxy,
     fingerprint: Fingerprint,
     verify: bool,
@@ -34,12 +33,11 @@ impl Default for ScReq {
             scheme: Scheme::Http,
             addr: Addr::default(),
             hack_coder: HPackCoding::new(),
-            stream: Stream::unconnection(),
+            stream: Stream::NonConnection,
             body: BodyType::Text("".to_string()),
             callback: None,
             timeout: Timeout::new(),
             stream_id: 0,
-            alpn: ALPN::Http11,
             proxy: Proxy::Null,
             fingerprint: Fingerprint::default(),
             verify: true,
@@ -109,7 +107,7 @@ impl ScReq {
     }
 
     fn handle_io(&mut self) -> HlsResult<Response> {
-        let response = match self.stream.alpn() {
+        let response = match self.header.alpn() {
             ALPN::Http20 => {
                 let headers = self.gen_h2_header()?;
                 let body = self.gen_h2_body()?;
@@ -122,7 +120,7 @@ impl ScReq {
         }?;
         self.update_cookie(&response);
         self.callback = None;
-        if let ALPN::Http20 = self.alpn { self.stream_id += 2; }
+        if let ALPN::Http20 = self.header.alpn() { self.stream_id += 2; }
         Ok(response)
     }
 
@@ -168,15 +166,15 @@ impl ScReq {
                 proxy: &self.proxy,
                 timeout: &self.timeout,
                 fingerprint: &mut self.fingerprint,
-                alpn: &self.alpn,
+                alpn: self.header.alpn(),
                 verify: self.verify,
                 cert: &mut self.certs,
                 key: &self.key,
             };
-            match self.stream.sync_connect(param) {
-                Ok(_) => {
-                    self.header.init_by_alpn(self.stream.alpn());
-                    if self.stream.alpn() == &ALPN::Http20 { self.handle_h2_setting()?; }
+            match self.stream.sync_conn(param) {
+                Ok(alpn) => {
+                    self.header.init_by_alpn(alpn);
+                    if self.header.alpn() == &ALPN::Http20 { self.handle_h2_setting()?; }
                     return Ok(());
                 }
                 Err(e) => if i != self.timeout.connect_times() - 1 {
@@ -345,10 +343,6 @@ impl ReqExt for ScReq {
 
     fn set_auto_redirect(&mut self, auto_redirect: bool) {
         self.auto_redirect = auto_redirect;
-    }
-
-    fn set_alpn(&mut self, alpn: ALPN) {
-        self.alpn = alpn;
     }
 
     fn set_mtls(&mut self, certs: Vec<Certificate>, key: RsaKey) {

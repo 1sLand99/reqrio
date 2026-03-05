@@ -47,7 +47,6 @@ impl<S: ReqExt> WebSocketBuilder<S> {
         self.0.set_uri(uri)?;
         Ok(self)
     }
-
 }
 
 impl WebSocketBuilder<ScReq> {

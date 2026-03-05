@@ -19,7 +19,6 @@ pub struct AcReq {
     callback: Option<ReqCallback>,
     stream_id: u32,
     body: BodyType,
-    alpn: ALPN,
     proxy: Proxy,
     fingerprint: Fingerprint,
     verify: bool,
@@ -36,11 +35,10 @@ impl Default for AcReq {
             scheme: Scheme::Http,
             addr: Addr::default(),
             hack_coder: HPackCoding::new(),
-            stream: Stream::unconnection(),
+            stream: Stream::NonConnection,
             timeout: Timeout::new(),
             callback: None,
             stream_id: 0,
-            alpn: ALPN::Http11,
             proxy: Proxy::Null,
             fingerprint: Fingerprint::default(),
             body: BodyType::Text("".to_string()),
@@ -111,7 +109,7 @@ impl AcReq {
     }
 
     async fn handle_io(&mut self) -> HlsResult<Response> {
-        let response = match self.stream.alpn() {
+        let response = match self.header.alpn() {
             ALPN::Http20 => {
                 let headers = self.gen_h2_header()?;
                 let body = self.gen_h2_body()?;
@@ -124,7 +122,7 @@ impl AcReq {
         }?;
         self.update_cookie(&response);
         self.callback = None;
-        if let ALPN::Http20 = self.stream.alpn() { self.stream_id += 2; }
+        if let ALPN::Http20 = self.header.alpn() { self.stream_id += 2; }
         Ok(response)
     }
 
@@ -179,12 +177,12 @@ impl AcReq {
                 proxy: &self.proxy,
                 timeout: &self.timeout,
                 fingerprint: &mut self.fingerprint,
-                alpn: &self.alpn,
+                alpn: self.header.alpn(),
                 verify: self.verify,
                 cert: &mut self.certs,
                 key: &mut self.key,
             };
-            let res = tokio::time::timeout(self.timeout.connect(), self.stream.async_connect(param)).await;
+            let res = tokio::time::timeout(self.timeout.connect(), self.stream.async_conn(param)).await;
             match &res {
                 Ok(res) => if let Err(e) = res && i != self.timeout.handle_times() - 1 {
                     println!("[AcReq] connect with error-{}, handle: {}/{}", e, i + 2, self.timeout.handle_times());
@@ -197,9 +195,9 @@ impl AcReq {
             }
             return match res {
                 Ok(res) => match res {
-                    Ok(_) => {
-                        self.header.init_by_alpn(self.stream.alpn());
-                        if self.stream.alpn() == &ALPN::Http20 { self.handle_h2_setting().await?; }
+                    Ok(alpn) => {
+                        self.header.init_by_alpn(alpn);
+                        if self.header.alpn() == &ALPN::Http20 { self.handle_h2_setting().await?; }
                         Ok(())
                     }
                     Err(e) => Err(e),
@@ -358,10 +356,6 @@ impl ReqExt for AcReq {
 
     fn set_auto_redirect(&mut self, auto_redirect: bool) {
         self.auto_redirect = auto_redirect;
-    }
-
-    fn set_alpn(&mut self, alpn: ALPN) {
-        self.alpn = alpn;
     }
 
     fn set_mtls(&mut self, certs: Vec<Certificate>, key: RsaKey) {
