@@ -60,10 +60,10 @@ pub enum Crypto {
 }
 
 impl Crypto {
-    pub fn from_aead(key: &[u8], mac_key: &[u8], aead: &Aead) -> RlsResult<Crypto> {
+    pub fn from_aead(key: &[u8], mac_key: &[u8], aead: &Aead, hash: HashType) -> RlsResult<Crypto> {
         match aead {
             Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::ChaCha20_POLY1305 => Ok(Crypto::Aead(Box::new(AeadCrypto::new(aead, key)?))),
-            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => Ok(Crypto::Cipher(CipherCrypto::new(aead, key.to_vec(), mac_key.to_vec())?)),
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => Ok(Crypto::Cipher(CipherCrypto::new(aead, key.to_vec(), mac_key.to_vec(), hash)?)),
             _ => Err("unsupported cryptor".into()),
         }
     }

@@ -156,13 +156,12 @@ impl Connection {
     }
 
     pub fn make_cipher(&mut self, server: bool) -> RlsResult<()> {
-        // println!("{:?} {:?} {:?}", self.cipher_suite, self.cipher_suite.aead(), self.named_curve);
         let share_secret = self.shared_key.diffie_hellman(self.exchange_pub_key.as_ref())?;
         let (label, seed) = match self.use_ems {
             true => ("extended master secret", self.cipher_suite.current_session_hash()?.to_vec()),
             false => ("master secret", [self.client_random.as_bytes(), self.server_random.as_bytes()].concat())
         };
-        self.prf.prf(&share_secret, label, &seed, &mut self.master_secret)?; //master" secret"
+        self.prf.prf(&share_secret, label, &seed, &mut self.master_secret)?; 
         let mut f = OpenOptions::new().create(true).append(true).open("2.log")?;
         f.write_all(format!("CLIENT_RANDOM {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(self.master_secret)).as_bytes())?;
         let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
@@ -176,20 +175,17 @@ impl Connection {
         let (server_key, remain) = remain.split_at(aead.key_len());
         let (client_iv, remain) = remain.split_at(aead.fix_iv_len());
         let (server_iv, explicit) = remain.split_at(aead.fix_iv_len());
-        // println!("{:3?}", client_mac_key);
-        // println!("{:3?}", client_key);
-        // println!("{:3?}", client_iv);
         match server {
             true => {
-                self.write.set_key(server_key, server_mac_key, aead)?;
+                self.write.set_key(server_key, server_mac_key, aead, self.cipher_suite.mac_hash().ok_or(RlsError::HasherNone)?)?;
                 self.write.set_iv(Iv::new(server_iv, vec![0; 8]));
-                self.read.set_key(client_key, client_mac_key, aead)?;
+                self.read.set_key(client_key, client_mac_key, aead, self.cipher_suite.mac_hash().ok_or(RlsError::HasherNone)?)?;
                 self.read.set_iv(Iv::new(client_iv, vec![]));
             }
             false => {
-                self.write.set_key(client_key, client_mac_key, aead)?;
+                self.write.set_key(client_key, client_mac_key, aead, self.cipher_suite.mac_hash().ok_or(RlsError::HasherNone)?)?;
                 self.write.set_iv(Iv::new(client_iv, explicit.to_vec()));
-                self.read.set_key(server_key, server_mac_key, aead)?;
+                self.read.set_key(server_key, server_mac_key, aead, self.cipher_suite.mac_hash().ok_or(RlsError::HasherNone)?)?;
                 self.read.set_iv(Iv::new(server_iv, vec![]));
             }
         }

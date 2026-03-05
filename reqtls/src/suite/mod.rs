@@ -4,6 +4,7 @@ use crate::error::RlsResult;
 use crate::extend::Aead;
 use iv::Iv;
 pub use suite::CipherSuite;
+use crate::hash::HashType;
 
 pub mod iv;
 mod suite;
@@ -24,8 +25,8 @@ impl TlsCipher {
         }
     }
 
-    pub fn set_key(&mut self, key: &[u8], mac_key: &[u8], aead: &Aead) -> RlsResult<()> {
-        self.crypto = Crypto::from_aead(key, mac_key, aead)?;
+    pub fn set_key(&mut self, key: &[u8], mac_key: &[u8], aead: &Aead, hash: HashType) -> RlsResult<()> {
+        self.crypto = Crypto::from_aead(key, mac_key, aead, hash)?;
         Ok(())
     }
 
@@ -78,6 +79,7 @@ mod tests {
     use crate::suite::iv::Iv;
     use crate::suite::TlsCipher;
     use crate::{rand, RecordType};
+    use crate::boring::HashType;
 
     #[test]
     fn test_cipher() {
@@ -87,7 +89,7 @@ mod tests {
         let explicit = rand::random::<[u8; 8]>();
         let mac_key = rand::random::<[u8; 20]>();
         let aead = Aead::ChaCha20_POLY1305;
-        cipher.set_key(&key_bs, &mac_key, &aead).unwrap();
+        cipher.set_key(&key_bs, &mac_key, &aead, HashType::Sha1).unwrap();
         let iv = Iv::new(&iv, explicit.to_vec());
         cipher.set_iv(iv);
         let mut buffer = [0u8; 1024];

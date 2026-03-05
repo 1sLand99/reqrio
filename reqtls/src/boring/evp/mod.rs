@@ -67,10 +67,11 @@ pub struct CipherCrypto {
     mac_key: Vec<u8>,
     key: Vec<u8>,
     cipher: Cipher,
+    hash: HashType,
 }
 
 impl CipherCrypto {
-    pub fn new(aead: &Aead, key: Vec<u8>, mac: Vec<u8>) -> RlsResult<CipherCrypto> {
+    pub fn new(aead: &Aead, key: Vec<u8>, mac: Vec<u8>, hash: HashType) -> RlsResult<CipherCrypto> {
         let cipher = match aead {
             Aead::AES_128_CBC_SHA => Cipher::aes_128_cbc(),
             Aead::AES_256_CBC_SHA => Cipher::aes_256_cbc(),
@@ -80,6 +81,7 @@ impl CipherCrypto {
             mac_key: mac,
             cipher,
             key,
+            hash,
         })
     }
 
@@ -90,7 +92,7 @@ impl CipherCrypto {
     ///```
     pub fn encrypt(&self, param: CryptEncodeParam) -> RlsResult<()> {
         self.cipher.init_encrypt(self.key.as_ptr(), param.iv.as_ptr())?;
-        let mut hmac = Hmac::new(&self.mac_key, HashType::Sha1)?;
+        let mut hmac = Hmac::new(&self.mac_key, self.hash)?;
         hmac.update(param.seq.to_be_bytes())?;
         hmac.update(&param.buffer.head()[..3])?;
         hmac.update((param.buffer.origin_payload().len() as u16).to_be_bytes())?;
@@ -122,7 +124,7 @@ impl CipherCrypto {
         let len = out_len + final_len;
         let padding_len = param.buffer.decrypted_buffer()[len - 1] as usize;
         let len = len - padding_len - 1;
-        let mut hmac = Hmac::new(&self.mac_key, HashType::Sha1)?;
+        let mut hmac = Hmac::new(&self.mac_key, self.hash)?;
         hmac.update(param.seq.to_be_bytes())?;
         hmac.update(&param.buffer.head()[..3])?;
         hmac.update((len as u16 - 20).to_be_bytes())?;
@@ -138,7 +140,7 @@ impl CipherCrypto {
 #[cfg(test)]
 mod tests {
     use crate::boring::evp::CipherCrypto;
-    use crate::boring::{CryptDecodeParam, CryptEncodeParam};
+    use crate::boring::{CryptDecodeParam, CryptEncodeParam, HashType};
     use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
     use crate::extend::Aead;
     use crate::{base64, rand, Cipher, RecordType};
@@ -167,7 +169,7 @@ mod tests {
         let mut record_buffer = RecordEncodeBuffer::new(RecordType::HandShake, &mut buffer, &payload, &aead);
         record_buffer.add_explicit_iv(&iv);
 
-        let crypto = CipherCrypto::new(&aead, key, mac_key.to_vec()).unwrap();
+        let crypto = CipherCrypto::new(&aead, key, mac_key.to_vec(), HashType::Sha1).unwrap();
         crypto.encrypt(CryptEncodeParam {
             nonce: &[0; 12],
             iv: &iv,

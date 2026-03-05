@@ -228,6 +228,54 @@ impl CipherSuite {
             _ => 1,
         }
     }
+
+    pub fn is_aead(&self) -> bool {
+        match self.value {
+            0xc02b | 0xc02c | 0xcca9 | 0xc02f | 0xc030 | 0xcca8 | 0x009e | 0x009f | 0xccaa | 0x009c | 0x009d | 0x1301 | 0x1302 | 0x1303 => true,
+            _ => false
+        }
+    }
+
+
+    pub fn mac_hash(&self) -> Option<HashType> {
+        match self.value {
+            0xc02b => Some(HashType::Sha256),
+            0xc02c => Some(HashType::Sha384),
+            0xc023 => Some(HashType::Sha256),
+            0xc024 => Some(HashType::Sha384),
+            0xc009 => Some(HashType::Sha1),
+            0xc00a => Some(HashType::Sha1),
+            0xcca9 => Some(HashType::Sha256),
+
+            0xc02f => Some(HashType::Sha256),
+            0xc030 => Some(HashType::Sha384),
+            0xc027 => Some(HashType::Sha256),
+            0xc028 => Some(HashType::Sha384),
+            0xc013 => Some(HashType::Sha1),
+            0xc014 => Some(HashType::Sha1),
+            0xcca8 => Some(HashType::Sha256),
+
+            0x009e => Some(HashType::Sha256),
+            0x009f => Some(HashType::Sha384),
+            0x0067 => Some(HashType::Sha256),
+            0x006b => Some(HashType::Sha256),
+            0x0033 => Some(HashType::Sha1),
+            0x0039 => Some(HashType::Sha1),
+            0xccaa => Some(HashType::Sha256),
+
+            0x009c => Some(HashType::Sha256),
+            0x009d => Some(HashType::Sha384),
+            0x003c => Some(HashType::Sha256),
+            0x003d => Some(HashType::Sha256),
+            0x002f => Some(HashType::Sha1),
+            0x0035 => Some(HashType::Sha1),
+
+            0x1301 => Some(HashType::Sha256),
+            0x1302 => Some(HashType::Sha384),
+            0x1303 => Some(HashType::Sha256),
+            _ => None
+        }
+    }
 }
 
 impl PartialEq for CipherSuite {
@@ -259,7 +307,7 @@ impl CipherSuite {
     }
 
     pub fn into_inner(self) -> u16 { self.value }
-    
+
     pub fn as_u16(&self) -> u16 {
         self.value
     }
