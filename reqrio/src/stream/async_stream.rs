@@ -1,3 +1,4 @@
+use std::io;
 use crate::stream::config::{ClientConfig, Config, ServerConfig};
 use crate::*;
 use std::io::Error;
@@ -24,7 +25,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
             stream,
             conn,
             handshake_finished: false,
-            read_buffer: Buffer::with_capacity(16432),
+            read_buffer: Buffer::with_capacity(16437),
             write_buffer: buffer,
             shutdown_wrote: false,
             wrote_len: 0,
@@ -48,7 +49,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
     }
 
     pub async fn accept(stream: S, config: ServerConfig<'_>) -> HlsResult<TlsStream<S>> {
-        TlsStream::new(stream, Connection::default(), Config::Server(config), Buffer::with_capacity(16432)).await
+        TlsStream::new(stream, Connection::default(), Config::Server(config), Buffer::with_capacity(16437)).await
     }
 
     pub async fn read_packet(&mut self) -> HlsResult<usize> {
@@ -162,7 +163,7 @@ impl<S> TlsStreamHandle for TlsStream<S> {
 }
 
 impl<S> TlsStream<S> {
-    fn read_message(&mut self, buf: &mut ReadBuf<'_>) -> std::io::Result<usize> {
+    fn read_message(&mut self, buf: &mut ReadBuf<'_>) -> io::Result<usize> {
         let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, None)?;
         let record_len = record.len as usize + 5;
         match record.context_type {
@@ -192,7 +193,7 @@ impl<S> TlsStream<S> {
 }
 
 impl<S: AsyncRead + Unpin> AsyncRead for TlsStream<S> {
-    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<std::io::Result<()>> {
+    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
         if self.shutdown_wrote { return Poll::Ready(Ok(())); }
         let stream = self.get_mut();
         loop {
@@ -203,10 +204,12 @@ impl<S: AsyncRead + Unpin> AsyncRead for TlsStream<S> {
                     Err(e) => return Poll::Ready(Err(e)),
                 }
             }
+            if stream.read_buffer.unfilled_mut().is_empty() { return Poll::Ready(Err(Error::other("buffer size  too small"))); }
             let mut rd = ReadBuf::new(stream.read_buffer.unfilled_mut());
             match Pin::new(&mut stream.stream).poll_read(cx, &mut rd) {
                 Poll::Ready(Ok(_)) => {
                     let fl = rd.filled().len();
+                    println!("{}", fl);
                     if fl == 0 { return Poll::Ready(Ok(())); }
                     let nl = stream.read_buffer.len() + fl;
                     stream.read_buffer.set_len(nl);

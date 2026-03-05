@@ -73,6 +73,7 @@ impl Stream {
 
 impl Stream {
     pub fn sync_connect(&mut self, param: ConnParam) -> HlsResult<()> {
+        let _ = self.sync_shutdown();
         let alpn = self.kind.sync_conn(param)?;
         self.alpn = alpn;
         Ok(())

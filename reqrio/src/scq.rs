@@ -99,7 +99,7 @@ impl ScReq {
     pub fn h1_io(&mut self, context: impl AsRef<[u8]>) -> HlsResult<Response> {
         self.stream.sync_write(context.as_ref())?;
         let mut response = Response::new();
-        let mut buffer = Buffer::with_capacity(16432);
+        let mut buffer = Buffer::with_capacity(16437);
         let mut read_len = 0;
         loop {
             self.stream.sync_read(&mut buffer)?;

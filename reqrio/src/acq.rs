@@ -101,10 +101,11 @@ impl AcReq {
     pub async fn h1_io(&mut self, context: impl AsRef<[u8]>) -> HlsResult<Response> {
         self.stream.async_write(context.as_ref()).await?;
         let mut response = Response::new();
-        let mut buffer = Buffer::with_capacity(16432);
+        let mut buffer = Buffer::with_capacity(16437);
         let mut read_len = 0;
         loop {
             self.stream.async_read(&mut buffer).await?;
+            println!("{}", String::from_utf8_lossy(buffer.filled()));
             if self.handle_h1_res(&mut buffer, &mut response, &mut read_len)? { break; }
         }
         Ok(response)
@@ -136,6 +137,7 @@ impl AcReq {
                 Ok(res) => match res {
                     Ok(res) => {
                         let code = res.header().status().code();
+                        println!("{}", code);
                         return if self.auto_redirect && (300..400).contains(&code) {
                             let location = res.header().location().ok_or("missing location")?;
                             println!("{}", location);
@@ -145,12 +147,15 @@ impl AcReq {
                                 self.header.set_uri(Uri::try_from(location)?);
                             }
                             self.header.set_method(Method::GET);
-                            Box::pin(self.stream_io()).await
+                            let res = Box::pin(self.stream_io()).await;
+                            println!("{}", res.is_ok());
+                            res
                         } else {
                             Ok(res)
                         };
                     }
                     Err(e) => {
+                        println!("{}", e.to_string());
                         if i != self.timeout.handle_times() - 1 {
                             if e.to_string().to_lowercase().contains("close") || e.to_string().contains("中止了") || e.to_string().contains("关闭") {
                                 self.re_conn().await?;
