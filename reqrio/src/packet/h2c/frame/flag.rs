@@ -1,6 +1,7 @@
 use std::ops::BitOrAssign;
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct FrameFlag(u8);
+
 
 #[allow(non_upper_case_globals)]
 impl FrameFlag {
@@ -39,11 +40,5 @@ impl FrameFlag {
 impl BitOrAssign for FrameFlag {
     fn bitor_assign(&mut self, rhs: Self) {
         self.0 |= rhs.0;
-    }
-}
-
-impl Default for FrameFlag {
-    fn default() -> Self {
-        FrameFlag(0b0000_0000)
     }
 }

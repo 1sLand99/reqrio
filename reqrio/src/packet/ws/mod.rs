@@ -9,7 +9,12 @@ mod typ;
 use crate::error::HlsResult;
 use crate::{Buffer, HlsError};
 
-
+///```text
+///     0    1   2   3   4   5   6   7
+/// +------+---+---+---+---+---+---+---+
+/// | mask |        len/code           |
+/// +------+---------------------------+
+/// ```
 pub struct Marker {
     mask: bool,
     len_code: u8,
@@ -30,7 +35,7 @@ impl Marker {
         res
     }
 
-    pub fn to_u8(self, len: usize) -> u8 {
+    pub fn into_inner(self, len: usize) -> u8 {
         let mut res = 0u8;
         if self.mask { res |= 0x80 }
         match len {
@@ -49,17 +54,20 @@ pub struct WsFrame {
     payload: WsPayload,
 }
 
-impl WsFrame {
-    pub fn new() -> WsFrame {
+impl Default for WsFrame {
+    fn default() -> Self {
         WsFrame {
             typ: WsFrameType::new(),
             masker: Marker::new(),
             payload: WsPayload::new(),
         }
     }
+}
+
+impl WsFrame {
 
     pub fn new_frame(opcode: WsOpcode, mask: bool, payload: &[u8]) -> WsFrame {
-        let mut res = WsFrame::new();
+        let mut res = WsFrame::default();
         res.typ.set_opcode(opcode);
         res.typ.set_fin(true);
         res.masker.mask = mask;
@@ -68,7 +76,7 @@ impl WsFrame {
     }
 
     pub fn new_pong(mask: bool, payload: &[u8]) -> WsFrame {
-        let mut res = WsFrame::new();
+        let mut res = WsFrame::default();
         res.typ.set_opcode(WsOpcode::PONG);
         res.typ.set_fin(true);
         res.masker.mask = mask;
@@ -77,7 +85,7 @@ impl WsFrame {
     }
 
     pub fn new_binary(mask: bool, payload: &[u8]) -> WsFrame {
-        let mut res = WsFrame::new();
+        let mut res = WsFrame::default();
         res.typ.set_opcode(WsOpcode::BINARY);
         res.typ.set_fin(true);
         res.masker.mask = mask;
@@ -86,13 +94,15 @@ impl WsFrame {
     }
 
     pub fn new_text(mask: bool, payload: impl AsRef<str>) -> WsFrame {
-        let mut res = WsFrame::new();
+        let mut res = WsFrame::default();
         res.typ.set_opcode(WsOpcode::TEXT);
         res.typ.set_fin(true);
         res.masker.mask = mask;
         res.payload.copy_payload(payload.as_ref().as_bytes(), &res.masker);
         res
     }
+
+    pub fn is_empty(&self) -> bool { self.len() == 0 }
 
     pub fn len(&self) -> usize {
         let mut len = 2;
@@ -110,7 +120,7 @@ impl WsFrame {
 
     pub fn from_buffer(buffer: &mut Buffer) -> HlsResult<WsFrame> {
         if buffer.len() < 2 { return Err(HlsError::InvalidHeadSize); }
-        let mut res = WsFrame::new();
+        let mut res = WsFrame::default();
         res.typ = WsFrameType::from_u8(buffer[0])?;
         res.masker = Marker::from_u8(buffer[1]);
         res.payload = WsPayload::from_bytes(&res.masker, &buffer.filled()[2..])?;
@@ -130,7 +140,7 @@ impl WsFrame {
     pub fn to_bytes(self) -> Vec<u8> {
         let payload_len = self.payload.len();
         let payload = self.payload.to_bytes(&self.masker);
-        let mut res = vec![self.typ.to_u8(), self.masker.to_u8(payload_len)];
+        let mut res = vec![self.typ.to_u8(), self.masker.into_inner(payload_len)];
         res.extend(payload);
         res
     }
