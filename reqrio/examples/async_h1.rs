@@ -20,7 +20,7 @@ async fn main() {
         .with_timeout(timeout)
         .with_verify(false)
         // .with_mtls(certs, key)
-        .with_proxy(Proxy::try_from("socks5://123:123@127.0.0.1:12000").unwrap())
+        .with_proxy(Proxy::try_from("socks5://username:password@127.0.0.1:12000").unwrap())
         ;
     let headers = json::object! {
         // "Authorization": "Bearer Upy9fDyueOXiEbON0vRXimg4tlrO5wTs+IV75wUbSzZngY0oLn1wJpQw1jnV0Cqku1UUnDUvVg4y/wwkNOljlJJKVRbzDETSjOd0zHotk+s3+wM63SDWeKXOXKwUhhfc",
@@ -76,9 +76,9 @@ async fn main() {
     // req.set_url("https://www.toutiao.com/article/7600224020776239658/?log_from=99ab1fa2b852c_1769590891442&wid=1769590984039").await.unwrap();
     // req.set_url("https://www.sogou.com").await.unwrap();
     // req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Asite：wLLyn.com&first=0&FORM=PERE2").await.unwrap();
-    req.set_url("https://m.baidu.com").await.unwrap();
+    // req.set_url("https://m.baidu.com").await.unwrap();
 
-    // req.set_url("https://m.so.com").await.unwrap();
+    req.set_url("https://m.so.com").await.unwrap();
     // req.set_url("https://www.sephora.com/beauty/giftcards").await.unwrap();
     // req.set_url("https://doc.rust-lang.org/").await.unwrap();
     // req.set_url("https://tls.123408.xyz/api/clean").await.unwrap();
