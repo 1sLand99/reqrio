@@ -32,21 +32,25 @@ impl Proxy {
         Proxy::Socks5(url)
     }
 
-    fn write_context<W: WriteExt>(&self, peer_addr: &Addr, writer: &mut W) {
+    fn write_context<W: WriteExt>(&self, peer_addr: &Addr, writer: &mut W) -> HlsResult<()> {
         match self {
             Proxy::Null => {}
-            Proxy::HttpPlain(_) => {
+            Proxy::HttpPlain(v) => {
+                let peer_addr = peer_addr.to_string();
                 //line1
                 writer.write_slice(b"CONNECT ");
-                writer.write_slice(peer_addr.host().as_bytes());
-                writer.write_slice(b":");
-                writer.write_u16(peer_addr.port());
-                writer.write_slice(b"\r\n");
+                writer.write_slice(peer_addr.as_bytes());
+                writer.write_slice(b" HTTP/1.1\r\n");
                 //line2
                 writer.write_slice(b"Host: ");
-                writer.write_slice(peer_addr.host().as_bytes());
-                writer.write_slice(b":");
-                writer.write_u16(peer_addr.port());
+                writer.write_slice(peer_addr.as_bytes());
+                writer.write_slice(b"\r\n");
+                if !v.username().is_empty() && !v.password().is_empty() {
+                    writer.write_slice(b"Proxy-Authorization: Basic ");
+                    let auth = base64::b64encode(format!("{}:{}", v.username(), v.password()))?;
+                    writer.write_slice(auth.as_bytes());
+                    writer.write_slice(b"\r\n");
+                }
                 //line3
                 writer.write_slice(b"Proxy-Connection: Keep-Alive\r\n\r\n");
             }
@@ -69,6 +73,7 @@ impl Proxy {
                 writer.write_u16(peer_addr.port());
             }
         }
+        Ok(())
     }
 
     pub fn is_null(&self) -> bool {
@@ -138,7 +143,8 @@ impl ProxyStream<std::net::TcpStream> {
         let addr = proxy.socket_addr(peer_addr)?;
         let mut stream = ProxyStream::create_sync(&addr, timeout)?;
         let mut buffer = Buffer::with_capacity(1024);
-        proxy.write_context(peer_addr, &mut buffer);
+        proxy.write_context(peer_addr, &mut buffer)?;
+        println!("{}", String::from_utf8_lossy(buffer.filled()));
         let proxy_handled = if !buffer.is_empty() {
             std::io::Write::write_all(&mut stream, buffer.filled())?;
             false
@@ -215,9 +221,9 @@ impl ProxyStream<tokio::net::TcpStream> {
         let addr = proxy.socket_addr(peer_addr)?;
         let mut stream = tokio::net::TcpStream::connect(addr).await?;
         let mut buffer = Buffer::with_capacity(1024);
-        proxy.write_context(peer_addr, &mut buffer);
+        proxy.write_context(peer_addr, &mut buffer)?;
         let proxy_handled = if !buffer.is_empty() {
-            tokio::io::AsyncWriteExt::write_all(&mut stream, &buffer.filled()).await?;
+            tokio::io::AsyncWriteExt::write_all(&mut stream, buffer.filled()).await?;
             false
         } else { true };
         buffer.reset();
@@ -271,11 +277,9 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
                                         break;
                                     }
                                 } else { return Poll::Ready(Err(std::io::Error::other("socks5 auth fail"))); }
-                            } else {
-                                if stream.buffer.len() >= 12 {
-                                    stream.buffer.used_empty(12);
-                                    break;
-                                }
+                            } else if stream.buffer.len() >= 12 {
+                                stream.buffer.used_empty(12);
+                                break;
                             }
                         }
                     }
