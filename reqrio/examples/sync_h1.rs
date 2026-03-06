@@ -15,7 +15,7 @@ fn main() {
             // .with_mtls(certs, key)
             .with_verify(false)
             .with_proxy(Proxy::new_http_plain("127.0.0.1",10240))
-            // .with_proxy(Proxy::try_from("socks5://123:123@127.0.0.1:12000").unwrap())
+            .with_proxy(Proxy::try_from("socks5://username:password@127.0.0.1:12000").unwrap())
             ;
         let headers = json::object! {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",

@@ -144,7 +144,6 @@ impl ProxyStream<std::net::TcpStream> {
         let mut stream = ProxyStream::create_sync(&addr, timeout)?;
         let mut buffer = Buffer::with_capacity(1024);
         proxy.write_context(peer_addr, &mut buffer)?;
-        println!("{}", String::from_utf8_lossy(buffer.filled()));
         let proxy_handled = if !buffer.is_empty() {
             std::io::Write::write_all(&mut stream, buffer.filled())?;
             false
