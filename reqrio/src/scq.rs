@@ -1,9 +1,10 @@
 use std::mem;
-use crate::ext::ReqPriExt;
+use crate::ext::{ReqParam, ReqPriExt};
 use crate::hpack::{HPackCoding, HackDecode};
 use crate::stream::{ConnParam, Stream};
 use crate::*;
 use json::JsonValue;
+use crate::body::BodyType;
 use crate::packet::FrameFlag;
 
 #[repr(C)]
@@ -34,7 +35,7 @@ impl Default for ScReq {
             addr: Addr::default(),
             hack_coder: HPackCoding::new(),
             stream: Stream::NonConnection,
-            body: BodyType::Text("".to_string()),
+            body: BodyType::Bytes(vec![]),
             callback: None,
             timeout: Timeout::new(),
             stream_id: 0,
@@ -94,8 +95,13 @@ impl ScReq {
         self.stream_io()
     }
 
-    pub fn h1_io(&mut self, context: impl AsRef<[u8]>) -> HlsResult<Response> {
-        self.stream.sync_write(context.as_ref())?;
+    pub fn h1_io_by_raw(&mut self, context: impl AsRef<[u8]>) -> HlsResult<Response> {
+        self.buffer.write_slice(context.as_ref());
+        self.h1_io()
+    }
+
+    pub fn h1_io(&mut self) -> HlsResult<Response> {
+        self.stream.sync_write(self.buffer.filled())?;
         let mut response = Response::new();
         let mut buffer = Buffer::with_capacity(16437);
         let mut read_len = 0;
@@ -114,8 +120,8 @@ impl ScReq {
                 self.h2c_io(headers, body)
             }
             _ => {
-                let context = self.gen_h1()?;
-                self.h1_io(context)
+                self.gen_h1()?;
+                self.h1_io()
             }
         }?;
         self.update_cookie(&response);
@@ -283,14 +289,13 @@ impl ReqPriExt for ScReq {
     fn into_stream(self) -> Stream {
         self.stream
     }
+
     fn callback(&mut self) -> &mut Option<ReqCallback> {
         &mut self.callback
     }
-
     fn hack_decoder(&mut self) -> &mut HackDecode {
         self.hack_coder.decoder()
     }
-
     fn addr(&self) -> &Addr {
         &self.addr
     }
@@ -298,9 +303,16 @@ impl ReqPriExt for ScReq {
     fn scheme(&self) -> &Scheme {
         &self.scheme
     }
-}
 
-impl ReqExt for ScReq {
+    fn req_param(&mut self) -> ReqParam<'_> {
+        ReqParam {
+            header: &mut self.header,
+            body: &self.body,
+            addr: &self.addr,
+            buffer: &mut self.buffer,
+        }
+    }
+
     fn body_type(&self) -> &BodyType {
         &self.body
     }
@@ -308,7 +320,9 @@ impl ReqExt for ScReq {
     fn body_type_mut(&mut self) -> &mut BodyType {
         &mut self.body
     }
+}
 
+impl ReqExt for ScReq {
     fn header_mut(&mut self) -> &mut Header {
         &mut self.header
     }

@@ -1,11 +1,12 @@
 use crate::error::HlsResult;
 use crate::timeout::Timeout;
-use crate::Fingerprint;
+use crate::{ContentType, Fingerprint};
 use crate::{json, Cookie, HlsError, Method, Proxy, ReqExt, ScReq, ALPN};
 use reqtls::hex;
 use std::ffi::{c_char, CStr, CString};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::slice;
+use crate::packet::BinaryType;
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
@@ -191,7 +192,7 @@ pub extern "system" fn ScReq_set_bytes(req: *mut ScReq, bytes: *const c_char, le
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let bytes = unsafe { slice::from_raw_parts(bytes as *const u8, len as usize) }.to_vec();
-        req.set_bytes(bytes);
+        req.set_bytes(bytes, ContentType::Binary(BinaryType::OctetStream));
         Ok(0)
     }().unwrap_or(-1)
 }

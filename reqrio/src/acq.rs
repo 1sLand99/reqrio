@@ -1,7 +1,7 @@
 use std::mem;
 use crate::body::BodyType;
 use crate::error::HlsResult;
-use crate::ext::ReqExt;
+use crate::ext::{ReqExt, ReqParam};
 use crate::ext::{ReqGenExt, ReqPriExt};
 use crate::hpack::{HPackCoding, HackDecode};
 use crate::json::JsonValue;
@@ -41,7 +41,7 @@ impl Default for AcReq {
             stream_id: 0,
             proxy: Proxy::Null,
             fingerprint: Fingerprint::default(),
-            body: BodyType::Text("".to_string()),
+            body: BodyType::Bytes(vec![]),
             verify: true,
             auto_redirect: true,
             buffer: Buffer::with_capacity(32826),
@@ -96,8 +96,13 @@ impl AcReq {
         self.stream_io().await
     }
 
-    pub async fn h1_io(&mut self, context: impl AsRef<[u8]>) -> HlsResult<Response> {
-        self.stream.async_write(context.as_ref()).await?;
+    pub async fn h1_io_by_raw(&mut self, context: impl AsRef<[u8]>) -> HlsResult<Response> {
+        self.buffer.write_slice(context.as_ref());
+        self.h1_io().await
+    }
+
+    pub(crate) async fn h1_io(&mut self) -> HlsResult<Response> {
+        self.stream.async_write(self.buffer.filled()).await?;
         let mut response = Response::new();
         let mut buffer = Buffer::with_capacity(16437);
         let mut read_len = 0;
@@ -116,8 +121,8 @@ impl AcReq {
                 self.h2c_io(headers, body).await
             }
             _ => {
-                let context = self.gen_h1()?;
-                self.h1_io(context).await
+                self.gen_h1()?;
+                self.h1_io().await
             }
         }?;
         self.update_cookie(&response);
@@ -296,14 +301,13 @@ impl ReqPriExt for AcReq {
     fn into_stream(self) -> Stream {
         self.stream
     }
+
     fn callback(&mut self) -> &mut Option<ReqCallback> {
         &mut self.callback
     }
-
     fn hack_decoder(&mut self) -> &mut HackDecode {
         self.hack_coder.decoder()
     }
-
     fn addr(&self) -> &Addr {
         &self.addr
     }
@@ -311,9 +315,16 @@ impl ReqPriExt for AcReq {
     fn scheme(&self) -> &Scheme {
         &self.scheme
     }
-}
 
-impl ReqExt for AcReq {
+    fn req_param(&mut self) -> ReqParam<'_> {
+        ReqParam {
+            header: &mut self.header,
+            body: &self.body,
+            addr: &self.addr,
+            buffer: &mut self.buffer,
+        }
+    }
+
     fn body_type(&self) -> &BodyType {
         &self.body
     }
@@ -321,7 +332,9 @@ impl ReqExt for AcReq {
     fn body_type_mut(&mut self) -> &mut BodyType {
         &mut self.body
     }
+}
 
+impl ReqExt for AcReq {
     fn header_mut(&mut self) -> &mut Header {
         &mut self.header
     }

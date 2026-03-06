@@ -1,4 +1,4 @@
-use crate::body::BodyType;
+use crate::body::{BodyType, HttpField};
 use crate::error::HlsResult;
 use crate::file::HttpFile;
 use crate::packet::*;
@@ -8,20 +8,28 @@ use json::JsonValue;
 use crate::hpack::HackDecode;
 use crate::stream::Stream;
 
-pub trait ReqExt: Sized {
-    fn body_type(&self) -> &BodyType;
-    fn body_type_mut(&mut self) -> &mut BodyType;
+pub(crate) struct ReqParam<'a> {
+    pub(crate) header: &'a mut Header,
+    pub(crate) body: &'a BodyType,
+    pub(crate) addr: &'a Addr,
+    pub(crate) buffer: &'a mut Buffer,
+}
+
+#[allow(private_bounds)]
+pub trait ReqExt: ReqPriExt + Sized {
     fn set_data(&mut self, data: JsonValue) {
-        *self.body_type_mut() = BodyType::WwwForm(data);
-        self.header_mut().set_content_type(ContentType::Application(Application::XWwwFormUrlencoded));
+        let data = data.into_entries().map(|(k, v)| format!("{}={}", k, coder::url_encode(v.dump()))).collect::<Vec<_>>().join("&");
+        self.set_bytes(data, ContentType::Application(Application::XWwwFormUrlencoded));
     }
     fn set_text(&mut self, text: impl ToString) {
-        *self.body_type_mut() = BodyType::Text(text.to_string());
-        self.header_mut().set_content_type(ContentType::Text(Text::Plain));
+        self.set_bytes(text.to_string(), ContentType::Text(Text::Plain));
     }
-
-    fn set_bytes(&mut self, bs: Vec<u8>) {
-        *self.body_type_mut() = BodyType::Bytes(bs);
+    fn set_json(&mut self, data: JsonValue) {
+        self.set_bytes(data.dump(), ContentType::Application(Application::Json));
+    }
+    fn set_bytes(&mut self, bs: impl Into<Vec<u8>>, ct: ContentType) {
+        *self.body_type_mut() = BodyType::Bytes(bs.into());
+        self.header_mut().set_content_type(ct);
     }
     /// * 文件上传示例
     /// ```rust
@@ -31,15 +39,21 @@ pub trait ReqExt: Sized {
     /// let data=json::object!{"key":"value"};
     /// req.set_files(data,files)
     /// ```
-    fn set_files(&mut self, data: JsonValue, files: Vec<HttpFile>) {
-        *self.body_type_mut() = BodyType::Files((data, files));
-        self.header_mut().set_content_type(ContentType::File("".to_string()))
+    fn set_files(&mut self, data: JsonValue, files: Vec<HttpFile>) -> HlsResult<()> {
+        let md5 = hash::md5_hex(data.dump())?;
+        let data = data.into_entries().map(|(name, value)| HttpField {
+            name,
+            value: value.dump(),
+        }).collect::<Vec<_>>();
+        *self.body_type_mut() = BodyType::Files { data, files };
+        self.header_mut().set_content_type(ContentType::File(md5));
+        Ok(())
     }
     fn add_file(&mut self, file: HttpFile) {
-        if let BodyType::Files((_, files)) = self.body_type_mut() {
+        if let BodyType::Files { files, .. } = self.body_type_mut() {
             files.push(file);
         } else {
-            *self.body_type_mut() = BodyType::Files((JsonValue::Null, vec![file]));
+            *self.body_type_mut() = BodyType::Files { data: vec![], files: vec![file] };
         }
         self.header_mut().set_content_type(ContentType::File("".to_string()))
     }
@@ -72,7 +86,6 @@ pub trait ReqExt: Sized {
 
     ///是否自动进行跳转
     fn set_auto_redirect(&mut self, auto_redirect: bool);
-
     fn with_auto_redirect(mut self, auto_redirect: bool) -> Self {
         self.set_auto_redirect(auto_redirect);
         self
@@ -80,7 +93,9 @@ pub trait ReqExt: Sized {
 
     /// * 必须在建立tls连接（即：set_url/with_url）前设置, 否则需要调re_conn
     /// * 默认使用http2.0去连接，实际使用协议需要和服务器协商
-    fn set_alpn(&mut self, alpn: ALPN);
+    fn set_alpn(&mut self, alpn: ALPN) {
+        self.header_mut().init_by_alpn(alpn);
+    }
     fn with_alpn(mut self, alpn: ALPN) -> Self {
         self.set_alpn(alpn);
         self
@@ -88,7 +103,6 @@ pub trait ReqExt: Sized {
 
     ///启用mtls，并传入客户端证书
     fn set_mtls(&mut self, certs: Vec<Certificate>, key: RsaKey);
-
     fn with_mtls(mut self, certs: Vec<Certificate>, key: RsaKey) -> Self {
         self.set_mtls(certs, key);
         self
@@ -112,19 +126,13 @@ pub trait ReqExt: Sized {
         self.header_mut().set_by_json(headers)
     }
 
-    fn set_json(&mut self, data: JsonValue) {
-        *self.body_type_mut() = BodyType::Json(data);
-        self.header_mut().set_content_type(ContentType::Application(Application::Json))
-    }
-
     fn with_header_json(mut self, data: JsonValue) -> HlsResult<Self> {
         self.set_headers_json(data)?;
         Ok(self)
     }
 
     fn insert_header(&mut self, k: impl AsRef<str>, v: impl ToString) -> HlsResult<()> {
-        self.header_mut().insert(k, v)?;
-        Ok(())
+        self.header_mut().insert(k, v)
     }
 
     fn remove_header(&mut self, k: impl AsRef<str>) -> Option<HeaderValue> {
@@ -151,16 +159,15 @@ pub trait ReqExt: Sized {
 }
 
 
-pub(crate) trait ReqPriExt: ReqExt {
+pub(crate) trait ReqPriExt {
     fn into_stream(self) -> Stream;
-
     fn callback(&mut self) -> &mut Option<ReqCallback>;
-
     fn hack_decoder(&mut self) -> &mut HackDecode;
     fn addr(&self) -> &Addr;
-
     fn scheme(&self) -> &Scheme;
-
+    fn req_param(&mut self) -> ReqParam<'_>;
+    fn body_type(&self) -> &BodyType;
+    fn body_type_mut(&mut self) -> &mut BodyType;
     fn handle_h1_res(&mut self, buffer: &mut Buffer, response: &mut Response, rd: &mut usize) -> HlsResult<bool> {
         match self.callback() {
             None => response.extend_buffer(buffer),
@@ -204,13 +211,13 @@ pub(crate) trait ReqPriExt: ReqExt {
         }
     }
 
-    fn format_file_body((data, files): &(JsonValue, Vec<HttpFile>), md5: &str) -> HlsResult<Vec<u8>> {
+    fn format_file_body(data: &Vec<HttpField>, files: &Vec<HttpFile>, md5: &str) -> HlsResult<Vec<u8>> {
         let mut body = vec![];
-        for (k, v) in data.entries() {
+        for datum in data {
             body.push(format!("--{}", md5));
-            body.push(format!("Content-Disposition: form-data; name=\"{}\"", k));
+            body.push(format!("Content-Disposition: form-data; name=\"{}\"", datum.name));
             body.push("".to_string());
-            body.push(v.dump());
+            body.push(datum.value.to_string());
             body.push("".to_string());
         };
         let mut body = body.join("\r\n").into_bytes();
@@ -227,21 +234,10 @@ pub(crate) trait ReqPriExt: ReqExt {
         Ok(body)
     }
 
-    fn format_header(&mut self, md5: &str, body_len: usize) -> HlsResult<Vec<u8>> {
-        if let BodyType::Files(_) = self.body_type() {
-            self.header_mut().set_content_type(ContentType::File(md5.to_string()));
-        }
-        let mut headers = self.header_mut().as_raw(body_len)?;
-        headers.insert(0, format!("{} {} HTTP/1.1", self.header().method(), self.header().uri()));
-        headers.push("".to_string());
-        headers.push("".to_string());
-        Ok(headers.join("\r\n").into_bytes())
-    }
-
     fn update_cookie(&mut self, response: &Response) {
         for cookie in response.header().cookies().unwrap_or(&vec![]) {
             if cookie.name() == "" && cookie.value() == "" { continue; }
-            self.header_mut().add_cookie(cookie.clone());
+            self.req_param().header.add_cookie(cookie.clone());
         }
     }
 
@@ -265,34 +261,27 @@ pub(crate) trait ReqPriExt: ReqExt {
 }
 
 #[allow(private_bounds)]
-pub trait ReqGenExt: ReqPriExt {
+pub trait ReqGenExt: ReqExt {
     fn format_body(&mut self, md5: &str) -> HlsResult<Vec<u8>> {
         match self.body_type() {
-            BodyType::Text(text) => Ok(text.as_bytes().to_vec()),
             BodyType::Bytes(bytes) => Ok(bytes.to_vec()),
-            BodyType::Files(fds) => {
-                // let md5 = "abcde12345abcdebbeeaaccafeacb454";
-                let body_bytes = Self::format_file_body(fds, md5)?;
+            BodyType::Files { data, files } => {
+                let body_bytes = Self::format_file_body(data, files, md5)?;
                 Ok(body_bytes)
             }
-            BodyType::WwwForm(form) => Ok(form.entries().map(|(k, v)| {
-                format!("{}={}", k, coder::url_encode(v.dump()))
-            }).collect::<Vec<_>>().join("&").into_bytes()),
-            BodyType::Json(jd) => Ok(jd.dump().into_bytes()),
         }
     }
 
-    fn gen_h1(&mut self) -> HlsResult<Vec<u8>> {
-        let host = self.addr().to_string().replace(":80", "").replace(":443", "");
-        match self.header().host() {
-            None => self.header_mut().set_host(host)?,
-            Some(key_host) => if key_host.is_empty() || key_host != host { self.header_mut().set_host(host)? }
+    fn gen_h1(&mut self) -> HlsResult<&mut Buffer> {
+        let param = self.req_param();
+        param.header.write_to(param.addr.host(), param.body.len(), param.buffer)?;
+        param.buffer.write_slice(b"\r\n");
+        if let Some(context_type) = param.header.content_type() && let ContentType::File(md5) = context_type {
+            param.body.write_to(param.buffer, md5);
+        } else {
+            param.body.write_to(param.buffer, "")
         }
-        let md5 = "abcde12345abcdebbeeaaccafeacb454";
-        let body = self.format_body(md5)?;
-        let mut content = self.format_header(md5, body.len())?;
-        content.extend(body);
-        Ok(content)
+        Ok(param.buffer)
     }
 
     fn gen_h2_header(&mut self) -> HlsResult<Vec<HeaderKey>> {

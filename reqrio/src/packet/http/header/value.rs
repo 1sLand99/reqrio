@@ -29,6 +29,16 @@ impl HeaderValue {
             _ => None
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        match self {
+            HeaderValue::String(v) => v.is_empty(),
+            HeaderValue::Bool(_) => false,
+            HeaderValue::Number(v) => *v == 0,
+            HeaderValue::ContextType(_) => false,
+            HeaderValue::Cookies(v) => v.is_empty(),
+        }
+    }
 }
 
 impl Display for HeaderValue {

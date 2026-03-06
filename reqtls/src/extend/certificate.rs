@@ -1,4 +1,5 @@
-use std::fmt::{Debug, Formatter};
+use std::fmt;
+use std::fmt::{Debug, Display, Formatter};
 use crate::error::RlsResult;
 use crate::WriteExt;
 
@@ -28,12 +29,24 @@ impl CompressionType {
 
 
 impl Debug for CompressionType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.0 {
             0 => write!(f, "Null(0)"),
             1 => write!(f, "Deflate(1)"),
             2 => write!(f, "Brotli(2)"),
             _ => write!(f, "Reserved({})", self.0),
+        }
+    }
+}
+
+impl Display for CompressionType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match *self {
+            CompressionType::DEFLATE => write!(f, "deflate"),
+            CompressionType::BROTLI => write!(f, "br"),
+            CompressionType::GZIP => write!(f, "gzip"),
+            CompressionType::ZSTD => write!(f, "zstd"),
+            _ => Err(fmt::Error),
         }
     }
 }
@@ -75,7 +88,7 @@ impl CompressionCertificate {
             writer.write_u16(ty.0);
         }
     }
-    
+
     pub fn push(&mut self, ty: CompressionType) {
         self.types.push(ty);
     }

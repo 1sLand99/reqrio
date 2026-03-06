@@ -117,7 +117,6 @@
 use crate::error::HlsResult;
 #[cfg(feature = "aync")]
 pub use acq::AcReq;
-pub use body::BodyType;
 pub use buffer::Buffer;
 pub use error::HlsError;
 pub use ext::{ReqExt, ReqGenExt};

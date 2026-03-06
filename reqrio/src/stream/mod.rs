@@ -8,6 +8,7 @@ pub use config::{ClientConfig, ServerConfig};
 pub use proxy::Proxy;
 pub use proxy::ProxyStream;
 pub use ws::{WebSocket, WebSocketBuilder};
+#[cfg(feature = "aync")]
 use crate::stream::astream::{AsyncTcpStream, AsyncTlsStream, TimeoutRW};
 
 #[cfg(feature = "aync")]

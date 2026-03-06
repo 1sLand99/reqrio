@@ -19,7 +19,14 @@ impl Default for Uri {
 }
 
 impl Uri {
-    pub fn value(&self) -> &str { &self.path }
+    pub fn path(&self) -> &str { &self.path }
+
+    pub fn new_path(path: impl ToString) -> Uri {
+        Uri {
+            path: path.to_string(),
+            params: vec![],
+        }
+    }
 
     pub fn set_uri(&mut self, uri: impl ToString) {
         self.path = uri.to_string();
@@ -35,7 +42,7 @@ impl Uri {
 
     pub fn insert_param(&mut self, name: impl ToString, value: impl ToString) {
         let name = name.to_string();
-        let param = self.params.iter_mut().find(|x| x.name() == &name);
+        let param = self.params.iter_mut().find(|x| x.name() == name);
         match param {
             None => self.params.push(Param::new_param(name, value)),
             Some(param) => param.set_value(value),
@@ -44,7 +51,7 @@ impl Uri {
 
     pub fn remove_param(&mut self, name: impl ToString) -> Option<String> {
         let name = name.to_string();
-        let pos = self.params.iter().position(|x| x.name() == &name)?;
+        let pos = self.params.iter().position(|x| x.name() == name)?;
         Some(self.params.remove(pos).take_value())
     }
 
@@ -76,8 +83,7 @@ impl TryFrom<&str> for Uri {
     type Error = RlsError;
     fn try_from(value: &str) -> RlsResult<Uri> {
         let mut items = value.split("?");
-        let mut res = Uri::default();
-        res.path = items.next().unwrap_or("").to_string();
+        let mut res = Uri::new_path(items.next().unwrap_or(""));
         if let Some(param) = items.next() {
             res.parse_param(param)?;
         }

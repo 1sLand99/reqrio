@@ -20,7 +20,7 @@ mod status;
 #[derive(Clone)]
 pub struct Header {
     method: Method,
-    agreement: String,
+    alpn: ALPN,
     uri: Uri,
     status: HttpStatus,
     keys: Vec<HeaderKey>,
@@ -30,7 +30,7 @@ impl Header {
     pub fn new_res() -> Self {
         Self {
             method: Method::GET,
-            agreement: "".to_string(),
+            alpn: ALPN::Custom(vec![]),
             uri: Uri::default(),
             status: HttpStatus::None,
             keys: vec![],
@@ -40,6 +40,7 @@ impl Header {
 
     pub fn new_req_h2() -> Self {
         let mut res = Header::new_res();
+        res.alpn = ALPN::Http20;
         res.keys = vec![
             //h2 order
             HeaderKey::new("cache-control", HeaderValue::String("".to_string())),
@@ -77,6 +78,7 @@ impl Header {
 
     pub fn new_req_h1() -> Self {
         let mut res = Header::new_res();
+        res.alpn = ALPN::Http11;
         res.keys = vec![
             HeaderKey::new("Host", HeaderValue::String("".to_string())),
             HeaderKey::new("Connection", HeaderValue::String("".to_string())),
@@ -115,15 +117,55 @@ impl Header {
         }
     }
 
-    pub fn as_raw(&mut self, body_len: usize) -> HlsResult<Vec<String>> {
-        self.set_content_length(body_len)?;
-        Ok(self.raw())
+    fn write_h1_buffer<W: WriteExt>(&self, host: &str, len: usize, writer: &mut W) -> HlsResult<()> {
+        // first line: Method uri version
+        writer.write_slice(self.method.to_string().as_bytes());
+        writer.write_u8(b' ');
+        writer.write_slice(self.uri.to_string().as_bytes());
+        writer.write_u8(b' ');
+        writer.write_slice(self.alpn.to_string().as_bytes());
+        writer.write_slice(b"\r\n");
+        //header keys
+        for key in self.keys.iter() {
+            if key.value().is_empty() { continue; }
+            writer.write_slice(key.name().as_bytes());
+            writer.write_slice(b": ");
+            match key.name_lower().as_str() {
+                "host" => writer.write_slice(host.as_bytes()),
+                "content-length" => writer.write_slice(len.to_string().as_bytes()),
+                "cookie" => {
+                    for (index, cookie) in key.cookies().unwrap_or(&vec![]).iter().enumerate() {
+                        writer.write_slice(cookie.name().as_bytes());
+                        writer.write_u8(b'=');
+                        writer.write_slice(cookie.value().as_bytes());
+                        if index != key.cookies().unwrap_or(&vec![]).len() - 1 { writer.write_slice(b"; ") }
+                    }
+                }
+                _ => writer.write_slice(key.value().as_string().unwrap_or(&key.value().to_string()).as_bytes()),
+            }
+            writer.write_slice(b"\r\n");
+        }
+        Ok(())
     }
 
-    fn raw(&self) -> Vec<String> {
+    pub fn write_to<W: WriteExt>(&self, host: &str, len: usize, writer: &mut W) -> HlsResult<()> {
+        match self.alpn {
+            ALPN::Http10 | ALPN::Http11 => self.write_h1_buffer(host, len, writer)?,
+            ALPN::Http20 => {}
+            ALPN::Custom(_) => return Err("unsupported http protocol".into()),
+        }
+        Ok(())
+    }
+
+    pub fn as_raw(&mut self, body_len: usize) -> HlsResult<Vec<String>> {
+        self.set_content_length(body_len)?;
+        Ok(self.raw(true))
+    }
+
+    fn raw(&self, http: bool) -> Vec<String> {
         let mut res = vec![];
         for key in &self.keys {
-            if key.value().to_string() == "" { continue; }
+            if key.value().to_string() == "" && http { continue; }
             match key.name_lower().as_str() {
                 "set-cookie" => for cookie in key.cookies().unwrap_or(&vec![]) {
                     res.push(format!("Set-Cookie: {}", cookie.as_res()));
@@ -169,10 +211,9 @@ impl Header {
 
     pub fn set_cookies(&mut self, ck: Vec<Cookie>) {
         let header = self.keys.iter_mut().find(|x| x.name_lower() == "cookie");
-        if let Some(header) = header {
-            header.set_value(HeaderValue::Cookies(ck));
-        } else {
-            self.keys.push(HeaderKey::new("cookie", HeaderValue::Cookies(ck)));
+        match header {
+            None => self.keys.push(HeaderKey::new("cookie", HeaderValue::Cookies(ck))),
+            Some(header) => header.set_value(HeaderValue::Cookies(ck))
         }
     }
 
@@ -185,7 +226,7 @@ impl Header {
     ///cookie请使用set_cookie/add_cookie
     pub fn insert(&mut self, k: impl AsRef<str>, v: impl ToString) -> HlsResult<()> {
         let lower_key = k.as_ref().to_lowercase().replace("contentlength", "content-length")
-            .replace("contenttype", "ccontent-type");
+            .replace("contenttype", "content-type");
         let header = self.keys.iter_mut().find(|x| x.name_lower() == lower_key);
         if let Some(header) = header {
             match header.name_lower().as_str() {
@@ -303,17 +344,17 @@ impl Header {
 
     pub fn method(&self) -> &Method { &self.method }
 
-    pub fn agreement(&self) -> &str {
-        &self.agreement
-    }
+    pub fn alpn(&self) -> &ALPN { &self.alpn }
 
     pub fn uri(&self) -> &Uri {
         &self.uri
     }
-    
-    pub fn uri_mut(&mut self) -> &mut Uri {&mut self.uri}
 
-    pub fn is_empty(&self) -> bool { self.agreement.is_empty() }
+    pub fn uri_mut(&mut self) -> &mut Uri { &mut self.uri }
+
+    pub fn is_empty(&self) -> bool {
+        self.alpn.value().is_empty()
+    }
 
     pub fn content_encoding(&self) -> Option<&str> {
         self.get("content-encoding")?.as_string()
@@ -353,8 +394,8 @@ impl Header {
             if index == 0 {
                 let mut items = line.split(" ");
                 header.method = Method::try_from(items.next().unwrap_or("GET")).unwrap_or(Method::GET);
-                let _ = header.set_uri(Uri::try_from(items.next().unwrap_or(""))?);
-                header.agreement = items.collect::<Vec<_>>().join(" ").to_uppercase();
+                header.set_uri(Uri::try_from(items.next().unwrap_or(""))?);
+                header.alpn = ALPN::from_slice(items.collect::<Vec<_>>().join(" ").to_lowercase().as_bytes());
                 continue;
             }
             let mut items = line.split(": ");
@@ -372,7 +413,7 @@ impl Header {
             if line.is_empty() { continue; }
             if index == 0 {
                 let mut items = line.split(" ");
-                header.agreement = items.next().unwrap_or("").to_string();
+                header.alpn = ALPN::from_slice(items.next().unwrap_or("").to_lowercase().as_bytes());
                 let status = items.next().unwrap_or("100").parse().unwrap_or(100);
                 header.status = HttpStatus::new(status);
                 continue;
@@ -387,7 +428,7 @@ impl Header {
 
     pub fn parse_h2(packs: Vec<HPack>) -> HlsResult<Header> {
         let mut header = Header::new_res();
-        header.agreement = "HTTP/2.0".to_string();
+        header.alpn = ALPN::Http20;
         for pack in packs {
             header.insert(pack.name(), pack.value())?;
             match pack.name() {
@@ -406,7 +447,8 @@ impl Header {
 
     pub fn keys(&self) -> &Vec<HeaderKey> { &self.keys }
 
-    pub(crate) fn init_by_alpn(&mut self, alpn: &ALPN) {
+    pub(crate) fn init_by_alpn(&mut self, alpn: ALPN) {
+        if alpn == self.alpn { return; }
         let keys = if let ALPN::Http20 = alpn { Header::new_req_h2().keys } else { Header::new_req_h1().keys };
         let keys = mem::replace(&mut self.keys, keys);
         for ok in keys {
@@ -436,7 +478,7 @@ impl From<&Header> for JsonValue {
             "uri":value.uri.to_string(),
             "method":value.method.to_string(),
             "status":value.status.code(),
-            "agreement":value.agreement.clone(),
+            "agreement":value.alpn.to_string(),
             "keys":{}
         };
         for key in &value.keys {
@@ -471,14 +513,14 @@ impl Display for Header {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let raw = match self.status {
             HttpStatus::None => {
-                let mut raw = self.raw();
-                if self.agreement.starts_with("HTTP/1") { raw.insert(0, format!("{} {} {}", self.method, self.uri, self.agreement)); }
+                let mut raw = self.raw(false);
+                if matches!(self.alpn,ALPN::Http11|ALPN::Http10) { raw.insert(0, format!("{} {} {}", self.method, self.uri, self.alpn)); }
                 raw
             }
             _ => {
-                if self.agreement.starts_with("HTTP/1") {
-                    let mut raw = self.raw();
-                    raw.insert(0, format!("{} {} {}", self.agreement, self.status.code(), self.status.spec()));
+                if matches!(self.alpn,ALPN::Http11|ALPN::Http10) {
+                    let mut raw = self.raw(false);
+                    raw.insert(0, format!("{} {} {}", self.alpn, self.status.code(), self.status.spec()));
                     raw.push("".to_string());
                     raw.push("".to_string());
                     raw
