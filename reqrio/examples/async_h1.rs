@@ -20,7 +20,7 @@ async fn main() {
         .with_timeout(timeout)
         .with_verify(false)
         // .with_mtls(certs, key)
-        // .with_proxy(Proxy::try_from("http://127.0.0.1:10240").unwrap())
+        .with_proxy(Proxy::try_from("socks5://123:123@127.0.0.1:12000").unwrap())
         ;
     let headers = json::object! {
         // "Authorization": "Bearer Upy9fDyueOXiEbON0vRXimg4tlrO5wTs+IV75wUbSzZngY0oLn1wJpQw1jnV0Cqku1UUnDUvVg4y/wwkNOljlJJKVRbzDETSjOd0zHotk+s3+wM63SDWeKXOXKwUhhfc",
@@ -65,7 +65,7 @@ async fn main() {
     // req.set_url("https://127.0.0.1:3453/v1/api/tlsReq").await.unwrap();
     // req.set_json(data);
     // req.set_auto_redirect(false);
-    req.set_url("http://zwfw.hubei.gov.cn/web/user/uias_login.do?appCode=hbzwfw&gotoUrl=http%3A%2F%2Fzwfw.hubei.gov.cn%2Fwebview%2Fgrkj%2Fwelcome.html&p01=").await.unwrap();
+    // req.set_url("http://zwfw.hubei.gov.cn/web/user/uias_login.do?appCode=hbzwfw&gotoUrl=http%3A%2F%2Fzwfw.hubei.gov.cn%2Fwebview%2Fgrkj%2Fwelcome.html&p01=").await.unwrap();
     // req.set_url("https://127.0.0.1:7878").await.unwrap();
     // req.set_url("https://www.jetstar.com").await.unwrap();
     // req.set_url("https://m1.pxb7.com/api/search/h5/product/selectSearchPageList").await.unwrap();
@@ -76,7 +76,7 @@ async fn main() {
     // req.set_url("https://www.toutiao.com/article/7600224020776239658/?log_from=99ab1fa2b852c_1769590891442&wid=1769590984039").await.unwrap();
     // req.set_url("https://www.sogou.com").await.unwrap();
     // req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Asite：wLLyn.com&first=0&FORM=PERE2").await.unwrap();
-    // req.set_url("https://m.baidu.com").await.unwrap();
+    req.set_url("https://m.baidu.com").await.unwrap();
 
     // req.set_url("https://m.so.com").await.unwrap();
     // req.set_url("https://www.sephora.com/beauty/giftcards").await.unwrap();

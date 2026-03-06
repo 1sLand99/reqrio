@@ -1,4 +1,4 @@
-use reqrio::{json, ReqExt, ScReq, ALPN};
+use reqrio::{json, Proxy, ReqExt, ScReq, ALPN};
 use std::time::SystemTime;
 
 fn main() {
@@ -14,7 +14,7 @@ fn main() {
             .with_alpn(ALPN::Http11)
             // .with_mtls(certs, key)
             .with_verify(false)
-            // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10280))
+            .with_proxy(Proxy::try_from("socks5://123:123@127.0.0.1:12000").unwrap())
             ;
         let headers = json::object! {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
@@ -38,7 +38,7 @@ fn main() {
         // req.set_url("https://m.so.com").unwrap();
 
         // req.set_url("https://ms.xllgl.top").unwrap();
-        // req.set_url("https://www.baidu.com").unwrap();
+        req.set_url("https://www.baidu.com").unwrap();
 
         // req.set_url("https://jetstar.com").unwrap();
         // let et = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
@@ -48,7 +48,7 @@ fn main() {
         // req.set_url("https://ccppdd.zzzzzzyyyyy.shop/api/v1/client/s9FkyFPBngt80pFn1?token=a0cedb7c6645280ec2402db62d550a17").unwrap();
         // req.set_url("https://www.link114.cn/").unwrap();
         // req.set_url("https://127.0.0.1:8000").unwrap();
-        req.set_url("http://zwfw.hubei.gov.cn/web/user/uias_login.do?appCode=hbzwfw&gotoUrl=http%3A%2F%2Fzwfw.hubei.gov.cn%2Fwebview%2Fgrkj%2Fwelcome.html&p01=").unwrap();
+        // req.set_url("http://zwfw.hubei.gov.cn/web/user/uias_login.do?appCode=hbzwfw&gotoUrl=http%3A%2F%2Fzwfw.hubei.gov.cn%2Fwebview%2Fgrkj%2Fwelcome.html&p01=").unwrap();
         req.set_auto_redirect(true);
         req.set_headers_json(headers).unwrap();
         // println!("6");
@@ -68,7 +68,7 @@ fn main() {
         let et = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
         tss+=et-t;
         println!("{}", et - t);
-        // break;
+        break;
     }
     println!("{}", tss/100);
 }

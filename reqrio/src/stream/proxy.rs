@@ -13,35 +13,60 @@ use tokio::io::ReadBuf;
 #[derive(Clone, Debug)]
 pub enum Proxy {
     Null,
-    HttpPlain(Addr),
-    Socks5(Addr),
+    HttpPlain(Url),
+    Socks5(Url),
 }
 
 impl Proxy {
     pub fn new_http_plain(host: impl ToString, port: u16) -> Proxy {
-        Proxy::HttpPlain(Addr::new_addr(host, port))
+        let mut url = Url::default();
+        url.set_addr(Addr::new_addr(host, port));
+        url.set_scheme(Scheme::Http);
+        Proxy::HttpPlain(url)
     }
 
     pub fn new_socks5(host: impl ToString, port: u16) -> Proxy {
-        Proxy::Socks5(Addr::new_addr(host, port))
+        let mut url = Url::default();
+        url.set_addr(Addr::new_addr(host, port));
+        url.set_scheme(Scheme::Socks5);
+        Proxy::Socks5(url)
     }
 
-    fn proxy_context(&self, peer_addr: &Addr) -> Vec<u8> {
+    fn write_context<W: WriteExt>(&self, peer_addr: &Addr, writer: &mut W) {
         match self {
-            Proxy::Null => vec![],
-            Proxy::HttpPlain(_) => [
-                format!("CONNECT {} HTTP/1.1", peer_addr),
-                format!("Host: {}", peer_addr),
-                "Proxy-Connection: Keep-Alive".to_string(),
-                "".to_string(),
-                "".to_string()
-            ].join("\r\n").into_bytes(),
-            Proxy::Socks5(_) => {
-                let mut data = vec![5, 1, 0, 5, 1, 0, 3];
-                data.push(peer_addr.host().len() as u8);
-                data.extend_from_slice(peer_addr.host().as_bytes());
-                data.extend(peer_addr.port().to_be_bytes());
-                data
+            Proxy::Null => {}
+            Proxy::HttpPlain(_) => {
+                //line1
+                writer.write_slice(b"CONNECT ");
+                writer.write_slice(peer_addr.host().as_bytes());
+                writer.write_slice(b":");
+                writer.write_u16(peer_addr.port());
+                writer.write_slice(b"\r\n");
+                //line2
+                writer.write_slice(b"Host: ");
+                writer.write_slice(peer_addr.host().as_bytes());
+                writer.write_slice(b":");
+                writer.write_u16(peer_addr.port());
+                //line3
+                writer.write_slice(b"Proxy-Connection: Keep-Alive\r\n\r\n");
+            }
+            Proxy::Socks5(v) => {
+                writer.write_slice(&[5, 1]);
+                if v.username().is_empty() || v.password().is_empty() {
+                    //认证方法-无认证
+                    writer.write_slice(&[0, 5, 1, 0, 3])
+                } else {
+                    //认证方法-账号密码
+                    writer.write_slice(&[2, 1]);
+                    writer.write_u8(v.username().len() as u8);
+                    writer.write_slice(v.username().as_bytes());
+                    writer.write_u8(v.password().len() as u8);
+                    writer.write_slice(v.password().as_bytes());
+                    writer.write_slice(&[5, 1, 0, 3]);
+                }
+                writer.write_u8(peer_addr.host().len() as u8);
+                writer.write_slice(peer_addr.host().as_bytes());
+                writer.write_u16(peer_addr.port());
             }
         }
     }
@@ -53,8 +78,8 @@ impl Proxy {
     pub fn socket_addr(&self, peer_addr: &Addr) -> HlsResult<SocketAddr> {
         match self {
             Proxy::Null => Ok(peer_addr.socket_addr_v4()?),
-            Proxy::HttpPlain(addr) => Ok(addr.socket_addr_v4()?),
-            Proxy::Socks5(addr) => Ok(addr.socket_addr_v4()?),
+            Proxy::HttpPlain(url) => Ok(url.addr().socket_addr_v4()?),
+            Proxy::Socks5(url) => Ok(url.addr().socket_addr_v4()?),
         }
     }
 }
@@ -74,8 +99,8 @@ impl TryFrom<&str> for Proxy {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let url = Url::try_from(value)?;
         match url.protocol() {
-            Scheme::Http => Ok(Proxy::HttpPlain(url.addr().clone())),
-            Scheme::Socks5 => Ok(Proxy::Socks5(url.addr().clone())),
+            Scheme::Http => Ok(Proxy::HttpPlain(url)),
+            Scheme::Socks5 => Ok(Proxy::Socks5(url)),
             _ => Err("unsupported proxy scheme".into())
         }
     }
@@ -112,15 +137,18 @@ impl ProxyStream<std::net::TcpStream> {
     pub fn sync_connect(proxy: &Proxy, peer_addr: &Addr, timeout: &Timeout) -> HlsResult<ProxyStream<std::net::TcpStream>> {
         let addr = proxy.socket_addr(peer_addr)?;
         let mut stream = ProxyStream::create_sync(&addr, timeout)?;
-        let proxy_context = proxy.proxy_context(peer_addr);
-        if !proxy_context.is_empty() {
-            std::io::Write::write_all(&mut stream, &proxy_context)?;
-        }
+        let mut buffer = Buffer::with_capacity(1024);
+        proxy.write_context(peer_addr, &mut buffer);
+        let proxy_handled = if !buffer.is_empty() {
+            std::io::Write::write_all(&mut stream, buffer.filled())?;
+            false
+        } else { true };
+        buffer.reset();
         Ok(ProxyStream {
             stream,
-            handle_proxy: proxy_context.is_empty(),
+            handle_proxy: proxy_handled,
             http_proxy: matches!(proxy, Proxy::HttpPlain(_)),
-            buffer: Buffer::with_capacity(1024),
+            buffer,
             resp: Response::new(),
         })
     }
@@ -145,16 +173,19 @@ impl std::io::Read for ProxyStream<std::net::TcpStream> {
                 if status != 200 { return Err(std::io::Error::other(format!("connect http proxy error-{}", status))); }
             } else {
                 self.buffer.sync_read(&mut self.stream)?;
-                if !self.buffer.filled().starts_with(&[5, 0]) {
-                    println!("{:?}", self.buffer.filled());
-                    return Err(std::io::Error::other("connect socks5 proxy fail".to_string()));
+                if self.buffer.filled().starts_with(&[5, 2]) {
+                    if self.buffer.len() == 2 {
+                        self.buffer.sync_read(&mut self.stream)?;
+                    }
+                    if self.buffer[3] != 0 { return Err(std::io::Error::other("socks5 auth fail")); }
+                    self.buffer.used_empty(2);
                 }
+                self.buffer.used_empty(2);
                 if self.buffer.len() == 2 {
                     self.buffer.reset();
                     self.buffer.sync_read(&mut self.stream)?;
                 }
-                self.buffer.copy_within(10..self.buffer.len(), 0);
-                self.buffer.set_len(self.buffer.len() - 10);
+                self.buffer.used_empty(10);
             }
             if self.buffer.is_empty() {
                 self.stream.read(buf)
@@ -183,15 +214,18 @@ impl ProxyStream<tokio::net::TcpStream> {
     pub async fn async_connect(proxy: &Proxy, peer_addr: &Addr) -> HlsResult<ProxyStream<tokio::net::TcpStream>> {
         let addr = proxy.socket_addr(peer_addr)?;
         let mut stream = tokio::net::TcpStream::connect(addr).await?;
-        let proxy_context = proxy.proxy_context(peer_addr);
-        if !proxy_context.is_empty() {
-            tokio::io::AsyncWriteExt::write_all(&mut stream, &proxy_context).await?;
-        }
+        let mut buffer = Buffer::with_capacity(1024);
+        proxy.write_context(peer_addr, &mut buffer);
+        let proxy_handled = if !buffer.is_empty() {
+            tokio::io::AsyncWriteExt::write_all(&mut stream, &buffer.filled()).await?;
+            false
+        } else { true };
+        buffer.reset();
         Ok(ProxyStream {
             stream,
-            handle_proxy: proxy_context.is_empty(),
+            handle_proxy: proxy_handled,
             http_proxy: matches!(proxy, Proxy::HttpPlain(_)),
-            buffer: Buffer::with_capacity(1024),
+            buffer,
             resp: Response::new(),
         })
     }
@@ -226,13 +260,26 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
                         Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
                         Poll::Ready(Ok(())) => {
                             let rl = pb.filled().len();
+                            if rl == 0 { return Poll::Ready(Err(std::io::Error::other(HlsError::PeerClosedConnection))); }
                             stream.buffer.set_len(stream.buffer.len() + rl);
-                            if stream.buffer.len() >= 12 { break; }
+                            if stream.buffer.len() < 2 { continue; }
+                            if stream.buffer[1] == 2 {
+                                if stream.buffer.len() < 4 { continue; }
+                                if stream.buffer[3] == 0 {
+                                    if stream.buffer.len() >= 14 {
+                                        stream.buffer.used_empty(14);
+                                        break;
+                                    }
+                                } else { return Poll::Ready(Err(std::io::Error::other("socks5 auth fail"))); }
+                            } else {
+                                if stream.buffer.len() >= 12 {
+                                    stream.buffer.used_empty(12);
+                                    break;
+                                }
+                            }
                         }
                     }
                 }
-                stream.buffer.copy_within(12..stream.buffer.len(), 0);
-                stream.buffer.set_len(stream.buffer.len() - 12);
             }
             stream.handle_proxy = true;
             if stream.buffer.is_empty() {

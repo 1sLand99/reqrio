@@ -60,9 +60,10 @@ headers = {
 }
 session.set_headers(headers)
 session.set_timeout()
-for bs in session.open_stream('https://tls.123408.xyz/api/clean', Method.GET):
-    print(len(bs))
+# for bs in session.open_stream('https://tls.123408.xyz/api/clean', Method.GET):
+#     print(len(bs))
+# session.set_proxy("socks5://123:123@127.0.0.1:12000")
 resp = session.get('https://www.baidu.com/')
-# print(resp.header.__dict__)
-# print(resp.text())
+print(resp.header.__dict__)
+print(resp.text())
 session.close()
