@@ -14,7 +14,7 @@ fn main() {
             .with_alpn(ALPN::Http11)
             // .with_mtls(certs, key)
             .with_verify(false)
-            .with_proxy(Proxy::try_from("socks5://123:123@127.0.0.1:12000").unwrap())
+            // .with_proxy(Proxy::try_from("socks5://123:123@127.0.0.1:12000").unwrap())
             ;
         let headers = json::object! {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
@@ -35,10 +35,10 @@ fn main() {
         };
         // req.set_url("https://zhifazhe.top").unwrap();
         // req.set_url("http://3434.characlink.com").unwrap();
-        // req.set_url("https://m.so.com").unwrap();
+        req.set_url("https://m.so.com").unwrap();
 
         // req.set_url("https://ms.xllgl.top").unwrap();
-        req.set_url("https://www.baidu.com").unwrap();
+        // req.set_url("https://www.baidu.com").unwrap();
 
         // req.set_url("https://jetstar.com").unwrap();
         // let et = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
