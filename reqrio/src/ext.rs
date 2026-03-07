@@ -1,7 +1,6 @@
 use crate::body::{BodyType, HttpField};
 use crate::error::HlsResult;
 use crate::file::HttpFile;
-use crate::hpack::HPackCoding;
 use crate::packet::*;
 use crate::stream::Stream;
 use crate::timeout::Timeout;
@@ -14,7 +13,7 @@ pub(crate) struct ReqParam<'a> {
     pub(crate) addr: &'a Addr,
     pub(crate) buffer: &'a mut Buffer,
     pub(crate) callback: &'a mut Option<ReqCallback>,
-    pub(crate) hpack_coder: &'a mut HPackCoding,
+    pub(crate) stream_identifier: &'a u32,
 }
 
 #[allow(private_bounds)]
@@ -164,8 +163,6 @@ pub trait ReqExt: ReqPriExt + Sized {
 pub(crate) trait ReqPriExt {
     fn into_stream(self) -> Stream;
     fn callback(&mut self) -> &mut Option<ReqCallback>;
-    fn addr(&self) -> &Addr;
-    fn scheme(&self) -> &Scheme;
     fn req_param(&mut self) -> ReqParam<'_>;
     fn body_type(&self) -> &BodyType;
     fn body_type_mut(&mut self) -> &mut BodyType;
@@ -200,14 +197,14 @@ pub(crate) trait ReqPriExt {
         let param = self.req_param();
         let frame = H2FrameBuffer::from_bytes(param.buffer.filled(), frame_type)?;
         let res = match param.callback {
-            None => response.extend_frame(&frame, param.hpack_coder.decoder()),
+            None => response.extend_frame(&frame, param.header.hpack_coder().decoder()),
             Some(callback) => {
                 match frame.frame_type() {
                     FrameType::Data => {
                         callback(frame.payload())?;
                         Ok(frame.is_end_frame())
                     }
-                    FrameType::Headers => Ok(response.extend_frame(&frame, param.hpack_coder.decoder())?),
+                    FrameType::Headers => Ok(response.extend_frame(&frame, param.header.hpack_coder().decoder())?),
                     _ => Ok(false),
                 }
             }
@@ -290,16 +287,20 @@ pub trait ReqGenExt: ReqExt {
         Ok(param.buffer)
     }
 
-    fn gen_h2_header(&mut self) -> HlsResult<Vec<HeaderKey>> {
-        let mut headers = self.header().as_h2c()?;
-        headers.insert(1, HeaderKey::new(":authority".to_string(), HeaderValue::String(self.addr().to_string().replace(":80", "").replace(":443", ""))));
-        headers.insert(2, HeaderKey::new(":scheme".to_string(), HeaderValue::String(self.scheme().to_string())));
-        headers.insert(3, HeaderKey::new(":path".to_string(), HeaderValue::String(self.header().uri().to_string())));
-        Ok(headers)
-    }
-
-
-    fn gen_h2_body(&mut self) -> HlsResult<Vec<u8>> {
-        self.format_body("abcde12345abcdebbeeaaccafeacb454")
+    fn gen_h2(&mut self) -> HlsResult<&mut Buffer> {
+        let param = self.req_param();
+        param.buffer.reset();
+        let mut header_frame = H2Frame::new_header(param.body.len(), *param.stream_identifier);
+        header_frame.set_priority(146);
+        header_frame.write_to(param.buffer);
+        //有priority，payload长度需要+5
+        let hdr_len = param.header.write_to(param.addr, param.body.len(), param.buffer)? + 5;
+        param.buffer.write_u32_in(0, hdr_len as u32, true);
+        if !param.body.is_empty() {
+            for body in H2Frame::new_body(param.body.to_bytes(), *param.stream_identifier) {
+                body.write_to(param.buffer);
+            }
+        }
+        Ok(param.buffer)
     }
 }

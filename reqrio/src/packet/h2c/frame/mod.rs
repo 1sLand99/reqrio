@@ -134,15 +134,15 @@ impl<'a> H2Frame<'a> {
         }
     }
 
-    pub fn new_header(hdr_bs: &'a [u8], body_len: usize, sid: u32) -> H2Frame<'a> {
+    pub fn new_header(body_len: usize, sid: u32) -> H2Frame<'a> {
         let mut res = H2Frame {
-            len: hdr_bs.len(),
+            len: 0,
             frame_type: FrameType::Headers,
             flag: FrameFlag::EndHeader,
             stream_identifier: sid,
             stream_dependency: 0,
             weight: 0,
-            payload: hdr_bs,
+            payload: &[],
             settings: vec![],
         };
         if body_len == 0 { res.flag |= FrameFlag::EndStream; }
@@ -181,7 +181,7 @@ impl<'a> H2Frame<'a> {
         &self.frame_type
     }
 
-    pub fn payload(&self) -> &[u8] { &self.payload }
+    pub fn payload(&self) -> &[u8] { self.payload }
 
     pub fn set_payload(&mut self, payload: &'a [u8]) { self.payload = payload }
 
@@ -213,6 +213,11 @@ impl<'a> H2Frame<'a> {
 
     pub fn add_flag(&mut self, flag: FrameFlag) {
         self.flag |= flag;
+    }
+
+    pub fn set_priority(&mut self, weight: u8) {
+        self.weight = weight;
+        self.add_flag(FrameFlag::Priority);
     }
 
     pub fn set_stream_identifier(&mut self, stream_identifier: u32) {

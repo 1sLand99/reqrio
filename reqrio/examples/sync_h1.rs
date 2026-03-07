@@ -11,7 +11,7 @@ fn main() {
         // let key = RsaKey::from_pri_pem_file("/home/xl/1/client.key").unwrap();
         let mut req = ScReq::new()
             // .with_fingerprint(fingerprint)
-            .with_alpn(ALPN::Http11)
+            .with_alpn(ALPN::Http20)
             // .with_mtls(certs, key)
             .with_verify(false)
             // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10280))

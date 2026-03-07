@@ -12,6 +12,12 @@ pub(crate) enum BodyType {
 }
 
 impl BodyType {
+    pub fn is_empty(&self) -> bool {
+        match self {
+            BodyType::Bytes(b) => b.is_empty(),
+            BodyType::Files { files, .. } => files.is_empty()
+        }
+    }
     pub fn len(&self) -> usize {
         match self {
             BodyType::Bytes(b) => b.len(),
@@ -85,20 +91,11 @@ impl BodyType {
             }
         }
     }
-}
 
-
-impl Drop for BodyType {
-    fn drop(&mut self) {
+    pub fn to_bytes(&self) -> &[u8] {
         match self {
-            BodyType::Bytes(v) => {
-                v.clear();
-                v.shrink_to_fit();
-            }
-            BodyType::Files { data, files } => {
-                data.clear();
-                files.clear();
-            }
+            BodyType::Bytes(b) => b,
+            BodyType::Files { .. } => panic!("unsupported body type"),
         }
     }
 }

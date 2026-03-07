@@ -1,5 +1,5 @@
 use crate::error::{HlsError, HlsResult};
-use crate::hpack::HPack;
+use crate::hpack::{HPack, HPackCoding};
 use crate::json::JsonValue;
 use crate::*;
 pub use key::HeaderKey;
@@ -24,6 +24,7 @@ pub struct Header {
     uri: Uri,
     status: HttpStatus,
     keys: Vec<HeaderKey>,
+    hpack_coder: HPackCoding,
 }
 
 impl Header {
@@ -34,6 +35,7 @@ impl Header {
             uri: Uri::default(),
             status: HttpStatus::None,
             keys: vec![],
+            hpack_coder: HPackCoding::new(),
         }
     }
 
@@ -117,7 +119,7 @@ impl Header {
         }
     }
 
-    fn write_h1_buffer<W: WriteExt>(&self, addr: &Addr, len: usize, writer: &mut W) -> HlsResult<()> {
+    fn write_h1_buffer<W: WriteExt>(&self, addr: &Addr, len: usize, writer: &mut W) -> HlsResult<usize> {
         // first line: Method uri version
         writer.write_slice(self.method.to_string().as_bytes());
         writer.write_u8(b' ');
@@ -151,18 +153,35 @@ impl Header {
             }
             writer.write_slice(b"\r\n");
         }
-        Ok(())
+        Ok(0)
     }
 
-    // fn write_h2_buffer<W: WriteExt>(&self, addr: &Addr, writer: &mut W) -> HlsResult<()> {}
-
-    pub fn write_to<W: WriteExt>(&self, addr: &Addr, len: usize, writer: &mut W) -> HlsResult<()> {
-        match self.alpn {
-            ALPN::Http10 | ALPN::Http11 => self.write_h1_buffer(addr, len, writer)?,
-            ALPN::Http20 => {}
-            ALPN::Custom(_) => return Err("unsupported http protocol".into()),
+    fn write_h2_buffer<W: WriteExt>(&mut self, addr: &Addr, writer: &mut W) -> HlsResult<usize> {
+        let start = writer.offset().end;
+        writer.write_slice(&self.hpack_coder.encoder().encode_one(b":method", self.method.to_string())?);
+        writer.write_slice(&self.hpack_coder.encoder().encode_one(b":authority", addr.to_string().replace(":80", "").replace(":443", ""))?);
+        writer.write_slice(&self.hpack_coder.encoder().encode_one(b":scheme", b"https")?);
+        writer.write_slice(&self.hpack_coder.encoder().encode_one(b":path", self.uri.to_string())?);
+        let invalid_keys = ["connection", "host", "content-length", "transfer-encoding", "upgrade"];
+        let keys = self.keys.iter().filter(|x| !invalid_keys.contains(&x.name_lower().as_str()) && !x.value().is_empty());
+        for key in keys {
+            let name = key.name_lower();
+            match key.value() {
+                HeaderValue::Cookies(cookies) => for cookie in cookies {
+                    writer.write_slice(&self.hpack_coder.encoder().encode_one(name.to_owned(), cookie.as_req())?)
+                }
+                _ => writer.write_slice(&self.hpack_coder.encoder().encode_one(name, key.value().to_string())?)
+            }
         }
-        Ok(())
+        Ok(writer.offset().end - start)
+    }
+
+    pub fn write_to<W: WriteExt>(&mut self, addr: &Addr, len: usize, writer: &mut W) -> HlsResult<usize> {
+        match self.alpn {
+            ALPN::Http10 | ALPN::Http11 => self.write_h1_buffer(addr, len, writer),
+            ALPN::Http20 => self.write_h2_buffer(addr, writer),
+            ALPN::Custom(_) => Err("unsupported http protocol".into()),
+        }
     }
 
     pub fn as_raw(&mut self, body_len: usize) -> HlsResult<Vec<String>> {
@@ -478,6 +497,8 @@ impl Header {
         }
         Ok(())
     }
+
+    pub(crate) fn hpack_coder(&mut self) -> &mut HPackCoding { &mut self.hpack_coder }
 }
 
 #[cfg(feature = "export")]

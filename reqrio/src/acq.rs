@@ -4,7 +4,7 @@ use crate::ext::{ReqExt, ReqParam};
 use crate::ext::{ReqGenExt, ReqPriExt};
 use crate::hpack::HPackCoding;
 use crate::json::JsonValue;
-use crate::packet::{FrameFlag, FrameType, H2Frame, H2FrameBuffer, HeaderKey};
+use crate::packet::{FrameFlag, FrameType, H2Frame, H2FrameBuffer};
 use crate::stream::{ConnParam, Proxy, Stream};
 use crate::*;
 use std::mem;
@@ -13,7 +13,6 @@ pub struct AcReq {
     header: Header,
     scheme: Scheme,
     addr: Addr,
-    hack_coder: HPackCoding,
     stream: Stream,
     timeout: Timeout,
     callback: Option<ReqCallback>,
@@ -34,7 +33,6 @@ impl Default for AcReq {
             header: Header::new_req_h1(),
             scheme: Scheme::Http,
             addr: Addr::default(),
-            hack_coder: HPackCoding::new(),
             stream: Stream::NonConnection,
             timeout: Timeout::new(),
             callback: None,
@@ -116,9 +114,8 @@ impl AcReq {
     async fn handle_io(&mut self) -> HlsResult<Response> {
         let response = match self.header.alpn() {
             ALPN::Http20 => {
-                let headers = self.gen_h2_header()?;
-                let body = self.gen_h2_body()?;
-                self.h2c_io(headers, body).await
+                self.gen_h2()?;
+                self.h2c_io().await
             }
             _ => {
                 self.gen_h1()?;
@@ -173,7 +170,7 @@ impl AcReq {
     }
 
     pub async fn re_conn(&mut self) -> HlsResult<()> {
-        self.hack_coder = HPackCoding::new();
+        *self.header.hpack_coder() = HPackCoding::new();
         self.stream_id = 0;
         self.buffer.reset();
         for i in 0..self.timeout.connect_times() {
@@ -262,19 +259,7 @@ impl AcReq {
         Ok(())
     }
 
-    pub async fn h2c_io(&mut self, headers: Vec<HeaderKey>, body: Vec<u8>) -> HlsResult<Response> {
-        let hdr_bs = self.hack_coder.encode(headers)?;
-        let mut header_frame = H2Frame::new_header(&hdr_bs, body.len(), self.stream_id);
-        header_frame.set_weight(146);
-        header_frame.add_flag(FrameFlag::Priority);
-        header_frame.write_to(&mut self.buffer);
-        for body_frame in H2Frame::new_body(&body, self.stream_id) {
-            if self.buffer.unfilled_mut().len() < body_frame.payload().len() + 9 {
-                self.stream.async_write(self.buffer.filled()).await?;
-                self.buffer.reset();
-            }
-            body_frame.write_to(&mut self.buffer);
-        }
+    pub async fn h2c_io(&mut self) -> HlsResult<Response> {
         self.stream.async_write(self.buffer.filled()).await?;
         self.buffer.reset();
         let mut response = Response::new();
@@ -306,14 +291,6 @@ impl ReqPriExt for AcReq {
     fn callback(&mut self) -> &mut Option<ReqCallback> {
         &mut self.callback
     }
-    fn addr(&self) -> &Addr {
-        &self.addr
-    }
-
-    fn scheme(&self) -> &Scheme {
-        &self.scheme
-    }
-
     fn req_param(&mut self) -> ReqParam<'_> {
         ReqParam {
             header: &mut self.header,
@@ -321,7 +298,7 @@ impl ReqPriExt for AcReq {
             addr: &self.addr,
             buffer: &mut self.buffer,
             callback: &mut self.callback,
-            hpack_coder: &mut self.hack_coder,
+            stream_identifier: &self.stream_id,
         }
     }
 

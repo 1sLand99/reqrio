@@ -46,6 +46,10 @@ impl HackEncode {
         }
         Ok(res)
     }
+
+    pub fn encode_one(&mut self, name: impl Into<Vec<u8>>, value: impl Into<Vec<u8>>) -> HlsResult<Vec<u8>> {
+        Ok(self.0.encode((name.into(), value.into(), 0x2 | 0x4 | 0x10))?)
+    }
 }
 
 pub struct HackDecode(httlib_hpack::Decoder<'static>);
@@ -87,6 +91,8 @@ impl HPackCoding {
     pub fn encode(&mut self, headers: Vec<HeaderKey>) -> HlsResult<Vec<u8>> {
         self.encoder.encode(headers)
     }
+
+    pub fn encoder(&mut self) -> &mut HackEncode { &mut self.encoder }
 
     pub fn decoder(&mut self) -> &mut HackDecode { &mut self.decoder }
 }
