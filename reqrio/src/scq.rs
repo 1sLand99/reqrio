@@ -1,11 +1,11 @@
-use std::mem;
+use crate::body::BodyType;
 use crate::ext::{ReqParam, ReqPriExt};
-use crate::hpack::{HPackCoding, HackDecode};
+use crate::hpack::HPackCoding;
+use crate::packet::{FrameFlag, H2FrameBuffer};
 use crate::stream::{ConnParam, Stream};
 use crate::*;
 use json::JsonValue;
-use crate::body::BodyType;
-use crate::packet::FrameFlag;
+use std::mem;
 
 #[repr(C)]
 pub struct ScReq {
@@ -165,6 +165,7 @@ impl ScReq {
     pub fn re_conn(&mut self) -> HlsResult<()> {
         self.hack_coder = HPackCoding::new();
         self.stream_id = 0;
+        self.buffer.reset();
         for i in 0..self.timeout.connect_times() {
             let param = ConnParam {
                 scheme: &self.scheme,
@@ -241,10 +242,8 @@ impl ScReq {
 impl ScReq {
     pub fn handle_h2_setting(&mut self) -> HlsResult<()> {
         self.buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
-        let setting_frame = self.fingerprint.h2_setting().clone();
-        setting_frame.write_to(&mut self.buffer);
-        let update_frame = self.fingerprint.h2_window_update().clone();
-        update_frame.write_to(&mut self.buffer);
+        self.buffer.write_slice(self.fingerprint.h2_setting());
+        self.buffer.write_slice(self.fingerprint.h2_window_update());
         self.stream.sync_write(self.buffer.filled())?;
         self.buffer.reset();
         self.stream_id += 1;
@@ -253,11 +252,11 @@ impl ScReq {
 
     pub fn h2c_io(&mut self, headers: Vec<HeaderKey>, body: Vec<u8>) -> HlsResult<Response> {
         let hdr_bs = self.hack_coder.encode(headers)?;
-        let mut header_frame = H2Frame::new_header(hdr_bs, body.len(), self.stream_id);
+        let mut header_frame = H2Frame::new_header(&hdr_bs, body.len(), self.stream_id);
         header_frame.set_weight(146);
         header_frame.add_flag(FrameFlag::Priority);
         header_frame.write_to(&mut self.buffer);
-        for body_frame in H2Frame::new_body(body, self.stream_id) {
+        for body_frame in H2Frame::new_body(&body, self.stream_id) {
             if self.buffer.unfilled_mut().len() < body_frame.payload().len() + 9 {
                 self.stream.sync_write(self.buffer.filled())?;
                 self.buffer.reset();
@@ -269,15 +268,16 @@ impl ScReq {
         let mut response = Response::new();
         loop {
             self.stream.sync_read(&mut self.buffer)?;
-            while let Ok(frame) = H2Frame::from_bytes(&mut self.buffer) {
-                if frame.frame_type() == &FrameType::Settings && frame.flag().end_stream() {
+            while let Ok((frame_type, frame_flag, frame_len)) = H2FrameBuffer::buffer_enough(&self.buffer) {
+                if frame_type == FrameType::Settings && frame_flag.end_stream() {
                     let mut end_frame = H2Frame::none_frame();
                     end_frame.set_frame_type(FrameType::Settings);
                     end_frame.set_flag(FrameFlag::EndStream);
                     self.stream.sync_write(end_frame.to_bytes().as_ref())?;
+                    self.buffer.move_to(frame_len..self.buffer.len(), 0);
                     continue;
                 }
-                if self.handle_h2_res(frame, &mut response)? { return Ok(response); };
+                if self.handle_h2_res(frame_type, &mut response)? { return Ok(response); }
             }
         }
     }
@@ -293,9 +293,6 @@ impl ReqPriExt for ScReq {
     fn callback(&mut self) -> &mut Option<ReqCallback> {
         &mut self.callback
     }
-    fn hack_decoder(&mut self) -> &mut HackDecode {
-        self.hack_coder.decoder()
-    }
     fn addr(&self) -> &Addr {
         &self.addr
     }
@@ -310,6 +307,8 @@ impl ReqPriExt for ScReq {
             body: &self.body,
             addr: &self.addr,
             buffer: &mut self.buffer,
+            hpack_coder: &mut self.hack_coder,
+            callback: &mut self.callback,
         }
     }
 

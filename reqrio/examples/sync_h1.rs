@@ -35,10 +35,10 @@ fn main() {
         };
         // req.set_url("https://zhifazhe.top").unwrap();
         // req.set_url("http://3434.characlink.com").unwrap();
-        // req.set_url("https://m.so.com").unwrap();
+        req.set_url("https://m.so.com").unwrap();
 
         // req.set_url("https://ms.xllgl.top").unwrap();
-        req.set_url("https://www.baidu.com").unwrap();
+        // req.set_url("https://www.baidu.com").unwrap();
 
         // req.set_url("https://jetstar.com").unwrap();
         // let et = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
@@ -53,9 +53,9 @@ fn main() {
         req.set_headers_json(headers).unwrap();
         // println!("6");
         let res = req.get().unwrap();
-        res.text().unwrap();
+        // res.text().unwrap();
         // println!("{}", res.header());
-        // println!("{}", res.text().unwrap().len());
+        println!("{}", res.text().unwrap().len());
         // for _ in 0..50 {
         //     let resp = req.get().unwrap();
         //     // let body = res.decode_body().unwrap().as_string().unwrap();

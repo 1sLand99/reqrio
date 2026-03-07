@@ -24,10 +24,10 @@ impl Buffer {
     }
 
     pub fn new_bytes(bytes: Vec<u8>) -> Self {
-        let mut res = Buffer::default();
-        res.buffer[..bytes.len()].copy_from_slice(&bytes);
-        res.offset.end += bytes.len();
-        res
+        Buffer {
+            offset: 0..bytes.len(),
+            buffer: bytes,
+        }
     }
 
     #[cfg(feature = "tokio")]

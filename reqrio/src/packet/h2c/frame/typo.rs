@@ -1,6 +1,6 @@
 use crate::error::HlsResult;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub enum FrameType {
     Data = 0x00,
     Headers = 0x01,

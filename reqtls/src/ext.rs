@@ -10,6 +10,10 @@ pub trait WriteExt {
         let r = if fix { 1..4 } else { 0..4 };
         self.write_slice(&v.to_be_bytes()[r])
     }
+    fn write_ru32(&mut self, v: &u32, fix: bool) {
+        let r = if fix { 1..4 } else { 0..4 };
+        self.write_slice(&v.to_be_bytes()[r]) 
+    }
     fn write_u64(&mut self, v: u64) { self.write_slice(&v.to_be_bytes()) }
     fn write_i8(&mut self, v: i8) { self.write_slice(&v.to_be_bytes()) }
     fn write_i16(&mut self, v: i16) { self.write_slice(&v.to_be_bytes()) }

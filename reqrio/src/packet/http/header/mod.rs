@@ -1,7 +1,7 @@
-use crate::hpack::HPack;
 use crate::error::{HlsError, HlsResult};
-use crate::*;
+use crate::hpack::HPack;
 use crate::json::JsonValue;
+use crate::*;
 pub use key::HeaderKey;
 pub use method::Method;
 pub use status::HttpStatus;
@@ -117,7 +117,7 @@ impl Header {
         }
     }
 
-    fn write_h1_buffer<W: WriteExt>(&self, host: &str, len: usize, writer: &mut W) -> HlsResult<()> {
+    fn write_h1_buffer<W: WriteExt>(&self, addr: &Addr, len: usize, writer: &mut W) -> HlsResult<()> {
         // first line: Method uri version
         writer.write_slice(self.method.to_string().as_bytes());
         writer.write_u8(b' ');
@@ -127,11 +127,17 @@ impl Header {
         writer.write_slice(b"\r\n");
         //header keys
         for key in self.keys.iter() {
-            if key.value().is_empty() { continue; }
+            if key.value().is_empty() && key.name().to_lowercase() != "Host" { continue; }
             writer.write_slice(key.name().as_bytes());
             writer.write_slice(b": ");
             match key.name_lower().as_str() {
-                "host" => writer.write_slice(host.as_bytes()),
+                "host" => {
+                    writer.write_slice(addr.host().as_bytes());
+                    if addr.port() != 80 && addr.port() != 443 {
+                        writer.write_slice(b":");
+                        writer.write_slice(addr.port().to_string().as_bytes());
+                    }
+                }
                 "content-length" => writer.write_slice(len.to_string().as_bytes()),
                 "cookie" => {
                     for (index, cookie) in key.cookies().unwrap_or(&vec![]).iter().enumerate() {
@@ -148,9 +154,11 @@ impl Header {
         Ok(())
     }
 
-    pub fn write_to<W: WriteExt>(&self, host: &str, len: usize, writer: &mut W) -> HlsResult<()> {
+    // fn write_h2_buffer<W: WriteExt>(&self, addr: &Addr, writer: &mut W) -> HlsResult<()> {}
+
+    pub fn write_to<W: WriteExt>(&self, addr: &Addr, len: usize, writer: &mut W) -> HlsResult<()> {
         match self.alpn {
-            ALPN::Http10 | ALPN::Http11 => self.write_h1_buffer(host, len, writer)?,
+            ALPN::Http10 | ALPN::Http11 => self.write_h1_buffer(addr, len, writer)?,
             ALPN::Http20 => {}
             ALPN::Custom(_) => return Err("unsupported http protocol".into()),
         }
@@ -449,7 +457,8 @@ impl Header {
 
     pub(crate) fn init_by_alpn(&mut self, alpn: ALPN) {
         if alpn == self.alpn { return; }
-        let keys = if let ALPN::Http20 = alpn { Header::new_req_h2().keys } else { Header::new_req_h1().keys };
+        self.alpn = alpn;
+        let keys = if let ALPN::Http20 = self.alpn { Header::new_req_h2().keys } else { Header::new_req_h1().keys };
         let keys = mem::replace(&mut self.keys, keys);
         for ok in keys {
             let nk = self.keys.iter_mut().find(|x| x.name_lower() == ok.name_lower());

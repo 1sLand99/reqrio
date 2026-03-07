@@ -1,18 +1,20 @@
 use crate::body::{BodyType, HttpField};
 use crate::error::HlsResult;
 use crate::file::HttpFile;
+use crate::hpack::HPackCoding;
 use crate::packet::*;
+use crate::stream::Stream;
 use crate::timeout::Timeout;
 use crate::*;
 use json::JsonValue;
-use crate::hpack::HackDecode;
-use crate::stream::Stream;
 
 pub(crate) struct ReqParam<'a> {
     pub(crate) header: &'a mut Header,
     pub(crate) body: &'a BodyType,
     pub(crate) addr: &'a Addr,
     pub(crate) buffer: &'a mut Buffer,
+    pub(crate) callback: &'a mut Option<ReqCallback>,
+    pub(crate) hpack_coder: &'a mut HPackCoding,
 }
 
 #[allow(private_bounds)]
@@ -162,7 +164,6 @@ pub trait ReqExt: ReqPriExt + Sized {
 pub(crate) trait ReqPriExt {
     fn into_stream(self) -> Stream;
     fn callback(&mut self) -> &mut Option<ReqCallback>;
-    fn hack_decoder(&mut self) -> &mut HackDecode;
     fn addr(&self) -> &Addr;
     fn scheme(&self) -> &Scheme;
     fn req_param(&mut self) -> ReqParam<'_>;
@@ -194,21 +195,25 @@ pub(crate) trait ReqPriExt {
         }
     }
 
-    fn handle_h2_res(&mut self, frame: H2Frame, response: &mut Response) -> HlsResult<bool> {
-        if frame.frame_type() == &FrameType::Goaway { return Err("Connection reset by peer".into()); }
-        match self.callback() {
-            None => response.extend_frame(frame, self.hack_decoder()),
+    fn handle_h2_res(&mut self, frame_type: FrameType, response: &mut Response) -> HlsResult<bool> {
+        if frame_type == FrameType::Goaway { return Err(HlsError::PeerClosedConnection); }
+        let param = self.req_param();
+        let frame = H2FrameBuffer::from_bytes(param.buffer.filled(), frame_type)?;
+        let res = match param.callback {
+            None => response.extend_frame(&frame, param.hpack_coder.decoder()),
             Some(callback) => {
                 match frame.frame_type() {
                     FrameType::Data => {
                         callback(frame.payload())?;
                         Ok(frame.is_end_frame())
                     }
-                    FrameType::Headers => Ok(response.extend_frame(frame, self.hack_decoder())?),
+                    FrameType::Headers => Ok(response.extend_frame(&frame, param.hpack_coder.decoder())?),
                     _ => Ok(false),
                 }
             }
-        }
+        };
+        param.buffer.move_to(frame.frame_len()..param.buffer.len(), 0);
+        res
     }
 
     fn format_file_body(data: &Vec<HttpField>, files: &Vec<HttpFile>, md5: &str) -> HlsResult<Vec<u8>> {
@@ -274,7 +279,8 @@ pub trait ReqGenExt: ReqExt {
 
     fn gen_h1(&mut self) -> HlsResult<&mut Buffer> {
         let param = self.req_param();
-        param.header.write_to(param.addr.host(), param.body.len(), param.buffer)?;
+        param.buffer.reset();
+        param.header.write_to(param.addr, param.body.len(), param.buffer)?;
         param.buffer.write_slice(b"\r\n");
         if let Some(context_type) = param.header.content_type() && let ContentType::File(md5) = context_type {
             param.body.write_to(param.buffer, md5);
