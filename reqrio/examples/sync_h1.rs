@@ -1,4 +1,4 @@
-use reqrio::{json, Proxy, ReqExt, ScReq, ALPN};
+use reqrio::{json, Proxy, ReqExt, ScReq, Timeout, ALPN};
 use std::time::SystemTime;
 
 fn main() {
@@ -9,13 +9,20 @@ fn main() {
         // let fingerprint = Fingerprint::from_ja3("771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-17513-21,29-23-24,0", "4b107bbnbc-01o-3781k7bbnbc-01v25461k").unwrap();
         // let certs = Certificate::from_pem_file("/home/xl/1/client.crt").unwrap();
         // let key = RsaKey::from_pri_pem_file("/home/xl/1/client.key").unwrap();
+        let mut timeout = Timeout::new();
+        timeout.set_connect(30000000);
+        timeout.set_handle(300000000);
+        timeout.set_read(99999999999);
+        timeout.set_write(99999999999);
+        timeout.set_handle_times(1);
         let mut req = ScReq::new()
             // .with_fingerprint(fingerprint)
             .with_alpn(ALPN::Http11)
             // .with_mtls(certs, key)
             .with_verify(false)
-            .with_proxy(Proxy::new_http_plain("127.0.0.1",10240))
+            .with_timeout(timeout)
             .with_proxy(Proxy::try_from("socks5://username:password@127.0.0.1:12000").unwrap())
+            // .with_proxy(Proxy::try_from("socks5://127.0.0.1:10279").unwrap())
             ;
         let headers = json::object! {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
