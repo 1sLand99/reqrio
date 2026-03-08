@@ -1,13 +1,13 @@
 use crate::body::BodyType;
 use crate::ext::{ReqParam, ReqPriExt};
 use crate::hpack::HPackCoding;
-use crate::packet::{FrameFlag, H2FrameBuffer, HeaderBuffer};
+use crate::packet::{FrameFlag, H2FrameBuffer};
+use crate::reader::ReadExt;
+use crate::request::RequestBuffer;
 use crate::stream::{ConnParam, Stream};
 use crate::*;
 use json::JsonValue;
 use std::mem;
-use crate::reader::ReadExt;
-use crate::request::RequestBuffer;
 
 #[repr(C)]
 pub struct ScReq {
@@ -101,8 +101,7 @@ impl ScReq {
     }
 
     pub fn h1_io(&mut self) -> HlsResult<Response> {
-        let header = HeaderBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id);
-        let mut request = RequestBuffer::new(header, &mut self.body);
+        let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id, &mut self.body);
         loop {
             self.buffer.reset();
             let len = request.read(&mut self.buffer)?;
@@ -252,8 +251,7 @@ impl ScReq {
     }
 
     pub fn h2c_io(&mut self) -> HlsResult<Response> {
-        let header = HeaderBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id);
-        let mut request = RequestBuffer::new(header, &mut self.body);
+        let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id, &mut self.body);
         loop {
             self.buffer.reset();
             let len = request.read(&mut self.buffer)?;

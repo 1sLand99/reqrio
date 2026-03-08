@@ -15,6 +15,7 @@ use std::string::FromUtf8Error;
 use std::sync::PoisonError;
 #[cfg(feature = "aync")]
 use tokio::time::error::Elapsed;
+use crate::form_data::FormError;
 
 #[derive(Debug)]
 pub enum HlsError {
@@ -162,6 +163,12 @@ impl From<Alert> for HlsError {
 
 impl From<BufferError> for HlsError {
     fn from(value: BufferError) -> Self {
+        HlsError::Currently(value.to_string())
+    }
+}
+
+impl From<FormError> for HlsError {
+    fn from(value: FormError) -> Self {
         HlsError::Currently(value.to_string())
     }
 }

@@ -1,6 +1,8 @@
-use crate::body::{BodyType, HttpField};
+use std::path::Path;
+use std::sync::Arc;
+use crate::body::BodyType;
 use crate::error::HlsResult;
-use crate::file::HttpFile;
+use crate::form_data::HttpFile;
 use crate::packet::*;
 use crate::stream::Stream;
 use crate::timeout::Timeout;
@@ -31,29 +33,26 @@ pub trait ReqExt: ReqPriExt + Sized {
     }
     /// * 文件上传示例
     /// ```rust
-    /// let files=vec![]
-    /// files.push(HttpFile::new_fp("path/to/file1"));
-    /// files.push(HttpFile::new_fp("path/to/file1"));
+    /// use reqrio::*;
     /// let data=json::object!{"key":"value"};
+    /// let file=HttpFile::new_path_data(data,"path/to/file1").unwrap();
+    /// file.add_form(FileForm::new_path("path/to/file2").unwrap());
     /// req.set_files(data,files)
     /// ```
-    fn set_files(&mut self, data: JsonValue, files: Vec<HttpFile>) -> HlsResult<()> {
-        let md5 = hash::md5_hex(data.dump())?;
-        let data = data.into_entries().map(|(name, value)| HttpField {
-            name,
-            value: value.dump(),
-        }).collect::<Vec<_>>();
-        *self.body_type_mut() = BodyType::Files { data, files };
-        self.header_mut().set_content_type(ContentType::File(md5));
+    fn set_files(&mut self, file: HttpFile) -> HlsResult<()> {
+        let md5 = hash::md5_hex(file.len().to_string())?;
+        *self.body_type_mut() = BodyType::Files(file);
+        self.header_mut().set_content_type(ContentType::File(Arc::new(md5)));
         Ok(())
     }
-    fn add_file(&mut self, file: HttpFile) {
-        if let BodyType::Files { files, .. } = self.body_type_mut() {
-            files.push(file);
+    fn add_file(&mut self, path: impl AsRef<Path>) -> HlsResult<()> {
+        if let BodyType::Files(files) = self.body_type_mut() {
+            files.add_form(FileForm::new_path(path)?);
         } else {
-            *self.body_type_mut() = BodyType::Files { data: vec![], files: vec![file] };
+            *self.body_type_mut() = BodyType::Files(HttpFile::new_path(path)?);
+            self.header_mut().set_content_type(ContentType::File(Arc::new("12345678123456781234567812345678".to_string())));
         }
-        self.header_mut().set_content_type(ContentType::File("".to_string()))
+        Ok(())
     }
     fn header_mut(&mut self) -> &mut Header;
     fn header(&self) -> &Header;

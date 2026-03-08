@@ -134,7 +134,7 @@ pub use stream::TlsStream;
 pub use timeout::Timeout;
 #[cfg(feature = "tokio")]
 pub use tokio;
-pub use file::HttpFile;
+pub use form_data::{HttpFile, FileForm};
 
 pub type ReqCallback = Box<dyn FnMut(&[u8]) -> HlsResult<()>>;
 pub const HTTP_GAP: &[u8; 4] = b"\r\n\r\n";
@@ -148,7 +148,7 @@ mod error;
 #[cfg(feature = "export")]
 mod export;
 mod ext;
-mod file;
+mod form_data;
 mod packet;
 mod scq;
 mod stream;

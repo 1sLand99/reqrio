@@ -1,21 +1,18 @@
-use crate::file::HttpFile;
-use crate::Buffer;
 use crate::error::HlsResult;
-use crate::reader::{BufReader, ReadExt};
-
-pub(crate) struct HttpField {
-    pub(crate) name: String,
-    pub(crate) value: String,
-}
+use crate::form_data::{HttpFile, HttpFileBuffer};
+use crate::reader::ReadExt;
+use crate::Buffer;
+use std::io::{Cursor, Read};
+use std::sync::Arc;
 
 pub(crate) enum BodyType {
-    Bytes(BufReader<Vec<u8>>),
-    Files { data: Vec<HttpField>, files: Vec<HttpFile> },
+    Bytes(Cursor<Vec<u8>>),
+    Files(HttpFile),
 }
 
 impl BodyType {
     pub fn new_byte(bytes: Vec<u8>) -> Self {
-        BodyType::Bytes(BufReader::new(bytes))
+        BodyType::Bytes(Cursor::new(bytes))
     }
 
     // pub fn is_empty(&self) -> bool {
@@ -26,28 +23,8 @@ impl BodyType {
     // }
     pub fn len(&self) -> usize {
         match self {
-            BodyType::Bytes(b) => b.len(),
-            BodyType::Files { data, files } => {
-                let mut len = 0;
-                for datum in data {
-                    len += 2 + 32 + 2 + 2;
-                    len += 39 + datum.name.len() + 2;
-                    len += 2;
-                    len += datum.value.len() + 2;
-                    len += 2
-                }
-                for file in files {
-                    len += 58 + 32 + file.filed_name().len() + file.filename().len();
-                    if file.file_type() != "" {
-                        len += 16 + file.file_type().len();
-                    }
-                    len += 2;
-                    len += file.filesize();
-                    len += 2;
-                }
-                len += 6 + 32;
-                len
-            }
+            BodyType::Bytes(b) => b.get_ref().len(),
+            BodyType::Files(f) => f.len()
         }
     }
 
@@ -72,22 +49,22 @@ impl BodyType {
     //                 //line5
     //                 writer.write_slice(b"\r\n");
     //             }
-    //             for file in files {
+    //             for form_data in files {
     //                 //line1
     //                 writer.write_slice(b"--");
     //                 writer.write_slice(md5.as_bytes());
     //                 writer.write_slice(b"\r\nContent-Disposition: form-data; name=\""); //40
-    //                 writer.write_slice(file.filed_name().as_bytes());
+    //                 writer.write_slice(form_data.filed_name().as_bytes());
     //                 writer.write_slice(b"\"; filename=\""); //13
-    //                 writer.write_slice(file.filename().as_bytes());
+    //                 writer.write_slice(form_data.filename().as_bytes());
     //                 writer.write_slice(b"\"\r\n"); //3
-    //                 if file.file_type() != "" {
+    //                 if form_data.file_type() != "" {
     //                     writer.write_slice(b"Content-Type: ");
-    //                     writer.write_slice(file.file_type().as_bytes());
+    //                     writer.write_slice(form_data.file_type().as_bytes());
     //                     writer.write_slice(b"\r\n");
     //                 }
     //                 writer.write_slice(b"\r\n");
-    //                 writer.write_slice(file.raw_bytes());
+    //                 writer.write_slice(form_data.raw_bytes());
     //                 writer.write_slice(b"\r\n");
     //             }
     //             writer.write_slice(b"--");
@@ -104,15 +81,30 @@ impl BodyType {
     //         BodyType::Files { .. } => panic!("unsupported body type"),
     //     }
     // }
-}
 
-
-impl ReadExt for BodyType {
-    fn read(&mut self, buf: &mut Buffer) -> HlsResult<usize> {
+    pub fn as_buffer<'a>(&'a mut self, boundary: &Arc<String>) -> BodyTypeBuffer<'a> {
         match self {
-            BodyType::Bytes(bs) => bs.read(buf),
-            BodyType::Files { .. } => Err("unsupported body type".into()),
+            BodyType::Bytes(bs) => BodyTypeBuffer::Bytes(bs),
+            BodyType::Files(hfs) => BodyTypeBuffer::Files(hfs.as_buffer(boundary.clone()))
         }
     }
 }
 
+
+pub(crate) enum BodyTypeBuffer<'a> {
+    Bytes(&'a mut Cursor<Vec<u8>>),
+    Files(HttpFileBuffer<'a>),
+}
+
+impl<'a> ReadExt for BodyTypeBuffer<'a> {
+    fn read(&mut self, buf: &mut Buffer) -> HlsResult<usize> {
+        match self {
+            BodyTypeBuffer::Bytes(bs) => {
+                let len = bs.read(buf.unfilled_mut())?;
+                buf.add_len(len);
+                Ok(len)
+            }
+            BodyTypeBuffer::Files(hfs) => hfs.read(buf),
+        }
+    }
+}
