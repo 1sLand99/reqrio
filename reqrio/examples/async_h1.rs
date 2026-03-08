@@ -87,7 +87,7 @@ async fn main() {
     // req.set_url("https://oauth.hubei.gov.cn:8443/").await.unwrap();
 
     req.set_url("https://m.so.com").await.unwrap();
-    // println!("{}", String::from_utf8_lossy(&req.gen_h1().unwrap().filled()));
+    // req.set_json(json::object! {"dfdf":";dsfkjds"});
     let res = req.get().await.unwrap();
     // sleep(Duration::from_secs(10)).await;
     // let res = req.get().await.unwrap();

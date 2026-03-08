@@ -8,7 +8,7 @@ pub type StaticTable<'a> = &'a [(&'a [u8], &'a [u8])];
 /// 
 /// [Appendix A]: https://tools.ietf.org/html/rfc7541#appendix-A
 /// [pseudo-header]: https://tools.ietf.org/html/rfc7540#section-8.1.2.1
-pub static STATIC_TABLE: &'static [(&'static [u8], &'static [u8])] = &[
+pub static STATIC_TABLE: &[(&[u8], &[u8])] = &[
     (b":authority", b""),
     (b":method", b"GET"),
     (b":method", b"POST"),

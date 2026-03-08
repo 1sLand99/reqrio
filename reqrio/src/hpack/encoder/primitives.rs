@@ -31,7 +31,7 @@ pub(crate) fn encode_integer(
     prefix_size: u8,
 ) -> Result<Vec<u8>, HPackError> {
     let mut dst = vec![];
-    if prefix_size < 1 || prefix_size > 8 { return Err(HPackError::InvalidPrefix); }
+    if !(1..=8).contains(&prefix_size) { return Err(HPackError::InvalidPrefix); }
 
     let mask = ((1 << prefix_size) - 1) as u8; // max possible value of the first byte
     let flags = flags & 255 - mask; // remove invalid flags

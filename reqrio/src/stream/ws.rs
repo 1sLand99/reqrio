@@ -53,8 +53,6 @@ impl WebSocketBuilder<ScReq> {
     pub fn build(mut self) -> HlsResult<WebSocket> {
         self.0.re_conn()?;
         WebSocket::add_header(self.0.header_mut())?;
-        let context = self.0.gen_h1()?;
-        println!("{}", String::from_utf8_lossy(context.filled()));
         Ok(WebSocket::new(WebSocket::connect_sync(self.0)?))
     }
 
@@ -74,8 +72,6 @@ impl WebSocketBuilder<AcReq> {
     pub async fn build(mut self) -> HlsResult<WebSocket> {
         self.0.re_conn().await?;
         WebSocket::add_header(self.0.header_mut())?;
-        let context = self.0.gen_h1()?;
-        println!("{}", String::from_utf8_lossy(context.filled()));
         Ok(WebSocket::new(WebSocket::connect_async(self.0).await?))
     }
 

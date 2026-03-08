@@ -9,11 +9,8 @@ use json::JsonValue;
 
 pub(crate) struct ReqParam<'a> {
     pub(crate) header: &'a mut Header,
-    pub(crate) body: &'a BodyType,
-    pub(crate) addr: &'a Addr,
     pub(crate) buffer: &'a mut Buffer,
     pub(crate) callback: &'a mut Option<ReqCallback>,
-    pub(crate) stream_identifier: &'a u32,
 }
 
 #[allow(private_bounds)]
@@ -29,7 +26,7 @@ pub trait ReqExt: ReqPriExt + Sized {
         self.set_bytes(data.dump(), ContentType::Application(Application::Json));
     }
     fn set_bytes(&mut self, bs: impl Into<Vec<u8>>, ct: ContentType) {
-        *self.body_type_mut() = BodyType::Bytes(bs.into());
+        *self.body_type_mut() = BodyType::new_byte(bs.into());
         self.header_mut().set_content_type(ct);
     }
     /// * 文件上传示例
@@ -162,31 +159,30 @@ pub trait ReqExt: ReqPriExt + Sized {
 
 pub(crate) trait ReqPriExt {
     fn into_stream(self) -> Stream;
-    fn callback(&mut self) -> &mut Option<ReqCallback>;
     fn req_param(&mut self) -> ReqParam<'_>;
-    fn body_type(&self) -> &BodyType;
     fn body_type_mut(&mut self) -> &mut BodyType;
-    fn handle_h1_res(&mut self, buffer: &mut Buffer, response: &mut Response, rd: &mut usize) -> HlsResult<bool> {
-        match self.callback() {
-            None => response.extend_buffer(buffer),
+    fn handle_h1_res(&mut self, response: &mut Response, rd: &mut usize) -> HlsResult<bool> {
+        let param = self.req_param();
+        match param.callback {
+            None => response.extend_buffer(param.buffer),
             Some(callback) => {
                 if response.header().is_empty() {
-                    response.extend_buffer(buffer)?;
+                    response.extend_buffer(param.buffer)?;
                     if !response.header().is_empty() {
                         callback(response.raw_body())?;
                         *rd += response.raw_body().len();
                         response.clear_raw();
                     }
                 } else {
-                    callback(buffer.filled())?;
-                    *rd += buffer.filled().len();
+                    callback(param.buffer.filled())?;
+                    *rd += param.buffer.filled().len();
                 }
                 if response.header().is_empty() { return Ok(false); }
                 let finish = match response.header().content_length() {
-                    None => buffer.filled().ends_with(&[48, 13, 10, 13, 10]),
+                    None => param.buffer.filled().ends_with(&CHUNK_END),
                     Some(len) => *rd >= len
                 };
-                buffer.reset();
+                param.buffer.reset();
                 Ok(finish)
             }
         }
@@ -211,29 +207,6 @@ pub(crate) trait ReqPriExt {
         };
         param.buffer.move_to(frame.frame_len()..param.buffer.len(), 0);
         res
-    }
-
-    fn format_file_body(data: &Vec<HttpField>, files: &Vec<HttpFile>, md5: &str) -> HlsResult<Vec<u8>> {
-        let mut body = vec![];
-        for datum in data {
-            body.push(format!("--{}", md5));
-            body.push(format!("Content-Disposition: form-data; name=\"{}\"", datum.name));
-            body.push("".to_string());
-            body.push(datum.value.to_string());
-            body.push("".to_string());
-        };
-        let mut body = body.join("\r\n").into_bytes();
-        for file in files {
-            body.extend(format!("--{}\r\nContent-Disposition: form-data; name=\"{}\"; filename=\"{}\"\r\n", md5, file.filed_name(), file.filename()).into_bytes());
-            if file.file_type() != "" {
-                body.extend(format!("Content-Type: {}\r\n", file.file_type()).into_bytes());
-            }
-            body.extend_from_slice(b"\r\n");
-            body.extend(file.raw_bytes());
-            body.append(&mut "\r\n".as_bytes().to_vec());
-        }
-        body.append(&mut format!("--{}--\r\n", md5).as_bytes().to_vec());
-        Ok(body)
     }
 
     fn update_cookie(&mut self, response: &Response) {
@@ -263,44 +236,4 @@ pub(crate) trait ReqPriExt {
 }
 
 #[allow(private_bounds)]
-pub trait ReqGenExt: ReqExt {
-    fn format_body(&mut self, md5: &str) -> HlsResult<Vec<u8>> {
-        match self.body_type() {
-            BodyType::Bytes(bytes) => Ok(bytes.to_vec()),
-            BodyType::Files { data, files } => {
-                let body_bytes = Self::format_file_body(data, files, md5)?;
-                Ok(body_bytes)
-            }
-        }
-    }
-
-    fn gen_h1(&mut self) -> HlsResult<&mut Buffer> {
-        let param = self.req_param();
-        param.buffer.reset();
-        param.header.write_to(param.addr, param.body.len(), param.buffer)?;
-        param.buffer.write_slice(b"\r\n");
-        if let Some(context_type) = param.header.content_type() && let ContentType::File(md5) = context_type {
-            param.body.write_to(param.buffer, md5);
-        } else {
-            param.body.write_to(param.buffer, "")
-        }
-        Ok(param.buffer)
-    }
-
-    fn gen_h2(&mut self) -> HlsResult<&mut Buffer> {
-        let param = self.req_param();
-        param.buffer.reset();
-        let mut header_frame = H2Frame::new_header(param.body.len(), *param.stream_identifier);
-        header_frame.set_priority(146);
-        header_frame.write_to(param.buffer);
-        //有priority，payload长度需要+5
-        let hdr_len = param.header.write_to(param.addr, param.body.len(), param.buffer)? + 5;
-        param.buffer.write_u32_in(0, hdr_len as u32, true);
-        if !param.body.is_empty() {
-            for body in H2Frame::new_body(param.body.to_bytes(), *param.stream_identifier) {
-                body.write_to(param.buffer);
-            }
-        }
-        Ok(param.buffer)
-    }
-}
+pub trait ReqGenExt: ReqExt {}

@@ -1,7 +1,7 @@
 use crate::json::JsonError;
 use httlib_hpack::DecoderError;
 use crate::hpack::HPackError;
-use reqtls::{hex, Alert, RlsError};
+use reqtls::{hex, Alert, RlsError, ALPN};
 use std::array::TryFromSliceError;
 use std::convert::Infallible;
 use std::error::Error;
@@ -160,9 +160,32 @@ impl From<Alert> for HlsError {
     }
 }
 
+impl From<BufferError> for HlsError {
+    fn from(value: BufferError) -> Self {
+        HlsError::Currently(value.to_string())
+    }
+}
+
 impl Error for HlsError {}
 
 unsafe impl Send for HlsError {}
+
+#[derive(Debug)]
+pub enum BufferError {
+    UnsupportedALPN(ALPN),
+    BufferTooSmall(usize),
+}
+
+impl Display for BufferError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BufferError::UnsupportedALPN(alpn) => write!(f, "UnsupportedALPN: {}", alpn),
+            BufferError::BufferTooSmall(size) => write!(f, "BufferTooSmall: {}", size),
+        }
+    }
+}
+
+impl Error for BufferError {}
 
 
 pub type HlsResult<T> = Result<T, HlsError>;

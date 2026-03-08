@@ -39,6 +39,16 @@ impl HeaderValue {
             HeaderValue::Cookies(v) => v.is_empty(),
         }
     }
+
+    pub fn may_len(&self) -> usize {
+        match self {
+            HeaderValue::String(v) => v.len(),
+            HeaderValue::Bool(_) => 1,
+            HeaderValue::Number(_) => 10,
+            HeaderValue::ContextType(_) => 64,
+            HeaderValue::Cookies(cookies) => cookies.iter().map(|x| x.name().len() + x.value().len() + 1).sum()
+        }
+    }
 }
 
 impl Display for HeaderValue {

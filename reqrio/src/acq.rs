@@ -4,7 +4,9 @@ use crate::ext::{ReqExt, ReqParam};
 use crate::ext::{ReqGenExt, ReqPriExt};
 use crate::hpack::HPackCoding;
 use crate::json::JsonValue;
-use crate::packet::{FrameFlag, FrameType, H2Frame, H2FrameBuffer};
+use crate::packet::{FrameFlag, FrameType, H2Frame, H2FrameBuffer, HeaderBuffer};
+use crate::reader::ReadExt;
+use crate::request::RequestBuffer;
 use crate::stream::{ConnParam, Proxy, Stream};
 use crate::*;
 use std::mem;
@@ -39,7 +41,7 @@ impl Default for AcReq {
             stream_id: 0,
             proxy: Proxy::Null,
             fingerprint: Fingerprint::default(),
-            body: BodyType::Bytes(vec![]),
+            body: BodyType::new_byte(vec![]),
             verify: true,
             auto_redirect: true,
             buffer: Buffer::with_capacity(32826),
@@ -100,27 +102,29 @@ impl AcReq {
     }
 
     pub(crate) async fn h1_io(&mut self) -> HlsResult<Response> {
-        self.stream.async_write(self.buffer.filled()).await?;
+        let header = HeaderBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id);
+        let mut request = RequestBuffer::new(header, &mut self.body);
+        loop {
+            self.buffer.reset();
+            let len = request.read(&mut self.buffer)?;
+            println!("{} {}", len, String::from_utf8_lossy(self.buffer.filled()));
+            if len == 0 { break; }
+            self.stream.async_write(self.buffer.filled()).await?;
+        }
+        self.buffer.reset();
         let mut response = Response::new();
-        let mut buffer = Buffer::with_capacity(16437);
         let mut read_len = 0;
         loop {
-            self.stream.async_read(&mut buffer).await?;
-            if self.handle_h1_res(&mut buffer, &mut response, &mut read_len)? { break; }
+            self.stream.async_read(&mut self.buffer).await?;
+            if self.handle_h1_res(&mut response, &mut read_len)? { break; }
         }
         Ok(response)
     }
 
     async fn handle_io(&mut self) -> HlsResult<Response> {
         let response = match self.header.alpn() {
-            ALPN::Http20 => {
-                self.gen_h2()?;
-                self.h2c_io().await
-            }
-            _ => {
-                self.gen_h1()?;
-                self.h1_io().await
-            }
+            ALPN::Http20 => self.h2c_io().await,
+            _ => self.h1_io().await
         }?;
         self.update_cookie(&response);
         self.callback = None;
@@ -260,13 +264,19 @@ impl AcReq {
     }
 
     pub async fn h2c_io(&mut self) -> HlsResult<Response> {
-        self.stream.async_write(self.buffer.filled()).await?;
+        let header = HeaderBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id);
+        let mut request = RequestBuffer::new(header, &mut self.body);
+        loop {
+            self.buffer.reset();
+            let len = request.read(&mut self.buffer)?;
+            if len == 0 { break; }
+            self.stream.async_write(self.buffer.filled()).await?;
+        }
         self.buffer.reset();
         let mut response = Response::new();
         loop {
             self.stream.async_read(&mut self.buffer).await?;
             while let Ok((frame_type, frame_flag, frame_len)) = H2FrameBuffer::buffer_enough(&self.buffer) {
-                println!("{:?} {:?} {:?}", frame_type, frame_flag, frame_len);
                 if frame_type == FrameType::Settings && frame_flag.end_stream() {
                     let mut end_frame = H2Frame::none_frame();
                     end_frame.set_frame_type(FrameType::Settings);
@@ -288,22 +298,12 @@ impl ReqPriExt for AcReq {
         self.stream
     }
 
-    fn callback(&mut self) -> &mut Option<ReqCallback> {
-        &mut self.callback
-    }
     fn req_param(&mut self) -> ReqParam<'_> {
         ReqParam {
             header: &mut self.header,
-            body: &self.body,
-            addr: &self.addr,
             buffer: &mut self.buffer,
             callback: &mut self.callback,
-            stream_identifier: &self.stream_id,
         }
-    }
-
-    fn body_type(&self) -> &BodyType {
-        &self.body
     }
 
     fn body_type_mut(&mut self) -> &mut BodyType {
