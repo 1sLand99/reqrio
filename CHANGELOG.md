@@ -1,3 +1,106 @@
+# reqrio-v0.2.0
+
+`v0.2.0` focuses on improving the high-performance request streaming architecture and expanding the TLS capabilities of
+reqtls.Several improvements were also added, including proxy authentication support, enhanced TLS algorithms, DNS
+caching
+
+## High speed low copy request stream
+
+Starting from `v0.1.0`, reqrio introduces a high-speed request streaming architecture that minimizes memory allocations
+and unnecessary data copies.
+
+The new design removes most intermediate `String` and `Vec<u8>` allocations when building requests, significantly
+improving
+throughput and reducing memory pressure in high-concurrency scenarios.
+
+* Data Flow
+
+```text
+
+        Data  ┌────────┐encode->bytes ┌──────────┐             ┌──────────┐
+ User ───────►│        │─────────────►│          │             │          │
+              │ ScReq  │              │  Request │ copy slice  │ fragment │ write ┌───────┐
+              │ AcReq  │              │  borrow  │────────────►│  TLS     │──────►│  TCP  │
+       Files  │(Engine)│ into_reader  │  buffer  │             │ Encrypt  │       └───────┘
+ User ───────►│        │─────────────►│          │             │          │
+              └────────┘              └──────────┘             └──────────┘
+```
+
+## `ReadExt` and `WriteExt`
+
+Starting from `v0.2.0`, reqrio introduces two core I/O helpers: ReadExt and WriteExt. They are the foundation of the
+high-speed request stream pipeline, enabling efficient construction of both HTTP request streams and TLS record streams
+with minimal overhead.
+
+```text
+           Write                Read            
+       Request Source         Tcp Socket     
+             │                    │ Buffer           
+             ▼                    ▼            
+       RequestBuffer          TLS Record         
+         (ReadExt)            (decrypt)
+      Buffer │ copy          copy │ Buffer       
+             ▼                    ▼            
+         TLS Record             Buffer        
+          (encrypt)           (H2Frame)      
+             │                    │            
+             ▼                    ▼            
+          TCP Socket           Response      
+```
+
+## Certificate Issuer
+
+Starting from `v0.2.0`, `reqtls` introduces a built-in certificate issuer, enabling the generation and signing of tls
+certificates directly within the library.
+
+This feature allows `reqtls` to act as a lightweight certificate authority (CA) capable of issuing:
+
+* Root certificates
+
+* Server certificates
+
+* Client certificates
+
+## mTLS Client
+
+Starting from v0.2.0, reqtls adds support for mutual TLS (mTLS) on the client side.
+
+With mTLS enabled, the client not only verifies the server certificate, but also presents its own certificate and
+private key during the TLS handshake. This allows servers to authenticate the client identity, providing stronger
+security than standard TLS.
+
+Client mTLS can be enabled by configuring a client certificate and private key through ClientConfig.
+
+* Example
+
+```
+ use reqrio::*;
+ 
+ let mut req=ScReq::new();
+ let certs=Certificate::from_pem_file("path/to/cert").unwrap();
+ let key=RsaKey::from_pri_pem_file("path/to/cert/key").unwrap();
+ req.set_mtls(certs,key);
+```
+
+## Other Update
+
+### reqrio
+
+- set_verify - verify server certificate information
+- Add ` patch ` method
+- set_auto_direct - does it automatically jump to 3xx state
+- proxy: `socks5` and `http_plain` support username and password verification
+
+### reqtls
+
+- Export `Cipher`, `Hmac`, `Base64`, `Hasher`, url_en(de)code, hex_en(de)code, and other C-ABI formats.
+
+- Support `TLS_AES_CBC/128/256/SHA/SHA256/SHA384 algorithms`.
+
+- Add `RecordEncodeBuffer` and `RecordDecodeBuffer`.
+
+- Add DNS caching with a 30-minute cache time.
+
 # reqrio-v0.1.0
 
 ### reqrio is an HTTP request library designed for fast, simple, and convenient HTTP request usage.
@@ -92,6 +195,7 @@ Reqrio has C export functions that can be called in different languages
 * The instance needs to be manually released, otherwise it may cause memory leakage
 
 # reqtls-v0.1.0
+
 ### reqtls is a lightweight TLS library and encryption/decryption library.
 
 &nbsp;&nbsp;&nbsp;&nbsp;reqtls is built on boringssl and maintains consistency with browser behavior.
@@ -128,6 +232,7 @@ Reqrio has C export functions that can be called in different languages
 * secp521r1
 
 ### CipherSuite
+
 * TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
 * TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
 *

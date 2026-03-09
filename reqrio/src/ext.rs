@@ -105,6 +105,14 @@ pub trait ReqExt: ReqPriExt + Sized {
     }
 
     ///启用mtls，并传入客户端证书
+    ///```no_run
+    /// use reqrio::*;
+    ///
+    /// let mut req=ScReq::new();
+    /// let certs=Certificate::from_pem_file("path/to/cert").unwrap();
+    /// let key=RsaKey::from_pri_pem_file("path/to/cert/key").unwrap();
+    /// req.set_mtls(certs,key);
+    /// ```
     fn set_mtls(&mut self, certs: Vec<Certificate>, key: RsaKey);
     fn with_mtls(mut self, certs: Vec<Certificate>, key: RsaKey) -> Self {
         self.set_mtls(certs, key);
