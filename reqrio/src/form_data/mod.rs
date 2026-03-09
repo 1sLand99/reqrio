@@ -3,8 +3,7 @@ mod filed;
 
 use crate::error::HlsResult;
 use crate::form_data::filed::FormField;
-use crate::reader::ReadExt;
-use crate::Buffer;
+use crate::reader::{ReadExt, Reader};
 pub use error::FormError;
 use reqrio_json::JsonValue;
 use reqtls::WriteExt;
@@ -19,15 +18,15 @@ pub enum FormRender {
 }
 
 impl ReadExt for FormRender {
-    fn read(&mut self, buf: &mut Buffer) -> HlsResult<usize> {
+    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         match self {
             FormRender::File(f) => {
-                let len = f.read(buf.unfilled_mut())?;
+                let len = f.read(buf.unfilled())?;
                 buf.add_len(len);
                 Ok(len)
             }
             FormRender::Bytes(bs) => {
-                let len = bs.read(buf.unfilled_mut())?;
+                let len = bs.read(buf.unfilled())?;
                 buf.add_len(len);
                 Ok(len)
             }
@@ -116,10 +115,10 @@ pub(crate) struct FileFormBuffer<'a> {
 }
 
 impl<'a> ReadExt for FileFormBuffer<'a> {
-    fn read(&mut self, buf: &mut Buffer) -> HlsResult<usize> {
+    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         let start = buf.offset().end;
         if self.pos == 0 {
-            if buf.unfilled_mut().len() < 34 { return Ok(buf.offset().end - start); }
+            if buf.unfilled_len() < 34 { return Ok(buf.offset().end - start); }
             //line1
             buf.write_slice(b"--");
             buf.write_slice(self.md5.as_bytes());
@@ -127,7 +126,7 @@ impl<'a> ReadExt for FileFormBuffer<'a> {
         }
         if self.pos == 1 {
             let len = 56 + self.form.field_name.len() + self.form.filename.len();
-            if buf.unfilled_mut().len() < len { return Ok(buf.offset().end - start); }
+            if buf.unfilled_len() < len { return Ok(buf.offset().end - start); }
             //line2
             buf.write_slice(b"\r\nContent-Disposition: form-data; name=\""); //40
             buf.write_slice(self.form.field_name.as_bytes());
@@ -139,7 +138,7 @@ impl<'a> ReadExt for FileFormBuffer<'a> {
         if self.pos == 2 {
             if self.form.filetype != "" {
                 let len = 16 + self.form.filetype.len();
-                if buf.unfilled_mut().len() < len { return Ok(buf.offset().end - start); }
+                if buf.unfilled_len() < len { return Ok(buf.offset().end - start); }
                 //line3
                 buf.write_slice(b"Content-Type: "); //14
                 buf.write_slice(self.form.filetype.as_bytes());
@@ -148,19 +147,19 @@ impl<'a> ReadExt for FileFormBuffer<'a> {
             self.pos += 1;
         }
         if self.pos == 3 {
-            if buf.unfilled_mut().len() < 2 { return Ok(buf.offset().end - start); }
+            if buf.unfilled_len() < 2 { return Ok(buf.offset().end - start); }
             //line4
             buf.write_slice(b"\r\n");
             self.pos += 1;
         }
         if self.pos == 4 {
             //line5
-            if buf.unfilled_mut().is_empty() { return Ok(buf.offset().end - start); }
+            if buf.is_empty() { return Ok(buf.offset().end - start); }
             let len = self.form.render.read(buf)?;
             if len == 0 { self.pos += 1; }
         }
         if self.pos == 5 {
-            if buf.unfilled_mut().len() < 2 { return Ok(buf.offset().end - start); }
+            if buf.unfilled_len()< 2 { return Ok(buf.offset().end - start); }
             //line6
             buf.write_slice(b"\r\n");
         }
@@ -228,6 +227,7 @@ impl HttpFile {
     pub(crate) fn as_buffer(&mut self, boundary: Arc<String>) -> HttpFileBuffer<'_> {
         HttpFileBuffer {
             data: &self.data,
+            len: self.len(),
             files: self.forms.iter_mut().map(|form| FileFormBuffer {
                 form,
                 md5: boundary.clone(),
@@ -244,17 +244,23 @@ pub struct HttpFileBuffer<'a> {
     data: &'a Vec<FormField>,
     files: Vec<FileFormBuffer<'a>>,
     md5: Arc<String>,
+    len: usize,
     row: usize,
     pos: usize,
 }
+
+impl<'a> HttpFileBuffer<'a> {
+    pub fn len(&self) -> usize { self.len }
+}
+
 impl<'a> ReadExt for HttpFileBuffer<'a> {
-    fn read(&mut self, buf: &mut Buffer) -> HlsResult<usize> {
+    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         let start = buf.offset().end;
         if self.row == 0 {
             for (i, datum) in self.data.iter().enumerate() {
                 if i < self.pos { continue; }
                 let len = 85 + datum.name.len() + datum.value.len();
-                if buf.unfilled_mut().len() < len { return Ok(buf.offset().end - start); }
+                if buf.unfilled_len() < len { return Ok(buf.offset().end - start); }
                 //line1
                 buf.write_slice(b"--");
                 buf.write_slice(self.md5.as_bytes());
@@ -278,13 +284,13 @@ impl<'a> ReadExt for HttpFileBuffer<'a> {
         if self.row == 1 {
             for (i, form) in self.files.iter_mut().enumerate() {
                 if i < self.pos { continue; }
-                if buf.unfilled_mut().is_empty() { return Ok(buf.offset().end - start); }
+                if buf.is_empty() { return Ok(buf.offset().end - start); }
                 form.read(buf)?;
-                if buf.unfilled_mut().is_empty() { return Ok(buf.offset().end - start); }
+                if buf.is_empty() { return Ok(buf.offset().end - start); }
             }
             self.pos += 1;
         }
-        if buf.unfilled_mut().len() < 38 { return Ok(buf.offset().end - start); }
+        if buf.unfilled_len() < 38 { return Ok(buf.offset().end - start); }
         buf.write_slice(b"--");
         buf.write_slice(self.md5.as_bytes());
         //此处待定

@@ -1,47 +1,48 @@
 use crate::error::HlsResult;
-use crate::Buffer;
+use reqtls::WriteExt;
+use std::ops::Range;
 
-// pub struct BufReader<R> {
-//     inner: R,
-//     pos: usize,
-// }
-// 
-// impl<R> BufReader<R> {
-//     pub fn new(inner: R) -> Self {
-//         Self { inner, pos: 0 }
-//     }
-// 
-//     // pub fn as_slice(&self) -> &[u8] { &self.inner.as_ref()[self.pos..] }
-// 
-//     // pub fn is_empty(&self) -> bool { self.pos >= self.as_slice().len() }
-// 
-//     // pub fn len(&self) -> usize { self.inner.as_ref().len() - self.pos }
-// }
-// 
-// impl<R: AsRef<[u8]>> BufReader<R> {
-//     pub fn len(&self) -> usize { self.inner.as_ref().len() }
-// }
-// 
-// impl<R: AsRef<[u8]>> ReadExt for BufReader<R> {
-//     fn read(&mut self, buf: &mut Buffer) -> HlsResult<usize> {
-//         let inner = self.inner.as_ref();
-//         let remain = inner.len() - self.pos;
-//         let want_size = buf.unfilled_mut().len();
-//         match remain > buf.unfilled_mut().len() {
-//             true => {
-//                 buf.write_slice(&inner[self.pos..self.pos + want_size]);
-//                 self.pos += want_size;
-//                 Ok(want_size)
-//             }
-//             false => {
-//                 buf.write_slice(&inner[self.pos..self.pos + remain]);
-//                 self.pos += remain;
-//                 Ok(remain)
-//             }
-//         }
-//     }
-// }
+pub struct Reader<'a> {
+    buffer: &'a mut [u8],
+    pos: usize,
+}
+impl<'a> Reader<'a> {
+    pub fn new(buffer: &'a mut [u8]) -> Self {
+        Self { buffer, pos: 0 }
+    }
+
+    pub fn filled(&self) -> &[u8] { &self.buffer[..self.pos] }
+
+    pub fn unfilled_len(&self) -> usize { self.buffer.len() - self.pos }
+
+    pub fn unfilled(&mut self) -> &mut [u8] { &mut self.buffer[self.pos..] }
+
+    pub fn capacity(&self) -> usize { self.buffer.len() }
+
+    pub fn is_empty(&self) -> bool {
+        self.pos >= self.buffer.len()
+    }
+}
+
+impl<'a> WriteExt for Reader<'a> {
+    fn as_ptr(&self) -> *const u8 {
+        self.buffer.as_ptr()
+    }
+
+    fn as_mut_ptr(&mut self) -> *mut u8 {
+        self.buffer.as_mut_ptr()
+    }
+
+    fn add_len(&mut self, len: usize) {
+        self.pos += len
+    }
+
+    fn offset(&self) -> Range<usize> {
+        0..self.pos
+    }
+}
+
 
 pub trait ReadExt {
-    fn read(&mut self, buf: &mut Buffer) -> HlsResult<usize>;
+    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize>;
 }

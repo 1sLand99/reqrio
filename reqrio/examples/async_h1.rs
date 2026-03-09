@@ -87,7 +87,8 @@ async fn main() {
     // req.set_url("https://oauth.hubei.gov.cn:8443/").await.unwrap();
 
     req.set_url("https://m.so.com").await.unwrap();
-    // req.set_json(json::object! {"dfdf":";dsfkjds"});
+    let data = vec!["s"; 16384];
+    req.set_json(json::object! {"dfdf":data});
     let res = req.get().await.unwrap();
     // sleep(Duration::from_secs(10)).await;
     // let res = req.get().await.unwrap();

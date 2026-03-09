@@ -1,15 +1,17 @@
-pub use flag::FrameFlag;
-use reqtls::{RlsError, WriteExt};
+use reqtls::WriteExt;
+use crate::error::HlsResult;
+use crate::Buffer;
+use std::fmt::Debug;
 pub use typo::FrameType;
+pub use flag::FrameFlag;
+pub use buffer::{H2FrameRBuf, H2FrameWBufs};
 
 use setting::Setting;
 mod setting;
 mod typo;
 mod flag;
+mod buffer;
 
-use crate::error::HlsResult;
-use crate::Buffer;
-use std::fmt::Debug;
 
 #[derive(Debug)]
 pub struct H2Frame<'a> {
@@ -234,67 +236,3 @@ impl<'a> H2Frame<'a> {
     }
 }
 
-#[allow(unused)]
-pub struct H2FrameBuffer<'a> {
-    pd_len: usize,
-    frame_type: FrameType,
-    frame_flag: FrameFlag,
-    stream_identifier: &'a [u8],
-    priority_data: &'a [u8],
-    payload: &'a [u8],
-}
-
-
-impl<'a> H2FrameBuffer<'a> {
-    pub fn from_bytes(bytes: &'a [u8], frame_type: FrameType) -> HlsResult<H2FrameBuffer<'a>> {
-        if bytes.len() < 5 { return Err(RlsError::MessageTooShort.into()); }
-        let pd_len = u32::from_be_bytes([0, bytes[0], bytes[1], bytes[2]]) as usize;
-        let frame_flag = FrameFlag::from_u8(bytes[4]);
-        let (frame_len, priority_data) = match frame_flag.priority() {
-            true => (pd_len + 14, &bytes[9..14]),
-            false => (pd_len + 9, &bytes[0..0])
-        };
-        if bytes.len() < frame_len { return Err(RlsError::MessageTooShort.into()); }
-        let payload = if frame_flag.priority() { &bytes[14..frame_len] } else { &bytes[9..frame_len] };
-        Ok(H2FrameBuffer {
-            pd_len,
-            frame_type,
-            frame_flag,
-            stream_identifier: &bytes[5..9],
-            priority_data,
-            payload,
-        })
-    }
-
-    pub fn buffer_enough(buffer: &Buffer) -> HlsResult<(FrameType, FrameFlag, usize)> {
-        let filled = buffer.filled();
-        if filled.len() < 5 { return Err(RlsError::MessageTooShort.into()); }
-        let pd_len = u32::from_be_bytes([0, filled[0], filled[1], filled[2]]) as usize;
-        let frame_flag = FrameFlag::from_u8(filled[4]);
-        let frame_len = if frame_flag.priority() { pd_len + 14 } else { pd_len + 9 };
-        if filled.len() < frame_len { return Err(RlsError::MessageTooShort.into()); }
-        let frame_type = FrameType::from_u8(filled[3])?;
-        Ok((frame_type, frame_flag, frame_len))
-    }
-
-    pub fn frame_len(&self) -> usize {
-        if self.frame_flag.priority() { self.pd_len + 14 } else { self.pd_len + 9 }
-    }
-
-    pub fn is_end_frame(&self) -> bool {
-        self.frame_flag.end_stream() &&
-            (self.frame_type == FrameType::Data || self.frame_type == FrameType::Headers)
-    }
-
-    pub fn frame_type(&self) -> &FrameType {
-        &self.frame_type
-    }
-
-    pub fn payload(&self) -> &'a [u8] {
-        self.payload
-    }
-
-    pub fn frame_flag(&self) -> &FrameFlag {
-        &self.frame_flag
-    }
-}

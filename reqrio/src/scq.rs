@@ -1,8 +1,8 @@
 use crate::body::BodyType;
 use crate::ext::{ReqParam, ReqPriExt};
 use crate::hpack::HPackCoding;
-use crate::packet::{FrameFlag, H2FrameBuffer};
-use crate::reader::ReadExt;
+use crate::packet::{FrameFlag, H2FrameRBuf};
+use crate::reader::{ReadExt, Reader};
 use crate::request::RequestBuffer;
 use crate::stream::{ConnParam, Stream};
 use crate::*;
@@ -102,14 +102,14 @@ impl ScReq {
 
     pub fn h1_io(&mut self) -> HlsResult<Response> {
         let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id, &mut self.body);
-        loop {
-            self.buffer.reset();
-            let len = request.read(&mut self.buffer)?;
-            println!("{} {}", len, String::from_utf8_lossy(self.buffer.filled()));
-            if len == 0 { break; }
-            self.stream.sync_write(self.buffer.filled())?;
-        }
         self.buffer.reset();
+        loop {
+            let mut render = Reader::new(self.buffer.unfilled_mut());
+            let len = request.read(&mut render)?;
+            println!("{} {}", len, String::from_utf8_lossy(render.filled()));
+            if len == 0 { break; }
+            self.stream.sync_write(render.filled())?;
+        }
         let mut response = Response::new();
         let mut read_len = 0;
         loop {
@@ -252,16 +252,17 @@ impl ScReq {
 
     pub fn h2c_io(&mut self) -> HlsResult<Response> {
         let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id, &mut self.body);
+        self.buffer.reset();
         loop {
-            self.buffer.reset();
-            let len = request.read(&mut self.buffer)?;
+            let mut render = Reader::new(self.buffer.unfilled_mut());
+            let len = request.read(&mut render)?;
             if len == 0 { break; }
-            self.stream.sync_write(self.buffer.filled())?;
+            self.stream.sync_write(render.filled())?;
         }
         let mut response = Response::new();
         loop {
             self.stream.sync_read(&mut self.buffer)?;
-            while let Ok((frame_type, frame_flag, frame_len)) = H2FrameBuffer::buffer_enough(&self.buffer) {
+            while let Ok((frame_type, frame_flag, frame_len)) = H2FrameRBuf::buffer_enough(&self.buffer) {
                 if frame_type == FrameType::Settings && frame_flag.end_stream() {
                     let mut end_frame = H2Frame::none_frame();
                     end_frame.set_frame_type(FrameType::Settings);

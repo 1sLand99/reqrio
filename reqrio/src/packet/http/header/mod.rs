@@ -8,7 +8,7 @@ pub use status::HttpStatus;
 use std::fmt::Display;
 use std::mem;
 pub use value::HeaderValue;
-use crate::reader::ReadExt;
+use crate::reader::{ReadExt, Reader};
 use super::content_type::ContentType;
 use super::cookie::Cookie;
 
@@ -533,11 +533,11 @@ impl<'a> HeaderBuffer<'a> {
         key.value().is_empty()
     }
 
-    pub fn read_h1(&mut self, buf: &mut Buffer) -> HlsResult<usize> {
+    pub fn read_h1(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         let start = buf.offset().end;
         // first line: Method uri version
         if self.pos == 0 {
-            if buf.unfilled_mut().len() < 17 + self.header.uri.len() { return Ok(buf.offset().end - start); }
+            if buf.unfilled_len() < 17 + self.header.uri.len() { return Ok(buf.offset().end - start); }
             buf.write_slice(self.header.method.to_string().as_bytes());
             buf.write_u8(b' ');
             buf.write_slice(self.header.uri.to_string().as_bytes());
@@ -555,7 +555,7 @@ impl<'a> HeaderBuffer<'a> {
                 continue;
             }
             let len = key.name().len() + key.value().may_len() + self.addr.host().len() + 4;
-            if buf.unfilled_mut().len() < len { return Ok(buf.offset().end - start); }
+            if buf.unfilled_len() < len { return Ok(buf.offset().end - start); }
             buf.write_slice(key.name().as_bytes());
             buf.write_slice(b": ");
             match key.name_lower().as_str() {
@@ -581,18 +581,18 @@ impl<'a> HeaderBuffer<'a> {
             index += 1;
             self.pos += 1;
         }
-        if buf.unfilled_mut().len() < 2 { return Ok(buf.offset().end - start); }
+        if buf.unfilled_len() < 2 { return Ok(buf.offset().end - start); }
         buf.write_slice(b"\r\n");
         self.wrote = true;
         Ok(0)
     }
 
-    pub fn read_h2(&mut self, buf: &mut Buffer) -> HlsResult<usize> {
+    pub fn read_h2(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         let len = 59 + self.addr.host().len() + self.header.uri.len();
         let invalid_keys = ["connection", "host", "content-length", "transfer-encoding", "upgrade"];
         let keys = self.header.keys.iter().filter(|x| !invalid_keys.contains(&x.name_lower().as_str()) && !x.value().is_empty());
         let kln: usize = keys.clone().map(|x| x.name().len() + x.value().may_len() + 10).sum();
-        if buf.unfilled_mut().len() < len + kln { return Err(BufferError::BufferTooSmall(buf.capacity()).into()); }
+        if buf.unfilled_len() < len + kln { return Err(BufferError::BufferTooSmall(buf.capacity()).into()); }
 
         let offset = buf.offset();
         let mut header_frame = H2Frame::new_header(self.body_len, *self.stream_identifier);
@@ -625,7 +625,7 @@ impl<'a> HeaderBuffer<'a> {
 }
 
 impl<'a> ReadExt for HeaderBuffer<'a> {
-    fn read(&mut self, buf: &mut Buffer) -> HlsResult<usize> {
+    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         match self.header.alpn {
             ALPN::Http20 => self.read_h2(buf),
             ALPN::Http11 | ALPN::Http10 => self.read_h1(buf),

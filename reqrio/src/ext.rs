@@ -190,7 +190,7 @@ pub(crate) trait ReqPriExt {
     fn handle_h2_res(&mut self, frame_type: FrameType, response: &mut Response) -> HlsResult<bool> {
         if frame_type == FrameType::Goaway { return Err(HlsError::PeerClosedConnection); }
         let param = self.req_param();
-        let frame = H2FrameBuffer::from_bytes(param.buffer.filled(), frame_type)?;
+        let frame = H2FrameRBuf::from_bytes(param.buffer.filled(), frame_type)?;
         let res = match param.callback {
             None => response.extend_frame(&frame, param.header.hpack_coder().decoder()),
             Some(callback) => {
