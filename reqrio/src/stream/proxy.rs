@@ -32,9 +32,9 @@ impl Proxy {
         Proxy::Socks5(url)
     }
 
-    fn write_context<W: WriteExt>(&self, peer_addr: &Addr, writer: &mut W) -> HlsResult<()> {
+    fn write_context<W: WriteExt>(&self, peer_addr: &Addr, writer: &mut W, index: usize) -> HlsResult<bool> {
         match self {
-            Proxy::Null => {}
+            Proxy::Null => return Ok(true),
             Proxy::HttpPlain(v) => {
                 let peer_addr = peer_addr.to_string();
                 //line1
@@ -53,27 +53,41 @@ impl Proxy {
                 }
                 //line3
                 writer.write_slice(b"Proxy-Connection: Keep-Alive\r\n\r\n");
+                return Ok(true);
             }
             Proxy::Socks5(v) => {
-                writer.write_slice(&[5, 1]);
-                if v.username().is_empty() || v.password().is_empty() {
-                    //认证方法-无认证
-                    writer.write_slice(&[0, 5, 1, 0, 3])
-                } else {
-                    //认证方法-账号密码
-                    writer.write_slice(&[2, 1]);
-                    writer.write_u8(v.username().len() as u8);
-                    writer.write_slice(v.username().as_bytes());
-                    writer.write_u8(v.password().len() as u8);
-                    writer.write_slice(v.password().as_bytes());
-                    writer.write_slice(&[5, 1, 0, 3]);
+                if index == 0 {
+                    if v.username().is_empty() || v.password().is_empty() {
+                        //认证方法-无认证
+                        writer.write_slice(&[5, 1, 0]);
+                    } else {
+                        //认证方法-账号密码
+                        writer.write_slice(&[5, 1, 2]);
+                    }
                 }
-                writer.write_u8(peer_addr.host().len() as u8);
-                writer.write_slice(peer_addr.host().as_bytes());
-                writer.write_u16(peer_addr.port());
+                if index == 1 {
+                    if v.username().is_empty() || v.password().is_empty() {
+                        //认证方法-无认证
+                        // index = 2;
+                    } else {
+                        //认证方法-账号密码
+                        writer.write_u8(1);
+                        writer.write_u8(v.username().len() as u8);
+                        writer.write_slice(v.username().as_bytes());
+                        writer.write_u8(v.password().len() as u8);
+                        writer.write_slice(v.password().as_bytes());
+                    }
+                }
+                if index == 2 {
+                    writer.write_slice(&[5, 1, 0, 3]);
+                    writer.write_u8(peer_addr.host().len() as u8);
+                    writer.write_slice(peer_addr.host().as_bytes());
+                    writer.write_u16(peer_addr.port());
+                    return Ok(true);
+                }
             }
         }
-        Ok(())
+        Ok(false)
     }
 
     pub fn is_null(&self) -> bool {
@@ -143,15 +157,17 @@ impl ProxyStream<std::net::TcpStream> {
         let addr = proxy.socket_addr(peer_addr)?;
         let mut stream = ProxyStream::create_sync(&addr, timeout)?;
         let mut buffer = Buffer::with_capacity(1024);
-        proxy.write_context(peer_addr, &mut buffer)?;
-        let proxy_handled = if !buffer.is_empty() {
+        for i in 0..4 {
+            buffer.reset();
+            let finish = proxy.write_context(peer_addr, &mut buffer, i)?;
+            if buffer.is_empty() { continue; }
             std::io::Write::write_all(&mut stream, buffer.filled())?;
-            false
-        } else { true };
+            if finish { break; }
+        }
         buffer.reset();
         Ok(ProxyStream {
             stream,
-            handle_proxy: proxy_handled,
+            handle_proxy: matches!(proxy,Proxy::Null),
             http_proxy: matches!(proxy, Proxy::HttpPlain(_)),
             buffer,
             resp: Response::new(),
@@ -191,6 +207,7 @@ impl std::io::Read for ProxyStream<std::net::TcpStream> {
                 }
                 self.buffer.used_empty(10);
             }
+            println!("{:?}", self.buffer.filled());
             if self.buffer.is_empty() {
                 self.stream.read(buf)
             } else {
@@ -219,15 +236,17 @@ impl ProxyStream<tokio::net::TcpStream> {
         let addr = proxy.socket_addr(peer_addr)?;
         let mut stream = tokio::net::TcpStream::connect(addr).await?;
         let mut buffer = Buffer::with_capacity(1024);
-        proxy.write_context(peer_addr, &mut buffer)?;
-        let proxy_handled = if !buffer.is_empty() {
+        for i in 0..4 {
+            buffer.reset();
+            let finish = proxy.write_context(peer_addr, &mut buffer, i)?;
+            if buffer.is_empty() { continue; }
             tokio::io::AsyncWriteExt::write_all(&mut stream, buffer.filled()).await?;
-            false
-        } else { true };
+            if finish { break; }
+        }
         buffer.reset();
         Ok(ProxyStream {
             stream,
-            handle_proxy: proxy_handled,
+            handle_proxy: matches!(proxy,Proxy::Null),
             http_proxy: matches!(proxy, Proxy::HttpPlain(_)),
             buffer,
             resp: Response::new(),
@@ -238,6 +257,7 @@ impl ProxyStream<tokio::net::TcpStream> {
 #[cfg(feature = "aync")]
 impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
     fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<std::io::Result<()>> {
+        println!("{:?}", self.http_proxy);
         if !self.handle_proxy {
             let stream = self.get_mut();
             if stream.http_proxy {
