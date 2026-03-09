@@ -6,7 +6,6 @@
 [![Maven](https://img.shields.io/maven-central/v/io.github.xllgl2017/reqrio?logo=apachemaven&label=maven)](https://search.maven.org/artifact/io.github.xllgl2017/reqrio)
 [![Go](https://img.shields.io/crates/v/reqrio.svg?logo=go&label=go)](https://pkg.go.dev/github.com/xllgl2017/reqrio/reqrio-go)
 
-
 [![Rustdocs](https://docs.rs/reqrio/badge.svg)](https://docs.rs/reqrio)
 [![Javadocs](https://javadoc.io/badge/io.github.xllgl2017/reqrio/latest.svg)](https://javadoc.io/doc/io.github.xllgl2017/reqrio/latest)
 
@@ -28,6 +27,23 @@
 - Cookie自动继承管理
 - 请求标头顺序控制
 - 数据流处理
+
+### 低copy
+
+`reqrio` 是一个 低拷贝（low-copy）请求发送引擎，用于高效地将 用户数据或文件数据 通过 TLS 加密后发送到 TCP。`reqrio`
+针对用户传入form-data、json、bytes、text等数据进行转bytes储存，然后仅在进入 TLS 加密阶段时发生一次 copy， 其余阶段仅对数据进行
+borrow（借用）。对文件上传则通过into_reader进行读取，减小内存开销
+
+```text
+                                    
+        Data  ┌────────┐encode->bytes ┌───────────────┐             ┌───────────┐
+ User ───────►│        │─────────────►│               │             │           │
+              │ ScReq  │              │   Request     │ copy slice  │  fragment │ write ┌───────┐
+              │ AcReq  │              │   borrow      │────────────►│   TLS     │──────►│  TCP  │
+       Files  │(Engine)│ into_reader  │   buffer      │             │  Encrypt  │       └───────┘
+ User ───────►│        │─────────────►│               │             │           │
+              └────────┘              └───────────────┘             └───────────┘
+```
 
 ## TLS安全功能
 

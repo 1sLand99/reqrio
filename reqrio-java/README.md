@@ -10,6 +10,25 @@
 
 * Uses **BoringSSL** to implement TLS, consistent with browsers like Chrome and Edge.
 
+### Low-Copy
+
+`reqrio` is a low copy request sending engine used to efficiently encrypt user or file data over TLS and send it to TCP.
+`reqrio`
+Convert user input data such as form data, json, bytes, text, etc. into bytes for storage, and only copy once during TLS
+encryption, while only the data is processed in other stages
+Borrow (borrowing). File uploads are read through into_deader to reduce memory overhead
+
+```text
+
+        Data  ┌────────┐encode->bytes ┌──────────┐             ┌──────────┐
+ User ───────►│        │─────────────►│          │             │          │
+              │ ScReq  │              │  Request │ copy slice  │ fragment │ write ┌───────┐
+              │ AcReq  │              │  borrow  │────────────►│  TLS     │──────►│  TCP  │
+       Files  │(Engine)│ into_reader  │  buffer  │             │ Encrypt  │       └───────┘
+ User ───────►│        │─────────────►│          │             │          │
+              └────────┘              └──────────┘             └──────────┘
+```
+
 ### Request Header Order Table
 
 | No. | HTTP/2.0                    | HTTP/1.1                  |
@@ -43,6 +62,7 @@
 | 26  | content-type                |                           |
 | 27  | authorization               |                           |
 | 28  | content-type                |                           |
+
 ### Usage examples:
 
 * Java example
