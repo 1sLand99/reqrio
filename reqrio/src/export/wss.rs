@@ -25,7 +25,7 @@ pub extern "system" fn ws_set_proxy(builder: *mut WebSocketBuilder<ScReq>, proxy
         let builder = unsafe { builder.as_mut().ok_or(HlsError::NullPointer) }?;
         let proxy = unsafe { CStr::from_ptr(proxy) }.to_str()?;
         let url = Url::try_from(proxy)?;
-        builder.set_proxy(Proxy::HttpPlain(url.addr().clone()));
+        builder.set_proxy(Proxy::HttpPlain(url));
         Ok(0)
     }().unwrap_or(-1)
 }

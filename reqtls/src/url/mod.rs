@@ -6,6 +6,7 @@ pub use param::Param;
 use crate::error::RlsResult;
 use crate::RlsError;
 pub use error::UrlError;
+use crate::coder::{url_decode, url_encode};
 
 mod addr;
 mod param;
@@ -18,6 +19,8 @@ pub struct Url {
     scheme: Scheme,
     addr: Addr,
     uri: Uri,
+    username: String,
+    password: String,
 }
 
 impl Default for Url {
@@ -26,12 +29,13 @@ impl Default for Url {
             scheme: Scheme::Http,
             addr: Addr::default(),
             uri: Uri::default(),
+            username: "".to_string(),
+            password: "".to_string(),
         }
     }
 }
 
 impl Url {
-
     pub fn uri(&self) -> &Uri {
         &self.uri
     }
@@ -59,7 +63,7 @@ impl Url {
         self.addr = addr;
     }
 
-    pub fn set_protocol(&mut self, proto: Scheme) {
+    pub fn set_scheme(&mut self, proto: Scheme) {
         self.scheme = proto;
     }
 
@@ -70,12 +74,32 @@ impl Url {
     pub fn into_inner(self) -> (Scheme, Addr, Uri) {
         (self.scheme, self.addr, self.uri)
     }
+
+    pub fn username(&self) -> &str {
+        &self.username
+    }
+
+    pub fn password(&self) -> &str {
+        &self.password
+    }
+
+    pub fn set_username(&mut self, username: String) {
+        self.username = username;
+    }
+
+    pub fn set_password(&mut self, password: String) {
+        self.password = password;
+    }
 }
 
 impl Display for Url {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let addr = self.addr.to_string().replace(":443", "").replace(":80", "");
-        let mut res = format!("{}://{}{}", self.scheme, addr, self.uri());
+        let mut protocol = format!("{}://", self.scheme);
+        if !self.username.is_empty() && !self.password.is_empty() {
+            protocol = format!("{}{}:{}@", protocol, url_encode(self.username.as_str()), url_encode(self.password.as_str()));
+        }
+        let mut res = format!("{}{}{}", protocol, addr, self.uri());
         if res.ends_with("?") {
             res = res[..res.len() - 1].to_string();
         }
@@ -100,6 +124,14 @@ impl TryFrom<&str> for Url {
         let protocol = i.next().ok_or(UrlError::MissingScheme)?;
         res.scheme = Scheme::try_from(protocol)?;
         let addr = i.next().ok_or(UrlError::MissingDomain)?;
+        let addr = if addr.contains("@") {
+            let mut item = addr.split("@");
+            let mut auth = item.next().ok_or(UrlError::AuthInfoError)?.split(":");
+            res.username = url_decode(auth.next().ok_or(UrlError::MissingUsername)?)?;
+            res.password = url_decode(auth.next().unwrap_or(""))?;
+            item.next().ok_or(UrlError::MissingDomain)?
+        } else { addr };
+
         let pos = addr.find("/");
         res.addr = match pos {
             None => {
@@ -155,5 +187,9 @@ mod tests {
         let mut uri = Url::try_from("wss://poe.game.qq.com/api/trade2/live/poe2/%E7%93%A6%E5%B0%94%E7%9A%84%E5%AE%BF%E5%91%BD/32Y6Wjkc5").unwrap();
         uri.set_uri("wss://poe.game.qq.com/api/trade2/live/poe2/%E7%93%A6%E5%B0%94%E7%9A%84%E5%AE%BF%E5%91%BD/32Y6Wjkc5").unwrap();
         println!("{}", uri);
+
+        let url6 = "socks5://username:passwrod@127.0.0.1:1023/";
+        let url = Url::try_from(url6).unwrap();
+        println!("{} {}", url, url.to_string() == url6);
     }
 }
