@@ -1,3 +1,4 @@
+use reqtls::WriteExt;
 use crate::error::HlsResult;
 
 #[derive(Clone, Debug)]
@@ -24,37 +25,31 @@ impl Setting {
         })
     }
 
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub fn write_to<W: WriteExt>(&self, writer: &mut W) {
         match self {
             Setting::HeaderTableSize(v) => {
-                let mut res = 0x1u16.to_be_bytes().to_vec();
-                res.extend(v.to_be_bytes());
-                res
+                writer.write_u16(0x1);
+                writer.write_ru32(v, false);
             }
             Setting::EnablePush(v) => {
-                let mut res = 0x2u16.to_be_bytes().to_vec();
-                res.extend(v.to_be_bytes());
-                res
+                writer.write_u16(0x2);
+                writer.write_ru32(v, false);
             }
             Setting::MaxConcurrentStreams(v) => {
-                let mut res = 0x3u16.to_be_bytes().to_vec();
-                res.extend(v.to_be_bytes());
-                res
+                writer.write_u16(0x3);
+                writer.write_ru32(v, false);
             }
             Setting::InitialWindowSize(v) => {
-                let mut res = 0x4u16.to_be_bytes().to_vec();
-                res.extend(v.to_be_bytes());
-                res
+                writer.write_u16(0x4);
+                writer.write_ru32(v, false);
             }
             Setting::MaxFrameSize(v) => {
-                let mut res = 0x5u16.to_be_bytes().to_vec();
-                res.extend(v.to_be_bytes());
-                res
+                writer.write_u16(0x5);
+                writer.write_ru32(v, false);
             }
             Setting::MaxHeaderListSize(v) => {
-                let mut res = 0x6u16.to_be_bytes().to_vec();
-                res.extend(v.to_be_bytes());
-                res
+                writer.write_u16(0x6);
+                writer.write_ru32(v, false);
             }
         }
     }

@@ -1,6 +1,7 @@
 use crate::json::JsonError;
-use httlib_hpack::{DecoderError, EncoderError};
-use reqtls::{hex, Alert, RlsError};
+use httlib_hpack::DecoderError;
+use crate::hpack::HPackError;
+use reqtls::{hex, Alert, RlsError, ALPN};
 use std::array::TryFromSliceError;
 use std::convert::Infallible;
 use std::error::Error;
@@ -14,6 +15,7 @@ use std::string::FromUtf8Error;
 use std::sync::PoisonError;
 #[cfg(feature = "aync")]
 use tokio::time::error::Elapsed;
+use crate::form_data::FormError;
 
 #[derive(Debug)]
 pub enum HlsError {
@@ -86,8 +88,8 @@ impl From<Infallible> for HlsError {
     }
 }
 
-impl From<EncoderError> for HlsError {
-    fn from(value: EncoderError) -> Self {
+impl From<HPackError> for HlsError {
+    fn from(value: HPackError) -> Self {
         HlsError::Currently(value.to_string())
     }
 }
@@ -159,9 +161,38 @@ impl From<Alert> for HlsError {
     }
 }
 
+impl From<BufferError> for HlsError {
+    fn from(value: BufferError) -> Self {
+        HlsError::Currently(value.to_string())
+    }
+}
+
+impl From<FormError> for HlsError {
+    fn from(value: FormError) -> Self {
+        HlsError::Currently(value.to_string())
+    }
+}
+
 impl Error for HlsError {}
 
 unsafe impl Send for HlsError {}
+
+#[derive(Debug)]
+pub enum BufferError {
+    UnsupportedALPN(ALPN),
+    BufferTooSmall(usize),
+}
+
+impl Display for BufferError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BufferError::UnsupportedALPN(alpn) => write!(f, "UnsupportedALPN: {}", alpn),
+            BufferError::BufferTooSmall(size) => write!(f, "BufferTooSmall: {}", size),
+        }
+    }
+}
+
+impl Error for BufferError {}
 
 
 pub type HlsResult<T> = Result<T, HlsError>;

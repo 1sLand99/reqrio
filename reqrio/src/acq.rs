@@ -1,25 +1,25 @@
-use std::mem;
 use crate::body::BodyType;
 use crate::error::HlsResult;
-use crate::ext::ReqExt;
+use crate::ext::{ReqExt, ReqParam};
 use crate::ext::{ReqGenExt, ReqPriExt};
-use crate::hpack::{HPackCoding, HackDecode};
+use crate::hpack::HPackCoding;
 use crate::json::JsonValue;
-use crate::packet::{FrameFlag, FrameType, H2Frame, HeaderKey};
+use crate::packet::{FrameFlag, FrameType, H2Frame, H2FrameRBuf};
+use crate::reader::{ReadExt, Reader};
+use crate::request::RequestBuffer;
 use crate::stream::{ConnParam, Proxy, Stream};
 use crate::*;
+use std::mem;
 
 pub struct AcReq {
     header: Header,
     scheme: Scheme,
     addr: Addr,
-    hack_coder: HPackCoding,
     stream: Stream,
     timeout: Timeout,
     callback: Option<ReqCallback>,
     stream_id: u32,
     body: BodyType,
-    alpn: ALPN,
     proxy: Proxy,
     fingerprint: Fingerprint,
     verify: bool,
@@ -35,15 +35,13 @@ impl Default for AcReq {
             header: Header::new_req_h1(),
             scheme: Scheme::Http,
             addr: Addr::default(),
-            hack_coder: HPackCoding::new(),
-            stream: Stream::unconnection(),
+            stream: Stream::NonConnection,
             timeout: Timeout::new(),
             callback: None,
             stream_id: 0,
-            alpn: ALPN::Http11,
             proxy: Proxy::Null,
             fingerprint: Fingerprint::default(),
-            body: BodyType::Text("".to_string()),
+            body: BodyType::new_byte(vec![]),
             verify: true,
             auto_redirect: true,
             buffer: Buffer::with_capacity(32826),
@@ -98,33 +96,38 @@ impl AcReq {
         self.stream_io().await
     }
 
-    pub async fn h1_io(&mut self, context: impl AsRef<[u8]>) -> HlsResult<Response> {
-        self.stream.async_write(context.as_ref()).await?;
+    pub async fn h1_io_by_raw(&mut self, context: impl AsRef<[u8]>) -> HlsResult<Response> {
+        self.buffer.write_slice(context.as_ref());
+        self.h1_io().await
+    }
+
+    pub(crate) async fn h1_io(&mut self) -> HlsResult<Response> {
+        let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id, &mut self.body);
+        self.buffer.reset();
+        loop {
+            let mut render = Reader::new(self.buffer.unfilled_mut());
+            let len = request.read(&mut render)?;
+            println!("{} {}", len, String::from_utf8_lossy(render.filled()));
+            if len == 0 { break; }
+            self.stream.async_write(render.filled()).await?;
+        }
         let mut response = Response::new();
-        let mut buffer = Buffer::with_capacity(16437);
         let mut read_len = 0;
         loop {
-            self.stream.async_read(&mut buffer).await?;
-            if self.handle_h1_res(&mut buffer, &mut response, &mut read_len)? { break; }
+            self.stream.async_read(&mut self.buffer).await?;
+            if self.handle_h1_res(&mut response, &mut read_len)? { break; }
         }
         Ok(response)
     }
 
     async fn handle_io(&mut self) -> HlsResult<Response> {
-        let response = match self.stream.alpn() {
-            ALPN::Http20 => {
-                let headers = self.gen_h2_header()?;
-                let body = self.gen_h2_body()?;
-                self.h2c_io(headers, body).await
-            }
-            _ => {
-                let context = self.gen_h1()?;
-                self.h1_io(context).await
-            }
+        let response = match self.header.alpn() {
+            ALPN::Http20 => self.h2c_io().await,
+            _ => self.h1_io().await
         }?;
         self.update_cookie(&response);
         self.callback = None;
-        if let ALPN::Http20 = self.stream.alpn() { self.stream_id += 2; }
+        if let ALPN::Http20 = self.header.alpn() { self.stream_id += 2; }
         Ok(response)
     }
 
@@ -170,8 +173,9 @@ impl AcReq {
     }
 
     pub async fn re_conn(&mut self) -> HlsResult<()> {
-        self.hack_coder = HPackCoding::new();
+        *self.header.hpack_coder() = HPackCoding::new();
         self.stream_id = 0;
+        self.buffer.reset();
         for i in 0..self.timeout.connect_times() {
             let param = ConnParam {
                 scheme: &self.scheme,
@@ -179,12 +183,12 @@ impl AcReq {
                 proxy: &self.proxy,
                 timeout: &self.timeout,
                 fingerprint: &mut self.fingerprint,
-                alpn: &self.alpn,
+                alpn: self.header.alpn(),
                 verify: self.verify,
                 cert: &mut self.certs,
                 key: &mut self.key,
             };
-            let res = tokio::time::timeout(self.timeout.connect(), self.stream.async_connect(param)).await;
+            let res = tokio::time::timeout(self.timeout.connect(), self.stream.async_conn(param)).await;
             match &res {
                 Ok(res) => if let Err(e) = res && i != self.timeout.handle_times() - 1 {
                     println!("[AcReq] connect with error-{}, handle: {}/{}", e, i + 2, self.timeout.handle_times());
@@ -197,9 +201,9 @@ impl AcReq {
             }
             return match res {
                 Ok(res) => match res {
-                    Ok(_) => {
-                        self.header.init_by_alpn(self.stream.alpn());
-                        if self.stream.alpn() == &ALPN::Http20 { self.handle_h2_setting().await?; }
+                    Ok(alpn) => {
+                        self.header.init_by_alpn(alpn);
+                        if self.header.alpn() == &ALPN::Http20 { self.handle_h2_setting().await?; }
                         Ok(())
                     }
                     Err(e) => Err(e),
@@ -250,43 +254,36 @@ impl AcReq {
 impl AcReq {
     pub async fn handle_h2_setting(&mut self) -> HlsResult<()> {
         self.buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
-        let setting_frame = self.fingerprint.h2_setting().clone();
-        setting_frame.write_to(&mut self.buffer);
-        let update_frame = self.fingerprint.h2_window_update().clone();
-        update_frame.write_to(&mut self.buffer);
+        self.buffer.write_slice(self.fingerprint.h2_setting());
+        self.buffer.write_slice(self.fingerprint.h2_window_update());
         self.stream.async_write(self.buffer.filled()).await?;
         self.buffer.reset();
         self.stream_id += 1;
         Ok(())
     }
 
-    pub async fn h2c_io(&mut self, headers: Vec<HeaderKey>, body: Vec<u8>) -> HlsResult<Response> {
-        let hdr_bs = self.hack_coder.encode(headers)?;
-        let mut header_frame = H2Frame::new_header(hdr_bs, body.len(), self.stream_id);
-        header_frame.set_weight(146);
-        header_frame.add_flag(FrameFlag::Priority);
-        header_frame.write_to(&mut self.buffer);
-        for body_frame in H2Frame::new_body(body, self.stream_id) {
-            if self.buffer.unfilled_mut().len() < body_frame.payload().len() + 9 {
-                self.stream.async_write(self.buffer.filled()).await?;
-                self.buffer.reset();
-            }
-            body_frame.write_to(&mut self.buffer);
-        }
-        self.stream.async_write(self.buffer.filled()).await?;
+    pub async fn h2c_io(&mut self) -> HlsResult<Response> {
+        let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id, &mut self.body);
         self.buffer.reset();
+        loop {
+            let mut render = Reader::new(self.buffer.unfilled_mut());
+            let len = request.read(&mut render)?;
+            if len == 0 { break; }
+            self.stream.async_write(render.filled()).await?;
+        }
         let mut response = Response::new();
         loop {
             self.stream.async_read(&mut self.buffer).await?;
-            while let Ok(frame) = H2Frame::from_bytes(&mut self.buffer) {
-                if frame.frame_type() == &FrameType::Settings && frame.flag().end_stream() {
+            while let Ok((frame_type, frame_flag, frame_len)) = H2FrameRBuf::buffer_enough(&self.buffer) {
+                if frame_type == FrameType::Settings && frame_flag.end_stream() {
                     let mut end_frame = H2Frame::none_frame();
                     end_frame.set_frame_type(FrameType::Settings);
                     end_frame.set_flag(FrameFlag::EndStream);
                     self.stream.async_write(end_frame.to_bytes().as_ref()).await?;
+                    self.buffer.move_to(frame_len..self.buffer.len(), 0);
                     continue;
                 }
-                if self.handle_h2_res(frame, &mut response)? { return Ok(response); };
+                if self.handle_h2_res(frame_type, &mut response)? { return Ok(response); }
             }
         }
     }
@@ -298,32 +295,21 @@ impl ReqPriExt for AcReq {
     fn into_stream(self) -> Stream {
         self.stream
     }
-    fn callback(&mut self) -> &mut Option<ReqCallback> {
-        &mut self.callback
-    }
 
-    fn hack_decoder(&mut self) -> &mut HackDecode {
-        self.hack_coder.decoder()
-    }
-
-    fn addr(&self) -> &Addr {
-        &self.addr
-    }
-
-    fn scheme(&self) -> &Scheme {
-        &self.scheme
-    }
-}
-
-impl ReqExt for AcReq {
-    fn body_type(&self) -> &BodyType {
-        &self.body
+    fn req_param(&mut self) -> ReqParam<'_> {
+        ReqParam {
+            header: &mut self.header,
+            buffer: &mut self.buffer,
+            callback: &mut self.callback,
+        }
     }
 
     fn body_type_mut(&mut self) -> &mut BodyType {
         &mut self.body
     }
+}
 
+impl ReqExt for AcReq {
     fn header_mut(&mut self) -> &mut Header {
         &mut self.header
     }
@@ -358,10 +344,6 @@ impl ReqExt for AcReq {
 
     fn set_auto_redirect(&mut self, auto_redirect: bool) {
         self.auto_redirect = auto_redirect;
-    }
-
-    fn set_alpn(&mut self, alpn: ALPN) {
-        self.alpn = alpn;
     }
 
     fn set_mtls(&mut self, certs: Vec<Certificate>, key: RsaKey) {

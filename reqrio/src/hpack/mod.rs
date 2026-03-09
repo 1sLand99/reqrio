@@ -1,31 +1,28 @@
-pub use table::HPack;
-// pub use encode::HackEncode;
-// pub use decode::HackDecode;
-
-// use table::HPackTable;
-
+use httlib_hpack::Encoder;
+pub use table2::HPack;
+pub use error::HPackError;
 use crate::error::HlsResult;
 use crate::HeaderValue;
 use crate::packet::HeaderKey;
 
-// mod decode;
-// mod encode;
+mod encoder;
+mod table2;
 mod table;
+mod error;
 
-pub struct HackEncode(httlib_hpack::Encoder<'static>);
+pub struct HackEncode(encoder::Encoder<'static>);
 
 impl HackEncode {
     pub fn new() -> HackEncode {
-        HackEncode(httlib_hpack::Encoder::with_dynamic_size(0xFFFF))
+        HackEncode(encoder::Encoder::with_dynamic_size(0xFFFF))
     }
 
     pub fn encode_packs(&mut self, packs: &Vec<HPack>) -> HlsResult<Vec<u8>> {
         let mut res = vec![];
         for pack in packs {
-            let mut dst = vec![];
-            let value = (pack.name().as_bytes().to_vec(), pack.value().as_bytes().to_vec(), 0x2 | 0x4 | 0x10);
-            self.0.encode(value, &mut dst)?;
-            res.extend(dst);
+            let flag = Encoder::HUFFMAN_VALUE | Encoder::WITH_INDEXING | Encoder::BEST_FORMAT; // 0x2 | 0x4 | 0x10
+            let value = (pack.name().as_bytes().to_vec(), pack.value().as_bytes().to_vec(), flag);
+            res.extend(self.0.encode(value)?)
         }
         Ok(res)
     }
@@ -38,20 +35,20 @@ impl HackEncode {
                 HeaderValue::Cookies(cookies) => {
                     for cookie in cookies {
                         let value = cookie.as_req();
-                        let mut dst = vec![];
-                        self.0.encode((name.as_bytes().to_vec(), value.into_bytes(), 0x2 | 0x4 | 0x10), &mut dst)?;
-                        res.extend(dst);
+                        res.extend(self.0.encode((name.as_bytes().to_vec(), value.into_bytes(), 0x2 | 0x4 | 0x10))?);
                     }
                 }
                 _ => {
                     let value = hk.value().to_string();
-                    let mut dst = vec![];
-                    self.0.encode((name.into_bytes(), value.into_bytes(), 0x2 | 0x4 | 0x10), &mut dst)?;
-                    res.extend(dst);
+                    res.extend(self.0.encode((name.into_bytes(), value.into_bytes(), 0x2 | 0x4 | 0x10))?);
                 }
             }
         }
         Ok(res)
+    }
+
+    pub fn encode_one(&mut self, name: impl Into<Vec<u8>>, value: impl Into<Vec<u8>>) -> HlsResult<Vec<u8>> {
+        Ok(self.0.encode((name.into(), value.into(), 0x2 | 0x4 | 0x10))?)
     }
 }
 
@@ -95,5 +92,13 @@ impl HPackCoding {
         self.encoder.encode(headers)
     }
 
+    pub fn encoder(&mut self) -> &mut HackEncode { &mut self.encoder }
+
     pub fn decoder(&mut self) -> &mut HackDecode { &mut self.decoder }
+}
+
+impl Clone for HPackCoding {
+    fn clone(&self) -> Self {
+        HPackCoding::new()
+    }
 }

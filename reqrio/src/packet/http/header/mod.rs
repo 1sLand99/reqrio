@@ -1,14 +1,14 @@
-use crate::hpack::HPack;
-use crate::error::{HlsError, HlsResult};
-use crate::*;
+use crate::error::{BufferError, HlsError, HlsResult};
+use crate::hpack::{HPack, HPackCoding};
 use crate::json::JsonValue;
+use crate::*;
 pub use key::HeaderKey;
 pub use method::Method;
 pub use status::HttpStatus;
 use std::fmt::Display;
 use std::mem;
 pub use value::HeaderValue;
-
+use crate::reader::{ReadExt, Reader};
 use super::content_type::ContentType;
 use super::cookie::Cookie;
 
@@ -20,26 +20,29 @@ mod status;
 #[derive(Clone)]
 pub struct Header {
     method: Method,
-    agreement: String,
+    alpn: ALPN,
     uri: Uri,
     status: HttpStatus,
     keys: Vec<HeaderKey>,
+    hpack_coder: HPackCoding,
 }
 
 impl Header {
     pub fn new_res() -> Self {
         Self {
             method: Method::GET,
-            agreement: "".to_string(),
+            alpn: ALPN::Custom(vec![]),
             uri: Uri::default(),
             status: HttpStatus::None,
             keys: vec![],
+            hpack_coder: HPackCoding::new(),
         }
     }
 
 
     pub fn new_req_h2() -> Self {
         let mut res = Header::new_res();
+        res.alpn = ALPN::Http20;
         res.keys = vec![
             //h2 order
             HeaderKey::new("cache-control", HeaderValue::String("".to_string())),
@@ -77,6 +80,7 @@ impl Header {
 
     pub fn new_req_h1() -> Self {
         let mut res = Header::new_res();
+        res.alpn = ALPN::Http11;
         res.keys = vec![
             HeaderKey::new("Host", HeaderValue::String("".to_string())),
             HeaderKey::new("Connection", HeaderValue::String("".to_string())),
@@ -107,7 +111,7 @@ impl Header {
     }
 
     pub fn to_req_cookie_str(&self) -> String {
-        let header = self.keys.iter().find(|x| x.name_lower() == "cookie");
+        let header = self.keys.iter().find(|x| x.name().eq_ignore_ascii_case("cookie"));
         if let Some(header) = header && let Some(cookie) = header.cookies() {
             cookie.iter().map(|cookie| cookie.as_req()).collect::<Vec<_>>().join("; ")
         } else {
@@ -117,13 +121,13 @@ impl Header {
 
     pub fn as_raw(&mut self, body_len: usize) -> HlsResult<Vec<String>> {
         self.set_content_length(body_len)?;
-        Ok(self.raw())
+        Ok(self.raw(true))
     }
 
-    fn raw(&self) -> Vec<String> {
+    fn raw(&self, http: bool) -> Vec<String> {
         let mut res = vec![];
         for key in &self.keys {
-            if key.value().to_string() == "" { continue; }
+            if key.value().to_string() == "" && http { continue; }
             match key.name_lower().as_str() {
                 "set-cookie" => for cookie in key.cookies().unwrap_or(&vec![]) {
                     res.push(format!("Set-Cookie: {}", cookie.as_res()));
@@ -134,21 +138,18 @@ impl Header {
         res
     }
 
-    pub fn get(&self, name: &str) -> Option<&HeaderValue> {
-        let k = name.to_lowercase();
-        let header = self.keys.iter().find(|x| x.name_lower() == k)?;
+    pub fn get(&self, name: impl AsRef<str>) -> Option<&HeaderValue> {
+        let header = self.keys.iter().find(|x| x.name().eq_ignore_ascii_case(name.as_ref()))?;
         Some(header.value())
     }
 
-    pub fn get_mut(&mut self, name: &str) -> Option<&mut HeaderValue> {
-        let k = name.to_lowercase();
-        let header = self.keys.iter_mut().find(|x| x.name_lower() == k)?;
+    pub fn get_mut(&mut self, name: impl AsRef<str>) -> Option<&mut HeaderValue> {
+        let header = self.keys.iter_mut().find(|x| x.name().eq_ignore_ascii_case(name.as_ref()))?;
         Some(header.value_mut())
     }
 
     pub fn remove(&mut self, name: impl AsRef<str>) -> Option<HeaderValue> {
-        let lower = name.as_ref().to_lowercase();
-        let pos = self.keys.iter().position(|x| x.name_lower() == lower)?;
+        let pos = self.keys.iter().position(|x| x.name().eq_ignore_ascii_case(name.as_ref()))?;
         Some(self.keys.remove(pos).into_value())
     }
 
@@ -161,18 +162,17 @@ impl Header {
     }
 
     pub fn add_cookie(&mut self, cookie: Cookie) {
-        match self.keys.iter_mut().find(|x| x.name_lower() == "cookie") {
+        match self.keys.iter_mut().find(|x| x.name().eq_ignore_ascii_case("cookie")) {
             None => self.keys.push(HeaderKey::new("cookie", HeaderValue::Cookies(vec![cookie]))),
             Some(header) => header.value_mut().add_cookie(cookie)
         }
     }
 
     pub fn set_cookies(&mut self, ck: Vec<Cookie>) {
-        let header = self.keys.iter_mut().find(|x| x.name_lower() == "cookie");
-        if let Some(header) = header {
-            header.set_value(HeaderValue::Cookies(ck));
-        } else {
-            self.keys.push(HeaderKey::new("cookie", HeaderValue::Cookies(ck)));
+        let header = self.keys.iter_mut().find(|x| x.name().eq_ignore_ascii_case("cookie"));
+        match header {
+            None => self.keys.push(HeaderKey::new("cookie", HeaderValue::Cookies(ck))),
+            Some(header) => header.set_value(HeaderValue::Cookies(ck))
         }
     }
 
@@ -185,8 +185,8 @@ impl Header {
     ///cookie请使用set_cookie/add_cookie
     pub fn insert(&mut self, k: impl AsRef<str>, v: impl ToString) -> HlsResult<()> {
         let lower_key = k.as_ref().to_lowercase().replace("contentlength", "content-length")
-            .replace("contenttype", "ccontent-type");
-        let header = self.keys.iter_mut().find(|x| x.name_lower() == lower_key);
+            .replace("contenttype", "content-type");
+        let header = self.keys.iter_mut().find(|x| x.name().eq_ignore_ascii_case(&lower_key));
         if let Some(header) = header {
             match header.name_lower().as_str() {
                 "cookie" => {
@@ -303,17 +303,17 @@ impl Header {
 
     pub fn method(&self) -> &Method { &self.method }
 
-    pub fn agreement(&self) -> &str {
-        &self.agreement
-    }
+    pub fn alpn(&self) -> &ALPN { &self.alpn }
 
     pub fn uri(&self) -> &Uri {
         &self.uri
     }
-    
-    pub fn uri_mut(&mut self) -> &mut Uri {&mut self.uri}
 
-    pub fn is_empty(&self) -> bool { self.agreement.is_empty() }
+    pub fn uri_mut(&mut self) -> &mut Uri { &mut self.uri }
+
+    pub fn is_empty(&self) -> bool {
+        self.alpn.value().is_empty()
+    }
 
     pub fn content_encoding(&self) -> Option<&str> {
         self.get("content-encoding")?.as_string()
@@ -353,8 +353,8 @@ impl Header {
             if index == 0 {
                 let mut items = line.split(" ");
                 header.method = Method::try_from(items.next().unwrap_or("GET")).unwrap_or(Method::GET);
-                let _ = header.set_uri(Uri::try_from(items.next().unwrap_or(""))?);
-                header.agreement = items.collect::<Vec<_>>().join(" ").to_uppercase();
+                header.set_uri(Uri::try_from(items.next().unwrap_or(""))?);
+                header.alpn = ALPN::from_slice(items.collect::<Vec<_>>().join(" ").to_lowercase().as_bytes());
                 continue;
             }
             let mut items = line.split(": ");
@@ -372,7 +372,7 @@ impl Header {
             if line.is_empty() { continue; }
             if index == 0 {
                 let mut items = line.split(" ");
-                header.agreement = items.next().unwrap_or("").to_string();
+                header.alpn = ALPN::from_slice(items.next().unwrap_or("").to_lowercase().as_bytes());
                 let status = items.next().unwrap_or("100").parse().unwrap_or(100);
                 header.status = HttpStatus::new(status);
                 continue;
@@ -387,7 +387,7 @@ impl Header {
 
     pub fn parse_h2(packs: Vec<HPack>) -> HlsResult<Header> {
         let mut header = Header::new_res();
-        header.agreement = "HTTP/2.0".to_string();
+        header.alpn = ALPN::Http20;
         for pack in packs {
             header.insert(pack.name(), pack.value())?;
             match pack.name() {
@@ -406,8 +406,10 @@ impl Header {
 
     pub fn keys(&self) -> &Vec<HeaderKey> { &self.keys }
 
-    pub(crate) fn init_by_alpn(&mut self, alpn: &ALPN) {
-        let keys = if let ALPN::Http20 = alpn { Header::new_req_h2().keys } else { Header::new_req_h1().keys };
+    pub(crate) fn init_by_alpn(&mut self, alpn: ALPN) {
+        if alpn == self.alpn { return; }
+        self.alpn = alpn;
+        let keys = if let ALPN::Http20 = self.alpn { Header::new_req_h2().keys } else { Header::new_req_h1().keys };
         let keys = mem::replace(&mut self.keys, keys);
         for ok in keys {
             let nk = self.keys.iter_mut().find(|x| x.name_lower() == ok.name_lower());
@@ -427,6 +429,8 @@ impl Header {
         }
         Ok(())
     }
+
+    pub(crate) fn hpack_coder(&mut self) -> &mut HPackCoding { &mut self.hpack_coder }
 }
 
 #[cfg(feature = "export")]
@@ -436,7 +440,7 @@ impl From<&Header> for JsonValue {
             "uri":value.uri.to_string(),
             "method":value.method.to_string(),
             "status":value.status.code(),
-            "agreement":value.agreement.clone(),
+            "agreement":value.alpn.to_string(),
             "keys":{}
         };
         for key in &value.keys {
@@ -471,14 +475,14 @@ impl Display for Header {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let raw = match self.status {
             HttpStatus::None => {
-                let mut raw = self.raw();
-                if self.agreement.starts_with("HTTP/1") { raw.insert(0, format!("{} {} {}", self.method, self.uri, self.agreement)); }
+                let mut raw = self.raw(false);
+                if matches!(self.alpn,ALPN::Http11|ALPN::Http10) { raw.insert(0, format!("{} {} {}", self.method, self.uri, self.alpn)); }
                 raw
             }
             _ => {
-                if self.agreement.starts_with("HTTP/1") {
-                    let mut raw = self.raw();
-                    raw.insert(0, format!("{} {} {}", self.agreement, self.status.code(), self.status.spec()));
+                if matches!(self.alpn,ALPN::Http11|ALPN::Http10) {
+                    let mut raw = self.raw(false);
+                    raw.insert(0, format!("{} {} {}", self.alpn, self.status.code(), self.status.spec()));
                     raw.push("".to_string());
                     raw.push("".to_string());
                     raw
@@ -497,3 +501,138 @@ impl Display for Header {
         f.write_str(&raw.join("\r\n"))
     }
 }
+
+
+pub struct HeaderBuffer<'a> {
+    header: &'a mut Header,
+    addr: &'a Addr,
+    scheme: &'a Scheme,
+    stream_identifier: &'a u32,
+    body_len: usize,
+    pos: usize,
+    wrote: bool,
+}
+
+impl<'a> HeaderBuffer<'a> {
+    pub fn new(header: &'a mut Header, addr: &'a Addr, scheme: &'a Scheme, sid: &'a u32) -> HeaderBuffer<'a> {
+        HeaderBuffer {
+            header,
+            addr,
+            scheme,
+            stream_identifier: sid,
+            body_len: 0,
+            pos: 0,
+            wrote: false,
+        }
+    }
+    fn skip_h1_key(key: &HeaderKey, body_len: &usize) -> bool {
+        let is_ctx_len = key.name().eq_ignore_ascii_case("content-length");
+        if is_ctx_len && body_len != &0 { return false; }
+        let is_host = key.name().eq_ignore_ascii_case("host");
+        if is_host { return false; }
+        key.value().is_empty()
+    }
+
+    pub fn read_h1(&mut self, buf: &mut Reader) -> HlsResult<usize> {
+        let start = buf.offset().end;
+        // first line: Method uri version
+        if self.pos == 0 {
+            if buf.unfilled_len() < 17 + self.header.uri.len() { return Ok(buf.offset().end - start); }
+            buf.write_slice(self.header.method.to_string().as_bytes());
+            buf.write_u8(b' ');
+            buf.write_slice(self.header.uri.to_string().as_bytes());
+            buf.write_u8(b' ');
+            buf.write_slice(self.header.alpn.to_string().as_bytes());
+            buf.write_slice(b"\r\n");
+            self.pos += 1;
+        }
+        let mut index = 1;
+        //header keys
+        for key in self.header.keys.iter() {
+            if Self::skip_h1_key(key, &self.body_len) { continue; }
+            if index < self.pos {
+                index += 1;
+                continue;
+            }
+            let len = key.name().len() + key.value().may_len() + self.addr.host().len() + 4;
+            if buf.unfilled_len() < len { return Ok(buf.offset().end - start); }
+            buf.write_slice(key.name().as_bytes());
+            buf.write_slice(b": ");
+            match key.name_lower().as_str() {
+                "host" => {
+                    buf.write_slice(self.addr.host().as_bytes());
+                    if self.addr.port() != 80 && self.addr.port() != 443 {
+                        buf.write_slice(b":");
+                        buf.write_slice(self.addr.port().to_string().as_bytes());
+                    }
+                }
+                "content-length" => buf.write_slice(self.body_len.to_string().as_bytes()),
+                "cookie" => {
+                    for (index, cookie) in key.cookies().unwrap_or(&vec![]).iter().enumerate() {
+                        buf.write_slice(cookie.name().as_bytes());
+                        buf.write_u8(b'=');
+                        buf.write_slice(cookie.value().as_bytes());
+                        if index != key.cookies().unwrap_or(&vec![]).len() - 1 { buf.write_slice(b"; ") }
+                    }
+                }
+                _ => buf.write_slice(key.value().as_string().unwrap_or(&key.value().to_string()).as_bytes()),
+            }
+            buf.write_slice(b"\r\n");
+            index += 1;
+            self.pos += 1;
+        }
+        if buf.unfilled_len() < 2 { return Ok(buf.offset().end - start); }
+        buf.write_slice(b"\r\n");
+        self.wrote = true;
+        Ok(0)
+    }
+
+    pub fn read_h2(&mut self, buf: &mut Reader) -> HlsResult<usize> {
+        let len = 59 + self.addr.host().len() + self.header.uri.len();
+        let invalid_keys = ["connection", "host", "content-length", "transfer-encoding", "upgrade"];
+        let keys = self.header.keys.iter().filter(|x| !invalid_keys.contains(&x.name_lower().as_str()) && !x.value().is_empty());
+        let kln: usize = keys.clone().map(|x| x.name().len() + x.value().may_len() + 10).sum();
+        if buf.unfilled_len() < len + kln { return Err(BufferError::BufferTooSmall(buf.capacity()).into()); }
+
+        let offset = buf.offset();
+        let mut header_frame = H2Frame::new_header(self.body_len, *self.stream_identifier);
+        header_frame.set_priority(146);
+        header_frame.write_to(buf);
+        buf.write_slice(&self.header.hpack_coder.encoder().encode_one(b":method", self.header.method.to_string())?);
+        buf.write_slice(&self.header.hpack_coder.encoder().encode_one(b":authority", self.addr.to_string().replace(":80", "").replace(":443", ""))?);
+        buf.write_slice(&self.header.hpack_coder.encoder().encode_one(b":scheme", self.scheme.to_string())?);
+        buf.write_slice(&self.header.hpack_coder.encoder().encode_one(b":path", self.header.uri.to_string())?);
+        for key in keys {
+            let name = key.name_lower();
+            match key.value() {
+                HeaderValue::Cookies(cookies) => for cookie in cookies {
+                    buf.write_slice(&self.header.hpack_coder.encoder().encode_one(name.to_owned(), cookie.as_req())?)
+                }
+                _ => buf.write_slice(&self.header.hpack_coder.encoder().encode_one(name, key.value().to_string())?)
+            }
+        }
+        //有priority，payload长度需要frame.len-9
+        buf.write_u32_in(offset.start, (buf.offset().end - offset.end - 9) as u32, true);
+        self.wrote = true;
+        Ok(buf.offset().end - offset.end)
+    }
+
+    pub fn set_body_len(&mut self, body_len: usize) {
+        self.body_len = body_len;
+    }
+}
+
+impl<'a> ReadExt for HeaderBuffer<'a> {
+    fn wrote(&self) -> bool {
+        self.wrote
+    }
+
+    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
+        match self.header.alpn {
+            ALPN::Http20 => self.read_h2(buf),
+            ALPN::Http11 | ALPN::Http10 => self.read_h1(buf),
+            ALPN::Custom(_) => Err(BufferError::UnsupportedALPN(self.header.alpn.clone()).into()),
+        }
+    }
+}
+

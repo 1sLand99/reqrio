@@ -97,14 +97,15 @@
 //!
 //! ### Certificate reading/writing
 //!
-//! ```rust
+//! ```no_run
 //! use std::fs;
+//! use reqtls::*;
 //!
 //! fn dd() {
 //!     //Read certificate chain
-//!     let certificates = Certificate::from_pem_file(pem)?;
+//!     let mut certificates = Certificate::from_pem_file("path/to/pem/cert").unwrap();
 //!     //Read certificate private key
-//!     let certificate_key = RsaKey::from_pri_pem_file(key)?;
+//!     let certificate_key = RsaKey::from_pri_pem_file("path/to/pem/key").unwrap();
 //!     //Certificate writing
 //!     fs::write("1.der", certificates[0].as_der().as_slice()).unwrap();
 //! }
@@ -113,6 +114,9 @@
 //! ### Certificate Issuance Example
 //!
 //! ```rust
+//! use std::fs;
+//! use reqtls::*;
+//!
 //! fn dd() {
 //!     let mut ca_signer = CertSigner::root_siger(2048).unwrap();
 //!     ca_signer.set_expire(10).unwrap();
@@ -128,7 +132,7 @@
 //!     ca_signer.add_extension(CertExtend::KeyIdentifier(vec![KeyIdentifier::Hash])).unwrap();
 //!     ca_signer.add_extension(CertExtend::BasicConstraints(vec![BasicConstraint::Critical, BasicConstraint::Ca(true)])).unwrap();
 //!     ca_signer.sign_by_self().unwrap();
-//!     fs::write("ca.der", ca_signer.cert.as_der().as_slice()).unwrap();
+//!     fs::write("ca.der", ca_signer.cert_mut().as_der().as_slice()).unwrap();
 //! }
 //! ```
 //!
@@ -159,6 +163,8 @@
 //! - Cipher usage example
 //!
 //! ```rust
+//! use reqtls::*;
+//!
 //! fn dd() {
 //!     let mut aes = Cipher::des_cbc();
 //!     aes.set_secret_key("12345678", Some("12345678"));
@@ -179,20 +185,22 @@
 //! - Rsa Encryption and Decryption Example
 //!
 //! ```rust
+//! use reqtls::*;
+//!
 //! fn dd() {
 //!     let key = RsaKey::gen_new_key(2048).unwrap();
 //!     println!("{}", key.to_pri_pem().unwrap());
 //!     println!("{}", key.to_pub_pem().unwrap());
 //!     println!("{:?}", key.to_pri_der());
 //!     println!("{:?}", key.to_pub_der());
-//!     let nkey = RsaKey::from_pub_der(key.to_pub_der()).unwrap();
-//!     let rsa = RsaCipher::from_key(nkey).unwrap();
-//!     let encrypted = rsa.encrypt("adsdfds", true).unwrap();
+//!     let nkey = RsaKey::from_pub_der(key.to_pub_der().as_slice()).unwrap();
+//!     let rsa = RsaCipher::from_rsa_key(&nkey).unwrap();
+//!     let encrypted = rsa.encrypt("adsdfds").unwrap();
 //!     println!("{} {:?}", encrypted.len(), encrypted);
 //!
-//!     let nkey = RsaKey::from_pri_der(key.to_pri_der()).unwrap();
-//!     let rsa = RsaCipher::from_key(nkey).unwrap();
-//!     let decrypted = rsa.decrypt(encrypted.as_slice(), true).unwrap();
+//!     let nkey = RsaKey::from_pri_der(key.to_pri_der().as_slice()).unwrap();
+//!     let rsa = RsaCipher::from_rsa_key(&nkey).unwrap();
+//!     let decrypted = rsa.decrypt(encrypted.as_slice()).unwrap();
 //!     println!("{} {:?}", decrypted.len(), decrypted);
 //! }
 //! ```
@@ -210,6 +218,8 @@
 //! - Usage example
 //!
 //! ```rust
+//! use reqtls::*;
+//!
 //! fn dd() {
 //!     let mut hasher = Hasher::new(HashType::MD5).unwrap();
 //!     hasher.update("dfsdf").unwrap();
@@ -254,6 +264,7 @@ pub use boring::{hash, hmac, base64, Cipher, CipherType, Padding, RsaCipher, Rsa
                  certificate::KeyIdentifier, certificate::SubjectAltName, certificate::CertStore,
                  certificate::CertType,
                  SignatureAlgorithm, AlgorithmSigner};
+pub use hash::{HashType, Hmac, Hasher};
 pub use hex;
 pub use suite::CipherSuite;
 pub use extend::{Extension, ExtensionType, group::GroupType, formats::EcPointFormat, SupportVersions, CompressionType};

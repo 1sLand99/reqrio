@@ -46,10 +46,10 @@
 //! * Rust HTTP Example
 //!
 //! ```rust
-//! use reqrio::{Fingerprint, ScReq, ALPN};
+//! use reqrio::*;
 //!
 //! fn ff() {
-//!     let req = ScReq::new()
+//!     let mut req = ScReq::new()
 //!         //The default is to use http/1.1
 //!         .with_alpn(ALPN::Http20)
 //!         .with_url("https://www.baidu.com").unwrap();
@@ -73,8 +73,8 @@
 //!         "sec-ch-ua-platform": r#""Windows""#
 //!     };
 //!     //By default, there are no request headers; you need to configure them yourself.
-//!     req.set_headers_json(header);
-//!     let res = req.get().unwrap();
+//!     req.set_headers_json(headers);
+//!     let mut res = req.get().unwrap();
 //!     //Get response headers
 //!     let header = res.header();
 //!     //Get the response body; the body here has already been decoded.
@@ -117,7 +117,6 @@
 use crate::error::HlsResult;
 #[cfg(feature = "aync")]
 pub use acq::AcReq;
-pub use body::BodyType;
 pub use buffer::Buffer;
 pub use error::HlsError;
 pub use ext::{ReqExt, ReqGenExt};
@@ -135,7 +134,7 @@ pub use stream::TlsStream;
 pub use timeout::Timeout;
 #[cfg(feature = "tokio")]
 pub use tokio;
-pub use file::HttpFile;
+pub use form_data::{HttpFile, FileForm};
 
 pub type ReqCallback = Box<dyn FnMut(&[u8]) -> HlsResult<()>>;
 pub const HTTP_GAP: &[u8; 4] = b"\r\n\r\n";
@@ -149,11 +148,13 @@ mod error;
 #[cfg(feature = "export")]
 mod export;
 mod ext;
-mod file;
+mod form_data;
 mod packet;
 mod scq;
 mod stream;
 mod timeout;
 mod body;
 mod fingerprint;
-
+mod huffman;
+mod reader;
+mod request;

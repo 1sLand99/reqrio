@@ -10,6 +10,14 @@ pub trait WriteExt {
         let r = if fix { 1..4 } else { 0..4 };
         self.write_slice(&v.to_be_bytes()[r])
     }
+    fn write_ru32(&mut self, v: &u32, fix: bool) {
+        let r = if fix { 1..4 } else { 0..4 };
+        self.write_slice(&v.to_be_bytes()[r])
+    }
+    fn write_u32_in(&mut self, place: usize, v: u32, fix: bool) -> usize {
+        let r = if fix { 1..4 } else { 0..4 };
+        self.write_slice_in(place, &v.to_be_bytes()[r])
+    }
     fn write_u64(&mut self, v: u64) { self.write_slice(&v.to_be_bytes()) }
     fn write_i8(&mut self, v: i8) { self.write_slice(&v.to_be_bytes()) }
     fn write_i16(&mut self, v: i16) { self.write_slice(&v.to_be_bytes()) }
@@ -18,6 +26,11 @@ pub trait WriteExt {
     fn write_slice(&mut self, v: &[u8]) {
         let len = unsafe { buffer_write(self.as_mut_ptr().add(self.len()), v.as_ptr(), v.len()) };
         self.add_len(len);
+    }
+
+    ///不更新长度，需要更新使用write_slice
+    fn write_slice_in(&mut self, place: usize, v: &[u8]) -> usize {
+        unsafe { buffer_write(self.as_mut_ptr().add(place), v.as_ptr(), v.len()) }
     }
 
     fn flush(&mut self, offset: usize, sni: String, h2: bool) -> RlsResult<usize> {

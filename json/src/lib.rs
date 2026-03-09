@@ -385,9 +385,9 @@ unsafe impl Send for JsonValue {}
 
 
 /// ```
-/// # #[macro_use] extern crate json;
+/// # use reqrio_json as json;
 /// # fn main() {
-/// let data = array!["foo", 42, false];
+/// let data = json::array!["foo", 42, false];
 /// # }
 /// ```
 #[macro_export]
@@ -458,9 +458,9 @@ macro_rules! value {
 /// Helper macro for creating instances of `JsonValue::Object`.
 ///
 /// ```
-/// # #[macro_use] extern crate json;
+/// # use reqrio_json as json;
 /// # fn main() {
-/// let data = object!{
+/// let data = json::object!{
 ///     foo: 42,
 ///     bar: false,
 /// };
