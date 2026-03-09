@@ -1,3 +1,4 @@
+use std::io::Cursor;
 use crate::body::BodyType;
 use crate::error::HlsResult;
 use crate::ext::{ReqExt, ReqParam};
@@ -229,6 +230,7 @@ impl AcReq {
         let old_addr = mem::replace(&mut self.addr, addr);
         let old_scheme = mem::replace(&mut self.scheme, scheme);
         self.header.set_uri(uri);
+        drop(mem::replace(&mut self.body, BodyType::Bytes(Cursor::new(vec![]))));
         if self.addr.host() != old_addr.host() || self.scheme != old_scheme {
             let host = self.addr.to_string().replace(":80", "").replace(":443", "");
             self.header.set_host(host)?;

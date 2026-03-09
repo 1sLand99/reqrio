@@ -65,7 +65,7 @@ async fn main() {
     // req.set_url("https://127.0.0.1:3453/v1/api/tlsReq").await.unwrap();
     // req.set_json(data);
     // req.set_auto_redirect(false);
-    // req.set_url("http://zwfw.hubei.gov.cn/web/user/uias_login.do?appCode=hbzwfw&gotoUrl=http%3A%2F%2Fzwfw.hubei.gov.cn%2Fwebview%2Fgrkj%2Fwelcome.html&p01=").await.unwrap();
+    req.set_url("http://zwfw.hubei.gov.cn/web/user/uias_login.do?appCode=hbzwfw&gotoUrl=http%3A%2F%2Fzwfw.hubei.gov.cn%2Fwebview%2Fgrkj%2Fwelcome.html&p01=").await.unwrap();
     // req.set_url("https://127.0.0.1:7878").await.unwrap();
     // req.set_url("https://www.jetstar.com").await.unwrap();
     // req.set_url("https://m1.pxb7.com/api/search/h5/product/selectSearchPageList").await.unwrap();
@@ -86,7 +86,7 @@ async fn main() {
     // req.set_auto_redirect(false);
     // req.set_url("https://oauth.hubei.gov.cn:8443/").await.unwrap();
 
-    req.set_url("https://m.so.com").await.unwrap();
+    // req.set_url("https://m.so.com").await.unwrap();
     // let file = HttpFile::new_path_data(json::object! {"da":"sf","sss":1}, "/home/xl/project/py/ttt/1.py").unwrap();
     // req.set_files(file).unwrap();
     // let data = vec!["s"; 16384];

@@ -1,3 +1,4 @@
+use std::io::Cursor;
 use crate::body::BodyType;
 use crate::ext::{ReqParam, ReqPriExt};
 use crate::hpack::HPackCoding;
@@ -216,6 +217,7 @@ impl ScReq {
         let (scheme, addr, uri) = Url::try_from(url.as_ref())?.into_inner();
         let old_addr = mem::replace(&mut self.addr, addr);
         let old_scheme = mem::replace(&mut self.scheme, scheme);
+        drop(mem::replace(&mut self.body, BodyType::Bytes(Cursor::new(vec![]))));
         self.header.set_uri(uri);
         if old_addr.host() != self.addr.host() || self.scheme != old_scheme {
             let host = self.addr.to_string().replace(":80", "").replace(":443", "");

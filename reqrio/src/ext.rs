@@ -1,3 +1,5 @@
+use std::io::Cursor;
+use std::mem;
 use std::path::Path;
 use std::sync::Arc;
 use crate::body::BodyType;
@@ -69,6 +71,7 @@ pub trait ReqExt: ReqPriExt + Sized {
     fn url(&self) -> String;
     fn set_uri(&mut self, uri: impl TryInto<Uri>) -> Result<(), RlsError> {
         self.header_mut().set_uri(uri.try_into().or(Err(UrlError::ParseUriError))?);
+        drop(mem::replace(self.body_type_mut(), BodyType::Bytes(Cursor::new(vec![]))));
         Ok(())
     }
     fn set_proxy(&mut self, proxy: Proxy);
