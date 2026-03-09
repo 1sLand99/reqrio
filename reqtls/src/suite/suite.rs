@@ -230,10 +230,7 @@ impl CipherSuite {
     }
 
     pub fn is_aead(&self) -> bool {
-        match self.value {
-            0xc02b | 0xc02c | 0xcca9 | 0xc02f | 0xc030 | 0xcca8 | 0x009e | 0x009f | 0xccaa | 0x009c | 0x009d | 0x1301 | 0x1302 | 0x1303 => true,
-            _ => false
-        }
+        matches!(self.value, 0xc02b | 0xc02c | 0xcca9 | 0xc02f | 0xc030 | 0xcca8 | 0x009e | 0x009f | 0xccaa | 0x009c | 0x009d | 0x1301 | 0x1302 | 0x1303)
     }
 
 
@@ -366,25 +363,5 @@ impl Clone for CipherSuite {
             hasher: None,
             aead: None,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::boring::HashType;
-    use crate::suite::suite::Hasher;
-    use std::fs;
-
-    #[test]
-    fn test_hasher() {
-        let mut hasher = Hasher::new(HashType::Sha256).unwrap();
-        hasher.update(fs::read("../ClientHello").unwrap()).unwrap();
-        hasher.update(fs::read("../ServerHello").unwrap()).unwrap();
-        hasher.update(fs::read("../Certificate").unwrap()).unwrap();
-        hasher.update(fs::read("../ServerKeyExchange").unwrap()).unwrap();
-        hasher.update(fs::read("../ServerHelloDone").unwrap()).unwrap();
-        hasher.update(fs::read("../ClientKeyExchange").unwrap()).unwrap();
-        let res = hasher.finalize().unwrap();
-        println!("{:?}", res);
     }
 }

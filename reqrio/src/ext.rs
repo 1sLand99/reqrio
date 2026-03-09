@@ -31,13 +31,15 @@ pub trait ReqExt: ReqPriExt + Sized {
         *self.body_type_mut() = BodyType::new_byte(bs.into());
         self.header_mut().set_content_type(ct);
     }
+
     /// * 文件上传示例
-    /// ```rust
+    /// ```no_run
     /// use reqrio::*;
     /// let data=json::object!{"key":"value"};
-    /// let file=HttpFile::new_path_data(data,"path/to/file1").unwrap();
+    /// let mut file=HttpFile::new_path_data(data,"path/to/file1").unwrap();
     /// file.add_form(FileForm::new_path("path/to/file2").unwrap());
-    /// req.set_files(data,files)
+    /// let mut req=ScReq::new();
+    /// req.set_files(file).unwrap();
     /// ```
     fn set_files(&mut self, file: HttpFile) -> HlsResult<()> {
         let md5 = hash::md5_hex(file.len().to_string())?;

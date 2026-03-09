@@ -46,10 +46,10 @@
 //! * Rust HTTP Example
 //!
 //! ```rust
-//! use reqrio::{Fingerprint, ScReq, ALPN};
+//! use reqrio::*;
 //!
 //! fn ff() {
-//!     let req = ScReq::new()
+//!     let mut req = ScReq::new()
 //!         //The default is to use http/1.1
 //!         .with_alpn(ALPN::Http20)
 //!         .with_url("https://www.baidu.com").unwrap();
@@ -73,8 +73,8 @@
 //!         "sec-ch-ua-platform": r#""Windows""#
 //!     };
 //!     //By default, there are no request headers; you need to configure them yourself.
-//!     req.set_headers_json(header);
-//!     let res = req.get().unwrap();
+//!     req.set_headers_json(headers);
+//!     let mut res = req.get().unwrap();
 //!     //Get response headers
 //!     let header = res.header();
 //!     //Get the response body; the body here has already been decoded.

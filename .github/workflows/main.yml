@@ -24,8 +24,10 @@ jobs:
           cache-on-failure: true
           prefix-key: |
             ${{ runner.os }}-cargo-
-      - name: build
-        run: cargo build --package reqrio --release --features export
+      - name: build and test
+        run: |
+          cargo build --package reqrio --release --features export
+          cargo test --features aync
       - name: Copy So
         run: |
           cp target/release/libreqrio.so reqrio-py/reqrio/
