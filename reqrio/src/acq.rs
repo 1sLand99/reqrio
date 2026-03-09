@@ -102,15 +102,6 @@ impl AcReq {
     }
 
     pub(crate) async fn h1_io(&mut self) -> HlsResult<Response> {
-        let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id, &mut self.body);
-        self.buffer.reset();
-        loop {
-            let mut render = Reader::new(self.buffer.unfilled_mut());
-            let len = request.read(&mut render)?;
-            println!("{} {}", len, String::from_utf8_lossy(render.filled()));
-            if len == 0 { break; }
-            self.stream.async_write(render.filled()).await?;
-        }
         let mut response = Response::new();
         let mut read_len = 0;
         loop {
@@ -121,6 +112,14 @@ impl AcReq {
     }
 
     async fn handle_io(&mut self) -> HlsResult<Response> {
+        let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id, &mut self.body);
+        self.buffer.reset();
+        loop {
+            let mut render = Reader::new(self.buffer.unfilled_mut());
+            let len = request.read(&mut render)?;
+            if len == 0 { break; }
+            self.stream.async_write(render.filled()).await?;
+        }
         let response = match self.header.alpn() {
             ALPN::Http20 => self.h2c_io().await,
             _ => self.h1_io().await
@@ -263,14 +262,6 @@ impl AcReq {
     }
 
     pub async fn h2c_io(&mut self) -> HlsResult<Response> {
-        let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id, &mut self.body);
-        self.buffer.reset();
-        loop {
-            let mut render = Reader::new(self.buffer.unfilled_mut());
-            let len = request.read(&mut render)?;
-            if len == 0 { break; }
-            self.stream.async_write(render.filled()).await?;
-        }
         let mut response = Response::new();
         loop {
             self.stream.async_read(&mut self.buffer).await?;

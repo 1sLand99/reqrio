@@ -101,15 +101,6 @@ impl ScReq {
     }
 
     pub fn h1_io(&mut self) -> HlsResult<Response> {
-        let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id, &mut self.body);
-        self.buffer.reset();
-        loop {
-            let mut render = Reader::new(self.buffer.unfilled_mut());
-            let len = request.read(&mut render)?;
-            println!("{} {}", len, String::from_utf8_lossy(render.filled()));
-            if len == 0 { break; }
-            self.stream.sync_write(render.filled())?;
-        }
         let mut response = Response::new();
         let mut read_len = 0;
         loop {
@@ -120,6 +111,14 @@ impl ScReq {
     }
 
     fn handle_io(&mut self) -> HlsResult<Response> {
+        let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id, &mut self.body);
+        self.buffer.reset();
+        loop {
+            let mut render = Reader::new(self.buffer.unfilled_mut());
+            let len = request.read(&mut render)?;
+            if len == 0 { break; }
+            self.stream.sync_write(render.filled())?;
+        }
         let response = match self.header.alpn() {
             ALPN::Http20 => self.h2c_io(),
             _ => self.h1_io()
@@ -251,14 +250,6 @@ impl ScReq {
     }
 
     pub fn h2c_io(&mut self) -> HlsResult<Response> {
-        let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id, &mut self.body);
-        self.buffer.reset();
-        loop {
-            let mut render = Reader::new(self.buffer.unfilled_mut());
-            let len = request.read(&mut render)?;
-            if len == 0 { break; }
-            self.stream.sync_write(render.filled())?;
-        }
         let mut response = Response::new();
         loop {
             self.stream.sync_read(&mut self.buffer)?;
