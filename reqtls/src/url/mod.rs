@@ -128,7 +128,7 @@ impl TryFrom<&str> for Url {
             let mut item = addr.split("@");
             let mut auth = item.next().ok_or(UrlError::AuthInfoError)?.split(":");
             res.username = url_decode(auth.next().ok_or(UrlError::MissingUsername)?)?;
-            res.password = url_decode(auth.next().ok_or(UrlError::MissingPassword)?)?;
+            res.password = url_decode(auth.next().unwrap_or(""))?;
             item.next().ok_or(UrlError::MissingDomain)?
         } else { addr };
 
