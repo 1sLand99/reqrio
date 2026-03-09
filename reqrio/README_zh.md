@@ -4,6 +4,24 @@
 * 支持tls指纹，可以通过tls握手的十六进制、ja3、ja4设置(**仅订阅**),
 * 对**请求头的顺序**(查看[请求头顺序表](#请求头顺序表))，和浏览器一致
 * 使用**BoringSSL**实现Tls，和浏览器chrome、edge等一致。
+* 支持大文件流式发送
+
+### 低copy
+
+`reqrio` 是一个 低拷贝（low-copy）请求发送引擎，用于高效地将 用户数据或文件数据 通过 TLS 加密后发送到 TCP。`reqrio`
+针对用户传入form-data、json、bytes、text等数据进行转bytes储存，然后仅在进入 TLS 加密阶段时发生一次 copy， 其余阶段仅对数据进行
+borrow（借用）。对文件上传则通过into_reader进行读取，减小内存开销
+
+```text
+                                    
+        Data  ┌────────┐encode->bytes ┌───────────────┐             ┌───────────┐
+ User ───────►│        │─────────────►│               │             │           │
+              │ ScReq  │              │   Request     │ copy slice  │  fragment │ write ┌───────┐
+              │ AcReq  │              │   borrow      │────────────►│   TLS     │──────►│  TCP  │
+       Files  │(Engine)│ into_reader  │   buffer      │             │  Encrypt  │       └───────┘
+ User ───────►│        │─────────────►│               │             │           │
+              └────────┘              └───────────────┘             └───────────┘
+```
 
 ### 请求头顺序表
 
