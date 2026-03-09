@@ -2,9 +2,8 @@ use crate::buffer::Buffer;
 use crate::error::HlsResult;
 use crate::hpack::HackDecode;
 use crate::json::JsonValue;
-use crate::packet::h2c::FrameType;
-use crate::packet::{H2Frame, Header};
-use crate::{coder, HeaderValue, CHUNK_END, HTTP_GAP};
+use crate::packet::{H2FrameRBuf, Header};
+use crate::{coder, FrameType, HeaderValue, CHUNK_END, HTTP_GAP};
 use reqtls::WriteExt;
 use std::{mem, ptr};
 
@@ -106,7 +105,6 @@ pub struct Response {
     header: Header,
     body: Body,
     raw: Vec<u8>,
-    frames: Vec<H2Frame>,
 }
 
 impl Default for Response {
@@ -115,7 +113,6 @@ impl Default for Response {
             header: Header::new_res(),
             body: Body::Raw(Vec::new()),
             raw: Vec::new(),
-            frames: vec![],
         }
     }
 }
@@ -173,20 +170,15 @@ impl Response {
         }
     }
 
-    pub fn extend_frame(&mut self, frame: H2Frame, hpack_coding: &mut HackDecode) -> HlsResult<bool> {
+    pub fn extend_frame(&mut self, frame: &H2FrameRBuf, hpack_coding: &mut HackDecode) -> HlsResult<bool> {
         let ended = frame.is_end_frame();
         match frame.frame_type() {
-            FrameType::Data => self.raw.extend(frame.to_payload()),
+            FrameType::Data => self.raw.extend_from_slice(frame.payload()),
             FrameType::Headers => {
-                if frame.flag().end_header() {
-                    let mut payload = self.frames.drain(..).map(|x| x.to_payload()).collect::<Vec<_>>();
-                    payload.push(frame.to_payload());
-                    let mut hdr_bs = payload.concat();
-                    let res = hpack_coding.decode(&mut hdr_bs)?;
-                    self.header = Header::parse_h2(res)?;
-                    println!("{:?}", self.header.get("connection").map(|v| v.to_string()));
-                } else {
-                    self.frames.push(frame);
+                self.raw.extend_from_slice(frame.payload());
+                if frame.frame_flag().end_header() {
+                    let mut hdr_bs = mem::take(&mut self.raw);
+                    self.header = Header::parse_h2(hpack_coding.decode(&mut hdr_bs)?)?;
                 }
             }
             _ => {}

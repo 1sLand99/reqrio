@@ -29,6 +29,26 @@ impl HeaderValue {
             _ => None
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        match self {
+            HeaderValue::String(v) => v.is_empty(),
+            HeaderValue::Bool(_) => false,
+            HeaderValue::Number(v) => *v == 0,
+            HeaderValue::ContextType(_) => false,
+            HeaderValue::Cookies(v) => v.is_empty(),
+        }
+    }
+
+    pub fn may_len(&self) -> usize {
+        match self {
+            HeaderValue::String(v) => v.len(),
+            HeaderValue::Bool(_) => 1,
+            HeaderValue::Number(_) => 10,
+            HeaderValue::ContextType(_) => 64,
+            HeaderValue::Cookies(cookies) => cookies.iter().map(|x| x.name().len() + x.value().len() + 1).sum()
+        }
+    }
 }
 
 impl Display for HeaderValue {

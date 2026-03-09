@@ -1,17 +1,19 @@
-use std::mem;
-use crate::ext::ReqPriExt;
-use crate::hpack::{HPackCoding, HackDecode};
+use crate::body::BodyType;
+use crate::ext::{ReqParam, ReqPriExt};
+use crate::hpack::HPackCoding;
+use crate::packet::{FrameFlag, H2FrameRBuf};
+use crate::reader::{ReadExt, Reader};
+use crate::request::RequestBuffer;
 use crate::stream::{ConnParam, Stream};
 use crate::*;
 use json::JsonValue;
-use crate::packet::FrameFlag;
+use std::mem;
 
 #[repr(C)]
 pub struct ScReq {
     header: Header,
     scheme: Scheme,
     addr: Addr,
-    hack_coder: HPackCoding,
     stream: Stream,
     body: BodyType,
     callback: Option<ReqCallback>,
@@ -32,9 +34,8 @@ impl Default for ScReq {
             header: Header::new_req_h1(),
             scheme: Scheme::Http,
             addr: Addr::default(),
-            hack_coder: HPackCoding::new(),
             stream: Stream::NonConnection,
-            body: BodyType::Text("".to_string()),
+            body: BodyType::new_byte(vec![]),
             callback: None,
             timeout: Timeout::new(),
             stream_id: 0,
@@ -94,29 +95,34 @@ impl ScReq {
         self.stream_io()
     }
 
-    pub fn h1_io(&mut self, context: impl AsRef<[u8]>) -> HlsResult<Response> {
-        self.stream.sync_write(context.as_ref())?;
+    pub fn h1_io_by_raw(&mut self, context: impl AsRef<[u8]>) -> HlsResult<Response> {
+        self.buffer.write_slice(context.as_ref());
+        self.h1_io()
+    }
+
+    pub fn h1_io(&mut self) -> HlsResult<Response> {
+        let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id, &mut self.body);
+        self.buffer.reset();
+        loop {
+            let mut render = Reader::new(self.buffer.unfilled_mut());
+            let len = request.read(&mut render)?;
+            println!("{} {}", len, String::from_utf8_lossy(render.filled()));
+            if len == 0 { break; }
+            self.stream.sync_write(render.filled())?;
+        }
         let mut response = Response::new();
-        let mut buffer = Buffer::with_capacity(16437);
         let mut read_len = 0;
         loop {
-            self.stream.sync_read(&mut buffer)?;
-            if self.handle_h1_res(&mut buffer, &mut response, &mut read_len)? { break; }
+            self.stream.sync_read(&mut self.buffer)?;
+            if self.handle_h1_res(&mut response, &mut read_len)? { break; }
         }
         Ok(response)
     }
 
     fn handle_io(&mut self) -> HlsResult<Response> {
         let response = match self.header.alpn() {
-            ALPN::Http20 => {
-                let headers = self.gen_h2_header()?;
-                let body = self.gen_h2_body()?;
-                self.h2c_io(headers, body)
-            }
-            _ => {
-                let context = self.gen_h1()?;
-                self.h1_io(context)
-            }
+            ALPN::Http20 => self.h2c_io(),
+            _ => self.h1_io()
         }?;
         self.update_cookie(&response);
         self.callback = None;
@@ -157,8 +163,9 @@ impl ScReq {
     }
 
     pub fn re_conn(&mut self) -> HlsResult<()> {
-        self.hack_coder = HPackCoding::new();
+        *self.header.hpack_coder() = HPackCoding::new();
         self.stream_id = 0;
+        self.buffer.reset();
         for i in 0..self.timeout.connect_times() {
             let param = ConnParam {
                 scheme: &self.scheme,
@@ -235,43 +242,36 @@ impl ScReq {
 impl ScReq {
     pub fn handle_h2_setting(&mut self) -> HlsResult<()> {
         self.buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
-        let setting_frame = self.fingerprint.h2_setting().clone();
-        setting_frame.write_to(&mut self.buffer);
-        let update_frame = self.fingerprint.h2_window_update().clone();
-        update_frame.write_to(&mut self.buffer);
+        self.buffer.write_slice(self.fingerprint.h2_setting());
+        self.buffer.write_slice(self.fingerprint.h2_window_update());
         self.stream.sync_write(self.buffer.filled())?;
         self.buffer.reset();
         self.stream_id += 1;
         Ok(())
     }
 
-    pub fn h2c_io(&mut self, headers: Vec<HeaderKey>, body: Vec<u8>) -> HlsResult<Response> {
-        let hdr_bs = self.hack_coder.encode(headers)?;
-        let mut header_frame = H2Frame::new_header(hdr_bs, body.len(), self.stream_id);
-        header_frame.set_weight(146);
-        header_frame.add_flag(FrameFlag::Priority);
-        header_frame.write_to(&mut self.buffer);
-        for body_frame in H2Frame::new_body(body, self.stream_id) {
-            if self.buffer.unfilled_mut().len() < body_frame.payload().len() + 9 {
-                self.stream.sync_write(self.buffer.filled())?;
-                self.buffer.reset();
-            }
-            body_frame.write_to(&mut self.buffer);
-        }
-        self.stream.sync_write(self.buffer.filled())?;
+    pub fn h2c_io(&mut self) -> HlsResult<Response> {
+        let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id, &mut self.body);
         self.buffer.reset();
+        loop {
+            let mut render = Reader::new(self.buffer.unfilled_mut());
+            let len = request.read(&mut render)?;
+            if len == 0 { break; }
+            self.stream.sync_write(render.filled())?;
+        }
         let mut response = Response::new();
         loop {
             self.stream.sync_read(&mut self.buffer)?;
-            while let Ok(frame) = H2Frame::from_bytes(&mut self.buffer) {
-                if frame.frame_type() == &FrameType::Settings && frame.flag().end_stream() {
+            while let Ok((frame_type, frame_flag, frame_len)) = H2FrameRBuf::buffer_enough(&self.buffer) {
+                if frame_type == FrameType::Settings && frame_flag.end_stream() {
                     let mut end_frame = H2Frame::none_frame();
                     end_frame.set_frame_type(FrameType::Settings);
                     end_frame.set_flag(FrameFlag::EndStream);
                     self.stream.sync_write(end_frame.to_bytes().as_ref())?;
+                    self.buffer.move_to(frame_len..self.buffer.len(), 0);
                     continue;
                 }
-                if self.handle_h2_res(frame, &mut response)? { return Ok(response); };
+                if self.handle_h2_res(frame_type, &mut response)? { return Ok(response); }
             }
         }
     }
@@ -283,32 +283,21 @@ impl ReqPriExt for ScReq {
     fn into_stream(self) -> Stream {
         self.stream
     }
-    fn callback(&mut self) -> &mut Option<ReqCallback> {
-        &mut self.callback
-    }
 
-    fn hack_decoder(&mut self) -> &mut HackDecode {
-        self.hack_coder.decoder()
-    }
-
-    fn addr(&self) -> &Addr {
-        &self.addr
-    }
-
-    fn scheme(&self) -> &Scheme {
-        &self.scheme
-    }
-}
-
-impl ReqExt for ScReq {
-    fn body_type(&self) -> &BodyType {
-        &self.body
+    fn req_param(&mut self) -> ReqParam<'_> {
+        ReqParam {
+            header: &mut self.header,
+            buffer: &mut self.buffer,
+            callback: &mut self.callback,
+        }
     }
 
     fn body_type_mut(&mut self) -> &mut BodyType {
         &mut self.body
     }
+}
 
+impl ReqExt for ScReq {
     fn header_mut(&mut self) -> &mut Header {
         &mut self.header
     }
@@ -358,12 +347,6 @@ impl ReqExt for ScReq {
         self.fingerprint = fingerprint;
     }
 }
-
-// impl Drop for ScReq {
-//     fn drop(&mut self) {
-//         let _ = self.stream.sync_shutdown();
-//     }
-// }
 
 #[cfg(feature = "export")]
 unsafe impl Send for ScReq {}

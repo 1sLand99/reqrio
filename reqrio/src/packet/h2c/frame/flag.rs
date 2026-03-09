@@ -35,6 +35,8 @@ impl FrameFlag {
     pub fn end_stream(&self) -> bool {
         self.0 & FrameFlag::EndStream.0 == 0b0000_0001
     }
+
+    pub fn as_u8(&self) -> u8 { self.0 }
 }
 
 impl BitOrAssign for FrameFlag {

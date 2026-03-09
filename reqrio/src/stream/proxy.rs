@@ -7,6 +7,7 @@ use std::net::Shutdown;
 use std::pin::Pin;
 #[cfg(feature = "aync")]
 use std::task::{Context, Poll};
+use std::time::SystemTime;
 #[cfg(feature = "aync")]
 use tokio::io::ReadBuf;
 
@@ -135,12 +136,16 @@ impl<S> ProxyStream<S> {
 impl ProxyStream<std::net::TcpStream> {
     fn create_sync(addr: &SocketAddr, timeout: &Timeout) -> HlsResult<std::net::TcpStream> {
         let stream = std::net::TcpStream::connect_timeout(addr, timeout.connect())?;
+        let t = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
+        println!("{}", t);
         stream.set_read_timeout(Some(timeout.read()))?;
         stream.set_write_timeout(Some(timeout.write()))?;
         Ok(stream)
     }
     pub fn sync_connect(proxy: &Proxy, peer_addr: &Addr, timeout: &Timeout) -> HlsResult<ProxyStream<std::net::TcpStream>> {
         let addr = proxy.socket_addr(peer_addr)?;
+        let t = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
+        println!("{}", t);
         let mut stream = ProxyStream::create_sync(&addr, timeout)?;
         let mut buffer = Buffer::with_capacity(1024);
         proxy.write_context(peer_addr, &mut buffer)?;
@@ -178,7 +183,6 @@ impl std::io::Read for ProxyStream<std::net::TcpStream> {
                 if status != 200 { return Err(std::io::Error::other(format!("connect http proxy error-{}", status))); }
             } else {
                 self.buffer.sync_read(&mut self.stream)?;
-                println!("{:?}", self.buffer.filled());
                 if self.buffer.filled().starts_with(&[5, 2]) {
                     if self.buffer.len() == 2 {
                         self.buffer.sync_read(&mut self.stream)?;
@@ -190,7 +194,6 @@ impl std::io::Read for ProxyStream<std::net::TcpStream> {
                 if self.buffer.is_empty() {
                     self.buffer.sync_read(&mut self.stream)?;
                 }
-                println!("{:?}", self.buffer.filled());
                 self.buffer.used_empty(10);
             }
             if self.buffer.is_empty() {
@@ -222,7 +225,6 @@ impl ProxyStream<tokio::net::TcpStream> {
         let mut stream = tokio::net::TcpStream::connect(addr).await?;
         let mut buffer = Buffer::with_capacity(1024);
         proxy.write_context(peer_addr, &mut buffer)?;
-        println!("{:?}", buffer.filled());
         let proxy_handled = if !buffer.is_empty() {
             tokio::io::AsyncWriteExt::write_all(&mut stream, buffer.filled()).await?;
             false
@@ -269,7 +271,6 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
                             let rl = pb.filled().len();
                             if rl == 0 { return Poll::Ready(Err(std::io::Error::other(HlsError::PeerClosedConnection))); }
                             stream.buffer.set_len(stream.buffer.len() + rl);
-                            println!("{:?}", stream.buffer.filled());
                             if stream.buffer.len() < 2 { continue; }
                             if stream.buffer[1] == 2 {
                                 if stream.buffer.len() < 4 { continue; }

@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 pub use application::Application;
 pub use image::ImageType;
 pub use text::Text;
@@ -17,7 +18,7 @@ pub enum ContentType {
     Application(Application),
     Image(ImageType),
     Text(Text),
-    File(String),
+    File(Arc<String>),
     Multipart,
     Font(Font),
     Video(Video),

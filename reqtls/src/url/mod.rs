@@ -48,7 +48,7 @@ impl Url {
 
     pub fn set_uri(&mut self, uri: impl AsRef<str>) -> RlsResult<()> {
         let mut i = uri.as_ref().split("?");
-        self.uri.set_uri(i.next().ok_or("Invalid uri")?);
+        self.uri.set_path(i.next().ok_or("Invalid uri")?);
         if let Some(param) = i.next() {
             self.uri.parse_param(param)?
         }
@@ -135,11 +135,11 @@ impl TryFrom<&str> for Url {
         let pos = addr.find("/");
         res.addr = match pos {
             None => {
-                res.uri.set_uri("/");
+                res.uri.set_path("/");
                 Addr::try_from(addr)?
             }
             Some(pos) => {
-                res.uri.set_uri(addr[pos..].to_string());
+                res.uri.set_path(addr[pos..].to_string());
                 Addr::try_from(&addr[..pos])?
             }
         };
