@@ -8,6 +8,8 @@ use std::net::AddrParseError;
 use std::num::ParseIntError;
 use std::str::Utf8Error;
 use std::string::FromUtf8Error;
+use std::sync::PoisonError;
+use std::time::SystemTimeError;
 use hex::FromHexError;
 use crate::Alert;
 use crate::url::UrlError;
@@ -264,7 +266,6 @@ impl From<Utf8Error> for RlsError {
 impl From<UrlError> for RlsError {
     fn from(value: UrlError) -> Self {
         RlsError::StdError(Box::new(value))
-
     }
 }
 
@@ -274,6 +275,18 @@ impl From<&[u8]> for RlsError {
             b"unable to get local issuer certificate" => RlsError::IssuerUnknown,
             _ => RlsError::Currently(String::from_utf8_lossy(value).to_string()),
         }
+    }
+}
+
+impl<T: 'static> From<PoisonError<T>> for RlsError {
+    fn from(value: PoisonError<T>) -> Self {
+        RlsError::StdError(Box::new(value))
+    }
+}
+
+impl From<SystemTimeError> for RlsError {
+    fn from(value: SystemTimeError) -> Self {
+        RlsError::StdError(Box::new(value))
     }
 }
 
