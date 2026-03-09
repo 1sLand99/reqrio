@@ -65,7 +65,7 @@ async fn main() {
     // req.set_url("https://127.0.0.1:3453/v1/api/tlsReq").await.unwrap();
     // req.set_json(data);
     // req.set_auto_redirect(false);
-    req.set_url("http://zwfw.hubei.gov.cn/web/user/uias_login.do?appCode=hbzwfw&gotoUrl=http%3A%2F%2Fzwfw.hubei.gov.cn%2Fwebview%2Fgrkj%2Fwelcome.html&p01=").await.unwrap();
+    // req.set_url("http://zwfw.hubei.gov.cn/web/user/uias_login.do?appCode=hbzwfw&gotoUrl=http%3A%2F%2Fzwfw.hubei.gov.cn%2Fwebview%2Fgrkj%2Fwelcome.html&p01=").await.unwrap();
     // req.set_url("https://127.0.0.1:7878").await.unwrap();
     // req.set_url("https://www.jetstar.com").await.unwrap();
     // req.set_url("https://m1.pxb7.com/api/search/h5/product/selectSearchPageList").await.unwrap();
@@ -76,7 +76,8 @@ async fn main() {
     // req.set_url("https://www.toutiao.com/article/7600224020776239658/?log_from=99ab1fa2b852c_1769590891442&wid=1769590984039").await.unwrap();
     // req.set_url("https://www.sogou.com").await.unwrap();
     // req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Asite：wLLyn.com&first=0&FORM=PERE2").await.unwrap();
-    // req.set_url("https://m.baidu.com").await.unwrap();
+    req.set_proxy(Proxy::new_socks5("34.124.190.108", 8080));
+    req.set_url("https://m.baidu.com").await.unwrap();
     // req.set_url("https://www.sephora.com/").await.unwrap();
     // req.set_url("https://doc.rust-lang.org/").await.unwrap();
     // req.set_url("https://tls.123408.xyz/api/clean").await.unwrap();
@@ -85,6 +86,7 @@ async fn main() {
     // req.set_url("https://127.0.0.1:8000").await.unwrap();
     // req.set_auto_redirect(false);
     // req.set_url("https://oauth.hubei.gov.cn:8443/").await.unwrap();
+
 
     // req.set_url("https://m.so.com").await.unwrap();
     // let file = HttpFile::new_path_data(json::object! {"da":"sf","sss":1}, "/home/xl/project/py/ttt/1.py").unwrap();

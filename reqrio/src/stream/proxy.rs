@@ -256,7 +256,6 @@ impl ProxyStream<tokio::net::TcpStream> {
 #[cfg(feature = "aync")]
 impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
     fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<std::io::Result<()>> {
-        println!("{:?}", self.http_proxy);
         if !self.handle_proxy {
             let stream = self.get_mut();
             if stream.http_proxy {

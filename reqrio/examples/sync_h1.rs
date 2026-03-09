@@ -1,4 +1,4 @@
-use reqrio::{json, ReqExt, ScReq, ALPN};
+use reqrio::{json, Proxy, ReqExt, ScReq, Timeout, ALPN};
 use std::time::SystemTime;
 
 fn main() {
@@ -10,11 +10,18 @@ fn main() {
         // let fingerprint = Fingerprint::from_ja3("771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-17513-21,29-23-24,0", "4b107bbnbc-01o-3781k7bbnbc-01v25461k").unwrap();
         // let certs = Certificate::from_pem_file("/home/xl/1/client.crt").unwrap();
         // let key = RsaKey::from_pri_pem_file("/home/xl/1/client.key").unwrap();
+        let mut timeout = Timeout::new();
+        timeout.set_connect(30000000);
+        timeout.set_handle(300000000);
+        timeout.set_read(99999999999);
+        timeout.set_write(99999999999);
+        timeout.set_handle_times(3);
         let mut req = ScReq::new()
             // .with_fingerprint(fingerprint)
             .with_alpn(ALPN::Http20)
             // .with_mtls(certs, key)
             .with_verify(false)
+            .with_timeout(timeout)
             // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10280))
             ;
         let headers = json::object! {
@@ -36,11 +43,11 @@ fn main() {
         };
         // req.set_url("https://zhifazhe.top").unwrap();
         // req.set_url("http://3434.characlink.com").unwrap();
-        req.set_url("https://m.so.com").unwrap();
-
+        // req.set_url("https://m.so.com").unwrap();
+        req.set_proxy(Proxy::new_socks5("34.124.190.108", 8080));
         // println!("{}", et - t);
         // req.set_url("https://ms.xllgl.top").unwrap();
-        // req.set_url("https://www.baidu.com").unwrap();
+        req.set_url("https://www.baidu.com").unwrap();
 
         // req.set_url("https://jetstar.com").unwrap();
         // let et = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
