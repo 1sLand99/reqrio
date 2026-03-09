@@ -82,6 +82,32 @@ Client mTLS can be enabled by configuring a client certificate and private key t
  req.set_mtls(certs,key);
 ```
 
+## New Export
+
+| No. | Function              | Params                                                   | Res    | Note                     |
+|:---:|:----------------------|:---------------------------------------------------------|:-------|:-------------------------|
+|  1  | Cipher_new            | CipherType                                               | void * |
+|  2  | Cipher_set_secret_key | void *, const uint8_t *, size_t, const uint8_t *, size_t | int    |
+|  3  | Cipher_encrypt        | void *, const uint8_t *, size_t, uint8_t **, size_t      | int    |
+|  4  | Cipher_decrypt        | void *, const uint8_t *, size_t, uint8_t **, size_t      | int    |
+|  5  | Cipher_free           | void *                                                   | -      | Destroy Cipher * pointer |
+|  6  | Hasher_new            | HashType                                                 | void * |
+|  7  | Hasher_update         | void *, const uint8_t *, size_t                          | int    |
+|  8  | Hasher_finalize       | void *, uint8_t **, size_t                               | int    |
+|  9  | Hasher_free           | void *                                                   | -      |
+| 10  | Hmac_new              | uint8_t **, size_t, HashType                             | void * |
+| 11  | Hmac_update           | void *, const uint8_t *, size_t                          | int    |
+| 12  | Hmac_finalize         | void *, uint8_t **, size_t                               | int    |
+| 13  | Hmac_free             | void *                                                   | -      |
+| 14  | Base64_new            | -                                                        | void * |
+| 15  | Base64_encode         | void *, const uint8_t *, size_t                          | char * |
+| 16  | Base64_decode         | void *, const uint8_t *, size_t, uint8_t **, size_t      | int    |
+| 17  | Base64_free           | void *                                                   | -      |
+| 18  | url_encode            | const char *                                             | char * |
+| 19  | url_decode            | const char *                                             | char * |
+| 20  | hex_encode            | const unt8_t, size_t                                     | char * |
+| 21  | hex_decode            | const char *, uint8_t **, size_t                         | int    |
+
 ## Other Update
 
 ### reqrio
@@ -100,6 +126,14 @@ Client mTLS can be enabled by configuring a client certificate and private key t
 - Add `RecordEncodeBuffer` and `RecordDecodeBuffer`.
 
 - Add DNS caching with a 30-minute cache time.
+
+## Contact
+
+* Tg: https://t.me/+VVfbAeug-ohhZjU1
+* QQ: 1083315546
+
+
+
 
 # reqrio-v0.1.0
 
