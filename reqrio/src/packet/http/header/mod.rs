@@ -184,7 +184,7 @@ impl Header {
 
     ///cookie请使用set_cookie/add_cookie
     pub fn insert(&mut self, k: impl AsRef<str>, v: impl ToString) -> HlsResult<()> {
-        let lower_key = k.as_ref().replace("contentlength", "content-length")
+        let lower_key = k.as_ref().to_lowercase().replace("contentlength", "content-length")
             .replace("contenttype", "content-type");
         let header = self.keys.iter_mut().find(|x| x.name().eq_ignore_ascii_case(&lower_key));
         if let Some(header) = header {
