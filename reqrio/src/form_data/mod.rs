@@ -1,5 +1,6 @@
 mod error;
 mod filed;
+mod buffer;
 
 use crate::error::HlsResult;
 use crate::form_data::filed::FormField;
@@ -11,26 +12,28 @@ use std::fs::File;
 use std::io::{Cursor, Read};
 use std::path::Path;
 use std::sync::Arc;
+pub use buffer::HttpFileBuffer;
+use buffer::FileFormBuffer;
 
 pub enum FormRender {
-    File((bool, File)),
+    File((usize, usize, File)),
     Bytes(Cursor<Vec<u8>>),
 }
 
 impl ReadExt for FormRender {
     fn wrote(&self) -> bool {
         match self {
-            FormRender::File((wrote, _)) => *wrote,
+            FormRender::File((wrote, size, _)) => wrote == size,
             FormRender::Bytes(bytes) => bytes.position() as usize == bytes.get_ref().len(),
         }
     }
 
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         match self {
-            FormRender::File((wrote, f)) => {
+            FormRender::File((wrote, _, f)) => {
                 let len = f.read(buf.unfilled())?;
                 buf.add_len(len);
-                *wrote = len == 0;
+                *wrote += len;
                 Ok(len)
             }
             FormRender::Bytes(bs) => {
@@ -50,6 +53,19 @@ pub struct FileForm {
     boundary: Arc<String>,
     render: FormRender,
 }
+
+impl Default for FileForm {
+    fn default() -> Self {
+        FileForm {
+            filename: "123.txt".to_string(),
+            filetype: "".to_string(),
+            filesize: 0,
+            field_name: "file".to_string(),
+            boundary: Arc::new("".to_string()),
+            render: FormRender::Bytes(Cursor::new(vec![])),
+        }
+    }
+}
 impl FileForm {
     pub fn new_path(path: impl AsRef<Path>) -> HlsResult<FileForm> {
         let path = path.as_ref();
@@ -59,11 +75,10 @@ impl FileForm {
         let filesize = metadata.len() as usize;
         Ok(FileForm {
             filename,
-            filetype: "".to_string(),
             filesize,
-            field_name: "".to_string(),
-            boundary: Arc::new("".to_string()),
-            render: FormRender::File((false, file)),
+            field_name: "file".to_string(),
+            render: FormRender::File((0, filesize, file)),
+            ..Default::default()
         })
     }
 
@@ -72,11 +87,10 @@ impl FileForm {
         let filesize = bytes.len();
         FileForm {
             filename: "1223.txt".to_string(),
-            filetype: "".to_string(),
             filesize,
-            field_name: "".to_string(),
-            boundary: Arc::new("".to_string()),
+            field_name: "file".to_string(),
             render: FormRender::Bytes(Cursor::new(bytes)),
+            ..Default::default()
         }
     }
 
@@ -151,52 +165,22 @@ impl FileForm {
     }
 }
 
-pub(crate) struct FileFormBuffer<'a> {
-    prefix_reader: RefReader<&'a [u8]>,
-    file_reader: &'a mut FormRender,
-    suffix_reader: RefReader<&'a [u8]>,
-    pos: usize,
-    wrote: bool,
-}
-
-impl<'a> ReadExt for FileFormBuffer<'a> {
-    fn wrote(&self) -> bool {
-        self.wrote
-    }
-
-    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
-        let start = buf.offset().end;
-        if self.pos == 0 {
-            self.prefix_reader.read(buf)?;
-            match self.prefix_reader.wrote() {
-                true => self.pos += 1,
-                false => return Ok(buf.offset().end - start),
-            }
-        }
-        if self.pos == 1 {
-            self.file_reader.read(buf)?;
-            match self.file_reader.wrote() {
-                true => self.pos += 1,
-                false => return Ok(buf.offset().end - start),
-            }
-        }
-
-        if self.pos == 2 {
-            self.suffix_reader.read(buf)?;
-            match self.suffix_reader.wrote() {
-                true => self.pos += 1,
-                false => return Ok(buf.offset().end - start),
-            }
-        }
-        Ok(buf.offset().end - start)
-    }
-}
 
 
 pub struct HttpFile {
     data: Vec<FormField>,
     forms: Vec<FileForm>,
     boundary: Arc<String>,
+}
+
+impl Default for HttpFile {
+    fn default() -> Self {
+        HttpFile {
+            data: vec![],
+            forms: vec![],
+            boundary: Arc::new(String::new()),
+        }
+    }
 }
 
 impl HttpFile {
@@ -236,6 +220,15 @@ impl HttpFile {
         }
     }
 
+    pub fn with_boundary(mut self, boundary: Arc<String>) -> HttpFile {
+        self.set_boundary(boundary);
+        self
+    }
+
+    pub fn set_boundary(&mut self, boundary: Arc<String>) {
+        self.boundary = boundary;
+    }
+
     pub fn add_form(&mut self, form: FileForm) {
         self.forms.push(form);
     }
@@ -253,8 +246,7 @@ impl HttpFile {
         filed_size + form_size + 38
     }
 
-    pub(crate) fn as_buffer(&mut self, boundary: Arc<String>) -> HttpFileBuffer<'_> {
-        self.boundary = boundary;
+    pub(crate) fn as_buffer(&mut self) -> HttpFileBuffer<'_> {
         let mut suffix_reader: RefReader<&[u8]> = RefReader::default();
         suffix_reader.add_buf(b"--");
         suffix_reader.add_buf(self.boundary.as_bytes());
@@ -272,58 +264,3 @@ impl HttpFile {
     }
 }
 
-pub struct HttpFileBuffer<'a> {
-    data_readers: Vec<RefReader<&'a [u8]>>,
-    files: Vec<FileFormBuffer<'a>>,
-    suffix_reader: RefReader<&'a [u8]>,
-    len: usize,
-    row: usize,
-    pos: usize,
-    wrote: bool,
-}
-
-impl<'a> HttpFileBuffer<'a> {
-    pub fn len(&self) -> usize { self.len }
-}
-
-
-impl<'a> ReadExt for HttpFileBuffer<'a> {
-    fn wrote(&self) -> bool {
-        self.wrote
-    }
-
-    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
-        let start = buf.offset().end;
-        if self.row == 0 {
-            for (index, data_reader) in self.data_readers.iter_mut().enumerate() {
-                if index < self.pos { continue; }
-                data_reader.read(buf)?;
-                match data_reader.wrote() {
-                    true => self.pos += 1,
-                    false => return Ok(buf.offset().end - start)
-                }
-            }
-            self.row += 1;
-            self.pos = 0;
-        }
-        if self.row == 1 {
-            for (i, form) in self.files.iter_mut().enumerate() {
-                if i < self.pos { continue; }
-                form.read(buf)?;
-                match form.wrote() {
-                    true => self.pos += 1,
-                    false => return Ok(buf.offset().end - start)
-                }
-            }
-            self.pos += 1;
-        }
-        if self.pos == 2 {
-            self.suffix_reader.read(buf)?;
-            match self.suffix_reader.wrote() {
-                true => self.pos += 1,
-                false => return Ok(buf.offset().end - start)
-            }
-        }
-        Ok(buf.offset().end - start)
-    }
-}

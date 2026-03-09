@@ -42,17 +42,18 @@ pub trait ReqExt: ReqPriExt + Sized {
     /// req.set_files(file).unwrap();
     /// ```
     fn set_files(&mut self, file: HttpFile) -> HlsResult<()> {
-        let md5 = hash::md5_hex(file.len().to_string())?;
-        *self.body_type_mut() = BodyType::Files(file);
-        self.header_mut().set_content_type(ContentType::File(Arc::new(md5)));
+        let md5 = Arc::new(hash::md5_hex(file.len().to_string())?);
+        *self.body_type_mut() = BodyType::Files(file.with_boundary(md5.clone()));
+        self.header_mut().set_content_type(ContentType::File(md5));
         Ok(())
     }
     fn add_file(&mut self, path: impl AsRef<Path>) -> HlsResult<()> {
         if let BodyType::Files(files) = self.body_type_mut() {
             files.add_form(FileForm::new_path(path)?);
         } else {
-            *self.body_type_mut() = BodyType::Files(HttpFile::new_path(path)?);
-            self.header_mut().set_content_type(ContentType::File(Arc::new("12345678123456781234567812345678".to_string())));
+            let boundary = Arc::new(hash::md5_hex(path.as_ref().display().to_string())?);
+            *self.body_type_mut() = BodyType::Files(HttpFile::new_path(path)?.with_boundary(boundary.clone()));
+            self.header_mut().set_content_type(ContentType::File(boundary));
         }
         Ok(())
     }

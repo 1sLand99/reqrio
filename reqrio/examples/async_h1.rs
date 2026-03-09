@@ -87,6 +87,8 @@ async fn main() {
     // req.set_url("https://oauth.hubei.gov.cn:8443/").await.unwrap();
 
     req.set_url("https://m.so.com").await.unwrap();
+    let file = HttpFile::new_path_data(json::object! {"da":"sf","sss":1}, "/home/xl/project/py/ttt/1.py").unwrap();
+    req.set_files(file).unwrap();
     // let data = vec!["s"; 16384];
     // req.set_json(json::object! {"dfdf":data});
     let res = req.get().await.unwrap();

@@ -4,7 +4,6 @@ use crate::packet::H2FrameWBufs;
 use crate::reader::{ReadExt, Reader};
 use reqtls::WriteExt;
 use std::io::{Cursor, Read};
-use std::sync::Arc;
 
 pub(crate) enum BodyType {
     Bytes(Cursor<Vec<u8>>),
@@ -23,10 +22,10 @@ impl BodyType {
         }
     }
 
-    pub fn as_buffer(&mut self, boundary: &Arc<String>) -> BodyTypeBuffer<'_> {
+    pub fn as_buffer(&mut self) -> BodyTypeBuffer<'_> {
         match self {
             BodyType::Bytes(bs) => BodyTypeBuffer::Bytes(bs),
-            BodyType::Files(hfs) => BodyTypeBuffer::Files(hfs.as_buffer(boundary.clone()))
+            BodyType::Files(hfs) => BodyTypeBuffer::Files(hfs.as_buffer())
         }
     }
 }
