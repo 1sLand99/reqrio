@@ -207,7 +207,6 @@ impl std::io::Read for ProxyStream<std::net::TcpStream> {
                 }
                 self.buffer.used_empty(10);
             }
-            println!("{:?}", self.buffer.filled());
             if self.buffer.is_empty() {
                 self.stream.read(buf)
             } else {

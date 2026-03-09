@@ -32,23 +32,23 @@ impl Buffer {
 
     #[cfg(feature = "tokio")]
     pub async fn async_read<S: AsyncReadExt + Unpin>(&mut self, stream: &mut S) -> HlsResult<()> {
-        self.async_read_limit(stream, self.buffer.capacity() - self.offset.len()).await
+        self.async_read_limit(stream, self.buffer.capacity() - self.offset.end).await
     }
 
     #[cfg(feature = "tokio")]
     pub async fn async_read_limit<S: AsyncReadExt + Unpin>(&mut self, stream: &mut S, limit: usize) -> HlsResult<()> {
-        let len = stream.read(&mut self.buffer[self.offset.len()..self.offset.len() + limit]).await?;
+        let len = stream.read(&mut self.buffer[self.offset.end..self.offset.end + limit]).await?;
         if len == 0 { return Err(HlsError::PeerClosedConnection); }
         self.offset.end += len;
         Ok(())
     }
 
     pub fn sync_read<S: Read>(&mut self, stream: &mut S) -> HlsResult<()> {
-        self.sync_read_limit(stream, self.buffer.capacity() - self.offset.len())
+        self.sync_read_limit(stream, self.buffer.capacity() - self.offset.end)
     }
 
     pub fn sync_read_limit<S: Read>(&mut self, stream: &mut S, limit: usize) -> HlsResult<()> {
-        let len = stream.read(&mut self.buffer[self.offset.len()..self.offset.len() + limit])?;
+        let len = stream.read(&mut self.buffer[self.offset.end..self.offset.end + limit])?;
         if len == 0 { return Err(HlsError::PeerClosedConnection); }
         self.offset.end += len;
         Ok(())
