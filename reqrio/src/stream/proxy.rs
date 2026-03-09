@@ -183,7 +183,6 @@ impl std::io::Read for ProxyStream<std::net::TcpStream> {
                 if status != 200 { return Err(std::io::Error::other(format!("connect http proxy error-{}", status))); }
             } else {
                 self.buffer.sync_read(&mut self.stream)?;
-                println!("{:?}", self.buffer.filled());
                 if self.buffer.filled().starts_with(&[5, 2]) {
                     if self.buffer.len() == 2 {
                         self.buffer.sync_read(&mut self.stream)?;
@@ -195,7 +194,6 @@ impl std::io::Read for ProxyStream<std::net::TcpStream> {
                 if self.buffer.is_empty() {
                     self.buffer.sync_read(&mut self.stream)?;
                 }
-                println!("{:?}", self.buffer.filled());
                 self.buffer.used_empty(10);
             }
             if self.buffer.is_empty() {
@@ -227,7 +225,6 @@ impl ProxyStream<tokio::net::TcpStream> {
         let mut stream = tokio::net::TcpStream::connect(addr).await?;
         let mut buffer = Buffer::with_capacity(1024);
         proxy.write_context(peer_addr, &mut buffer)?;
-        println!("{:?}", buffer.filled());
         let proxy_handled = if !buffer.is_empty() {
             tokio::io::AsyncWriteExt::write_all(&mut stream, buffer.filled()).await?;
             false
@@ -274,7 +271,6 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
                             let rl = pb.filled().len();
                             if rl == 0 { return Poll::Ready(Err(std::io::Error::other(HlsError::PeerClosedConnection))); }
                             stream.buffer.set_len(stream.buffer.len() + rl);
-                            println!("{:?}", stream.buffer.filled());
                             if stream.buffer.len() < 2 { continue; }
                             if stream.buffer[1] == 2 {
                                 if stream.buffer.len() < 4 { continue; }

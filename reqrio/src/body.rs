@@ -47,6 +47,12 @@ impl<'a> BodyTypeBuffer<'a> {
 }
 
 impl<'a> ReadExt for BodyTypeBuffer<'a> {
+    fn wrote(&self) -> bool {
+        match self {
+            BodyTypeBuffer::Bytes(bs) => bs.position() as usize == bs.get_ref().len(),
+            BodyTypeBuffer::Files(fs) => fs.wrote(),
+        }
+    }
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         match self {
             BodyTypeBuffer::Bytes(bs) => {
@@ -65,6 +71,13 @@ pub(crate) enum BodyBuffer<'a> {
 }
 
 impl<'a> ReadExt for BodyBuffer<'a> {
+    fn wrote(&self) -> bool {
+        match self {
+            BodyBuffer::HTTP1(h1) => h1.wrote(),
+            BodyBuffer::HTTP2(h2) => h2.wrote(),
+        }
+    }
+
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         match self {
             BodyBuffer::HTTP1(h1) => h1.read(buf),

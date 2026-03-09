@@ -3,7 +3,7 @@ mod filed;
 
 use crate::error::HlsResult;
 use crate::form_data::filed::FormField;
-use crate::reader::{ReadExt, Reader};
+use crate::reader::{ReadExt, Reader, RefReader};
 pub use error::FormError;
 use reqrio_json::JsonValue;
 use reqtls::WriteExt;
@@ -13,16 +13,24 @@ use std::path::Path;
 use std::sync::Arc;
 
 pub enum FormRender {
-    File(File),
+    File((bool, File)),
     Bytes(Cursor<Vec<u8>>),
 }
 
 impl ReadExt for FormRender {
+    fn wrote(&self) -> bool {
+        match self {
+            FormRender::File((wrote, _)) => *wrote,
+            FormRender::Bytes(bytes) => bytes.position() as usize == bytes.get_ref().len(),
+        }
+    }
+
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         match self {
-            FormRender::File(f) => {
+            FormRender::File((wrote, f)) => {
                 let len = f.read(buf.unfilled())?;
                 buf.add_len(len);
+                *wrote = len == 0;
                 Ok(len)
             }
             FormRender::Bytes(bs) => {
@@ -39,6 +47,7 @@ pub struct FileForm {
     filetype: String,
     filesize: usize,
     field_name: String,
+    boundary: Arc<String>,
     render: FormRender,
 }
 impl FileForm {
@@ -53,7 +62,8 @@ impl FileForm {
             filetype: "".to_string(),
             filesize,
             field_name: "".to_string(),
-            render: FormRender::File(file),
+            boundary: Arc::new("".to_string()),
+            render: FormRender::File((false, file)),
         })
     }
 
@@ -65,6 +75,7 @@ impl FileForm {
             filetype: "".to_string(),
             filesize,
             field_name: "".to_string(),
+            boundary: Arc::new("".to_string()),
             render: FormRender::Bytes(Cursor::new(bytes)),
         }
     }
@@ -101,67 +112,81 @@ impl FileForm {
     }
     pub fn len(&self) -> usize {
         let mut len = 94 + self.field_name.len() + self.filename.len() + self.filesize;
-        if self.filetype != "" {
+        if !self.filetype.is_empty() {
             len += 16 + self.filetype.len()
         }
         len
     }
+
+    pub(crate) fn as_form_buffer(&mut self, boundary: &Arc<String>) -> FileFormBuffer<'_> {
+        self.boundary = boundary.clone();
+        let mut reader: RefReader<&[u8]> = RefReader::default();
+        //line1
+        reader.add_buf(b"--");
+        reader.add_buf(self.boundary.as_bytes());
+        //line2
+        reader.add_buf(b"\r\nContent-Disposition: form-data; name=\"");
+        reader.add_buf(self.field_name.as_bytes());
+        reader.add_buf(b"\"; filename=\"");
+        reader.add_buf(self.filename.as_bytes());
+        reader.add_buf(b"\"\r\n");
+        //line3
+        if !self.filetype.is_empty() {
+            //line3
+            reader.add_buf(b"Content-Type: "); //14
+            reader.add_buf(self.filetype.as_bytes());
+            reader.add_buf(b"\r\n");
+        }
+        //line4
+        reader.add_buf(b"\r\n");
+        FileFormBuffer {
+            prefix_reader: reader,
+            //line5
+            file_reader: &mut self.render,
+            //line6
+            suffix_reader: RefReader::new_buf(b"\r\n"),
+            pos: 0,
+            wrote: false,
+        }
+    }
 }
 
 pub(crate) struct FileFormBuffer<'a> {
-    form: &'a mut FileForm,
-    md5: Arc<String>,
+    prefix_reader: RefReader<&'a [u8]>,
+    file_reader: &'a mut FormRender,
+    suffix_reader: RefReader<&'a [u8]>,
     pos: usize,
+    wrote: bool,
 }
 
 impl<'a> ReadExt for FileFormBuffer<'a> {
+    fn wrote(&self) -> bool {
+        self.wrote
+    }
+
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         let start = buf.offset().end;
         if self.pos == 0 {
-            if buf.unfilled_len() < 34 { return Ok(buf.offset().end - start); }
-            //line1
-            buf.write_slice(b"--");
-            buf.write_slice(self.md5.as_bytes());
-            self.pos += 1;
+            self.prefix_reader.read(buf)?;
+            match self.prefix_reader.wrote() {
+                true => self.pos += 1,
+                false => return Ok(buf.offset().end - start),
+            }
         }
         if self.pos == 1 {
-            let len = 56 + self.form.field_name.len() + self.form.filename.len();
-            if buf.unfilled_len() < len { return Ok(buf.offset().end - start); }
-            //line2
-            buf.write_slice(b"\r\nContent-Disposition: form-data; name=\""); //40
-            buf.write_slice(self.form.field_name.as_bytes());
-            buf.write_slice(b"\"; filename=\""); //13
-            buf.write_slice(self.form.filename.as_bytes());
-            buf.write_slice(b"\"\r\n"); //3
-            self.pos += 1;
-        }
-        if self.pos == 2 {
-            if self.form.filetype != "" {
-                let len = 16 + self.form.filetype.len();
-                if buf.unfilled_len() < len { return Ok(buf.offset().end - start); }
-                //line3
-                buf.write_slice(b"Content-Type: "); //14
-                buf.write_slice(self.form.filetype.as_bytes());
-                buf.write_slice(b"\r\n");
+            self.file_reader.read(buf)?;
+            match self.file_reader.wrote() {
+                true => self.pos += 1,
+                false => return Ok(buf.offset().end - start),
             }
-            self.pos += 1;
         }
-        if self.pos == 3 {
-            if buf.unfilled_len() < 2 { return Ok(buf.offset().end - start); }
-            //line4
-            buf.write_slice(b"\r\n");
-            self.pos += 1;
-        }
-        if self.pos == 4 {
-            //line5
-            if buf.is_empty() { return Ok(buf.offset().end - start); }
-            let len = self.form.render.read(buf)?;
-            if len == 0 { self.pos += 1; }
-        }
-        if self.pos == 5 {
-            if buf.unfilled_len()< 2 { return Ok(buf.offset().end - start); }
-            //line6
-            buf.write_slice(b"\r\n");
+
+        if self.pos == 2 {
+            self.suffix_reader.read(buf)?;
+            match self.suffix_reader.wrote() {
+                true => self.pos += 1,
+                false => return Ok(buf.offset().end - start),
+            }
         }
         Ok(buf.offset().end - start)
     }
@@ -171,6 +196,7 @@ impl<'a> ReadExt for FileFormBuffer<'a> {
 pub struct HttpFile {
     data: Vec<FormField>,
     forms: Vec<FileForm>,
+    boundary: Arc<String>,
 }
 
 impl HttpFile {
@@ -182,6 +208,7 @@ impl HttpFile {
         HttpFile {
             data: data.into_entries().map(|(k, v)| FormField::new(k, v.dump())).collect(),
             forms: vec![FileForm::new_bytes(bytes)],
+            boundary: Arc::new("".to_string()),
         }
     }
 
@@ -193,6 +220,7 @@ impl HttpFile {
         Ok(HttpFile {
             data: data.into_entries().map(|(k, v)| FormField::new(k, v.dump())).collect(),
             forms: vec![FileForm::new_path(path)?],
+            boundary: Arc::new("".to_string()),
         })
     }
 
@@ -204,6 +232,7 @@ impl HttpFile {
         HttpFile {
             data: data.into_entries().map(|(k, v)| FormField::new(k, v.dump())).collect(),
             forms: vec![form],
+            boundary: Arc::new("".to_string()),
         }
     }
 
@@ -225,58 +254,54 @@ impl HttpFile {
     }
 
     pub(crate) fn as_buffer(&mut self, boundary: Arc<String>) -> HttpFileBuffer<'_> {
+        self.boundary = boundary;
+        let mut suffix_reader: RefReader<&[u8]> = RefReader::default();
+        suffix_reader.add_buf(b"--");
+        suffix_reader.add_buf(self.boundary.as_bytes());
+        //此处待定
+        suffix_reader.add_buf(b"--\r\n");
         HttpFileBuffer {
-            data: &self.data,
             len: self.len(),
-            files: self.forms.iter_mut().map(|form| FileFormBuffer {
-                form,
-                md5: boundary.clone(),
-                pos: 0,
-            }).collect(),
-            md5: boundary,
+            data_readers: self.data.iter_mut().map(|x| x.as_file_render(&self.boundary)).collect(),
+            files: self.forms.iter_mut().map(|form| form.as_form_buffer(&self.boundary)).collect(),
+            suffix_reader,
             row: 0,
             pos: 0,
+            wrote: false,
         }
     }
 }
 
 pub struct HttpFileBuffer<'a> {
-    data: &'a Vec<FormField>,
+    data_readers: Vec<RefReader<&'a [u8]>>,
     files: Vec<FileFormBuffer<'a>>,
-    md5: Arc<String>,
+    suffix_reader: RefReader<&'a [u8]>,
     len: usize,
     row: usize,
     pos: usize,
+    wrote: bool,
 }
 
 impl<'a> HttpFileBuffer<'a> {
     pub fn len(&self) -> usize { self.len }
 }
 
+
 impl<'a> ReadExt for HttpFileBuffer<'a> {
+    fn wrote(&self) -> bool {
+        self.wrote
+    }
+
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         let start = buf.offset().end;
         if self.row == 0 {
-            for (i, datum) in self.data.iter().enumerate() {
-                if i < self.pos { continue; }
-                let len = 85 + datum.name.len() + datum.value.len();
-                if buf.unfilled_len() < len { return Ok(buf.offset().end - start); }
-                //line1
-                buf.write_slice(b"--");
-                buf.write_slice(self.md5.as_bytes());
-                buf.write_slice(b"--\r\n");
-                //line2
-                buf.write_slice(b"Content-Disposition: form-data; name=\""); //38
-                buf.write_slice(datum.name.as_bytes());
-                buf.write_slice(b"\"\r\n"); //3
-                //line3
-                buf.write_slice(b"\r\n");
-                //line4
-                buf.write_slice(datum.value.as_bytes());
-                buf.write_slice(b"\r\n");
-                //line5
-                buf.write_slice(b"\r\n");
-                self.pos += 1;
+            for (index, data_reader) in self.data_readers.iter_mut().enumerate() {
+                if index < self.pos { continue; }
+                data_reader.read(buf)?;
+                match data_reader.wrote() {
+                    true => self.pos += 1,
+                    false => return Ok(buf.offset().end - start)
+                }
             }
             self.row += 1;
             self.pos = 0;
@@ -284,18 +309,21 @@ impl<'a> ReadExt for HttpFileBuffer<'a> {
         if self.row == 1 {
             for (i, form) in self.files.iter_mut().enumerate() {
                 if i < self.pos { continue; }
-                if buf.is_empty() { return Ok(buf.offset().end - start); }
                 form.read(buf)?;
-                if buf.is_empty() { return Ok(buf.offset().end - start); }
+                match form.wrote() {
+                    true => self.pos += 1,
+                    false => return Ok(buf.offset().end - start)
+                }
             }
             self.pos += 1;
         }
-        if buf.unfilled_len() < 38 { return Ok(buf.offset().end - start); }
-        buf.write_slice(b"--");
-        buf.write_slice(self.md5.as_bytes());
-        //此处待定
-        buf.write_slice(b"--\r\n");
-
+        if self.pos == 2 {
+            self.suffix_reader.read(buf)?;
+            match self.suffix_reader.wrote() {
+                true => self.pos += 1,
+                false => return Ok(buf.offset().end - start)
+            }
+        }
         Ok(buf.offset().end - start)
     }
 }

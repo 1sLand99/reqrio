@@ -179,7 +179,6 @@ impl Response {
                 if frame.frame_flag().end_header() {
                     let mut hdr_bs = mem::take(&mut self.raw);
                     self.header = Header::parse_h2(hpack_coding.decode(&mut hdr_bs)?)?;
-                    println!("{:?}", self.header.get("connection").map(|v| v.to_string()));
                 }
             }
             _ => {}

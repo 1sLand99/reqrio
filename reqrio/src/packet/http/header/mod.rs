@@ -620,11 +620,13 @@ impl<'a> HeaderBuffer<'a> {
     pub fn set_body_len(&mut self, body_len: usize) {
         self.body_len = body_len;
     }
-
-    pub fn is_wrote(&self) -> bool { self.wrote }
 }
 
 impl<'a> ReadExt for HeaderBuffer<'a> {
+    fn wrote(&self) -> bool {
+        self.wrote
+    }
+
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         match self.header.alpn {
             ALPN::Http20 => self.read_h2(buf),

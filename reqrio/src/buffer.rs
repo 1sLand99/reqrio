@@ -38,7 +38,6 @@ impl Buffer {
     #[cfg(feature = "tokio")]
     pub async fn async_read_limit<S: AsyncReadExt + Unpin>(&mut self, stream: &mut S, limit: usize) -> HlsResult<()> {
         let len = stream.read(&mut self.buffer[self.offset.len()..self.offset.len() + limit]).await?;
-        println!("{}", len);
         if len == 0 { return Err(HlsError::PeerClosedConnection); }
         self.offset.end += len;
         Ok(())

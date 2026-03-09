@@ -91,6 +91,10 @@ impl<'a> H2FrameHead<'a> {
 }
 
 impl<'a> ReadExt for H2FrameHead<'a> {
+    fn wrote(&self) -> bool {
+        self.wrote
+    }
+
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         let start = buf.offset().end;
         if buf.unfilled_len() < 14 { return Ok(buf.offset().end - start); }
@@ -114,6 +118,7 @@ pub struct H2FrameWBufs<'a> {
     body: BodyTypeBuffer<'a>,
     frame_wrote: usize,
     pos: usize,
+    wrote: bool,
 }
 
 impl<'a> H2FrameWBufs<'a> {
@@ -126,11 +131,16 @@ impl<'a> H2FrameWBufs<'a> {
             body,
             frame_wrote: 0,
             pos: 0,
+            wrote: false,
         }
     }
 }
 
 impl<'a> ReadExt for H2FrameWBufs<'a> {
+    fn wrote(&self) -> bool {
+        self.wrote
+    }
+
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         let start = buf.offset().end;
         for (index, frame) in self.frames.iter_mut().enumerate() {
@@ -149,6 +159,7 @@ impl<'a> ReadExt for H2FrameWBufs<'a> {
             assert_eq!(len, want);
             self.pos += 1;
         }
+        self.wrote = true;
         Ok(buf.offset().end - start)
     }
 }

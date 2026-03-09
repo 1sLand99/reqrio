@@ -33,11 +33,15 @@ impl<'a> RequestBuffer<'a> {
 }
 
 impl<'a> ReadExt for RequestBuffer<'a> {
+    fn wrote(&self) -> bool {
+        self.body.wrote()
+    }
+
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         let start = buf.offset().end;
         if !self.header_wrote {
             self.header.read(buf)?;
-            self.header_wrote = self.header.is_wrote();
+            self.header_wrote = self.header.wrote();
         }
         self.body.read(buf)?;
         Ok(buf.offset().end - start)
