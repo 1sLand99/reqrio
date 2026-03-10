@@ -558,4 +558,15 @@ unsafe extern "C" {
         data: *const u8,
         len: usize,
     ) -> c_int;
+
+    pub fn PKCS5_PBKDF2_HMAC(
+        password: *const c_char,
+        password_len: usize,
+        salt: *const u8,
+        salt_len: usize,
+        iterations: u32,
+        digest: *const EVP_MD,
+        key_len: usize,
+        out_key: *mut u8,
+    ) -> c_int;
 }

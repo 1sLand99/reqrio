@@ -1,3 +1,4 @@
+use std::ffi::CString;
 use std::ptr::null_mut;
 use crate::boring::BoringResExt;
 use super::HashType;
@@ -81,6 +82,24 @@ pub fn hmac_sha384(key: impl AsRef<[u8]>, data: impl AsRef<[u8]>) -> RlsResult<[
 pub fn hmac_sha512(key: impl AsRef<[u8]>, data: impl AsRef<[u8]>) -> RlsResult<[u8; 64]> {
     let mut out = [0; 64];
     hmac(key.as_ref(), data.as_ref(), &mut out[..], HashType::Sha1)?;
+    Ok(out)
+}
+
+pub fn pkcs5_pbkdf_hmac(psd: impl AsRef<str>, salt: impl AsRef<[u8]>, rounds: u32, hash: HashType) -> RlsResult<Vec<u8>> {
+    let c_psd = CString::new(psd.as_ref())?;
+    let mut out = vec![0u8; hash.hash_size()];
+    unsafe {
+        PKCS5_PBKDF2_HMAC(
+            c_psd.as_ptr(),
+            psd.as_ref().len(),
+            salt.as_ref().as_ptr(),
+            salt.as_ref().len(),
+            rounds,
+            hash.evp_md(),
+            hash.hash_size(),
+            out.as_mut_ptr(),
+        )
+    }.ok(RlsError::HmacFinalizeError)?;
     Ok(out)
 }
 
