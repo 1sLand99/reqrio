@@ -97,11 +97,6 @@ impl AcReq {
         self.stream_io().await
     }
 
-    pub async fn h1_io_by_raw(&mut self, context: impl AsRef<[u8]>) -> HlsResult<Response> {
-        self.buffer.write_slice(context.as_ref());
-        self.h1_io().await
-    }
-
     pub(crate) async fn h1_io(&mut self) -> HlsResult<Response> {
         let mut response = Response::new();
         let mut read_len = 0;
@@ -112,7 +107,7 @@ impl AcReq {
         Ok(response)
     }
 
-    async fn handle_io(&mut self) -> HlsResult<Response> {
+    pub(crate) async fn handle_io(&mut self) -> HlsResult<Response> {
         let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id, &mut self.body);
         self.buffer.reset();
         loop {

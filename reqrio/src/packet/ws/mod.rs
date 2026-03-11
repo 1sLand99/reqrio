@@ -141,12 +141,11 @@ impl WsFrame {
         let payload = self.payload.to_bytes(&self.masker);
         let mut res = vec![self.typ.to_u8(), self.masker.into_inner(payload_len)];
         match payload.len() {
-            126..0xFFFF => res.extend((payload.len() as u16).to_be_bytes()),
-            0xFFFF.. => res.extend((payload.len() as u64).to_be_bytes()),
+            126..0xFFFF => res.extend((payload_len as u16).to_be_bytes()),
+            0xFFFF.. => res.extend((payload_len as u64).to_be_bytes()),
             _ => {}
         }
         res.extend(payload);
-        println!("{} {:?}", res.len(), res);
         res
     }
 }
