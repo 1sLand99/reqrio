@@ -111,7 +111,7 @@ impl ScReq {
         Ok(response)
     }
 
-    fn handle_io(&mut self) -> HlsResult<Response> {
+    pub(crate) fn handle_io(&mut self) -> HlsResult<Response> {
         let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id, &mut self.body);
         self.buffer.reset();
         loop {

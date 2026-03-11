@@ -46,6 +46,7 @@ impl WsPayload {
             }
             126 => {
                 res.len = u16::from_be_bytes(bytes[..2].try_into()?) as usize;
+                println!("{}",res.len);
                 if masker.mask {
                     if bytes.len() < res.len + 4 + 2 { return Err(HlsError::DataTooShort); }
                     res.mask.copy_from_slice(&bytes[2..6]);

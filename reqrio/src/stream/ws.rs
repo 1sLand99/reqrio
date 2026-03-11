@@ -135,7 +135,7 @@ impl WebSocket {
 
 
     fn connect_sync(mut req: ScReq) -> HlsResult<Stream> {
-        let resp = req.h1_io()?;
+        let resp = req.handle_io()?;
         let status = resp.header().status();
         if status != &HttpStatus::SwitchingProtocols { return Err(format!("Connect fail with code-{}", status).into()); }
         Ok(req.into_stream())
