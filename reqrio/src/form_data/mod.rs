@@ -1,9 +1,9 @@
 mod error;
-mod filed;
+mod field;
 mod buffer;
 
 use crate::error::HlsResult;
-use crate::form_data::filed::FormField;
+use crate::form_data::field::FormField;
 use crate::reader::{ReadExt, Reader, RefReader};
 pub use error::FormError;
 use reqrio_json::JsonValue;
@@ -124,12 +124,17 @@ impl FileForm {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
     pub fn len(&self) -> usize {
         let mut len = 94 + self.field_name.len() + self.filename.len() + self.filesize;
         if !self.filetype.is_empty() {
             len += 16 + self.filetype.len()
         }
         len
+    }
+
+    pub fn filesize(&self) -> usize {
+        self.filesize
     }
 
     pub(crate) fn as_form_buffer(&mut self, boundary: &Arc<String>) -> FileFormBuffer<'_> {
@@ -164,7 +169,6 @@ impl FileForm {
         }
     }
 }
-
 
 
 pub struct HttpFile {
@@ -244,6 +248,10 @@ impl HttpFile {
         let filed_size: usize = self.data.iter().map(|x| 85 + x.name.len() + x.value.len()).sum();
         let form_size: usize = self.forms.iter().map(|x| x.len()).sum();
         filed_size + form_size + 38
+    }
+
+    pub fn forms(&self) -> &[FileForm] {
+        &self.forms
     }
 
     pub(crate) fn as_buffer(&mut self) -> HttpFileBuffer<'_> {
