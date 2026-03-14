@@ -25,7 +25,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
             stream,
             conn,
             handshake_finished: false,
-            read_buffer: Buffer::with_capacity(16437),
+            read_buffer: Buffer::default(),
             write_buffer: buffer,
             shutdown_wrote: false,
             wrote_len: 0,
@@ -41,7 +41,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
         Ok(stream)
     }
     pub async fn connect(mut stream: S, mut config: ClientConfig<'_>) -> HlsResult<TlsStream<S>> {
-        let mut write_buffer = Buffer::with_capacity(0xFFFF);
+        let mut write_buffer = Buffer::default();
         let conn = Self::handle_client_hello(&mut config, &mut write_buffer)?;
         stream.write_all(write_buffer.filled()).await?;
         write_buffer.reset();
@@ -49,7 +49,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
     }
 
     pub async fn accept(stream: S, config: ServerConfig<'_>) -> HlsResult<TlsStream<S>> {
-        TlsStream::new(stream, Connection::default(), Config::Server(config), Buffer::with_capacity(16437)).await
+        TlsStream::new(stream, Connection::default(), Config::Server(config), Buffer::default()).await
     }
 
     pub async fn read_packet(&mut self) -> HlsResult<usize> {
@@ -111,7 +111,6 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             self.conn.make_cipher(true)?;
                         }
                         Message::Payload(_) => {
-                            // let mut record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, None)?;
                             let record_len = record.len as usize + 5;
                             let mut out = vec![0; record_len];
                             let len = self.conn.read_message(&self.read_buffer[..record_len], &mut out)?;
@@ -248,9 +247,7 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for TlsStream<S> {
                 Poll::Pending => return Poll::Pending,
             }
         }
-        if stream.wrote_len > buf.len() {
-            println!("write {} {}", stream.wrote_len, buf.len());
-        }
+        assert_eq!(stream.wrote_len, buf.len());
         Poll::Ready(Ok(stream.wrote_len))
     }
 
