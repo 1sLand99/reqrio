@@ -44,7 +44,7 @@ fn main() {
         // req.set_url("https://zhifazhe.top").unwrap();
         // req.set_url("http://3434.characlink.com").unwrap();
         // req.set_url("https://m.so.com").unwrap();
-        req.set_proxy(Proxy::new_socks5("34.124.190.108", 8080));
+        // req.set_proxy(Proxy::new_socks5("34.124.190.108", 8080));
         // println!("{}", et - t);
         // req.set_url("https://ms.xllgl.top").unwrap();
         req.set_url("https://www.baidu.com").unwrap();
