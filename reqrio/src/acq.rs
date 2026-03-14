@@ -1,4 +1,3 @@
-use std::io::Cursor;
 use crate::body::BodyType;
 use crate::error::HlsResult;
 use crate::ext::{ReqExt, ReqParam};
@@ -26,6 +25,7 @@ pub struct AcReq {
     verify: bool,
     auto_redirect: bool,
     buffer: Buffer,
+    hpack_coder: HPackCoding,
     certs: Vec<Certificate>,
     key: RsaKey,
 }
@@ -46,6 +46,7 @@ impl Default for AcReq {
             verify: true,
             auto_redirect: true,
             buffer: Buffer::with_capacity(32826),
+            hpack_coder: HPackCoding::new(),
             certs: vec![],
             key: RsaKey::none(),
         }
@@ -108,7 +109,7 @@ impl AcReq {
     }
 
     pub(crate) async fn handle_io(&mut self) -> HlsResult<Response> {
-        let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, &self.stream_id, &mut self.body);
+        let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, self.hpack_coder.encoder(), &self.stream_id, &mut self.body)?;
         self.buffer.reset();
         loop {
             let mut render = Reader::new(self.buffer.unfilled_mut());
@@ -168,7 +169,7 @@ impl AcReq {
     }
 
     pub async fn re_conn(&mut self) -> HlsResult<()> {
-        *self.header.hpack_coder() = HPackCoding::new();
+        self.hpack_coder = HPackCoding::new();
         self.stream_id = 0;
         self.buffer.reset();
         for i in 0..self.timeout.connect_times() {
@@ -225,7 +226,7 @@ impl AcReq {
         let old_addr = mem::replace(&mut self.addr, addr);
         let old_scheme = mem::replace(&mut self.scheme, scheme);
         self.header.set_uri(uri);
-        drop(mem::replace(&mut self.body, BodyType::Bytes(Cursor::new(vec![]))));
+        drop(mem::replace(&mut self.body, BodyType::Bytes(vec![])));
         if self.addr.host() != old_addr.host() || self.scheme != old_scheme {
             let host = self.addr.to_string().replace(":80", "").replace(":443", "");
             self.header.set_host(host)?;
@@ -288,7 +289,12 @@ impl ReqPriExt for AcReq {
         ReqParam {
             header: &mut self.header,
             buffer: &mut self.buffer,
+            hpack_coder: &mut self.hpack_coder,
             callback: &mut self.callback,
+            addr: &self.addr,
+            sid: &self.stream_id,
+            scheme: &self.scheme,
+
         }
     }
 

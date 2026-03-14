@@ -4,7 +4,6 @@ use std::sync::Arc;
 pub(crate) struct FormField {
     pub(crate) name: String,
     pub(crate) value: String,
-    pub(crate) boundary: Arc<String>,
 }
 
 impl FormField {
@@ -12,16 +11,14 @@ impl FormField {
         FormField {
             name: name.to_string(),
             value: value.to_string(),
-            boundary: Arc::new(String::new()),
         }
     }
 
-    pub fn as_file_render(&mut self, md5: &Arc<String>) -> RefReader<&[u8]> {
-        self.boundary = md5.clone();
+    pub fn as_file_render<'a>(&'a self, md5: &'a Arc<String>) -> RefReader<&'a [u8]> {
         //line1
         let mut reader: RefReader<&[u8]> = RefReader::default();
         reader.add_buf(b"--");
-        reader.add_buf(self.boundary.as_bytes());
+        reader.add_buf(md5.as_bytes());
         reader.add_buf(b"--\r\n");
         //line2
         reader.add_buf(b"Content-Disposition: form-data; name=\"");

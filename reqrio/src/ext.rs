@@ -1,19 +1,24 @@
-use std::io::Cursor;
-use std::mem;
-use std::path::Path;
-use std::sync::Arc;
 use crate::body::BodyType;
 use crate::error::HlsResult;
 use crate::form_data::HttpFile;
+use crate::hpack::HPackCoding;
 use crate::packet::*;
+use crate::reader::{ReadExt, Reader};
 use crate::stream::Stream;
 use crate::timeout::Timeout;
 use crate::*;
 use json::JsonValue;
+use std::mem;
+use std::path::Path;
+use std::sync::Arc;
 
 pub(crate) struct ReqParam<'a> {
     pub(crate) header: &'a mut Header,
     pub(crate) buffer: &'a mut Buffer,
+    pub(crate) hpack_coder: &'a mut HPackCoding,
+    pub(crate) addr: &'a Addr,
+    pub(crate) scheme: &'a Scheme,
+    pub(crate) sid: &'a u32,
     pub(crate) callback: &'a mut Option<ReqCallback>,
 }
 
@@ -71,7 +76,7 @@ pub trait ReqExt: ReqPriExt + Sized {
     fn url(&self) -> String;
     fn set_uri(&mut self, uri: impl TryInto<Uri>) -> Result<(), RlsError> {
         self.header_mut().set_uri(uri.try_into().or(Err(UrlError::ParseUriError))?);
-        drop(mem::replace(self.body_type_mut(), BodyType::Bytes(Cursor::new(vec![]))));
+        drop(mem::replace(self.body_type_mut(), BodyType::Bytes(vec![])));
         Ok(())
     }
     fn set_proxy(&mut self, proxy: Proxy);
@@ -174,6 +179,20 @@ pub(crate) trait ReqPriExt {
     fn into_stream(self) -> Stream;
     fn req_param(&mut self) -> ReqParam<'_>;
     fn body_type_mut(&mut self) -> &mut BodyType;
+
+    fn read_to_vec<T: ReadExt>(mut reader: T) -> HlsResult<Vec<u8>> {
+        let mut res = vec![0; 1024];
+        let mut filled = 0;
+        loop {
+            let mut buf_reader = Reader::new(&mut res[filled..]);
+            let len = reader.read(&mut buf_reader)?;
+            filled += len;
+            if reader.wrote() { break; }
+            res.resize(res.capacity() + 1024, 0);
+        }
+        res.truncate(filled);
+        Ok(res)
+    }
     fn handle_h1_res(&mut self, response: &mut Response, rd: &mut usize) -> HlsResult<bool> {
         let param = self.req_param();
         match param.callback {
@@ -206,14 +225,14 @@ pub(crate) trait ReqPriExt {
         let param = self.req_param();
         let frame = H2FrameRBuf::from_bytes(param.buffer.filled(), frame_type)?;
         let res = match param.callback {
-            None => response.extend_frame(&frame, param.header.hpack_coder().decoder()),
+            None => response.extend_frame(&frame, param.hpack_coder.decoder()),
             Some(callback) => {
                 match frame.frame_type() {
                     FrameType::Data => {
                         callback(frame.payload())?;
                         Ok(frame.is_end_frame())
                     }
-                    FrameType::Headers => Ok(response.extend_frame(&frame, param.header.hpack_coder().decoder())?),
+                    FrameType::Headers => Ok(response.extend_frame(&frame, param.hpack_coder.decoder())?),
                     _ => Ok(false),
                 }
             }
@@ -248,5 +267,23 @@ pub(crate) trait ReqPriExt {
     }
 }
 
-#[allow(private_bounds)]
-pub trait ReqGenExt: ReqExt {}
+pub trait ReqGenExt: ReqExt {
+    fn body_raw(&mut self) -> HlsResult<Vec<u8>> {
+        let body_reader = self.body_type_mut().as_reader()?;
+        Self::read_to_vec(body_reader)
+    }
+    fn body_raw_string(&mut self) -> HlsResult<String> {
+        Ok(String::from_utf8_lossy(&self.body_raw()?).to_string())
+    }
+    
+    ///最好在调试模式使用，生产模式使用时，一个请求将会产生两次reader，影响效率
+    fn h1_raw_string(&mut self) -> HlsResult<String> {
+        let body_len = self.body_type_mut().len();
+        let param = self.req_param();
+        let mut header_reader = param.header.as_reader(param.addr, param.scheme, param.hpack_coder.encoder(), param.sid);
+        header_reader.set_body_len(body_len);
+        let mut header = Self::read_to_vec(header_reader)?;
+        header.extend(self.body_raw()?);
+        Ok(String::from_utf8_lossy(&header).to_string())
+    }
+}

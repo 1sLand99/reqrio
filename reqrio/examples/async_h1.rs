@@ -77,7 +77,7 @@ async fn main() {
     // req.set_url("https://www.sogou.com").await.unwrap();
     // req.set_url("https://cn.bing.com/search?q=site%EF%BC%9Asite：wLLyn.com&first=0&FORM=PERE2").await.unwrap();
     // req.set_proxy(Proxy::new_socks5("127.0.0.1", 10279));
-    req.set_url("https://m.baidu.com").await.unwrap();
+    // req.set_url("https://m.baidu.com").await.unwrap();
     // req.set_url("https://www.sephora.com/").await.unwrap();
     // req.set_url("https://doc.rust-lang.org/").await.unwrap();
     // req.set_url("https://tls.123408.xyz/api/clean").await.unwrap();
@@ -89,10 +89,12 @@ async fn main() {
 
 
     // req.set_url("https://m.so.com").await.unwrap();
+    req.set_url("https://im.jinritemai.com/").await.unwrap();
     // let file = HttpFile::new_path_data(json::object! {"da":"sf","sss":1}, "/home/xl/project/py/ttt/1.py").unwrap();
     // req.set_files(file).unwrap();
-    // let data = vec!["s"; 16384];
-    // req.set_json(json::object! {"dfdf":data});
+    let data = vec!["s"; 11];
+    req.set_json(json::object! {"dfdf":data});
+    println!("{}", req.h1_raw_string().unwrap());
     let res = req.get().await.unwrap();
     println!("{}", res.header());
     // sleep(Duration::from_secs(10)).await;

@@ -1,3 +1,4 @@
+use reqrio_json::JsonValue;
 use crate::error::HlsResult;
 use crate::ext::ReqPriExt;
 use crate::stream::Stream;
@@ -46,6 +47,15 @@ impl<S: ReqExt> WebSocketBuilder<S> {
     pub fn with_uri(mut self, uri: impl TryInto<Uri>) -> HlsResult<WebSocketBuilder<S>> {
         self.0.set_uri(uri)?;
         Ok(self)
+    }
+
+    pub fn with_params(mut self, param: JsonValue) -> Self {
+        self.set_params(param);
+        self
+    }
+
+    pub fn set_params(&mut self, param: JsonValue) {
+        self.0.set_params(param)
     }
 }
 

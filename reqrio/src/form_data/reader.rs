@@ -1,9 +1,10 @@
+use std::fs::File;
+use std::io::{Cursor, Read};
 use crate::error::HlsResult;
-use crate::form_data::FormRender;
 use crate::reader::{ReadExt, Reader, RefReader};
 use reqtls::WriteExt;
 
-pub struct HttpFileBuffer<'a> {
+pub struct HttpFileReader<'a> {
     pub(crate) data_readers: Vec<RefReader<&'a [u8]>>,
     pub(crate) files: Vec<FileFormBuffer<'a>>,
     pub(crate) suffix_reader: RefReader<&'a [u8]>,
@@ -13,12 +14,12 @@ pub struct HttpFileBuffer<'a> {
     pub(crate) wrote: bool,
 }
 
-impl<'a> HttpFileBuffer<'a> {
+impl<'a> HttpFileReader<'a> {
     pub fn len(&self) -> usize { self.len }
 }
 
 
-impl<'a> ReadExt for HttpFileBuffer<'a> {
+impl<'a> ReadExt for HttpFileReader<'a> {
     fn wrote(&self) -> bool {
         self.wrote
     }
@@ -59,9 +60,39 @@ impl<'a> ReadExt for HttpFileBuffer<'a> {
     }
 }
 
+pub enum FormRender<'a> {
+    File((usize, usize, File)),
+    Bytes(Cursor<&'a [u8]>),
+}
+
+impl<'a> ReadExt for FormRender<'a> {
+    fn wrote(&self) -> bool {
+        match self {
+            FormRender::File((wrote, size, _)) => wrote == size,
+            FormRender::Bytes(bytes) => bytes.position() as usize == bytes.get_ref().len(),
+        }
+    }
+
+    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
+        match self {
+            FormRender::File((wrote, _, f)) => {
+                let len = f.read(buf.unfilled())?;
+                buf.add_len(len);
+                *wrote += len;
+                Ok(len)
+            }
+            FormRender::Bytes(bs) => {
+                let len = bs.read(buf.unfilled())?;
+                buf.add_len(len);
+                Ok(len)
+            }
+        }
+    }
+}
+
 pub(crate) struct FileFormBuffer<'a> {
     pub(crate) prefix_reader: RefReader<&'a [u8]>,
-    pub(crate) file_reader: &'a mut FormRender,
+    pub(crate) file_reader: FormRender<'a>,
     pub(crate) suffix_reader: RefReader<&'a [u8]>,
     pub(crate) pos: usize,
     pub(crate) wrote: bool,

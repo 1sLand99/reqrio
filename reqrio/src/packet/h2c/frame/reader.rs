@@ -1,4 +1,4 @@
-use crate::body::BodyTypeBuffer;
+use crate::body::H1BodyReader;
 use crate::error::HlsResult;
 use crate::reader::{ReadExt, Reader};
 use crate::{Buffer, FrameFlag, FrameType};
@@ -113,20 +113,20 @@ impl<'a> ReadExt for H2FrameHead<'a> {
 
 
 ///`H2FrameBufs`主要是构建H2 Body Frame；因为Header Frame需要经过hpack编码长度不可知，无法适用
-pub struct H2FrameWBufs<'a> {
+pub struct H2BodyReader<'a> {
     frames: Vec<H2FrameHead<'a>>,
-    body: BodyTypeBuffer<'a>,
+    body: H1BodyReader<'a>,
     frame_wrote: usize,
     pos: usize,
     wrote: bool,
 }
 
-impl<'a> H2FrameWBufs<'a> {
-    pub fn new_size(buffer_size: usize, body: BodyTypeBuffer<'a>, sid: &'a u32) -> H2FrameWBufs<'a> {
+impl<'a> H2BodyReader<'a> {
+    pub fn new_size(buffer_size: usize, body: H1BodyReader<'a>, sid: &'a u32) -> H2BodyReader<'a> {
         let body_len = body.len();
         let chunks = (0..body_len).step_by(buffer_size).map(|i| (body_len - i).min(buffer_size));
         let chunk_len = chunks.len();
-        H2FrameWBufs {
+        H2BodyReader {
             frames: chunks.into_iter().enumerate().map(|(i, size)| H2FrameHead::new(sid, size, i == chunk_len - 1)).collect(),
             body,
             frame_wrote: 0,
@@ -136,7 +136,7 @@ impl<'a> H2FrameWBufs<'a> {
     }
 }
 
-impl<'a> ReadExt for H2FrameWBufs<'a> {
+impl<'a> ReadExt for H2BodyReader<'a> {
     fn wrote(&self) -> bool {
         self.wrote
     }

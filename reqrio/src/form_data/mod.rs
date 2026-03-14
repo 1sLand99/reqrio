@@ -1,45 +1,33 @@
 mod error;
 mod field;
-mod buffer;
+mod reader;
 
 use crate::error::HlsResult;
 use crate::form_data::field::FormField;
-use crate::reader::{ReadExt, Reader, RefReader};
+use crate::form_data::reader::FormRender;
+use crate::reader::RefReader;
 pub use error::FormError;
+use reader::FileFormBuffer;
+pub use reader::HttpFileReader;
 use reqrio_json::JsonValue;
-use reqtls::WriteExt;
 use std::fs::File;
-use std::io::{Cursor, Read};
-use std::path::Path;
+use std::io::Cursor;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
-pub use buffer::HttpFileBuffer;
-use buffer::FileFormBuffer;
 
-pub enum FormRender {
-    File((usize, usize, File)),
-    Bytes(Cursor<Vec<u8>>),
+enum InputType {
+    Bytes(Vec<u8>),
+    Path(PathBuf),
 }
 
-impl ReadExt for FormRender {
-    fn wrote(&self) -> bool {
+impl InputType {
+    fn as_reader(&self) -> HlsResult<FormRender<'_>> {
         match self {
-            FormRender::File((wrote, size, _)) => wrote == size,
-            FormRender::Bytes(bytes) => bytes.position() as usize == bytes.get_ref().len(),
-        }
-    }
-
-    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
-        match self {
-            FormRender::File((wrote, _, f)) => {
-                let len = f.read(buf.unfilled())?;
-                buf.add_len(len);
-                *wrote += len;
-                Ok(len)
-            }
-            FormRender::Bytes(bs) => {
-                let len = bs.read(buf.unfilled())?;
-                buf.add_len(len);
-                Ok(len)
+            InputType::Bytes(bytes) => Ok(FormRender::Bytes(Cursor::new(bytes))),
+            InputType::Path(path) => {
+                let filesize = path.metadata()?.len() as usize;
+                let file = File::open(path)?;
+                Ok(FormRender::File((0, filesize, file)))
             }
         }
     }
@@ -48,10 +36,8 @@ impl ReadExt for FormRender {
 pub struct FileForm {
     filename: String,
     filetype: String,
-    filesize: usize,
     field_name: String,
-    boundary: Arc<String>,
-    render: FormRender,
+    input: InputType,
 }
 
 impl Default for FileForm {
@@ -59,37 +45,28 @@ impl Default for FileForm {
         FileForm {
             filename: "123.txt".to_string(),
             filetype: "".to_string(),
-            filesize: 0,
             field_name: "file".to_string(),
-            boundary: Arc::new("".to_string()),
-            render: FormRender::Bytes(Cursor::new(vec![])),
+            input: InputType::Bytes(vec![]),
         }
     }
 }
 impl FileForm {
     pub fn new_path(path: impl AsRef<Path>) -> HlsResult<FileForm> {
-        let path = path.as_ref();
+        let path = path.as_ref().to_path_buf();
         let filename = path.file_name().ok_or(FormError::GetFilenameError)?.display().to_string();
-        let file = File::open(path)?;
-        let metadata = file.metadata()?;
-        let filesize = metadata.len() as usize;
         Ok(FileForm {
             filename,
-            filesize,
             field_name: "file".to_string(),
-            render: FormRender::File((0, filesize, file)),
+            input: InputType::Path(path),
             ..Default::default()
         })
     }
 
     pub fn new_bytes(bytes: impl Into<Vec<u8>>) -> FileForm {
-        let bytes = bytes.into();
-        let filesize = bytes.len();
         FileForm {
             filename: "1223.txt".to_string(),
-            filesize,
             field_name: "file".to_string(),
-            render: FormRender::Bytes(Cursor::new(bytes)),
+            input: InputType::Bytes(bytes.into()),
             ..Default::default()
         }
     }
@@ -126,23 +103,25 @@ impl FileForm {
     }
 
     pub fn len(&self) -> usize {
-        let mut len = 94 + self.field_name.len() + self.filename.len() + self.filesize;
+        let mut len = 94 + self.field_name.len() + self.filename.len() + self.filesize().unwrap_or(0);
         if !self.filetype.is_empty() {
             len += 16 + self.filetype.len()
         }
         len
     }
 
-    pub fn filesize(&self) -> usize {
-        self.filesize
+    pub fn filesize(&self) -> HlsResult<usize> {
+        match &self.input {
+            InputType::Bytes(bs) => Ok(bs.len()),
+            InputType::Path(f) => Ok(f.metadata()?.len() as usize),
+        }
     }
 
-    pub(crate) fn as_form_buffer(&mut self, boundary: &Arc<String>) -> FileFormBuffer<'_> {
-        self.boundary = boundary.clone();
+    pub(crate) fn as_form_buffer<'a>(&'a self, boundary: &'a Arc<String>) -> HlsResult<FileFormBuffer<'a>> {
         let mut reader: RefReader<&[u8]> = RefReader::default();
         //line1
         reader.add_buf(b"--");
-        reader.add_buf(self.boundary.as_bytes());
+        reader.add_buf(boundary.as_bytes());
         //line2
         reader.add_buf(b"\r\nContent-Disposition: form-data; name=\"");
         reader.add_buf(self.field_name.as_bytes());
@@ -158,15 +137,15 @@ impl FileForm {
         }
         //line4
         reader.add_buf(b"\r\n");
-        FileFormBuffer {
+        Ok(FileFormBuffer {
             prefix_reader: reader,
             //line5
-            file_reader: &mut self.render,
+            file_reader: self.input.as_reader()?,
             //line6
             suffix_reader: RefReader::new_buf(b"\r\n"),
             pos: 0,
             wrote: false,
-        }
+        })
     }
 }
 
@@ -254,21 +233,25 @@ impl HttpFile {
         &self.forms
     }
 
-    pub(crate) fn as_buffer(&mut self) -> HttpFileBuffer<'_> {
+    pub(crate) fn as_reader(&self) -> HlsResult<HttpFileReader<'_>> {
         let mut suffix_reader: RefReader<&[u8]> = RefReader::default();
         suffix_reader.add_buf(b"--");
         suffix_reader.add_buf(self.boundary.as_bytes());
         //此处待定
         suffix_reader.add_buf(b"--\r\n");
-        HttpFileBuffer {
+        let mut files = vec![];
+        for form in &self.forms {
+            files.push(form.as_form_buffer(&self.boundary)?);
+        }
+        Ok(HttpFileReader {
             len: self.len(),
-            data_readers: self.data.iter_mut().map(|x| x.as_file_render(&self.boundary)).collect(),
-            files: self.forms.iter_mut().map(|form| form.as_form_buffer(&self.boundary)).collect(),
+            data_readers: self.data.iter().map(|x| x.as_file_render(&self.boundary)).collect(),
+            files,
             suffix_reader,
             row: 0,
             pos: 0,
             wrote: false,
-        }
+        })
     }
 }
 
