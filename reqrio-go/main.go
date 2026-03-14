@@ -1,8 +1,8 @@
 package main
 
 /*
-git tag reqrio-go/v0.2.0-alpha1
-git push origin reqrio-go/v0.2.0-alpha1
+git tag reqrio-go/v0.2.0-alpha2
+git push origin reqrio-go/v0.2.0-alpha2
 */
 import (
 	"fmt"
