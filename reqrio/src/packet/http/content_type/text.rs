@@ -39,6 +39,7 @@ impl TryFrom<&str> for Text {
             "event-stream" => Ok(Text::EventStream),
             "xml" => Ok(Text::Xml),
             "x-component" => Ok(Text::XComponent),
+            "json" => Ok(Text::Json),
             _ => Err(format!("invalid text type {} ", value).into()),
         }
     }

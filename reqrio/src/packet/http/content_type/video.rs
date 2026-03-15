@@ -19,7 +19,7 @@ impl Display for Video {
 impl TryFrom<&str> for Video {
     type Error = HlsError;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value {
+        match value.to_lowercase().as_str() {
             "mp4" => Ok(Video::Mp4),
             "mp2t" => Ok(Video::MP2T),
             _ => Err(format!("invalid video type: {}", value).into())

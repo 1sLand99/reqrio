@@ -8,6 +8,7 @@ pub enum ImageType {
     Apng,
     Png,
     Gif,
+    Jpg,
     Jpeg,
     SvgXml,
     XIcon,
@@ -22,6 +23,7 @@ impl Display for ImageType {
             ImageType::Apng => f.write_str("image/apng"),
             ImageType::Png => f.write_str("image/png"),
             ImageType::Gif => f.write_str("image/gif"),
+            ImageType::Jpg => f.write_str("image/jpg"),
             ImageType::Jpeg => f.write_str("image/jpeg"),
             ImageType::SvgXml => f.write_str("image/svg+xml"),
             ImageType::XIcon => f.write_str("image/x-icon"),
@@ -35,6 +37,7 @@ impl TryFrom<&str> for ImageType {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             "gif" => Ok(ImageType::Gif),
+            "jpg" => Ok(ImageType::Jpg),
             "jpeg" => Ok(ImageType::Jpeg),
             "png" => Ok(ImageType::Png),
             "svg+xml" => Ok(ImageType::SvgXml),
