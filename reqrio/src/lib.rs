@@ -139,7 +139,7 @@ pub use ext::{ReqExt, ReqGenExt};
 pub use fingerprint::Fingerprint;
 pub use packet::{
     Application, Body, ContentType, Cookie, Font, FrameFlag, FrameType, H2Frame, Header, HeaderKey,
-    HeaderValue, HttpStatus, Method, Response, Text, WsFrame, WsOpcode,
+    HeaderValue, HttpStatus, Method, Response, Text, WsFrame, WsOpcode, H2Setting,
 };
 pub use reqrio_json as json;
 pub use reqtls::*;

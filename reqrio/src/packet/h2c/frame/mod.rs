@@ -5,8 +5,7 @@ use std::fmt::Debug;
 pub use typo::FrameType;
 pub use flag::FrameFlag;
 pub use reader::{H2FrameRBuf, H2BodyReader};
-
-use setting::Setting;
+pub use setting::H2Setting;
 mod setting;
 mod typo;
 mod flag;
@@ -22,7 +21,7 @@ pub struct H2Frame<'a> {
     stream_dependency: u32,
     weight: u8,
     payload: &'a [u8],
-    settings: Vec<Setting>,
+    settings: Vec<H2Setting>,
 }
 
 impl<'a> H2Frame<'a> {
@@ -56,7 +55,7 @@ impl<'a> H2Frame<'a> {
         if frame_type == FrameType::Settings {
             let mut cl = 0;
             while cl < payload.len() {
-                let setting = Setting::from_bytes(&payload[cl..cl + 6])?;
+                let setting = H2Setting::from_bytes(&payload[cl..cl + 6])?;
                 settings.push(setting);
                 cl += 6;
             }
@@ -123,7 +122,7 @@ impl<'a> H2Frame<'a> {
     }
 
     pub fn default_setting() -> H2Frame<'a> {
-        let settings = Setting::default();
+        let settings = H2Setting::default();
         H2Frame {
             len: settings.len() * 6,
             frame_type: FrameType::Settings,
@@ -205,7 +204,7 @@ impl<'a> H2Frame<'a> {
         self.flag = flag;
     }
 
-    pub fn set_settings(&mut self, settings: Vec<Setting>) {
+    pub fn set_settings(&mut self, settings: Vec<H2Setting>) {
         self.settings = settings;
     }
 
