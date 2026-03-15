@@ -14,7 +14,7 @@ pub struct HackEncode(encoder::Encoder<'static>);
 
 impl HackEncode {
     pub fn new() -> HackEncode {
-        HackEncode(encoder::Encoder::with_dynamic_size(0xFFFF))
+        HackEncode(encoder::Encoder::with_dynamic_size(65536))
     }
 
     pub fn encode_packs(&mut self, packs: &Vec<HPack>) -> HlsResult<Vec<u8>> {
@@ -56,7 +56,7 @@ pub struct HackDecode(httlib_hpack::Decoder<'static>);
 
 impl HackDecode {
     pub fn new() -> HackDecode {
-        HackDecode(httlib_hpack::Decoder::with_dynamic_size(0xFFFF))
+        HackDecode(httlib_hpack::Decoder::with_dynamic_size(65536))
     }
     pub fn decode(&mut self, buf: &mut Vec<u8>) -> HlsResult<Vec<HPack>> {
         let mut dst = vec![];
