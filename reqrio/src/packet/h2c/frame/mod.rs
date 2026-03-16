@@ -122,7 +122,7 @@ impl<'a> H2Frame<'a> {
     }
 
     pub fn default_setting() -> H2Frame<'a> {
-        let settings = H2Setting::default();
+        let settings = H2Setting::default_setting();
         H2Frame {
             len: settings.len() * 6,
             frame_type: FrameType::Settings,

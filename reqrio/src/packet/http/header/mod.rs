@@ -597,10 +597,10 @@ impl<'a> HeaderReader<'a> {
         let mut header_frame = H2Frame::new_header(self.body_len, *self.stream_identifier);
         header_frame.set_priority(146);
         header_frame.write_to(buf);
-        buf.write_slice(&self.hpack_encoder.encode_one(b":method", self.header.method.to_string())?);
-        buf.write_slice(&self.hpack_encoder.encode_one(b":authority", self.addr.to_string().replace(":80", "").replace(":443", ""))?);
-        buf.write_slice(&self.hpack_encoder.encode_one(b":scheme", self.scheme.to_string())?);
-        buf.write_slice(&self.hpack_encoder.encode_one(b":path", self.header.uri.to_string())?);
+        buf.write_slice(&self.hpack_encoder.encode_one(":method", self.header.method.to_string())?);
+        buf.write_slice(&self.hpack_encoder.encode_one(":authority", self.addr.to_string().replace(":80", "").replace(":443", ""))?);
+        buf.write_slice(&self.hpack_encoder.encode_one(":scheme", self.scheme.to_string())?);
+        buf.write_slice(&self.hpack_encoder.encode_one(":path", self.header.uri.to_string())?);
         for key in keys {
             let name = key.name_lower();
             match key.value() {

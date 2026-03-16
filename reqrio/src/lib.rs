@@ -130,6 +130,8 @@
 //! }
 //! ```
 
+extern crate core;
+
 use crate::error::HlsResult;
 #[cfg(feature = "aync")]
 pub use acq::AcReq;
@@ -171,6 +173,6 @@ mod stream;
 mod timeout;
 mod body;
 mod fingerprint;
-mod huffman;
+// mod huffman;
 mod reader;
 mod request;

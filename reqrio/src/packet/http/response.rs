@@ -1,6 +1,6 @@
 use crate::buffer::Buffer;
 use crate::error::HlsResult;
-use crate::hpack::HackDecode;
+use crate::hpack::HackEncode;
 use crate::json::JsonValue;
 use crate::packet::{H2FrameRBuf, Header};
 use crate::{coder, FrameType, HeaderValue, CHUNK_END, HTTP_GAP};
@@ -170,7 +170,7 @@ impl Response {
         }
     }
 
-    pub fn extend_frame(&mut self, frame: &H2FrameRBuf, hpack_coding: &mut HackDecode) -> HlsResult<bool> {
+    pub fn extend_frame(&mut self, frame: &H2FrameRBuf, hpack_coding: &mut HackEncode) -> HlsResult<bool> {
         let ended = frame.is_end_frame();
         match frame.frame_type() {
             FrameType::Data => self.raw.extend_from_slice(frame.payload()),

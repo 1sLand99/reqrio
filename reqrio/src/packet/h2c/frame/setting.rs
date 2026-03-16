@@ -1,65 +1,80 @@
-use reqtls::WriteExt;
 use crate::error::HlsResult;
+use std::fmt::{Debug, Formatter};
+use reqtls::WriteExt;
 
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Copy, Clone)]
+#[repr(u16)]
 pub enum H2Setting {
-    HeaderTableSize(u32),
-    EnablePush(u32),
-    MaxConcurrentStreams(u32),
-    InitialWindowSize(u32),
-    MaxFrameSize(u32),
-    MaxHeaderListSize(u32),
+    HeaderTableSize(u32) = 0x1,
+    EnablePush(u32) = 0x2,
+    MaxConcurrentStreams(u32) = 0x3,
+    InitialWindowSize(u32) = 0x4,
+    MaxFrameSize(u32) = 0x5,
+    MaxHeaderListSize(u32) = 0x6,
+    Reserved { flag: u16, value: u32 },
 }
 
 impl H2Setting {
     pub fn from_bytes(context: &[u8]) -> HlsResult<H2Setting> {
-        let k = u16::from_be_bytes([context[0], context[1]]);
-        Ok(match k {
-            0x1 => H2Setting::HeaderTableSize(u32::from_be_bytes(context[2..6].try_into()?)),
-            0x2 => H2Setting::EnablePush(u32::from_be_bytes(context[2..6].try_into()?)),
-            0x3 => H2Setting::MaxConcurrentStreams(u32::from_be_bytes(context[2..6].try_into()?)),
-            0x4 => H2Setting::InitialWindowSize(u32::from_be_bytes(context[2..6].try_into()?)),
-            0x5 => H2Setting::MaxFrameSize(u32::from_be_bytes(context[2..6].try_into()?)),
-            0x6 => H2Setting::MaxHeaderListSize(u32::from_be_bytes(context[2..6].try_into()?)),
-            _ => return Err(format!("frame byte error: {:?}", context).into()),
+        let flag = u16::from_be_bytes([context[0], context[1]]);
+        let value = u32::from_be_bytes(context[2..6].try_into()?);
+        Ok(match flag {
+            0x1 => H2Setting::HeaderTableSize(value),
+            0x2 => H2Setting::EnablePush(value),
+            0x3 => H2Setting::MaxConcurrentStreams(value),
+            0x4 => H2Setting::InitialWindowSize(value),
+            0x5 => H2Setting::MaxFrameSize(value),
+            0x6 => H2Setting::MaxHeaderListSize(value),
+            _ => H2Setting::Reserved { flag, value },
         })
     }
 
-    pub fn write_to<W: WriteExt>(&self, writer: &mut W) {
-        match self {
-            H2Setting::HeaderTableSize(v) => {
-                writer.write_u16(0x1);
-                writer.write_ru32(v, false);
-            }
-            H2Setting::EnablePush(v) => {
-                writer.write_u16(0x2);
-                writer.write_ru32(v, false);
-            }
-            H2Setting::MaxConcurrentStreams(v) => {
-                writer.write_u16(0x3);
-                writer.write_ru32(v, false);
-            }
-            H2Setting::InitialWindowSize(v) => {
-                writer.write_u16(0x4);
-                writer.write_ru32(v, false);
-            }
-            H2Setting::MaxFrameSize(v) => {
-                writer.write_u16(0x5);
-                writer.write_ru32(v, false);
-            }
-            H2Setting::MaxHeaderListSize(v) => {
-                writer.write_u16(0x6);
-                writer.write_ru32(v, false);
-            }
-        }
-    }
-
-    pub fn default() -> Vec<H2Setting> {
+    pub fn default_setting() -> Vec<H2Setting> {
         vec![
-            H2Setting::HeaderTableSize(65535),
+            H2Setting::HeaderTableSize(65536),
             H2Setting::EnablePush(0),
             H2Setting::InitialWindowSize(6291456),
             H2Setting::MaxHeaderListSize(242144)
         ]
+    }
+
+    pub fn write_to<W: WriteExt>(&self, writer: &mut W) {
+        let (flag, value) = match self {
+            H2Setting::HeaderTableSize(v) => (0x1, v),
+            H2Setting::EnablePush(v) => (0x1, v),
+            H2Setting::MaxConcurrentStreams(v) => (0x1, v),
+            H2Setting::InitialWindowSize(v) => (0x1, v),
+            H2Setting::MaxFrameSize(v) => (0x1, v),
+            H2Setting::MaxHeaderListSize(v) => (0x1, v),
+            H2Setting::Reserved { flag, value } => (*flag, value),
+        };
+        writer.write_u16(flag);
+        writer.write_ru32(value, false);
+    }
+
+    pub fn value(&self) -> &u32 {
+        match self {
+            H2Setting::HeaderTableSize(v) => v,
+            H2Setting::EnablePush(v) => v,
+            H2Setting::MaxConcurrentStreams(v) => v,
+            H2Setting::InitialWindowSize(v) => v,
+            H2Setting::MaxFrameSize(v) => v,
+            H2Setting::MaxHeaderListSize(v) => v,
+            H2Setting::Reserved { value, .. } => value
+        }
+    }
+}
+
+impl Debug for H2Setting {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            H2Setting::HeaderTableSize(v) => write!(f, "HeaderTableSize({})", v),
+            H2Setting::EnablePush(v) => write!(f, "EnablePush({})", v),
+            H2Setting::MaxConcurrentStreams(v) => write!(f, "MaxConcurrentStreams({})", v),
+            H2Setting::InitialWindowSize(v) => write!(f, "InitialWindowSize({})", v),
+            H2Setting::MaxFrameSize(v) => write!(f, "MaxFrameSize({})", v),
+            H2Setting::MaxHeaderListSize(v) => write!(f, "MaxHeaderListSize({})", v),
+            H2Setting::Reserved { flag, value } => write!(f, "Reserved{{flag: {}; value: {}}}", flag, value),
+        }
     }
 }
