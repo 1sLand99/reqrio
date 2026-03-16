@@ -276,7 +276,8 @@ pub trait ReqGenExt: ReqExt {
         Ok(String::from_utf8_lossy(&self.body_raw()?).to_string())
     }
     
-    ///最好在调试模式使用，生产模式使用时，一个请求将会产生两次reader，影响效率
+    /// * 最好在调试模式使用，生产模式使用时，一个请求将会产生两次reader，影响效率
+    /// * H2严禁使用，否则影响hpack编码
     fn h1_raw_string(&mut self) -> HlsResult<String> {
         let body_len = self.body_type_mut().len();
         let param = self.req_param();

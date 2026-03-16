@@ -13,7 +13,7 @@ pub struct Buffer {
 
 impl Default for Buffer {
     fn default() -> Self {
-        Buffer::with_capacity(16 * 1024)
+        Buffer::with_capacity(16437)
     }
 }
 
