@@ -1,14 +1,16 @@
 use crate::error::HlsResult;
 pub use crate::hpack::encode2::HackEncode;
-// pub use error::HPackError;
-pub use table2::HPack;
+pub use error::HPackError;
+pub use item::HPackItem;
+pub use encode::HpackEncode;
 
-// mod encoder;
-mod table2;
-// mod table;
-// mod error;
+mod encode;
+mod error;
 mod encode2;
-
+mod item;
+mod table;
+mod index;
+mod huffman;
 // pub struct HackEncode(httlib_hpack::Encoder<'static>);
 //
 // impl HackEncode {
@@ -89,18 +91,18 @@ mod encode2;
 
 pub struct HPackCoding {
     decoder: HackEncode,
-    encoder: HackEncode,
+    encoder: encode::HpackEncode,
 }
 
 impl HPackCoding {
     pub fn new() -> HPackCoding {
         HPackCoding {
             decoder: HackEncode::new_decode_size(65536),
-            encoder: HackEncode::new(),
+            encoder: encode::HpackEncode::new(65536),
         }
     }
 
-    pub fn decode(&mut self, context: &mut Vec<u8>) -> HlsResult<Vec<HPack>> {
+    pub fn decode(&mut self, context: &mut Vec<u8>) -> HlsResult<Vec<HPackItem>> {
         Ok(self.decoder.decode(context)?)
     }
 
@@ -108,7 +110,7 @@ impl HPackCoding {
     //     self.encoder.encode(headers)
     // }
 
-    pub fn encoder(&mut self) -> &mut HackEncode { &mut self.encoder }
+    pub fn encoder(&mut self) -> &mut encode::HpackEncode { &mut self.encoder }
 
     pub fn decoder(&mut self) -> &mut HackEncode { &mut self.decoder }
 }

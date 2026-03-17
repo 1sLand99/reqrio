@@ -1,6 +1,5 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use super::super::huffman::HuffmanError;
 
 #[derive(Debug)]
 pub enum HPackError {
@@ -21,10 +20,5 @@ impl Display for HPackError {
     }
 }
 
-impl From<HuffmanError> for HPackError {
-    fn from(value: HuffmanError) -> Self {
-        HPackError::Currently(value.to_string())
-    }
-}
 impl Error for HPackError {}
 

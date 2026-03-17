@@ -4,7 +4,7 @@ use crate::packet::{H2BodyReader, HeaderReader};
 use crate::reader::{ReadExt, Reader};
 use crate::Header;
 use reqtls::{Addr, Scheme, WriteExt, ALPN};
-use crate::hpack::HackEncode;
+use crate::hpack::{HackEncode, HpackEncode};
 
 pub struct RequestBuffer<'a> {
     header: HeaderReader<'a>,
@@ -13,7 +13,7 @@ pub struct RequestBuffer<'a> {
 }
 
 impl<'a> RequestBuffer<'a> {
-    pub fn new(header: &'a mut Header, addr: &'a Addr, scheme: &'a Scheme, hapck_encoder: &'a mut HackEncode, sid: &'a u32, body: &'a mut BodyType) -> HlsResult<RequestBuffer<'a>> {
+    pub fn new(header: &'a mut Header, addr: &'a Addr, scheme: &'a Scheme, hapck_encoder: &'a mut HpackEncode, sid: &'a u32, body: &'a mut BodyType) -> HlsResult<RequestBuffer<'a>> {
         let body_len = body.len();
         let body = match header.alpn() {
             ALPN::Http20 => BodyReader::HTTP2(H2BodyReader::new_size(8192, body.as_reader()?, sid)),

@@ -3,7 +3,7 @@ use std::{mem};
 use std::ptr::null_mut;
 use libnghttp2::{nghttp2_hd_deflate_hd, nghttp2_hd_deflater, nghttp2_hd_inflate_hd2, nghttp2_hd_inflate_new, nghttp2_hd_inflater};
 use crate::error::HlsResult;
-use crate::hpack::HPack;
+use crate::hpack::HPackItem;
 
 pub struct HackEncode {
     deflate: *mut nghttp2_hd_deflater,
@@ -65,7 +65,7 @@ impl HackEncode {
         Ok(buf[..len as usize].to_vec())
     }
 
-    pub fn decode(&self, buf: impl AsRef<[u8]>) -> HlsResult<Vec<HPack>> {
+    pub fn decode(&self, buf: impl AsRef<[u8]>) -> HlsResult<Vec<HPackItem>> {
         let mut index = 0;
         let mut res = vec![];
         loop {
@@ -84,7 +84,7 @@ impl HackEncode {
             if nv_out.namelen != 0usize && nv_out.valuelen != 0 {
                 let name = unsafe { slice::from_raw_parts(nv_out.name, nv_out.namelen) };
                 let value = unsafe { slice::from_raw_parts(nv_out.value, nv_out.valuelen) };
-                res.push(HPack::new(std::str::from_utf8(name)?, std::str::from_utf8(value)?));
+                res.push(HPackItem::new(std::str::from_utf8(name)?, std::str::from_utf8(value)?));
             }
             index += ret as usize;
             if index >= buf.as_ref().len() { break; }
