@@ -1,7 +1,7 @@
 use super::content_type::ContentType;
 use super::cookie::Cookie;
 use crate::error::{BufferError, HlsError, HlsResult};
-use crate::hpack::{HPackItem, HackEncode, HpackEncode};
+use crate::hpack::{HPackItem, HpackEncode};
 use crate::json::JsonValue;
 use crate::reader::{ReadExt, Reader};
 use crate::*;

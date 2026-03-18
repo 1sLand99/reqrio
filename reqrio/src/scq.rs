@@ -45,7 +45,7 @@ impl Default for ScReq {
             verify: true,
             auto_redirect: true,
             buffer: Buffer::with_capacity(32826),
-            hpack_coder: HPackCoding::new(),
+            hpack_coder: HPackCoding::new(4096),
             certs: vec![],
             key: RsaKey::none(),
         }
@@ -164,8 +164,6 @@ impl ScReq {
     }
 
     pub fn re_conn(&mut self) -> HlsResult<()> {
-        self.hpack_coder = HPackCoding::new();
-        self.stream_id = 0;
         self.buffer.reset();
         for i in 0..self.timeout.connect_times() {
             let param = ConnParam {
@@ -243,6 +241,8 @@ impl ScReq {
 
 impl ScReq {
     pub fn handle_h2_setting(&mut self) -> HlsResult<()> {
+        self.hpack_coder = HPackCoding::new(65535);
+        self.stream_id = 0;
         self.buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
         self.buffer.write_slice(self.fingerprint.h2_setting());
         self.buffer.write_slice(self.fingerprint.h2_window_update());

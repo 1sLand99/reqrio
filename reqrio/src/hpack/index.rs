@@ -158,15 +158,15 @@ impl Index {
             }
             Index::NoIndexAdd => {
                 writer.write_u8(0b0100_0000);
-                false
+                true
             }
             Index::NoIndexOnce => {
                 writer.write_u8(0);
-                false
+                true
             }
             Index::NoIndexNever => {
                 writer.write_u8(0b0001_0000);
-                false
+                true
             }
             Index::NameIndexedAdd(v) => {
                 let max = self.max_value();
@@ -234,5 +234,25 @@ impl Index {
                 }
             }
         }
+    }
+
+    pub fn into_inner(self) -> usize {
+        match self {
+            Index::Indexed(v) => v,
+            Index::NoIndexAdd => 0,
+            Index::NoIndexOnce => 0,
+            Index::NoIndexNever => 0,
+            Index::NameIndexedAdd(v) => v,
+            Index::NameIndexedOnce(v) => v,
+            Index::NameIndexedNever(v) => v,
+            Index::UpdateDynamicSize(v) => v,
+            Index::ValueLen { value, .. } => value,
+        }
+    }
+}
+
+impl AsRef<Index> for Index {
+    fn as_ref(&self) -> &Index {
+        self
     }
 }

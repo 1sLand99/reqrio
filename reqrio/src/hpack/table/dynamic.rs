@@ -1,5 +1,5 @@
-use std::slice::Iter;
 use crate::hpack::HPackItem;
+use std::slice::Iter;
 
 pub struct DynamicTable {
     values: Vec<HPackItem>,
@@ -25,15 +25,16 @@ impl DynamicTable {
             size: 0,
         }
     }
+    #[cfg(test)]
     pub fn size(&self) -> usize { self.size }
 
-    pub fn max_size(&self) -> usize { self.max_size }
+    // pub fn max_size(&self) -> usize { self.max_size }
     ///动态表插入时应位于最前端
     ///
     /// 文档文档rfc7541-4.4
     pub fn insert(&mut self, item: HPackItem) {
         self.size += item.item_size();
-        println!("{}", self.size);
+        println!("{} {}", self.size, self.max_size);
         self.values.insert(0, item);
         self.resize();
     }
@@ -56,6 +57,11 @@ impl DynamicTable {
                 Some(item) => self.size -= item.item_size(),
             }
         }
+    }
+
+    pub fn update_table_size(&mut self, max_size: usize) {
+        self.max_size = max_size;
+        self.resize();
     }
 
     pub fn iter(&self) -> Iter<'_, HPackItem> {

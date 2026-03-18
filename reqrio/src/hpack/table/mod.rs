@@ -1,8 +1,8 @@
-use std::slice::Iter;
 use super::item::HPackItem;
+use crate::hpack::index::Index;
 use dynamic::DynamicTable;
 use r#static::STATIC_TABLE;
-use crate::hpack::index::Index;
+use std::slice::Iter;
 
 mod r#static;
 mod dynamic;
@@ -22,12 +22,13 @@ impl Default for Table {
 }
 
 impl Table {
-    pub fn new(max_table_size:usize) -> Self {
-        Table{
-            static_table:STATIC_TABLE.as_ref(),
-            dynamic_table:DynamicTable::new_size(max_table_size),
+    pub fn new(max_table_size: usize) -> Self {
+        Table {
+            static_table: STATIC_TABLE.as_ref(),
+            dynamic_table: DynamicTable::new_size(max_table_size),
         }
     }
+
     pub fn get(&self, index: usize) -> Option<&HPackItem> {
         match index {
             ..61 => self.static_table.get(index),
@@ -56,6 +57,10 @@ impl Table {
         self.iter().enumerate().find_map(|(index, item)| if item.name == name {
             Some(Index::NameIndexedAdd(index + 1))
         } else { None })
+    }
+
+    pub fn update_table_size(&mut self, max_size: usize) {
+        self.dynamic_table.update_table_size(max_size);
     }
 }
 

@@ -1,8 +1,8 @@
-use crate::hpack::table::Table;
-use reqtls::WriteExt;
 use crate::error::HlsResult;
-use crate::hpack::{huffman, HPackItem};
 use crate::hpack::index::Index;
+use crate::hpack::table::Table;
+use crate::hpack::{huffman, HPackItem};
+use reqtls::WriteExt;
 
 pub struct HpackEncode {
     table: Table,
@@ -29,28 +29,21 @@ impl HpackEncode {
         writer.write_u8(value as u8);
     }
 
-    fn encode_index<W: WriteExt>(&self, index: Index, writer: &mut W) {
+    fn encode_index<W: WriteExt>(&self, index: impl AsRef<Index>, writer: &mut W) {
+        let index = index.as_ref();
         let finish = index.write_to(writer);
         if finish { return; }
         self.encode_integer(index.remain(), writer);
     }
 
-    fn encode_string<W: WriteExt>(&self, value: impl AsRef<[u8]>, huffman: bool, writer: &mut W) -> HlsResult<()> {
-        match huffman {
-            true => {
-                let value = huffman::encode(value.as_ref())?;
-                let index = Index::ValueLen { huffman, value: value.len() };
-                let finish = index.write_to(writer);
-                if !finish { self.encode_integer(index.remain(), writer); }
-                writer.write_slice(&value);
-            }
-            false => {
-                let index = Index::ValueLen { huffman, value: value.as_ref().len() };
-                let finish = index.write_to(writer);
-                if !finish { self.encode_integer(index.remain(), writer); }
-                writer.write_slice(value.as_ref());
-            }
-        }
+    fn encode_string<W: WriteExt>(&self, value: impl AsRef<[u8]>, writer: &mut W) -> HlsResult<()> {
+        let huffman_encoded = huffman::encode(value.as_ref())?;
+        let huffman = huffman_encoded.len() < value.as_ref().len();
+        let value = if huffman { huffman_encoded.as_slice() } else { value.as_ref() };
+        let index = Index::ValueLen { huffman, value: value.len() };
+        let finish = index.write_to(writer);
+        if !finish { self.encode_integer(index.remain(), writer); }
+        writer.write_slice(value.as_ref());
         Ok(())
     }
 
@@ -58,39 +51,50 @@ impl HpackEncode {
         let name = name.as_ref();
         let value = value.as_ref();
         let item = self.table.get_by_name_value(name, value);
+        let index_excludes = [":path"];
         match item {
             None => match self.table.get_by_name(name) {
                 None => {
-                    let index = Index::NoIndexAdd;
-                    index.write_to(writer);
-                    self.encode_string(name, true, writer)?;
-                    self.encode_string(value, true, writer)?;
+                    let index = if name.contains("password") {
+                        Index::NoIndexNever
+                    } else { Index::NoIndexAdd };
+                    self.encode_index(index, writer);
+                    self.encode_string(name, writer)?;
+                    self.encode_string(value, writer)?;
                     let item = HPackItem::new(name, value);
                     self.table.insert(item);
                 }
                 Some(index) => {
-                    let finish = index.write_to(writer);
-                    if !finish { self.encode_integer(index.remain(), writer); }
-                    self.encode_string(value, true, writer)?;
-                    let item = HPackItem::new(name, value);
-                    self.table.insert(item);
+                    let vl = value.to_ascii_lowercase();
+                    let index = if index_excludes.contains(&name) {
+                        Index::NameIndexedOnce(index.into_inner())
+                    } else if (name == "cookie" && (value.starts_with("_") || vl.contains("session") || vl.contains("auth"))) || name == "password" {
+                        Index::NameIndexedNever(index.into_inner())
+                    } else { index };
+                    self.encode_index(&index, writer);
+                    self.encode_string(value, writer)?;
+                    if let Index::NameIndexedAdd(_) = index {
+                        let item = HPackItem::new(name, value);
+                        self.table.insert(item);
+                    }
                 }
             }
-            Some(index) => {
-                let finish = index.write_to(writer);
-                if !finish { self.encode_integer(index.remain(), writer); }
-            }
+            Some(index) => self.encode_index(index, writer),
         }
         Ok(())
+    }
+
+    pub fn update_table_size(&mut self, max_size: usize) {
+        self.table.update_table_size(max_size);
     }
 }
 
 
 #[cfg(test)]
 mod tests {
-    use crate::Buffer;
     use crate::hpack::encode::HpackEncode;
     use crate::hpack::index::Index;
+    use crate::Buffer;
 
     #[test]
     fn test_index_encode() {
@@ -122,10 +126,10 @@ mod tests {
     fn test_string_encode() {
         let encoder = HpackEncode::default();
         let mut buffer = Buffer::with_capacity(1024);
-        encoder.encode_string("foo".as_bytes(), false, &mut buffer).unwrap();
+        encoder.encode_string("foo".as_bytes(), &mut buffer).unwrap();
         assert_eq!(buffer.filled(), [3, 102, 111, 111]);
         buffer.reset();
-        encoder.encode_string("foo".as_bytes(), true, &mut buffer).unwrap();
+        encoder.encode_string("foo".as_bytes(), &mut buffer).unwrap();
         assert_eq!(buffer.filled(), [130, 148, 231]);
         println!("{:?}", buffer.filled());
     }
@@ -139,8 +143,8 @@ mod tests {
         assert_eq!(buffer.filled(), [130]);
         buffer.reset();
         //name indexed
-        encode.encode_one(":method", "DELETE", &mut buffer).unwrap();
-        assert_eq!(buffer.filled(), [66, 134, 191, 131, 62, 13, 248, 63]);
+        encode.encode_one(":method", "DELETE", &mut buffer).unwrap(); //not used huffman
+        assert_eq!(buffer.filled(), [66, 6, 68, 69, 76, 69, 84, 69]);
         buffer.reset();
         //dynamic indexed
         encode.encode_one(":method", "DELETE", &mut buffer).unwrap();
@@ -148,6 +152,5 @@ mod tests {
         buffer.reset();
         encode.encode_one("new name", "new string", &mut buffer).unwrap();
         assert_eq!(buffer.filled(), [64, 134, 168, 190, 20, 168, 116, 151, 136, 168, 190, 20, 66, 108, 53, 83, 127]);
-        println!("{:?}", buffer.filled());
     }
 }

@@ -1,10 +1,10 @@
 use crate::body::{BodyReader, BodyType};
 use crate::error::HlsResult;
+use crate::hpack::HpackEncode;
 use crate::packet::{H2BodyReader, HeaderReader};
 use crate::reader::{ReadExt, Reader};
 use crate::Header;
 use reqtls::{Addr, Scheme, WriteExt, ALPN};
-use crate::hpack::{HackEncode, HpackEncode};
 
 pub struct RequestBuffer<'a> {
     header: HeaderReader<'a>,
