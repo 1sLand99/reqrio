@@ -159,6 +159,10 @@ impl HPackDecode {
         }
         Ok(())
     }
+
+    pub fn update_table_size(&mut self, max_size: usize) {
+        self.table.update_table_size(max_size);
+    }
 }
 
 

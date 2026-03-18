@@ -116,7 +116,7 @@ pub trait ReqExt: ReqPriExt + Sized {
     /// let mut req=ScReq::new();
     /// let certs=Certificate::from_pem_file("path/to/cert").unwrap();
     /// let key=RsaKey::from_pri_pem_file("path/to/cert/key").unwrap();
-    /// req.set_mtls(certs,key);
+    /// req.set_mtls(certs,key,None);
     /// ```
     fn set_mtls(&mut self, certs: Vec<Certificate>, key: RsaKey, ca: Option<Vec<Certificate>>);
     fn with_mtls(mut self, certs: Vec<Certificate>, key: RsaKey, ca: Option<Vec<Certificate>>) -> Self {
