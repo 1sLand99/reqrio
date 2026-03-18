@@ -1,124 +1,116 @@
-mod dynamic;
-mod iter;
-mod r#static;
-
-pub use iter::TableIter;
+use std::ops;
+use super::item::HPackItem;
+use crate::hpack::index::Index;
 use dynamic::DynamicTable;
-use r#static::{StaticTable, STATIC_TABLE};
+use r#static::STATIC_TABLE;
+use std::slice::Iter;
 
-/// A table representing a single index address space for headers where the 
-/// static and the dynamic table are combined.
-#[derive(Debug)]
-pub struct Table<'a> {
-    /// THe static table with predefined headers.
-    static_table: StaticTable<'a>,
+mod r#static;
+mod dynamic;
 
-    /// The dynamic table holding custom headers.
-    dynamic_table: DynamicTable,
+pub struct Table {
+    static_table: &'static [HPackItem],
+    pub(crate) dynamic_table: DynamicTable,
 }
 
-#[allow(unused)]
-impl<'a> Table<'a> {
-    /// Returns a new header table instance with the provided maximum allowed
-    /// size of the dynamic table.
-    pub fn with_dynamic_size(max_dynamic_size: u32) -> Self {
-        Self {
-            static_table: STATIC_TABLE,
-            dynamic_table: DynamicTable::with_size(max_dynamic_size),
-        }
-    }
-
-    /// Returns the total number of headers. The result includes the sum of all
-    /// entries of the static and the dynamic table combined.
-    pub fn len(&self) -> usize {
-        self.static_table.len() + self.dynamic_table.len()
-    }
-
-    /// Returns the total number of entries stored in the dynamic table.
-    pub fn dynamic_len(&self) -> usize {
-        self.dynamic_table.len()
-    }
-
-    /// Returns the total size (in octets) of all the entries stored in the
-    /// dynamic table.
-    pub fn dynamic_size(&self) -> u32 {
-        self.dynamic_table.size()
-    }
-
-    /// Returns the maximum allowed size of the dynamic table.
-    pub fn max_dynamic_size(&self) -> u32 {
-        self.dynamic_table.max_size()
-    }
-    
-    /// Updates the maximum allowed size of the dynamic table.
-    pub fn update_max_dynamic_size(&mut self, size: u32) {
-        self.dynamic_table.update_max_size(size);
-    }
-
-    /// Returns an iterator through all the headers.
-    /// 
-    /// It includes entries stored in the static and the dynamic table. Since
-    /// the index `0` is an invalid index, the first returned item is at index
-    /// `1`. The entries returned have indices ordered sequentially in the
-    /// single address space (first the headers in the static table, followed by
-    /// headers in the dynamic table).
-    pub fn iter(&'a self) -> TableIter<'a> {
-        TableIter{ index: 1, table: self }
-    }
-
-    /// Finds a header by its index.
-    /// 
-    /// According to the HPACK specification, the index `0` must be treated as
-    /// an invalid index number. The value for index `0` in the static table is
-    /// thus missing. The index of `0` will always return `None`.
-    pub fn get(&self, index: u32) -> Option<(&[u8], &[u8])> {
-        let index = if index == 0 {
-            return None;
-        } else {
-            index - 1
-        };
-
-        let static_len = self.static_table.len() as u32;
-        if index < static_len {
-            Some(self.static_table[index as usize])
-        } else {
-            self.dynamic_table.get(index - static_len)
-        }
-    }
-
-    /// Searches the static and the dynamic tables for the provided header.
-    /// 
-    /// It tries to match both the header name and value to one of the headers
-    /// in the table. If no such header exists, then it falls back to the one
-    /// that matched only the name. The returned match contains the index of the
-    /// header in the table and a boolean indicating whether the value of the
-    /// header also matched.
-    pub fn find(&self, name: &[u8], value: &[u8]) -> Option<(usize, bool)> {
-        let mut name_match = None;
-
-        for (i, h) in self.iter().enumerate() {
-            if name == h.0 {
-                if value == h.1 {
-                    return Some((i + 1, true)); // name and value matched
-                } else if name_match.is_none() {
-                    name_match = Some(i + 1); // only name mached
-                }
-            }
-        }
-        name_match.map(|i|(i,false))
-    }
-
-    /// Inserts a new header at the beginning of the dynamic table.
-    pub fn insert(&mut self, name: Vec<u8>, value: Vec<u8>) {
-        self.dynamic_table.insert(name, value);
-    }
-}
-
-impl<'a> Default for Table<'a> {
+impl Default for Table {
     fn default() -> Self {
-        Self {
-            static_table: STATIC_TABLE,
+        Table {
+            static_table: STATIC_TABLE.as_ref(),
             dynamic_table: DynamicTable::default(),
         }
+    }
+}
+
+impl Table {
+    pub fn new(max_table_size: usize) -> Self {
+        Table {
+            static_table: STATIC_TABLE.as_ref(),
+            dynamic_table: DynamicTable::new_size(max_table_size),
+        }
+    }
+
+    pub fn get(&self, index: usize) -> Option<&HPackItem> {
+        match index {
+            ..61 => self.static_table.get(index),
+            _ => self.dynamic_table.get(index),
+        }
+    }
+
+    pub fn insert(&mut self, item: HPackItem) {
+        self.dynamic_table.insert(item);
+    }
+
+    pub fn iter(&self) -> TableIterator<'_> {
+        TableIterator {
+            static_inner: self.static_table.iter(),
+            dynamic_inner: self.dynamic_table.iter(),
+        }
+    }
+
+    pub fn get_by_name_value(&self, name: &str, value: &str) -> Option<Index> {
+        self.iter().enumerate().find_map(|(index, item)| if item.name() == name && item.value() == value {
+            Some(Index::Indexed(index + 1))
+        } else { None })
+    }
+
+    pub fn get_by_name(&self, name: &str) -> Option<Index> {
+        self.iter().enumerate().find_map(|(index, item)| if item.name() == name {
+            Some(Index::NameIndexedAdd(index + 1))
+        } else { None })
+    }
+
+    pub fn update_table_size(&mut self, max_size: usize) {
+        self.dynamic_table.update_table_size(max_size);
+    }
+}
+
+pub struct TableIterator<'a> {
+    static_inner: Iter<'a, HPackItem>,
+    dynamic_inner: Iter<'a, HPackItem>,
+}
+
+impl<'a> Iterator for TableIterator<'a> {
+    type Item = &'a HPackItem;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.static_inner.next() {
+            None => self.dynamic_inner.next(),
+            Some(item) => Some(item),
+        }
+    }
+}
+
+impl ops::Index<usize> for Table {
+    type Output = HPackItem;
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            ..61 => &self.static_table[index],
+            _ => &self.dynamic_table[index - 61],
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::hpack::table::Table;
+
+    #[test]
+    fn test_hpack_table() {
+        let mut table = Table::default();
+        let item = table.get(44).unwrap();
+        assert_eq!(item.name(), "link");
+        let mut item = table.get(57).unwrap().clone();
+        assert_eq!(item.name(), "user-agent");
+        item.set_value("test value");
+        table.insert(item);
+        let mut item = table.get(53).unwrap().clone();
+        assert_eq!(item.name(), "server");
+        item.set_value("test server");
+        table.insert(item);
+        let item = table.get(62).unwrap();
+        assert_eq!(item.value(), "test value");
+        let item = table.get(61).unwrap();
+        assert_eq!(item.value(), "test server");
+        assert_eq!(table.dynamic_table.size(), 101)
     }
 }

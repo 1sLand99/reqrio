@@ -1,7 +1,7 @@
 use super::content_type::ContentType;
 use super::cookie::Cookie;
 use crate::error::{BufferError, HlsError, HlsResult};
-use crate::hpack::{HPack, HackEncode};
+use crate::hpack::{HPackItem, HPackEncode};
 use crate::json::JsonValue;
 use crate::reader::{ReadExt, Reader};
 use crate::*;
@@ -213,6 +213,7 @@ impl Header {
                 }
                 "content-length" => self.keys.push(HeaderKey::new(k.as_ref(), HeaderValue::Number(v.to_string().parse()?))),
                 "content-type" => self.keys.push(HeaderKey::new(k.as_ref(), HeaderValue::ContextType(ContentType::try_from(&v.to_string())?))),
+                "update-table-size" => self.keys.push(HeaderKey::new(k.as_ref(), HeaderValue::Number(v.to_string().parse()?))),
                 _ => self.keys.push(HeaderKey::new(k.as_ref(), HeaderValue::String(v.to_string()))),
             }
         }
@@ -264,6 +265,12 @@ impl Header {
 
     pub fn set_content_length(&mut self, content_length: usize) -> HlsResult<()> {
         self.insert("content-length", content_length)
+    }
+
+    pub fn max_table_size(&self) -> Option<usize> {
+        if let HeaderValue::Number(size) = self.get("update-table-size")? {
+            Some(*size)
+        } else { None }
     }
 
     pub fn set_content_type(&mut self, content_type: ContentType) {
@@ -383,17 +390,22 @@ impl Header {
         Ok(header)
     }
 
-    pub fn parse_h2(packs: Vec<HPack>) -> HlsResult<Header> {
+    pub fn push_pack_item(&mut self, item: &HPackItem) -> HlsResult<()> {
+        self.insert(item.name(), item.value())?;
+        match item.name() {
+            ":method" => self.method = Method::try_from(item.value().to_uppercase())?,
+            ":path" => self.uri = Uri::try_from(item.value())?,
+            ":status" => self.status = HttpStatus::new(item.value().parse::<u16>()?),
+            _ => {}
+        }
+        Ok(())
+    }
+
+    pub fn parse_h2(packs: Vec<HPackItem>) -> HlsResult<Header> {
         let mut header = Header::new_res();
         header.alpn = ALPN::Http20;
         for pack in packs {
-            header.insert(pack.name(), pack.value())?;
-            match pack.name() {
-                ":method" => header.method = Method::try_from(pack.value().to_uppercase())?,
-                ":path" => header.uri = Uri::try_from(pack.value())?,
-                ":status" => header.status = HttpStatus::new(pack.value().parse::<u16>()?),
-                _ => {}
-            }
+            header.push_pack_item(&pack)?
         }
         Ok(header)
     }
@@ -428,7 +440,7 @@ impl Header {
         Ok(())
     }
 
-    pub(crate) fn as_reader<'a>(&'a mut self, addr: &'a Addr, scheme: &'a Scheme, hpack_encoder: &'a mut HackEncode, sid: &'a u32) -> HeaderReader<'a> {
+    pub(crate) fn as_reader<'a>(&'a mut self, addr: &'a Addr, scheme: &'a Scheme, hpack_encoder: &'a mut HPackEncode, sid: &'a u32) -> HeaderReader<'a> {
         HeaderReader {
             header: self,
             addr,
@@ -517,7 +529,7 @@ pub struct HeaderReader<'a> {
     addr: &'a Addr,
     scheme: &'a Scheme,
     stream_identifier: &'a u32,
-    hpack_encoder: &'a mut HackEncode,
+    hpack_encoder: &'a mut HPackEncode,
     body_len: usize,
     pos: usize,
     wrote: bool,
@@ -597,17 +609,22 @@ impl<'a> HeaderReader<'a> {
         let mut header_frame = H2Frame::new_header(self.body_len, *self.stream_identifier);
         header_frame.set_priority(146);
         header_frame.write_to(buf);
-        buf.write_slice(&self.hpack_encoder.encode_one(":method", self.header.method.to_string())?);
-        buf.write_slice(&self.hpack_encoder.encode_one(":authority", self.addr.to_string().replace(":80", "").replace(":443", ""))?);
-        buf.write_slice(&self.hpack_encoder.encode_one(":scheme", self.scheme.to_string())?);
-        buf.write_slice(&self.hpack_encoder.encode_one(":path", self.header.uri.to_string())?);
+        self.hpack_encoder.encode_one(":method", self.header.method.to_string(), buf);
+        self.hpack_encoder.encode_one(":authority", self.addr.to_string().replace(":80", "").replace(":443", ""), buf);
+        self.hpack_encoder.encode_one(":scheme", self.scheme.to_string(), buf);
+        self.hpack_encoder.encode_one(":path", self.header.uri.to_string(), buf);
+        // buf.write_slice(&self.hpack_encoder.encode_one(":method", self.header.method.to_string())?);
+        // buf.write_slice(&self.hpack_encoder.encode_one(":authority", self.addr.to_string().replace(":80", "").replace(":443", ""))?);
+        // buf.write_slice(&self.hpack_encoder.encode_one(":scheme", self.scheme.to_string())?);
+        // buf.write_slice(&self.hpack_encoder.encode_one(":path", self.header.uri.to_string())?);
         for key in keys {
             let name = key.name_lower();
             match key.value() {
                 HeaderValue::Cookies(cookies) => for cookie in cookies {
-                    buf.write_slice(&self.hpack_encoder.encode_one(name.to_owned(), cookie.as_req())?)
+                    self.hpack_encoder.encode_one(name.to_owned(), cookie.as_req(), buf);
+                    // buf.write_slice(&self.hpack_encoder.encode_one(name.to_owned(), cookie.as_req())?)
                 }
-                _ => buf.write_slice(&self.hpack_encoder.encode_one(name, key.value().to_string())?)
+                _ => self.hpack_encoder.encode_one(name, key.value().to_string(), buf), //buf.write_slice(&self.hpack_encoder.encode_one(name, key.value().to_string())?)
             }
         }
         //有priority，payload长度需要frame.len-9

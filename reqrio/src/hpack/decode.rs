@@ -1,160 +1,240 @@
+use super::error::HPackError;
+use super::index::Index;
+use super::table::Table;
 use crate::error::HlsResult;
-use super::{HPack, HPackTable};
+use crate::hpack::{huffman, HPackItem};
+use crate::Header;
+use std::borrow::Cow;
+use std::mem;
 
-#[derive(Clone)]
-pub struct HackDecode {
-    table: HPackTable,
+pub struct HPackDecodeBuf<'a> {
+    remain: Vec<u8>,
+    buf: &'a [u8],
+    //已读取的长度
+    read: usize,
+    //已使用的长度
+    used: usize,
 }
 
-impl HackDecode {
-    pub fn new() -> Self {
-        HackDecode {
-            table: HPackTable::new(),
+impl<'a> HPackDecodeBuf<'a> {
+    pub fn into_vec(self) -> Vec<u8> {
+        match self.used >= self.remain.len() {
+            true => self.buf[self.used - self.remain.len()..].to_vec(),
+            false => [&self.remain[self.used..], self.buf].concat()
+        }
+    }
+    pub fn read(&mut self) -> Option<&u8> {
+        let res = match self.read >= self.remain.len() {
+            true => self.buf.get(self.read),
+            false => self.remain.get(self.read),
+        };
+        if res.is_some() { self.read += 1; }
+        res
+    }
+
+    pub fn read_size(&mut self, size: usize) -> HlsResult<Vec<u8>> {
+        if self.remain.len() + self.buf.len() - self.read < size { return Err(HPackError::BufferTooSmall.into()); };
+        let res = match self.read >= self.remain.len() {
+            true => self.buf[self.read - self.remain.len()..self.read - self.remain.len() + size].to_vec(),
+            false => [&self.remain[self.read..], &self.buf[..self.read + size - self.remain.len()]].concat()
+        };
+        self.read += size;
+        Ok(res)
+    }
+
+    pub fn flush(&mut self) {
+        self.used = self.read;
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.remain.len() + self.buf.len() - self.used == 0
+    }
+}
+
+pub struct HPackDecode {
+    table: Table,
+    remain: Vec<u8>,
+}
+
+impl Default for HPackDecode {
+    fn default() -> Self {
+        HPackDecode::new(4096)
+    }
+}
+
+impl HPackDecode {
+    pub fn new(max_size: usize) -> Self {
+        HPackDecode {
+            table: Table::new(max_size),
+            remain: vec![],
         }
     }
 
-    fn decode_huffman(&self, context: &[u8], flag: u8) -> HlsResult<String> {
-        if flag & 0x80 != 0x80 {
-            return Ok(String::from_utf8(context.to_vec()).unwrap_or_else(|_| {
-                let mut res = vec![];
-                let _ = httlib_huffman::decode(context, &mut res, httlib_huffman::DecoderSpeed::FiveBits);
-                String::from_utf8(res).unwrap()
-            }));
-        }
-        let mut res = vec![];
-        httlib_huffman::decode(context, &mut res, httlib_huffman::DecoderSpeed::FiveBits).unwrap_or_else(|_| {
-            println!("2323={}", String::from_utf8_lossy(context));
-        });
-        Ok(String::from_utf8(res.clone()).unwrap_or_else(|e| {
-            println!("{}", String::from_utf8_lossy(res.as_slice()));
-            println!("{}", e.to_string());
-            "error".to_string()
-        }))
-    }
-
-    fn decode_fields(&mut self, context: &[u8], index: usize, name: bool) -> HlsResult<(HPack, usize)> {
-        let mut res = HPack::new("", "");
-        let (value_len, use_len) = self.decode_len(context, 0b1111111, 7);
-        let decode = self.decode_huffman(&context[use_len..value_len + use_len], context[0])?;
-        match name {
-            true => res.set_name(decode),
-            false => res.set_value(decode),
-        }
-        match self.table.get(index) {
-            None => {}
-            Some(table) => {
-                if !name { res.set_name(table.name()); }
-                // match name {
-                //     true => {
-                //         res.0 = table.0;
-                //     }
-                //     false => {
-                //         res.0 = table.0;
-                //         res.1 = table.1.clone();
-                //     }
-                // }
-            }
-        }
-        Ok((res.clone(), value_len + use_len))
-    }
-
-    fn decode_len(&self, context: &[u8], bit: u8, size: usize) -> (usize, usize) {
-        let index = (context[0] & bit) as usize;
-        if index < (2i32.pow(size as u32) - 1) as usize { return (index, 1); }
-        if context[1] & 0x80 != 0x80 { return ((context[1] & 0b01111111) as usize + index, 2); }
-        if context[2] & 0x80 != 0x80 {
-            let len = ((context[2] & 0b01111111) as usize) * 128 + (context[1] & 0b01111111) as usize;
-            return (len + index, 3);
-        }
-        if context[3] & 0x80 != 0x80 {
-            let len = ((context[3] & 0b01111111) as usize) * 128 * 128 + ((context[2] & 0b01111111) as usize) * 128 + (context[1] & 0b01111111) as usize;
-            return (len + index, 4);
-        }
-        panic!("hpack")
-    }
-
-    pub fn decode(&mut self, context: impl AsRef<[u8]>) -> HlsResult<Vec<HPack>> {
-        let context = context.as_ref();
-        let mut current = 0;
-        let mut res = vec![];
-        while current < context.len() {
-            let b = context[current];
-            if b & 0b10000000 == 0b10000000 {
-                let (index, len) = self.decode_len(&context[current..], 0b1111111, 7);
-                let table_len = self.table.len();
-                res.push(if index - 1 >= table_len { HPack::new(format!("none-{}", table_len), format!("none-{}", index)) } else {
-                    self.table.get(index - 1).unwrap().clone()
-                });
-                current += len;
-            } else if b & 0b01000000 == 0b01000000 {
-                let (index, len) = self.decode_len(&context[current..], 0b111111, 6);
-                current += len;
-                if index > 0 {
-                    //save value
-                    let (value, len) = self.decode_fields(&context[current..], index - 1, false)?;
-                    res.push(value.clone());
-                    self.table.insert(61, value);
-                    current += len
-                } else if index == 0 {
-                    //save key and value
-                    let table_len = self.table.len();
-                    let (mut name, len) = self.decode_fields(&context[current..], table_len, true)?;
-                    current += len;
-                    let (value, len) = self.decode_fields(&context[current..], table_len, false)?;
-                    current += len;
-                    name.set_value(value.value());
-                    // name.2 = value.2.clone();
-                    res.push(name.clone());
-                    self.table.insert(61, name);
-                }
-            } else if b & 0b00100000 == 0b00100000 {
-                let (table_size, len) = self.decode_len(&context[current..], 0b00011111, 5);
-                let mut current_table_size = self.table.len();
-                while current_table_size - 61 > table_size {
-                    self.table.remove(current_table_size - 1);
-                    current_table_size = self.table.len();
-                }
-                current += len;
-            } else if b & 0b00010000 == 0b00010000 {
-                let (index, len) = self.decode_len(&context[current..], 0b111111, 6);
-                current += len;
-                if index == 0 {
-                    //unsaved key and value
-                    let table_len = self.table.len();
-                    let (mut name, len) = self.decode_fields(&context[current..], table_len, true)?;
-                    current += len;
-                    let (value, len) = self.decode_fields(&context[current..], table_len, false)?;
-                    current += len;
-                    name.set_value(value.value());
-                    // name.2 = value.2.clone();
-                    res.push(name.clone());
-                } else {
-                    //unsaved value
-                    let (value, len) = self.decode_fields(&context[current..], index - 1, false)?;
-                    res.push(value.clone());
-                    current += len;
-                }
-            } else if b & 0b00000000 == 0b00000000 {
-                let (index, len) = self.decode_len(&context[current..], 0b00001111, 4);
-                current += len;
-                if index != 0 {
-                    //unsaved value
-                    let (value, len) = self.decode_fields(&context[current..], index - 1, false)?;
-                    res.push(value);
-                    current += len;
-                } else {
-                    //unsaved key and value
-                    let table_len = self.table.len();
-                    let (mut name, len) = self.decode_fields(&context[current..], table_len, true)?;
-                    current += len;
-                    let (value, len) = self.decode_fields(&context[current..], table_len, false)?;
-                    current += len;
-                    name.set_value(value.value());
-                    // name.2 = value.2.clone();
-                    res.push(name.clone());
-                }
-            } else { panic!("oiuoiuou"); }
+    pub fn decode_integer(&self, buf: &mut HPackDecodeBuf<'_>) -> HlsResult<usize> {
+        let mut res = 0;
+        let mut shift = 0;
+        loop {
+            let byte = buf.read().ok_or(HPackError::BufferTooSmall)?;
+            res |= ((byte & 0b0111_1111) as usize) << shift;
+            shift += 7;
+            if byte >> 7 == 0 { break; }
         }
         Ok(res)
+    }
+
+    pub fn decode_index(&self, buf: &mut HPackDecodeBuf<'_>) -> HlsResult<Index> {
+        let (mut index, finish) = Index::read_index(buf)?;
+        if !finish { index += self.decode_integer(buf)?; }
+        Ok(index)
+    }
+
+    pub fn decode_string(&self, buf: &mut HPackDecodeBuf<'_>) -> HlsResult<String> {
+        let (mut index, finish) = Index::read_len(buf)?;
+        if !finish { index += self.decode_integer(buf)? }
+        if let Index::ValueLen { huffman, value } = index {
+            let value = buf.read_size(value)?;
+            match huffman {
+                true => Ok(String::from_utf8(huffman::decode(value)?)?),
+                false => Ok(String::from_utf8(value)?)
+            }
+        } else { Err(HPackError::InvalidLenIndex.into()) }
+    }
+
+    fn decode_next<'a>(&'a mut self, buf: &mut HPackDecodeBuf<'_>) -> HlsResult<Cow<'a, HPackItem>> {
+        let index = self.decode_index(buf)?;
+        let res = match index {
+            Index::Indexed(index) => Ok(Cow::Borrowed(self.table.get(index - 1).ok_or(HPackError::IndexedItemNone)?)),
+            Index::NoIndexAdd => {
+                let name = self.decode_string(buf)?;
+                let value = self.decode_string(buf)?;
+                let item = HPackItem::new(name, value);
+                self.table.insert(item);
+                Ok(Cow::Borrowed(&self.table[61]))
+            }
+            Index::NoIndexOnce | Index::NoIndexNever => {
+                let name = self.decode_string(buf)?;
+                let value = self.decode_string(buf)?;
+                let item = HPackItem::new(name, value);
+                Ok(Cow::Owned(item))
+            }
+            Index::NameIndexedAdd(index) => {
+                let mut item = self.table.get(index - 1).ok_or(HPackError::NameIndexedItemNone)?.clone();
+                let value = self.decode_string(buf)?;
+                item.set_value(value);
+                self.table.insert(item);
+                Ok(Cow::Borrowed(&self.table[61]))
+            }
+            Index::NameIndexedOnce(index) | Index::NameIndexedNever(index) => {
+                let mut item = self.table.get(index - 1).ok_or(HPackError::NameIndexedItemNone)?.clone();
+                let value = self.decode_string(buf)?;
+                item.set_value(value);
+                Ok(Cow::Owned(item))
+            }
+            Index::UpdateDynamicSize(index) => {
+                self.table.update_table_size(index);
+                Ok(Cow::Owned(HPackItem::new_table_size(index)))
+            }
+            _ => Err(HPackError::InvalidIndexType(index.into_inner() as u8).into())
+        };
+        buf.flush();
+        res
+    }
+
+    pub fn decode_into(&mut self, buf: &[u8], header: &mut Header) -> HlsResult<()> {
+        let mut buf = HPackDecodeBuf {
+            remain: mem::take(&mut self.remain),
+            buf,
+            read: 0,
+            used: 0,
+        };
+        loop {
+            if buf.is_empty() { break; }
+            match self.decode_next(&mut buf) {
+                Ok(item) => header.push_pack_item(item.as_ref())?,
+                Err(e) => if e.to_string() == "buffer too small" {
+                    self.remain = buf.into_vec();
+                    break;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::Header;
+    use crate::hpack::decode::{HPackDecode, HPackDecodeBuf};
+
+    #[test]
+    fn test_index_integer_decode() {
+        let buffer = [161, 255, 107, 255, 131, 6, 255, 207, 245, 135, 32];
+        let decode = HPackDecode::new(1024);
+        let mut buf = HPackDecodeBuf { remain: vec![], buf: &buffer, read: 0, used: 0 };
+        let index = decode.decode_index(&mut buf).unwrap();
+        assert_eq!(index.into_inner(), 33);
+        let index = decode.decode_index(&mut buf).unwrap();
+        assert_eq!(index.into_inner(), 234);
+        let index = decode.decode_index(&mut buf).unwrap();
+        assert_eq!(index.into_inner(), 898);
+        let index = decode.decode_index(&mut buf).unwrap();
+        assert_eq!(index.into_inner(), 67238734);
+        buf.flush();
+        assert!(buf.into_vec().is_empty());
+
+        let mut buf = HPackDecodeBuf { remain: vec![], buf: &[97, 127, 171, 1, 127, 195, 6, 127, 143, 246, 135, 32], read: 0, used: 0 };
+        let index = decode.decode_index(&mut buf).unwrap();
+        assert_eq!(index.into_inner(), 33);
+        let index = decode.decode_index(&mut buf).unwrap();
+        assert_eq!(index.into_inner(), 234);
+        let index = decode.decode_index(&mut buf).unwrap();
+        assert_eq!(index.into_inner(), 898);
+        let index = decode.decode_index(&mut buf).unwrap();
+        assert_eq!(index.into_inner(), 67238734);
+        buf.flush();
+        assert!(buf.into_vec().is_empty());
+
+        let mut buf = HPackDecodeBuf { remain: vec![], buf: &[15, 18, 15, 219, 1, 15, 243, 6, 15, 191, 246, 135, 32], read: 0, used: 0 };
+        let index = decode.decode_index(&mut buf).unwrap();
+        assert_eq!(index.into_inner(), 33);
+        let index = decode.decode_index(&mut buf).unwrap();
+        assert_eq!(index.into_inner(), 234);
+        let index = decode.decode_index(&mut buf).unwrap();
+        assert_eq!(index.into_inner(), 898);
+        let index = decode.decode_index(&mut buf).unwrap();
+        assert_eq!(index.into_inner(), 67238734);
+        buf.flush();
+        assert!(buf.into_vec().is_empty());
+
+        let mut buf = HPackDecodeBuf { remain: vec![], buf: &[0x3f, 0xe1, 0x1f], read: 0, used: 0 };
+        let index = decode.decode_index(&mut buf).unwrap();
+        assert_eq!(index.into_inner(), 4096)
+    }
+
+    #[test]
+    fn test_decode_string() {
+        let mut buf = HPackDecodeBuf { remain: vec![], buf: &[130, 148, 231], read: 0, used: 0 };
+        let decode = HPackDecode::new(1024);
+        //huffman
+        let value = decode.decode_string(&mut buf).unwrap();
+        assert_eq!(value, "foo");
+        let mut buf = HPackDecodeBuf { remain: vec![], buf: &[6, 68, 69, 76, 69, 84, 69], read: 0, used: 0 };
+        let value = decode.decode_string(&mut buf).unwrap();
+        assert_eq!(value, "DELETE");
+        buf.flush();
+        assert!(buf.into_vec().is_empty());
+    }
+
+    #[test]
+    fn test_hpack_decode() {
+        let mut decode = HPackDecode::new(1024);
+        let mut header = Header::new_res();
+        decode.decode_into(&[130, 64, 134, 168, 190, 20, 168, 116, 151, 136, 168, 190, 20, 66, 108, 53, 83, 127], &mut header).unwrap();
+        assert_eq!(header.to_string(), ":method: GET\r\nnew name: new string");
+        let mut decode = HPackDecode::new(1024);
+        let mut header = Header::new_res();
+        decode.decode_into(&[66, 6, 68, 69, 76, 69, 84, 69], &mut header).unwrap();
+        assert_eq!(header.to_string(), ":method: DELETE")
     }
 }

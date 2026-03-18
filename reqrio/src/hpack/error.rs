@@ -1,10 +1,14 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use super::super::huffman::HuffmanError;
 
 #[derive(Debug)]
 pub enum HPackError {
-    InvalidIndex,
+    BufferTooSmall,
+    InvalidIndexType(u8),
+    InvalidLenIndex,
+    IndexedItemNone,
+    NameIndexedItemNone,
+
     InvalidPrefix,
     IntegerOverflow,
     Currently(String),
@@ -13,7 +17,11 @@ pub enum HPackError {
 impl Display for HPackError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            HPackError::InvalidIndex => write!(f, "invalid index"),
+            HPackError::BufferTooSmall => write!(f, "buffer too small"),
+            HPackError::InvalidIndexType(v) => write!(f, "invalid index type: {:0b}", v),
+            HPackError::InvalidLenIndex => write!(f, "invalid length index"),
+            HPackError::IndexedItemNone => write!(f, "index item none"),
+            HPackError::NameIndexedItemNone => write!(f, "name index item none"),
             HPackError::InvalidPrefix => write!(f, "invalid prefix"),
             HPackError::IntegerOverflow => write!(f, "integer overflow"),
             HPackError::Currently(e) => write!(f, "{}", e),
@@ -21,10 +29,5 @@ impl Display for HPackError {
     }
 }
 
-impl From<HuffmanError> for HPackError {
-    fn from(value: HuffmanError) -> Self {
-        HPackError::Currently(value.to_string())
-    }
-}
 impl Error for HPackError {}
 

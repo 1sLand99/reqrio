@@ -1,6 +1,6 @@
 use crate::buffer::Buffer;
 use crate::error::HlsResult;
-use crate::hpack::HackEncode;
+use crate::hpack::HPackDecode;
 use crate::json::JsonValue;
 use crate::packet::{H2FrameRBuf, Header};
 use crate::{coder, FrameType, HeaderValue, CHUNK_END, HTTP_GAP};
@@ -170,16 +170,19 @@ impl Response {
         }
     }
 
-    pub fn extend_frame(&mut self, frame: &H2FrameRBuf, hpack_coding: &mut HackEncode) -> HlsResult<bool> {
+    pub fn extend_frame(&mut self, frame: &H2FrameRBuf, decoder: &mut HPackDecode) -> HlsResult<bool> {
         let ended = frame.is_end_frame();
         match frame.frame_type() {
             FrameType::Data => self.raw.extend_from_slice(frame.payload()),
             FrameType::Headers => {
-                self.raw.extend_from_slice(frame.payload());
-                if frame.frame_flag().end_header() {
-                    let mut hdr_bs = mem::take(&mut self.raw);
-                    self.header = Header::parse_h2(hpack_coding.decode(&mut hdr_bs)?)?;
-                }
+                decoder.decode_into(frame.payload(), &mut self.header)?;
+
+
+                // self.raw.extend_from_slice(frame.payload());
+                // if frame.frame_flag().end_header() {
+                //     let mut hdr_bs = mem::take(&mut self.raw);
+                //     self.header = Header::parse_h2(hpack_coding.decode(&mut hdr_bs)?)?;
+                // }
             }
             _ => {}
         }

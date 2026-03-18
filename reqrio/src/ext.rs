@@ -237,6 +237,9 @@ pub(crate) trait ReqPriExt {
                 }
             }
         };
+        if let Some(max_size) = response.header().max_table_size() {
+            param.hpack_coder.encoder().update_table_size(max_size);
+        }
         param.buffer.move_to(frame.frame_len()..param.buffer.len(), 0);
         res
     }
@@ -275,7 +278,7 @@ pub trait ReqGenExt: ReqExt {
     fn body_raw_string(&mut self) -> HlsResult<String> {
         Ok(String::from_utf8_lossy(&self.body_raw()?).to_string())
     }
-    
+
     /// * 最好在调试模式使用，生产模式使用时，一个请求将会产生两次reader，影响效率
     /// * H2严禁使用，否则影响hpack编码
     fn h1_raw_string(&mut self) -> HlsResult<String> {

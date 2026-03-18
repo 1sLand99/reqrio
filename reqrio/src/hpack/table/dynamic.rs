@@ -1,108 +1,77 @@
-use std::collections::VecDeque;
+use std::ops::Index;
+use crate::hpack::HPackItem;
+use std::slice::Iter;
 
-/// Represents a [dynamic table] with header fields maintained in first-in,
-/// first-out order.
-/// 
-/// [dynamic table]: https://tools.ietf.org/html/rfc7541#section-2.3.2
-#[derive(Debug)]
 pub struct DynamicTable {
-    /// A sequential list of dynamic headers where the newest entry in at the
-    /// lowest index. It can contain duplicate entries.
-    inner: VecDeque<(Vec<u8>, Vec<u8>)>,
-
-    /// The sum of the size of its entries in the table. The size of an entry is
-    /// the sum of its name and value in octets without any Huffman encoding
-    /// applied, and 32.
+    values: Vec<HPackItem>,
+    max_size: usize,
     size: usize,
-
-    /// The maximum size that the encoder is permitted to use for the dynamic
-    /// table. In HTTP/2, this value is advertised through the SETTINGS frame by
-    /// the SETTINGS_HEADER_TABLE_SIZE field. The encoder can use less than or 
-    /// equal to this value.
-    max_size: u32,
-}
-
-impl DynamicTable {
-    /// Returns a new instance of the dynamic table. The function expects a
-    /// parameter which will set the maximum allowed table size.
-    pub fn with_size(max_size: u32) -> Self {
-        Self {
-            inner: VecDeque::new(),
-            size: 0,
-            max_size,
-        }
-    }
-
-    /// Returns the total number of entries.
-    pub fn len(&self) -> usize {
-        self.inner.len()
-    }
-
-    /// Returns the total size (in octets) of the table.
-    pub fn size(&self) -> u32 {
-        self.size as u32
-    }
-
-    /// Returns the maximum allowed table size.
-    pub fn max_size(&self) -> u32 {
-        self.max_size
-    }
-
-    /// Updates the maximum allowed table size.
-    /// 
-    /// Whenever the maximum size is reduced, entries are evicted from the end
-    /// of the table until the size of the table is less than or equal to the
-    /// maximum size.
-    pub fn update_max_size(&mut self, size: u32) {
-        self.max_size = size;
-
-        self.consolidate(); // evict entries if necessary
-    }
-
-    /// Finds a header by its index.
-    pub fn get(&self, index: u32) -> Option<(&[u8], &[u8])> {
-        match self.inner.get(index as usize) {
-            Some(h) => Some((&h.0, &h.1)),
-            None => None,
-        }
-    }
-
-    /// Inserts a new header at the beginning of the table.
-    /// 
-    /// When the header is added, the table size is automatically increased. The
-    /// size of an entry is the sum of its name and value in octets without any
-    /// Huffman encoding applied, and 32 ([4.1.]).
-    /// 
-    /// Before a new entry is added to the dynamic table, entries are evicted
-    /// from the end of the table until the size of the table is less than or
-    /// equal to the maximum allowed size or until the table is empty.
-    ///
-    /// If the size of the new entry is less than or equal to the maximum size,
-    /// that entry is added to the table. Adding an entry larger than the
-    /// maximum size causes the table to be emptied.
-    /// 
-    /// [4.1.]: https://tools.ietf.org/html/rfc7541#section-4.1
-    pub fn insert(&mut self, name: Vec<u8>, value: Vec<u8>) {
-        self.size += name.len() + value.len() + 32;
-        self.inner.push_front((name, value));
-
-        self.consolidate(); // evict entries if necessary
-    }
-
-    /// Consolidates the table entries so that the table size is below the
-    /// maximum allowed size, by evicting headers from the table in a FIFO
-    /// fashion.
-    fn consolidate(&mut self) {
-        while self.size > self.max_size as usize {
-            if let Some(header) = self.inner.pop_back() {
-                self.size -= header.0.len() + header.1.len() + 32;
-            }
-        }
-    }
 }
 
 impl Default for DynamicTable {
     fn default() -> Self {
-        Self::with_size(4096)
+        DynamicTable {
+            values: vec![],
+            max_size: 4096,
+            size: 0,
+        }
+    }
+}
+
+impl DynamicTable {
+    pub fn new_size(max_size: usize) -> Self {
+        DynamicTable {
+            values: vec![],
+            max_size,
+            size: 0,
+        }
+    }
+    #[cfg(test)]
+    pub fn size(&self) -> usize { self.size }
+
+    // pub fn max_size(&self) -> usize { self.max_size }
+    ///动态表插入时应位于最前端
+    ///
+    /// 文档文档rfc7541-4.4
+    pub fn insert(&mut self, item: HPackItem) {
+        self.size += item.item_size();
+        self.values.insert(0, item);
+        self.resize();
+    }
+
+    /// 动态表的索引应该减去静态表的长度
+    ///
+    /// 文档文档rfc7541-2.3.3
+    pub fn get(&self, index: usize) -> Option<&HPackItem> {
+        let index = index - 61;
+        self.values.get(index)
+    }
+
+    ///动态表的item遵循先入先出
+    ///
+    /// 文档文档rfc7541-4.3
+    fn resize(&mut self) {
+        while self.size > self.max_size {
+            match self.values.pop() {
+                None => self.size = 0,
+                Some(item) => self.size -= item.item_size(),
+            }
+        }
+    }
+
+    pub fn update_table_size(&mut self, max_size: usize) {
+        self.max_size = max_size;
+        self.resize();
+    }
+
+    pub fn iter(&self) -> Iter<'_, HPackItem> {
+        self.values.iter()
+    }
+}
+
+impl Index<usize> for DynamicTable {
+    type Output = HPackItem;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.values[index]
     }
 }

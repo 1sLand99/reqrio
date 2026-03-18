@@ -1,6 +1,5 @@
 use crate::json::JsonError;
-// use httlib_hpack::DecoderError;
-// use crate::hpack::HPackError;
+use crate::hpack::HPackError;
 use reqtls::{hex, Alert, RlsError, ALPN};
 use std::array::TryFromSliceError;
 use std::convert::Infallible;
@@ -88,11 +87,11 @@ impl From<Infallible> for HlsError {
     }
 }
 
-// impl From<HPackError> for HlsError {
-//     fn from(value: HPackError) -> Self {
-//         HlsError::Currently(value.to_string())
-//     }
-// }
+impl From<HPackError> for HlsError {
+    fn from(value: HPackError) -> Self {
+        HlsError::Currently(value.to_string())
+    }
+}
 //
 // impl From<DecoderError> for HlsError {
 //     fn from(value: DecoderError) -> Self {

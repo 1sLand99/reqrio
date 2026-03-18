@@ -2,11 +2,7 @@ use reqrio::*;
 
 #[tokio::main]
 async fn main() {
-    let mut timeout = Timeout::new();
-    timeout.set_connect(30000000);
-    timeout.set_handle(300000000);
-    timeout.set_read(99999999999);
-    timeout.set_write(99999999999);
+    let mut timeout = Timeout::longer();
     timeout.set_handle_times(1);
     // let fingerprint = Fingerprint::from_ja3("771,4866-4867-4865-49196-49200-49195-49199-52393-52392-49188-49192-49187-49191-159-158-107-103-255,0-11-10-16-22-23-49-13-43-45-51-21,29-23-30-25-24-256-257-258-259-260,0-1-2", "691j799n9c-j3g2d251k799n9c-j3l11961k").unwrap();
     // let fingerprint = Fingerprint::from_ja4("t13d1516h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0017,001b,0023,002b,002d,0033,44cd,fe0d,ff01_0403,0804,0401,0503,0805,0501,0806,0601", "4b107bbnbc-01o-3781k7bbnbc-01v25461k").unwrap();
@@ -23,7 +19,6 @@ async fn main() {
         // .with_proxy(Proxy::try_from("http://127.0.0.1:10240").unwrap())
         ;
     let headers = json::object! {
-        // "Authorization": "Bearer Upy9fDyueOXiEbON0vRXimg4tlrO5wTs+IV75wUbSzZngY0oLn1wJpQw1jnV0Cqku1UUnDUvVg4y/wwkNOljlJJKVRbzDETSjOd0zHotk+s3+wM63SDWeKXOXKwUhhfc",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
         "Accept": "*/*",
         "Sec-Fetch-Site": "none",
@@ -107,21 +102,21 @@ async fn main() {
     let res = req.get().await.unwrap();
     let res = req.get().await.unwrap();
     let res = req.get().await.unwrap();
-
+    req.set_url("https://cn.bing.com/AS/Suggestions?pt=page.home&qry=&csr=1&pths=1&zis=1&pf=1&cvid=AFEA02EAF9E449A99970476597AE6CED").await.unwrap();
+    let res = req.get().await.unwrap();
+    req.set_url("https://cn.bing.com/hp/api/v1/carousel?&format=json&ecount=20&efirst=0&&").await.unwrap();
+    let res = req.get().await.unwrap();
+    req.set_url("https://cn.bing.com/notifications/render?bnptrigger=%7B%22PartnerId%22%3A%22HomePage%22%2C%22IID%22%3A%22Bnp%22%2C%22Attributes%22%3A%7B%22RawRequestURL%22%3A%22%2F%22%7D%7D&IG=AFEA02EAF9E449A99970476597AE6CED&IID=Bnp").await.unwrap();
+    let res = req.get().await.unwrap();
+    req.set_url("https://cn.bing.com/web/xlsc.aspx?dl=1&f=8").await.unwrap();
+    let res = req.get().await.unwrap();
+    req.set_url("https://cn.bing.com/hp/api/model").await.unwrap();
+    let res = req.get().await.unwrap();
+    req.set_url("https://cn.bing.com/sa/simg/favicon-trans-bg-blue-mg-png.png").await.unwrap();
+    let res = req.get().await.unwrap();
+    req.set_url("https://cn.bing.com/web/xlsc.aspx?dl=1&f=8").await.unwrap();
+    let res = req.get().await.unwrap();
+    let res = req.get().await.unwrap();
+    let res = req.get().await.unwrap();
     println!("{}", res.header());
-    // sleep(Duration::from_secs(10)).await;
-    // let res = req.get().await.unwrap();
-    // let res = req.get().await.unwrap();
-    // let res = req.get().await.unwrap();
-    // let res = req.get().await.unwrap();
-    // let res = req.get().await.unwrap();
-    // let res = req.get().await.unwrap();
-    // let res = req.get().await.unwrap();
-    // let res = req.get().await.unwrap();
-    // let res = req.get().await.unwrap();
-    // let res = req.get().await.unwrap();
-    // let res = req.get().await.unwrap();
-    // let res = req.get().await.unwrap();
-    // let res = req.get().await.unwrap();
-
 }
