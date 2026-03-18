@@ -1,7 +1,7 @@
 use super::content_type::ContentType;
 use super::cookie::Cookie;
 use crate::error::{BufferError, HlsError, HlsResult};
-use crate::hpack::{HPackItem, HpackEncode};
+use crate::hpack::{HPackItem, HPackEncode};
 use crate::json::JsonValue;
 use crate::reader::{ReadExt, Reader};
 use crate::*;
@@ -428,7 +428,7 @@ impl Header {
         Ok(())
     }
 
-    pub(crate) fn as_reader<'a>(&'a mut self, addr: &'a Addr, scheme: &'a Scheme, hpack_encoder: &'a mut HpackEncode, sid: &'a u32) -> HeaderReader<'a> {
+    pub(crate) fn as_reader<'a>(&'a mut self, addr: &'a Addr, scheme: &'a Scheme, hpack_encoder: &'a mut HPackEncode, sid: &'a u32) -> HeaderReader<'a> {
         HeaderReader {
             header: self,
             addr,
@@ -517,7 +517,7 @@ pub struct HeaderReader<'a> {
     addr: &'a Addr,
     scheme: &'a Scheme,
     stream_identifier: &'a u32,
-    hpack_encoder: &'a mut HpackEncode,
+    hpack_encoder: &'a mut HPackEncode,
     body_len: usize,
     pos: usize,
     wrote: bool,
@@ -597,10 +597,10 @@ impl<'a> HeaderReader<'a> {
         let mut header_frame = H2Frame::new_header(self.body_len, *self.stream_identifier);
         header_frame.set_priority(146);
         header_frame.write_to(buf);
-        self.hpack_encoder.encode_one(":method", self.header.method.to_string(), buf)?;
-        self.hpack_encoder.encode_one(":authority", self.addr.to_string().replace(":80", "").replace(":443", ""), buf)?;
-        self.hpack_encoder.encode_one(":scheme", self.scheme.to_string(), buf)?;
-        self.hpack_encoder.encode_one(":path", self.header.uri.to_string(), buf)?;
+        self.hpack_encoder.encode_one(":method", self.header.method.to_string(), buf);
+        self.hpack_encoder.encode_one(":authority", self.addr.to_string().replace(":80", "").replace(":443", ""), buf);
+        self.hpack_encoder.encode_one(":scheme", self.scheme.to_string(), buf);
+        self.hpack_encoder.encode_one(":path", self.header.uri.to_string(), buf);
         // buf.write_slice(&self.hpack_encoder.encode_one(":method", self.header.method.to_string())?);
         // buf.write_slice(&self.hpack_encoder.encode_one(":authority", self.addr.to_string().replace(":80", "").replace(":443", ""))?);
         // buf.write_slice(&self.hpack_encoder.encode_one(":scheme", self.scheme.to_string())?);
@@ -609,10 +609,10 @@ impl<'a> HeaderReader<'a> {
             let name = key.name_lower();
             match key.value() {
                 HeaderValue::Cookies(cookies) => for cookie in cookies {
-                    self.hpack_encoder.encode_one(name.to_owned(), cookie.as_req(), buf)?;
+                    self.hpack_encoder.encode_one(name.to_owned(), cookie.as_req(), buf);
                     // buf.write_slice(&self.hpack_encoder.encode_one(name.to_owned(), cookie.as_req())?)
                 }
-                _ => self.hpack_encoder.encode_one(name, key.value().to_string(), buf)?, //buf.write_slice(&self.hpack_encoder.encode_one(name, key.value().to_string())?)
+                _ => self.hpack_encoder.encode_one(name, key.value().to_string(), buf), //buf.write_slice(&self.hpack_encoder.encode_one(name, key.value().to_string())?)
             }
         }
         //有priority，payload长度需要frame.len-9

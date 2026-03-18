@@ -2,7 +2,7 @@ use crate::error::HlsResult;
 pub use crate::hpack::encode2::HackEncode;
 pub use error::HPackError;
 pub use item::HPackItem;
-pub use encode::HpackEncode;
+pub use encode::HPackEncode;
 
 mod encode;
 mod error;
@@ -14,14 +14,14 @@ mod huffman;
 
 pub struct HPackCoding {
     decoder: HackEncode,
-    encoder: HpackEncode,
+    encoder: HPackEncode,
 }
 
 impl HPackCoding {
     pub fn new(size: usize) -> HPackCoding {
         HPackCoding {
             decoder: HackEncode::new_decode_size(size as u32),
-            encoder: HpackEncode::new(size),
+            encoder: HPackEncode::new(size),
         }
     }
 
@@ -33,7 +33,7 @@ impl HPackCoding {
     //     self.encoder.encode(headers)
     // }
 
-    pub fn encoder(&mut self) -> &mut HpackEncode { &mut self.encoder }
+    pub fn encoder(&mut self) -> &mut HPackEncode { &mut self.encoder }
 
     pub fn decoder(&mut self) -> &mut HackEncode { &mut self.decoder }
 }
