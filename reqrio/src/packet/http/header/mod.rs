@@ -213,6 +213,7 @@ impl Header {
                 }
                 "content-length" => self.keys.push(HeaderKey::new(k.as_ref(), HeaderValue::Number(v.to_string().parse()?))),
                 "content-type" => self.keys.push(HeaderKey::new(k.as_ref(), HeaderValue::ContextType(ContentType::try_from(&v.to_string())?))),
+                "update-table-size" => self.keys.push(HeaderKey::new(k.as_ref(), HeaderValue::Number(v.to_string().parse()?))),
                 _ => self.keys.push(HeaderKey::new(k.as_ref(), HeaderValue::String(v.to_string()))),
             }
         }
@@ -264,6 +265,12 @@ impl Header {
 
     pub fn set_content_length(&mut self, content_length: usize) -> HlsResult<()> {
         self.insert("content-length", content_length)
+    }
+
+    pub fn max_table_size(&self) -> Option<usize> {
+        if let HeaderValue::Number(size) = self.get("update-table-size")? {
+            Some(*size)
+        } else { None }
     }
 
     pub fn set_content_type(&mut self, content_type: ContentType) {
@@ -383,17 +390,22 @@ impl Header {
         Ok(header)
     }
 
+    pub fn push_pack_item(&mut self, item: &HPackItem) -> HlsResult<()> {
+        self.insert(item.name(), item.value())?;
+        match item.name() {
+            ":method" => self.method = Method::try_from(item.value().to_uppercase())?,
+            ":path" => self.uri = Uri::try_from(item.value())?,
+            ":status" => self.status = HttpStatus::new(item.value().parse::<u16>()?),
+            _ => {}
+        }
+        Ok(())
+    }
+
     pub fn parse_h2(packs: Vec<HPackItem>) -> HlsResult<Header> {
         let mut header = Header::new_res();
         header.alpn = ALPN::Http20;
         for pack in packs {
-            header.insert(pack.name(), pack.value())?;
-            match pack.name() {
-                ":method" => header.method = Method::try_from(pack.value().to_uppercase())?,
-                ":path" => header.uri = Uri::try_from(pack.value())?,
-                ":status" => header.status = HttpStatus::new(pack.value().parse::<u16>()?),
-                _ => {}
-            }
+            header.push_pack_item(&pack)?
         }
         Ok(header)
     }

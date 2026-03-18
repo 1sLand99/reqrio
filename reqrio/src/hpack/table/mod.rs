@@ -1,3 +1,4 @@
+use std::ops;
 use super::item::HPackItem;
 use crate::hpack::index::Index;
 use dynamic::DynamicTable;
@@ -9,7 +10,7 @@ mod dynamic;
 
 pub struct Table {
     static_table: &'static [HPackItem],
-    dynamic_table: DynamicTable,
+    pub(crate) dynamic_table: DynamicTable,
 }
 
 impl Default for Table {
@@ -48,13 +49,13 @@ impl Table {
     }
 
     pub fn get_by_name_value(&self, name: &str, value: &str) -> Option<Index> {
-        self.iter().enumerate().find_map(|(index, item)| if item.name == name && item.value == value {
+        self.iter().enumerate().find_map(|(index, item)| if item.name() == name && item.value() == value {
             Some(Index::Indexed(index + 1))
         } else { None })
     }
 
     pub fn get_by_name(&self, name: &str) -> Option<Index> {
-        self.iter().enumerate().find_map(|(index, item)| if item.name == name {
+        self.iter().enumerate().find_map(|(index, item)| if item.name() == name {
             Some(Index::NameIndexedAdd(index + 1))
         } else { None })
     }
@@ -79,6 +80,15 @@ impl<'a> Iterator for TableIterator<'a> {
     }
 }
 
+impl ops::Index<usize> for Table {
+    type Output = HPackItem;
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            ..61 => &self.static_table[index],
+            _ => &self.dynamic_table[index - 61],
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -88,19 +98,19 @@ mod tests {
     fn test_hpack_table() {
         let mut table = Table::default();
         let item = table.get(44).unwrap();
-        assert_eq!(item.name, "link");
+        assert_eq!(item.name(), "link");
         let mut item = table.get(57).unwrap().clone();
-        assert_eq!(item.name, "user-agent");
+        assert_eq!(item.name(), "user-agent");
         item.set_value("test value");
         table.insert(item);
         let mut item = table.get(53).unwrap().clone();
-        assert_eq!(item.name, "server");
+        assert_eq!(item.name(), "server");
         item.set_value("test server");
         table.insert(item);
         let item = table.get(62).unwrap();
-        assert_eq!(item.value, "test value");
+        assert_eq!(item.value(), "test value");
         let item = table.get(61).unwrap();
-        assert_eq!(item.value, "test server");
+        assert_eq!(item.value(), "test server");
         assert_eq!(table.dynamic_table.size(), 101)
     }
 }

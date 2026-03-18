@@ -22,11 +22,11 @@ pub fn encode(src: impl AsRef<[u8]>) -> Vec<u8> {
     dst
 }
 
-pub struct HuffmanNode {
+struct HuffmanNode {
     len: u8,
     code: u64,
 }
-pub const ENCODE_TABLE: [HuffmanNode; 257] = [
+const ENCODE_TABLE: [HuffmanNode; 257] = [
     HuffmanNode { len: 13, code: 0x1ff8 },
     HuffmanNode { len: 23, code: 0x7fffd8 },
     HuffmanNode { len: 28, code: 0xfffffe2 },

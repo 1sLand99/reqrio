@@ -1,4 +1,8 @@
+use std::ops::AddAssign;
 use reqtls::WriteExt;
+use crate::error::HlsResult;
+use crate::hpack::decode::HPackDecodeBuf;
+use crate::hpack::HPackError;
 
 pub enum Index {
     /// name-value均能在表内找到
@@ -249,10 +253,61 @@ impl Index {
             Index::ValueLen { value, .. } => value,
         }
     }
+
+    pub fn read_index(buf: &mut HPackDecodeBuf<'_>) -> HlsResult<(Self, bool)> {
+        let byte = buf.read().ok_or(HPackError::BufferTooSmall)?;
+        if byte & 0b1000_0000 == 0b1000_0000 { //indexed
+            let value = (byte & 0b0111_1111) as usize;
+            Ok((Index::Indexed(value), value != 0b0111_1111))
+        } else if byte & 0b0100_0000 == 0b0100_0000 {
+            let value = (byte & 0b0011_1111) as usize;
+            match value {
+                0 => Ok((Index::NoIndexAdd, true)),
+                _ => Ok((Index::NameIndexedAdd(value), value != 0b0011_1111)),
+            }
+        } else if byte & 0b0010_0000 == 0b0010_0000 {
+            let value = (byte & 0b0001_1111) as usize;
+            Ok((Index::UpdateDynamicSize(value), value != 0b0001_1111))
+        } else if byte & 0b0001_0000 == 0b0001_0000 {
+            let value = (byte & 0b0000_1111) as usize;
+            match value {
+                0 => Ok((Index::NoIndexNever, true)),
+                _ => Ok((Index::NameIndexedNever(value), value != 0b0000_1111)),
+            }
+        } else if byte >> 4 == 0 {
+            let value = (byte & 0b0000_1111) as usize;
+            match value {
+                0 => Ok((Index::NoIndexOnce, true)),
+                _ => Ok((Index::NameIndexedOnce(value), value != 0b0000_1111)),
+            }
+        } else { Err(HPackError::InvalidIndexType(*byte).into()) }
+    }
+
+    pub fn read_len(buf: &mut HPackDecodeBuf<'_>) -> HlsResult<(Index, bool)> {
+        let byte = buf.read().ok_or(HPackError::BufferTooSmall)?;
+        let value = (byte & 0b0111_1111) as usize;
+        Ok((Index::ValueLen { huffman: byte & 0b1000_0000 == 0b1000_0000, value }, value != 0b0111_1111))
+    }
 }
 
 impl AsRef<Index> for Index {
     fn as_ref(&self) -> &Index {
         self
+    }
+}
+
+impl AddAssign<usize> for Index {
+    fn add_assign(&mut self, rhs: usize) {
+        match self {
+            Index::Indexed(v) => *v += rhs,
+            Index::NoIndexAdd => {}
+            Index::NoIndexOnce => {}
+            Index::NoIndexNever => {}
+            Index::NameIndexedAdd(v) => *v += rhs,
+            Index::NameIndexedOnce(v) => *v += rhs,
+            Index::NameIndexedNever(v) => *v += rhs,
+            Index::UpdateDynamicSize(v) => *v += rhs,
+            Index::ValueLen { value, .. } => *value += rhs,
+        }
     }
 }

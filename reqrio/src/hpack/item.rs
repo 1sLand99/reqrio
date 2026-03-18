@@ -2,8 +2,8 @@ use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone)]
 pub struct HPackItem {
-    pub(crate) name: String,
-    pub(crate) value: String,
+    name: String,
+    value: String,
 }
 
 
@@ -24,6 +24,13 @@ impl HPackItem {
         HPackItem {
             name: name.to_string(),
             value: value.to_string(),
+        }
+    }
+
+    pub fn new_table_size(size: usize) -> HPackItem {
+        HPackItem {
+            name: "update-table-size".to_string(),
+            value: size.to_string(),
         }
     }
 

@@ -1,3 +1,4 @@
+use std::ops::Index;
 use crate::hpack::HPackItem;
 use std::slice::Iter;
 
@@ -34,7 +35,6 @@ impl DynamicTable {
     /// 文档文档rfc7541-4.4
     pub fn insert(&mut self, item: HPackItem) {
         self.size += item.item_size();
-        println!("{} {}", self.size, self.max_size);
         self.values.insert(0, item);
         self.resize();
     }
@@ -66,5 +66,12 @@ impl DynamicTable {
 
     pub fn iter(&self) -> Iter<'_, HPackItem> {
         self.values.iter()
+    }
+}
+
+impl Index<usize> for DynamicTable {
+    type Output = HPackItem;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.values[index]
     }
 }
