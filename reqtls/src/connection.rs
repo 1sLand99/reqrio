@@ -89,12 +89,12 @@ impl Connection {
         Ok(())
     }
 
-    pub fn set_by_certificate(&mut self, certificate: Certificates, sni: &str) -> RlsResult<()> {
+    pub fn set_by_certificate(&mut self, certificate: Certificates, ext_cas: &[Certificate], sni: &str) -> RlsResult<()> {
         for certificate in certificate.certificates() {
             self.certificates.push(Certificate::from_der(certificate.as_ref())?);
         }
         if !self.verify { return Ok(()); }
-        self.root_stores.verify_cert(&mut self.certificates, sni)
+        self.root_stores.verify_cert(&mut self.certificates, ext_cas, sni)
     }
 
     fn gen_key_sign_data(&self, server_key: &ServerKeyExchange) -> Vec<u8> {
@@ -161,7 +161,7 @@ impl Connection {
             true => ("extended master secret", self.cipher_suite.current_session_hash()?.to_vec()),
             false => ("master secret", [self.client_random.as_bytes(), self.server_random.as_bytes()].concat())
         };
-        self.prf.prf(&share_secret, label, &seed, &mut self.master_secret)?; 
+        self.prf.prf(&share_secret, label, &seed, &mut self.master_secret)?;
         let mut f = OpenOptions::new().create(true).append(true).open("2.log")?;
         f.write_all(format!("CLIENT_RANDOM {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(self.master_secret)).as_bytes())?;
         let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;

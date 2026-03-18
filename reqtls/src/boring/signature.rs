@@ -249,7 +249,7 @@ g9U5uU08VzDV+0LlZXpkCTH5IPlf7JucxTsO0W0uEfUCzLPl8CufKtfV5Mn2q9SA
 Ep0DDNAFIybHWSxAYZ8S6I2Jl9ET4tbakNY=
 -----END CERTIFICATE-----"#).unwrap();
         cert[0].get_aia().unwrap();
-        ROOT_STORES.verify_cert(&mut cert, "tls.123408.xyz").unwrap();
+        ROOT_STORES.verify_cert(&mut cert, &vec![], "tls.123408.xyz").unwrap();
 
 
         // let mut certs = vec![];

@@ -81,7 +81,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                         Message::ServerHello(v) => self.conn.set_by_server_hello(&v)?,
                         Message::Certificate(v) => {
                             let config = config.as_mut().ok_or("config can't be null")?;
-                            self.conn.set_by_certificate(v, config.client_mut().ok_or("missing config")?.sni)?;
+                            let config = config.client_mut().ok_or("missing config")?;
+                            self.conn.set_by_certificate(v, config.ca_certs, config.sni)?;
                         }
                         Message::ServerKeyExchange(v) => self.conn.set_by_server_exchange_key(v)?,
                         Message::ServerHelloDone(_) => {

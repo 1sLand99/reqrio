@@ -30,23 +30,26 @@ impl CertStore {
         })
     }
 
-    pub fn add_cert(&mut self, cert: Certificate) -> RlsResult<()> {
+    pub fn add_cert(&self, cert: &Certificate) -> RlsResult<()> {
         unsafe { X509_STORE_add_cert(self.store_ptr.as_mut_ptr(), cert.x509().as_mut_ptr()) }.ok(RlsError::X509StoreAddError)?;
-        self.stores.push(cert);
         Ok(())
     }
 
     pub fn extend_certs(&mut self, certs: Vec<Certificate>) -> RlsResult<()> {
         for cert in certs {
-            self.add_cert(cert)?;
+            self.add_cert(&cert)?;
+            self.stores.push(cert);
         }
         Ok(())
     }
 
     pub fn pointer(&self) -> &CPointer<X509_STORE> { &self.store_ptr }
 
-    pub fn verify_cert(&self, certs: &mut Vec<Certificate>, sni: &str) -> RlsResult<()> {
+    pub fn verify_cert(&self, certs: &mut Vec<Certificate>, ext_cas: &[Certificate], sni: &str) -> RlsResult<()> {
         let stack = CPointer::new_checked(unsafe { sk_new_null() }, RlsError::SkNewError)?;
+        for ext_ca in ext_cas {
+            self.add_cert(ext_ca)?;
+        }
         for cert in &certs[1..] {
             let len = unsafe { sk_push(stack.as_mut_ptr(), cert.x509().as_mut_ptr() as _) };
             if len == 0 { return Err(RlsError::SkPushError); }
@@ -69,7 +72,7 @@ impl CertStore {
                     let cert = download_cert(uri)?;
                     certs.push(cert);
                 }
-                return self.verify_cert(certs, sni);
+                return self.verify_cert(certs, ext_cas, sni);
             }
             let msg_prt = unsafe { X509_verify_cert_error_string(err as _) };
             return Err(RlsError::from(unsafe { CStr::from_ptr(msg_prt) }.to_bytes()));

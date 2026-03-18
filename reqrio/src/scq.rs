@@ -27,6 +27,7 @@ pub struct ScReq {
     hpack_coder: HPackCoding,
     certs: Vec<Certificate>,
     key: RsaKey,
+    ca_certs: Vec<Certificate>,
 }
 
 impl Default for ScReq {
@@ -48,6 +49,7 @@ impl Default for ScReq {
             hpack_coder: HPackCoding::new(4096),
             certs: vec![],
             key: RsaKey::none(),
+            ca_certs: vec![],
         }
     }
 }
@@ -176,6 +178,7 @@ impl ScReq {
                 verify: self.verify,
                 cert: &mut self.certs,
                 key: &self.key,
+                ca_cert: &self.ca_certs,
             };
             match self.stream.sync_conn(param) {
                 Ok(alpn) => {
@@ -332,9 +335,11 @@ impl ReqExt for ScReq {
         self.auto_redirect = auto_redirect;
     }
 
-    fn set_mtls(&mut self, certs: Vec<Certificate>, key: RsaKey) {
+    fn set_mtls(&mut self, certs: Vec<Certificate>, key: RsaKey, ca: Option<Vec<Certificate>>) {
         self.certs = certs;
+        self.ca_certs = ca.unwrap_or(vec![]);
         self.key = key;
+        
     }
 
     fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + 'static) {

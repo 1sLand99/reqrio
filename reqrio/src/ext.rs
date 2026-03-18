@@ -118,9 +118,9 @@ pub trait ReqExt: ReqPriExt + Sized {
     /// let key=RsaKey::from_pri_pem_file("path/to/cert/key").unwrap();
     /// req.set_mtls(certs,key);
     /// ```
-    fn set_mtls(&mut self, certs: Vec<Certificate>, key: RsaKey);
-    fn with_mtls(mut self, certs: Vec<Certificate>, key: RsaKey) -> Self {
-        self.set_mtls(certs, key);
+    fn set_mtls(&mut self, certs: Vec<Certificate>, key: RsaKey, ca: Option<Vec<Certificate>>);
+    fn with_mtls(mut self, certs: Vec<Certificate>, key: RsaKey, ca: Option<Vec<Certificate>>) -> Self {
+        self.set_mtls(certs, key, ca);
         self
     }
 

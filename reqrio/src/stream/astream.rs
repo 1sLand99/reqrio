@@ -94,6 +94,7 @@ impl AsyncTlsStream {
             client_cert: param.cert,
             cert_key: param.key,
             verify: param.verify,
+            ca_certs: param.ca_cert,
         };
         let stream = TlsStream::connect(tcp, config);
         Ok(AsyncTlsStream {

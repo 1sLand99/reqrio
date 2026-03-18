@@ -33,6 +33,7 @@ pub struct ConnParam<'a> {
     pub verify: bool,
     pub cert: &'a mut Vec<Certificate>,
     pub key: &'a RsaKey,
+    pub ca_cert: &'a Vec<Certificate>,
 }
 
 pub enum Stream {
@@ -118,6 +119,7 @@ impl Stream {
                     client_cert: param.cert,
                     cert_key: param.key,
                     verify: param.verify,
+                    ca_certs: param.ca_cert,
                 }, stream)?;
                 let alpn = tls_stream.alpn().map(|x| ALPN::from_slice(x.as_bytes())).unwrap_or(ALPN::Http11);
                 *self = Stream::SyncHttps(tls_stream);

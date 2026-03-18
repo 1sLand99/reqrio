@@ -28,6 +28,7 @@ pub struct AcReq {
     hpack_coder: HPackCoding,
     certs: Vec<Certificate>,
     key: RsaKey,
+    ca_certs: Vec<Certificate>,
 }
 
 impl Default for AcReq {
@@ -49,6 +50,7 @@ impl Default for AcReq {
             hpack_coder: HPackCoding::new(4096),
             certs: vec![],
             key: RsaKey::none(),
+            ca_certs: vec![],
         }
     }
 }
@@ -181,6 +183,7 @@ impl AcReq {
                 verify: self.verify,
                 cert: &mut self.certs,
                 key: &mut self.key,
+                ca_cert: &self.ca_certs,
             };
             let res = tokio::time::timeout(self.timeout.connect(), self.stream.async_conn(param)).await;
             match &res {
@@ -340,9 +343,10 @@ impl ReqExt for AcReq {
         self.auto_redirect = auto_redirect;
     }
 
-    fn set_mtls(&mut self, certs: Vec<Certificate>, key: RsaKey) {
+    fn set_mtls(&mut self, certs: Vec<Certificate>, key: RsaKey, ca: Option<Vec<Certificate>>) {
         self.certs = certs;
         self.key = key;
+        self.ca_certs=ca.unwrap_or(vec![]);
     }
 
     fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + 'static) {

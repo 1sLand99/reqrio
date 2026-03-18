@@ -7,7 +7,6 @@ pub(crate) enum Config<'a> {
 }
 
 impl<'a> Config<'a> {
-
     pub fn client_mut(&mut self) -> Option<&mut ClientConfig<'a>> {
         match self {
             Config::Server(_) => None,
@@ -31,6 +30,7 @@ pub struct ClientConfig<'a> {
     pub client_cert: &'a mut Vec<Certificate>,
     pub cert_key: &'a RsaKey,
     pub verify: bool,
+    pub ca_certs: &'a [Certificate],
 }
 
 pub struct ServerConfig<'a> {
@@ -39,4 +39,5 @@ pub struct ServerConfig<'a> {
     pub ca: &'a mut Certificate,
     pub cert_key: &'a RsaKey,
     pub verify: bool,
+    pub ca_certs: &'a Vec<Certificate>,
 }
