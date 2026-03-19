@@ -176,3 +176,4 @@ mod fingerprint;
 // mod huffman;
 mod reader;
 mod request;
+mod cookie;

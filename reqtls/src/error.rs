@@ -241,7 +241,7 @@ impl From<ParseIntError> for RlsError {
 
 impl From<RlsError> for io::Error {
     fn from(error: RlsError) -> Self {
-        io::Error::new(io::ErrorKind::Other, error.to_string())
+        io::Error::other(error.to_string())
     }
 }
 

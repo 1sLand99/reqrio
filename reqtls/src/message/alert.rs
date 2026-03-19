@@ -1,3 +1,4 @@
+use std::error::Error;
 use crate::error::RlsResult;
 use crate::WriteExt;
 use std::fmt::{Display, Formatter};
@@ -160,6 +161,8 @@ impl Alert {
         [self.level as u8, self.desc as u8]
     }
 }
+
+impl Error for Alert {}
 
 impl Display for Alert {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

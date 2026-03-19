@@ -18,27 +18,26 @@ pub struct Timeout {
     handle_times: i32,
 }
 
+impl Default for Timeout {
+    fn default() -> Self {
+        Timeout::new_same(3000,30000)
+    }
+}
+
 impl Timeout {
-    pub fn new() -> Timeout {
-        Timeout {
-            connect: Duration::from_millis(3000),
-            read: Duration::from_millis(3000),
-            write: Duration::from_millis(3000),
-            handle: Duration::from_millis(30000),
-            connect_times: 3,
-            handle_times: 3,
+    pub fn new_same(timeout: u64, handles: i32)->Timeout{
+        Timeout{
+            connect: Duration::from_millis(timeout),
+            read: Duration::from_millis(timeout),
+            write: Duration::from_millis(timeout),
+            handle: Duration::from_millis(timeout),
+            connect_times: handles,
+            handle_times: handles,
         }
     }
 
     pub fn longer() -> Timeout {
-        Timeout {
-            connect: Duration::from_millis(u64::MAX),
-            read: Duration::from_millis(u64::MAX),
-            write: Duration::from_millis(u64::MAX),
-            handle: Duration::from_millis(u64::MAX),
-            connect_times: 3,
-            handle_times: 3,
-        }
+        Timeout::new_same(u64::MAX, 3)
     }
 
     pub fn is_peer_closed(&self, status: impl AsRef<str>) -> bool {

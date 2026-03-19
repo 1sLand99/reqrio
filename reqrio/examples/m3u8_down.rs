@@ -84,11 +84,7 @@ impl M3u8DownEngine {
                 self.ts_urls.push(line.trim().to_string());
             }
         }
-        let mut timeout = Timeout::new();
-        timeout.set_read(5000);
-        timeout.set_write(5000);
-        timeout.set_connect(5000);
-        timeout.set_handle(30000);
+        let mut timeout = Timeout::new_same(5000, 30000);
         timeout.set_handle_times(10);
         self.req.set_timeout(timeout);
         if !self.key_url.is_empty() { self.get_key()?; }

@@ -39,7 +39,7 @@ impl Default for ScReq {
             stream: Stream::NonConnection,
             body: BodyType::new_byte(vec![]),
             callback: None,
-            timeout: Timeout::new(),
+            timeout: Timeout::default(),
             stream_id: 0,
             proxy: Proxy::Null,
             fingerprint: Fingerprint::default(),
@@ -97,11 +97,6 @@ impl ScReq {
     pub fn patch(&mut self) -> HlsResult<Response> {
         self.header.set_method(Method::PATCH);
         self.stream_io()
-    }
-
-    pub fn h1_io_by_raw(&mut self, context: impl AsRef<[u8]>) -> HlsResult<Response> {
-        self.buffer.write_slice(context.as_ref());
-        self.h1_io()
     }
 
     pub fn h1_io(&mut self) -> HlsResult<Response> {
@@ -274,7 +269,11 @@ impl ScReq {
     }
 }
 
-impl ReqGenExt for ScReq {}
+impl ReqGenExt for ScReq {
+    fn stream_mut(&mut self) -> &mut Stream {
+        &mut self.stream
+    }
+}
 
 impl ReqPriExt for ScReq {
     fn into_stream(self) -> Stream {
@@ -339,7 +338,6 @@ impl ReqExt for ScReq {
         self.certs = certs;
         self.ca_certs = ca.unwrap_or(vec![]);
         self.key = key;
-        
     }
 
     fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + 'static) {

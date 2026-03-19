@@ -38,7 +38,7 @@ impl Default for AcReq {
             scheme: Scheme::Http,
             addr: Addr::default(),
             stream: Stream::NonConnection,
-            timeout: Timeout::new(),
+            timeout: Timeout::default(),
             callback: None,
             stream_id: 0,
             proxy: Proxy::Null,
@@ -100,7 +100,7 @@ impl AcReq {
         self.stream_io().await
     }
 
-    pub(crate) async fn h1_io(&mut self) -> HlsResult<Response> {
+    pub async fn h1_io(&mut self) -> HlsResult<Response> {
         let mut response = Response::new();
         let mut read_len = 0;
         loop {
@@ -281,7 +281,11 @@ impl AcReq {
     }
 }
 
-impl ReqGenExt for AcReq {}
+impl ReqGenExt for AcReq {
+    fn stream_mut(&mut self) -> &mut Stream {
+        &mut self.stream
+    }
+}
 
 impl ReqPriExt for AcReq {
     fn into_stream(self) -> Stream {
