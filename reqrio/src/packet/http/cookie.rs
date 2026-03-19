@@ -19,8 +19,8 @@ pub struct Cookie {
     icpsp: bool,
 }
 
-impl Cookie {
-    pub fn new() -> Self {
+impl Default for Cookie {
+    fn default() -> Self {
         Cookie {
             name: "".to_string(),
             value: "".to_string(),
@@ -34,12 +34,15 @@ impl Cookie {
             icpsp: false,
         }
     }
+}
 
+impl Cookie {
     pub fn new_cookie(name: impl ToString, value: impl ToString) -> Cookie {
-        let mut res = Cookie::new();
-        res.name = name.to_string();
-        res.value = value.to_string();
-        res
+        Cookie {
+            name: name.to_string(),
+            value: value.to_string(),
+            ..Default::default()
+        }
     }
 
     pub fn insert(&mut self, k: &str, v: String) {
@@ -64,15 +67,14 @@ impl Cookie {
         let ck = ck.as_ref().replace("; ", ";");
         for cookie in ck.split(";") {
             let mut items = cookie.split("=");
-            let mut cookie = Cookie::new();
-            cookie.name = items.next().ok_or("cooke name not found")?.to_string();
-            cookie.value = items.next().unwrap_or("").to_string();
-            res.push(cookie);
+            let name = items.next().ok_or("cooke name not found")?.to_string();
+            let value = items.collect::<Vec<_>>().join("=");
+            res.push(Cookie::new_cookie(name, value));
         }
         Ok(res)
     }
     pub fn from_res(ck: impl AsRef<str>) -> HlsResult<Cookie> {
-        let mut cookie = Cookie::new();
+        let mut cookie = Cookie::default();
         let ck = ck.as_ref().replace("; ", ";");
         for item in ck.split(";").filter(|x| x != &"") {
             let mut items = item.split("=");
@@ -138,6 +140,14 @@ impl Cookie {
     pub fn name(&self) -> &str {
         &self.name
     }
+
+    pub fn domain(&self) -> &str {
+        &self.domain
+    }
+
+    pub fn path(&self) -> &str {
+        &self.path
+    }
 }
 
 #[cfg(feature = "export")]
@@ -164,7 +174,7 @@ mod tests {
 
     #[test]
     fn test_cookie() {
-        let cookie1 = "_EDGE_V=1; SRCHD=AF=NOFORM; SRCHUID=V=2&GUID=3AEBA45E639947BDB25C0B932701D4FB&dmnchg=1; MUIDB=2CB54C94A5B8630A3E345A24A496621E; SRCHUSR=DOB=20251126&DS=1&POEX=W; ANON=A=810A3248E83EF5C0C3F9C182FFFFFFFF; MUID=2EF86634B64061E808597099B7056038; MUIDB=2EF86634B64061E808597099B7056038; _U=1Gx8KzU1TOugm0M7vVh_b0PT8Rh1TSf22nOQoV_9B84NdgzPrSbC_0foiRrmaYLQsWEmxg6ubf64H8Oaf74qhVg8Ht1HZQiSLD3mjQ8UrfNGgpspo2W7JMvmfy8mZb3k9R5Lyyk4PMdFwZJ5L9T-4-fYxPTpXN0j6ObRllzJmhbx8V2HYAJyLw7PDcrRDK5IhP89G1_uRGLBfRboJvmECMQ; WLS=C=6571e3de6f8c1a9d&N=; _Rwho=u=d&ts=2025-12-15; _EDGE_S=SID=03A86FECEEF9656D08D5792FEF2B6499&mkt=zh-CN; USRLOC=HS=1&ELOC=LAT=23.389690399169922|LON=113.39459991455078|N=%E7%99%BD%E4%BA%91%E5%8C%BA%EF%BC%8C%E5%B9%BF%E4%B8%9C%E7%9C%81|ELT=5|&BID=MjUxMjE3MTkwOTI3X2IzNjFlMTRmMGM1ZmYwOTU4NTUwNGU4NmFjZDgwYTIxOTIxYzI4OWNhZWUyOGI2NjNmOTdhYzYyYWJiYjI1NDg=; BFPRResults=FirstPageUrls=D3841A9E4352BC9929AA00C7AB197AB9%2C9F8C0251FEB417C75B307BFA151A22D3%2C4CB951108993A5D0705CACA6FD1CC741%2C19D86A6CE228D5CA1DBBE50162254A6D%2C18A8FB111EB188733A31B73DEE641855%2CB17FD84727986CFC7DAA8D66AAD00918%2CE693A143DECA103B88765E7F99EC6700%2CAD92553AA082228ABF7D7C6635224381%2CF1E01DEDCE56853ED4432825780E6ED8%2CAEF5FFD33DA57A9E7EF5F95BF9ECE442&FPIG=078354D7800D43BBA67D7529C688C765; SNRHOP=I=&TS=; _RwBf=r=0&ilt=2&ihpd=0&ispd=5&rc=504&rb=504&rg=0&pc=504&mtu=0&rbb=0.0&clo=0&v=5&l=2025-12-16T08:00:00.0000000Z&lft=0001-01-01T00:00:00.0000000&aof=0&ard=0001-01-01T00:00:00.0000000&rwdbt=-62135539200&rwflt=1760343522&rwaul2=0&g=&o=0&p=MSAAUTOENROLL&c=MR000T&t=2279&s=2024-11-13T12:49:09.1007032+00:00&ts=2025-12-16T09:40:33.7317655+00:00&rwred=0&wls=2&wlb=0&wle=0&ccp=2&cpt=0&lka=0&lkt=0&aad=0&TH=&cid=0&gb=2025w18_u&mta=0&e=-dJPgHz14kC5WWWPJpzI_IJ6chA8pRbiiESmxP2BvfssVZ-yFUfaVwsHUIWGekBw22Fj4NurVQEpZol5STgDUw&A=; _SS=PC=ACTS&SID=03A86FECEEF9656D08D5792FEF2B6499&R=504&RB=504&GB=0&RG=0&RP=504; dsc=order=BingPages; SRCHHPGUSR=SRCHLANG=zh-Hans&PV=19.0.0&BZA=0&PREFCOL=0&BRW=XW&BRH=M&CW=1537&CH=953&SCW=1522&SCH=2083&DPR=1.0&UTC=480&B=0&EXLTT=6&AV=14&ADV=14&RB=0&MB=0&HV=1765878035&HVE=CfDJ8BJecyNyfxpMtsfDoM3OqQsVcYF0utrFhtCQkc9XinWXXiZrSBKVtuXT2StW6tNvoXlOnFUrqeCmSnlcLO5NyZTr_1ZxdyAKUsrYlkpZXsdX9EotsiD1s--SxmX5S4vJAcvGCzMigKNCJm0AN1pATRzancBb-aC77EmApzLk0tIiGQJrYnEHpp_OGzeXFdFQYw&PRVCW=1545&PRVCH=957; _C_ETH=1; GC=Q4sdCza0cnj5G7P5IvdIbE5FSUS6b4z5A0SujitITnpD8uTkDt_q4kntWQnMCm-fXZCaGxTessBv0CNz94OaTA";
+        let cookie1 = "_EDGE_V=1; MUIDB=184C10AD397866DF1A1607B038566708; MUID=184C10AD397866DF1A1607B038566708; _UR=QS=0&TQS=0&Pn=0; BFBUSR=BFBHP=0; MUIDB=184C10AD397866DF1A1607B038566708; SRCHD=AF,AF,AF,AF,AF,AF,AF,AF,AF,AF,AF,AF,AF,AF,AF&AF=NOFORM; SRCHUID=V=2&GUID=EB7B9E5DE58F4D5690F6904732C24C7B&dmnchg=1; USRLOC=HS&ELOC=LAT=23.384721755981445|LON=113.44195556640625|N=%E7%99%BD%E4%BA%91%E5%8C%BA%EF%BC%8C%E5%B9%BF%E4%B8%9C%E7%9C%81|ELT=4|&HS=1; _RwBf=r&r&r&r&r=0&ilt=10&ihpd=5&ispd=3&rc=12&rb=0&rg=200&pc=12&mtu=0&rbb=0&clo=0&v=8&l=2026-03-15T07:00:00.0000000Z&lft=0001-01-01T00:00:00.0000000&aof=0&ard=0001-01-01T00:00:00.0000000&rwdbt=0&rwflt=0&rwaul2=0&g=&o=2&p=&c=&t=0&s=0001-01-01T00:00:00.0000000+00:00&ts=2026-03-15T14:03:35.7211444+00:00&rwred=0&wls=&wlb=&wle=&ccp=&cpt=&lka=0&lkt=0&aad=0&TH=&cid=0&gb=; SRCHUSR=DOB&DS&DS&DS&DS&DS=1&DOB=20260315; _EDGE_S=SID=357AA105805E678827ACB618817066E6; _SS=SID=357AA105805E678827ACB618817066E6; _HPVN=CS=eyJQbiI6eyJDbiI6MSwiU3QiOjAsIlFzIjowLCJQcm9kIjoiUCJ9LCJTYyI6eyJDbiI6MSwiU3QiOjAsIlFzIjowLCJQcm9kIjoiSCJ9LCJReiI6eyJDbiI6MSwiU3QiOjAsIlFzIjowLCJQcm9kIjoiVCJ9LCJBcCI6dHJ1ZSwiTXV0ZSI6dHJ1ZSwiTGFkIjoiMjAyNi0wMy0xNVQwMDowMDowMFoiLCJJb3RkIjowLCJHd2IiOjAsIlRucyI6MCwiRGZ0IjpudWxsLCJNdnMiOjAsIkZsdCI6MCwiSW1wIjozMCwiVG9ibiI6MH0=; SRCHHPGUSR=SRCHLANG&SRCHLANG&SRCHLANG&SRCHLANG&SRCHLANG&SRCHLANG&SRCHLANG&SRCHLANG&SRCHLANG&V&SRCHLANG&SRCHLANG&SRCHLANG&V&SRCHLANG&SRCHLANG=zh-Hans&PREFCOL=0&BRW=NOTP&BRH=M&CW=150&CH=769&SCW=150&SCH=769&DPR=1.0&UTC=480&HV=1773588648&HVE=CfDJ8HAK7eZCYw5BifHFeUHnkJGC6_lT8f9GeruXx8zjPXuk-5GHkofYMoFErMkT8CTKKKsSt5O2HyGmjLyCEXbEREUmwCd8ZBlYMLSDZu1wZ-EI1LDuyIiI1tkP6Usyicm601qX3aJVYqVWUBn-t6h0ZWLiftm4aS627xFj1fE5PD-85i7BWTkhqG0uvaYzuSgB2A&BZA=0&PRVCW=150&PRVCH=769&B=0&EXLTT=7&V=CfDJ8HAK7eZCYw5BifHFeUHnkJGijeRjCoaCMaAnmznMvdEg2GXY8647Wb-7wnHNpePKXRO6KRQ_0cQc-onivd35uV-p-4g0MB0V_Z1ZpW-QSJe9zbPUG-Ks-kQMjzEl6GlLo6N0ciP51vkQdR-P-lCUH58&PR=1";
         let cookie = Cookie::from_req(cookie1).unwrap();
         println!("{:#?}", cookie);
         let cookie2 = "GC=Q4sdCza0cnj5G7P5IvdIbE5FSUS6b4z5A0SujitITnpD8uTkDt_q4kntWQnMCm-fXZCaGxTessBv0CNz94OaTA; expires=Fri, 19 Dec 2025 03:53:27 GMT; domain=.bing.com; path=/; secure; samesite=none";

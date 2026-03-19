@@ -193,6 +193,7 @@ pub(crate) trait ReqPriExt {
         res.truncate(filled);
         Ok(res)
     }
+    
     fn handle_h1_res(&mut self, response: &mut Response, rd: &mut usize) -> HlsResult<bool> {
         let param = self.req_param();
         match param.callback {
@@ -271,10 +272,12 @@ pub(crate) trait ReqPriExt {
 }
 
 pub trait ReqGenExt: ReqExt {
+    fn stream_mut(&mut self) -> &mut Stream;
     fn body_raw(&mut self) -> HlsResult<Vec<u8>> {
         let body_reader = self.body_type_mut().as_reader()?;
         Self::read_to_vec(body_reader)
     }
+    
     fn body_raw_string(&mut self) -> HlsResult<String> {
         Ok(String::from_utf8_lossy(&self.body_raw()?).to_string())
     }

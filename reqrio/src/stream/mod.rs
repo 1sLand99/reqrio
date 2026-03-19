@@ -215,7 +215,7 @@ pub trait TlsStreamHandle {
         conn.update_session(&buffer[offset + 5..offset + len])?;
         conn.make_cipher(false)?;
         //certificate verify
-        if conn.mtls() && config.client_cert.len() > 0 {
+        if conn.mtls() && !config.client_cert.is_empty() {
             let offset = buffer.len();
             let len = conn.handle_mtls_client(buffer, config.cert_key)?;
             buffer.set_len(offset + len);

@@ -93,13 +93,13 @@ impl Addr {
     }
 
     pub fn socket_addr_v4(&self) -> RlsResult<SocketAddr> {
-        let mut addr = self.socket_addr()?.find(|x| x.is_ipv4()).ok_or("not found ipv4")?;
+        let mut addr = self.socket_addr()?.find(|x| x.is_ipv4()).ok_or(UrlError::MissingIpv4SocketAddr)?;
         addr.set_port(self.port);
         Ok(addr)
     }
 
     pub fn socket_addr_v6(&self) -> RlsResult<SocketAddr> {
-        let mut addr = self.socket_addr()?.find(|x| x.is_ipv6()).ok_or("not found ipv6")?;
+        let mut addr = self.socket_addr()?.find(|x| x.is_ipv6()).ok_or(UrlError::MissingIpv6SocketAddr)?;
         addr.set_port(self.port);
         Ok(addr)
     }
