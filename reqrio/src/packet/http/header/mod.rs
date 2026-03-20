@@ -11,6 +11,7 @@ pub use status::HttpStatus;
 use std::fmt::Display;
 use std::mem;
 pub use value::HeaderValue;
+use crate::cookie::CookieManager;
 
 mod value;
 mod key;
@@ -65,7 +66,7 @@ impl Header {
             HeaderKey::new("referer", HeaderValue::String("".to_string())),
             HeaderKey::new("accept-encoding", HeaderValue::String("gzip, deflate, br, zstd".to_string())),
             HeaderKey::new("accept-language", HeaderValue::String("zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6".to_string())),
-            HeaderKey::new("cookie", HeaderValue::Cookies(vec![])),
+            HeaderKey::new("cookie", HeaderValue::Cookies(CookieManager::new(vec![]))),
             HeaderKey::new("priority", HeaderValue::String("".to_string())),
             //unknown or http
             HeaderKey::new("content-encoding", HeaderValue::String("".to_string())),
@@ -100,7 +101,7 @@ impl Header {
             HeaderKey::new("Referer", HeaderValue::String("".to_string())),
             HeaderKey::new("Accept-Encoding", HeaderValue::String("gzip, deflate, br, zstd".to_string())),
             HeaderKey::new("Accept-Language", HeaderValue::String("zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6".to_string())),
-            HeaderKey::new("Cookie", HeaderValue::Cookies(vec![])),
+            HeaderKey::new("Cookie", HeaderValue::Cookies(CookieManager::new(vec![]))),
             HeaderKey::new("Origin", HeaderValue::String("".to_string())),
             // HeaderKey::new("pragma", HeaderValue::String("".to_string())),
 
@@ -161,7 +162,7 @@ impl Header {
 
     pub fn add_cookie(&mut self, cookie: Cookie) {
         match self.keys.iter_mut().find(|x| x.name().eq_ignore_ascii_case("cookie")) {
-            None => self.keys.push(HeaderKey::new("cookie", HeaderValue::Cookies(vec![cookie]))),
+            None => self.keys.push(HeaderKey::new("cookie", HeaderValue::Cookies(CookieManager::new(vec![cookie])))),
             Some(header) => header.value_mut().add_cookie(cookie)
         }
     }
@@ -169,8 +170,8 @@ impl Header {
     pub fn set_cookies(&mut self, ck: Vec<Cookie>) {
         let header = self.keys.iter_mut().find(|x| x.name().eq_ignore_ascii_case("cookie"));
         match header {
-            None => self.keys.push(HeaderKey::new("cookie", HeaderValue::Cookies(ck))),
-            Some(header) => header.set_value(HeaderValue::Cookies(ck))
+            None => self.keys.push(HeaderKey::new("cookie", HeaderValue::Cookies(CookieManager::new(ck)))),
+            Some(header) => header.set_value(HeaderValue::Cookies(CookieManager::new(ck))),
         }
     }
 
@@ -190,7 +191,7 @@ impl Header {
                 "cookie" => {
                     let mut cookies = Cookie::from_req(v.to_string())?;
                     match cookies.len() {
-                        2.. => header.set_value(HeaderValue::Cookies(cookies)),
+                        2.. => header.set_value(HeaderValue::Cookies(CookieManager::new(cookies))),
                         1 => header.value_mut().add_cookie(cookies.remove(0)),
                         0 => {}
                     }
@@ -205,11 +206,11 @@ impl Header {
             match lower_key.as_ref() {
                 "set-cookie" => {
                     let cookie = Cookie::from_res(v.to_string())?;
-                    self.keys.push(HeaderKey::new(k.as_ref(), HeaderValue::Cookies(vec![cookie])));
+                    self.keys.push(HeaderKey::new(k.as_ref(), HeaderValue::Cookies(CookieManager::new(vec![cookie]))));
                 }
                 "cookie" => {
                     let cookies = Cookie::from_req(v.to_string())?;
-                    self.keys.push(HeaderKey::new(k.as_ref(), HeaderValue::Cookies(cookies)));
+                    self.keys.push(HeaderKey::new(k.as_ref(), HeaderValue::Cookies(CookieManager::new(cookies))));
                 }
                 "content-length" => self.keys.push(HeaderKey::new(k.as_ref(), HeaderValue::Number(v.to_string().parse()?))),
                 "content-type" => self.keys.push(HeaderKey::new(k.as_ref(), HeaderValue::ContextType(ContentType::try_from(&v.to_string())?))),
@@ -466,7 +467,7 @@ impl From<&Header> for JsonValue {
         };
         for key in &value.keys {
             let value = match key.value() {
-                HeaderValue::Cookies(v) => JsonValue::from(v.clone()),
+                HeaderValue::Cookies(v) => JsonValue::from(v.inner().clone()),
                 _ => JsonValue::String(key.value().to_string())
             };
             let _ = header["keys"].insert(key.name(), value);
@@ -510,7 +511,7 @@ impl Display for Header {
                 } else {
                     let mut raw = vec![];
                     self.keys.iter().for_each(|k| match k.value() {
-                        HeaderValue::Cookies(cookies) => for cookie in cookies {
+                        HeaderValue::Cookies(cookies) => for cookie in cookies.inner() {
                             raw.push(format!("{}: {}", k.name(), cookie.as_res()));
                         },
                         _ => raw.push(format!("{}: {}", k.name(), k.value()))
@@ -609,22 +610,19 @@ impl<'a> HeaderReader<'a> {
         let mut header_frame = H2Frame::new_header(self.body_len, *self.stream_identifier);
         header_frame.set_priority(146);
         header_frame.write_to(buf);
+        let host = self.addr.to_string().replace(":80", "").replace(":443", "");
+        let uri = self.header.uri.to_string();
         self.hpack_encoder.encode_one(":method", self.header.method.to_string(), buf);
-        self.hpack_encoder.encode_one(":authority", self.addr.to_string().replace(":80", "").replace(":443", ""), buf);
+        self.hpack_encoder.encode_one(":authority", &host, buf);
         self.hpack_encoder.encode_one(":scheme", self.scheme.to_string(), buf);
-        self.hpack_encoder.encode_one(":path", self.header.uri.to_string(), buf);
-        // buf.write_slice(&self.hpack_encoder.encode_one(":method", self.header.method.to_string())?);
-        // buf.write_slice(&self.hpack_encoder.encode_one(":authority", self.addr.to_string().replace(":80", "").replace(":443", ""))?);
-        // buf.write_slice(&self.hpack_encoder.encode_one(":scheme", self.scheme.to_string())?);
-        // buf.write_slice(&self.hpack_encoder.encode_one(":path", self.header.uri.to_string())?);
+        self.hpack_encoder.encode_one(":path", &uri, buf);
         for key in keys {
             let name = key.name_lower();
             match key.value() {
-                HeaderValue::Cookies(cookies) => for cookie in cookies {
-                    self.hpack_encoder.encode_one(name.to_owned(), cookie.as_req(), buf);
-                    // buf.write_slice(&self.hpack_encoder.encode_one(name.to_owned(), cookie.as_req())?)
+                HeaderValue::Cookies(cookies) => for cookie in cookies.as_req(&host, &uri) {
+                    self.hpack_encoder.encode_one(&name, cookie.as_req(), buf);
                 }
-                _ => self.hpack_encoder.encode_one(name, key.value().to_string(), buf), //buf.write_slice(&self.hpack_encoder.encode_one(name, key.value().to_string())?)
+                _ => self.hpack_encoder.encode_one(name, key.value().to_string(), buf),
             }
         }
         //有priority，payload长度需要frame.len-9

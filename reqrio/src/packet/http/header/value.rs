@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use crate::cookie::CookieManager;
 use crate::packet::http::content_type::ContentType;
 use crate::packet::http::cookie::Cookie;
 
@@ -8,18 +9,13 @@ pub enum HeaderValue {
     Bool(bool),
     Number(usize),
     ContextType(ContentType),
-    Cookies(Vec<Cookie>),
+    Cookies(CookieManager),
 }
 
 impl HeaderValue {
     pub fn add_cookie(&mut self, cookie: Cookie) {
         if let HeaderValue::Cookies(cookies) = self {
-            let exits = cookies.iter_mut().find(|x| x.name() == cookie.name());
-            if let Some(exits) = exits {
-                *exits = cookie;
-            } else {
-                cookies.push(cookie)
-            }
+            cookies.push(cookie);
         }
     }
 
@@ -46,7 +42,7 @@ impl HeaderValue {
             HeaderValue::Bool(_) => 1,
             HeaderValue::Number(_) => 10,
             HeaderValue::ContextType(_) => 64,
-            HeaderValue::Cookies(cookies) => cookies.iter().map(|x| x.name().len() + x.value().len() + 1).sum()
+            HeaderValue::Cookies(cookies) => cookies.req_may_len()
         }
     }
 }
@@ -58,10 +54,7 @@ impl Display for HeaderValue {
             HeaderValue::Bool(v) => f.write_str(if *v { "1" } else { "0" }),
             HeaderValue::Number(v) => f.write_str(v.to_string().as_str()),
             HeaderValue::ContextType(v) => f.write_str(v.to_string().as_str()),
-            HeaderValue::Cookies(v) => {
-                let v = v.iter().map(|x| x.as_req()).collect::<Vec<_>>();
-                f.write_str(v.join("; ").as_str())
-            }
+            HeaderValue::Cookies(v) => write!(f, "{}", v)
         }
     }
 }

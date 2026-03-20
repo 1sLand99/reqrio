@@ -4,12 +4,10 @@ use crate::Buffer;
 use std::fmt::Debug;
 pub use typo::FrameType;
 pub use flag::FrameFlag;
-pub use reader::{H2FrameRBuf, H2BodyReader};
 pub use setting::H2Setting;
 mod setting;
 mod typo;
 mod flag;
-mod reader;
 
 
 #[derive(Debug)]

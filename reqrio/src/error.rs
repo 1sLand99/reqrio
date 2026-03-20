@@ -26,6 +26,7 @@ pub enum HlsError {
     EncrypterNone,
     WsFrameTypeNone,
     DataTooShort,
+    StdError(Box<dyn Error + Sync + Send>),
     Currently(String),
 }
 
@@ -65,6 +66,7 @@ impl Display for HlsError {
             HlsError::EncrypterNone => f.write_str("EncrypterNone"),
             HlsError::WsFrameTypeNone => f.write_str("WsFrameTypeNone"),
             HlsError::DataTooShort => f.write_str("DataTooShort"),
+            HlsError::StdError(e) => write!(f, "StdError({:?})", e),
         }
     }
 }
@@ -89,15 +91,9 @@ impl From<Infallible> for HlsError {
 
 impl From<HPackError> for HlsError {
     fn from(value: HPackError) -> Self {
-        HlsError::Currently(value.to_string())
+        HlsError::StdError(Box::new(value))
     }
 }
-//
-// impl From<DecoderError> for HlsError {
-//     fn from(value: DecoderError) -> Self {
-//         HlsError::Currently(value.to_string())
-//     }
-// }
 
 impl From<JsonError> for HlsError {
     fn from(value: JsonError) -> Self {
@@ -119,7 +115,7 @@ impl From<Utf8Error> for HlsError {
 
 impl From<RlsError> for HlsError {
     fn from(value: RlsError) -> Self {
-        HlsError::Currently(value.to_string())
+        HlsError::StdError(Box::new(value))
     }
 }
 
@@ -156,19 +152,19 @@ impl From<NulError> for HlsError {
 
 impl From<Alert> for HlsError {
     fn from(value: Alert) -> Self {
-        HlsError::Currently(value.to_string())
+        HlsError::StdError(Box::new(value))
     }
 }
 
 impl From<BufferError> for HlsError {
     fn from(value: BufferError) -> Self {
-        HlsError::Currently(value.to_string())
+        HlsError::StdError(Box::new(value))
     }
 }
 
 impl From<FormError> for HlsError {
     fn from(value: FormError) -> Self {
-        HlsError::Currently(value.to_string())
+        HlsError::StdError(Box::new(value))
     }
 }
 

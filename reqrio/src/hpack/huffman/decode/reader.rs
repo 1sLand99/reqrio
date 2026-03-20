@@ -1,5 +1,5 @@
 use crate::error::HlsResult;
-use crate::hpack::huffman::decode::table::DecodeNode;
+use super::table::DecodeNode;
 
 pub(crate) struct DecodeReader {
     id: usize,
@@ -23,12 +23,10 @@ impl DecodeReader {
         self.buf <<= 8; // make space for new chunk
         self.buf_size += 8;
         self.buf |= byte as usize; // apply new chunk
-
         loop {
-            if self.buf_size < 5 { // has chunks to process
-                break;
-            } else {
-                self.decode_next(dst)?;
+            match self.buf_size {
+                ..5 => break,
+                _ => self.decode_next(dst)?
             }
         }
 

@@ -74,7 +74,7 @@ impl Fingerprint {
 
     pub fn from_hex_all(hex_str: impl AsRef<str>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {
         let mut data = hex::decode(hex_str.as_ref())?;
-        let mut res = Fingerprint::new();
+        let mut res = Fingerprint::default();
         res.legal_subscript = Buffer::with_capacity(0).check_subscription(token)?;
         let len = u16::from_be_bytes([data[3], data[4]]);
         let client_hello = data.drain(..len as usize + 5).collect::<Vec<u8>>();

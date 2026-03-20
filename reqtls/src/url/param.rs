@@ -20,10 +20,10 @@ impl Default for Param {
 impl Param {
 
     pub fn new_param(name: impl ToString, value: impl ToString) -> Param {
-        let mut res = Param::default();
-        res.name = name.to_string();
-        res.value = value.to_string();
-        res
+        Param{
+            name:name.to_string(),
+            value: value.to_string(),
+        }
     }
 
     pub fn name(&self) -> &str {
