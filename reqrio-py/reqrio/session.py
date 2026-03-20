@@ -60,13 +60,7 @@ class Session:
         if r == -1: raise Exception('add header error')
 
     def set_fingerprint(self, fingerprint: str, token: str):
-        """指纹数据，是tls握手过程中客户端发出的数据（转十六进制）,包含:
-
-        1.client_hello
-
-        2.client_key_exchange
-
-        3.change_cipher_spec"""
+        """指纹数据，是tls握手过程中客户端发出的数据（转十六进制）hex(client_hello+client_key_exchanged+change_cipher_spec)"""
         r = self.dll.ScReq_set_fingerprint(self.hid, fingerprint.encode('utf-8'), token.encode('utf-8'))
         if r == -1: raise Exception('set fingerprint error')
 
@@ -79,7 +73,7 @@ class Session:
         if r == -1: raise Exception('set ja4 error')
 
     def set_proxy(self, proxy: str):
-        """设置代理，格式:http://127.0.0.1:10000、socks5://127.0.0.1:10001"""
+        """设置代理，格式:http://127.0.0.1:10000、socks5://127.0.0.1:10001、socks5://username@password127.0.0.1:10001"""
         r = self.dll.ScReq_set_proxy(self.hid, proxy.encode('utf-8'))
         if r == -1: raise Exception('set proxy error,proxy=' + proxy)
 

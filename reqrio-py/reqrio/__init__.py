@@ -18,45 +18,33 @@ def _pyinstaller_hooks_dir():
     return [str(Path(__file__).with_name("hooks").resolve())]
 
 
-def get(url: str, headers: dict, params: dict = None, data: dict = None, json: dict = None,
-        alpn=ALPN.HTTP11) -> Response:
-    s = Session(alpn)
-    s.set_url(url)
+def send(url: str, method: Method, headers: dict = None, params: dict = None, data: dict = None, json: dict = None,
+         alpn=ALPN.HTTP11, verify: bool = True, proxy: str = None):
+    req = session.Session(alpn, verify=verify)
+    if proxy is not None:
+        req.set_proxy(proxy)
+    req.set_url(url)
+    if headers is not None:
+        req.set_headers(headers)
     if params is not None:
-        for k in params.keys():
-            s.add_param(k, str(params[k]))
-
+        req.set_params(params)
     if data is not None:
-        s.set_data(data)
-
+        req.set_data(data)
     if json is not None:
-        s.set_json(json)
-
-    s.set_header_json(headers)
-    resp = s.get()
-    s.close()
+        req.set_json(json)
+    resp = req.send_request(method)
+    req.close()
     return resp
 
 
-def post(url: str, headers: dict, params: dict = None, data: dict = None, json: dict = None,
-         alpn=ALPN.HTTP11) -> Response:
-    s = Session(alpn)
-    s.set_url(url)
-    if params is not None:
-        for k in params.keys():
-            s.add_param(k, str(params[k]))
+def get(url: str, headers: dict = None, params: dict = None, data: dict = None, json: dict = None,
+        alpn=ALPN.HTTP11, verify: bool = True, proxy: str = None) -> Response:
+    return send(url, Method.GET, headers, params, data, json, alpn, verify, proxy)
 
-    if data is not None:
-        s.set_data(data)
 
-    if json is not None:
-        s.set_json(json)
-
-    s.set_header_json(headers)
-
-    resp = s.post()
-    s.close()
-    return resp
+def post(url: str, headers: dict = None, params: dict = None, data: dict = None, json: dict = None,
+        alpn=ALPN.HTTP11, verify: bool = True, proxy: str = None) -> Response:
+    return send(url, Method.POST, headers, params, data, json, alpn, verify, proxy)
 
 
 def en_b64(ct: CipherType, data: Union[str, bytes], key: Union[str, bytes], iv: Union[str, bytes] = None) -> str:
@@ -66,9 +54,10 @@ def en_b64(ct: CipherType, data: Union[str, bytes], key: Union[str, bytes], iv: 
 
 
 def de_b64(ct: CipherType, data: str, key: Union[str, bytes], iv: Union[str, bytes] = None) -> bytes:
-    de_b64 = b64decode(data)
+    de_bs = b64decode(data)
     cipher = Cipher(ct, key, iv)
-    return cipher.decrypt(de_b64)
+    return cipher.decrypt(de_bs)
+
 
 def en_hex(ct: CipherType, data: Union[str, bytes], key: Union[str, bytes], iv: Union[str, bytes] = None) -> str:
     cipher = Cipher(ct, key, iv)
@@ -77,6 +66,6 @@ def en_hex(ct: CipherType, data: Union[str, bytes], key: Union[str, bytes], iv: 
 
 
 def de_hex(ct: CipherType, data: str, key: Union[str, bytes], iv: Union[str, bytes] = None) -> bytes:
-    de_b64 = hex_decode(data)
+    de_bs = hex_decode(data)
     cipher = Cipher(ct, key, iv)
-    return cipher.decrypt(de_b64)
+    return cipher.decrypt(de_bs)

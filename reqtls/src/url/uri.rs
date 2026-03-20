@@ -70,7 +70,9 @@ impl Uri {
     }
 
     pub fn params(&self) -> &Vec<Param> { &self.params }
-    
+
+    pub fn params_mut(&mut self) -> &mut Vec<Param> { &mut self.params }
+
     pub fn len(&self) -> usize { self.len }
 
     pub fn clear_params(&mut self) {
