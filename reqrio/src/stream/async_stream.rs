@@ -53,7 +53,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
     }
 
     pub async fn read_packet(&mut self) -> HlsResult<usize> {
-        let record_len = match self.read_buffer.is_empty() {
+        let record_len = match self.read_buffer.len() < 5 {
             true => {
                 self.read_buffer.async_read(&mut self.stream).await?;
                 u16::from_be_bytes([self.read_buffer[3], self.read_buffer[4]]) as usize

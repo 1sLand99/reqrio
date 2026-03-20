@@ -152,6 +152,7 @@ impl<S: Read> SyncStream<S> {
     }
 
     fn check_and_read(&mut self) -> HlsResult<usize> {
+        if self.read_buffer.len() < 5 { return Err("tls head len < 5".into()); }
         let len = u16::from_be_bytes([self.read_buffer[3], self.read_buffer[4]]) as usize;
         if self.read_buffer.len() >= len + 5 {
             Ok(len + 5)
