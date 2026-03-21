@@ -131,5 +131,5 @@ async fn main() {
     // let res = req.get().await.unwrap();
     // let res = req.get().await.unwrap();
     // let res = req.get().await.unwrap();
-    // println!("{}", res.header());
+    println!("{}", res.header());
 }

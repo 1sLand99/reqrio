@@ -6,8 +6,7 @@ use std::fmt::{Display, Formatter};
 #[derive(Debug, Clone)]
 pub struct Uri {
     path: String,
-    params: Vec<Param>,
-    len: usize,
+    pub(crate) params: Vec<Param>,
 }
 
 impl Default for Uri {
@@ -15,7 +14,6 @@ impl Default for Uri {
         Uri {
             path: "".to_string(),
             params: vec![],
-            len: 0,
         }
     }
 }
@@ -26,7 +24,6 @@ impl Uri {
     pub fn new_path(path: impl ToString) -> Uri {
         let path = path.to_string();
         Uri {
-            len: path.len(),
             path: path.to_string(),
             params: vec![],
         }
@@ -34,50 +31,45 @@ impl Uri {
 
     pub fn set_path(&mut self, path: impl ToString) {
         self.path = path.to_string();
-        self.len = path.to_string().len();
     }
 
-    pub fn parse_param(&mut self, item: &str) -> RlsResult<()> {
-        self.params.clear();
-        for kv in item.split("&") {
-            self.params.push(Param::try_from(kv)?);
-        }
-        self.len += item.len();
-        Ok(())
-    }
+    // #[deprecated = "use try_from"]
+    // pub fn parse_param(&mut self, item: &str) -> RlsResult<()> {
+    //     self.params.clear();
+    //     for kv in item.split("&") {
+    //         self.params.push(Param::try_from(kv)?);
+    //     }
+    //     Ok(())
+    // }
 
-    pub fn insert_param(&mut self, name: impl ToString, value: impl ToString) {
+    ///value: 应为未编码
+    pub fn insert_param(&mut self, name: impl ToString, value: impl AsRef<str>) {
         let name = name.to_string();
-        let value = value.to_string();
         let param = self.params.iter_mut().find(|x| x.name() == name);
         match param {
-            None => {
-                self.len += name.len() + value.len() + 1;
-                self.params.push(Param::new_param(name, value))
-            }
-            Some(param) => {
-                self.len = self.len - param.value().len() + value.len();
-                param.set_value(value)
-            }
+            None => self.params.push(Param::new_param(name, value)),
+            Some(param) => param.set_value(value)
         }
     }
 
     pub fn remove_param(&mut self, name: impl ToString) -> Option<String> {
         let name = name.to_string();
         let pos = self.params.iter().position(|x| x.name() == name)?;
-        self.len -= name.len() + self.params[pos].value().len() + 1;
-        Some(self.params.remove(pos).take_value())
+        self.params.remove(pos).into_value().ok()
     }
 
     pub fn params(&self) -> &Vec<Param> { &self.params }
 
     pub fn params_mut(&mut self) -> &mut Vec<Param> { &mut self.params }
 
-    pub fn len(&self) -> usize { self.len }
+    pub fn is_empty(&self) -> bool { self.path.is_empty() && self.params.is_empty() }
+
+    pub fn len(&self) -> usize {
+        self.path.len() + 1 + self.params.iter().map(|x| x.len()).sum::<usize>()
+    }
 
     pub fn clear_params(&mut self) {
         self.params.clear();
-        self.len = self.path.len();
     }
 }
 
@@ -98,8 +90,17 @@ impl TryFrom<&str> for Uri {
         let mut items = value.split("?");
         let mut res = Uri::new_path(items.next().unwrap_or(""));
         if let Some(param) = items.next() {
-            res.parse_param(param)?;
+            for item in param.split("&") {
+                res.params.push(Param::try_from(item)?);
+            }
         }
         Ok(res)
+    }
+}
+
+impl TryFrom<String> for Uri {
+    type Error = RlsError;
+    fn try_from(value: String) -> RlsResult<Uri> {
+        Uri::try_from(value.as_str())
     }
 }

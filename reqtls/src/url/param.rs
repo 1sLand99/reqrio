@@ -1,10 +1,12 @@
 use super::error::UrlError;
 use crate::coder;
 use std::fmt::{Display, Formatter};
+use crate::error::RlsResult;
 
 #[derive(Debug, Clone)]
 pub struct Param {
     name: String,
+    ///编码后的值
     value: String,
 }
 
@@ -18,11 +20,10 @@ impl Default for Param {
 }
 
 impl Param {
-
-    pub fn new_param(name: impl ToString, value: impl ToString) -> Param {
-        Param{
-            name:name.to_string(),
-            value: value.to_string(),
+    pub fn new_param(name: impl ToString, value: impl AsRef<str>) -> Param {
+        Param {
+            name: name.to_string(),
+            value: coder::url_encode(value),
         }
     }
 
@@ -30,22 +31,30 @@ impl Param {
         &self.name
     }
 
-    pub fn value(&self) -> &str {
-        &self.value
+    pub fn value(&self) -> RlsResult<String> {
+        coder::url_decode(&self.value).or(Err(UrlError::InvalidParamEncoded.into()))
     }
 
-    pub fn take_value(self) -> String {
-        self.value
+    pub fn into_value(self) -> RlsResult<String> {
+        coder::url_decode(&self.value).or(Err(UrlError::InvalidParamEncoded.into()))
     }
 
-    pub fn set_value(&mut self, value: impl ToString) {
-        self.value = value.to_string();
+    pub fn set_value(&mut self, value: impl AsRef<str>) {
+        self.value = coder::url_encode(value);
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty() && self.value.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.name.len() + 1 + self.value.len()
     }
 }
 
 impl Display for Param {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let res = format!("{}={}", self.name, coder::url_encode(&self.value));
+        let res = format!("{}={}", self.name, self.value);
         f.write_str(&res)
     }
 }
@@ -54,10 +63,18 @@ impl TryFrom<&str> for Param {
     type Error = UrlError;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let mut items = value.split("=");
-        let mut res = Param::default();
-        res.name = items.next().ok_or(UrlError::MissingParamName)?.to_string();
+        let name = items.next().ok_or(UrlError::MissingParamName)?.to_string();
         let value = items.collect::<Vec<_>>().join("=");
-        res.value = coder::url_decode(value).or(Err(UrlError::InvalidParamEncoded))?.to_string();
-        Ok(res)
+        Ok(Param {
+            name,
+            value,
+        })
+    }
+}
+
+impl TryFrom<String> for Param {
+    type Error = UrlError;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Param::try_from(value.as_str())
     }
 }

@@ -47,11 +47,7 @@ impl Url {
     pub fn into_uri(self) -> Uri { self.uri }
 
     pub fn set_uri(&mut self, uri: impl AsRef<str>) -> RlsResult<()> {
-        let mut i = uri.as_ref().split("?");
-        self.uri.set_path(i.next().ok_or("Invalid uri")?);
-        if let Some(param) = i.next() {
-            self.uri.parse_param(param)?
-        }
+        self.uri = Uri::try_from(uri.as_ref())?;
         Ok(())
     }
 
@@ -147,7 +143,9 @@ impl TryFrom<&str> for Url {
             res.addr.set_port(res.scheme.default_port())
         }
         if let Some(param) = t.next() {
-            res.uri.parse_param(param)?;
+            for item in param.split("&") {
+                res.uri.params.push(Param::try_from(item)?);
+            }
         }
         Ok(res)
     }

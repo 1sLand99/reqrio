@@ -159,11 +159,11 @@ pub trait ReqExt: ReqPriExt + Sized {
         let uri = self.header_mut().uri_mut();
         uri.clear_params();
         for (k, v) in params.entries() {
-            uri.insert_param(k, v);
+            uri.insert_param(k, v.to_string());
         }
     }
 
-    fn add_param(&mut self, name: impl ToString, value: impl ToString) {
+    fn add_param(&mut self, name: impl ToString, value: impl AsRef<str>) {
         let uri = self.header_mut().uri_mut();
         uri.insert_param(name, value);
     }

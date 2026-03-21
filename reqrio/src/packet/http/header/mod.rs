@@ -549,7 +549,7 @@ impl<'a> HeaderReader<'a> {
         let start = buf.offset().end;
         // first line: Method uri version
         if self.pos == 0 {
-            if buf.unfilled_len() < 17 + self.header.uri.len() { return Ok(buf.offset().end - start); }
+            if buf.unfilled_len() < self.header.uri.len() * 2 { return Ok(buf.offset().end - start); }
             buf.write_slice(self.header.method.to_string().as_bytes());
             buf.write_u8(b' ');
             buf.write_slice(self.header.uri.to_string().as_bytes());
