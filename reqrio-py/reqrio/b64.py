@@ -2,6 +2,7 @@ from _ctypes import addressof, byref
 from ctypes import c_ubyte, string_at, POINTER, c_size_t
 
 from reqrio.bindings import DLL
+from reqrio import util
 from typing import Union
 
 
@@ -10,11 +11,7 @@ class Base64:
         self.b64 = DLL.Base64_new()
 
     def encode(self, data: Union[str, bytes]) -> str:
-        data_len = len(data)
-        if type(data) == str:
-            data_u8 = (c_ubyte * data_len).from_buffer_copy(data.encode('utf-8'))
-        else:
-            data_u8 = (c_ubyte * data_len).from_buffer_copy(data)
+        data_len, data_u8 = util.str_bytes_to_u8(data)
         ptr = DLL.Base64_encode(self.b64, data_u8, data_len)
         if ptr is None:
             raise Exception("base64 encode error")
@@ -23,8 +20,7 @@ class Base64:
         return bs
 
     def decode(self, data: str) -> bytes:
-        data_len = len(data)
-        data_u8 = (c_ubyte * data_len).from_buffer_copy(data.encode('utf-8'))
+        data_len, data_u8 = util.str_to_u8(data)
         out_ptr = POINTER(c_ubyte)()
         out_len = c_size_t()
         ret = DLL.Base64_decode(self.b64, data_u8, data_len, byref(out_ptr), byref(out_len))

@@ -1,12 +1,11 @@
 use crate::error::HlsResult;
 use crate::timeout::Timeout;
-use crate::{ContentType, Fingerprint};
 use crate::{json, Cookie, HlsError, Method, Proxy, ReqExt, ScReq, ALPN};
+use crate::{Application, ContentType, Fingerprint};
 use reqtls::hex;
 use std::ffi::{c_char, CStr, CString};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::slice;
-use crate::packet::BinaryType;
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
@@ -164,46 +163,37 @@ pub extern "system" fn ScReq_add_param(req: *mut ScReq, name: *const c_char, val
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn ScReq_set_data(req: *mut ScReq, data: *const c_char) -> i32 {
+pub extern "system" fn ScReq_set_bytes(req: *mut ScReq, bytes: *const u8, len: u32, context_type: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
-        let data = unsafe { CStr::from_ptr(data) }.to_bytes();
-        let data = json::from_bytes(data)?;
-        req.set_data(data);
+        let bytes = unsafe { slice::from_raw_parts(bytes, len as usize) };
+        let ct = unsafe { CStr::from_ptr(context_type) }.to_str()?;
+        let ct = ContentType::try_from(ct)?;
+        if let ContentType::Application(ref application) = ct {
+            match application {
+                Application::Json => {
+                    let data = json::from_bytes(bytes)?;
+                    req.set_json(data);
+                }
+                Application::XWwwFormUrlencoded => {
+                    let data = json::from_bytes(bytes)?;
+                    req.set_data(data);
+                }
+                _ => req.set_bytes(bytes, ct)
+            }
+        } else { req.set_bytes(bytes, ct) }
         Ok(0)
     }().unwrap_or(-1)
 }
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn ScReq_set_json(req: *mut ScReq, data: *const c_char) -> i32 {
+pub extern "system" fn ScReq_set_context_type(req: *mut ScReq, context_type: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
-        let data = unsafe { CStr::from_ptr(data) }.to_bytes();
-        let data = json::from_bytes(data)?;
-        req.set_json(data);
-        Ok(0)
-    }().unwrap_or(-1)
-}
-
-#[unsafe(no_mangle)]
-#[allow(non_snake_case)]
-pub extern "system" fn ScReq_set_bytes(req: *mut ScReq, bytes: *const c_char, len: u32) -> i32 {
-    || -> HlsResult<i32> {
-        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
-        let bytes = unsafe { slice::from_raw_parts(bytes as *const u8, len as usize) }.to_vec();
-        req.set_bytes(bytes, ContentType::Binary(BinaryType::OctetStream));
-        Ok(0)
-    }().unwrap_or(-1)
-}
-
-#[unsafe(no_mangle)]
-#[allow(non_snake_case)]
-pub extern "system" fn ScReq_set_text(req: *mut ScReq, text: *const c_char) -> i32 {
-    || -> HlsResult<i32> {
-        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
-        let text = unsafe { CStr::from_ptr(text) }.to_str()?;
-        req.set_text(text);
+        let context_type = unsafe { CStr::from_ptr(context_type) }.to_str()?;
+        let context_type = ContentType::try_from(context_type)?;
+        req.header_mut().set_content_type(context_type);
         Ok(0)
     }().unwrap_or(-1)
 }

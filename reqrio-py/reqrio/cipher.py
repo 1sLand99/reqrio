@@ -4,6 +4,7 @@ from typing import Union
 
 from _ctypes import byref, addressof
 from reqrio.bindings import DLL
+from reqrio import util
 
 
 class CipherType(Enum):
@@ -41,32 +42,18 @@ class Cipher:
         return Cipher(CipherType.AES_128_ECB, key)
 
     def set_secret_key(self, key: Union[str, bytes], iv: Union[str, bytes] = None):
-        key_len = len(key)
-        if type(key) == str:
-            key_u8 = (c_ubyte * key_len).from_buffer_copy(key.encode('utf-8'))
-        else:
-            key_u8 = (c_ubyte * key_len).from_buffer_copy(key)
+        key_len, key_u8 = util.str_bytes_to_u8(key)
         iv_len = 0
         if iv is None:
             iv_u8 = None
-        elif type(iv) == str:
-            iv_len = len(iv)
-            iv_u8 = (c_ubyte * iv_len).from_buffer_copy(iv.encode('utf-8'))
         else:
-            iv_len = len(iv)
-            iv_u8 = (c_ubyte * iv_len).from_buffer_copy(iv)
-        if type(key) == str:
-            key_len = len(key)
+            iv_len, iv_u8 = util.str_bytes_to_u8(iv)
         ret = DLL.Cipher_set_secret_key(self.cipher, key_u8, key_len, iv_u8, iv_len)
         if ret == -1:
             raise Exception("set secret key error")
 
     def encrypt(self, data: Union[str, bytes]) -> bytes:
-        data_len = len(data)
-        if type(data) == str:
-            data_u8 = (c_ubyte * data_len).from_buffer_copy(data.encode('utf-8'))
-        else:
-            data_u8 = (c_ubyte * data_len).from_buffer_copy(data)
+        data_len, data_u8 = util.str_bytes_to_u8(data)
         out_ptr = POINTER(c_ubyte)()
         out_len = c_size_t()
         ret = DLL.Cipher_encrypt(self.cipher, data_u8, data_len, byref(out_ptr), byref(out_len))
@@ -80,17 +67,13 @@ class Cipher:
             DLL.u8_free(out_ptr, out_len)
 
     def decrypt(self, data: Union[str, bytes]) -> bytes:
-        data_len = len(data)
-        if type(data) == str:
-            data_u8 = (c_ubyte * data_len).from_buffer_copy(data.encode('utf-8'))
-        else:
-            data_u8 = (c_ubyte * data_len).from_buffer_copy(data)
+        data_len, data_u8 = util.str_bytes_to_u8(data)
         out_ptr = POINTER(c_ubyte)()
         out_len = c_size_t()
         ret = DLL.Cipher_decrypt(self.cipher, data_u8, data_len, byref(out_ptr), byref(out_len))
         try:
             if ret == -1:
-               raise Exception("decrypt error")
+                raise Exception("decrypt error")
             array_bytes = c_ubyte * out_len.value
             byte_array = array_bytes.from_address(addressof(out_ptr.contents))
             return bytes(byte_array)

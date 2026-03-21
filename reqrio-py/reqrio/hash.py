@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Union
 
 from reqrio.bindings import DLL
+from reqrio import util
 
 
 class HashType(Enum):
@@ -22,11 +23,7 @@ class Hasher:
             raise Exception('new hasher error')
 
     def update(self, data: Union[str, bytes]):
-        data_len = len(data)
-        if type(data) == str:
-            data_u8 = (c_ubyte * data_len).from_buffer_copy(data.encode('utf-8'))
-        else:
-            data_u8 = (c_ubyte * data_len).from_buffer_copy(data)
+        data_len, data_u8 = util.str_bytes_to_u8(data)
         ret = DLL.Hasher_update(self.hasher, data_u8, data_len)
         if ret == -1: raise Exception("hasher update error")
 
@@ -52,21 +49,13 @@ class Hasher:
 
 class Hmac:
     def __init__(self, key: Union[str, bytes], ht: HashType):
-        key_len = len(key)
-        if type(key) == str:
-            key_u8 = (c_ubyte * key_len).from_buffer_copy(key.encode('utf-8'))
-        else:
-            key_u8 = (c_ubyte * key_len).from_buffer_copy(key)
+        key_len, key_u8 = util.str_bytes_to_u8(key)
         self.hmac = DLL.Hmac_new(key_u8, key_len, ht.value)
         if self.hmac is None:
             raise Exception('new hasher error')
 
     def update(self, data: Union[str, bytes]):
-        data_len = len(data)
-        if type(data) == str:
-            data_u8 = (c_ubyte * data_len).from_buffer_copy(data.encode('utf-8'))
-        else:
-            data_u8 = (c_ubyte * data_len).from_buffer_copy(data)
+        data_len, data_u8 = util.str_bytes_to_u8(data)
         ret = DLL.Hmac_update(self.hmac, data_u8, data_len)
         if ret == -1: raise Exception("hasher update error")
 

@@ -3,6 +3,7 @@ from ctypes import string_at, c_ubyte, POINTER, c_size_t
 from typing import Union
 
 from reqrio.bindings import DLL
+from reqrio import util
 
 
 def url_encode(url: str) -> str:
@@ -24,11 +25,7 @@ def url_decode(url: str) -> str:
 
 
 def hex_encode(data: Union[str, bytes]) -> str:
-    data_len = len(data)
-    if type(data) == str:
-        data_u8 = (c_ubyte * data_len).from_buffer_copy(data.encode('utf-8'))
-    else:
-        data_u8 = (c_ubyte * data_len).from_buffer_copy(data)
+    data_len, data_u8 = util.str_bytes_to_u8(data)
     ptr = DLL.hex_encode(data_u8, data_len)
     if ptr is None:
         raise Exception("url encode error")

@@ -5,6 +5,7 @@ from reqrio.alpn import ALPN
 from reqrio.bindings import DLL, CALLBACK
 from reqrio.method import Method
 from reqrio.response import Response
+from reqrio import util
 
 
 class Session:
@@ -28,8 +29,7 @@ class Session:
         self.dll.ScReq_set_verify(self.hid, verify)
 
     def set_timeout(self, connect: int = 3000, read: int = 3000, write: int = 3000, handle: int = 30000,
-                    connect_times: int = 3,
-                    handle_times: int = 3):
+                    connect_times: int = 3, handle_times: int = 3):
         """
         :param connect: 连接超时,默认3s
         :param read: tcp读取超时,默认3s
@@ -82,20 +82,22 @@ class Session:
         if r == -1: raise Exception('set url error,url=' + url)
 
     def set_data(self, data: dict):
-        r = self.dll.ScReq_set_data(self.hid, json.dumps(data).encode('utf-8'))
-        if r == -1: raise Exception('set data error')
+        self.set_bytes(json.dumps(data).encode('utf-8'), "application/x-www-form-urlencoded")
 
     def set_json(self, data: dict):
-        r = self.dll.ScReq_set_json(self.hid, json.dumps(data).encode('utf-8'))
-        if r == -1: raise Exception('set json error')
+        self.set_bytes(json.dumps(data).encode('utf-8'), "application/json")
 
-    def set_bytes(self, bs: bytes):
-        r = self.dll.ScReq_set_bytes(self.hid, bs, len(bs))
-        if r == -1: raise Exception('set bytes error')
+    def set_bytes(self, bs: bytes, ct: str = "application/octet-stream"):
+        dl, u8 = util.bytes_to_u8(bs)
+        r = self.dll.ScReq_set_bytes(self.hid, u8, dl, ct.encode('utf-8'))
+        if r == -1: raise Exception('set body error')
+
+    def set_context_type(self, ct: str):
+        r = self.dll.ScReq_set_context_type(self.hid, ct.encode('utf-8'))
+        if r == -1: raise Exception('set context type error')
 
     def set_text(self, text: str):
-        r = self.dll.ScReq_set_text(self.hid, text.encode('utf-8'))
-        if r == -1: raise Exception('set text error')
+        self.set_bytes(text.encode('utf-8'), "text/plain")
 
     def set_cookie(self, cookie: str):
         r = self.dll.ScReq_set_cookie(self.hid, cookie.encode('utf-8'))
