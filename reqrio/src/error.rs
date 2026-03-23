@@ -1,6 +1,6 @@
 use crate::json::JsonError;
 use crate::hpack::HPackError;
-use reqtls::{hex, Alert, RlsError, ALPN};
+use reqtls::{hex, Alert, BufferError, RlsError, ALPN};
 use std::array::TryFromSliceError;
 use std::convert::Infallible;
 use std::error::Error;
@@ -26,7 +26,10 @@ pub enum HlsError {
     EncrypterNone,
     WsFrameTypeNone,
     DataTooShort,
-    StdError(Box<dyn Error + Sync + Send>),
+    UnsupportedAlpn(ALPN),
+    Body(FormError),
+    Rls(RlsError),
+    HPack(HPackError),
     Currently(String),
 }
 
@@ -66,7 +69,10 @@ impl Display for HlsError {
             HlsError::EncrypterNone => f.write_str("EncrypterNone"),
             HlsError::WsFrameTypeNone => f.write_str("WsFrameTypeNone"),
             HlsError::DataTooShort => f.write_str("DataTooShort"),
-            HlsError::StdError(e) => write!(f, "StdError({:?})", e),
+            HlsError::Rls(e) => write!(f, "RlsError({})", e),
+            HlsError::HPack(e) => write!(f, "HPack({})", e),
+            HlsError::Body(e) => write!(f, "Body({})", e),
+            HlsError::UnsupportedAlpn(alpn) => write!(f, "UnsupportedAlpn({})", alpn),
         }
     }
 }
@@ -91,7 +97,7 @@ impl From<Infallible> for HlsError {
 
 impl From<HPackError> for HlsError {
     fn from(value: HPackError) -> Self {
-        HlsError::StdError(Box::new(value))
+        HlsError::HPack(value)
     }
 }
 
@@ -115,7 +121,7 @@ impl From<Utf8Error> for HlsError {
 
 impl From<RlsError> for HlsError {
     fn from(value: RlsError) -> Self {
-        HlsError::StdError(Box::new(value))
+        HlsError::Rls(value)
     }
 }
 
@@ -152,42 +158,23 @@ impl From<NulError> for HlsError {
 
 impl From<Alert> for HlsError {
     fn from(value: Alert) -> Self {
-        HlsError::StdError(Box::new(value))
+        HlsError::Rls(RlsError::Alert(value))
     }
 }
 
 impl From<BufferError> for HlsError {
     fn from(value: BufferError) -> Self {
-        HlsError::StdError(Box::new(value))
+        HlsError::Rls(RlsError::Buffer(value))
     }
 }
 
 impl From<FormError> for HlsError {
     fn from(value: FormError) -> Self {
-        HlsError::StdError(Box::new(value))
+        HlsError::Body(value)
     }
 }
 
 impl Error for HlsError {}
-
-unsafe impl Send for HlsError {}
-
-#[derive(Debug)]
-pub enum BufferError {
-    UnsupportedALPN(ALPN),
-    BufferTooSmall(usize),
-}
-
-impl Display for BufferError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BufferError::UnsupportedALPN(alpn) => write!(f, "UnsupportedALPN: {}", alpn),
-            BufferError::BufferTooSmall(size) => write!(f, "BufferTooSmall: {}", size),
-        }
-    }
-}
-
-impl Error for BufferError {}
 
 
 pub type HlsResult<T> = Result<T, HlsError>;

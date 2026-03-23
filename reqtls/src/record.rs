@@ -1,7 +1,7 @@
 use super::message::{Message, Payload};
 use super::version::Version;
-use crate::error::RlsResult;
-use crate::{Alert, CipherSuite, RlsError, WriteExt, ALPN};
+use crate::error::{BufferError, RlsResult};
+use crate::{Alert, CipherSuite, WriteExt, ALPN};
 
 #[derive(Debug, Copy, Clone)]
 pub enum RecordType {
@@ -52,12 +52,12 @@ impl<'a> RecordLayer<'a> {
     }
 
     pub fn from_bytes(bytes: &'a mut [u8], payload: bool, suite: Option<&CipherSuite>) -> RlsResult<RecordLayer<'a>> {
-        if bytes.len() < 5 { return Err(RlsError::MessageTooShort); }
+        if bytes.len() < 5 { return Err(BufferError::Insufficient.into()); }
         let (head, messages) = bytes.split_at_mut(5);
         let mut res = RecordLayer::new(RecordType::from_byte(head[0]).ok_or("LayerType Unknown")?);
         res.version = Version::new(u16::from_be_bytes([head[1], head[2]]));
         res.len = u16::from_be_bytes([head[3], head[4]]);
-        if messages.len() < res.len as usize { return Err("record body not enough".into()); }
+        if messages.len() < res.len as usize { return Err(BufferError::Insufficient.into()); }
         let (mut messages, _) = messages.split_at_mut(res.len as usize);
         let mut index = 0;
         let total_len = messages.len();

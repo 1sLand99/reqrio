@@ -2,7 +2,7 @@ use crate::body::H1BodyReader;
 use crate::error::HlsResult;
 use crate::reader::{ReadExt, Reader};
 use crate::{Buffer, FrameFlag, FrameType};
-use reqtls::{RlsError, WriteExt};
+use reqtls::{BufferError, WriteExt};
 
 pub struct H2FrameRBuf<'a> {
     pd_len: usize,
@@ -14,14 +14,14 @@ pub struct H2FrameRBuf<'a> {
 
 impl<'a> H2FrameRBuf<'a> {
     pub fn from_bytes(bytes: &'a [u8], frame_type: FrameType) -> HlsResult<H2FrameRBuf<'a>> {
-        if bytes.len() < 5 { return Err(RlsError::MessageTooShort.into()); }
+        if bytes.len() < 5 { return Err(BufferError::Insufficient.into()); }
         let pd_len = u32::from_be_bytes([0, bytes[0], bytes[1], bytes[2]]) as usize;
         let frame_flag = FrameFlag::from_u8(bytes[4]);
         let (frame_len, _) = match frame_flag.priority() {
             true => (pd_len + 14, &bytes[9..14]),
             false => (pd_len + 9, &bytes[0..0])
         };
-        if bytes.len() < frame_len { return Err(RlsError::MessageTooShort.into()); }
+        if bytes.len() < frame_len { return Err(BufferError::Insufficient.into()); }
         let payload = if frame_flag.priority() { &bytes[14..frame_len] } else { &bytes[9..frame_len] };
         Ok(H2FrameRBuf {
             pd_len,
@@ -33,11 +33,11 @@ impl<'a> H2FrameRBuf<'a> {
 
     pub fn buffer_enough(buffer: &Buffer) -> HlsResult<(FrameType, FrameFlag, usize)> {
         let filled = buffer.filled();
-        if filled.len() < 5 { return Err(RlsError::MessageTooShort.into()); }
+        if filled.len() < 5 { return Err(BufferError::Insufficient.into()); }
         let pd_len = u32::from_be_bytes([0, filled[0], filled[1], filled[2]]) as usize;
         let frame_flag = FrameFlag::from_u8(filled[4]);
         let frame_len = if frame_flag.priority() { pd_len + 14 } else { pd_len + 9 };
-        if filled.len() < frame_len { return Err(RlsError::MessageTooShort.into()); }
+        if filled.len() < frame_len { return Err(BufferError::Insufficient.into()); }
         let frame_type = FrameType::from_u8(filled[3])?;
         Ok((frame_type, frame_flag, frame_len))
     }

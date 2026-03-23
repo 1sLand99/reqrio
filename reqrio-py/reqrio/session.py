@@ -56,7 +56,7 @@ class Session:
         if r == -1: raise Exception('set header error')
 
     def add_header(self, name: str, value: str):
-        r = self.dll.ScReq_set_header_json(self.hid, name.encode('utf-8'), value.encode('utf-8'))
+        r = self.dll.ScReq_add_header(self.hid, name.encode('utf-8'), value.encode('utf-8'))
         if r == -1: raise Exception('add header error')
 
     def set_fingerprint(self, fingerprint: str, token: str):

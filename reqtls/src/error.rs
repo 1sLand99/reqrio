@@ -25,7 +25,6 @@ pub enum RlsError {
     HasherNone,
     AeadNone,
     InvalidCipherSuite,
-    MessageTooShort,
     AeadCryptError,
     AeadEncryptError,
     AeadDecryptError,
@@ -96,7 +95,8 @@ pub enum RlsError {
     BIOGetDataError,
     GetAiaFail,
     MissingCertificateChain,
-    StdError(Box<dyn Error>),
+    Buffer(BufferError),
+    Url(UrlError),
     Currently(String),
     Alert(Alert),
 }
@@ -113,7 +113,6 @@ impl Display for RlsError {
             RlsError::AeadNone => f.write_str("Aead none"),
             RlsError::HasherNone => f.write_str("Hasher none"),
             RlsError::InvalidCipherSuite => f.write_str("Invalid suite suite"),
-            RlsError::MessageTooShort => f.write_str("Message too short"),
             RlsError::AeadCryptError => f.write_str("Init aead crypto error"),
             RlsError::AeadEncryptError => f.write_str("Aead encrypt error"),
             RlsError::AeadDecryptError => f.write_str("Aead decrypt error"),
@@ -184,8 +183,9 @@ impl Display for RlsError {
             RlsError::BIOGetDataError => f.write_str("BIO get data error"),
             RlsError::GetAiaFail => f.write_str("Get authority information access fail"),
             RlsError::MissingCertificateChain => f.write_str("Missing certificate chain"),
+            RlsError::Buffer(e) => write!(f, "Buffer({})", e),
+            RlsError::Url(e) => write!(f, "Url({})", e),
             RlsError::Alert(alert) => write!(f, "Alert({})", alert.desc()),
-            RlsError::StdError(e) => f.write_fmt(format_args!("{:?}", e)),
             RlsError::Currently(e) => f.write_str(e),
         }
     }
@@ -205,37 +205,37 @@ impl From<&str> for RlsError {
 
 impl From<Infallible> for RlsError {
     fn from(e: Infallible) -> Self {
-        RlsError::StdError(Box::new(e))
+        RlsError::Currently(e.to_string())
     }
 }
 
 impl From<FromUtf8Error> for RlsError {
     fn from(value: FromUtf8Error) -> Self {
-        RlsError::StdError(Box::new(value))
+        RlsError::Currently(value.to_string())
     }
 }
 
 impl From<TryFromSliceError> for RlsError {
     fn from(value: TryFromSliceError) -> Self {
-        RlsError::StdError(Box::new(value))
+        RlsError::Currently(value.to_string())
     }
 }
 
 impl From<io::Error> for RlsError {
     fn from(value: io::Error) -> Self {
-        RlsError::StdError(Box::new(value))
+        RlsError::Currently(value.to_string())
     }
 }
 
 impl From<FromHexError> for RlsError {
     fn from(value: FromHexError) -> Self {
-        RlsError::StdError(Box::new(value))
+        RlsError::Currently(value.to_string())
     }
 }
 
 impl From<ParseIntError> for RlsError {
     fn from(value: ParseIntError) -> Self {
-        RlsError::StdError(Box::new(value))
+        RlsError::Currently(value.to_string())
     }
 }
 
@@ -247,25 +247,25 @@ impl From<RlsError> for io::Error {
 
 impl From<NulError> for RlsError {
     fn from(value: NulError) -> Self {
-        RlsError::StdError(Box::new(value))
+        RlsError::Currently(value.to_string())
     }
 }
 
 impl From<AddrParseError> for RlsError {
     fn from(value: AddrParseError) -> Self {
-        RlsError::StdError(Box::new(value))
+        RlsError::Currently(value.to_string())
     }
 }
 
 impl From<Utf8Error> for RlsError {
     fn from(value: Utf8Error) -> Self {
-        RlsError::StdError(Box::new(value))
+        RlsError::Currently(value.to_string())
     }
 }
 
 impl From<UrlError> for RlsError {
     fn from(value: UrlError) -> Self {
-        RlsError::StdError(Box::new(value))
+        RlsError::Url(value)
     }
 }
 
@@ -280,19 +280,38 @@ impl From<&[u8]> for RlsError {
 
 impl<T: 'static> From<PoisonError<T>> for RlsError {
     fn from(value: PoisonError<T>) -> Self {
-        RlsError::StdError(Box::new(value))
+        RlsError::Currently(value.to_string())
     }
 }
 
 impl From<SystemTimeError> for RlsError {
     fn from(value: SystemTimeError) -> Self {
-        RlsError::StdError(Box::new(value))
+        RlsError::Currently(value.to_string())
+    }
+}
+
+impl From<BufferError> for RlsError{
+    fn from(value: BufferError) -> Self {
+        RlsError::Buffer(value)
     }
 }
 
 impl Error for RlsError {}
 
-unsafe impl Send for RlsError {}
 
-unsafe impl Sync for RlsError {}
+#[derive(Debug)]
+pub enum BufferError {
+    Insufficient,
+    CapacityTooSmall { needed: usize, current: usize },
+}
+
+impl Display for BufferError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BufferError::Insufficient => write!(f, "Insufficient decoding data"),
+            BufferError::CapacityTooSmall { needed, current } => write!(f, "The required capacity is {}, but the actual capacity is {}.", needed, current),
+        }
+    }
+}
+
 pub type RlsResult<T> = Result<T, RlsError>;

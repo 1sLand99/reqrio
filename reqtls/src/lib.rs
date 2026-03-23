@@ -256,7 +256,7 @@ pub use message::client_hello::ClientHello;
 pub use message::key_exchange::ClientKeyExchange;
 pub use message::certificate::Certificates;
 pub use record::{RecordLayer, RecordType};
-pub use error::RlsError;
+pub use error::{RlsError, BufferError};
 pub use version::Version;
 pub use boring::{hash, hmac, base64, Cipher, CipherType, Padding, RsaCipher, RsaKey, RsaPadding,
                  certificate::Certificate, cipher, certificate::DnType, certificate::CertSigner,

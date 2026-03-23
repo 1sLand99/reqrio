@@ -1,6 +1,6 @@
 use super::content_type::ContentType;
 use super::cookie::Cookie;
-use crate::error::{BufferError, HlsError, HlsResult};
+use crate::error::{HlsError, HlsResult};
 use crate::hpack::{HPackItem, HPackEncode};
 use crate::json::JsonValue;
 use crate::reader::{ReadExt, Reader};
@@ -604,7 +604,7 @@ impl<'a> HeaderReader<'a> {
         let invalid_keys = ["connection", "host", "content-length", "transfer-encoding", "upgrade"];
         let keys = self.header.keys.iter().filter(|x| !invalid_keys.contains(&x.name_lower().as_str()) && !x.value().is_empty());
         let kln: usize = keys.clone().map(|x| x.name().len() + x.value().may_len() + 10).sum();
-        if buf.unfilled_len() < len + kln { return Err(BufferError::BufferTooSmall(buf.capacity()).into()); }
+        if buf.unfilled_len() < len + kln { return Err(BufferError::CapacityTooSmall { needed: len + kln, current: buf.capacity() }.into()); }
 
         let offset = buf.offset();
         let mut header_frame = H2Frame::new_header(self.body_len, *self.stream_identifier);
@@ -645,7 +645,7 @@ impl<'a> ReadExt for HeaderReader<'a> {
         match self.header.alpn {
             ALPN::Http20 => self.read_h2(buf),
             ALPN::Http11 | ALPN::Http10 => self.read_h1(buf),
-            ALPN::Custom(_) => Err(BufferError::UnsupportedALPN(self.header.alpn.clone()).into()),
+            ALPN::Custom(_) => Err(HlsError::UnsupportedAlpn(self.header.alpn.clone()).into()),
         }
     }
 }
