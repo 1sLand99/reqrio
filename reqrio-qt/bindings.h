@@ -42,13 +42,9 @@ namespace bindings {
 
     int ScReq_add_param(ScReq *req, const char *name, const char *value);
 
-    int ScReq_set_data(ScReq *req, const char *data);
+    int ScReq_set_bytes(ScReq *req, const uint8_t *bytes, uint32_t len, const char *ct);
 
-    int ScReq_set_json(ScReq *req, const char *json);
-
-    int ScReq_set_bytes(ScReq *req, const char *bytes, uint32_t len);
-
-    int ScReq_set_text(ScReq *req, const char *text);
+    int ScReq_set_context_type(ScReq *req, const char *ct);
 
     int ScReq_set_timeout(ScReq *req, const char *timeout);
 

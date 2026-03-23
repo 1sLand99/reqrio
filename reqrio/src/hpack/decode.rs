@@ -4,7 +4,6 @@ use super::table::Table;
 use crate::error::HlsResult;
 use crate::hpack::{huffman, HPackItem};
 use crate::Header;
-use std::borrow::Cow;
 use std::mem;
 
 pub struct HPackDecodeBuf<'a> {
@@ -17,6 +16,14 @@ pub struct HPackDecodeBuf<'a> {
 }
 
 impl<'a> HPackDecodeBuf<'a> {
+    pub fn new(remain: Vec<u8>, buf: &[u8]) -> HPackDecodeBuf<'_> {
+        HPackDecodeBuf {
+            remain,
+            buf,
+            read: 0,
+            used: 0,
+        }
+    }
     pub fn into_vec(self) -> Vec<u8> {
         match self.used >= self.remain.len() {
             true => self.buf[self.used - self.remain.len()..].to_vec(),
@@ -100,39 +107,39 @@ impl HPackDecode {
         } else { Err(HPackError::InvalidLenIndex.into()) }
     }
 
-    fn decode_next<'a>(&'a mut self, buf: &mut HPackDecodeBuf<'_>) -> HlsResult<Cow<'a, HPackItem>> {
+    pub fn decode_next(&mut self, buf: &mut HPackDecodeBuf<'_>) -> HlsResult<HPackItem> {
         let index = self.decode_index(buf)?;
         let res = match index {
-            Index::Indexed(index) => Ok(Cow::Borrowed(self.table.get(index - 1).ok_or(HPackError::IndexedItemNone)?)),
+            Index::Indexed(index) => Ok(self.table.get(index - 1).ok_or(HPackError::IndexedItemNone)?.clone()),
             Index::NoIndexAdd => {
                 let name = self.decode_string(buf)?;
                 let value = self.decode_string(buf)?;
                 let item = HPackItem::new(name, value);
-                self.table.insert(item);
-                Ok(Cow::Borrowed(&self.table[61]))
+                self.table.insert(item.clone());
+                Ok(item)
             }
             Index::NoIndexOnce | Index::NoIndexNever => {
                 let name = self.decode_string(buf)?;
                 let value = self.decode_string(buf)?;
                 let item = HPackItem::new(name, value);
-                Ok(Cow::Owned(item))
+                Ok(item)
             }
             Index::NameIndexedAdd(index) => {
                 let mut item = self.table.get(index - 1).ok_or(HPackError::NameIndexedItemNone)?.clone();
                 let value = self.decode_string(buf)?;
                 item.set_value(value);
-                self.table.insert(item);
-                Ok(Cow::Borrowed(&self.table[61]))
+                self.table.insert(item.clone());
+                Ok(item)
             }
             Index::NameIndexedOnce(index) | Index::NameIndexedNever(index) => {
                 let mut item = self.table.get(index - 1).ok_or(HPackError::NameIndexedItemNone)?.clone();
                 let value = self.decode_string(buf)?;
                 item.set_value(value);
-                Ok(Cow::Owned(item))
+                Ok(item)
             }
             Index::UpdateDynamicSize(index) => {
                 self.table.update_table_size(index);
-                Ok(Cow::Owned(HPackItem::new_table_size(index)))
+                Ok(HPackItem::new_table_size(index))
             }
             _ => Err(HPackError::InvalidIndexType(index.into_inner() as u8).into())
         };
@@ -150,7 +157,7 @@ impl HPackDecode {
         loop {
             if buf.is_empty() { break; }
             match self.decode_next(&mut buf) {
-                Ok(item) => header.push_pack_item(item.as_ref())?,
+                Ok(item) => header.push_pack_item(&item)?,
                 Err(e) => if e.to_string() == "buffer too small" {
                     self.remain = buf.into_vec();
                     break;
@@ -168,8 +175,8 @@ impl HPackDecode {
 
 #[cfg(test)]
 mod tests {
-    use crate::Header;
     use crate::hpack::decode::{HPackDecode, HPackDecodeBuf};
+    use crate::Header;
 
     #[test]
     fn test_index_integer_decode() {

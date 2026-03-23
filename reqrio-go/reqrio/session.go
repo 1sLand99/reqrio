@@ -3,6 +3,7 @@ package reqrio
 /*
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #cgo LDFLAGS: -L${SRCDIR}/../ -lreqrio
 extern void * ScReq_new();
@@ -19,10 +20,8 @@ extern int ScReq_set_ja4(void *req, const char *ja4, const char *token);
 extern int ScReq_set_proxy(void *req, const char *alpn);
 extern int ScReq_set_url(void *req, const char *alpn);
 extern int ScReq_add_param(void *req, const char *name, const char *value);
-extern int ScReq_set_data(void *req, const char *data);
-extern int ScReq_set_json(void *req, const char *json);
-extern int ScReq_set_bytes(void *req, const char *bytes, uint32_t len);
-extern int ScReq_set_text(void *req, const char *text);
+extern int ScReq_set_bytes(void *req, const uint8_t *bytes, uint32_t len, const char *context_type);
+extern int ScReq_set_context_type(void *req,const char *context_type);
 extern int ScReq_set_timeout(void *req, const char *timeout);
 extern int ScReq_set_cookie(void *req, const char *cookie);
 extern int ScReq_add_cookie(void *req, const char *name,const char *value);
@@ -138,37 +137,42 @@ func (session *Session) AddParam(name string, value string) error {
 	return nil
 }
 
-func (session *Session) SetData(name string) error {
-	ret := C.ScReq_set_data(session.req, C.CString(name))
-	if ret == -1 {
-		return errors.New("sc set data error")
-	}
-	return nil
+func (session *Session) SetData(data string) error {
+	err := session.SetBytes([]byte(data),"application/x-www-form-urlencoded")
+	return err
 
 }
 
 func (session *Session) SetJson(json string) error {
-	ret := C.ScReq_set_json(session.req, C.CString(json))
-	if ret == -1 {
-		return errors.New("sc set json error")
-	}
-	return nil
+    err := session.SetBytes([]byte(json), "application/json")
+    return err
 }
 
-func (session *Session) SetBytes(bytes []byte) error {
-	ret := C.ScReq_set_bytes(session.req, (*C.char)(unsafe.Pointer(&bytes[0])), C.uint32_t(len(bytes)))
+func (session *Session) SetBytes(bytes []byte, context_type string) error {
+    var ptr *C.uint8_t;
+    if len(bytes) > 0 {
+        ptr = (*C.uint8_t)(unsafe.Pointer(&bytes[0]))
+    }
+    cstr := C.CString(context_type)
+    defer C.free(unsafe.Pointer(cstr))
+	ret := C.ScReq_set_bytes(session.req, ptr, C.uint32_t(len(bytes)), cstr)
 	if ret == -1 {
-		return errors.New("sc set bytes error")
+		return errors.New("sc set body error")
 	}
 	return nil
 }
 
 func (session *Session) SetText(text string) error {
-	ret := C.ScReq_set_text(session.req, C.CString(text))
-	if ret == -1 {
-		return errors.New("sc set text error")
-	}
-	return nil
+        err := session.SetBytes([]byte(text),"text/plain")
+    	return err
+}
+
+func (session *Session) SetContextType(context_type string) error {
+    ret := C.ScReq_set_context_type(session.req, C.CString(context_type))
+    if ret == -1 {
+        return errors.New("sc set context_type error")
+    }
+    return nil
 }
 
 func (session *Session) SetTimeout(timeout string) error {

@@ -25,37 +25,39 @@ public:
 
     explicit Session(ALPN alpn, bool rand_tls = false, const QString &token = "", bool verify = true);
 
-    void set_header_json(const QString &header) const;
+    void setHeaderJson(const QString &header) const;
 
-    void add_header(const QString &name, const QString &value) const;
+    void addHeader(const QString &name, const QString &value) const;
 
-    void set_alpn(ALPN alpn) const;
+    void setAlpn(ALPN alpn) const;
 
-    void set_proxy(const QString &proxy) const;
+    void setProxy(const QString &proxy) const;
 
-    void add_param(const QString &name, const QString &value) const;
+    void addParam(const QString &name, const QString &value) const;
 
-    void set_data(const QString &data) const;
+    void setData(const QString &data) const;
 
-    void set_json(const QString &json) const;
+    void setJson(const QString &json) const;
 
-    void set_bytes(const char *bytes) const;
+    void setBytes(const uint8_t *bytes, const QString &ct = "application/octet-stream") const;
 
-    void set_text(const QString &content_type) const;
+    void setText(const QString &text) const;
 
-    void set_timeout(const Timeout &timeout) const;
+    void setContextType(const QString &contextType) const;
 
-    void set_cookie(const QString &cookie) const;
+    void setTimeout(const Timeout &timeout) const;
 
-    void add_cookie(const QString &name, const QString &value) const;
+    void setCookie(const QString &cookie) const;
 
-    void set_fingerprint(const QString &fingerprint, const QString &token) const;
+    void addCookie(const QString &name, const QString &value) const;
 
-    void set_ja3(const QString &ja3, const QString &token) const;
+    void setFingerprint(const QString &fingerprint, const QString &token) const;
 
-    void set_ja4(const QString &ja4, const QString &token) const;
+    void setJa3(const QString &ja3, const QString &token) const;
 
-    void set_callback(bindings::Callback callback);
+    void setJa4(const QString &ja4, const QString &token) const;
+
+    void setCallback(bindings::Callback callback) const;
 
     [[nodiscard]] Response get() const;
 

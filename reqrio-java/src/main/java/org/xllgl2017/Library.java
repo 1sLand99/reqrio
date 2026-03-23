@@ -31,13 +31,9 @@ interface ReqrioLibrary extends Library {
 
     int ScReq_add_param(Pointer req, String name, String value);
 
-    int ScReq_set_data(Pointer req, String data);
+    int ScReq_set_bytes(Pointer req, byte[] bytes, int len, String ct);
 
-    int ScReq_set_json(Pointer req, String json);
-
-    int ScReq_set_bytes(Pointer req, byte[] bytes, int len);
-
-    int ScReq_set_text(Pointer req, String text);
+    int ScReq_set_context_type(Pointer req, String ct);
 
     int ScReq_set_timeout(Pointer req, String timeout);
 

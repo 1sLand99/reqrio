@@ -13,7 +13,7 @@ Session::Session() {
 }
 
 
-Session::Session(const ALPN alpn, bool rand_tls, const QString &token, bool verify) {
+Session::Session(const ALPN alpn, const bool rand_tls, const QString &token, const bool verify) {
     this->req = bindings::ScReq_new();
     bindings::ScReq_set_alpn(this->req, alpn_str(alpn));
     if (rand_tls && !token.isEmpty())
@@ -21,20 +21,20 @@ Session::Session(const ALPN alpn, bool rand_tls, const QString &token, bool veri
     bindings::ScReq_set_verify(this->req, verify);
 }
 
-void Session::set_header_json(const QString &header) const {
+void Session::setHeaderJson(const QString &header) const {
     bindings::ScReq_set_header_json(this->req, header.toUtf8());
 }
 
-void Session::add_header(const QString &name, const QString &value) const {
+void Session::addHeader(const QString &name, const QString &value) const {
     bindings::ScReq_add_header(this->req, name.toUtf8(), value.toUtf8());
 }
 
-void Session::set_alpn(const ALPN alpn) const {
+void Session::setAlpn(const ALPN alpn) const {
     const char *alpn_str = Session::alpn_str(alpn);
     bindings::ScReq_set_alpn(this->req, alpn_str);
 }
 
-void Session::set_proxy(const QString &proxy) const {
+void Session::setProxy(const QString &proxy) const {
     bindings::ScReq_set_proxy(this->req, proxy.toUtf8());
 }
 
@@ -42,48 +42,52 @@ void Session::setUrl(const QString &url) const {
     bindings::ScReq_set_url(this->req, url.toUtf8());
 }
 
-void Session::add_param(const QString &name, const QString &value) const {
+void Session::addParam(const QString &name, const QString &value) const {
     bindings::ScReq_add_param(this->req, name.toUtf8(), value.toUtf8());
 }
 
-void Session::set_data(const QString &data) const {
-    bindings::ScReq_set_data(this->req, data.toUtf8());
+void Session::setData(const QString &data) const {
+    this->setBytes(reinterpret_cast<const uint8_t *>(data.toUtf8().data()), "application/x-www-form-urlencoded");
 }
 
-void Session::set_json(const QString &json) const {
-    bindings::ScReq_set_json(this->req, json.toUtf8());
+void Session::setJson(const QString &json) const {
+    this->setBytes(reinterpret_cast<const uint8_t *>(json.toUtf8().data()), "application/json");
 }
 
-void Session::set_bytes(const char *bytes) const {
-    bindings::ScReq_set_bytes(this->req, bytes, sizeof(bytes));
+void Session::setBytes(const uint8_t *bytes, const QString &ct) const {
+    bindings::ScReq_set_bytes(this->req, bytes, sizeof(bytes), ct.toUtf8());
 }
 
-void Session::set_text(const QString &content_type) const {
-    bindings::ScReq_set_text(this->req, content_type.toUtf8());
+void Session::setText(const QString &text) const {
+    this->setBytes(reinterpret_cast<const uint8_t *>(text.toUtf8().data()), "text/plain");
 }
 
-void Session::set_timeout(const Timeout &timeout) const {
+void Session::setContextType(const QString &contextType) const {
+    bindings::ScReq_set_context_type(this->req, contextType.toUtf8());
+}
+
+void Session::setTimeout(const Timeout &timeout) const {
     const auto json = QJsonDocument(timeout.toJson());
     bindings::ScReq_set_timeout(this->req, json.toJson(QJsonDocument::Compact));
 }
 
-void Session::set_cookie(const QString &cookie) const {
+void Session::setCookie(const QString &cookie) const {
     bindings::ScReq_set_cookie(this->req, cookie.toUtf8());
 }
 
-void Session::add_cookie(const QString &name, const QString &value) const {
+void Session::addCookie(const QString &name, const QString &value) const {
     bindings::ScReq_add_cookie(this->req, name.toUtf8(), value.toUtf8());
 }
 
-void Session::set_fingerprint(const QString &fingerprint, const QString &token) const {
+void Session::setFingerprint(const QString &fingerprint, const QString &token) const {
     bindings::ScReq_set_fingerprint(this->req, fingerprint.toUtf8(), token.toUtf8());
 }
 
-void Session::set_ja3(const QString &ja3, const QString &token) const {
+void Session::setJa3(const QString &ja3, const QString &token) const {
     bindings::ScReq_set_ja3(this->req, ja3.toUtf8(), token.toUtf8());
 }
 
-void Session::set_ja4(const QString &ja4, const QString &token) const {
+void Session::setJa4(const QString &ja4, const QString &token) const {
     bindings::ScReq_set_ja4(this->req, ja4.toUtf8(), token.toUtf8());
 }
 
@@ -95,7 +99,7 @@ Response Session::send(const bindings::Method method) const {
     return resp;
 }
 
-void Session::set_callback(bindings::Callback callback) {
+void Session::setCallback(const bindings::Callback callback) const {
     bindings::ScReq_set_callback(this->req, callback);
 }
 

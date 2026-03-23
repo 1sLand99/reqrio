@@ -14,16 +14,17 @@ void callback(const char *data, uint32_t len) {
 }
 
 int main(int argc, char *argv[]) {
-    Session session(HTTP20, true, "1",false);
+    Session session(HTTP20, true, "1", false);
     session.setUrl("https://m.so.com");
-    session.set_callback(callback);
+    session.setText("sdfsdf");
+    session.setCallback(callback);
     Response resp = session.get();
     qDebug() << resp.getHeader().getStatus();
 
     try {
         WebSocket webSocket("wss://alive.github.com");
         webSocket.open();
-    }catch (std::exception &e) {
+    } catch (std::exception &e) {
         qDebug() << e.what();
     }
 

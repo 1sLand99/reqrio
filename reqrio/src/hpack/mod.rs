@@ -1,7 +1,7 @@
 pub use error::HPackError;
 pub use item::HPackItem;
 pub use encode::HPackEncode;
-pub use decode::HPackDecode;
+pub use decode::{HPackDecode, HPackDecodeBuf};
 
 mod encode;
 mod decode;

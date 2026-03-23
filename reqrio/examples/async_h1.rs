@@ -96,10 +96,11 @@ async fn main() {
     // req.set_url("https://oauth.hubei.gov.cn:8443/").await.unwrap();
 
 
-    // req.set_url("https://m.so.com").await.unwrap();
+    req.set_url("https://m.so.com").await.unwrap();
     // req.set_url("https://im.jinritemai.com/").await.unwrap();
     req.set_auto_redirect(false);
-    req.set_url("https://cn.bing.com/AS/Suggestions?pt=page.home&qry=&csr=1&pths=1&zis=1&pf=1&cvid=AFEA02EAF9E449A99970476597AE6CED").await.unwrap();
+    // req.set_url("https://cn.bing.com/AS/Suggestions?pt=page.home&qry=&csr=1&pths=1&zis=1&pf=1&cvid=AFEA02EAF9E449A99970476597AE6CED").await.unwrap();
+    req.set_text("sfsdf");
     let res = req.get().await.unwrap();
     // req.set_url("https://cn.bing.com/hp/api/v1/carousel?&format=json&ecount=20&efirst=0&&").await.unwrap();
     // let res = req.get().await.unwrap();

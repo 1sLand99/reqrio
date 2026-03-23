@@ -87,23 +87,29 @@ public class Session implements AutoCloseable {
     }
 
     public void setData(JsonObject data) throws Exception {
-        int res = INSTANCE.ScReq_set_data(this.req, new Gson().toJson(data));
-        if (res == -1) throw new Exception("set data error");
+        this.setBytes(new Gson().toJson(data).getBytes(), "application/x-www-form-urlencoded");
     }
 
     public void setJson(JsonElement json) throws Exception {
-        int res = INSTANCE.ScReq_set_json(this.req, new Gson().toJson(json));
-        if (res == -1) throw new Exception("set json error");
+        this.setBytes(new Gson().toJson(json).getBytes(), "application/json");
     }
 
     public void setBytes(byte[] bytes) throws Exception {
-        int res = INSTANCE.ScReq_set_bytes(this.req, bytes, bytes.length);
-        if (res == -1) throw new Exception("set bytes error");
+        this.setBytes(bytes, "application/octet-stream");
+    }
+
+    public void setBytes(byte[] bytes, String ct) throws Exception {
+        int res = INSTANCE.ScReq_set_bytes(this.req, bytes, bytes.length, ct);
+        if (res == -1) throw new Exception("set body error");
     }
 
     public void setText(String text) throws Exception {
-        int res = INSTANCE.ScReq_set_text(this.req, text);
-        if (res == -1) throw new Exception("set content_type error");
+        this.setBytes(text.getBytes(), "text/plain");
+    }
+
+    public void setContextType(String ct) throws Exception {
+        int ret = INSTANCE.ScReq_set_context_type(this.req, ct);
+        if (ret == -1) throw new Exception("set context type error");
     }
 
     public void setTimeout(Timeout timeout) throws Exception {

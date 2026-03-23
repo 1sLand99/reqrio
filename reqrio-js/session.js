@@ -76,24 +76,25 @@ class Session {
 
     set_data(data) {
         let data_str = JSON.stringify(data)
-        let ret = library.ScReq_set_data(data_str);
-        if (ret === -1) throw "set_data error"
+        this.set_bytes(new TextEncoder().encode(data_str), "application/x-www-form-urlencoded")
     }
 
     set_json(json) {
-        let json_str = JSON.stringify(this.req, json);
-        let ret = library.ScReq_set_header_json(this.req, json_str);
-        if (ret === -1) throw "set_json error"
+        let json_str = JSON.stringify(json);
+        this.set_bytes(new TextEncoder().encode(json_str), "application/json")
     }
 
-    set_bytes(buffer) {
-        let ret = library.ScReq_set_bytes(this.req, buffer, buffer.length);
-        if (ret === -1) throw "set_bytes error"
+    set_bytes(buffer, ct = "application/octet-stream") {
+        let ret = library.ScReq_set_bytes(this.req, buffer, buffer.length, ct);
+        if (ret === -1) throw "set body error"
     }
 
     set_text(text) {
-        let ret = library.ScReq_set_text(this.req, text);
-        if (ret === -1) throw "set_text error"
+        this.set_bytes(new TextEncoder().encode(text), "text/plain")
+    }
+
+    set_context_type(ct) {
+        library.ScReq_set_context_type(this.req, ct)
     }
 
     /*

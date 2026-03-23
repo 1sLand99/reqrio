@@ -19,6 +19,7 @@ public class Main {
             System.out.println("len = " + data.length);
         });
         session.setUrl("https://m.so.com");
+        session.setText("sdfdfdgdfgdfgdfgsf");
         //请求
         Response response = session.get();
         System.out.println(response.toString());

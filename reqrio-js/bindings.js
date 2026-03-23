@@ -4,7 +4,7 @@ const path = require("path");
 
 const voidPtr = ref.refType(ref.types.void);
 const charPtr = ref.types.CString;
-const bytePtr = ref.refType(ref.types.char)
+const uint8Ptr = ref.refType(ref.types.uint8);
 
 const Method = {
     GET: 0,
@@ -39,10 +39,8 @@ const library = ffi.Library(libpath, {
     ScReq_set_proxy: ['int', [voidPtr, charPtr]],
     ScReq_set_url: ['int', [voidPtr, charPtr]],
     ScReq_add_param: ['int', [voidPtr, charPtr, charPtr]],
-    ScReq_set_data: ['int', [voidPtr, charPtr]],
-    ScReq_set_json: ['int', [voidPtr, charPtr]],
-    ScReq_set_bytes: ['int', [voidPtr, bytePtr, "uint32"]],
-    ScReq_set_text: ["int", [voidPtr, charPtr]],
+    ScReq_set_bytes: ['int', [voidPtr, uint8Ptr, "uint32", charPtr]],
+    ScReq_set_context_type: ['int', [voidPtr, charPtr]],
     ScReq_set_timeout: ["int", [voidPtr, charPtr]],
     ScReq_set_cookie: ['int', [voidPtr, charPtr]],
     ScReq_add_cookie: ['int', [voidPtr, charPtr, charPtr]],

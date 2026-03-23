@@ -38,11 +38,12 @@ func main() {
 		println(err1.Error())
 	}
 	session.SetRandomFingerprint("")
-	err := session.SetUrl("https://m.so.com")
+	err := session.SetUrl("https://www.baidu.com")
 	if err != nil {
 		println(err.Error())
 		return
 	}
+    session.SetText("sdfdf")
 	resp, err := session.Get()
 	if err != nil {
 		println(err.Error())

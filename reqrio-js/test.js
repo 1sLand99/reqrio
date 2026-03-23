@@ -1,6 +1,7 @@
 const {Session, ALPN, Websocket} = require('./index')
 
 let session = new Session(ALPN.HTTP20, true, "sd", false);
+session.set_text("sdfdgdfg")
 session.set_url("https://m.so.com");
 session.set_callback(function (data) {
     console.log(data.length)

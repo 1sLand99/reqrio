@@ -174,23 +174,14 @@ impl Response {
         let ended = frame.is_end_frame();
         match frame.frame_type() {
             FrameType::Data => self.raw.extend_from_slice(frame.payload()),
-            FrameType::Headers => {
-                decoder.decode_into(frame.payload(), &mut self.header)?;
-
-
-                // self.raw.extend_from_slice(frame.payload());
-                // if frame.frame_flag().end_header() {
-                //     let mut hdr_bs = mem::take(&mut self.raw);
-                //     self.header = Header::parse_h2(hpack_coding.decode(&mut hdr_bs)?)?;
-                // }
-            }
+            FrameType::Headers => decoder.decode_into(frame.payload(), &mut self.header)?,
             _ => {}
         }
         Ok(ended)
     }
 
-    pub fn push_raw(&mut self, raw: Vec<u8>) {
-        self.raw.extend(raw)
+    pub fn push_raw_slice(&mut self, raw: &[u8]) {
+        self.raw.extend_from_slice(raw)
     }
 
     pub fn header(&self) -> &Header {
@@ -198,6 +189,10 @@ impl Response {
     }
 
     pub fn header_mut(&mut self) -> &mut Header { &mut self.header }
+
+    pub fn set_header(&mut self, header: Header) {
+        self.header = header
+    }
 
     pub fn raw_body(&self) -> &[u8] { &self.raw }
 
