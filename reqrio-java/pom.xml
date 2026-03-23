@@ -6,7 +6,7 @@
 
     <groupId>io.github.xllgl2017</groupId>
     <artifactId>reqrio</artifactId>
-    <version>0.2.0-alpha2</version>
+    <version>0.2.0-beta1</version>
     <packaging>jar</packaging>
     <name>reqrio</name>
     <description>A lightweight, high concurrency HTTP request library</description>
