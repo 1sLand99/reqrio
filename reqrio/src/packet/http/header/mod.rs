@@ -567,6 +567,7 @@ impl<'a> HeaderReader<'a> {
                 continue;
             }
             let len = key.name().len() + key.value().may_len() + self.addr.host().len() + 4;
+            println!("{} {} {} {}", key.name(), buf.capacity(), buf.len(), len);
             if buf.unfilled_len() < len { return Ok(buf.offset().end - start); }
             buf.write_slice(key.name().as_bytes());
             buf.write_slice(b": ");

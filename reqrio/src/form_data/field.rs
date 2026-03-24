@@ -19,7 +19,7 @@ impl FormField {
         let mut reader: RefReader<&[u8]> = RefReader::default();
         reader.add_buf(b"--");
         reader.add_buf(md5.as_bytes());
-        reader.add_buf(b"--\r\n");
+        reader.add_buf(b"\r\n");
         //line2
         reader.add_buf(b"Content-Disposition: form-data; name=\"");
         reader.add_buf(self.name.as_bytes());
@@ -28,7 +28,6 @@ impl FormField {
         reader.add_buf(b"\r\n");
         //line4
         reader.add_buf(self.value.as_bytes());
-        // reader.add_buf(b"\r\n");
         //line5
         reader.add_buf(b"\r\n");
         reader

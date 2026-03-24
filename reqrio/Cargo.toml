@@ -14,7 +14,7 @@ crate-type = ['rlib', 'cdylib']
 [dependencies]
 reqrio-json = { workspace = true }
 serde = { workspace = true, optional = true }
-tokio = { version = "1.49.0", features = ["time", "net", "io-util", "macros", 'rt-multi-thread'], optional = true }
+tokio = { version = "1", features = ["time", "net", "io-util", "macros", 'rt-multi-thread'], optional = true }
 reqtls = { workspace = true, features = ["zstd"] }
 
 [features]

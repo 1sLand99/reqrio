@@ -14,7 +14,7 @@ impl<'a> Reader<'a> {
 
     pub fn filled(&self) -> &[u8] { &self.buffer[..self.pos] }
 
-    pub fn unfilled_len(&self) -> usize { self.buffer.len() - self.pos }
+    pub fn unfilled_len(&self) -> usize {println!("1={} {}",self.buffer.len(),self.pos) ;self.buffer.len() - self.pos }
 
     pub fn unfilled(&mut self) -> &mut [u8] { &mut self.buffer[self.pos..] }
 
@@ -60,13 +60,13 @@ impl<R: AsRef<[u8]>> Default for RefReader<R> {
 }
 
 impl<R: AsRef<[u8]>> RefReader<R> {
-    // pub fn new_buf(buf: R) -> RefReader<R> {
-    //     RefReader {
-    //         bufs: vec![Cursor::new(buf)],
-    //         pos: 0,
-    //         wrote: false,
-    //     }
-    // }
+    pub fn new_buf(buf: R) -> RefReader<R> {
+        RefReader {
+            bufs: vec![Cursor::new(buf)],
+            pos: 0,
+            wrote: false,
+        }
+    }
     pub fn add_buf(&mut self, buf: R) {
         self.bufs.push(Cursor::new(buf));
     }

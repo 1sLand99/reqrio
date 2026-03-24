@@ -103,6 +103,7 @@ impl<'a> ReadExt for FormRender<'a> {
 pub(crate) struct FileFormBuffer<'a> {
     pub(crate) prefix_reader: RefReader<&'a [u8]>,
     pub(crate) file_reader: FormRender<'a>,
+    pub(crate) suffix_reader: RefReader<&'a [u8]>,
     pub(crate) pos: usize,
     pub(crate) wrote: bool,
 }
@@ -130,6 +131,13 @@ impl<'a> ReadExt for FileFormBuffer<'a> {
             match self.file_reader.wrote() {
                 true => self.pos += 1,
                 false => return Ok(buf.offset().end - start),
+            }
+        }
+        if self.pos == 2 {
+            self.suffix_reader.read(buf)?;
+            match self.suffix_reader.wrote() {
+                true => self.pos += 1,
+                false => return Ok(buf.offset().end - start)
             }
         }
         self.wrote = true;

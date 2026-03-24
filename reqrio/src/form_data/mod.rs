@@ -50,6 +50,7 @@ impl Default for FileForm {
         }
     }
 }
+
 impl FileForm {
     pub fn new_path(path: impl AsRef<Path>) -> HlsResult<FileForm> {
         let path = path.as_ref().to_path_buf();
@@ -117,6 +118,8 @@ impl FileForm {
         }
     }
 
+    pub fn filename(&self) -> &str { &self.filename }
+
     pub(crate) fn as_form_render<'a>(&'a self, boundary: &'a Arc<String>) -> HlsResult<FileFormBuffer<'a>> {
         let mut reader: RefReader<&[u8]> = RefReader::default();
         //line1
@@ -142,6 +145,7 @@ impl FileForm {
             //line5
             file_reader: self.input.as_reader()?,
             //line6
+            suffix_reader: RefReader::new_buf(b"\r\n"),
             pos: 0,
             wrote: false,
         })
