@@ -641,6 +641,10 @@ impl<'a> ReadExt for HeaderReader<'a> {
         self.wrote
     }
 
+    fn len(&self) -> usize {
+        unreachable!()
+    }
+
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         match self.header.alpn {
             ALPN::Http20 => self.read_h2(buf),

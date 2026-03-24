@@ -68,7 +68,7 @@ impl<'a> Index<&'a String> for JsonValue {
     }
 }
 
-impl IndexMut<& str> for JsonValue {
+impl IndexMut<&str> for JsonValue {
     fn index_mut(&mut self, index: &str) -> &mut JsonValue {
         match *self {
             JsonValue::Object(ref mut object) => {
@@ -88,7 +88,7 @@ impl IndexMut<String> for JsonValue {
     }
 }
 
-impl IndexMut<& String> for JsonValue {
+impl IndexMut<&String> for JsonValue {
     fn index_mut(&mut self, index: &String) -> &mut JsonValue {
         self.index_mut(index.as_str())
     }
@@ -519,5 +519,45 @@ mod tests {
         let v: JsonValue = serde_json::from_str(&strs).unwrap();
         println!("{}", v.pretty());
         println!("{} {}", v["sdsd"], v["tf"].pretty())
+    }
+
+    #[test]
+    fn test_update() {
+        let mut jd = crate::object! {
+            "b":"dffdf",
+            "c":[{
+                "1":"k1",
+                "2":"l2"
+            }],
+            "a":null,
+            "d":1,
+            "fs":false,
+            "sf":1.23234,
+            "dffdfdf":{
+                "1":1,
+                "2":2,
+                "3":3,
+            }
+        };
+        let j2 = crate::object! {
+            "b":"dffdf",
+            "c":[{
+                "2":"989078"
+            }],
+            "a":{
+                "s":1,
+                "k":"bs"
+            },
+            "d":1,
+            "fs":true,
+            "sf":1.3,
+            "dffdfdf":{
+                "1":1,
+                "3":2,
+                "3":3,
+            }
+        };
+        jd.update_by(j2).unwrap();
+        println!("{}", jd.pretty());
     }
 }

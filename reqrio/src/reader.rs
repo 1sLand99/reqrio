@@ -60,13 +60,13 @@ impl<R: AsRef<[u8]>> Default for RefReader<R> {
 }
 
 impl<R: AsRef<[u8]>> RefReader<R> {
-    pub fn new_buf(buf: R) -> RefReader<R> {
-        RefReader {
-            bufs: vec![Cursor::new(buf)],
-            pos: 0,
-            wrote: false,
-        }
-    }
+    // pub fn new_buf(buf: R) -> RefReader<R> {
+    //     RefReader {
+    //         bufs: vec![Cursor::new(buf)],
+    //         pos: 0,
+    //         wrote: false,
+    //     }
+    // }
     pub fn add_buf(&mut self, buf: R) {
         self.bufs.push(Cursor::new(buf));
     }
@@ -77,6 +77,9 @@ impl<R: AsRef<[u8]>> RefReader<R> {
 impl<R: AsRef<[u8]>> ReadExt for RefReader<R> {
     fn wrote(&self) -> bool {
         self.wrote
+    }
+    fn len(&self) -> usize {
+        self.bufs.iter().map(|x| x.get_ref().as_ref().len()).sum()
     }
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         let start = buf.offset().end;
@@ -99,5 +102,6 @@ impl<R: AsRef<[u8]>> ReadExt for RefReader<R> {
 
 pub trait ReadExt {
     fn wrote(&self) -> bool;
+    fn len(&self) -> usize;
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize>;
 }

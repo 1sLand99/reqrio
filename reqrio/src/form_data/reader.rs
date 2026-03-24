@@ -8,20 +8,22 @@ pub struct HttpFileReader<'a> {
     pub(crate) data_readers: Vec<RefReader<&'a [u8]>>,
     pub(crate) files: Vec<FileFormBuffer<'a>>,
     pub(crate) suffix_reader: RefReader<&'a [u8]>,
-    pub(crate) len: usize,
     pub(crate) row: usize,
     pub(crate) pos: usize,
     pub(crate) wrote: bool,
-}
-
-impl<'a> HttpFileReader<'a> {
-    pub fn len(&self) -> usize { self.len }
 }
 
 
 impl<'a> ReadExt for HttpFileReader<'a> {
     fn wrote(&self) -> bool {
         self.wrote
+    }
+
+    fn len(&self) -> usize {
+        let data_len: usize = self.data_readers.iter().map(|x| x.len()).sum();
+        let file_len: usize = self.files.iter().map(|x| x.len()).sum();
+        let suffix_len: usize = self.suffix_reader.len();
+        data_len + file_len + suffix_len
     }
 
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
@@ -56,6 +58,7 @@ impl<'a> ReadExt for HttpFileReader<'a> {
                 false => return Ok(buf.offset().end - start)
             }
         }
+        self.wrote = true;
         Ok(buf.offset().end - start)
     }
 }
@@ -70,6 +73,13 @@ impl<'a> ReadExt for FormRender<'a> {
         match self {
             FormRender::File((wrote, size, _)) => wrote == size,
             FormRender::Bytes(bytes) => bytes.position() as usize == bytes.get_ref().len(),
+        }
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            FormRender::File((_, size, _)) => *size,
+            FormRender::Bytes(bs) => bs.get_ref().len()
         }
     }
 
@@ -93,7 +103,6 @@ impl<'a> ReadExt for FormRender<'a> {
 pub(crate) struct FileFormBuffer<'a> {
     pub(crate) prefix_reader: RefReader<&'a [u8]>,
     pub(crate) file_reader: FormRender<'a>,
-    pub(crate) suffix_reader: RefReader<&'a [u8]>,
     pub(crate) pos: usize,
     pub(crate) wrote: bool,
 }
@@ -101,6 +110,10 @@ pub(crate) struct FileFormBuffer<'a> {
 impl<'a> ReadExt for FileFormBuffer<'a> {
     fn wrote(&self) -> bool {
         self.wrote
+    }
+
+    fn len(&self) -> usize {
+        self.prefix_reader.len() + self.file_reader.len()
     }
 
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
@@ -115,14 +128,6 @@ impl<'a> ReadExt for FileFormBuffer<'a> {
         if self.pos == 1 {
             self.file_reader.read(buf)?;
             match self.file_reader.wrote() {
-                true => self.pos += 1,
-                false => return Ok(buf.offset().end - start),
-            }
-        }
-
-        if self.pos == 2 {
-            self.suffix_reader.read(buf)?;
-            match self.suffix_reader.wrote() {
                 true => self.pos += 1,
                 false => return Ok(buf.offset().end - start),
             }

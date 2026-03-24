@@ -15,13 +15,6 @@ impl BodyType {
         BodyType::Bytes(bytes)
     }
 
-    pub fn len(&self) -> usize {
-        match self {
-            BodyType::Bytes(b) => b.len(),
-            BodyType::Files(f) => f.len()
-        }
-    }
-
     pub fn as_reader(&self) -> HlsResult<H1BodyReader<'_>> {
         match self {
             BodyType::Bytes(bs) => Ok(H1BodyReader::Bytes(Cursor::new(bs))),
@@ -36,15 +29,6 @@ pub(crate) enum H1BodyReader<'a> {
     Files(HttpFileReader<'a>),
 }
 
-impl<'a> H1BodyReader<'a> {
-    pub fn len(&self) -> usize {
-        match self {
-            H1BodyReader::Bytes(bs) => bs.get_ref().len(),
-            H1BodyReader::Files(hfs) => hfs.len(),
-        }
-    }
-}
-
 impl<'a> ReadExt for H1BodyReader<'a> {
     fn wrote(&self) -> bool {
         match self {
@@ -52,6 +36,13 @@ impl<'a> ReadExt for H1BodyReader<'a> {
             H1BodyReader::Files(fs) => fs.wrote(),
         }
     }
+    fn len(&self) -> usize {
+        match self {
+            H1BodyReader::Bytes(bs) => bs.get_ref().len(),
+            H1BodyReader::Files(hfs) => hfs.len(),
+        }
+    }
+
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         match self {
             H1BodyReader::Bytes(bs) => {
@@ -74,6 +65,13 @@ impl<'a> ReadExt for BodyReader<'a> {
         match self {
             BodyReader::HTTP1(h1) => h1.wrote(),
             BodyReader::HTTP2(h2) => h2.wrote(),
+        }
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            BodyReader::HTTP1(h1) => h1.len(),
+            BodyReader::HTTP2(h2) => h2.len(),
         }
     }
 

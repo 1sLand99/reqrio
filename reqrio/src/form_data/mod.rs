@@ -117,7 +117,7 @@ impl FileForm {
         }
     }
 
-    pub(crate) fn as_form_buffer<'a>(&'a self, boundary: &'a Arc<String>) -> HlsResult<FileFormBuffer<'a>> {
+    pub(crate) fn as_form_render<'a>(&'a self, boundary: &'a Arc<String>) -> HlsResult<FileFormBuffer<'a>> {
         let mut reader: RefReader<&[u8]> = RefReader::default();
         //line1
         reader.add_buf(b"--");
@@ -142,7 +142,6 @@ impl FileForm {
             //line5
             file_reader: self.input.as_reader()?,
             //line6
-            suffix_reader: RefReader::new_buf(b"\r\n"),
             pos: 0,
             wrote: false,
         })
@@ -220,15 +219,6 @@ impl HttpFile {
         self.forms.remove(index)
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-    pub fn len(&self) -> usize {
-        let filed_size: usize = self.data.iter().map(|x| 85 + x.name.len() + x.value.len()).sum();
-        let form_size: usize = self.forms.iter().map(|x| x.len()).sum();
-        filed_size + form_size + 38
-    }
-
     pub fn forms(&self) -> &[FileForm] {
         &self.forms
     }
@@ -241,10 +231,9 @@ impl HttpFile {
         suffix_reader.add_buf(b"--\r\n");
         let mut files = vec![];
         for form in &self.forms {
-            files.push(form.as_form_buffer(&self.boundary)?);
+            files.push(form.as_form_render(&self.boundary)?);
         }
         Ok(HttpFileReader {
-            len: self.len(),
             data_readers: self.data.iter().map(|x| x.as_file_render(&self.boundary)).collect(),
             files,
             suffix_reader,

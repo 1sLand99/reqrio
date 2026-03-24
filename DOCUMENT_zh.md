@@ -1,13 +1,4 @@
-# reqrio中文文档
-
-reqrio是由rust开发并为其他提供ffi绑定的http库，reqrio的设计目标如下:
-
-* 仿真浏览器、TLS层由BoringSSL(和Chromium相同)提供加解密
-* 支持指纹替换，通过ja3、ja4、hex(client_hello+client_exchanged_key+change_cipher_spec)
-* 低依赖、体积小、快速、高效
-* 支持Server、mTls
-
-## 接口文档
+# reqrio中文 接口文档
 
 不同语言、不同版本有少许差异，可根据IDE补全，下面的示例仅展示rust语言
 

@@ -95,6 +95,10 @@ impl<'a> ReadExt for H2FrameHead<'a> {
         self.wrote
     }
 
+    fn len(&self) -> usize {
+        9 + self.pd_len as usize
+    }
+
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         let start = buf.offset().end;
         if buf.unfilled_len() < 14 { return Ok(buf.offset().end - start); }
@@ -139,6 +143,10 @@ impl<'a> H2BodyReader<'a> {
 impl<'a> ReadExt for H2BodyReader<'a> {
     fn wrote(&self) -> bool {
         self.wrote
+    }
+
+    fn len(&self) -> usize {
+        self.frames.iter().map(|x| x.len()).sum()
     }
 
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {

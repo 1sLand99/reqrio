@@ -156,12 +156,19 @@ impl JsonValue {
         }
     }
 
+    pub fn keys(&self) -> JsonResult<Vec<&str>> {
+        match self {
+            JsonValue::Object(obj) => Ok(obj.nodes().iter().map(|x| x.key()).collect()),
+            _ => Err("not json object".into())
+        }
+    }
+
     pub fn insert<T>(&mut self, key: &str, value: T) -> JsonResult<()>
     where
         T: Into<JsonValue>,
     {
         match self {
-            JsonValue::Object(o) => { Ok(o.insert(key, value.into())) }
+            JsonValue::Object(o) => Ok(o.insert(key, value.into())),
             _ => Err("Wrong Type Object!".into())
         }
     }
@@ -265,34 +272,43 @@ impl JsonValue {
         Ok(())
     }
 
-    fn update(json1: &mut JsonValue, json2: JsonValue) -> JsonResult<()> {
-        for (k, v) in json2.entries() {
-            if v.is_object() && json1.has_key(k) {
-                if json1[k].is_null() {
-                    json1[k] = JsonValue::new_object();
-                }
-                if !json1[k].is_object() {
-                    json1[k] = JsonValue::new_object();
-                }
-                Self::update(&mut json1[k], json2[k].clone())?;
+    fn update_object(json1: &mut JsonValue, json2: JsonValue) -> JsonResult<()> {
+        for (k, v) in json2.into_entries() {
+            if v.is_object() && json1[k.as_str()].is_object() {
+                Self::update_object(&mut json1[k], v)?;
                 continue;
-            } else if v.is_object() && !json1.has_key(k) {
-                if json1[k].is_null() {
-                    json1[k] = JsonValue::new_array()
-                }
-                if !json1[k].is_array() {
-                    json1[k] = JsonValue::new_array();
-                }
-                json1.insert(k, json2[k].clone())?;
+            } else if v.is_array() && json1[k.as_str()].is_array() {
+                Self::update_array(&mut json1[k], v)?;
                 continue;
             }
-            json1.insert(k, json2[k].clone())?;
+            json1.insert(&k, v)?;
+        }
+        Ok(())
+    }
+
+    fn update_array(json1: &mut JsonValue, json2: JsonValue) -> JsonResult<()> {
+        for (i, v) in json2.into_members().enumerate() {
+            if v.is_object() && json1[i].is_object() {
+                Self::update_object(&mut json1[i], v)?;
+                continue;
+            } else if v.is_array() && json1[i].is_array() {
+                Self::update_array(&mut json1[i], v)?;
+                continue;
+            }
+            json1[i] = v;
         }
         Ok(())
     }
 
     pub fn update_by(&mut self, other: JsonValue) -> JsonResult<()> {
-        Self::update(self, other)
+        if other.is_object() && self.is_object() {
+            Self::update_object(self, other)
+        } else if other.is_array() && self.is_array() {
+            Self::update_array(self, other)
+        } else {
+            *self = other;
+            Ok(())
+        }
     }
 
     fn set_by_xpath(&mut self, xp: &[String], value: JsonValue) -> JsonResult<()> {
@@ -319,7 +335,7 @@ impl JsonValue {
     }
 
     fn get_by_xpath(&self, xp: &[String]) -> JsonResult<&JsonValue> {
-        if xp.len() != 0 {
+        if !xp.is_empty() {
             if xp[0].starts_with("[") && xp[0].ends_with("]") {
                 if !self.is_array() { return Err("xpath error-current is not array".into()); }
                 let index = xp[0].replace("[", "").replace("]", "").parse::<usize>()?;

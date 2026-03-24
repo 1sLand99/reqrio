@@ -1,3 +1,4 @@
+use std::fs;
 use reqrio::*;
 
 #[tokio::main]
@@ -96,11 +97,15 @@ async fn main() {
     // req.set_url("https://oauth.hubei.gov.cn:8443/").await.unwrap();
 
 
-    req.set_url("https://m.so.com").await.unwrap();
+    req.set_url("https://m.baidu.com").await.unwrap();
     // req.set_url("https://im.jinritemai.com/").await.unwrap();
     req.set_auto_redirect(false);
     // req.set_url("https://cn.bing.com/AS/Suggestions?pt=page.home&qry=&csr=1&pths=1&zis=1&pf=1&cvid=AFEA02EAF9E449A99970476597AE6CED").await.unwrap();
-    req.set_text("sfsdf");
+    // req.set_text("sfssdfsfsdfdf");
+    let data = json::object! {"test_key":"test_value"};
+    let file = HttpFile::new_bytes_data(data, fs::read("/home/xl/1/ca.crt").unwrap());
+    req.set_files(file).unwrap();
+    // println!("{}", req.h1_raw_string().unwrap());
     let res = req.get().await.unwrap();
     // req.set_url("https://cn.bing.com/hp/api/v1/carousel?&format=json&ecount=20&efirst=0&&").await.unwrap();
     // let res = req.get().await.unwrap();

@@ -350,7 +350,7 @@ impl ReqExt for AcReq {
     fn set_mtls(&mut self, certs: Vec<Certificate>, key: RsaKey, ca: Option<Vec<Certificate>>) {
         self.certs = certs;
         self.key = key;
-        self.ca_certs=ca.unwrap_or(vec![]);
+        self.ca_certs = ca.unwrap_or(vec![]);
     }
 
     fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + 'static) {

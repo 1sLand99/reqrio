@@ -49,7 +49,7 @@ pub trait ReqExt: ReqPriExt + Sized {
     /// req.set_files(file).unwrap();
     /// ```
     fn set_files(&mut self, file: HttpFile) -> HlsResult<()> {
-        let md5 = Arc::new(hash::md5_hex(file.len().to_string())?);
+        let md5 = Arc::new(hash::md5_hex(rand::random::<[u8; 20]>())?);
         *self.body_type_mut() = BodyType::Files(file.with_boundary(md5.clone()));
         self.header_mut().set_content_type(ContentType::File(md5));
         Ok(())
@@ -186,6 +186,7 @@ pub(crate) trait ReqPriExt {
         loop {
             let mut buf_reader = Reader::new(&mut res[filled..]);
             let len = reader.read(&mut buf_reader)?;
+            println!("{}", len);
             filled += len;
             if reader.wrote() { break; }
             res.resize(res.capacity() + 1024, 0);
@@ -193,7 +194,7 @@ pub(crate) trait ReqPriExt {
         res.truncate(filled);
         Ok(res)
     }
-    
+
     fn handle_h1_res(&mut self, response: &mut Response, rd: &mut usize) -> HlsResult<bool> {
         let param = self.req_param();
         match param.callback {
@@ -277,7 +278,7 @@ pub trait ReqGenExt: ReqExt {
         let body_reader = self.body_type_mut().as_reader()?;
         Self::read_to_vec(body_reader)
     }
-    
+
     fn body_raw_string(&mut self) -> HlsResult<String> {
         Ok(String::from_utf8_lossy(&self.body_raw()?).to_string())
     }
@@ -285,12 +286,12 @@ pub trait ReqGenExt: ReqExt {
     /// * 最好在调试模式使用，生产模式使用时，一个请求将会产生两次reader，影响效率
     /// * H2严禁使用，否则影响hpack编码
     fn h1_raw_string(&mut self) -> HlsResult<String> {
-        let body_len = self.body_type_mut().len();
+        let body = self.body_raw()?;
         let param = self.req_param();
         let mut header_reader = param.header.as_reader(param.addr, param.scheme, param.hpack_coder.encoder(), param.sid);
-        header_reader.set_body_len(body_len);
+        header_reader.set_body_len(body.len());
         let mut header = Self::read_to_vec(header_reader)?;
-        header.extend(self.body_raw()?);
+        header.extend(body);
         Ok(String::from_utf8_lossy(&header).to_string())
     }
 }
