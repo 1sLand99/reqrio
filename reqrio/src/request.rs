@@ -1,12 +1,12 @@
 use crate::body::{BodyReader, BodyType};
 use crate::error::HlsResult;
-use crate::packet::{H2BodyReader, HeaderParam, HeaderReader2};
+use crate::packet::{H2BodyReader, HeaderParam, HeaderReader};
 use crate::reader::{ReadExt, Reader};
 use crate::Header;
 use reqtls::{WriteExt, ALPN};
 
 pub struct RequestBuffer<'a> {
-    header: HeaderReader2<'a>,
+    header: HeaderReader<'a>,
     header_wrote: bool,
     body: BodyReader<'a>,
 }

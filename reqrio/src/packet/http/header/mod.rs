@@ -1,22 +1,25 @@
 use super::content_type::ContentType;
 use super::cookie::Cookie;
+use crate::cookie::CookieManager;
 use crate::error::{HlsError, HlsResult};
-use crate::hpack::{HPackItem, HPackEncode};
+use crate::hpack::HPackItem;
 use crate::json::JsonValue;
-use crate::reader::{ReadExt, Reader, RefReader, StrCow};
+use crate::reader::{RefReader, StrCow};
 use crate::*;
 pub use key::HeaderKey;
 pub use method::Method;
+pub use reader::{HeaderReader, HeaderParam};
+use reader::{H1HeaderReader, H2HeaderReader};
 pub use status::HttpStatus;
 use std::fmt::Display;
 use std::mem;
 pub use value::HeaderValue;
-use crate::cookie::CookieManager;
 
 mod value;
 mod key;
 mod method;
 mod status;
+mod reader;
 
 #[derive(Clone)]
 pub struct Header {
@@ -244,6 +247,7 @@ impl Header {
         self.get("user-agent")?.as_string()
     }
 
+    #[deprecated = "it will be auto fill by addr"]
     pub fn set_host(&mut self, host: impl ToString) -> HlsResult<()> {
         self.insert("host", host)
     }
@@ -457,7 +461,7 @@ impl Header {
         reader.add_str("HTTP/1.1");
         reader.add_str("\r\n");
         for key in self.keys.iter() {
-            if HeaderReader::skip_h1_key(key, &param.body_len) { continue; }
+            if H1HeaderReader::skip_h1_key(key, &param.body_len) { continue; }
             reader.add_str(key.name());
             reader.add_str(": ");
             match key.name() {
@@ -498,7 +502,7 @@ impl Header {
         let mut keys = vec![];
         let uri = self.uri.to_string();
         keys.push((StrCow::Borrowed(":method"), StrCow::Borrowed(self.method.spec())));
-        keys.push((StrCow::Borrowed(":authority"), StrCow::Borrowed(param.addr.host())));
+        keys.push((StrCow::Borrowed(":authority"), StrCow::Owned(param.addr.to_string().replace(":443", "").replace(":80", ""))));
         keys.push((StrCow::Borrowed(":scheme"), StrCow::Borrowed(param.scheme.spec())));
         let invalid_keys = ["connection", "host", "content-length", "transfer-encoding", "upgrade"];
         for key in self.keys.iter() {
@@ -522,10 +526,10 @@ impl Header {
         }
     }
 
-    pub(crate) fn as_reader<'a>(&'a mut self, param: HeaderParam<'a>) -> HeaderReader2<'a> {
+    pub(crate) fn as_reader<'a>(&'a mut self, param: HeaderParam<'a>) -> HeaderReader<'a> {
         match self.alpn {
-            ALPN::Http20 => HeaderReader2::H2(self.as_h2_reader(param)),
-            _ => HeaderReader2::H1(self.as_h1_reader(param))
+            ALPN::Http20 => HeaderReader::H2(self.as_h2_reader(param)),
+            _ => HeaderReader::H1(self.as_h1_reader(param))
         }
     }
 }
@@ -599,239 +603,7 @@ impl Display for Header {
     }
 }
 
-pub struct HeaderParam<'a> {
-    pub(crate) addr: &'a Addr,
-    pub(crate) scheme: &'a Scheme,
-    pub(crate) encoder: &'a mut HPackEncode,
-    pub(crate) stream_identifier: &'a u32,
-    pub(crate) body_len: usize,
-}
-
-pub struct H1HeaderReader<'a> {
-    reader: RefReader<StrCow<'a>>,
-    pos: usize,
-    wrote: bool,
-}
-
-impl<'a> ReadExt for H1HeaderReader<'a> {
-    fn wrote(&self) -> bool {
-        self.wrote
-    }
-
-    fn len(&self) -> usize {
-        self.reader.len()
-    }
-
-    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
-        let start = buf.offset().end;
-        if self.pos == 0 {
-            self.reader.read(buf)?;
-            match self.reader.wrote() {
-                true => self.pos += 1,
-                false => return Ok(buf.offset().end - start)
-            }
-        }
-        self.wrote = true;
-        Ok(buf.offset().end - start)
-    }
-}
 
 
-pub struct H2HeaderReader<'a> {
-    keys: Vec<(StrCow<'a>, StrCow<'a>)>,
-    encoder: &'a mut HPackEncode,
-    stream_identifier: &'a u32,
-    wrote: bool,
-    pos: usize,
-    body_len: usize,
-}
 
-impl<'a> ReadExt for H2HeaderReader<'a> {
-    fn wrote(&self) -> bool {
-        self.wrote
-    }
-
-    fn len(&self) -> usize {
-        unreachable!()
-    }
-
-    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
-        let len: usize = self.keys.iter().map(|(k, v)| k.len() + v.len()).sum();
-        if buf.unfilled_len() < 59 + len { return Ok(0); }
-        let offset = buf.offset();
-        let mut header_frame = H2Frame::new_header(self.body_len, *self.stream_identifier);
-        header_frame.set_priority(146);
-        header_frame.write_to(buf);
-        for (i, (key, value)) in self.keys.iter().enumerate() {
-            if i < self.pos { continue; }
-            if buf.unfilled_len() < key.len() + value.len() { return Ok(buf.offset().end - offset.end); }
-            self.encoder.encode_one(key, value, buf);
-            self.pos += 1;
-        }
-        //有priority，payload长度需要frame.len-9
-        buf.write_u32_in(offset.end, (buf.offset().end - offset.end - 9) as u32, true);
-        self.wrote = true;
-        self.wrote = true;
-        Ok(buf.offset().end - offset.end)
-    }
-}
-
-pub enum HeaderReader2<'a> {
-    H1(H1HeaderReader<'a>),
-    H2(H2HeaderReader<'a>),
-}
-
-impl<'a> ReadExt for HeaderReader2<'a> {
-    fn wrote(&self) -> bool {
-        match self {
-            HeaderReader2::H1(h1) => h1.wrote(),
-            HeaderReader2::H2(h2) => h2.wrote(),
-        }
-    }
-
-    fn len(&self) -> usize {
-        match self {
-            HeaderReader2::H1(h1) => h1.len(),
-            HeaderReader2::H2(h2) => h2.len(),
-        }
-    }
-
-    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
-        match self {
-            HeaderReader2::H1(h1) => h1.read(buf),
-            HeaderReader2::H2(h2) => h2.read(buf),
-        }
-    }
-}
-
-
-pub struct HeaderReader<'a> {
-    header: &'a Header,
-    addr: &'a Addr,
-    scheme: &'a Scheme,
-    stream_identifier: &'a u32,
-    hpack_encoder: &'a mut HPackEncode,
-    body_len: usize,
-    pos: usize,
-    wrote: bool,
-}
-
-impl<'a> HeaderReader<'a> {
-    fn skip_h1_key(key: &HeaderKey, body_len: &usize) -> bool {
-        let is_ctx_len = key.name().eq_ignore_ascii_case("content-length");
-        if is_ctx_len && body_len != &0 { return false; }
-        let is_host = key.name().eq_ignore_ascii_case("host");
-        if is_host { return false; }
-        key.value().is_empty()
-    }
-
-    pub fn read_h1(&mut self, buf: &mut Reader) -> HlsResult<usize> {
-        let start = buf.offset().end;
-        // first line: Method uri version
-        if self.pos == 0 {
-            if buf.unfilled_len() < self.header.uri.len() * 2 { return Ok(buf.offset().end - start); }
-            buf.write_slice(self.header.method.to_string().as_bytes());
-            buf.write_u8(b' ');
-            buf.write_slice(self.header.uri.to_string().as_bytes());
-            buf.write_u8(b' ');
-            buf.write_slice(self.header.alpn.to_string().as_bytes());
-            buf.write_slice(b"\r\n");
-            self.pos += 1;
-        }
-        let mut index = 1;
-        //header keys
-        for key in self.header.keys.iter() {
-            if Self::skip_h1_key(key, &self.body_len) { continue; }
-            if index < self.pos {
-                index += 1;
-                continue;
-            }
-            let len = key.name().len() + key.value().may_len() + self.addr.host().len() + 4;
-            // println!("{} {} {} {}", key.name(), buf.capacity(), buf.len(), len);
-            if buf.unfilled_len() < len { return Ok(buf.offset().end - start); }
-            buf.write_slice(key.name().as_bytes());
-            buf.write_slice(b": ");
-            match key.name_lower().as_str() {
-                "host" => {
-                    buf.write_slice(self.addr.host().as_bytes());
-                    if self.addr.port() != 80 && self.addr.port() != 443 {
-                        buf.write_slice(b":");
-                        buf.write_slice(self.addr.port().to_string().as_bytes());
-                    }
-                }
-                "content-length" => buf.write_slice(self.body_len.to_string().as_bytes()),
-                "cookie" => {
-                    for (index, cookie) in key.cookies().unwrap_or(&vec![]).iter().enumerate() {
-                        buf.write_slice(cookie.name().as_bytes());
-                        buf.write_u8(b'=');
-                        buf.write_slice(cookie.value().as_bytes());
-                        if index != key.cookies().unwrap_or(&vec![]).len() - 1 { buf.write_slice(b"; ") }
-                    }
-                }
-                _ => buf.write_slice(key.value().as_string().unwrap_or(&key.value().to_string()).as_bytes()),
-            }
-            buf.write_slice(b"\r\n");
-            index += 1;
-            self.pos += 1;
-        }
-        if buf.unfilled_len() < 2 { return Ok(buf.offset().end - start); }
-        buf.write_slice(b"\r\n");
-        self.wrote = true;
-        Ok(buf.offset().end - start)
-    }
-
-    pub fn read_h2(&mut self, buf: &mut Reader) -> HlsResult<usize> {
-        let len = 59 + self.addr.host().len() + self.header.uri.len();
-        let invalid_keys = ["connection", "host", "content-length", "transfer-encoding", "upgrade"];
-        let keys = self.header.keys.iter().filter(|x| !invalid_keys.contains(&x.name_lower().as_str()) && !x.value().is_empty());
-        let kln: usize = keys.clone().map(|x| x.name().len() + x.value().may_len() + 10).sum();
-        if buf.unfilled_len() < len + kln { return Err(BufferError::CapacityTooSmall { needed: len + kln, current: buf.capacity() }.into()); }
-
-        let offset = buf.offset();
-        let mut header_frame = H2Frame::new_header(self.body_len, *self.stream_identifier);
-        header_frame.set_priority(146);
-        header_frame.write_to(buf);
-        let host = self.addr.to_string().replace(":80", "").replace(":443", "");
-        let uri = self.header.uri.to_string();
-        self.hpack_encoder.encode_one(":method", self.header.method.to_string(), buf);
-        self.hpack_encoder.encode_one(":authority", &host, buf);
-        self.hpack_encoder.encode_one(":scheme", self.scheme.to_string(), buf);
-        self.hpack_encoder.encode_one(":path", &uri, buf);
-        for key in keys {
-            let name = key.name_lower();
-            match key.value() {
-                HeaderValue::Cookies(cookies) => for cookie in cookies.as_req(&host, &uri) {
-                    self.hpack_encoder.encode_one(&name, cookie.as_req(), buf);
-                }
-                _ => self.hpack_encoder.encode_one(name, key.value().to_string(), buf),
-            }
-        }
-        //有priority，payload长度需要frame.len-9
-        buf.write_u32_in(offset.start, (buf.offset().end - offset.end - 9) as u32, true);
-        self.wrote = true;
-        Ok(buf.offset().end - offset.end)
-    }
-
-    pub fn set_body_len(&mut self, body_len: usize) {
-        self.body_len = body_len;
-    }
-}
-
-impl<'a> ReadExt for HeaderReader<'a> {
-    fn wrote(&self) -> bool {
-        self.wrote
-    }
-
-    fn len(&self) -> usize {
-        unreachable!()
-    }
-
-    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
-        match self.header.alpn {
-            ALPN::Http20 => self.read_h2(buf),
-            ALPN::Http11 | ALPN::Http10 => self.read_h1(buf),
-            ALPN::Custom(_) => Err(HlsError::UnsupportedAlpn(self.header.alpn.clone()).into()),
-        }
-    }
-}
 

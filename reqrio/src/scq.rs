@@ -223,8 +223,6 @@ impl ScReq {
         drop(mem::replace(&mut self.body, BodyType::Bytes(vec![])));
         self.header.set_uri(uri);
         if old_addr.host() != self.addr.host() || self.scheme != old_scheme {
-            let host = self.addr.to_string().replace(":80", "").replace(":443", "");
-            self.header.set_host(host)?;
             self.re_conn()?;
         }
         Ok(())

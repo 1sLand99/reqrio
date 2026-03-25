@@ -235,8 +235,6 @@ impl AcReq {
         self.header.set_uri(uri);
         drop(mem::replace(&mut self.body, BodyType::Bytes(vec![])));
         if self.addr.host() != old_addr.host() || self.scheme != old_scheme {
-            let host = self.addr.to_string().replace(":80", "").replace(":443", "");
-            self.header.set_host(host)?;
             self.re_conn().await?;
         }
         Ok(())

@@ -25,10 +25,6 @@ impl<'a> Reader<'a> {
         &mut self.buffer[self.pos..]
     }
 
-    pub fn capacity(&self) -> usize {
-        self.buffer.len()
-    }
-
     pub fn is_empty(&self) -> bool {
         self.pos >= self.buffer.len()
     }

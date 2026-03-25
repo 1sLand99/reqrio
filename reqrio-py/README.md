@@ -21,11 +21,11 @@ Borrow (borrowing). File uploads are read through into_deader to reduce memory o
 ```text
 
         Data  ┌────────┐encode->bytes ┌──────────┐             ┌──────────┐
- User ───────►│        │─────────────►│          │             │          │
+ User ────►│        │──────────►│          │             │          │
               │ ScReq  │              │  Request │ copy slice  │ fragment │ write ┌───────┐
-              │ AcReq  │              │  borrow  │────────────►│  TLS     │──────►│  TCP  │
+              │ AcReq  │              │  borrow  │─────────►│  TLS     │───►│  TCP  │
        Files  │(Engine)│ into_reader  │  buffer  │             │ Encrypt  │       └───────┘
- User ───────►│        │─────────────►│          │             │          │
+ User ────►│        │──────────►│          │             │          │
               └────────┘              └──────────┘             └──────────┘
 ```
 
