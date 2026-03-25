@@ -447,10 +447,11 @@ impl Header {
         reader.add_str(" ");
         reader.add_str(self.uri.path());
         if !self.uri.params().is_empty() { reader.add_str("?") };
-        for param in self.uri.params() {
+        for (i, param) in self.uri.params().iter().enumerate() {
             reader.add_str(param.name());
             reader.add_str("=");
             reader.add_str(param.value_raw());
+            if i != self.uri.params().len() - 1 { reader.add_str("&") }
         }
         reader.add_str(" ");
         reader.add_str("HTTP/1.1");
