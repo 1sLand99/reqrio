@@ -287,8 +287,13 @@ pub trait ReqGenExt: ReqExt {
     fn h1_raw_string(&mut self) -> HlsResult<String> {
         let body = self.body_raw()?;
         let param = self.req_param();
-        let mut header_reader = param.header.as_reader(param.addr, param.scheme, param.hpack_coder.encoder(), param.sid);
-        header_reader.set_body_len(body.len());
+        let header_reader = param.header.as_reader(HeaderParam {
+            addr: param.addr,
+            scheme: param.scheme,
+            encoder: param.hpack_coder.encoder(),
+            stream_identifier: param.sid,
+            body_len: body.len(),
+        });
         let mut header = Self::read_to_vec(header_reader)?;
         header.extend(body);
         Ok(String::from_utf8_lossy(&header).to_string())

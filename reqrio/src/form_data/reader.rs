@@ -6,7 +6,7 @@ use reqtls::WriteExt;
 
 pub struct HttpFileReader<'a> {
     pub(crate) data_readers: Vec<RefReader<&'a [u8]>>,
-    pub(crate) files: Vec<FileFormBuffer<'a>>,
+    pub(crate) files: Vec<FileFormReader<'a>>,
     pub(crate) suffix_reader: RefReader<&'a [u8]>,
     pub(crate) row: usize,
     pub(crate) pos: usize,
@@ -63,35 +63,35 @@ impl<'a> ReadExt for HttpFileReader<'a> {
     }
 }
 
-pub enum FormRender<'a> {
+pub enum MultiRender<'a> {
     File((usize, usize, File)),
     Bytes(Cursor<&'a [u8]>),
 }
 
-impl<'a> ReadExt for FormRender<'a> {
+impl<'a> ReadExt for MultiRender<'a> {
     fn wrote(&self) -> bool {
         match self {
-            FormRender::File((wrote, size, _)) => wrote == size,
-            FormRender::Bytes(bytes) => bytes.position() as usize == bytes.get_ref().len(),
+            MultiRender::File((wrote, size, _)) => wrote == size,
+            MultiRender::Bytes(bytes) => bytes.position() as usize == bytes.get_ref().len(),
         }
     }
 
     fn len(&self) -> usize {
         match self {
-            FormRender::File((_, size, _)) => *size,
-            FormRender::Bytes(bs) => bs.get_ref().len()
+            MultiRender::File((_, size, _)) => *size,
+            MultiRender::Bytes(bs) => bs.get_ref().len()
         }
     }
 
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         match self {
-            FormRender::File((wrote, _, f)) => {
+            MultiRender::File((wrote, _, f)) => {
                 let len = f.read(buf.unfilled())?;
                 buf.add_len(len);
                 *wrote += len;
                 Ok(len)
             }
-            FormRender::Bytes(bs) => {
+            MultiRender::Bytes(bs) => {
                 let len = bs.read(buf.unfilled())?;
                 buf.add_len(len);
                 Ok(len)
@@ -100,21 +100,21 @@ impl<'a> ReadExt for FormRender<'a> {
     }
 }
 
-pub(crate) struct FileFormBuffer<'a> {
+pub(crate) struct FileFormReader<'a> {
     pub(crate) prefix_reader: RefReader<&'a [u8]>,
-    pub(crate) file_reader: FormRender<'a>,
+    pub(crate) file_reader: MultiRender<'a>,
     pub(crate) suffix_reader: RefReader<&'a [u8]>,
     pub(crate) pos: usize,
     pub(crate) wrote: bool,
 }
 
-impl<'a> ReadExt for FileFormBuffer<'a> {
+impl<'a> ReadExt for FileFormReader<'a> {
     fn wrote(&self) -> bool {
         self.wrote
     }
 
     fn len(&self) -> usize {
-        self.prefix_reader.len() + self.file_reader.len()
+        self.prefix_reader.len() + self.file_reader.len() + self.suffix_reader.len()
     }
 
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {

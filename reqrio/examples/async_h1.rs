@@ -13,7 +13,7 @@ async fn main() {
     // let key = RsaKey::from_pri_pem_file("/home/xl/1/client.key").unwrap();
     let mut req = AcReq::new()
         // .with_fingerprint(fingerprint)
-        .with_alpn(ALPN::Http20)
+        .with_alpn(ALPN::Http11)
         .with_timeout(timeout)
         .with_verify(false)
         // .with_mtls(certs, key)
@@ -102,10 +102,12 @@ async fn main() {
     req.set_auto_redirect(false);
     // req.set_url("https://cn.bing.com/AS/Suggestions?pt=page.home&qry=&csr=1&pths=1&zis=1&pf=1&cvid=AFEA02EAF9E449A99970476597AE6CED").await.unwrap();
     // req.set_text("sfssdfsfsdfdf");
+    // println!("{:?}",String::from_utf8(fs::read("/home/xl/1/ca.crt").unwrap()).unwrap());
     let data = json::object! {"test_key":"test_value"};
-    let file = HttpFile::new_bytes_data(data, fs::read("/home/xl/1/ca.crt").unwrap());
-    req.set_files(file).unwrap();
-    // println!("{}", req.h1_raw_string().unwrap());
+    // let file = HttpFile::new_bytes_data(data, fs::read("/home/xl/1/ca.crt").unwrap());
+    // req.set_files(file).unwrap();
+    req.set_data(data);
+    println!("{}", req.h1_raw_string().unwrap());
     let res = req.get().await.unwrap();
     // req.set_url("https://cn.bing.com/hp/api/v1/carousel?&format=json&ecount=20&efirst=0&&").await.unwrap();
     // let res = req.get().await.unwrap();

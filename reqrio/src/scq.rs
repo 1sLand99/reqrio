@@ -1,7 +1,7 @@
 use crate::body::BodyType;
 use crate::ext::{ReqParam, ReqPriExt};
 use crate::hpack::HPackCoding;
-use crate::packet::{FrameFlag, H2FrameRBuf};
+use crate::packet::{FrameFlag, H2FrameRBuf, HeaderParam};
 use crate::reader::{ReadExt, Reader};
 use crate::request::RequestBuffer;
 use crate::stream::{ConnParam, Stream};
@@ -110,7 +110,13 @@ impl ScReq {
     }
 
     pub(crate) fn handle_io(&mut self) -> HlsResult<Response> {
-        let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, self.hpack_coder.encoder(), &self.stream_id, &mut self.body)?;
+        let mut request = RequestBuffer::new(&mut self.header, &mut self.body, HeaderParam {
+            addr: &self.addr,
+            scheme: &self.scheme,
+            stream_identifier: &self.stream_id,
+            encoder: self.hpack_coder.encoder(),
+            body_len: 0,
+        })?;
         self.buffer.reset();
         loop {
             let mut render = Reader::new(self.buffer.unfilled_mut());

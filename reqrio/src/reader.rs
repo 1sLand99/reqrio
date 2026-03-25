@@ -14,7 +14,7 @@ impl<'a> Reader<'a> {
 
     pub fn filled(&self) -> &[u8] { &self.buffer[..self.pos] }
 
-    pub fn unfilled_len(&self) -> usize {println!("1={} {}",self.buffer.len(),self.pos) ;self.buffer.len() - self.pos }
+    pub fn unfilled_len(&self) -> usize { self.buffer.len() - self.pos }
 
     pub fn unfilled(&mut self) -> &mut [u8] { &mut self.buffer[self.pos..] }
 
@@ -56,6 +56,16 @@ impl<R: AsRef<[u8]>> Default for RefReader<R> {
             pos: 0,
             wrote: false,
         }
+    }
+}
+
+impl<'a> RefReader<StrCow<'a>> {
+    pub fn add_str(&mut self, s: &'a str) {
+        self.bufs.push(Cursor::new(StrCow::Borrowed(s)))
+    }
+
+    pub fn add_string(&mut self, s: String) {
+        self.bufs.push(Cursor::new(StrCow::Owned(s)))
     }
 }
 
@@ -104,4 +114,36 @@ pub trait ReadExt {
     fn wrote(&self) -> bool;
     fn len(&self) -> usize;
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize>;
+}
+
+pub enum StrCow<'a> {
+    Borrowed(&'a str),
+    Owned(String),
+}
+
+impl<'a> StrCow<'a> {
+    pub fn len(&self) -> usize {
+        match self {
+            StrCow::Borrowed(b) => b.len(),
+            StrCow::Owned(o) => o.len()
+        }
+    }
+}
+
+impl<'a> AsRef<[u8]> for StrCow<'a> {
+    fn as_ref(&self) -> &[u8] {
+        match self {
+            StrCow::Borrowed(v) => v.as_bytes(),
+            StrCow::Owned(o) => o.as_bytes()
+        }
+    }
+}
+
+impl<'a> AsRef<str> for StrCow<'a> {
+    fn as_ref(&self) -> &str {
+        match self {
+            StrCow::Borrowed(b) => b,
+            StrCow::Owned(o) => o.as_str()
+        }
+    }
 }

@@ -22,19 +22,23 @@ impl Scheme {
             Scheme::Trojan => 8888
         }
     }
+
+    pub fn spec(&self) -> &str {
+        match self {
+            Scheme::Http => "http",
+            Scheme::Https => "https",
+            Scheme::Ws => "ws",
+            Scheme::Wss => "wss",
+            Scheme::Socks5 => "socks5",
+            Scheme::Trojan => "trojan"
+        }
+    }
 }
 
 
 impl Display for Scheme {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Scheme::Http => f.write_str("http"),
-            Scheme::Https => f.write_str("https"),
-            Scheme::Ws => f.write_str("ws"),
-            Scheme::Wss => f.write_str("wss"),
-            Scheme::Socks5 => f.write_str("socks5"),
-            Scheme::Trojan => f.write_str("trojan")
-        }
+        write!(f, "{}", self.spec())
     }
 }
 

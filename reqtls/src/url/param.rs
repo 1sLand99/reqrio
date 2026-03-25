@@ -31,6 +31,8 @@ impl Param {
         &self.name
     }
 
+    pub fn value_raw(&self) -> &str { &self.value }
+
     pub fn value(&self) -> RlsResult<String> {
         coder::url_decode(&self.value).or(Err(UrlError::InvalidParamEncoded.into()))
     }

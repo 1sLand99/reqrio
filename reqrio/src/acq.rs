@@ -4,7 +4,7 @@ use crate::ext::{ReqExt, ReqParam};
 use crate::ext::{ReqGenExt, ReqPriExt};
 use crate::hpack::HPackCoding;
 use crate::json::JsonValue;
-use crate::packet::{FrameFlag, FrameType, H2Frame, H2FrameRBuf};
+use crate::packet::{FrameFlag, FrameType, H2Frame, H2FrameRBuf, HeaderParam};
 use crate::reader::{ReadExt, Reader};
 use crate::request::RequestBuffer;
 use crate::stream::{ConnParam, Proxy, Stream};
@@ -111,7 +111,13 @@ impl AcReq {
     }
 
     pub(crate) async fn handle_io(&mut self) -> HlsResult<Response> {
-        let mut request = RequestBuffer::new(&mut self.header, &self.addr, &self.scheme, self.hpack_coder.encoder(), &self.stream_id, &mut self.body)?;
+        let mut request = RequestBuffer::new(&mut self.header, &mut self.body, HeaderParam {
+            addr: &self.addr,
+            scheme: &self.scheme,
+            encoder: self.hpack_coder.encoder(),
+            stream_identifier: &self.stream_id,
+            body_len: 0,
+        })?;
         self.buffer.reset();
         loop {
             let mut render = Reader::new(self.buffer.unfilled_mut());

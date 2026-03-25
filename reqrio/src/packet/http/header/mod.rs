@@ -3,7 +3,7 @@ use super::cookie::Cookie;
 use crate::error::{HlsError, HlsResult};
 use crate::hpack::{HPackItem, HPackEncode};
 use crate::json::JsonValue;
-use crate::reader::{ReadExt, Reader};
+use crate::reader::{ReadExt, Reader, RefReader, StrCow};
 use crate::*;
 pub use key::HeaderKey;
 pub use method::Method;
@@ -441,16 +441,90 @@ impl Header {
         Ok(())
     }
 
-    pub(crate) fn as_reader<'a>(&'a mut self, addr: &'a Addr, scheme: &'a Scheme, hpack_encoder: &'a mut HPackEncode, sid: &'a u32) -> HeaderReader<'a> {
-        HeaderReader {
-            header: self,
-            addr,
-            scheme,
-            hpack_encoder,
-            stream_identifier: sid,
-            body_len: 0,
+    fn as_h1_reader<'a>(&'a self, param: HeaderParam<'a>) -> H1HeaderReader<'a> {
+        let mut reader = RefReader::default();
+        reader.add_str(self.method.spec());
+        reader.add_str(" ");
+        reader.add_str(self.uri.path());
+        if !self.uri.params().is_empty() { reader.add_str("?") };
+        for param in self.uri.params() {
+            reader.add_str(param.name());
+            reader.add_str("=");
+            reader.add_str(param.value_raw());
+        }
+        reader.add_str(" ");
+        reader.add_str("HTTP/1.1");
+        reader.add_str("\r\n");
+        for key in self.keys.iter() {
+            if HeaderReader::skip_h1_key(key, &param.body_len) { continue; }
+            reader.add_str(key.name());
+            reader.add_str(": ");
+            match key.name() {
+                "host" | "Host" => {
+                    reader.add_str(param.addr.host());
+                    if param.addr.port() != 80 && param.addr.port() != 443 {
+                        reader.add_str(":");
+                        reader.add_string(param.addr.port().to_string());
+                    }
+                }
+                "content-length" | "Content-Length" => reader.add_string(param.body_len.to_string()),
+                "cookie" | "Cookie" => {
+                    if let Some(cookies) = key.cookies() {
+                        for (index, cookie) in cookies.iter().enumerate() {
+                            reader.add_str(cookie.name());
+                            reader.add_str("=");
+                            reader.add_str(cookie.value());
+                            if index != key.cookies().unwrap_or(&vec![]).len() - 1 { reader.add_str("; ") }
+                        }
+                    }
+                }
+                _ => match key.value().as_string() {
+                    None => reader.add_string(key.value().to_string()),
+                    Some(v) => reader.add_str(v),
+                }
+            }
+            reader.add_str("\r\n");
+        }
+        reader.add_str("\r\n");
+        H1HeaderReader {
+            reader,
             pos: 0,
             wrote: false,
+        }
+    }
+
+    fn as_h2_reader<'a>(&'a self, param: HeaderParam<'a>) -> H2HeaderReader<'a> {
+        let mut keys = vec![];
+        let uri = self.uri.to_string();
+        keys.push((StrCow::Borrowed(":method"), StrCow::Borrowed(self.method.spec())));
+        keys.push((StrCow::Borrowed(":authority"), StrCow::Borrowed(param.addr.host())));
+        keys.push((StrCow::Borrowed(":scheme"), StrCow::Borrowed(param.scheme.spec())));
+        let invalid_keys = ["connection", "host", "content-length", "transfer-encoding", "upgrade"];
+        for key in self.keys.iter() {
+            if !invalid_keys.contains(&key.name_lower().as_str()) && !key.value().is_empty() { continue; }
+            let name = key.name_lower();
+            match key.value() {
+                HeaderValue::Cookies(cookies) => for cookie in cookies.as_req(param.addr.host(), &uri) {
+                    keys.push((StrCow::Owned(name.clone()), StrCow::Owned(cookie.as_req())));
+                }
+                _ => keys.push((StrCow::Owned(name), StrCow::Owned(key.value().to_string()))),
+            }
+        }
+        keys.insert(3, (StrCow::Borrowed(":path"), StrCow::Owned(self.uri.to_string())));
+        H2HeaderReader {
+            keys,
+            encoder: param.encoder,
+            wrote: false,
+            pos: 0,
+            body_len: param.body_len,
+            stream_identifier: param.stream_identifier,
+        }
+    }
+
+    pub(crate) fn as_reader<'a>(&'a mut self, param: HeaderParam<'a>) -> HeaderReader2<'a> {
+        match self.alpn {
+            ALPN::Http20 => HeaderReader2::H2(self.as_h2_reader(param)),
+            _ => HeaderReader2::H1(self.as_h1_reader(param))
         }
     }
 }
@@ -524,6 +598,111 @@ impl Display for Header {
     }
 }
 
+pub struct HeaderParam<'a> {
+    pub(crate) addr: &'a Addr,
+    pub(crate) scheme: &'a Scheme,
+    pub(crate) encoder: &'a mut HPackEncode,
+    pub(crate) stream_identifier: &'a u32,
+    pub(crate) body_len: usize,
+}
+
+pub struct H1HeaderReader<'a> {
+    reader: RefReader<StrCow<'a>>,
+    pos: usize,
+    wrote: bool,
+}
+
+impl<'a> ReadExt for H1HeaderReader<'a> {
+    fn wrote(&self) -> bool {
+        self.wrote
+    }
+
+    fn len(&self) -> usize {
+        self.reader.len()
+    }
+
+    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
+        let start = buf.offset().end;
+        if self.pos == 0 {
+            self.reader.read(buf)?;
+            match self.reader.wrote() {
+                true => self.pos += 1,
+                false => return Ok(buf.offset().end - start)
+            }
+        }
+        self.wrote = true;
+        Ok(buf.offset().end - start)
+    }
+}
+
+
+pub struct H2HeaderReader<'a> {
+    keys: Vec<(StrCow<'a>, StrCow<'a>)>,
+    encoder: &'a mut HPackEncode,
+    stream_identifier: &'a u32,
+    wrote: bool,
+    pos: usize,
+    body_len: usize,
+}
+
+impl<'a> ReadExt for H2HeaderReader<'a> {
+    fn wrote(&self) -> bool {
+        self.wrote
+    }
+
+    fn len(&self) -> usize {
+        unreachable!()
+    }
+
+    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
+        let len: usize = self.keys.iter().map(|(k, v)| k.len() + v.len()).sum();
+        if buf.unfilled_len() < 59 + len { return Ok(0); }
+        let offset = buf.offset();
+        let mut header_frame = H2Frame::new_header(self.body_len, *self.stream_identifier);
+        header_frame.set_priority(146);
+        header_frame.write_to(buf);
+        for (i, (key, value)) in self.keys.iter().enumerate() {
+            if i < self.pos { continue; }
+            if buf.unfilled_len() < key.len() + value.len() { return Ok(buf.offset().end - offset.end); }
+            self.encoder.encode_one(key, value, buf);
+            self.pos += 1;
+        }
+        //有priority，payload长度需要frame.len-9
+        buf.write_u32_in(offset.end, (buf.offset().end - offset.end - 9) as u32, true);
+        self.wrote = true;
+        self.wrote = true;
+        Ok(buf.offset().end - offset.end)
+    }
+}
+
+pub enum HeaderReader2<'a> {
+    H1(H1HeaderReader<'a>),
+    H2(H2HeaderReader<'a>),
+}
+
+impl<'a> ReadExt for HeaderReader2<'a> {
+    fn wrote(&self) -> bool {
+        match self {
+            HeaderReader2::H1(h1) => h1.wrote(),
+            HeaderReader2::H2(h2) => h2.wrote(),
+        }
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            HeaderReader2::H1(h1) => h1.len(),
+            HeaderReader2::H2(h2) => h2.len(),
+        }
+    }
+
+    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
+        match self {
+            HeaderReader2::H1(h1) => h1.read(buf),
+            HeaderReader2::H2(h2) => h2.read(buf),
+        }
+    }
+}
+
 
 pub struct HeaderReader<'a> {
     header: &'a Header,
@@ -567,7 +746,7 @@ impl<'a> HeaderReader<'a> {
                 continue;
             }
             let len = key.name().len() + key.value().may_len() + self.addr.host().len() + 4;
-            println!("{} {} {} {}", key.name(), buf.capacity(), buf.len(), len);
+            // println!("{} {} {} {}", key.name(), buf.capacity(), buf.len(), len);
             if buf.unfilled_len() < len { return Ok(buf.offset().end - start); }
             buf.write_slice(key.name().as_bytes());
             buf.write_slice(b": ");

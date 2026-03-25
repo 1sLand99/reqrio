@@ -4,10 +4,10 @@ mod reader;
 
 use crate::error::HlsResult;
 use crate::form_data::field::FormField;
-use crate::form_data::reader::FormRender;
+use crate::form_data::reader::MultiRender;
 use crate::reader::RefReader;
 pub use error::FormError;
-use reader::FileFormBuffer;
+use reader::FileFormReader;
 pub use reader::HttpFileReader;
 use reqrio_json::JsonValue;
 use std::fs::File;
@@ -21,13 +21,13 @@ enum InputType {
 }
 
 impl InputType {
-    fn as_reader(&self) -> HlsResult<FormRender<'_>> {
+    fn as_reader(&self) -> HlsResult<MultiRender<'_>> {
         match self {
-            InputType::Bytes(bytes) => Ok(FormRender::Bytes(Cursor::new(bytes))),
+            InputType::Bytes(bytes) => Ok(MultiRender::Bytes(Cursor::new(bytes))),
             InputType::Path(path) => {
                 let filesize = path.metadata()?.len() as usize;
                 let file = File::open(path)?;
-                Ok(FormRender::File((0, filesize, file)))
+                Ok(MultiRender::File((0, filesize, file)))
             }
         }
     }
@@ -120,7 +120,7 @@ impl FileForm {
 
     pub fn filename(&self) -> &str { &self.filename }
 
-    pub(crate) fn as_form_render<'a>(&'a self, boundary: &'a Arc<String>) -> HlsResult<FileFormBuffer<'a>> {
+    pub(crate) fn as_form_render<'a>(&'a self, boundary: &'a Arc<String>) -> HlsResult<FileFormReader<'a>> {
         let mut reader: RefReader<&[u8]> = RefReader::default();
         //line1
         reader.add_buf(b"--");
@@ -140,7 +140,7 @@ impl FileForm {
         }
         //line4
         reader.add_buf(b"\r\n");
-        Ok(FileFormBuffer {
+        Ok(FileFormReader {
             prefix_reader: reader,
             //line5
             file_reader: self.input.as_reader()?,
@@ -238,7 +238,7 @@ impl HttpFile {
             files.push(form.as_form_render(&self.boundary)?);
         }
         Ok(HttpFileReader {
-            data_readers: self.data.iter().map(|x| x.as_file_render(&self.boundary)).collect(),
+            data_readers: self.data.iter().map(|x| x.as_render(&self.boundary)).collect(),
             files,
             suffix_reader,
             row: 0,

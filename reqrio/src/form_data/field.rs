@@ -14,7 +14,7 @@ impl FormField {
         }
     }
 
-    pub fn as_file_render<'a>(&'a self, md5: &'a Arc<String>) -> RefReader<&'a [u8]> {
+    pub fn as_render<'a>(&'a self, md5: &'a Arc<String>) -> RefReader<&'a [u8]> {
         //line1
         let mut reader: RefReader<&[u8]> = RefReader::default();
         reader.add_buf(b"--");

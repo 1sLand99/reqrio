@@ -15,19 +15,25 @@ pub enum Method {
     PATCH = 8,
 }
 
+impl Method {
+    pub fn spec(&self) -> &str {
+        match self {
+            Method::GET => "GET",
+            Method::POST => "POST",
+            Method::PUT => "PUT",
+            Method::HEAD => "HEAD",
+            Method::DELETE => "DELETE",
+            Method::OPTIONS => "OPTIONS",
+            Method::TRACE => "TRACE",
+            Method::CONNECT => "CONNECT",
+            Method::PATCH => "PATCH",
+        }
+    }
+}
+
 impl Display for Method {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Method::GET => f.write_str("GET"),
-            Method::POST => f.write_str("POST"),
-            Method::OPTIONS => f.write_str("OPTIONS"),
-            Method::HEAD => f.write_str("HEAD"),
-            Method::PUT => f.write_str("PUT"),
-            Method::DELETE => f.write_str("DELETE"),
-            Method::CONNECT => f.write_str("CONNECT"),
-            Method::TRACE => f.write_str("TRACE"),
-            Method::PATCH => f.write_str("PATCH"),
-        }
+        write!(f, "{}", self.spec())
     }
 }
 

@@ -1,25 +1,24 @@
 use crate::body::{BodyReader, BodyType};
 use crate::error::HlsResult;
-use crate::hpack::HPackEncode;
-use crate::packet::{H2BodyReader, HeaderReader};
+use crate::packet::{H2BodyReader, HeaderParam, HeaderReader2};
 use crate::reader::{ReadExt, Reader};
 use crate::Header;
-use reqtls::{Addr, Scheme, WriteExt, ALPN};
+use reqtls::{WriteExt, ALPN};
 
 pub struct RequestBuffer<'a> {
-    header: HeaderReader<'a>,
+    header: HeaderReader2<'a>,
     header_wrote: bool,
     body: BodyReader<'a>,
 }
 
 impl<'a> RequestBuffer<'a> {
-    pub fn new(header: &'a mut Header, addr: &'a Addr, scheme: &'a Scheme, hapck_encoder: &'a mut HPackEncode, sid: &'a u32, body: &'a mut BodyType) -> HlsResult<RequestBuffer<'a>> {
+    pub fn new(header: &'a mut Header, body: &'a mut BodyType, mut param: HeaderParam<'a>) -> HlsResult<RequestBuffer<'a>> {
         let body = match header.alpn() {
-            ALPN::Http20 => BodyReader::HTTP2(H2BodyReader::new_size(8192, body.as_reader()?, sid)),
+            ALPN::Http20 => BodyReader::HTTP2(H2BodyReader::new_size(8192, body.as_reader()?, param.stream_identifier)),
             _ => BodyReader::HTTP1(body.as_reader()?)
         };
-        let mut header = header.as_reader(addr, scheme, hapck_encoder, sid);
-        header.set_body_len(body.len());
+        param.body_len = body.len();
+        let header = header.as_reader(param);
         Ok(RequestBuffer {
             header,
             header_wrote: false,
