@@ -134,7 +134,7 @@ class Session {
     }
 
     send(method) {
-        let resp = library.ScReq_stream_io(this.req, Method.GET)
+        let resp = library.ScReq_stream_io(this.req, method)
         let buffer = Buffer.from(read_to_string(resp), "hex");
         let response = new Response(buffer);
         response.header.method = method;
