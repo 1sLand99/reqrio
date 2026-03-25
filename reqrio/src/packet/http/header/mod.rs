@@ -501,7 +501,7 @@ impl Header {
         keys.push((StrCow::Borrowed(":scheme"), StrCow::Borrowed(param.scheme.spec())));
         let invalid_keys = ["connection", "host", "content-length", "transfer-encoding", "upgrade"];
         for key in self.keys.iter() {
-            if !invalid_keys.contains(&key.name_lower().as_str()) && !key.value().is_empty() { continue; }
+            if invalid_keys.contains(&key.name_lower().as_str()) || key.value().is_empty() { continue; }
             let name = key.name_lower();
             match key.value() {
                 HeaderValue::Cookies(cookies) => for cookie in cookies.as_req(param.addr.host(), &uri) {

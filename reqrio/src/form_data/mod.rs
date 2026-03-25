@@ -232,7 +232,7 @@ impl HttpFile {
         suffix_reader.add_buf(b"--");
         suffix_reader.add_buf(self.boundary.as_bytes());
         //此处待定
-        suffix_reader.add_buf(b"--\r\n");
+        suffix_reader.add_buf(b"--");
         let mut files = vec![];
         for form in &self.forms {
             files.push(form.as_form_render(&self.boundary)?);
