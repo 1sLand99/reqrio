@@ -77,30 +77,6 @@ DLL.ScReq_drop.argtypes = [c_void_p]
 
 DLL.char_free.argtypes = [c_void_p]
 
-ThreadCallback = CFUNCTYPE(None, c_uint32)
-DLL.new_thread_pool.argtypes = [c_void_p, c_int]
-DLL.new_thread_pool.restype = c_void_p
-
-DLL.thread_pool_run.argtypes = [c_void_p, ThreadCallback]
-DLL.thread_pool_run.restype = c_int
-
-DLL.thread_pool_join.argtypes = [c_void_p]
-DLL.thread_pool_join.restype = c_int
-
-DLL.thread_pool_free.argtypes = [c_void_p]
-
-DLL.thread_pool_acquire_lock.argtypes = [c_void_p]
-DLL.thread_pool_acquire_lock.restype = c_int
-
-DLL.thread_pool_release_lock.argtypes = [c_void_p]
-DLL.thread_pool_release_lock.restype = c_int
-
-DLL.thread_pool_set_timeout.argtypes = [c_void_p, c_int]
-DLL.thread_pool_set_timeout.restype = c_int
-
-DLL.thread_pool_set_max_active.argtypes = [c_void_p, c_int]
-DLL.thread_pool_set_max_active.restype = c_int
-
 # websocket
 DLL.ws_build.argtypes = []
 DLL.ws_build.restype = c_void_p

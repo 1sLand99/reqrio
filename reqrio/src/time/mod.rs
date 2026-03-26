@@ -53,6 +53,10 @@ impl Time {
     pub fn now_mills() -> Result<u128, TimeError> {
         Ok(SystemTime::now().duration_since(UNIX_EPOCH).or(Err(TimeError::GetTimeNowError))?.as_millis())
     }
+    
+    pub fn now_nanos() -> Result<u128, TimeError> {
+        Ok(SystemTime::now().duration_since(UNIX_EPOCH).or(Err(TimeError::GetTimeNowError))?.as_nanos())
+    }
 
     pub fn from_secs(secs: u64) -> Time {
         Time::from_msecs(secs as u128 * 1000)

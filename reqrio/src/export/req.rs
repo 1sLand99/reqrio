@@ -1,5 +1,5 @@
 use crate::error::HlsResult;
-use crate::time::timeout::Timeout;
+use crate::time::Timeout;
 use crate::{json, Cookie, HlsError, Method, Proxy, ReqExt, ScReq, ALPN};
 use crate::{Application, ContentType, Fingerprint};
 use reqtls::hex;
