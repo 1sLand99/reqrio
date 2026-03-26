@@ -63,35 +63,35 @@ impl<'a> ReadExt for HttpFileReader<'a> {
     }
 }
 
-pub enum MultiRender<'a> {
+pub enum FileDataRender<'a> {
     File((usize, usize, File)),
     Bytes(Cursor<&'a [u8]>),
 }
 
-impl<'a> ReadExt for MultiRender<'a> {
+impl<'a> ReadExt for FileDataRender<'a> {
     fn wrote(&self) -> bool {
         match self {
-            MultiRender::File((wrote, size, _)) => wrote == size,
-            MultiRender::Bytes(bytes) => bytes.position() as usize == bytes.get_ref().len(),
+            FileDataRender::File((wrote, size, _)) => wrote == size,
+            FileDataRender::Bytes(bytes) => bytes.position() as usize == bytes.get_ref().len(),
         }
     }
 
     fn len(&self) -> usize {
         match self {
-            MultiRender::File((_, size, _)) => *size,
-            MultiRender::Bytes(bs) => bs.get_ref().len()
+            FileDataRender::File((_, size, _)) => *size,
+            FileDataRender::Bytes(bs) => bs.get_ref().len()
         }
     }
 
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         match self {
-            MultiRender::File((wrote, _, f)) => {
+            FileDataRender::File((wrote, _, f)) => {
                 let len = f.read(buf.unfilled())?;
                 buf.add_len(len);
                 *wrote += len;
                 Ok(len)
             }
-            MultiRender::Bytes(bs) => {
+            FileDataRender::Bytes(bs) => {
                 let len = bs.read(buf.unfilled())?;
                 buf.add_len(len);
                 Ok(len)
@@ -102,15 +102,14 @@ impl<'a> ReadExt for MultiRender<'a> {
 
 pub(crate) struct FileFormReader<'a> {
     pub(crate) prefix_reader: RefReader<&'a [u8]>,
-    pub(crate) file_reader: MultiRender<'a>,
+    pub(crate) file_reader: FileDataRender<'a>,
     pub(crate) suffix_reader: RefReader<&'a [u8]>,
     pub(crate) pos: usize,
-    pub(crate) wrote: bool,
 }
 
 impl<'a> ReadExt for FileFormReader<'a> {
     fn wrote(&self) -> bool {
-        self.wrote
+        self.pos > 2
     }
 
     fn len(&self) -> usize {
@@ -140,7 +139,34 @@ impl<'a> ReadExt for FileFormReader<'a> {
                 false => return Ok(buf.offset().end - start)
             }
         }
-        self.wrote = true;
         Ok(buf.offset().end - start)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use crate::{json, HttpFile};
+    use crate::reader::{ReadExt, Reader};
+
+    #[test]
+    fn test_files_reader() {
+        let file = HttpFile::new_bytes_data(json::object! {"test filed":"value"}, b"test file data")
+            .with_boundary(Arc::new("----WebKitFormBoundary1234567812345678".to_string()));
+        let mut reader = file.as_reader().unwrap();
+        let mut res = [0; 1024];
+        let len = reader.read(&mut Reader::new(&mut res)).unwrap();
+        let raw = vec![
+            "------WebKitFormBoundary1234567812345678",
+            "Content-Disposition: form-data; name=\"test filed\"",
+            "",
+            "value",
+            "------WebKitFormBoundary1234567812345678",
+            "Content-Disposition: form-data; name=\"file\"; filename=\"1223.txt\"",
+            "",
+            "test file data",
+            "------WebKitFormBoundary1234567812345678--"
+        ];
+        assert_eq!(&res[..len], raw.join("\r\n").as_bytes());
     }
 }

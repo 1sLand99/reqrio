@@ -20,7 +20,7 @@ pub struct Timeout {
 
 impl Default for Timeout {
     fn default() -> Self {
-        Timeout::new_same(3000,30000)
+        Timeout::new_same(3000,3)
     }
 }
 
