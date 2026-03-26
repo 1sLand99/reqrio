@@ -48,14 +48,54 @@ borrow（借用）。对文件上传则通过into_reader进行读取，减小内
 ## TLS安全功能
 
 - TLS 1.2支持
-- TLS指纹欺骗（JA3/JA4）
+- 支持JA3/JA4 TLS指纹
 - 自定义指纹支持
 - 支持多种密码套件
+
+## TLS指纹
+
+`reqrio`内置了一个真实的tls指纹，也支持使用自定义tls指纹，例如
+
+* 使用自定义指纹
+  ```text
+  fingerprint = {
+      "sec_ch_ua": "\"Microsoft Edge\";v=\"131\", \"Chromium\";v=\"131\", \"Not_A Brand\";v=\"24\"",
+      "sec_ch_ua_mobile": "?0",
+      "sec_ch_ua_platform": "\"Linux\"",
+      "tls_finger": "hex(client_hello+client_exchanged_key+change_cipher_spec)",
+      "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0"
+  }
+  req.set_fingerprint(fingerprint["tls_finger"], "<token>")
+  fingerprint.remove("tls_finger")
+  headers.update(fingerprint)
+  req.set_headers(headers)
+  ```
+
+* 使用ja3
+
+```text
+req.set_ja3("<ja3>", "<token>");
+```
+
+* 使用ja4
+
+```text
+req.set_ja4("<ja4>", "<token>");
+```
+
+* 使用随机tls
+
+```text
+//rust
+let finger=Fingerprint::random("<token>");
+//other
+session=Session(rand_tls=True, token="<token>")
+```
 
 ## 代理支持
 
 - HTTP代理
-- SOCKS5代理（无身份验证模式）
+- SOCKS5代理
 
 ## 数据处理
 
@@ -66,12 +106,13 @@ borrow（借用）。对文件上传则通过into_reader进行读取，减小内
 
 ## 语言绑定
 
-- 铁锈（原生）
-- Python（FFI）
-- Java（JNA）
-- Node.js（FFI）
-- Qt/C++（FFI）
-- Go（CGO）
+- [Rust (Native)](https://docs.rs/reqrio/latest/reqrio/)
+- [Python (FFI)](https://pypi.org/project/reqrio/)
+- [Java (JNA)](https://javadoc.io/doc/io.github.xllgl2017/reqrio/latest/org/xllgl2017/package-summary.html)
+- [Node.js (FFI)](https://www.npmjs.com/package/reqrio)
+- Qt/C++ (FFI)
+- Go (CGO)
+
 
 ## 使用示例
 

@@ -2,8 +2,8 @@
 
 * Features: Low copy, high concurrency, low overhead
 
-* Supports TLS fingerprinting, which can be configured via hexadecimal, Ja3, or Ja4 TLS handshake settings (*
-  *subscription only**).
+* Supports TLS fingerprinting, which can be configured via hexadecimal, Ja3, or Ja4 TLS handshake
+  settings (**subscription only**).
 
 * Ensures **request header order** (see [Request Header Order Table](#request-header-order-table)), consistent with
   browsers.
@@ -12,8 +12,10 @@
 
 ### Low-Copy
 
-`reqrio` is a low copy request sending engine used to efficiently encrypt user or file data over TLS and send it to TCP. `reqrio`
-Convert user input data such as form data, json, bytes, text, etc. into bytes for storage, and only copy once during TLS encryption, while only the data is processed in other stages
+`reqrio` is a low copy request sending engine used to efficiently encrypt user or file data over TLS and send it to TCP.
+`reqrio`
+Convert user input data such as form data, json, bytes, text, etc. into bytes for storage, and only copy once during TLS
+encryption, while only the data is processed in other stages
 Borrow (borrowing). File uploads are read through into_deader to reduce memory overhead
 
 ```text

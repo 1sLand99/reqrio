@@ -63,13 +63,13 @@ This feature allows `reqtls` to act as a lightweight certificate authority (CA) 
 
 ## mTLS Client
 
-Starting from v0.2.0, reqtls adds support for mutual TLS (mTLS) on the client side.
+Starting from v0.2.0, `reqtls` adds support for mutual TLS (mTLS) on the client side.
 
 With mTLS enabled, the client not only verifies the server certificate, but also presents its own certificate and
 private key during the TLS handshake. This allows servers to authenticate the client identity, providing stronger
 security than standard TLS.
 
-Client mTLS can be enabled by configuring a client certificate and private key through ClientConfig.
+Client mTLS can be enabled by configuring a client certificate and private key through `ClientConfig`.
 
 * Example
 
@@ -116,6 +116,7 @@ Client mTLS can be enabled by configuring a client certificate and private key t
 - Add ` patch ` method
 - set_auto_direct - does it automatically jump to 3xx state
 - proxy: `socks5` and `http_plain` support username and password verification
+- hpack—coding：Supports streaming hpack encoding and decoding
 
 ### reqtls
 
