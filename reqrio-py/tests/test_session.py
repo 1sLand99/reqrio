@@ -23,7 +23,7 @@ headers = {
 
 # session测试
 # 随机指纹
-session = Session(alpn=ALPN.HTTP11, verify=False, rand_tls=True, token="<token>")
+session = Session(alpn=ALPN.HTTP11, verify=False)
 
 fingerprint = {
     "sec_ch_ua": "\"Microsoft Edge\";v=\"131\", \"Chromium\";v=\"131\", \"Not_A Brand\";v=\"24\"",
@@ -33,7 +33,7 @@ fingerprint = {
     "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0"
 }
 
-session.set_fingerprint(fingerprint["tls_finger"], "<token>")
+session.set_fingerprint(fingerprint["tls_finger"], "1o1m7oonoc-j4k563m1k7oonoc-j4.4i161k")
 del fingerprint['tls_finger']
 headers.update(fingerprint)
 session.set_headers(headers)

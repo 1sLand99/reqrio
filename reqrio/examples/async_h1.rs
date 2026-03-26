@@ -73,7 +73,7 @@ async fn main() {
     // req.set_url("https://127.0.0.1:3453/v1/api/tlsReq").await.unwrap();
     // req.set_json(data);
     // req.set_auto_redirect(false);
-    // req.set_url("http://zwfw.hubei.gov.cn/web/user/uias_login.do?appCode=hbzwfw&gotoUrl=http%3A%2F%2Fzwfw.hubei.gov.cn%2Fwebview%2Fgrkj%2Fwelcome.html&p01=").await.unwrap();
+    req.set_url("http://zwfw.hubei.gov.cn/web/user/uias_login.do?appCode=hbzwfw&gotoUrl=http%3A%2F%2Fzwfw.hubei.gov.cn%2Fwebview%2Fgrkj%2Fwelcome.html&p01=").await.unwrap();
     // req.set_url("https://127.0.0.1:7878").await.unwrap();
     // req.set_url("https://www.jetstar.com").await.unwrap();
     // req.set_url("https://m1.pxb7.com/api/search/h5/product/selectSearchPageList").await.unwrap();
@@ -96,18 +96,19 @@ async fn main() {
     // req.set_url("https://oauth.hubei.gov.cn:8443/").await.unwrap();
 
 
-    req.set_url("https://m.so.com").await.unwrap();
+    // req.set_url("https://m.so.com").await.unwrap();
     // req.set_url("https://im.jinritemai.com/").await.unwrap();
-    req.set_auto_redirect(false);
+    // req.set_auto_redirect(false);
     // req.set_url("https://cn.bing.com/AS/Suggestions?pt=page.home&qry=&csr=1&pths=1&zis=1&pf=1&cvid=AFEA02EAF9E449A99970476597AE6CED").await.unwrap();
     // req.set_text("sfssdfsfsdfdf");
     // println!("{:?}",String::from_utf8(fs::read("/home/xl/1/ca.crt").unwrap()).unwrap());
-    let data = json::object! {"test_key":"test_value"};
+    // let data = json::object! {"test_key":"test_value"};
     // let file = HttpFile::new_bytes_data(data, fs::read("/home/xl/1/ca.crt").unwrap());
     // req.set_files(file).unwrap();
-    req.set_data(data);
+    // req.set_data(data);
     // println!("{}", req.h1_raw_string().unwrap());
     let res = req.get().await.unwrap();
+    println!("{} {:#?}", res.header().status(), req.header().cookies());
     // req.set_url("https://cn.bing.com/hp/api/v1/carousel?&format=json&ecount=20&efirst=0&&").await.unwrap();
     // let res = req.get().await.unwrap();
     // req.set_url("https://cn.bing.com/notifications/render?bnptrigger=%7B%22PartnerId%22%3A%22HomePage%22%2C%22IID%22%3A%22Bnp%22%2C%22Attributes%22%3A%7B%22RawRequestURL%22%3A%22%2F%22%7D%7D&IG=AFEA02EAF9E449A99970476597AE6CED&IID=Bnp").await.unwrap();
@@ -138,5 +139,5 @@ async fn main() {
     // let res = req.get().await.unwrap();
     // let res = req.get().await.unwrap();
     // let res = req.get().await.unwrap();
-    println!("{}", res.header());
+    // println!("{}", res.header());
 }

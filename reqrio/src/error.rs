@@ -15,6 +15,7 @@ use std::sync::PoisonError;
 #[cfg(feature = "aync")]
 use tokio::time::error::Elapsed;
 use crate::form_data::FormError;
+use crate::time::TimeError;
 
 #[derive(Debug)]
 pub enum HlsError {
@@ -30,6 +31,7 @@ pub enum HlsError {
     Body(FormError),
     Rls(RlsError),
     HPack(HPackError),
+    Time(TimeError),
     Currently(String),
 }
 
@@ -72,6 +74,7 @@ impl Display for HlsError {
             HlsError::Rls(e) => write!(f, "RlsError({})", e),
             HlsError::HPack(e) => write!(f, "HPack({})", e),
             HlsError::Body(e) => write!(f, "Body({})", e),
+            HlsError::Time(e) => write!(f, "Time({:?})", e),
             HlsError::UnsupportedAlpn(alpn) => write!(f, "UnsupportedAlpn({})", alpn),
         }
     }
@@ -171,6 +174,12 @@ impl From<BufferError> for HlsError {
 impl From<FormError> for HlsError {
     fn from(value: FormError) -> Self {
         HlsError::Body(value)
+    }
+}
+
+impl From<TimeError> for HlsError {
+    fn from(value: TimeError) -> Self {
+        HlsError::Time(value)
     }
 }
 

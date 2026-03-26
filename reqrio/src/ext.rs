@@ -5,7 +5,6 @@ use crate::hpack::HPackCoding;
 use crate::packet::*;
 use crate::reader::{ReadExt, Reader};
 use crate::stream::Stream;
-use crate::timeout::Timeout;
 use crate::*;
 use json::JsonValue;
 use std::mem;

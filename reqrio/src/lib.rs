@@ -130,7 +130,6 @@
 //! }
 //! ```
 
-
 use crate::error::HlsResult;
 #[cfg(feature = "aync")]
 pub use acq::AcReq;
@@ -139,19 +138,19 @@ pub use error::HlsError;
 pub use ext::{ReqExt, ReqGenExt};
 pub use fingerprint::Fingerprint;
 pub use packet::{
-    Application, Body, ContentType, Cookie, Font, FrameFlag, FrameType, H2Frame, Header, HeaderKey,
-    HeaderValue, HttpStatus, Method, Response, Text, WsFrame, WsOpcode, H2Setting,
+    Application, Body, ContentType, Cookie, Font, FrameFlag, FrameType, H2Frame, H2Setting, Header,
+    HeaderKey, HeaderValue, HttpStatus, Method, Response, Text, WsFrame, WsOpcode,
 };
 pub use reqrio_json as json;
 pub use reqtls::*;
 pub use scq::ScReq;
-pub use stream::{ProxyStream, WebSocket, WebSocketBuilder, Proxy, ServerConfig, ClientConfig, SyncStream};
+pub use stream::{ClientConfig, Proxy, ProxyStream, ServerConfig, SyncStream, WebSocket, WebSocketBuilder};
 #[cfg(feature = "aync")]
 pub use stream::TlsStream;
-pub use timeout::Timeout;
 #[cfg(feature = "tokio")]
 pub use tokio;
-pub use form_data::{HttpFile, FileForm};
+pub use form_data::{FileForm, HttpFile};
+pub use time::{Time, Timeout};
 
 pub type ReqCallback = Box<dyn FnMut(&[u8]) -> HlsResult<()>>;
 pub const HTTP_GAP: &[u8; 4] = b"\r\n\r\n";
@@ -169,10 +168,10 @@ mod form_data;
 mod packet;
 mod scq;
 mod stream;
-mod timeout;
 mod body;
 mod fingerprint;
 // mod huffman;
 mod reader;
 mod request;
 mod cookie;
+mod time;
