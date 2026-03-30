@@ -3,9 +3,9 @@ name: github
 #git commit -m "更新功能 [skip ci]"
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "main" ]
 
 env:
   CARGO_TERM_COLOR: always
