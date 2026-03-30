@@ -17,6 +17,7 @@ mod object;
 mod json_impl;
 pub mod number;
 pub mod ext;
+pub use serde_json::Value;
 
 pub struct JsonError {
     msg: String,
@@ -104,6 +105,10 @@ pub fn from_bytes(context: impl AsRef<[u8]>) -> JsonResult<JsonValue> {
 
 pub fn to_string<T: Serialize>(t: &T) -> JsonResult<String> {
     Ok(serde_json::to_string(t)?)
+}
+
+pub fn to_struct<T: for<'de> serde::Deserialize<'de>>(value:Value)->serde_json::Result<T>{
+    serde_json::from_value(value)
 }
 
 pub fn from_struct<T: Serialize>(t: &T) -> JsonResult<JsonValue> {

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use super::error::UrlError;
 use crate::coder;
 use std::fmt::{Display, Formatter};
@@ -20,10 +21,10 @@ impl Default for Param {
 }
 
 impl Param {
-    pub fn new_param(name: impl ToString, value: impl AsRef<str>) -> Param {
+    pub fn new_param(name: impl ToString, value: &impl AsRef<str>) -> Param {
         Param {
             name: name.to_string(),
-            value: coder::url_encode(value),
+            value: coder::url_encode(value).into_owned(),
         }
     }
 
@@ -33,16 +34,17 @@ impl Param {
 
     pub fn value_raw(&self) -> &str { &self.value }
 
-    pub fn value(&self) -> RlsResult<String> {
+    pub fn value(&self) -> RlsResult<Cow<'_, str>> {
         coder::url_decode(&self.value).or(Err(UrlError::InvalidParamEncoded.into()))
     }
 
     pub fn into_value(self) -> RlsResult<String> {
-        coder::url_decode(&self.value).or(Err(UrlError::InvalidParamEncoded.into()))
+        let value = coder::url_decode(&self.value).or(Err(UrlError::InvalidParamEncoded))?;
+        Ok(value.into_owned())
     }
 
-    pub fn set_value(&mut self, value: impl AsRef<str>) {
-        self.value = coder::url_encode(value);
+    pub fn set_value(&mut self, value: &impl AsRef<str>) {
+        self.value = coder::url_encode(value).into_owned();
     }
 
     pub fn is_empty(&self) -> bool {
@@ -56,8 +58,7 @@ impl Param {
 
 impl Display for Param {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let res = format!("{}={}", self.name, self.value);
-        f.write_str(&res)
+        write!(f, "{}={}", &self.name, &self.value)
     }
 }
 
