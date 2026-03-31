@@ -2,6 +2,8 @@ mod timeout;
 
 use std::time::{SystemTime, UNIX_EPOCH};
 pub use timeout::Timeout;
+use std::fmt::{Display, Formatter};
+use std::error::Error;
 
 #[derive(Debug)]
 pub enum TimeError {
@@ -18,6 +20,14 @@ pub enum TimeError {
     InvalidRfc3339,
     InvalidCommon,
 }
+
+impl Display for TimeError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl Error for TimeError {}
 
 #[derive(Debug)]
 pub struct Time {
@@ -53,7 +63,7 @@ impl Time {
     pub fn now_mills() -> Result<u128, TimeError> {
         Ok(SystemTime::now().duration_since(UNIX_EPOCH).or(Err(TimeError::GetTimeNowError))?.as_millis())
     }
-    
+
     pub fn now_nanos() -> Result<u128, TimeError> {
         Ok(SystemTime::now().duration_since(UNIX_EPOCH).or(Err(TimeError::GetTimeNowError))?.as_nanos())
     }

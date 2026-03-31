@@ -10,7 +10,7 @@ It focuses on security, scalability, and cross-platform support, making it suita
 
 ## TLS Record Layer (TLS1.2)
 
-`reqtls currently implements the core functionality of TLS 1.2 Record Layer, which is used to provide encrypted communication capabilities over TCP connections. This implementation is mainly aimed at
+`reqtls` currently implements the core functionality of TLS 1.2 Record Layer, which is used to provide encrypted communication capabilities over TCP connections. This implementation is mainly aimed at
 Protocol research, network tools, and custom TLS client/proxy development.
 
 Future versions are planned to gradually support TLS 1.3.
@@ -62,7 +62,7 @@ Future versions are planned to gradually support TLS 1.3.
 
 ### Basic usage
 
-`Developers can directly manipulate TCP data and encrypt/decrypt messages through Connection
+Developers can directly manipulate TCP data and encrypt/decrypt messages through Connection
 
 #### Example：
 

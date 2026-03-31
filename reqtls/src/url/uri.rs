@@ -33,17 +33,8 @@ impl Uri {
         self.path = path.to_string();
     }
 
-    // #[deprecated = "use try_from"]
-    // pub fn parse_param(&mut self, item: &str) -> RlsResult<()> {
-    //     self.params.clear();
-    //     for kv in item.split("&") {
-    //         self.params.push(Param::try_from(kv)?);
-    //     }
-    //     Ok(())
-    // }
-
     ///value: 应为未编码
-    pub fn insert_param(&mut self, name: impl ToString, value: impl AsRef<str>) {
+    pub fn insert_param(&mut self, name: impl ToString, value: &impl AsRef<str>) {
         let name = name.to_string();
         let param = self.params.iter_mut().find(|x| x.name() == name);
         match param {
@@ -75,12 +66,13 @@ impl Uri {
 
 impl Display for Uri {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let param = self.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join("&");
-        if param.is_empty() {
-            f.write_str(&self.path)
-        } else {
-            f.write_str(&format!("{}?{}", self.path, param))
+        write!(f, "{}", &self.path)?;
+        if !self.params.is_empty() { write!(f, "?")?; }
+        for (i, param) in self.params.iter().enumerate() {
+            write!(f, "{}", param)?;
+            if i != self.params.len() - 1 { write!(f, "&")?; }
         }
+        Ok(())
     }
 }
 

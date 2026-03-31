@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::io::BufReader;
 use std::io::Read;
 use flate2::Compression;
@@ -21,12 +22,12 @@ pub fn zstd_decompress(data: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
     zstd::decompress(data)
 }
 
-pub fn url_encode(url: impl AsRef<str>) -> String {
-    urlencoding::encode(url.as_ref()).to_string()
+pub fn url_encode(url: &impl AsRef<str>) -> Cow<'_, str> {
+    urlencoding::encode(url.as_ref())
 }
 
-pub fn url_decode(url: impl AsRef<str>) -> RlsResult<String> {
-    Ok(urlencoding::decode(url.as_ref())?.to_string())
+pub fn url_decode(url: &impl AsRef<str>) -> RlsResult<Cow<'_, str>> {
+    Ok(urlencoding::decode(url.as_ref())?)
 }
 
 pub fn br_decompress(brd: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
@@ -52,7 +53,7 @@ pub fn chunk_decode(mut raw: Vec<u8>) -> RlsResult<Vec<u8>> {
         let len_str = String::from_utf8(len_bs)?;
         //删除\r\n
         raw.drain(..2);
-        let chunk_len = usize::from_str_radix(len_str.as_str(), 16).unwrap();
+        let chunk_len = usize::from_str_radix(len_str.as_str(), 16)?;
         res.extend(raw.drain(..chunk_len).collect::<Vec<_>>());
         //删除\r\n
         raw.drain(..2);

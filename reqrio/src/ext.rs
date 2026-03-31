@@ -24,7 +24,7 @@ pub(crate) struct ReqParam<'a> {
 #[allow(private_bounds)]
 pub trait ReqExt: ReqPriExt + Sized {
     fn set_data(&mut self, data: JsonValue) {
-        let data = data.into_entries().map(|(k, v)| format!("{}={}", k, coder::url_encode(v.dump()))).collect::<Vec<_>>().join("&");
+        let data = data.into_entries().map(|(k, v)| format!("{}={}", k, coder::url_encode(&v.dump()))).collect::<Vec<_>>().join("&");
         self.set_bytes(data, ContentType::Application(Application::XWwwFormUrlencoded));
     }
     fn set_text(&mut self, text: impl ToString) {
@@ -158,11 +158,11 @@ pub trait ReqExt: ReqPriExt + Sized {
         let uri = self.header_mut().uri_mut();
         uri.clear_params();
         for (k, v) in params.entries() {
-            uri.insert_param(k, v.to_string());
+            uri.insert_param(k, &v.to_string());
         }
     }
 
-    fn add_param(&mut self, name: impl ToString, value: impl AsRef<str>) {
+    fn add_param(&mut self, name: impl ToString, value: &impl AsRef<str>) {
         let uri = self.header_mut().uri_mut();
         uri.insert_param(name, value);
     }

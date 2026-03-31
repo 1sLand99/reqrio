@@ -6,7 +6,7 @@ fn main() {
     let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap();
     let typ = if cfg!(feature = "dylib") { "dylib" } else { "static" };
     if typ == "static" { println!("cargo:rustc-link-search={}/lib/{}/{}", manifest_dir, target_os, target_env); }
-    println!("cargo:rustc-link-lib={}=crypto", typ);
+    println!("cargo:rustc-link-lib={}=bcrypto", typ);
     println!("cargo:rustc-link-lib={}=zstd", typ);
     // println!("cargo:rustc-link-lib=versus");
     match (target_os.as_str(), target_env.as_str()) {

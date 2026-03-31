@@ -11,8 +11,8 @@ use crate::RlsError;
 pub extern "C" fn url_encode(url: *const c_char) -> *mut c_char {
     || -> RlsResult<*mut c_char> {
         let uri = unsafe { CStr::from_ptr(url) }.to_str()?;
-        let res = crate::coder::url_encode(uri);
-        Ok(CString::new(res)?.into_raw())
+        let res = crate::coder::url_encode(&uri);
+        Ok(CString::new(res.into_owned())?.into_raw())
     }().unwrap_or(null_mut())
 }
 
@@ -21,8 +21,8 @@ pub extern "C" fn url_encode(url: *const c_char) -> *mut c_char {
 pub extern "C" fn url_decode(url: *const c_char) -> *mut c_char {
     || -> RlsResult<*mut c_char> {
         let uri = unsafe { CStr::from_ptr(url) }.to_str()?;
-        let res = crate::coder::url_decode(uri)?;
-        Ok(CString::new(res)?.into_raw())
+        let res = crate::coder::url_decode(&uri)?;
+        Ok(CString::new(res.into_owned())?.into_raw())
     }().unwrap_or(null_mut())
 }
 

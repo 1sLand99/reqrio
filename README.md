@@ -13,11 +13,12 @@
 
 ## Introduction
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;reqrio is a library designed for making HTTP requests quickly, easily, and conveniently.
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`reqrio` is a library designed for making HTTP requests quickly, easily, and conveniently.
 Its goal is to enable fast,
 simple, and convenient use of HTTP requests.
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Reqrio is an HTTP request library that supports multiple protocols and language bindings,
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`reqrio` is an HTTP request library that supports multiple protocols and language
+bindings,
 providing high-performance
 HTTP client capabilities.
 
@@ -28,7 +29,7 @@ HTTP client capabilities.
 - Synchronous and asynchronous request modes
 - Request/Response Handling
 - Cookie Automatic Inheritance Management
-- Request Header Order Control
+- Request Header Order Control. [SortTable](https://github.com/xllgl2017/reqrio/tree/master/reqrio#request-header-order-table)
 - Data stream processing
 
 ## Low-Copy
@@ -53,14 +54,55 @@ Borrow (borrowing). File uploads are read through into_deader to reduce memory o
 ## TLS Security Features
 
 - TLS 1.2 Support
-- TLS Fingerprint Spoofing (JA3/JA4)
+- Supports JA3/JA4 TLS fingerprinting
 - Custom fingerprint support
-- Support for multiple cipher suites
+- Support for multiple [cipher suites](https://github.com/xllgl2017/reqrio/tree/master/reqtls#tls-record-layer-tls12)
+
+## TLS Fingerprint
+
+`reqrio` has a built-in real TLS fingerprint and also supports using custom TLS fingerprints,
+like this:
+
+* update by custom tls
+  ```text
+  fingerprint = {
+      "sec_ch_ua": "\"Microsoft Edge\";v=\"131\", \"Chromium\";v=\"131\", \"Not_A Brand\";v=\"24\"",
+      "sec_ch_ua_mobile": "?0",
+      "sec_ch_ua_platform": "\"Linux\"",
+      "tls_finger": "hex(client_hello+client_exchanged_key+change_cipher_spec)",
+      "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0"
+  }
+  req.set_fingerprint(fingerprint["tls_finger"], "<token>")
+  fingerprint.remove("tls_finger")
+  headers.update(fingerprint)
+  req.set_headers(headers)
+  ```
+
+* update by ja3
+
+```text
+req.set_ja3("<ja3>", "<token>");
+```
+
+* update by ja4
+
+```text
+req.set_ja4("<ja4>", "<token>");
+```
+
+* use random tls
+
+```text
+//rust
+let finger=Fingerprint::random("<token>");
+//other
+session=Session(rand_tls=True, token="<token>")
+```
 
 ## Proxy Support
 
 - HTTP Proxy
-- SOCKS5 Proxy (No Authentication Mode)
+- SOCKS5 Proxy
 
 ## Data Processing
 
@@ -71,11 +113,11 @@ Borrow (borrowing). File uploads are read through into_deader to reduce memory o
 
 ## Language Bindings
 
-- Rust (Native)
-- Python (FFI)
-- Java (JNA )
-- Node.js (FFI )
-- Qt/C++ (FFI )
+- [Rust (Native)](https://docs.rs/reqrio/latest/reqrio/)
+- [Python (FFI)](https://pypi.org/project/reqrio/)
+- [Java (JNA)](https://javadoc.io/doc/io.github.xllgl2017/reqrio/latest/org/xllgl2017/package-summary.html)
+- [Node.js (FFI)](https://www.npmjs.com/package/reqrio)
+- Qt/C++ (FFI)
 - Go (CGO)
 
 ## Usage
@@ -183,7 +225,7 @@ Borrow (borrowing). File uploads are read through into_deader to reduce memory o
 
 ## WebSocket Support
 
-```rust
+```text
 let mut ws = WebSocket::open("wss://echo.websocket.org") ?;
 ws.write_frame(WsFrame::new_text(true, "Hello")) ?;
 let frame = ws.read_frame() ?;
@@ -192,7 +234,7 @@ println!("Received: {:?}", frame);
 
 # reqtls
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;reqtls is a high-performance TLS and cryptographic foundation library built for the
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`reqtls` is a high-performance TLS and cryptographic foundation library built for the
 reqrio ecosystem, providing complete
 encryption, signing, certificate handling, and encoding capabilities. It focuses on security, scalability, and
 cross-platform support, making it suitable for building HTTPS clients, proxy services, certificate issuance systems, and
