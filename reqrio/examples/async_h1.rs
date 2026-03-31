@@ -11,7 +11,7 @@ async fn main() {
     // let certs = Certificate::from_pem_file("/home/xl/1/client.crt").unwrap();
     // let key = RsaKey::from_pri_pem_file("/home/xl/1/client.key").unwrap();
     let mut req = AcReq::new()
-        // .with_fingerprint(fingerprint)
+        .with_fingerprint(Fingerprint::random("-").unwrap())
         .with_alpn(ALPN::Http20)
         .with_timeout(timeout)
         .with_verify(false)
@@ -73,7 +73,7 @@ async fn main() {
     // req.set_url("https://127.0.0.1:3453/v1/api/tlsReq").await.unwrap();
     // req.set_json(data);
     // req.set_auto_redirect(false);
-    req.set_url("http://zwfw.hubei.gov.cn/web/user/uias_login.do?appCode=hbzwfw&gotoUrl=http%3A%2F%2Fzwfw.hubei.gov.cn%2Fwebview%2Fgrkj%2Fwelcome.html&p01=").await.unwrap();
+    // req.set_url("http://zwfw.hubei.gov.cn/web/user/uias_login.do?appCode=hbzwfw&gotoUrl=http%3A%2F%2Fzwfw.hubei.gov.cn%2Fwebview%2Fgrkj%2Fwelcome.html&p01=").await.unwrap();
     // req.set_url("https://127.0.0.1:7878").await.unwrap();
     // req.set_url("https://www.jetstar.com").await.unwrap();
     // req.set_url("https://m1.pxb7.com/api/search/h5/product/selectSearchPageList").await.unwrap();
@@ -107,10 +107,11 @@ async fn main() {
     // req.set_files(file).unwrap();
     // req.set_data(data);
     // println!("{}", req.h1_raw_string().unwrap());
-    let res = req.get().await.unwrap();
-    println!("{} {:#?}", res.header().status(), req.header().cookies());
-    // req.set_url("https://cn.bing.com/hp/api/v1/carousel?&format=json&ecount=20&efirst=0&&").await.unwrap();
     // let res = req.get().await.unwrap();
+    // println!("{} {:#?}", res.header().status(), req.header().cookies());
+    req.set_url("https://cn.bing.com/hp/api/v1/carousel?&format=json&ecount=20&efirst=0&&").await.unwrap();
+    let res = req.get().await.unwrap();
+    println!("{}", res.header());
     // req.set_url("https://cn.bing.com/notifications/render?bnptrigger=%7B%22PartnerId%22%3A%22HomePage%22%2C%22IID%22%3A%22Bnp%22%2C%22Attributes%22%3A%7B%22RawRequestURL%22%3A%22%2F%22%7D%7D&IG=AFEA02EAF9E449A99970476597AE6CED&IID=Bnp").await.unwrap();
     // let res = req.get().await.unwrap();
     // req.set_url("https://cn.bing.com/web/xlsc.aspx?dl=1&f=8").await.unwrap();

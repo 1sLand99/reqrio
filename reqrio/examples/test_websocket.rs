@@ -10,4 +10,5 @@ fn main() {
         let frame = ws.read_frame().unwrap();
         println!("{}", String::from_utf8_lossy(frame.payload().as_bytes()));
     }
+
 }
