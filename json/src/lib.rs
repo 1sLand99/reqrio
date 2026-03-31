@@ -103,8 +103,8 @@ pub fn from_bytes(context: impl AsRef<[u8]>) -> JsonResult<JsonValue> {
     parse(s.as_str())
 }
 
-pub fn to_string<T: Serialize>(t: &T) -> JsonResult<String> {
-    Ok(serde_json::to_string(t)?)
+pub fn to_string<T: Serialize>(t: &T) -> serde_json::Result<String> {
+    serde_json::to_string(t)
 }
 
 pub fn to_struct<T: for<'de> serde::Deserialize<'de>>(value:Value)->serde_json::Result<T>{
@@ -268,8 +268,11 @@ impl JsonValue {
 
     /// must update_first
     pub fn as_struct<T: for<'a> Deserialize<'a>>(&self) -> JsonResult<T> {
-        let s = self.dump();
-        Ok(serde_json::from_str(s.as_str())?)
+        let str = match self {
+            JsonValue::String(v) => format!("\"{}\"", v),
+            _ => self.dump(),
+        };
+        Ok(serde_json::from_str(str.as_str())?)
     }
 
     pub fn write_file(&self, fp: impl AsRef<Path>) -> JsonResult<()> {
