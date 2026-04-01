@@ -48,6 +48,12 @@ type Session struct {
 	req unsafe.Pointer
 }
 
+type Conn struct{
+    method Method,
+    url string
+
+}
+
 func NewSession() Session {
 	p := C.ScReq_new()
 	return Session{req: p}
