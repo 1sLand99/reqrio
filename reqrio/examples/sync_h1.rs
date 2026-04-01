@@ -41,7 +41,6 @@ fn main() {
         // req.set_proxy(Proxy::new_socks5("34.124.190.108", 8080));
         // println!("{}", et - t);
         // req.set_url("https://ms.xllgl.top").unwrap();
-        req.set_url("https://www.baidu.com").unwrap();
 
         // req.set_url("https://jetstar.com").unwrap();
         // let et = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
@@ -55,7 +54,7 @@ fn main() {
         req.set_auto_redirect(true);
         req.set_headers_json(headers).unwrap();
         // println!("6");
-        let res = req.get().unwrap();
+        let res = req.get("https://www.baidu.com", None).unwrap();
         let et = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
         tss += et - t;
         println!("{}", et - t);

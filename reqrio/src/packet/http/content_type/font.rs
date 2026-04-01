@@ -9,14 +9,20 @@ pub enum Font {
     Ttf,
 }
 
+impl Font {
+    pub fn spec(&self) -> &str {
+        match self {
+            Font::Woff2 => "font/woff2",
+            Font::Woff => "font/woff",
+            Font::Otf => "font/otf",
+            Font::Ttf => "font/ttf"
+        }
+    }
+}
+
 impl Display for Font {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Font::Woff2 => f.write_str("font/woff2"),
-            Font::Woff => f.write_str("font/woff"),
-            Font::Otf => f.write_str("font/otf"),
-            Font::Ttf => f.write_str("font/ttf")
-        }
+        write!(f, "{}", self.spec())
     }
 }
 

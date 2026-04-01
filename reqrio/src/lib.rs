@@ -67,8 +67,7 @@
 //! fn ff() {
 //!     let mut req = ScReq::new()
 //!         //The default is to use http/1.1
-//!         .with_alpn(ALPN::Http20)
-//!         .with_url("https://www.baidu.com").unwrap();
+//!         .with_alpn(ALPN::Http20);
 //!     let headers = json::object! {
 //!         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
 //!         "Accept-Encoding": "gzip, deflate, br, zstd",
@@ -90,7 +89,7 @@
 //!     };
 //!     //By default, there are no request headers; you need to configure them yourself.
 //!     req.set_headers_json(headers);
-//!     let mut res = req.get().unwrap();
+//!     let mut res = req.get("https://www.baidu.com",None).unwrap();
 //!     //Get response headers
 //!     let header = res.header();
 //!     //Get the response body; the body here has already been decoded.
@@ -138,7 +137,7 @@ pub use error::HlsError;
 pub use ext::{ReqExt, ReqGenExt};
 pub use fingerprint::Fingerprint;
 pub use packet::{
-    Application, Body, ContentType, Cookie, Font, FrameFlag, FrameType, H2Frame, H2Setting, Header,
+    Application, ContentType, Cookie, Font, FrameFlag, FrameType, H2Frame, H2Setting, Header,
     HeaderKey, HeaderValue, HttpStatus, Method, Response, Text, WsFrame, WsOpcode,
 };
 pub use reqrio_json as json;
@@ -151,6 +150,7 @@ pub use stream::TlsStream;
 pub use tokio;
 pub use form_data::{FileForm, HttpFile};
 pub use time::{Time, Timeout};
+pub use body::{BodyExt, BodyData};
 
 pub type ReqCallback = Box<dyn FnMut(&[u8]) -> HlsResult<()>>;
 pub const HTTP_GAP: &[u8; 4] = b"\r\n\r\n";

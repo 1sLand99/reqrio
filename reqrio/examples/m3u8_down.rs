@@ -45,8 +45,7 @@ impl M3u8DownEngine {
         let mut file = File::create("4.mp4")?;
         for (index, ts_url) in self.ts_urls.iter().enumerate() {
             println!("Downloading: {:3}/{}; url:{}", index, self.ts_urls.len(), ts_url);
-            self.req.set_url(ts_url)?;
-            let body = self.req.get()?.bytes()?;
+            let body = self.req.get(ts_url, None)?.bytes()?;
             file.write_all(&if self.key_url.is_empty() { body } else { self.cipher.decrypt(body)? })?;
         }
         Ok(())
@@ -54,24 +53,22 @@ impl M3u8DownEngine {
 
     fn get_key(&mut self) -> Result<(), HlsError> {
         println!("key url: {}", self.key_url);
-        self.req.set_url(self.key_url.as_str())?;
-        let key = self.req.send_check(Method::GET)?.text()?;
+        let key = self.req.send_check(Method::GET, self.key_url.as_str(), None)?.text()?;
         println!("key: {}; sequence: {}", key, self.sequence);
         self.cipher.set_secret_key(key.into_bytes(), Some(self.sequence.to_be_bytes().to_vec()));
         Ok(())
     }
 
     fn download(&mut self) -> Result<(), HlsError> {
-        self.req.set_url(self.index_url.as_str())?;
-        let body = self.req.send_check(Method::GET)?.text()?;
+        let body = self.req.send_check(Method::GET, &self.index_url, None)?.text()?;
         // println!("{}", body);
         for line in body.split("\n") {
-            if line.starts_with("#EXT-X-MEDIA-SEQUENCE:") {
-                self.sequence = line.trim().replace("#EXT-X-MEDIA-SEQUENCE:", "").parse()?;
+            if line.starts_with(" # EXT - X - MEDIA - SEQUENCE: ") {
+                self.sequence = line.trim().replace(" # EXT - X - MEDIA - SEQUENCE: ", "").parse()?;
                 continue;
             }
-            if line.starts_with("#EXT-X-KEY") {
-                let pos = line.find("URI=\"");
+            if line.starts_with(" # EXT - X - KEY") {
+                let pos = line.find("URI =\"");
                 if let Some(pos) = pos {
                     self.key_url = line[pos + 4..].trim().replace("\"", "");
                 }

@@ -42,17 +42,8 @@ DLL.ScReq_set_ja4.restype = c_int
 DLL.ScReq_set_proxy.argtypes = [c_void_p, c_char_p]
 DLL.ScReq_set_proxy.restype = c_int
 
-DLL.ScReq_set_url.argtypes = [c_void_p, c_char_p]
-DLL.ScReq_set_url.restype = c_int
-
 DLL.ScReq_add_param.argtypes = [c_void_p, c_char_p]
 DLL.ScReq_add_param.restype = c_int
-
-DLL.ScReq_set_bytes.argtypes = [c_void_p, POINTER(c_ubyte), c_uint32, c_char_p]
-DLL.ScReq_set_bytes.restype = c_int
-
-DLL.ScReq_set_context_type.argtypes = [c_void_p, c_char_p]
-DLL.ScReq_set_context_type.restype = c_int
 
 DLL.ScReq_set_timeout.argtypes = [c_void_p, c_char_p]
 DLL.ScReq_set_timeout.restype = c_int
@@ -70,7 +61,7 @@ DLL.ScReq_set_callback.restype = c_int
 DLL.ScReq_reconnect.argtypes = [c_void_p]
 DLL.ScReq_reconnect.restype = c_int
 
-DLL.ScReq_stream_io.argtypes = [c_void_p, c_int]
+DLL.ScReq_stream_io.argtypes = [c_void_p, c_int, c_void_p, POINTER(c_ubyte), c_size_t, c_void_p]
 DLL.ScReq_stream_io.restype = c_void_p
 
 DLL.ScReq_drop.argtypes = [c_void_p]

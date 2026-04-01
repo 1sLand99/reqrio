@@ -26,7 +26,7 @@ extern int ScReq_set_timeout(void *req, const char *timeout);
 extern int ScReq_set_cookie(void *req, const char *cookie);
 extern int ScReq_add_cookie(void *req, const char *name,const char *value);
 //callback
-extern char * ScReq_stream_io(void *req, int method);
+extern char * ScReq_stream_io(void *req, int method, const char *url, const uint8_t * body, size_t body_len, const char *content_type);
 extern int ScReq_reconnect(void *req);
 extern void ScReq_drop(void *req);
 extern int char_free(char *);

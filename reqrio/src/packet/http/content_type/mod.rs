@@ -1,11 +1,12 @@
+use crate::error::HlsError;
+pub use application::Application;
+pub use font::Font;
+pub use image::ImageType;
+use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
-pub use application::Application;
-pub use image::ImageType;
 pub use text::Text;
-pub use font::Font;
 pub use video::Video;
-use crate::error::HlsError;
 
 mod application;
 mod image;
@@ -24,21 +25,40 @@ pub enum ContentType {
     Video(Video),
     Binary(BinaryType),
     Upgrade,
+    Null,
+}
+
+impl ContentType {
+    pub fn form() -> ContentType {
+        ContentType::Application(Application::XWwwFormUrlencoded)
+    }
+    pub fn json() -> ContentType {
+        ContentType::Application(Application::Json)
+    }
+
+    pub fn text() -> ContentType {
+        ContentType::Text(Text::Plain)
+    }
+
+    pub fn spec(&self) -> Cow<'_, str> {
+        match self {
+            ContentType::Application(v) => Cow::Borrowed(v.spec()),
+            ContentType::Image(v) => Cow::Borrowed(v.spec()),
+            ContentType::Text(v) => Cow::Borrowed(v.spec()),
+            ContentType::File(v) => Cow::Owned(format!("multipart/form-data; boundary={}", v)),
+            ContentType::Multipart => Cow::Borrowed("multipart/form-data"),
+            ContentType::Font(v) => Cow::Borrowed(v.spec()),
+            ContentType::Video(v) => Cow::Borrowed(v.spec()),
+            ContentType::Binary(_) => Cow::Borrowed("binary/octet-stream"),
+            ContentType::Upgrade => Cow::Borrowed("Upgrade"),
+            ContentType::Null => Cow::Borrowed(""),
+        }
+    }
 }
 
 impl Display for ContentType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ContentType::Application(v) => f.write_str(&v.to_string()),
-            ContentType::Image(v) => f.write_str(&v.to_string()),
-            ContentType::Text(v) => f.write_str(&v.to_string()),
-            ContentType::File(uuid) => f.write_str(&format!("multipart/form-data; boundary={}", uuid)),
-            ContentType::Multipart => f.write_str("multipart/form-data"),
-            ContentType::Font(v) => f.write_str(&v.to_string()),
-            ContentType::Video(v) => f.write_str(&v.to_string()),
-            ContentType::Upgrade => f.write_str("Upgrade"),
-            ContentType::Binary(_) => f.write_str("binary/octet-stream"),
-        }
+        write!(f, "{}", self.spec())
     }
 }
 

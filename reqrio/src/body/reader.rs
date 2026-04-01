@@ -1,8 +1,40 @@
-use crate::body::H1BodyReader;
 use crate::error::HlsResult;
-use crate::reader::{ReadExt, Reader};
-use crate::{Buffer, FrameFlag, FrameType};
-use reqtls::{BufferError, WriteExt};
+use crate::form_data::HttpFileReader;
+use crate::*;
+use crate::reader::{ReadExt, Reader, RefReader, StrCow};
+
+pub enum RawBodyReader<'a> {
+    Data(RefReader<StrCow<'a>>),
+    Bytes(RefReader<&'a [u8]>),
+    File(HttpFileReader<'a>),
+}
+
+impl<'a> ReadExt for RawBodyReader<'a> {
+    fn wrote(&self) -> bool {
+        match self {
+            RawBodyReader::Data(data) => data.wrote(),
+            RawBodyReader::Bytes(bytes) => bytes.wrote(),
+            RawBodyReader::File(file) => file.wrote(),
+        }
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            RawBodyReader::Data(data) => data.len(),
+            RawBodyReader::Bytes(bytes) => bytes.len(),
+            RawBodyReader::File(file) => file.len(),
+        }
+    }
+
+    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
+        match self {
+            RawBodyReader::Data(data) => data.read(buf),
+            RawBodyReader::Bytes(bytes) => bytes.read(buf),
+            RawBodyReader::File(file) => file.read(buf),
+        }
+    }
+}
+
 
 pub struct H2FrameRBuf<'a> {
     pd_len: usize,
@@ -119,14 +151,14 @@ impl<'a> ReadExt for H2FrameHead<'a> {
 ///`H2FrameBufs`主要是构建H2 Body Frame；因为Header Frame需要经过hpack编码长度不可知，无法适用
 pub struct H2BodyReader<'a> {
     frames: Vec<H2FrameHead<'a>>,
-    body: H1BodyReader<'a>,
+    body: RawBodyReader<'a>,
     frame_wrote: usize,
     pos: usize,
     wrote: bool,
 }
 
 impl<'a> H2BodyReader<'a> {
-    pub fn new_size(buffer_size: usize, body: H1BodyReader<'a>, sid: &'a u32) -> H2BodyReader<'a> {
+    pub fn new_size(buffer_size: usize, body: RawBodyReader<'a>, sid: &'a u32) -> H2BodyReader<'a> {
         let body_len = body.len();
         let chunks = (0..body_len).step_by(buffer_size).map(|i| (body_len - i).min(buffer_size));
         let chunk_len = chunks.len();

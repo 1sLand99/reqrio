@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use super::content_type::ContentType;
 use super::cookie::Cookie;
 use crate::cookie::CookieManager;
@@ -445,7 +446,7 @@ impl Header {
         Ok(())
     }
 
-    fn as_h1_reader<'a>(&'a self, param: HeaderParam<'a>) -> H1HeaderReader<'a> {
+    fn as_h1_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> H1HeaderReader<'a> {
         let mut reader = RefReader::default();
         reader.add_str(self.method.spec());
         reader.add_str(" ");
@@ -461,7 +462,7 @@ impl Header {
         reader.add_str("HTTP/1.1");
         reader.add_str("\r\n");
         for key in self.keys.iter() {
-            if H1HeaderReader::skip_h1_key(key, &param.body_len) { continue; }
+            if H1HeaderReader::skip_h1_key(key, &param.body_len, ct) { continue; }
             reader.add_str(key.name());
             reader.add_str(": ");
             match key.name() {
@@ -473,6 +474,10 @@ impl Header {
                     }
                 }
                 "content-length" | "Content-Length" => reader.add_string(param.body_len.to_string()),
+                "content-type" | "Content-Type" => match ct.spec() {
+                    Cow::Borrowed(b) => reader.add_str(b),
+                    Cow::Owned(o) => reader.add_string(o),
+                }
                 "cookie" | "Cookie" => {
                     if let Some(cookies) = key.cookies() {
                         for (index, cookie) in cookies.iter().enumerate() {
@@ -498,16 +503,22 @@ impl Header {
         }
     }
 
-    fn as_h2_reader<'a>(&'a self, param: HeaderParam<'a>) -> H2HeaderReader<'a> {
+    fn as_h2_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> H2HeaderReader<'a> {
         let mut keys = vec![];
         let uri = self.uri.to_string();
         keys.push((StrCow::Borrowed(":method"), StrCow::Borrowed(self.method.spec())));
         keys.push((StrCow::Borrowed(":authority"), StrCow::Owned(param.addr.to_string().replace(":443", "").replace(":80", ""))));
         keys.push((StrCow::Borrowed(":scheme"), StrCow::Borrowed(param.scheme.spec())));
-        let invalid_keys = ["connection", "host", "content-length", "transfer-encoding", "upgrade"];
         for key in self.keys.iter() {
-            if invalid_keys.contains(&key.name_lower().as_str()) || key.value().is_empty() { continue; }
+            if H2HeaderReader::skip_h2_key(key, ct) { continue; }
             let name = key.name_lower();
+            if name == "content-type" {
+                match ct.spec() {
+                    Cow::Borrowed(b) => keys.push((StrCow::Owned(name), StrCow::Borrowed(b))),
+                    Cow::Owned(o) => keys.push((StrCow::Owned(name), StrCow::Owned(o))),
+                }
+                continue;
+            }
             match key.value() {
                 HeaderValue::Cookies(cookies) => for cookie in cookies.as_req(param.addr.host(), &uri) {
                     keys.push((StrCow::Owned(name.clone()), StrCow::Owned(cookie.as_req())));
@@ -526,10 +537,10 @@ impl Header {
         }
     }
 
-    pub(crate) fn as_reader<'a>(&'a mut self, param: HeaderParam<'a>) -> HeaderReader<'a> {
+    pub(crate) fn as_reader<'a>(&'a mut self, param: HeaderParam<'a>, ct: &'a ContentType) -> HeaderReader<'a> {
         match self.alpn {
-            ALPN::Http20 => HeaderReader::H2(self.as_h2_reader(param)),
-            _ => HeaderReader::H1(self.as_h1_reader(param))
+            ALPN::Http20 => HeaderReader::H2(self.as_h2_reader(param, ct)),
+            _ => HeaderReader::H1(self.as_h1_reader(param, ct))
         }
     }
 }

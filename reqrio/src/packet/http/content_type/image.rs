@@ -15,20 +15,26 @@ pub enum ImageType {
     WxPic,
 }
 
+impl ImageType {
+    pub fn spec(&self) -> &str {
+        match self {
+            ImageType::AVif => "image/avif",
+            ImageType::Webp => "image/webp",
+            ImageType::Apng => "image/apng",
+            ImageType::Png => "image/png",
+            ImageType::Gif => "image/gif",
+            ImageType::Jpg => "image/jpg",
+            ImageType::Jpeg => "image/jpeg",
+            ImageType::SvgXml => "image/svg+xml",
+            ImageType::XIcon => "image/x-icon",
+            ImageType::WxPic => "image/wxpic"
+        }
+    }
+}
+
 impl Display for ImageType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ImageType::AVif => f.write_str("image/avif"),
-            ImageType::Webp => f.write_str("image/webp"),
-            ImageType::Apng => f.write_str("image/apng"),
-            ImageType::Png => f.write_str("image/png"),
-            ImageType::Gif => f.write_str("image/gif"),
-            ImageType::Jpg => f.write_str("image/jpg"),
-            ImageType::Jpeg => f.write_str("image/jpeg"),
-            ImageType::SvgXml => f.write_str("image/svg+xml"),
-            ImageType::XIcon => f.write_str("image/x-icon"),
-            ImageType::WxPic => f.write_str("image/wxpic")
-        }
+        write!(f, "{}", self.spec())
     }
 }
 

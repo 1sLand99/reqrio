@@ -1,7 +1,8 @@
+use crate::body::Body;
 use crate::error::HlsResult;
 use crate::time::Timeout;
-use crate::{json, Cookie, HlsError, Method, Proxy, ReqExt, ScReq, ALPN};
-use crate::{Application, ContentType, Fingerprint};
+use crate::{json, BodyExt, Cookie, HlsError, Method, Proxy, ReqExt, ScReq, ALPN};
+use crate::{ContentType, Fingerprint};
 use reqtls::hex;
 use std::ffi::{c_char, CStr, CString};
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -140,60 +141,12 @@ pub extern "system" fn ScReq_set_proxy(req: *mut ScReq, addr: *const c_char) -> 
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn ScReq_set_url(req: *mut ScReq, url: *const c_char) -> i32 {
-    || -> HlsResult<i32> {
-        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
-        let url = unsafe { CStr::from_ptr(url) }.to_str()?.to_string();
-        req.set_url(url)?;
-        Ok(0)
-    }().unwrap_or(-1)
-}
-
-#[unsafe(no_mangle)]
-#[allow(non_snake_case)]
 pub extern "system" fn ScReq_add_param(req: *mut ScReq, name: *const c_char, value: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let name = unsafe { CStr::from_ptr(name) }.to_str()?.to_string();
         let value = unsafe { CStr::from_ptr(value) }.to_str()?.to_string();
         req.add_param(&name, &value);
-        Ok(0)
-    }().unwrap_or(-1)
-}
-
-#[unsafe(no_mangle)]
-#[allow(non_snake_case)]
-pub extern "system" fn ScReq_set_bytes(req: *mut ScReq, bytes: *const u8, len: u32, context_type: *const c_char) -> i32 {
-    || -> HlsResult<i32> {
-        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
-        let bytes = unsafe { slice::from_raw_parts(bytes, len as usize) };
-        let ct = unsafe { CStr::from_ptr(context_type) }.to_str()?;
-        let ct = ContentType::try_from(ct)?;
-        if let ContentType::Application(ref application) = ct {
-            match application {
-                Application::Json => {
-                    let data = json::from_bytes(bytes)?;
-                    req.set_json(data);
-                }
-                Application::XWwwFormUrlencoded => {
-                    let data = json::from_bytes(bytes)?;
-                    req.set_data(data);
-                }
-                _ => req.set_bytes(bytes, ct)
-            }
-        } else { req.set_bytes(bytes, ct) }
-        Ok(0)
-    }().unwrap_or(-1)
-}
-
-#[unsafe(no_mangle)]
-#[allow(non_snake_case)]
-pub extern "system" fn ScReq_set_context_type(req: *mut ScReq, context_type: *const c_char) -> i32 {
-    || -> HlsResult<i32> {
-        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
-        let context_type = unsafe { CStr::from_ptr(context_type) }.to_str()?;
-        let context_type = ContentType::try_from(context_type)?;
-        req.header_mut().set_content_type(context_type);
         Ok(0)
     }().unwrap_or(-1)
 }
@@ -237,16 +190,28 @@ pub extern "system" fn ScReq_add_cookie(req: *mut ScReq, name: *const c_char, va
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub unsafe extern "C" fn ScReq_stream_io(req: *mut ScReq, method: Method) -> *mut c_char {
+pub unsafe extern "C" fn ScReq_stream_io(
+    req: *mut ScReq,
+    method: Method,
+    url: *const c_char,
+    body: *const u8,
+    body_len: usize,
+    ct: *const c_char,
+) -> *mut c_char {
     let res = catch_unwind(AssertUnwindSafe(|| {
         let res = || -> HlsResult<String> {
             let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
             req.header_mut().set_method(method);
-            let mut resp = req.stream_io()?;
+            let ct = unsafe { CStr::from_ptr(ct) }.to_str()?;
+            let content_type = ContentType::try_from(ct)?;
+            let url = unsafe { CStr::from_ptr(url) }.to_str()?;
+            let body = unsafe { slice::from_raw_parts(body, body_len) };
+            let body=body.ty(content_type);
+            let mut resp = req.stream_io(url, body)?;
             let res = json::object! {
-            "header":resp.header(),
-            "body":hex::encode(resp.decode_body()?.as_bytes()?),
-        };
+                "header":resp.header(),
+                "body":hex::encode(resp.decode_body()?.as_bytes()?),
+            };
             Ok(hex::encode(res.dump()))
         };
         match res() {

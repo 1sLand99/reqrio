@@ -1,5 +1,5 @@
-use std::fmt::{Display, Formatter};
 use crate::error::HlsError;
+use std::fmt::{Display, Formatter};
 
 #[derive(Clone)]
 pub enum Text {
@@ -13,18 +13,24 @@ pub enum Text {
     Json,
 }
 
+impl Text {
+    pub fn spec(&self) -> &str {
+        match self {
+            Text::Css => "text/css",
+            Text::Html => "text/html",
+            Text::Plain => "text/plain",
+            Text::JavaScript => "text/javascript",
+            Text::EventStream => "text/event-stream",
+            Text::Xml => "text/xml",
+            Text::XComponent => "text/x-component",
+            Text::Json => "text/json"
+        }
+    }
+}
+
 impl Display for Text {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Text::Css => f.write_str("text/css"),
-            Text::Html => f.write_str("text/html"),
-            Text::Plain => f.write_str("text/plain"),
-            Text::JavaScript => f.write_str("text/javascript"),
-            Text::EventStream => f.write_str("text/event-stream"),
-            Text::Xml => f.write_str("text/xml"),
-            Text::XComponent => f.write_str("text/x-component"),
-            Text::Json => f.write_str("text/json")
-        }
+        write!(f, "{}", self.spec())
     }
 }
 

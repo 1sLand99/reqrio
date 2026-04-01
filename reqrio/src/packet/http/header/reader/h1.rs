@@ -1,6 +1,6 @@
 use reqtls::WriteExt;
 use crate::error::HlsResult;
-use crate::HeaderKey;
+use crate::{ContentType, HeaderKey};
 use crate::reader::{ReadExt, Reader, RefReader, StrCow};
 
 pub struct H1HeaderReader<'a> {
@@ -10,9 +10,11 @@ pub struct H1HeaderReader<'a> {
 }
 
 impl<'a> H1HeaderReader<'a> {
-    pub(crate) fn skip_h1_key(key: &HeaderKey, body_len: &usize) -> bool {
+    pub(crate) fn skip_h1_key(key: &HeaderKey, body_len: &usize, ct: &ContentType) -> bool {
         let is_ctx_len = key.name().eq_ignore_ascii_case("content-length");
         if is_ctx_len && body_len != &0 { return false; }
+        let is_ct = key.name().eq_ignore_ascii_case("content-type");
+        if is_ct && !matches!(ct, ContentType::Null) { return false; }
         let is_host = key.name().eq_ignore_ascii_case("host");
         if is_host { return false; }
         key.value().is_empty()
@@ -45,7 +47,7 @@ impl<'a> ReadExt for H1HeaderReader<'a> {
 #[cfg(test)]
 mod tests {
     use reqtls::{Addr, Scheme, Uri};
-    use crate::{Header, Method};
+    use crate::{ContentType, Header, Method};
     use crate::packet::HeaderParam;
     use crate::reader::{ReadExt, Reader};
 
@@ -82,7 +84,7 @@ mod tests {
             encoder: &mut encoder,
             stream_identifier: &sid,
             body_len: 0,
-        });
+        }, &ContentType::Null);
         let len = reader.read(&mut Reader::new(&mut res)).unwrap();
         assert_eq!(len, reader.len());
         assert!(reader.wrote());
