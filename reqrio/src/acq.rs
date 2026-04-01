@@ -218,7 +218,7 @@ impl AcReq {
         Err("[AcReq] connection error".into())
     }
 
-    pub async fn set_url(&mut self, url: impl TryInto<Url>) -> HlsResult<()> {
+    pub(crate) async fn set_url(&mut self, url: impl TryInto<Url>) -> HlsResult<()> {
         let (scheme, addr, uri) = url.try_into().or(Err(RlsError::Url(UrlError::ParseUrlError)))?.into_inner();
         let old_addr = mem::replace(&mut self.addr, addr);
         let old_scheme = mem::replace(&mut self.scheme, scheme);

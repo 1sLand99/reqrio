@@ -150,7 +150,7 @@ pub use stream::TlsStream;
 pub use tokio;
 pub use form_data::{FileForm, HttpFile};
 pub use time::{Time, Timeout};
-pub use body::{BodyExt, BodyData};
+pub use body::{BodyExt, BodyData, Body};
 
 pub type ReqCallback = Box<dyn FnMut(&[u8]) -> HlsResult<()>>;
 pub const HTTP_GAP: &[u8; 4] = b"\r\n\r\n";

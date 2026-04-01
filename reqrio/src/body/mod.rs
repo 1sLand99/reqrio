@@ -3,7 +3,7 @@ mod reader;
 
 use crate::error::HlsResult;
 use crate::form_data::HttpFile;
-use crate::reader::{ReadExt, Reader, RefReader, StrCow};
+use crate::reader::{HCow, ReadExt, Reader, RefReader, StrCow};
 use crate::*;
 use crate::{Application, ContentType, Text};
 pub use ext::{BodyData, BodyExt};
@@ -15,9 +15,19 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 pub enum BodyKind<'a> {
-    Data(Cow<'a, JsonValue>),
+    Data(HCow<'a, JsonValue>),
     Bytes(Cow<'a, [u8]>),
-    Files(HttpFile),
+    Files(HCow<'a, HttpFile>),
+}
+
+impl<'a, 'b: 'a> From<&'b BodyKind<'a>> for BodyKind<'a> {
+    fn from(value: &'b BodyKind) -> Self {
+        match value {
+            BodyKind::Data(data) => BodyKind::Data(HCow::Borrowed(data.as_ref())),
+            BodyKind::Bytes(bytes) => BodyKind::Bytes(Cow::Borrowed(bytes.as_ref())),
+            BodyKind::Files(file) => BodyKind::Files(HCow::Borrowed(file.as_ref()))
+        }
+    }
 }
 
 pub struct Body<'a> {
@@ -25,10 +35,19 @@ pub struct Body<'a> {
     ct: ContentType,
 }
 
+impl<'a, 'b: 'a> From<&'b Body<'a>> for Body<'a> {
+    fn from(value: &'b Body<'a>) -> Self {
+        Body {
+            kind: BodyKind::from(&value.kind),
+            ct: value.ct.clone(),
+        }
+    }
+}
+
 impl<'a> From<&'a JsonValue> for Body<'a> {
     fn from(json: &'a JsonValue) -> Body<'a> {
         Body {
-            kind: BodyKind::Data(Cow::Borrowed(json)),
+            kind: BodyKind::Data(HCow::Borrowed(json)),
             ct: ContentType::json(),
         }
     }
@@ -37,7 +56,7 @@ impl<'a> From<&'a JsonValue> for Body<'a> {
 impl<'a> From<JsonValue> for Body<'a> {
     fn from(json: JsonValue) -> Body<'a> {
         Body {
-            kind: BodyKind::Data(Cow::Owned(json)),
+            kind: BodyKind::Data(HCow::Owned(json)),
             ct: ContentType::json(),
         }
     }
@@ -104,7 +123,7 @@ impl<'a> From<HttpFile> for Body<'a> {
         let boundary = Arc::new(format!("----WebKitFormBoundary{}", &md5[..16]));
         Body {
             ct: ContentType::File(boundary),
-            kind: BodyKind::Files(file),
+            kind: BodyKind::Files(HCow::Owned(file)),
 
         }
     }

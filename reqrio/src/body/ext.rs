@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use super::{Body, BodyKind};
 use crate::ContentType;
 use reqrio_json::JsonValue;
+use crate::reader::HCow;
 
 pub trait BodyExt {
     fn ty(&self, ct: ContentType) -> Body<'_>;
@@ -14,7 +15,7 @@ pub trait BodyData {
 impl BodyExt for JsonValue {
     fn ty(&self, ct: ContentType) -> Body<'_> {
         Body {
-            kind: BodyKind::Data(Cow::Borrowed(self)),
+            kind: BodyKind::Data(HCow::Borrowed(self)),
             ct,
         }
     }
@@ -23,7 +24,7 @@ impl BodyExt for JsonValue {
 impl BodyData for JsonValue {
     fn form(&self) -> Body<'_> {
         Body {
-            kind: BodyKind::Data(Cow::Borrowed(self)),
+            kind: BodyKind::Data(HCow::Borrowed(self)),
             ct: ContentType::form(),
         }
     }

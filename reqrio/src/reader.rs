@@ -2,7 +2,7 @@ use crate::error::HlsResult;
 use reqtls::WriteExt;
 use std::fmt::{Debug, Formatter};
 use std::io::{Cursor, Read};
-use std::ops::Range;
+use std::ops::{Deref, Range};
 
 pub struct Reader<'a> {
     buffer: &'a mut [u8],
@@ -164,6 +164,33 @@ impl<'a> Debug for StrCow<'a> {
         match self {
             StrCow::Borrowed(b) => write!(f, "{}", b),
             StrCow::Owned(o) => write!(f, "{}", o),
+        }
+    }
+}
+
+
+pub enum HCow<'a, T> {
+    Borrowed(&'a T),
+    Owned(T),
+}
+
+impl<'a, T> Deref for HCow<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            HCow::Borrowed(v) => v,
+            HCow::Owned(o) => o,
+        }
+    }
+}
+
+
+impl<'a, T> AsRef<T> for HCow<'a, T> {
+    fn as_ref(&self) -> &T {
+        match self {
+            HCow::Borrowed(v) => v,
+            HCow::Owned(o) => o,
         }
     }
 }
