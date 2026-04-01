@@ -1,7 +1,7 @@
 use crate::body::Body;
 use crate::error::HlsResult;
 use crate::time::Timeout;
-use crate::{json, Cookie, HlsError, Method, Proxy, ReqExt, ScReq, ALPN};
+use crate::{json, BodyExt, Cookie, HlsError, Method, Proxy, ReqExt, ScReq, ALPN};
 use crate::{ContentType, Fingerprint};
 use reqtls::hex;
 use std::ffi::{c_char, CStr, CString};
@@ -206,7 +206,7 @@ pub unsafe extern "C" fn ScReq_stream_io(
             let content_type = ContentType::try_from(ct)?;
             let url = unsafe { CStr::from_ptr(url) }.to_str()?;
             let body = unsafe { slice::from_raw_parts(body, body_len) };
-            let body=Body::from(body);
+            let body=body.ty(content_type);
             let mut resp = req.stream_io(url, body)?;
             let res = json::object! {
                 "header":resp.header(),
