@@ -144,7 +144,7 @@ impl<'a> Body<'a> {
         match &self.kind {
             BodyKind::Data(data) => {
                 let mut readers: RefReader<StrCow> = RefReader::default();
-                for (k, v) in data.entries() {
+                for (i, (k, v)) in data.entries().enumerate() {
                     readers.add_str(k);
                     readers.add_str("=");
                     match v.as_str() {
@@ -156,6 +156,7 @@ impl<'a> Body<'a> {
                         }
                         Err(_) => readers.add_string(coder::url_encode(&v.dump()).into_owned())
                     }
+                    if i != data.entries().count() - 1 { readers.add_str("&") }
                 }
                 Ok(RawBodyReader::Data(readers))
             }
