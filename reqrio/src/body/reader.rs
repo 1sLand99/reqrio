@@ -1,7 +1,7 @@
 use crate::error::HlsResult;
 use crate::form_data::HttpFileReader;
-use crate::*;
 use crate::reader::{ReadExt, Reader, RefReader, StrCow};
+use crate::*;
 
 pub enum RawBodyReader<'a> {
     Data(RefReader<StrCow<'a>>),
@@ -201,5 +201,40 @@ impl<'a> ReadExt for H2BodyReader<'a> {
         }
         self.wrote = true;
         Ok(buf.offset().end - start)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::reader::{ReadExt, Reader};
+    use crate::{json, Body, BodyData};
+
+    #[test]
+    fn test_h1_reader() {
+        let data = json::object! {
+            "a":1,
+            "b":"收到反馈",
+            "v":{k:1,b:true}
+        };
+        let body = data.form();
+        let mut body_reader = body.as_reader().unwrap();
+        let mut res = vec![0; 1024];
+        let len = body_reader.read(&mut Reader::new(&mut res)).unwrap();
+        assert_eq!(&res[..len], b"a=1&b=%E6%94%B6%E5%88%B0%E5%8F%8D%E9%A6%88&v=%7B%22k%22%3A1%2C%22b%22%3Atrue%7D");
+        let body = Body::from(data);
+        let mut body_reader = body.as_reader().unwrap();
+        let len = body_reader.read(&mut Reader::new(&mut res)).unwrap();
+        assert_eq!(&res[..len], b"{\"a\":1,\"b\":\"\xE6\x94\xB6\xE5\x88\xB0\xE5\x8F\x8D\xE9\xA6\x88\",\"v\":{\"k\":1,\"b\":true}}");
+
+        let body = Body::from(&[1, 2, 3, 4, 5, 12, 3, 4, 56]);
+        let mut body_reader = body.as_reader().unwrap();
+        let len = body_reader.read(&mut Reader::new(&mut res)).unwrap();
+        assert_eq!(&res[..len], [1, 2, 3, 4, 5, 12, 3, 4, 56]);
+
+
+        let body = Body::from("12345,2345fdgf");
+        let mut body_reader = body.as_reader().unwrap();
+        let len = body_reader.read(&mut Reader::new(&mut res)).unwrap();
+        assert_eq!(&res[..len], b"12345,2345fdgf");
     }
 }

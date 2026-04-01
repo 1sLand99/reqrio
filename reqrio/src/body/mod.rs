@@ -143,22 +143,26 @@ impl<'a> Body<'a> {
     pub(crate) fn as_reader(&'a self) -> HlsResult<RawBodyReader<'a>> {
         match &self.kind {
             BodyKind::Data(data) => {
-                let mut readers: RefReader<StrCow> = RefReader::default();
-                for (i, (k, v)) in data.entries().enumerate() {
-                    readers.add_str(k);
-                    readers.add_str("=");
-                    match v.as_str() {
-                        Ok(v) => {
-                            match coder::url_encode(&v) {
-                                Cow::Borrowed(_) => readers.add_str(v),
-                                Cow::Owned(o) => readers.add_string(o)
+                if let ContentType::Application(Application::Json) = self.ct {
+                    Ok(RawBodyReader::Data(RefReader::new_buf(StrCow::Owned(data.dump()))))
+                }else {
+                    let mut readers: RefReader<StrCow> = RefReader::default();
+                    for (i, (k, v)) in data.entries().enumerate() {
+                        readers.add_str(k);
+                        readers.add_str("=");
+                        match v.as_str() {
+                            Ok(v) => {
+                                match coder::url_encode(&v) {
+                                    Cow::Borrowed(_) => readers.add_str(v),
+                                    Cow::Owned(o) => readers.add_string(o)
+                                }
                             }
+                            Err(_) => readers.add_string(coder::url_encode(&v.dump()).into_owned())
                         }
-                        Err(_) => readers.add_string(coder::url_encode(&v.dump()).into_owned())
+                        if i != data.entries().count() - 1 { readers.add_str("&") }
                     }
-                    if i != data.entries().count() - 1 { readers.add_str("&") }
+                    Ok(RawBodyReader::Data(readers))
                 }
-                Ok(RawBodyReader::Data(readers))
             }
             BodyKind::Bytes(bytes) => Ok(RawBodyReader::Bytes(RefReader::new_buf(bytes.as_ref()))),
             BodyKind::Files(file) => Ok(RawBodyReader::File(file.as_reader()?)),
