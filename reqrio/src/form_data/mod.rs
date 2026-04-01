@@ -13,7 +13,15 @@ use std::path::Path;
 use std::sync::Arc;
 pub use file_form::FileForm;
 
-
+/// * 文件上传示例
+/// ```no_run
+/// use reqrio::*;
+/// let data=json::object!{"key":"value"};
+/// let mut file=HttpFile::new_path_data(data,"path/to/file1").unwrap();
+/// file.add_form(FileForm::new_path("path/to/file2").unwrap());
+/// let mut req=ScReq::new();
+/// req.post("https://url/api",file).unwrap();
+/// ```
 pub struct HttpFile {
     data: Vec<FormField>,
     forms: Vec<FileForm>,

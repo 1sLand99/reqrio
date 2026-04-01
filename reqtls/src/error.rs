@@ -1,3 +1,6 @@
+use crate::url::UrlError;
+use crate::Alert;
+use hex::FromHexError;
 use std::array::TryFromSliceError;
 use std::convert::Infallible;
 use std::error::Error;
@@ -10,9 +13,6 @@ use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 use std::sync::PoisonError;
 use std::time::SystemTimeError;
-use hex::FromHexError;
-use crate::Alert;
-use crate::url::UrlError;
 
 #[derive(Debug)]
 pub enum RlsError {
@@ -290,7 +290,7 @@ impl From<SystemTimeError> for RlsError {
     }
 }
 
-impl From<BufferError> for RlsError{
+impl From<BufferError> for RlsError {
     fn from(value: BufferError) -> Self {
         RlsError::Buffer(value)
     }

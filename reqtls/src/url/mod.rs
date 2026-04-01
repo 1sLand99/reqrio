@@ -71,6 +71,15 @@ impl Url {
         (self.scheme, self.addr, self.uri)
     }
 
+    pub fn from_inner(scheme: Scheme, addr: Addr, uri: Uri) -> Url {
+        Url {
+            scheme,
+            addr,
+            uri,
+            ..Default::default()
+        }
+    }
+
     pub fn username(&self) -> &str {
         &self.username
     }
@@ -106,7 +115,7 @@ impl Display for Url {
 impl TryFrom<String> for Url {
     type Error = RlsError;
     fn try_from(t: String) -> Result<Self, Self::Error> {
-        Url::try_from(t.as_ref())
+        Url::try_from(t.as_str())
     }
 }
 
@@ -151,6 +160,14 @@ impl TryFrom<&str> for Url {
     }
 }
 
+impl TryFrom<&String> for Url {
+    type Error = RlsError;
+    fn try_from(t: &String) -> Result<Self, Self::Error> {
+        Url::try_from(t.as_str())
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use crate::url::Url;
@@ -189,7 +206,7 @@ mod tests {
         let url = Url::try_from(url8).unwrap();
         println!("{:#?}", url);
         assert_eq!(url.to_string(), url8);
-        let url9="wss://poe.game.qq.com/";
+        let url9 = "wss://poe.game.qq.com/";
         let mut uri = Url::try_from(url9).unwrap();
         uri.set_uri("wss://poe.game.qq.com/api/trade2/live/poe2/%E7%93%A6%E5%B0%94%E7%9A%84%E5%AE%BF%E5%91%BD/32Y6Wjkc5").unwrap();
         println!("{}", uri);

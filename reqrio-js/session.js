@@ -63,38 +63,9 @@ class Session {
         if (ret === -1) throw "add_header error"
     }
 
-
-    set_url(url) {
-        let ret = library.ScReq_set_url(this.req, url)
-        if (ret === -1) throw "set_url error"
-    }
-
     add_param(name, value) {
         let ret = library.ScReq_add_param(this.req, name, value);
         if (ret === -1) throw "add_param error"
-    }
-
-    set_data(data) {
-        let data_str = JSON.stringify(data)
-        this.set_bytes(new TextEncoder().encode(data_str), "application/x-www-form-urlencoded")
-    }
-
-    set_json(json) {
-        let json_str = JSON.stringify(json);
-        this.set_bytes(new TextEncoder().encode(json_str), "application/json")
-    }
-
-    set_bytes(buffer, ct = "application/octet-stream") {
-        let ret = library.ScReq_set_bytes(this.req, buffer, buffer.length, ct);
-        if (ret === -1) throw "set body error"
-    }
-
-    set_text(text) {
-        this.set_bytes(new TextEncoder().encode(text), "text/plain")
-    }
-
-    set_context_type(ct) {
-        library.ScReq_set_context_type(this.req, ct)
     }
 
     /*
@@ -133,8 +104,39 @@ class Session {
         library.ScReq_set_callback(this.req, callback)
     }
 
-    send(method) {
-        let resp = library.ScReq_stream_io(this.req, method)
+    _format_body(data, json, bytes, ct) {
+        if (data !== null) {
+            let keys = Object.keys(data)
+            let res = "";
+            for (let i = 0; i < keys.length; i++) {
+                res += keys[i];
+                res += "="
+                res += encodeURIComponent(JSON.stringify(data[keys[i]]))
+                res += "&"
+            }
+            if (res.endsWith("&")) {
+                res = res.substring(0, res.length - 1)
+            }
+            if (ct === null)
+                return [new TextEncoder().encode(res), "application/x-www-form-urlencoded"]
+            else return [new TextEncoder().encode(res), ct]
+        }
+        if (json !== null) {
+            let res = JSON.stringify(json);
+            if (ct === null)
+                return [new TextEncoder().encode(res), "application/json"]
+            else return [new TextEncoder().encode(res), ct]
+        }
+        if (bytes !== null)
+            if (ct === null)
+                return [bytes, "application/octet-stream"]
+            else return [bytes, ct]
+        return [new TextEncoder().encode(""), "application/octet-stream"]
+    }
+
+    send(method, url, data, json, bytes, ct) {
+        let body = this._format_body(data, json, bytes, ct)
+        let resp = library.ScReq_stream_io(this.req, method, url, body[0], body[0].length, body[1])
         let buffer = Buffer.from(read_to_string(resp), "hex");
         let response = new Response(buffer);
         response.header.method = method;
@@ -142,32 +144,32 @@ class Session {
         return response;
     }
 
-    get() {
-        return this.send(Method.GET)
+    get(url, data, json, bytes, ct) {
+        return this.send(Method.GET, url, data, json, bytes, ct)
     }
 
-    post() {
-        return this.send(Method.POST)
+    post(url, data, json, bytes, ct) {
+        return this.send(Method.POST, url, data, json, bytes, ct)
     }
 
-    options() {
-        return this.send(Method.OPTIONS)
+    options(url, data, json, bytes, ct) {
+        return this.send(Method.OPTIONS, url, data, json, bytes, ct)
     }
 
-    head() {
-        return this.send(Method.HEAD)
+    head(url, data, json, bytes, ct) {
+        return this.send(Method.HEAD, url, data, json, bytes, ct)
     }
 
-    trace() {
-        return this.send(Method.TRACE)
+    trace(url, data, json, bytes, ct) {
+        return this.send(Method.TRACE, url, data, json, bytes, ct)
     }
 
-    delete() {
-        return this.send(Method.DELETE)
+    delete(url, data, json, bytes, ct) {
+        return this.send(Method.DELETE, url, data, json, bytes, ct)
     }
 
-    patch() {
-        return this.send(Method.PATCH)
+    patch(url, data, json, bytes, ct) {
+        return this.send(Method.PATCH, url, data, json, bytes, ct)
     }
 
     close() {

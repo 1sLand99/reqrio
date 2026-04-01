@@ -22,16 +22,11 @@ def send(url: str, method: Method, headers: dict = None, params: dict = None, da
     req = session.Session(alpn, verify=verify)
     if proxy is not None:
         req.set_proxy(proxy)
-    req.set_url(url)
     if headers is not None:
         req.set_headers(headers)
     if params is not None:
         req.set_params(params)
-    if data is not None:
-        req.set_data(data)
-    if json is not None:
-        req.set_json(json)
-    resp = req.send_request(method)
+    resp = req.send_request(method, url, data, json)
     req.close()
     return resp
 
@@ -42,7 +37,7 @@ def get(url: str, headers: dict = None, params: dict = None, data: dict = None, 
 
 
 def post(url: str, headers: dict = None, params: dict = None, data: dict = None, json: dict = None,
-        alpn=ALPN.HTTP11, verify: bool = True, proxy: str = None) -> Response:
+         alpn=ALPN.HTTP11, verify: bool = True, proxy: str = None) -> Response:
     return send(url, Method.POST, headers, params, data, json, alpn, verify, proxy)
 
 

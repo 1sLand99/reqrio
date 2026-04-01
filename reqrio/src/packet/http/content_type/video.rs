@@ -1,5 +1,5 @@
-use std::fmt::{Display, Formatter};
 use crate::error::HlsError;
+use std::fmt::{Display, Formatter};
 
 #[derive(Clone)]
 pub enum Video {
@@ -7,12 +7,18 @@ pub enum Video {
     MP2T,
 }
 
+impl Video {
+    pub fn spec(&self) -> &str {
+        match self {
+            Video::Mp4 => "video/mp4",
+            Video::MP2T => "video/mp2t"
+        }
+    }
+}
+
 impl Display for Video {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Video::Mp4 => f.write_str("video/mp4"),
-            Video::MP2T => f.write_str("video/mp2t")
-        }
+        write!(f, "{}", self.spec())
     }
 }
 

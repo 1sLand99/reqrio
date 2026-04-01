@@ -1,10 +1,10 @@
-use crate::body::BodyType;
+use crate::body::{Body, H2FrameRBuf};
 use crate::error::HlsResult;
 use crate::ext::{ReqExt, ReqParam};
 use crate::ext::{ReqGenExt, ReqPriExt};
 use crate::hpack::HPackCoding;
 use crate::json::JsonValue;
-use crate::packet::{FrameFlag, FrameType, H2Frame, H2FrameRBuf, HeaderParam};
+use crate::packet::{FrameFlag, FrameType, H2Frame, HeaderParam};
 use crate::reader::{ReadExt, Reader};
 use crate::request::RequestBuffer;
 use crate::stream::{ConnParam, Proxy, Stream};
@@ -19,7 +19,6 @@ pub struct AcReq {
     timeout: Timeout,
     callback: Option<ReqCallback>,
     stream_id: u32,
-    body: BodyType,
     proxy: Proxy,
     fingerprint: Fingerprint,
     verify: bool,
@@ -29,6 +28,7 @@ pub struct AcReq {
     certs: Vec<Certificate>,
     key: RsaKey,
     ca_certs: Vec<Certificate>,
+    alpn: ALPN,
 }
 
 impl Default for AcReq {
@@ -43,7 +43,6 @@ impl Default for AcReq {
             stream_id: 0,
             proxy: Proxy::Null,
             fingerprint: Fingerprint::default(),
-            body: BodyType::new_byte(vec![]),
             verify: true,
             auto_redirect: true,
             buffer: Buffer::with_capacity(32826),
@@ -51,6 +50,7 @@ impl Default for AcReq {
             certs: vec![],
             key: RsaKey::none(),
             ca_certs: vec![],
+            alpn: ALPN::Http11,
         }
     }
 }
@@ -60,44 +60,44 @@ impl AcReq {
         AcReq::default()
     }
 
-    pub async fn get(&mut self) -> HlsResult<Response> {
+    pub async fn get(&mut self, url: impl TryInto<Url>, body: impl Into<Body<'_>>) -> HlsResult<Response> {
         self.header.set_method(Method::GET);
-        self.stream_io().await
+        self.stream_io(url, body.into()).await
     }
 
-    pub async fn post(&mut self) -> HlsResult<Response> {
+    pub async fn post(&mut self, url: impl TryInto<Url>, body: impl Into<Body<'_>>) -> HlsResult<Response> {
         self.header.set_method(Method::POST);
-        self.stream_io().await
+        self.stream_io(url, body.into()).await
     }
 
-    pub async fn put(&mut self) -> HlsResult<Response> {
+    pub async fn put(&mut self, url: impl TryInto<Url>, body: impl Into<Body<'_>>) -> HlsResult<Response> {
         self.header.set_method(Method::PUT);
-        self.stream_io().await
+        self.stream_io(url, body.into()).await
     }
 
-    pub async fn options(&mut self) -> HlsResult<Response> {
+    pub async fn options(&mut self, url: impl TryInto<Url>, body: impl Into<Body<'_>>) -> HlsResult<Response> {
         self.header.set_method(Method::OPTIONS);
-        self.stream_io().await
+        self.stream_io(url, body.into()).await
     }
 
-    pub async fn delete(&mut self) -> HlsResult<Response> {
+    pub async fn delete(&mut self, url: impl TryInto<Url>, body: impl Into<Body<'_>>) -> HlsResult<Response> {
         self.header.set_method(Method::DELETE);
-        self.stream_io().await
+        self.stream_io(url, body.into()).await
     }
 
-    pub async fn head(&mut self) -> HlsResult<Response> {
+    pub async fn head(&mut self, url: impl TryInto<Url>, body: impl Into<Body<'_>>) -> HlsResult<Response> {
         self.header.set_method(Method::HEAD);
-        self.stream_io().await
+        self.stream_io(url, body.into()).await
     }
 
-    pub async fn trace(&mut self) -> HlsResult<Response> {
+    pub async fn trace(&mut self, url: impl TryInto<Url>, body: impl Into<Body<'_>>) -> HlsResult<Response> {
         self.header.set_method(Method::TRACE);
-        self.stream_io().await
+        self.stream_io(url, body.into()).await
     }
 
-    pub async fn patch(&mut self) -> HlsResult<Response> {
+    pub async fn patch(&mut self, url: impl TryInto<Url>, body: impl Into<Body<'_>>) -> HlsResult<Response> {
         self.header.set_method(Method::PATCH);
-        self.stream_io().await
+        self.stream_io(url, body.into()).await
     }
 
     pub async fn h1_io(&mut self) -> HlsResult<Response> {
@@ -110,8 +110,8 @@ impl AcReq {
         Ok(response)
     }
 
-    pub(crate) async fn handle_io(&mut self) -> HlsResult<Response> {
-        let mut request = RequestBuffer::new(&mut self.header, &mut self.body, HeaderParam {
+    pub(crate) async fn handle_io(&mut self, body: &Body<'_>) -> HlsResult<Response> {
+        let mut request = RequestBuffer::new(&mut self.header, body, HeaderParam {
             addr: &self.addr,
             scheme: &self.scheme,
             encoder: self.hpack_coder.encoder(),
@@ -135,9 +135,10 @@ impl AcReq {
         Ok(response)
     }
 
-    pub async fn stream_io(&mut self) -> HlsResult<Response> {
+    pub async fn stream_io(&mut self, url: impl TryInto<Url>, body: Body<'_>) -> HlsResult<Response> {
+        self.set_url(url).await?;
         for i in 0..self.timeout.handle_times() {
-            let res = tokio::time::timeout(self.timeout.handle(), self.handle_io()).await;
+            let res = tokio::time::timeout(self.timeout.handle(), self.handle_io(&body)).await;
             self.buffer.reset();
             match res {
                 Ok(res) => match res {
@@ -145,13 +146,13 @@ impl AcReq {
                         let code = res.header().status().code();
                         return if self.auto_redirect && (300..400).contains(&code) {
                             let location = res.header().location().ok_or("missing location")?;
-                            if location.starts_with("http") {
-                                self.set_url(location).await?;
+                            let url = if location.starts_with("http") {
+                                Url::try_from(location)?
                             } else {
-                                self.header.set_uri(Uri::try_from(location)?);
-                            }
+                                Url::from_inner(self.scheme.clone(), self.addr.clone(), Uri::try_from(location)?)
+                            };
                             self.header.set_method(Method::GET);
-                            Box::pin(self.stream_io()).await
+                            Box::pin(self.stream_io(url, Body::none())).await
                         } else {
                             Ok(res)
                         };
@@ -185,7 +186,7 @@ impl AcReq {
                 proxy: &self.proxy,
                 timeout: &self.timeout,
                 fingerprint: &mut self.fingerprint,
-                alpn: self.header.alpn(),
+                alpn: &self.alpn,
                 verify: self.verify,
                 cert: &mut self.certs,
                 key: &mut self.key,
@@ -217,38 +218,27 @@ impl AcReq {
         Err("[AcReq] connection error".into())
     }
 
-    pub async fn with_url(mut self, url: impl AsRef<str>) -> HlsResult<Self> {
-        self.set_url(url).await?;
-        Ok(self)
-    }
-
-    pub async fn new_with_url(url: impl AsRef<str>) -> HlsResult<AcReq> {
-        let mut res = Self::new();
-        res.set_url(url).await?;
-        Ok(res)
-    }
-
-    pub async fn set_url(&mut self, url: impl AsRef<str>) -> HlsResult<()> {
-        let (scheme, addr, uri) = Url::try_from(url.as_ref())?.into_inner();
+    pub async fn set_url(&mut self, url: impl TryInto<Url>) -> HlsResult<()> {
+        let (scheme, addr, uri) = url.try_into().or(Err(RlsError::Url(UrlError::ParseUrlError)))?.into_inner();
         let old_addr = mem::replace(&mut self.addr, addr);
         let old_scheme = mem::replace(&mut self.scheme, scheme);
         self.header.set_uri(uri);
-        drop(mem::replace(&mut self.body, BodyType::Bytes(vec![])));
         if self.addr.host() != old_addr.host() || self.scheme != old_scheme {
             self.re_conn().await?;
         }
         Ok(())
     }
 
-    pub async fn send_check(&mut self, method: Method) -> HlsResult<Response> {
+    pub async fn send_check(&mut self, method: Method, url: impl TryInto<Url>, body: impl Into<Body<'_>>) -> HlsResult<Response> {
         self.header.set_method(method);
-        let response = self.stream_io().await?;
+        let response = self.stream_io(url, body.into()).await?;
         self.check_status(&response)?;
         Ok(response)
     }
 
-    pub async fn send_check_json(&mut self, method: Method, k: impl AsRef<str>, v: impl ToString, e: Vec<impl AsRef<str>>) -> HlsResult<JsonValue> {
-        let response = self.send_check(method).await?;
+    pub async fn send_check_json(&mut self, method: Method, url: impl TryInto<Url>, body: impl Into<Body<'_>>,
+                                 k: impl AsRef<str>, v: impl ToString, e: Vec<impl AsRef<str>>) -> HlsResult<JsonValue> {
+        let response = self.send_check(method, url, body).await?;
         self.check_res(response, k, v, e)
     }
 }
@@ -308,10 +298,6 @@ impl ReqPriExt for AcReq {
 
         }
     }
-
-    fn body_type_mut(&mut self) -> &mut BodyType {
-        &mut self.body
-    }
 }
 
 impl ReqExt for AcReq {
@@ -335,10 +321,6 @@ impl ReqExt for AcReq {
         &mut self.timeout
     }
 
-    fn url(&self) -> String {
-        format!("{}://{}{}", self.scheme, self.addr, self.header.uri()).replace(":80", "").replace(":443", "")
-    }
-
     fn set_proxy(&mut self, proxy: Proxy) {
         self.proxy = proxy;
     }
@@ -349,6 +331,10 @@ impl ReqExt for AcReq {
 
     fn set_auto_redirect(&mut self, auto_redirect: bool) {
         self.auto_redirect = auto_redirect;
+    }
+
+    fn set_alpn(&mut self, alpn: ALPN) {
+        self.alpn = alpn;
     }
 
     fn set_mtls(&mut self, certs: Vec<Certificate>, key: RsaKey, ca: Option<Vec<Certificate>>) {

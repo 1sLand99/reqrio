@@ -1,6 +1,6 @@
 use reqtls::WriteExt;
 use crate::error::HlsResult;
-use crate::H2Frame;
+use crate::{ContentType, H2Frame, HeaderKey};
 use crate::hpack::HPackEncode;
 use crate::reader::{ReadExt, Reader, StrCow};
 
@@ -11,6 +11,15 @@ pub(crate) struct H2HeaderReader<'a> {
     pub(crate) wrote: bool,
     pub(crate) pos: usize,
     pub(crate) body_len: usize,
+}
+
+impl<'a> H2HeaderReader<'a> {
+    const INVALID_KEYS: [&'static str; 5] = ["connection", "host", "content-length", "transfer-encoding", "upgrade"];
+    pub(crate) fn skip_h2_key(key: &HeaderKey, ct: &ContentType) -> bool {
+        let is_ct = key.name().eq_ignore_ascii_case("content-type");
+        if is_ct && !matches!(ct,ContentType::Null) { return false; }
+        H2HeaderReader::INVALID_KEYS.contains(&key.name_lower().as_str()) || key.value().is_empty()
+    }
 }
 
 impl<'a> ReadExt for H2HeaderReader<'a> {
@@ -47,7 +56,7 @@ impl<'a> ReadExt for H2HeaderReader<'a> {
 #[cfg(test)]
 mod tests {
     use reqtls::{Addr, Scheme, Uri, WriteExt};
-    use crate::{Buffer, Header, Method};
+    use crate::{Buffer, ContentType, Header, Method};
     use crate::hpack::HPackEncode;
     use crate::packet::HeaderParam;
     use crate::reader::{ReadExt, Reader};
@@ -85,7 +94,7 @@ mod tests {
             encoder: &mut encoder,
             stream_identifier: &sid,
             body_len: 0,
-        });
+        }, &ContentType::Null);
         let len = reader.read(&mut Reader::new(&mut res)).unwrap();
         assert!(reader.wrote());
         let mut raw = Buffer::with_capacity(3072);

@@ -2,10 +2,11 @@ use crate::buffer::Buffer;
 use crate::error::HlsResult;
 use crate::hpack::HPackDecode;
 use crate::json::JsonValue;
-use crate::packet::{H2FrameRBuf, Header};
+use crate::packet::Header;
 use crate::{coder, FrameType, HeaderValue, CHUNK_END, HTTP_GAP};
 use reqtls::WriteExt;
 use std::{mem, ptr};
+use crate::body::H2FrameRBuf;
 
 pub enum Body {
     Raw(Vec<u8>),

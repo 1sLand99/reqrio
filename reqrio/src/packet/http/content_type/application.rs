@@ -1,5 +1,5 @@
-use std::fmt::{Display, Formatter};
 use crate::error::HlsError;
+use std::fmt::{Display, Formatter};
 
 #[derive(Clone)]
 pub enum Application {
@@ -25,30 +25,36 @@ pub enum Application {
     Pdf,
 }
 
+impl Application {
+    pub fn spec(&self) -> &str {
+        match self {
+            Application::Json => "application/json",
+            Application::XWwwFormUrlencoded => "application/x-www-form-urlencoded",
+            Application::Xml => "application/xml",
+            Application::JavaScript => "application/javascript",
+            Application::Grpc => "application/grpc",
+            Application::OctetStream => "application/octet-stream",
+            Application::XJavaScript => "application/x-javascript",
+            Application::CspReport => "application/csp-report",
+            Application::BondCompactBinary => "application/bond-compact-binary",
+            Application::ReportsJson => "application/reports+json",
+            Application::VndAppleMpegUrl => "application/vnd.apple.mpegurl",
+            Application::XProtobuf => "application/x-protobuf",
+            Application::Zip => "application/zip",
+            Application::FontSFnt => "application/font-sfnt",
+            Application::Wasm => "application/wasm",
+            Application::ForceDownload => "application/force-download",
+            Application::XGzip => "application/x-gzip",
+            Application::Jose => "application/jose",
+            Application::FontWoff => "application/font-woff",
+            Application::Pdf => "application/pdf"
+        }
+    }
+}
+
 impl Display for Application {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Application::Json => f.write_str("application/json"),
-            Application::XWwwFormUrlencoded => f.write_str("application/x-www-form-urlencoded"),
-            Application::Xml => f.write_str("application/xml"),
-            Application::JavaScript => f.write_str("application/javascript"),
-            Application::Grpc => f.write_str("application/grpc"),
-            Application::OctetStream => f.write_str("application/octet-stream"),
-            Application::XJavaScript => f.write_str("application/x-javascript"),
-            Application::CspReport => f.write_str("application/csp-report"),
-            Application::BondCompactBinary => f.write_str("application/bond-compact-binary"),
-            Application::ReportsJson => f.write_str("application/reports+json"),
-            Application::VndAppleMpegUrl => f.write_str("application/vnd.apple.mpegurl"),
-            Application::XProtobuf => f.write_str("application/x-protobuf"),
-            Application::Zip => f.write_str("application/zip"),
-            Application::FontSFnt => f.write_str("application/font-sfnt"),
-            Application::Wasm => f.write_str("application/wasm"),
-            Application::ForceDownload => f.write_str("application/force-download"),
-            Application::XGzip => f.write_str("application/x-gzip"),
-            Application::Jose => f.write_str("application/jose"),
-            Application::FontWoff => f.write_str("application/font-woff"),
-            Application::Pdf => f.write_str("application/pdf")
-        }
+        write!(f, "{}", self.spec())
     }
 }
 

@@ -5,6 +5,7 @@ from reqrio.alpn import ALPN
 from reqrio.bindings import DLL, CALLBACK
 from reqrio.method import Method
 from reqrio.response import Response
+from reqrio.rcode import url_encode
 from reqrio import util
 
 
@@ -77,28 +78,6 @@ class Session:
         r = self.dll.ScReq_set_proxy(self.hid, proxy.encode('utf-8'))
         if r == -1: raise Exception('set proxy error,proxy=' + proxy)
 
-    def set_url(self, url: str):
-        r = self.dll.ScReq_set_url(self.hid, url.encode('utf-8'))
-        if r == -1: raise Exception('set url error,url=' + url)
-
-    def set_data(self, data: dict):
-        self.set_bytes(json.dumps(data).encode('utf-8'), "application/x-www-form-urlencoded")
-
-    def set_json(self, data: dict):
-        self.set_bytes(json.dumps(data).encode('utf-8'), "application/json")
-
-    def set_bytes(self, bs: bytes, ct: str = "application/octet-stream"):
-        dl, u8 = util.bytes_to_u8(bs)
-        r = self.dll.ScReq_set_bytes(self.hid, u8, dl, ct.encode('utf-8'))
-        if r == -1: raise Exception('set body error')
-
-    def set_context_type(self, ct: str):
-        r = self.dll.ScReq_set_context_type(self.hid, ct.encode('utf-8'))
-        if r == -1: raise Exception('set context type error')
-
-    def set_text(self, text: str):
-        self.set_bytes(text.encode('utf-8'), "text/plain")
-
     def set_cookie(self, cookie: str):
         r = self.dll.ScReq_set_cookie(self.hid, cookie.encode('utf-8'))
         if r == -1: raise Exception('set json error')
@@ -116,56 +95,83 @@ class Session:
         r = self.dll.ScReq_add_param(self.hid, name.encode('utf-8'), value.encode('utf-8'))
         if r == -1: raise Exception('add param error')
 
-    def send_request(self, method: Method):
-        resp = self.dll.ScReq_stream_io(self.hid, method.value)
+    @staticmethod
+    def _format_body(data: dict = None, jd: dict = None, bs: bytes = None, ct: str = None):
+        if data is not None:
+            res = ''
+            for k in data.keys():
+                res += k
+                res += "="
+                res += url_encode(json.dumps(data[k]))
+                res += "&"
+            if res.endswith("&"):
+                res = res[:-1]
+            ln, u8 = util.str_to_u8(res)
+            if ct is None:
+                return u8, ln, "application/x-www-form-urlencoded"
+            else:
+                return u8, ln, ct
+        if jd is not None:
+            ln, u8 = util.dict_to_u8(jd)
+            if ct is None:
+                return u8, ln, "application/json"
+            else:
+                return u8, ln, ct
+
+        if bs is not None:
+            ln, u8 = util.bytes_to_u8(bs)
+            if ct is None:
+                return u8, ln, "application/octet-stream"
+            else:
+                return u8, ln, ct
+        ln, u8 = util.bytes_to_u8(bytes([]))
+        return u8, ln, "application/octet-stream"
+
+    def send_request(self, method: Method, url: str, data: dict = None, json: dict = None, bs: bytes = None,
+                     content_type: str = None):
+        u8, ln, ct = self._format_body(data, json, bs, content_type)
+        resp = self.dll.ScReq_stream_io(self.hid, method.value, url.encode('utf-8'), u8, ln, ct.encode('utf-8'))
         bs = string_at(resp).decode('utf-8')
         self.dll.char_free(resp)
         try:
+            import json
             response = Response(json.loads(bytes.fromhex(bs)))
             response.header.method = method
             return response
         except Exception as _:
             raise Exception(bs)
 
-    def get(self, url: str = None) -> Response:
-        if url is not None:
-            self.set_url(url)
-        return self.send_request(Method.GET)
+    def get(self, url: str, data: dict = None, json: dict = None, bs: bytes = None,
+            content_type: str = None) -> Response:
+        return self.send_request(Method.GET, url, data, json, bs, content_type)
 
-    def post(self, url: str = None) -> Response:
-        if url is not None:
-            self.set_url(url)
-        return self.send_request(Method.POST)
+    def post(self, url: str, data: dict = None, json: dict = None, bs: bytes = None,
+             content_type: str = None) -> Response:
+        return self.send_request(Method.POST, url, data, json, bs, content_type)
 
-    def put(self, url: str = None) -> Response:
-        if url is not None:
-            self.set_url(url)
-        return self.send_request(Method.PUT)
+    def put(self, url: str, data: dict = None, json: dict = None, bs: bytes = None,
+            content_type: str = None) -> Response:
+        return self.send_request(Method.PUT, url, data, json, bs, content_type)
 
-    def head(self, url: str = None) -> Response:
-        if url is not None:
-            self.set_url(url)
-        return self.send_request(Method.HEAD)
+    def head(self, url: str, data: dict = None, json: dict = None, bs: bytes = None,
+             content_type: str = None) -> Response:
+        return self.send_request(Method.HEAD, url, data, json, bs, content_type)
 
-    def delete(self, url: str = None) -> Response:
-        if url is not None:
-            self.set_url(url)
-        return self.send_request(Method.DELETE)
+    def delete(self, url: str, data: dict = None, json: dict = None, bs: bytes = None,
+               content_type: str = None) -> Response:
+        return self.send_request(Method.DELETE, url, data, json, bs, content_type)
 
-    def options(self, url: str = None) -> Response:
-        if url is not None:
-            self.set_url(url)
-        return self.send_request(Method.OPTIONS)
+    def options(self, url: str, data: dict = None, json: dict = None, bs: bytes = None,
+                content_type: str = None) -> Response:
+        return self.send_request(Method.OPTIONS, url, data, json, bs, content_type)
 
-    def trace(self, url: str = None) -> Response:
-        if url is not None:
-            self.set_url(url)
-        return self.send_request(Method.TRACE)
+    def trace(self, url: str, data: dict = None, json: dict = None, bs: bytes = None,
+              content_type: str = None) -> Response:
+        return self.send_request(Method.TRACE, url, data, json, bs, content_type)
 
-    def patch(self, url: str = None) -> Response:
-        if url is not None:
-            self.set_url(url)
-        return self.send_request(Method.PATCH)
+    def patch(self, url: str, data: dict = None, json: dict = None, bs: bytes = None,
+              content_type: str = None) -> Response:
+        return self.send_request(Method.PATCH, url, data, json, bs, content_type)
 
     def session_reconnect(self):
         r = self.dll.reconnect(self.hid)
