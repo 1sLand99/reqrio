@@ -17,12 +17,12 @@ Borrow (borrowing). File uploads are read through into_deader to reduce memory o
 
 ```text
 
-        Data  ┌────────┐encode->bytes ┌──────────┐             ┌──────────┐
- User ──────►│        │────────────►│          │             │          │
-              │ ScReq  │              │  Request │ copy slice  │ fragment │ write ┌───────┐
-              │ AcReq  │              │  borrow  │───────────►│  TLS     │─────►│  TCP  │
-       Files  │(Engine)│ into_reader  │  buffer  │             │ Encrypt  │       └───────┘
- User ──────►│        │────────────►│          │             │          │
+        Form  ┌────────┐encode->bytes ┌──────────┐             ┌──────────┐
+ User ───────►│        │─────────────►│          │             │          │
+        Json  │ ScReq  │  into_bytes  │  Request │ copy slice  │ fragment │ write ┌───────┐
+              │ AcReq  │              │  borrow  │────────────►│  TLS     │──────►│  TCP  │
+       Files  │(Engine)│ into_reader  │  reader  │             │ Encrypt  │       └───────┘
+ User ───────►│        │─────────────►│          │             │          │
               └────────┘              └──────────┘             └──────────┘
 ```
 ### Request Header Order Table

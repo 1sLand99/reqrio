@@ -121,7 +121,7 @@ impl<'a> From<String> for Body<'a> {
 impl<'a> From<HttpFile> for Body<'a> {
     fn from(file: HttpFile) -> Body<'a> {
         let r = rand::random::<[u8; 16]>();
-        let md5 = hash::md5_hex(&r).unwrap_or_else(|_| hex::encode(r));
+        let md5 = hash::md5_hex(r).unwrap_or_else(|_| hex::encode(r));
         let boundary = Arc::new(format!("----WebKitFormBoundary{}", &md5[..16]));
         Body {
             ct: ContentType::File(boundary),

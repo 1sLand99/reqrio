@@ -495,6 +495,12 @@ impl TryFrom<Value> for JsonValue {
     }
 }
 
+impl AsRef<JsonValue> for JsonValue {
+    fn as_ref(&self) -> &JsonValue {
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::JsonValue;

@@ -107,7 +107,11 @@ pub fn to_string<T: Serialize>(t: &T) -> serde_json::Result<String> {
     serde_json::to_string(t)
 }
 
-pub fn to_struct<T: for<'de> serde::Deserialize<'de>>(value:Value)->serde_json::Result<T>{
+pub fn to_bytes<T: Serialize>(t: &T) -> serde_json::Result<Vec<u8>> {
+    serde_json::to_vec(t)
+}
+
+pub fn to_struct<T: for<'de> serde::Deserialize<'de>>(value: Value) -> serde_json::Result<T> {
     serde_json::from_value(value)
 }
 

@@ -19,14 +19,14 @@ encryption, while only the data is processed in other stages
 Borrow (borrowing). File uploads are read through into_deader to reduce memory overhead
 
 ```text
-                                    
-        Data  ┌────────┐encode->bytes ┌───────────────┐             ┌───────────┐
- User ───────►│        │─────────────►│               │             │           │
-              │ ScReq  │              │   Request     │ copy slice  │  fragment │ write ┌───────┐
-              │ AcReq  │              │   borrow      │────────────►│   TLS     │──────►│  TCP  │
-       Files  │(Engine)│ into_reader  │   buffer      │             │  Encrypt  │       └───────┘
- User ───────►│        │─────────────►│               │             │           │
-              └────────┘              └───────────────┘             └───────────┘
+
+        Form  ┌────────┐encode->bytes ┌──────────┐             ┌──────────┐
+ User ───────►│        │─────────────►│          │             │          │
+        Json  │ ScReq  │  into_bytes  │  Request │ copy slice  │ fragment │ write ┌───────┐
+              │ AcReq  │              │  borrow  │────────────►│  TLS     │──────►│  TCP  │
+       Files  │(Engine)│ into_reader  │  reader  │             │ Encrypt  │       └───────┘
+ User ───────►│        │─────────────►│          │             │          │
+              └────────┘              └──────────┘             └──────────┘
 ```
 
 ### Request Header Order Table
@@ -65,16 +65,15 @@ Borrow (borrowing). File uploads are read through into_deader to reduce memory o
 
 ### Usage examples (supports Rust, Python, Java and Node.js):
 
-* Rust HTTP Example
+## Quick start
 
+* Init Req
 ```rust
 use reqrio::*;
-
-fn ff() {
+fn ff(){
     let mut req = ScReq::new()
         //The default is to use http/1.1
-        .with_alpn(ALPN::Http20)
-        .with_url("https://www.baidu.com").unwrap();
+        .with_alpn(ALPN::Http20);
     let headers = json::object! {
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
         "Accept-Encoding": "gzip, deflate, br, zstd",
@@ -82,7 +81,6 @@ fn ff() {
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
         "Cookie": "__guid=15015764.1071255116101212729.1764940193317.2156; env_webp=1; _S=pvc5q7leemba50e4kn4qis4b95; QiHooGUID=4C8051464B2D97668E3B21198B9CA207.1766289287750; count=1; so-like-red=2; webp=1; so_huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; __huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; gtHuid=1",
-        "Host": "m.so.com",
         "Pragma": "no-cache",
         "Sec-Fetch-Dest": "document",
         "Sec-Fetch-Mode": "navigate",
@@ -94,20 +92,76 @@ fn ff() {
         "sec-ch-ua-mobile": "?0",
         "sec-ch-ua-platform": r#""Windows""#
     };
-    //By default, there are no request headers; you need to configure them yourself.
-    req.set_headers_json(headers);
-    let mut res = req.get().unwrap();
+    let mut req=ScReq::new()
+        //The default is to use http/1.1
+        .with_alpn(ALPN::Http20)
+        //By default, there are no request headers; you need to configure them yourself.
+        .with_header_json(headers).unwrap()
+        //Set request timeout and number of attempts to request
+        .with_timeout(Timeout::new_same(3000,3));
+}
+```
+* Sample GET
+```rust
+use reqrio::*;
+
+fn ff() {
+    let mut req = ScReq::new();
+    //get
+    let mut res = req.get("https://www.baidu.com", None).unwrap();
     //Get response headers
     let header = res.header();
     //Get the response body; the body here has already been decoded.
     let body = res.decode_body().unwrap();
     //Try decoding to JSON
     let json = res.json().unwrap();
+
 }
 ```
 
-* Rust WebSocket Example
+* Post with form data
+```rust
+use reqrio::*;
+fn ff() {
+    let mut req = ScReq::new();
+    let url="https://www.baidu.com/api";
+    let data=json::object! {
+        "field1":"value1",
+        "field2":"value2"
+    };
+    let resp=req.post(url,data.form()).unwrap();
+}
+```
+* Post with json data
+```rust
+use reqrio::*;
+fn ff() {
+    let mut req = ScReq::new();
+    let url="https://www.baidu.com/api";
+    let data=json::object! {
+        "field1":"value1",
+        "field2":"value2"
+    };
+    let resp=req.post(url,data).unwrap();
+}
+```
+* Post with form/json data, which struct impl `Serialize`
 
+need add serde feature
+```rust
+use reqrio::*;
+use serde::Serialize;
+fn ff() {
+    let mut req = ScReq::new();
+    #[derive(Serialize)]
+    struct Data{
+        field1:String,
+        field2:bool
+    }
+    let url="https://www.baidu.com/api";
+    let resp=req.post(url,Body::json(&Data{field1:"value".to_string(),field2:false}).unwrap()).unwrap();
+}
+```
 ```rust
 use reqrio::*;
 
@@ -136,210 +190,3 @@ fn ff() {
     }
 }
 ```
-
-* Python examples
-
-```python
-import reqrio
-
-# The default is to use http/1.1
-# * If the same session uses the same TCP connection, it will automatically reconnect upon disconnection.
-session = reqrio.Session(alpn=reqrio.ALPN.HTTP20)
-headers = {
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-    "Accept-Encoding": "gzip, deflate, br, zstd",
-    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-    "Cache-Control": "no-cache",
-    "Connection": "keep-alive",
-    # "Cookie": "__guid=15015764.1071255116101212729.1764940193317.2156; env_webp=1; _S=pvc5q7leemba50e4kn4qis4b95; QiHooGUID=4C8051464B2D97668E3B21198B9CA207.1766289287750; count=1; so-like-red=2; webp=1; so_huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; __huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; gtHuid=1",
-    # "Host": "m.so.com",It's best not to manually set the host value; let the underlying system automatically add it to avoid host conflicts when using different connections within the same session.
-    "Pragma": "no-cache",
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "none",
-    "Sec-Fetch-User": "?1",
-    "Upgrade-Insecure-Requests": 1,
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0",
-    "sec-ch-ua": '"Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"'
-}
-# By default, there are no request headers; you need to configure them yourself.
-session.set_header_json(headers)
-# Set timeout
-session.set_timeout(3000, 3000, 3000, 3000)
-resp = session.get('https://m.so.com')
-# Get response headers
-print(resp.header.__dict__)
-# Get the response body
-print(resp.text())
-# Try decoding to JSON
-print(resp.json())
-
-# Here, instead of establishing a new connection, the previous TCP connection is reused.
-stream = session.open_stream('https://m.so.com/', reqrio.Method.GET)
-for bs in stream:
-    # Processing data streams
-    print(len(bs))
-# Get the returned response headers
-print(stream.response.header.__dict__)
-
-# Close the connection resource, remember to call...
-session.close()
-```
-
-* Java example
-
-```java
-import com.google.gson.Gson;
-import org.xllgl2017.*;
-
-void main() throws Exception {
-    //Initialization allows you to set the version.
-    Reqrio reqrio = new Reqrio(ALPN.HTTP11);
-    //Initialize header
-    Headers headers = new Headers();
-    headers.addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
-    headers.addHeader("Accept-Encoding", "gzip, deflate, br, zstd");
-    headers.addHeader("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6");
-    headers.addHeader("Cache-Control", "no-cache");
-    headers.addHeader("Connection", "keep-alive");
-    headers.addHeader("Host", "m.so.com");
-    headers.addHeader("Pragma", "no-cache");
-    headers.addHeader("Sec-Fetch-Dest", "document");
-    headers.addHeader("Sec-Fetch-Mode", "navigate");
-    headers.addHeader("Sec-Fetch-Site", "none");
-    headers.addHeader("Sec-Fetch-User", "?1");
-    headers.addHeader("Upgrade-Insecure-Requests", "1");
-    headers.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0");
-    headers.addHeader("sec-ch-ua", "\"Microsoft Edge\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"");
-    headers.addHeader("sec-ch-ua-mobile", "?0");
-    headers.addHeader("sec-ch-ua-platform", "\"Windows\"");
-    //You can also add cookies using reqrio.setCookie.
-    headers.setCookies("__guid=15015764.1071255116101212729.1764940193317.2156; env_webp=1; _S=pvc5q7leemba50e4kn4qis4b95; QiHooGUID=4C8051464B2D97668E3B21198B9CA207.1766289287750; count=1; so-like-red=2; webp=1; so_huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; __huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; gtHuid=1");
-    //Set header
-    reqrio.setHeaders(headers);
-    //Set timeout
-    Timeout timeout = new Timeout();
-    reqrio.setTimeout(timeout);
-    //ask
-    Response response = reqrio.get("https://m.so.com");
-    IO.println(response.length());
-    Headers resp_hdr = response.getHeader();
-    Gson gson = new Gson();
-    IO.println(gson.toJson(resp_hdr));
-}
-```
-
-* Qt Example
-
-```c++
-#include "Session.h"
-
-int main(int argc, char *argv[]) {
-    Session session(HTTP11);
-    session.add_header("User-Agent",
-                       "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.6894.1545 Safari/537.36");
-    session.add_header("Accept", "*/*");
-    session.add_header("Accept-Encoding", "gzip");
-    session.add_header("Accept-Language", "zh-CN,zh;q=0.9");
-    session.add_header("Sec-Fetch-Site", "same-origin");
-    session.add_header("Sec-Fetch-Mode", "cors");
-    session.add_header("Sec-Fetch-Dest", "empty");
-    session.add_header("sec-ch-ua", "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"42\", \"Microsoft Edge\";v=\"42\"");
-    session.add_header("sec-ch-ua-mobile", "?0");
-    session.add_header("sec-ch-ua-platform", "\"Windows\"");
-    auto timeout = Timeout(2000, 1000, 1000, 2000, 1, 1);
-    session.set_timeout(timeout);
-    session.setUrl("https://www.baidu.com");
-    Response resp = session.get();
-    qDebug()<<resp.toString();
-}
-
-```
-
-* Node.js Example
-
-```js
-const {Session, ALPN} = require("./session")
-
-let session = new Session(ALPN.HTTP11)
-session.set_headers({
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-    "Accept-Encoding": "gzip, deflate, br, zstd",
-    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-    "Cache-Control": "no-cache",
-    "Connection": "keep-alive",
-    "Cookie": "__guid=15015764.1071255116101212729.1764940193317.2156; env_webp=1; _S=pvc5q7leemba50e4kn4qis4b95; QiHooGUID=4C8051464B2D97668E3B21198B9CA207.1766289287750; count=1; so-like-red=2; webp=1; so_huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; __huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; gtHuid=1",
-    "Host": "m.so.com",
-    "Pragma": "no-cache",
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "none",
-    "Sec-Fetch-User": "?1",
-    "Upgrade-Insecure-Requests": 1,
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0",
-    "sec-ch-ua": '"Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"'
-})
-session.set_url('https://m.so.com')
-let resp = session.get()
-console.log(resp.status_code())
-session.close()
-
-```
-
-* go Example
-
-```go
-package main
-
-import (
-	"fmt"
-	"reqrio-go/reqrio"
-)
-
-func main() {
-	session := reqrio.NewSession()
-	e1 := session.SetAlpn(reqrio.HTTP20)
-	if e1 != nil {
-		println(e1.Error())
-	}
-	headers := `{
-	"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
-	"Accept": "*/*",
-	"Sec-Fetch-Site": "none",
-	"Sec-Fetch-Mode": "navigate",
-	"Sec-Fetch-Dest": "document",
-	"sec-fetch-user": "?1",
-	"upgrade-insecure-requests": "1",
-	"sec-ch-ua": "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"120\", \"Microsoft Edge\";v=\"120\"",
-	"sec-ch-ua-mobile": "?0",
-	"sec-ch-ua-platform": "\"Windows\"",
-	"Accept-Language": "zh-CN,zh;q=0.9",
-	"Accept-Encoding": "gzip,deflate,br,zstd",
-	"Cache-Control": "no-cache",
-	"Connection": "keep-alive"
-}`
-	err1 := session.SetHeaderJson(headers)
-	if err1 != nil {
-		println(err1.Error())
-	}
-	err := session.SetUrl("https://m.so.com")
-	if err != nil {
-		println(err.Error())
-		return
-	}
-	resp, err := session.Get()
-	if err != nil {
-		println(err.Error())
-		return
-	}
-	//println(resp.Text())
-	fmt.Printf("%#v\n", resp.Header())
-	session.Close()
-}
-
-```
-

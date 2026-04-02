@@ -121,7 +121,6 @@ pub trait ReqExt: ReqPriExt + Sized {
     }
 }
 
-
 pub(crate) trait ReqPriExt {
     fn into_stream(self) -> Stream;
     fn req_param(&mut self) -> ReqParam<'_>;
@@ -219,18 +218,18 @@ pub(crate) trait ReqPriExt {
 
 pub trait ReqGenExt: ReqExt {
     fn stream_mut(&mut self) -> &mut Stream;
-    fn body_raw(&mut self, body: &body::Body<'_>) -> HlsResult<Vec<u8>> {
+    fn body_raw(&mut self, body: &Body<'_>) -> HlsResult<Vec<u8>> {
         let body_reader = body.as_reader()?;
         Self::read_to_vec(body_reader)
     }
 
-    fn body_raw_string(&mut self, body: &body::Body<'_>) -> HlsResult<String> {
+    fn body_raw_string(&mut self, body: &Body<'_>) -> HlsResult<String> {
         Ok(String::from_utf8_lossy(&self.body_raw(body)?).to_string())
     }
 
     /// * 最好在调试模式使用，生产模式使用时，一个请求将会产生两次reader，影响效率
     /// * H2严禁使用，否则影响hpack编码
-    fn h1_raw_string(&mut self, body: &body::Body<'_>) -> HlsResult<String> {
+    fn h1_raw_string(&mut self, body: &Body<'_>) -> HlsResult<String> {
         let body_raw = self.body_raw(body)?;
         let param = self.req_param();
         let header_reader = param.header.as_reader(HeaderParam {
@@ -243,5 +242,28 @@ pub trait ReqGenExt: ReqExt {
         let mut header = Self::read_to_vec(header_reader)?;
         header.extend(body_raw);
         Ok(String::from_utf8_lossy(&header).to_string())
+    }
+}
+
+pub trait UrlExt {
+    fn params(&self, params: impl AsRef<JsonValue>) -> Result<Url, RlsError>;
+}
+
+impl UrlExt for str {
+    fn params(&self, params: impl AsRef<JsonValue>) -> Result<Url, RlsError> {
+        let mut url = Url::try_from(self)?;
+        for (key, value) in params.as_ref().entries() {
+            match value {
+                JsonValue::String(value) => url.uri_mut().insert_param(key, value),
+                _ => url.uri_mut().insert_param(key, &value.dump())
+            }
+        }
+        Ok(url)
+    }
+}
+
+impl UrlExt for String {
+    fn params(&self, params: impl AsRef<JsonValue>) -> Result<Url, RlsError> {
+        self.as_str().params(params)
     }
 }

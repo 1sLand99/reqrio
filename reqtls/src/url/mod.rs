@@ -167,6 +167,13 @@ impl TryFrom<&String> for Url {
     }
 }
 
+impl TryFrom<Result<Url, RlsError>> for Url {
+    type Error = RlsError;
+    fn try_from(result: Result<Url, RlsError>) -> Result<Self, Self::Error> {
+        result
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
