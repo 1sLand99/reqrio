@@ -1,6 +1,6 @@
 use super::super::bytes::Bytes;
 use crate::error::RlsResult;
-use crate::WriteExt;
+use crate::{BufferError, WriteExt};
 
 #[derive(Debug, Clone, Copy)]
 enum ClientHelloType {
@@ -127,9 +127,9 @@ impl CipherSuite {
 
     pub fn len(&self) -> usize { 4 }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u16(self.kdf as u16);
-        writer.write_u16(self.aead as u16);
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u16(self.kdf as u16)?;
+        writer.write_u16(self.aead as u16)
     }
 }
 
@@ -178,13 +178,13 @@ impl EncryptClientHello {
         6 + self.cipher_suite.len() + self.enc.len() + self.payload.len()
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u8(self.type_ as u8);
-        self.cipher_suite.write_to(writer);
-        writer.write_u8(self.config_id);
-        writer.write_u16(self.enc.len() as u16);
-        writer.write_slice(self.enc.as_ref());
-        writer.write_u16(self.payload.len() as u16);
-        writer.write_slice(self.payload.as_ref());
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u8(self.type_ as u8)?;
+        self.cipher_suite.write_to(writer)?;
+        writer.write_u8(self.config_id)?;
+        writer.write_u16(self.enc.len() as u16)?;
+        writer.write_slice(self.enc.as_ref())?;
+        writer.write_u16(self.payload.len() as u16)?;
+        writer.write_slice(self.payload.as_ref())
     }
 }

@@ -1,5 +1,5 @@
 use std::ops::AddAssign;
-use reqtls::WriteExt;
+use reqtls::{BufferError, WriteExt};
 use crate::error::HlsResult;
 use crate::hpack::decode::HPackDecodeBuf;
 use crate::hpack::HPackError;
@@ -145,43 +145,43 @@ impl Index {
         }
     }
 
-    pub fn write_to<W: WriteExt>(&self, writer: &mut W) -> bool {
+    pub fn write_to<W: WriteExt>(&self, writer: &mut W) -> Result<bool, BufferError> {
         match self {
             Index::Indexed(v) => {
                 let max = self.max_value();
                 match *v >= max as usize {
                     true => {
-                        writer.write_u8(0b1000_0000 | max);
-                        false
+                        writer.write_u8(0b1000_0000 | max)?;
+                        Ok(false)
                     }
                     false => {
-                        writer.write_u8(0b1000_0000 | *v as u8);
-                        true
+                        writer.write_u8(0b1000_0000 | *v as u8)?;
+                        Ok(true)
                     }
                 }
             }
             Index::NoIndexAdd => {
-                writer.write_u8(0b0100_0000);
-                true
+                writer.write_u8(0b0100_0000)?;
+                Ok(true)
             }
             Index::NoIndexOnce => {
-                writer.write_u8(0);
-                true
+                writer.write_u8(0)?;
+                Ok(true)
             }
             Index::NoIndexNever => {
-                writer.write_u8(0b0001_0000);
-                true
+                writer.write_u8(0b0001_0000)?;
+                Ok(true)
             }
             Index::NameIndexedAdd(v) => {
                 let max = self.max_value();
                 match *v >= max as usize {
                     true => {
-                        writer.write_u8(0b0100_0000 | max);
-                        false
+                        writer.write_u8(0b0100_0000 | max)?;
+                        Ok(false)
                     }
                     false => {
-                        writer.write_u8(0b0100_0000 | *v as u8);
-                        true
+                        writer.write_u8(0b0100_0000 | *v as u8)?;
+                        Ok(true)
                     }
                 }
             }
@@ -189,12 +189,12 @@ impl Index {
                 let max = self.max_value();
                 match *v >= max as usize {
                     true => {
-                        writer.write_u8(max);
-                        false
+                        writer.write_u8(max)?;
+                        Ok(false)
                     }
                     false => {
-                        writer.write_u8(*v as u8);
-                        true
+                        writer.write_u8(*v as u8)?;
+                        Ok(true)
                     }
                 }
             }
@@ -202,12 +202,12 @@ impl Index {
                 let max = self.max_value();
                 match *v >= max as usize {
                     true => {
-                        writer.write_u8(0b0001_0000 | max);
-                        false
+                        writer.write_u8(0b0001_0000 | max)?;
+                        Ok(false)
                     }
                     false => {
-                        writer.write_u8(0b0001_0000 | *v as u8);
-                        true
+                        writer.write_u8(0b0001_0000 | *v as u8)?;
+                        Ok(true)
                     }
                 }
             }
@@ -215,12 +215,12 @@ impl Index {
                 let max = self.max_value();
                 match *v >= max as usize {
                     true => {
-                        writer.write_u8(0b0010_0000 | max);
-                        false
+                        writer.write_u8(0b0010_0000 | max)?;
+                        Ok(false)
                     }
                     false => {
-                        writer.write_u8(0b0010_0000 | *v as u8);
-                        true
+                        writer.write_u8(0b0010_0000 | *v as u8)?;
+                        Ok(true)
                     }
                 }
             }
@@ -228,12 +228,12 @@ impl Index {
                 let max = self.max_value();
                 match *value >= max as usize {
                     true => {
-                        writer.write_u8(if *huffman { 0b1000_0000 } else { 0b0000_0000 } | max);
-                        false
+                        writer.write_u8(if *huffman { 0b1000_0000 } else { 0b0000_0000 } | max)?;
+                        Ok(false)
                     }
                     false => {
-                        writer.write_u8(if *huffman { 0b1000_0000 } else { 0b0000_0000 } | *value as u8);
-                        true
+                        writer.write_u8(if *huffman { 0b1000_0000 } else { 0b0000_0000 } | *value as u8)?;
+                        Ok(true)
                     }
                 }
             }

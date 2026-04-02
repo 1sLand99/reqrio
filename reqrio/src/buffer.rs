@@ -207,6 +207,10 @@ impl WriteExt for Buffer {
     fn offset(&self) -> Range<usize> {
         self.offset.start..self.offset.end
     }
+
+    fn capacity(&self) -> usize {
+        self.buffer.capacity()
+    }
 }
 
 impl Drop for Buffer {

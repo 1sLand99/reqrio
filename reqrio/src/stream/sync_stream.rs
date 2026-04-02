@@ -94,11 +94,11 @@ impl<S: Read + Write> SyncStream<S> {
                             let mut ticket = SessionTicket::default();
                             let tbs = rand::random::<[u8; 276]>();
                             ticket.tls_ticket_mut().set_value(&tbs);
-                            self.write_buffer.write_slice(&[22, 3, 3]);
-                            self.write_buffer.write_u16(ticket.len() as u16);
-                            ticket.write_to(&mut self.write_buffer);
+                            self.write_buffer.write_slice(&[22, 3, 3])?;
+                            self.write_buffer.write_u16(ticket.len() as u16)?;
+                            ticket.write_to(&mut self.write_buffer)?;
                             self.conn.update_session(&self.write_buffer.filled()[5..])?;
-                            self.write_buffer.write_slice(&[20, 3, 3, 0, 1, 1]);
+                            self.write_buffer.write_slice(&[20, 3, 3, 0, 1, 1])?;
                             let record_len = self.conn.make_finish_message(self.write_buffer.unfilled_mut(), true)?;
                             self.write_buffer.add_len(record_len);
                             self.stream.write_all(self.write_buffer.filled())?;

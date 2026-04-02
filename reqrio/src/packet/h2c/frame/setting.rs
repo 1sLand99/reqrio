@@ -1,6 +1,6 @@
 use crate::error::HlsResult;
 use std::fmt::{Debug, Formatter};
-use reqtls::WriteExt;
+use reqtls::{BufferError, WriteExt};
 
 #[derive(PartialEq, Copy, Clone)]
 #[repr(u16)]
@@ -38,7 +38,7 @@ impl H2Setting {
         ]
     }
 
-    pub fn write_to<W: WriteExt>(&self, writer: &mut W) {
+    pub fn write_to<W: WriteExt>(&self, writer: &mut W) -> Result<(), BufferError> {
         let (flag, value) = match self {
             H2Setting::HeaderTableSize(v) => (0x1, v),
             H2Setting::EnablePush(v) => (0x1, v),
@@ -48,8 +48,8 @@ impl H2Setting {
             H2Setting::MaxHeaderListSize(v) => (0x1, v),
             H2Setting::Reserved { flag, value } => (*flag, value),
         };
-        writer.write_u16(flag);
-        writer.write_ru32(value, false);
+        writer.write_u16(flag)?;
+        writer.write_ru32(value, false)
     }
 
     pub fn value(&self) -> &u32 {

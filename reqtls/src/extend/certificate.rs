@@ -1,7 +1,7 @@
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use crate::error::RlsResult;
-use crate::WriteExt;
+use crate::{BufferError, WriteExt};
 
 #[derive(PartialEq)]
 pub struct CompressionType(u16);
@@ -82,11 +82,12 @@ impl CompressionCertificate {
         self.types.len() * 2 + 1
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u8(self.len() as u8 - 1);
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u8(self.len() as u8 - 1)?;
         for ty in self.types {
-            writer.write_u16(ty.0);
+            writer.write_u16(ty.0)?;
         }
+        Ok(())
     }
 
     pub fn push(&mut self, ty: CompressionType) {

@@ -7,7 +7,7 @@ use crate::bytes::ByteRef;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::ExtensionType;
-use crate::{rand, WriteExt};
+use crate::{rand, BufferError, WriteExt};
 use std::mem;
 
 
@@ -119,25 +119,26 @@ impl<'a> ClientHello<'a> {
             + self.extensions.iter().map(|x| x.len(false)).sum::<usize>()
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u8(self.handshake_type as u8);
-        writer.write_u32(self.len() as u32 - 4, true);
-        writer.write_u16(self.version.into_inner());
-        writer.write_slice(self.random.as_ref());
-        writer.write_u8(self.session_id.len() as u8);
-        writer.write_slice(self.session_id.as_ref());
+    pub fn write_to<W: WriteExt>(self, writer: &mut W)-> Result<(), BufferError> {
+        writer.write_u8(self.handshake_type as u8)?;
+        writer.write_u32(self.len() as u32 - 4, true)?;
+        writer.write_u16(self.version.into_inner())?;
+        writer.write_slice(self.random.as_ref())?;
+        writer.write_u8(self.session_id.len() as u8)?;
+        writer.write_slice(self.session_id.as_ref())?;
         let len = self.cipher_suites.iter().map(|_| 2).sum::<usize>();
-        writer.write_u16(len as u16);
+        writer.write_u16(len as u16)?;
         for cipher_suite in self.cipher_suites {
-            writer.write_u16(cipher_suite.into_inner());
+            writer.write_u16(cipher_suite.into_inner())?;
         }
-        writer.write_u8(self.compress_method.len() as u8);
-        writer.write_slice(self.compress_method.as_ref());
+        writer.write_u8(self.compress_method.len() as u8)?;
+        writer.write_slice(self.compress_method.as_ref())?;
         let len = self.extensions.iter().map(|x| x.len(false)).sum::<usize>();
-        writer.write_u16(len as u16);
+        writer.write_u16(len as u16)?;
         for extension in self.extensions {
-            extension.write_to(writer, false);
+            extension.write_to(writer, false)?;
         }
+        Ok(())
     }
 
     pub fn client_random(&mut self) -> &ByteRef<'a> { &self.random }

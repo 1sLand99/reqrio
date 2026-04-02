@@ -319,9 +319,7 @@ impl Header {
     pub fn uri(&self) -> &Uri {
         &self.uri
     }
-
-    pub fn uri_mut(&mut self) -> &mut Uri { &mut self.uri }
-
+    
     pub fn is_empty(&self) -> bool {
         self.alpn.value().is_empty()
     }

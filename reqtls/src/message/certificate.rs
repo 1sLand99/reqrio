@@ -2,7 +2,7 @@ use super::super::bytes::Bytes;
 use super::HandshakeType;
 use crate::bytes::ByteRef;
 use crate::error::RlsResult;
-use crate::{CertType, SignatureAlgorithm, WriteExt};
+use crate::{BufferError, CertType, SignatureAlgorithm, WriteExt};
 use std::fmt::Debug;
 
 #[derive(Debug)]
@@ -43,14 +43,15 @@ impl<'a> Certificates<'a> {
         7 + self.certificates.iter().map(|x| 3 + x.len()).sum::<usize>()
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u8(self.handshake_type as u8);
-        writer.write_u32(self.len() as u32 - 4, true);
-        writer.write_u32(self.len() as u32 - 7, true);
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u8(self.handshake_type as u8)?;
+        writer.write_u32(self.len() as u32 - 4, true)?;
+        writer.write_u32(self.len() as u32 - 7, true)?;
         for certificate in self.certificates {
-            writer.write_u32(certificate.len() as u32, true);
-            writer.write_slice(certificate.as_ref());
+            writer.write_u32(certificate.len() as u32, true)?;
+            writer.write_slice(certificate.as_ref())?;
         }
+        Ok(())
     }
 
     pub fn is_empty(&self) -> bool {
@@ -82,11 +83,10 @@ impl CertificateStatus {
 
     pub fn len(&self) -> usize { self.bytes.len() }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
         writer.write_slice(self.bytes.as_ref())
     }
 }
-
 
 
 #[derive(Debug)]
@@ -157,16 +157,16 @@ impl<'a> CertificateRequest<'a> {
         9 + self.cert_type.len() + self.hashes.len() * 2 + self.distinguished_name.len()
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u8(self.handshake_type as u8);
-        writer.write_u32(self.len() as u32 - 4, true);
-        writer.write_u8(self.cert_type.len() as u8);
-        writer.write_u16(self.hashes.len() as u16 * 2);
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u8(self.handshake_type as u8)?;
+        writer.write_u32(self.len() as u32 - 4, true)?;
+        writer.write_u8(self.cert_type.len() as u8)?;
+        writer.write_u16(self.hashes.len() as u16 * 2)?;
         for hash in self.hashes {
-            writer.write_u16(hash.into_inner());
+            writer.write_u16(hash.into_inner())?;
         }
-        writer.write_u16(self.distinguished_name.len() as u16);
-        writer.write_slice(self.distinguished_name.as_ref());
+        writer.write_u16(self.distinguished_name.len() as u16)?;
+        writer.write_slice(self.distinguished_name.as_ref())
     }
 
     pub fn hashes(&self) -> &Vec<SignatureAlgorithm> {
@@ -213,12 +213,12 @@ impl<'a> CertificateVerify<'a> {
         8 + self.sign.len()
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u8(self.handshake_type as u8);
-        writer.write_u32(self.len() as u32 - 4, true);
-        writer.write_u16(self.sign_hash.into_inner());
-        writer.write_u16(self.sign.len() as u16);
-        writer.write_slice(self.sign.as_ref());
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u8(self.handshake_type as u8)?;
+        writer.write_u32(self.len() as u32 - 4, true)?;
+        writer.write_u16(self.sign_hash.into_inner())?;
+        writer.write_u16(self.sign.len() as u16)?;
+        writer.write_slice(self.sign.as_ref())
     }
 
     pub fn set_hash(&mut self, hash: SignatureAlgorithm) {

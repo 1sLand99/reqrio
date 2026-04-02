@@ -38,31 +38,31 @@ impl Proxy {
             Proxy::HttpPlain(v) => {
                 let peer_addr = peer_addr.to_string();
                 //line1
-                writer.write_slice(b"CONNECT ");
-                writer.write_slice(peer_addr.as_bytes());
-                writer.write_slice(b" HTTP/1.1\r\n");
+                writer.write_slice(b"CONNECT ")?;
+                writer.write_slice(peer_addr.as_bytes())?;
+                writer.write_slice(b" HTTP/1.1\r\n")?;
                 //line2
-                writer.write_slice(b"Host: ");
-                writer.write_slice(peer_addr.as_bytes());
-                writer.write_slice(b"\r\n");
+                writer.write_slice(b"Host: ")?;
+                writer.write_slice(peer_addr.as_bytes())?;
+                writer.write_slice(b"\r\n")?;
                 if !v.username().is_empty() && !v.password().is_empty() {
-                    writer.write_slice(b"Proxy-Authorization: Basic ");
+                    writer.write_slice(b"Proxy-Authorization: Basic ")?;
                     let auth = base64::b64encode(format!("{}:{}", v.username(), v.password()))?;
-                    writer.write_slice(auth.as_bytes());
-                    writer.write_slice(b"\r\n");
+                    writer.write_slice(auth.as_bytes())?;
+                    writer.write_slice(b"\r\n")?;
                 }
                 //line3
-                writer.write_slice(b"Proxy-Connection: Keep-Alive\r\n\r\n");
+                writer.write_slice(b"Proxy-Connection: Keep-Alive\r\n\r\n")?;
                 return Ok(true);
             }
             Proxy::Socks5(v) => {
                 if index == 0 {
                     if v.username().is_empty() || v.password().is_empty() {
                         //认证方法-无认证
-                        writer.write_slice(&[5, 1, 0]);
+                        writer.write_slice(&[5, 1, 0])?;
                     } else {
                         //认证方法-账号密码
-                        writer.write_slice(&[5, 1, 2]);
+                        writer.write_slice(&[5, 1, 2])?;
                     }
                 }
                 if index == 1 {
@@ -71,18 +71,18 @@ impl Proxy {
                         // index = 2;
                     } else {
                         //认证方法-账号密码
-                        writer.write_u8(1);
-                        writer.write_u8(v.username().len() as u8);
-                        writer.write_slice(v.username().as_bytes());
-                        writer.write_u8(v.password().len() as u8);
-                        writer.write_slice(v.password().as_bytes());
+                        writer.write_u8(1)?;
+                        writer.write_u8(v.username().len() as u8)?;
+                        writer.write_slice(v.username().as_bytes())?;
+                        writer.write_u8(v.password().len() as u8)?;
+                        writer.write_slice(v.password().as_bytes())?;
                     }
                 }
                 if index == 2 {
-                    writer.write_slice(&[5, 1, 0, 3]);
-                    writer.write_u8(peer_addr.host().len() as u8);
-                    writer.write_slice(peer_addr.host().as_bytes());
-                    writer.write_u16(peer_addr.port());
+                    writer.write_slice(&[5, 1, 0, 3])?;
+                    writer.write_u8(peer_addr.host().len() as u8)?;
+                    writer.write_slice(peer_addr.host().as_bytes())?;
+                    writer.write_u16(peer_addr.port())?;
                     return Ok(true);
                 }
             }

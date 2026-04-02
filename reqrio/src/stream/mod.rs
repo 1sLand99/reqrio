@@ -221,7 +221,7 @@ pub trait TlsStreamHandle {
             buffer.set_len(offset + len);
             conn.update_session(&buffer[offset + 5..offset + len])?;
         }
-        buffer.write_slice(&config.fingerprint.change_cipher_spec);
+        buffer.write_slice(&config.fingerprint.change_cipher_spec)?;
 
 
         let record_len = conn.make_finish_message(buffer.unfilled_mut(), false)?;

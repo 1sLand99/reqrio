@@ -14,6 +14,7 @@ use std::ffi::CString;
 use std::path::Path;
 use std::ptr::null_mut;
 use std::{fs, slice};
+use std::os::raw::{c_int, c_long};
 pub use store::{CertStore, ROOT_STORES};
 
 pub struct Certificate {
@@ -79,7 +80,7 @@ impl Certificate {
         unsafe { PEM_write_bio_X509(bio.as_mut_ptr(), self.x509.as_mut_ptr()) }.ok(RlsError::BIOWriteError)?;
         let mut buf = null_mut();
         let len = unsafe { BIO_get_mem_data(bio.as_mut_ptr(), &mut buf) };
-        if len <= 0 { return Err(RlsError::BIOGetDataError); };
+        if len <= 0 || len == c_long::MAX || buf.is_null() { return Err(RlsError::BIOGetDataError); };
         let out = unsafe { slice::from_raw_parts(buf as *const u8, len as usize) };
         Ok(String::from_utf8_lossy(out).to_string())
     }
@@ -122,6 +123,7 @@ impl Certificate {
                 let uri = unsafe { location.d.uniformResourceIdentifier };
                 let data = unsafe { ASN1_STRING_get0_data(uri as _) };
                 let len = unsafe { ASN1_STRING_length(uri as _) };
+                if len <= 0 || len == c_int::MAX || data.is_null() { return Err("nisddf".into()); }
                 let slice = unsafe { std::slice::from_raw_parts(data, len as _) };
                 res.push(String::from_utf8_lossy(slice).to_string())
             }

@@ -1,5 +1,5 @@
 use crate::error::RlsResult;
-use crate::WriteExt;
+use crate::{BufferError, WriteExt};
 
 #[derive(Debug, Copy, Clone)]
 pub enum StatusType {
@@ -44,10 +44,9 @@ impl StatusRequest {
         5
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u8(self.status_type as u8);
-        writer.write_u16(self.responder_id_len);
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u8(self.status_type as u8)?;
+        writer.write_u16(self.responder_id_len)?;
         writer.write_u16(self.request_extend_len)
     }
-    
 }

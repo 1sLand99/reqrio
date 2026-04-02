@@ -1,5 +1,5 @@
 use crate::error::RlsResult;
-use crate::WriteExt;
+use crate::{BufferError, WriteExt};
 
 #[derive(Debug, Clone, Copy)]
 pub enum NameType {
@@ -47,10 +47,10 @@ impl ServerName {
         5 + self.value.len()
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u16(self.len() as u16 - 2);
-        writer.write_u8(self.name_type as u8);
-        writer.write_u16(self.value.len() as u16);
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u16(self.len() as u16 - 2)?;
+        writer.write_u8(self.name_type as u8)?;
+        writer.write_u16(self.value.len() as u16)?;
         writer.write_slice(self.value.as_ref())
     }
 

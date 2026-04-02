@@ -149,7 +149,7 @@ mod tests {
     fn test_cipher() {
         let mut cipher = Cipher::aes_192_ctr();
         cipher.set_secret_key("1234567812345678", Some("1234567812345678"));
-        let res = cipher.encrypt(b"foobar".to_vec()).unwrap();
+        let res = cipher.encrypt(b"foobar").unwrap();
         println!("{}", base64::b64encode(&res).unwrap());
 
         let res = cipher.decrypt(res).unwrap();

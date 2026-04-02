@@ -134,13 +134,13 @@ impl<'a> ReadExt for H2FrameHead<'a> {
     fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
         let start = buf.offset().end;
         if buf.unfilled_len() < 14 { return Ok(buf.offset().end - start); }
-        buf.write_u32(self.pd_len, true);
-        buf.write_u8(self.frame_type as u8);
-        buf.write_u8(self.frame_flag.as_u8());
-        buf.write_ru32(self.stream_identifier, false);
+        buf.write_u32(self.pd_len, true)?;
+        buf.write_u8(self.frame_type as u8)?;
+        buf.write_u8(self.frame_flag.as_u8())?;
+        buf.write_ru32(self.stream_identifier, false)?;
         if self.frame_flag.priority() {
-            buf.write_u8(self.weight);
-            buf.write_slice(&[128, 0, 0, 0]);
+            buf.write_u8(self.weight)?;
+            buf.write_slice(&[128, 0, 0, 0])?;
         }
         self.wrote = true;
         Ok(buf.offset().end - start)

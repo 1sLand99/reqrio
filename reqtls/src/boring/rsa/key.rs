@@ -1,6 +1,7 @@
 use std::path::Path;
 use std::ptr::null_mut;
 use std::{fs, slice};
+use std::os::raw::c_long;
 use crate::boring::bindings::{EVP_PKEY_new, EVP_PKEY};
 use crate::boring::BoringResExt;
 use crate::boring::rsa::bindings::*;
@@ -45,6 +46,7 @@ impl RsaKey {
         }.ok(RlsError::WritePriKeyError)?;
         let mut data = null_mut();
         let len = unsafe { BIO_get_mem_data(bio.as_mut_ptr(), &mut data) };
+        if len == c_long::MAX || data.is_null() { return Err(RlsError::WritePriKeyError); }
         let out = unsafe { slice::from_raw_parts(data as *const u8, len as usize) }.to_vec();
         Ok(String::from_utf8(out)?)
     }
@@ -54,6 +56,7 @@ impl RsaKey {
         unsafe { PEM_write_bio_PUBKEY(bio.as_mut_ptr(), self.0.as_mut_ptr()) }.ok(WritePubKeyError)?;
         let mut data = null_mut();
         let len = unsafe { BIO_get_mem_data(bio.as_mut_ptr(), &mut data) };
+        if len <= 0 || len == c_long::MAX || data.is_null() { return Err(WritePubKeyError); }
         let out = unsafe { slice::from_raw_parts(data as *const u8, len as usize) }.to_vec();
         Ok(String::from_utf8(out)?)
     }

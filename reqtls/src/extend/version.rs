@@ -1,5 +1,5 @@
 use super::super::version::Version;
-use crate::WriteExt;
+use crate::{BufferError, WriteExt};
 
 #[derive(Debug)]
 pub struct SupportVersions {
@@ -34,13 +34,14 @@ impl SupportVersions {
         if !server { self.versions.len() * 2 + 1 } else { self.versions.len() * 2 }
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W, server: bool) {
+    pub fn write_to<W: WriteExt>(self, writer: &mut W, server: bool) -> Result<(), BufferError> {
         if !server {
-            writer.write_u8(self.len(server) as u8 - 1);
+            writer.write_u8(self.len(server) as u8 - 1)?;
         }
         for version in self.versions {
-            writer.write_u16(version.into_inner());
+            writer.write_u16(version.into_inner())?;
         }
+        Ok(())
     }
 
     pub fn remove_tls13(&mut self) {

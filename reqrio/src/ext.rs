@@ -101,24 +101,6 @@ pub trait ReqExt: ReqPriExt + Sized {
     fn remove_header(&mut self, k: impl AsRef<str>) -> Option<HeaderValue> {
         self.header_mut().remove(k)
     }
-
-    fn set_params(&mut self, params: JsonValue) {
-        let uri = self.header_mut().uri_mut();
-        uri.clear_params();
-        for (k, v) in params.entries() {
-            uri.insert_param(k, &v.to_string());
-        }
-    }
-
-    fn add_param(&mut self, name: impl ToString, value: &impl AsRef<str>) {
-        let uri = self.header_mut().uri_mut();
-        uri.insert_param(name, value);
-    }
-
-    fn remove_param(&mut self, name: impl ToString) -> Option<String> {
-        let uri = self.header_mut().uri_mut();
-        uri.remove_param(name)
-    }
 }
 
 pub(crate) trait ReqPriExt {

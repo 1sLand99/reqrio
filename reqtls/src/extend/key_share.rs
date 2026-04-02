@@ -1,5 +1,5 @@
 use super::super::bytes::Bytes;
-use crate::WriteExt;
+use crate::{BufferError, WriteExt};
 use std::fmt::{Debug, Formatter};
 
 pub struct KeyShareType(u16);
@@ -87,9 +87,9 @@ impl KeyShareEntry {
         4 + self.exchange.len()
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u16(self.group.into_inner());
-        writer.write_u16(self.exchange.len() as u16);
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u16(self.group.into_inner())?;
+        writer.write_u16(self.exchange.len() as u16)?;
         writer.write_slice(self.exchange.as_ref())
     }
 }
@@ -118,11 +118,12 @@ impl KeyShare {
         self.entries.iter().map(|x| x.len()).sum::<usize>() + 2
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u16(self.len() as u16 - 2);
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u16(self.len() as u16 - 2)?;
         for entry in self.entries {
-            entry.write_to(writer);
+            entry.write_to(writer)?;
         }
+        Ok(())
     }
 }
 

@@ -1,4 +1,4 @@
-use reqtls::WriteExt;
+use reqtls::{BufferError, WriteExt};
 use crate::error::HlsResult;
 use crate::Buffer;
 use std::fmt::Debug;
@@ -72,25 +72,26 @@ impl<'a> H2Frame<'a> {
         })
     }
 
-    pub fn write_to<W: WriteExt>(mut self, writer: &mut W) {
+    pub fn write_to<W: WriteExt>(mut self, writer: &mut W) -> Result<(), BufferError>{
         let len = if self.flag.priority() { self.payload.len() + 5 } else { self.payload.len() } as u32;
-        writer.write_u32(len, true);
-        writer.write_u8(self.frame_type.to_u8());
+        writer.write_u32(len, true)?;
+        writer.write_u8(self.frame_type.to_u8())?;
         let priority = self.flag.priority();
 
-        writer.write_u8(self.flag.into_inner());
-        writer.write_u32(self.stream_identifier, false);
+        writer.write_u8(self.flag.into_inner())?;
+        writer.write_u32(self.stream_identifier, false)?;
         if priority {
             self.stream_dependency |= 2147483648;
-            writer.write_u32(self.stream_dependency, false);
-            writer.write_u8(self.weight);
+            writer.write_u32(self.stream_dependency, false)?;
+            writer.write_u8(self.weight)?;
         }
         match self.frame_type {
             FrameType::Settings => for setting in self.settings {
-                setting.write_to(writer);
+                setting.write_to(writer)?;
             }
-            _ => writer.write_slice(self.payload),
+            _ => writer.write_slice(self.payload)?,
         }
+        Ok(())
     }
 
     pub fn to_bytes(mut self) -> Vec<u8> {

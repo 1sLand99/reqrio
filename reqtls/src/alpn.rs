@@ -1,6 +1,6 @@
 use std::fmt::Display;
 use crate::error::RlsResult;
-use crate::WriteExt;
+use crate::{BufferError, WriteExt};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ALPN {
@@ -44,9 +44,9 @@ impl ALPN {
 
     pub fn len(&self) -> usize { 1 + self.value().len() }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u8(self.value().len() as u8);
-        writer.write_slice(self.value().as_bytes());
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u8(self.value().len() as u8)?;
+        writer.write_slice(self.value().as_bytes())
     }
 }
 

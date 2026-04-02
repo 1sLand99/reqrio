@@ -6,7 +6,7 @@ use crate::bytes::ByteRef;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::ExtensionValue;
-use crate::{ClientHello, ExtensionType, WriteExt, ALPN};
+use crate::{BufferError, ClientHello, ExtensionType, WriteExt, ALPN};
 
 #[derive(Debug)]
 pub struct ServerHello<'a> {
@@ -118,20 +118,21 @@ impl<'a> ServerHello<'a> {
             self.extensions.iter().map(|x| x.len(true)).sum::<usize>()
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u8(self.handshake_type as u8);
-        writer.write_u32(self.len() as u32 - 4, true);
-        writer.write_u16(self.version.into_inner());
-        writer.write_slice(self.random.as_ref());
-        writer.write_u8(self.session_id.len() as u8);
-        writer.write_slice(self.session_id.as_ref());
-        writer.write_u16(self.cipher_suite.into_inner());
-        writer.write_u8(self.compress_method);
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError>{
+        writer.write_u8(self.handshake_type as u8)?;
+        writer.write_u32(self.len() as u32 - 4, true)?;
+        writer.write_u16(self.version.into_inner())?;
+        writer.write_slice(self.random.as_ref())?;
+        writer.write_u8(self.session_id.len() as u8)?;
+        writer.write_slice(self.session_id.as_ref())?;
+        writer.write_u16(self.cipher_suite.into_inner())?;
+        writer.write_u8(self.compress_method)?;
         let len = self.extensions.iter().map(|x| x.len(true)).sum::<usize>();
-        writer.write_u16(len as u16);
+        writer.write_u16(len as u16)?;
         for extension in self.extensions {
-            extension.write_to(writer, true)
+            extension.write_to(writer, true)?;
         }
+        Ok(())
     }
 
     pub fn set_random(&mut self, random: &'a [u8]) {
@@ -168,8 +169,8 @@ impl ServerHelloDone {
         4
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u8(self.handshake_type as u8);
-        writer.write_u32(self.len, true);
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u8(self.handshake_type as u8)?;
+        writer.write_u32(self.len, true)
     }
 }

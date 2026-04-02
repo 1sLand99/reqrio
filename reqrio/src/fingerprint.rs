@@ -37,16 +37,18 @@ impl Fingerprint {
 }
 
 impl Fingerprint {
-    pub fn set_h2_setting(&mut self, setting: H2Frame) {
+    pub fn set_h2_setting(&mut self, setting: H2Frame) -> Result<(), BufferError> {
         let mut buffer = Buffer::with_capacity(512);
-        setting.write_to(&mut buffer);
+        setting.write_to(&mut buffer)?;
         self.h2_setting = buffer;
+        Ok(())
     }
 
-    pub fn set_h2_window_update(&mut self, setting: H2Frame) {
+    pub fn set_h2_window_update(&mut self, setting: H2Frame) -> Result<(), BufferError> {
         let mut buffer = Buffer::with_capacity(512);
-        setting.write_to(&mut buffer);
+        setting.write_to(&mut buffer)?;
         self.h2_window_update = buffer;
+        Ok(())
     }
     pub fn new_ja3(ja3: impl AsRef<str>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {
         let mut res = Fingerprint::default();

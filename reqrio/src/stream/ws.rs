@@ -1,9 +1,8 @@
-use reqrio_json::JsonValue;
+use crate::body::Body;
 use crate::error::HlsResult;
 use crate::ext::ReqPriExt;
 use crate::stream::Stream;
 use crate::*;
-use crate::body::Body;
 
 pub struct WebSocketBuilder<S: ReqExt>(S);
 
@@ -49,15 +48,6 @@ impl<S: ReqExt> WebSocketBuilder<S> {
     pub fn with_uri(mut self, uri: impl TryInto<Uri>) -> HlsResult<WebSocketBuilder<S>> {
         self.set_uri(uri)?;
         Ok(self)
-    }
-
-    pub fn with_params(mut self, param: JsonValue) -> Self {
-        self.set_params(param);
-        self
-    }
-
-    pub fn set_params(&mut self, param: JsonValue) {
-        self.0.set_params(param)
     }
 }
 
@@ -160,7 +150,7 @@ impl WebSocket {
     pub fn open_raw(url: impl AsRef<str>, context: impl AsRef<[u8]>) -> HlsResult<WebSocket> {
         let mut req = ScReq::new().with_timeout(Timeout::longer());
         req.set_url(url.as_ref())?;
-        req.req_param().buffer.write_slice(context.as_ref());
+        req.req_param().buffer.write_slice(context.as_ref())?;
         Ok(WebSocket::new(Self::connect_sync(req)?))
     }
 
@@ -207,7 +197,7 @@ impl WebSocket {
     pub async fn open_async_raw(url: impl AsRef<str>, context: impl AsRef<[u8]>) -> HlsResult<WebSocket> {
         let mut req = AcReq::new().with_timeout(Timeout::longer());
         req.set_url(url.as_ref()).await?;
-        req.req_param().buffer.write_slice(context.as_ref());
+        req.req_param().buffer.write_slice(context.as_ref())?;
         Ok(WebSocket::new(Self::connect_async(req).await?))
     }
 

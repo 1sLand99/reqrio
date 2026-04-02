@@ -1,5 +1,5 @@
 use crate::error::RlsResult;
-use crate::{WriteExt, ALPN};
+use crate::{BufferError, WriteExt, ALPN};
 
 
 #[derive(Debug)]
@@ -27,11 +27,12 @@ impl ALPS {
         self.values.iter().map(|x| x.len()).sum::<usize>() + 2
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u16(self.len() as u16 - 2);
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u16(self.len() as u16 - 2)?;
         for value in self.values {
-            value.write_to(writer);
+            value.write_to(writer)?;
         }
+        Ok(())
     }
 
     pub fn remove_h2_alpn(&mut self) {

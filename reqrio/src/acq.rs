@@ -246,10 +246,10 @@ impl AcReq {
 impl AcReq {
     pub async fn handle_h2_setting(&mut self) -> HlsResult<()> {
         self.stream_id = 0;
-        self.buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
-        self.buffer.write_slice(self.fingerprint.h2_setting());
+        self.buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")?;
+        self.buffer.write_slice(self.fingerprint.h2_setting())?;
         self.hpack_coder = HPackCoding::new(65535);
-        self.buffer.write_slice(self.fingerprint.h2_window_update());
+        self.buffer.write_slice(self.fingerprint.h2_window_update())?;
         self.stream.async_write(self.buffer.filled()).await?;
         self.buffer.reset();
         self.stream_id += 1;

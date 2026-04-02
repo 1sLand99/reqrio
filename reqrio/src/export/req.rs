@@ -141,18 +141,6 @@ pub extern "system" fn ScReq_set_proxy(req: *mut ScReq, addr: *const c_char) -> 
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn ScReq_add_param(req: *mut ScReq, name: *const c_char, value: *const c_char) -> i32 {
-    || -> HlsResult<i32> {
-        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
-        let name = unsafe { CStr::from_ptr(name) }.to_str()?.to_string();
-        let value = unsafe { CStr::from_ptr(value) }.to_str()?.to_string();
-        req.add_param(&name, &value);
-        Ok(0)
-    }().unwrap_or(-1)
-}
-
-#[unsafe(no_mangle)]
-#[allow(non_snake_case)]
 pub extern "system" fn ScReq_set_timeout(req: *mut ScReq, timeout: *const c_char) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;

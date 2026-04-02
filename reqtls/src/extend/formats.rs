@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Formatter};
 use crate::error::RlsResult;
-use crate::WriteExt;
+use crate::{BufferError, WriteExt};
 
 #[allow(non_camel_case_types)]
 #[derive(Clone, PartialEq)]
@@ -65,11 +65,12 @@ impl EcPointFormats {
 
     pub fn len(&self) -> usize { self.formats.len() + 1 }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u8(self.len() as u8 - 1);
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u8(self.len() as u8 - 1)?;
         for format in self.formats {
-            writer.write_u8(format.into_inner());
+            writer.write_u8(format.into_inner())?;
         }
+        Ok(())
     }
 
     pub fn clear(&mut self) {

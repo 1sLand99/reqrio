@@ -7,7 +7,7 @@ use key_exchange::{ClientKeyExchange, ServerKeyExchange};
 use server_hello::{ServerHello, ServerHelloDone};
 use session_ticket::SessionTicket;
 use std::fmt::Debug;
-use crate::{CipherSuite, WriteExt};
+use crate::{BufferError, CipherSuite, WriteExt};
 pub use certificate::{CertificateVerify, CertificateRequest};
 
 pub mod certificate;
@@ -75,7 +75,7 @@ impl<'a> Message<'a> {
         }
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) {
+    pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) -> Result<(), BufferError> {
         match self {
             Message::ClientHello(v) => v.write_to(writer),
             Message::ServerHello(v) => v.write_to(writer),
@@ -88,8 +88,8 @@ impl<'a> Message<'a> {
             Message::CertificateStatus(v) => v.write_to(writer),
             Message::CertificateRequest(v) => v.write_to(writer),
             Message::CertificateVerify(v) => v.write_to(writer),
-            Message::Alert(_) => {}
-            Message::CipherSpec => {}
+            Message::Alert(_) => Ok(()),
+            Message::CipherSpec => Ok(())
         }
     }
 

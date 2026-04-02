@@ -1,5 +1,5 @@
 use crate::bytes::ByteRef;
-use crate::{CipherSuite, WriteExt};
+use crate::{BufferError, CipherSuite, WriteExt};
 use crate::error::RlsResult;
 use super::super::boring::SignatureAlgorithm;
 use super::super::message::HandshakeType;
@@ -88,14 +88,14 @@ impl ServerHellmanParam {
         8 + self.pub_key.len() + self.signature.len()
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u8(self.curve_type as u8);
-        writer.write_u16(self.named_curve as u16);
-        writer.write_u8(self.pub_key.len() as u8);
-        writer.write_slice(self.pub_key.as_ref());
-        writer.write_u16(self.signature_algorithm.into_inner());
-        writer.write_u16(self.signature.len() as u16);
-        writer.write_slice(self.signature.as_ref());
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u8(self.curve_type as u8)?;
+        writer.write_u16(self.named_curve as u16)?;
+        writer.write_u8(self.pub_key.len() as u8)?;
+        writer.write_slice(self.pub_key.as_ref())?;
+        writer.write_u16(self.signature_algorithm.into_inner())?;
+        writer.write_u16(self.signature.len() as u16)?;
+        writer.write_slice(self.signature.as_ref())
     }
 
     pub fn curve_type(&self) -> &CurveType { &self.curve_type }
@@ -162,10 +162,10 @@ impl ServerKeyExchange {
         4 + self.hellman_param.len()
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u8(self.handshake_type as u8);
-        writer.write_u32(self.hellman_param.len() as u32, true);
-        self.hellman_param.write_to(writer);
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u8(self.handshake_type as u8)?;
+        writer.write_u32(self.hellman_param.len() as u32, true)?;
+        self.hellman_param.write_to(writer)
     }
 
     pub fn hellman_param(&self) -> &ServerHellmanParam {
@@ -200,12 +200,12 @@ impl<'a> ClientHellmanParam<'a> {
         key_size as usize + self.pub_key.len()
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) {
+    pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) -> Result<(), BufferError> {
         match key_size {
-            2 => writer.write_u16(self.pub_key.len() as u16),
-            _ => writer.write_u8(self.pub_key.len() as u8),
+            2 => writer.write_u16(self.pub_key.len() as u16)?,
+            _ => writer.write_u8(self.pub_key.len() as u8)?,
         }
-        writer.write_slice(self.pub_key.as_ref());
+        writer.write_slice(self.pub_key.as_ref())
     }
 
     pub fn pub_key(&self) -> &ByteRef<'a> {
@@ -241,10 +241,10 @@ impl<'a> ClientKeyExchange<'a> {
         4 + self.hellman_param.len(key_size)
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) {
-        writer.write_u8(self.handshake_type as u8);
-        writer.write_u32(self.hellman_param.len(key_size) as u32, true);
-        self.hellman_param.write_to(writer, key_size);
+    pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) -> Result<(), BufferError> {
+        writer.write_u8(self.handshake_type as u8)?;
+        writer.write_u32(self.hellman_param.len(key_size) as u32, true)?;
+        self.hellman_param.write_to(writer, key_size)
     }
 
     pub fn set_pub_key(&mut self, pub_key: &'a [u8]) {

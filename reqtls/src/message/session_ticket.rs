@@ -1,7 +1,7 @@
 use super::super::message::HandshakeType;
 use crate::bytes::ByteRef;
 use crate::error::RlsResult;
-use crate::WriteExt;
+use crate::{BufferError, WriteExt};
 
 #[derive(Debug)]
 pub struct TlsSessionTicket<'a> {
@@ -33,10 +33,10 @@ impl<'a> TlsSessionTicket<'a> {
         6 + self.value.len()
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u32(self.lifetime, false);
-        writer.write_u16(self.value.len() as u16);
-        writer.write_slice(self.value.as_ref());
+    pub fn write_to<W: WriteExt>(self, writer: &mut W)-> Result<(), BufferError> {
+        writer.write_u32(self.lifetime, false)?;
+        writer.write_u16(self.value.len() as u16)?;
+        writer.write_slice(self.value.as_ref())
     }
 
     pub fn set_value(&mut self, value: &'a [u8]) {
@@ -74,10 +74,10 @@ impl<'a> SessionTicket<'a> {
         4 + self.tls_ticket.len()
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u8(self.handshake_type as u8);
-        writer.write_u32(self.tls_ticket.len() as u32, true);
-        self.tls_ticket.write_to(writer);
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u8(self.handshake_type as u8)?;
+        writer.write_u32(self.tls_ticket.len() as u32, true)?;
+        self.tls_ticket.write_to(writer)
     }
 
     pub fn tls_ticket_mut(&mut self) -> &mut TlsSessionTicket<'a> {

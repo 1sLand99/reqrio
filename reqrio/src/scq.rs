@@ -241,9 +241,9 @@ impl ScReq {
     pub fn handle_h2_setting(&mut self) -> HlsResult<()> {
         self.hpack_coder = HPackCoding::new(65535);
         self.stream_id = 0;
-        self.buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
-        self.buffer.write_slice(self.fingerprint.h2_setting());
-        self.buffer.write_slice(self.fingerprint.h2_window_update());
+        self.buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")?;
+        self.buffer.write_slice(self.fingerprint.h2_setting())?;
+        self.buffer.write_slice(self.fingerprint.h2_window_update())?;
         self.stream.sync_write(self.buffer.filled())?;
         self.buffer.reset();
         self.stream_id += 1;

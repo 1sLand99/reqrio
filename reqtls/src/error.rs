@@ -303,6 +303,7 @@ impl Error for RlsError {}
 pub enum BufferError {
     Insufficient,
     CapacityTooSmall { needed: usize, current: usize },
+    Overflow { capacity: usize, need: usize },
 }
 
 impl Display for BufferError {
@@ -310,6 +311,7 @@ impl Display for BufferError {
         match self {
             BufferError::Insufficient => write!(f, "Insufficient decoding data"),
             BufferError::CapacityTooSmall { needed, current } => write!(f, "The required capacity is {}, but the actual capacity is {}.", needed, current),
+            BufferError::Overflow { capacity, need } => write!(f, "The buffer capacity is {}, but write {} out of it.", capacity, need),
         }
     }
 }

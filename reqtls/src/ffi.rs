@@ -95,13 +95,14 @@ impl BufPtr {
     pub fn len(&self) -> usize { self.len }
 
     pub fn as_slice(&self) -> &[u8] {
+        if self.ptr.is_null() || self.len == usize::MAX { panic!("bufptr nullptr") }
         unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
     }
 }
 
 impl Debug for BufPtr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.ptr.is_null() { return write!(f, "nullptr"); }
+        if self.ptr.is_null() || self.len == usize::MAX { return write!(f, "nullptr"); }
         let slice = unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) };
         write!(f, "{:?}", slice)
     }

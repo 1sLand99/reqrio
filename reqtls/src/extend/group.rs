@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Formatter};
 use crate::error::RlsResult;
-use crate::WriteExt;
+use crate::{BufferError, WriteExt};
 
 pub struct GroupType(u16);
 
@@ -69,11 +69,12 @@ impl SupportedGroups {
         self.values.len() * 2 + 2
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
-        writer.write_u16(self.len() as u16 - 2);
+    pub fn write_to<W: WriteExt>(self, writer: &mut W)-> Result<(), BufferError> {
+        writer.write_u16(self.len() as u16 - 2)?;
         for value in self.values {
-            writer.write_u16(value.into_inner());
+            writer.write_u16(value.into_inner())?;
         }
+        Ok(())
     }
     
     pub fn clear(&mut self) {

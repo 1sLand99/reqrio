@@ -46,6 +46,10 @@ impl<'a> WriteExt for Reader<'a> {
     fn offset(&self) -> Range<usize> {
         0..self.pos
     }
+
+    fn capacity(&self) -> usize {
+        self.buffer.len()
+    }
 }
 
 pub struct RefReader<R> {

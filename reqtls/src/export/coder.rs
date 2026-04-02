@@ -63,7 +63,7 @@ pub fn Base64_new() -> *mut Base64 {
 pub fn Base64_encode(base64: *mut Base64, data: *const u8, len: usize) -> *mut c_char {
     || -> RlsResult<*mut c_char> {
         let base64 = unsafe { base64.as_mut() }.ok_or(RlsError::NullPtr)?;
-        let data = unsafe { slice::from_raw_parts(data, len as usize) };
+        let data = unsafe { slice::from_raw_parts(data, len) };
         let res = base64.encode(data);
         Ok(CString::new(res)?.into_raw())
     }().unwrap_or(null_mut())

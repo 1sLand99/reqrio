@@ -27,7 +27,7 @@ mod pre_share_key;
 use crate::error::RlsResult;
 pub use crate::extend::certificate::CompressionType;
 use crate::extend::pre_share_key::PreSharedKey;
-use crate::{Version, WriteExt};
+use crate::{BufferError, Version, WriteExt};
 pub use client_hello::Aead;
 pub use status::StatusRequest;
 
@@ -152,7 +152,7 @@ impl RenegotiationInfo {
 
     pub fn len(&self) -> usize { 1 }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) {
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
         writer.write_u8(self.len)
     }
 }
@@ -232,26 +232,26 @@ impl ExtensionValue {
         }
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W, server: bool) {
+    pub fn write_to<W: WriteExt>(self, writer: &mut W, server: bool) -> Result<(), BufferError> {
         match self {
             ExtensionValue::PskKeyExchangeMode(v) => v.write_to(writer),
             ExtensionValue::KeyShare(v) => v.write_to(writer),
             ExtensionValue::SupportedGroups(v) => v.write_to(writer),
-            ExtensionValue::StatusRequest(v) => if !server { v.write_to(writer) },
+            ExtensionValue::StatusRequest(v) => if !server { v.write_to(writer) } else { Ok(()) },
             ExtensionValue::SignatureAlgorithms(v) => v.write_to(writer),
             ExtensionValue::ServerName(v) => v.write_to(writer),
             ExtensionValue::EcPointFormats(v) => v.write_to(writer),
             ExtensionValue::SupportedVersions(v) => v.write_to(writer, server),
             ExtensionValue::RenegotiationInfo(v) => v.write_to(writer),
-            ExtensionValue::SessionTicket => {}
-            ExtensionValue::EncryptTheMac => {}
-            ExtensionValue::MasterSecret => {}
+            ExtensionValue::SessionTicket => Ok(()),
+            ExtensionValue::EncryptTheMac => Ok(()),
+            ExtensionValue::MasterSecret => Ok(()),
             ExtensionValue::CompressionCertificate(v) => v.write_to(writer),
             ExtensionValue::EncryptedClientHello(v) => v.write_to(writer),
             ExtensionValue::ApplicationSetting(v) => v.write_to(writer),
             ExtensionValue::ApplicationLayerProtocolNegotiation(v) => v.write_to(writer),
             ExtensionValue::Unknown(v) => writer.write_slice(v.as_ref()),
-            ExtensionValue::SignedCertificateTimestamp => {}
+            ExtensionValue::SignedCertificateTimestamp => Ok(()),
             ExtensionValue::PreSharedKey(v) => v.write_to(writer),
             ExtensionValue::ApplicationSettingOld(v) => v.write_to(writer),
         }
@@ -375,10 +375,10 @@ impl Extension {
 
     pub fn len(&self, server: bool) -> usize { 4 + self.value.len(server) }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W, server: bool) {
-        writer.write_u16(self.type_.into_inner());
-        writer.write_u16(self.value.len(server) as u16);
-        self.value.write_to(writer, server);
+    pub fn write_to<W: WriteExt>(self, writer: &mut W, server: bool) -> Result<(), BufferError> {
+        writer.write_u16(self.type_.into_inner())?;
+        writer.write_u16(self.value.len(server) as u16)?;
+        self.value.write_to(writer, server)
     }
 
     pub fn set_server_name(&mut self, value: &str) {
