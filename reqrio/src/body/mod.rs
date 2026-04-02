@@ -13,6 +13,8 @@ use reqrio_json::JsonValue;
 use reqtls::{hash, rand};
 use std::borrow::Cow;
 use std::sync::Arc;
+#[cfg(feature = "serde")]
+use serde::Serialize;
 
 pub enum BodyKind<'a> {
     Data(HCow<'a, JsonValue>),
@@ -133,6 +135,7 @@ impl<'a> From<Option<()>> for Body<'a> {
         Body::none()
     }
 }
+
 impl<'a> Body<'a> {
     pub(crate) fn none() -> Body<'a> {
         Body {
@@ -140,12 +143,31 @@ impl<'a> Body<'a> {
             ct: ContentType::Application(Application::OctetStream),
         }
     }
+
+    #[cfg(feature = "serde")]
+    pub fn json<T: Serialize>(value: &T) -> HlsResult<Body<'a>> {
+        let bytes = json::to_string(value).map_err(|e| format!("struct to json error, {}", e))?;
+        Ok(Body {
+            kind: BodyKind::Bytes(Cow::Owned(bytes.into_bytes())),
+            ct: ContentType::json(),
+        })
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn form<T: Serialize>(value: &T) -> HlsResult<Body<'a>> {
+        let form = json::from_struct(value).map_err(|e| format!("struct to json error, {}", e))?;
+        Ok(Body{
+            kind:BodyKind::Data(HCow::Owned(form)),
+            ct: ContentType::form(),
+        })
+    }
+
     pub(crate) fn as_reader(&'a self) -> HlsResult<RawBodyReader<'a>> {
         match &self.kind {
             BodyKind::Data(data) => {
                 if let ContentType::Application(Application::Json) = self.ct {
                     Ok(RawBodyReader::Data(RefReader::new_buf(StrCow::Owned(data.dump()))))
-                }else {
+                } else {
                     let mut readers: RefReader<StrCow> = RefReader::default();
                     for (i, (k, v)) in data.entries().enumerate() {
                         readers.add_str(k);
@@ -168,6 +190,7 @@ impl<'a> Body<'a> {
             BodyKind::Files(file) => Ok(RawBodyReader::File(file.as_reader()?)),
         }
     }
+
     pub fn context_type(&self) -> &ContentType { &self.ct }
 }
 
