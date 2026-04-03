@@ -24,9 +24,7 @@ def send(url: str, method: Method, headers: dict = None, params: dict = None, da
         req.set_proxy(proxy)
     if headers is not None:
         req.set_headers(headers)
-    if params is not None:
-        req.set_params(params)
-    resp = req.send_request(method, url, data, json)
+    resp = req.send_request(method, url, params=params, data=data, json=json)
     req.close()
     return resp
 

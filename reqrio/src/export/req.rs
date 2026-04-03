@@ -1,4 +1,3 @@
-use crate::body::Body;
 use crate::error::HlsResult;
 use crate::time::Timeout;
 use crate::{json, BodyExt, Cookie, HlsError, Method, Proxy, ReqExt, ScReq, ALPN};

@@ -1,12 +1,10 @@
-import json
 from ctypes import *
 
+from reqrio import util
 from reqrio.alpn import ALPN
 from reqrio.bindings import DLL, CALLBACK
 from reqrio.method import Method
 from reqrio.response import Response
-from reqrio.rcode import url_encode
-from reqrio import util
 
 
 class Session:
@@ -48,11 +46,13 @@ class Session:
             'connect_times': connect_times,
             'handle_times': handle_times,
         }
+        import json
         r = self.dll.ScReq_set_timeout(self.hid, json.dumps(timeout).encode('utf-8'))
         if r == -1: raise Exception('set timeout error')
         return
 
     def set_headers(self, header: dict):
+        import json
         r = self.dll.ScReq_set_header_json(self.hid, json.dumps(header).encode('utf-8'))
         if r == -1: raise Exception('set header error')
 
@@ -98,14 +98,7 @@ class Session:
     @staticmethod
     def _format_body(data: dict = None, jd: dict = None, bs: bytes = None, ct: str = None):
         if data is not None:
-            res = ''
-            for k in data.keys():
-                res += k
-                res += "="
-                res += url_encode(json.dumps(data[k]))
-                res += "&"
-            if res.endswith("&"):
-                res = res[:-1]
+            res = util.urlencoded_str(data)
             ln, u8 = util.str_to_u8(res)
             if ct is None:
                 return u8, ln, "application/x-www-form-urlencoded"
@@ -127,9 +120,11 @@ class Session:
         ln, u8 = util.bytes_to_u8(bytes([]))
         return u8, ln, "application/octet-stream"
 
-    def send_request(self, method: Method, url: str, data: dict = None, json: dict = None, bs: bytes = None,
-                     content_type: str = None):
+    def send_request(self, method: Method, url: str, params: dict = None, data: dict = None, json: dict = None,
+                     bs: bytes = None, content_type: str = None):
         u8, ln, ct = self._format_body(data, json, bs, content_type)
+        if params is not None:
+            url = f'{url}?{util.urlencoded_str(params)}'
         resp = self.dll.ScReq_stream_io(self.hid, method.value, url.encode('utf-8'), u8, ln, ct.encode('utf-8'))
         bs = string_at(resp).decode('utf-8')
         self.dll.char_free(resp)
@@ -141,48 +136,47 @@ class Session:
         except Exception as _:
             raise Exception(bs)
 
-    def get(self, url: str, data: dict = None, json: dict = None, bs: bytes = None,
-            content_type: str = None) -> Response:
-        return self.send_request(Method.GET, url, data, json, bs, content_type)
+    def get(self, url: str, params: dict = None, data: dict = None, json: dict = None,
+            bs: bytes = None, content_type: str = None) -> Response:
+        return self.send_request(Method.GET, url, params, data, json, bs, content_type)
 
-    def post(self, url: str, data: dict = None, json: dict = None, bs: bytes = None,
-             content_type: str = None) -> Response:
-        return self.send_request(Method.POST, url, data, json, bs, content_type)
+    def post(self, url: str, params: dict = None, data: dict = None, json: dict = None,
+             bs: bytes = None, content_type: str = None) -> Response:
+        return self.send_request(Method.POST, url, params, data, json, bs, content_type)
 
-    def put(self, url: str, data: dict = None, json: dict = None, bs: bytes = None,
-            content_type: str = None) -> Response:
-        return self.send_request(Method.PUT, url, data, json, bs, content_type)
+    def put(self, url: str, params: dict = None, data: dict = None, json: dict = None,
+            bs: bytes = None, content_type: str = None) -> Response:
+        return self.send_request(Method.PUT, url, params, data, json, bs, content_type)
 
-    def head(self, url: str, data: dict = None, json: dict = None, bs: bytes = None,
-             content_type: str = None) -> Response:
-        return self.send_request(Method.HEAD, url, data, json, bs, content_type)
+    def head(self, url: str, params: dict = None, data: dict = None, json: dict = None,
+             bs: bytes = None, content_type: str = None) -> Response:
+        return self.send_request(Method.HEAD, url, params, data, json, bs, content_type)
 
-    def delete(self, url: str, data: dict = None, json: dict = None, bs: bytes = None,
-               content_type: str = None) -> Response:
-        return self.send_request(Method.DELETE, url, data, json, bs, content_type)
+    def delete(self, url: str, params: dict = None, data: dict = None, json: dict = None,
+               bs: bytes = None, content_type: str = None) -> Response:
+        return self.send_request(Method.DELETE, url, params, data, json, bs, content_type)
 
-    def options(self, url: str, data: dict = None, json: dict = None, bs: bytes = None,
-                content_type: str = None) -> Response:
-        return self.send_request(Method.OPTIONS, url, data, json, bs, content_type)
+    def options(self, url: str, params: dict = None, data: dict = None, json: dict = None,
+                bs: bytes = None, content_type: str = None) -> Response:
+        return self.send_request(Method.OPTIONS, url, params, data, json, bs, content_type)
 
-    def trace(self, url: str, data: dict = None, json: dict = None, bs: bytes = None,
-              content_type: str = None) -> Response:
-        return self.send_request(Method.TRACE, url, data, json, bs, content_type)
+    def trace(self, url: str, params: dict = None, data: dict = None, json: dict = None,
+              bs: bytes = None, content_type: str = None) -> Response:
+        return self.send_request(Method.TRACE, url, params, data, json, bs, content_type)
 
-    def patch(self, url: str, data: dict = None, json: dict = None, bs: bytes = None,
-              content_type: str = None) -> Response:
-        return self.send_request(Method.PATCH, url, data, json, bs, content_type)
+    def patch(self, url: str, params: dict = None, data: dict = None, json: dict = None,
+              bs: bytes = None, content_type: str = None) -> Response:
+        return self.send_request(Method.PATCH, url, params, data, json, bs, content_type)
 
     def session_reconnect(self):
         r = self.dll.reconnect(self.hid)
         if r == -1:
             raise Exception("重连失败")
 
-    def open_stream(self, url: str, method: Method):
+    def open_stream(self, method: Method, url: str, params: dict = None, data: dict = None, json: dict = None,
+                    bs: bytes = None, content_type: str = None):
         from reqrio.stream import Stream
-
-        self.set_url(url)
-        return Stream(self, method)
+        return Stream(self, method, url, params, data, json, bs, content_type)
 
     def close(self):
         """记得关闭资源，否则容易造成内存溢出"""

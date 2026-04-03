@@ -49,11 +49,16 @@ session.set_headers(headers)
 
 
 # session.set_headers(headers)
+params = {
+    'a': 3,
+    "b": {'fgfdg': 'dg'}
+}
 resp = session.get('https://www.baidu.com/',
+                   params,
                    bs="sdfsdfdsf宋代的点点滴滴的点点滴滴的点点滴滴的点点滴滴的地方的".encode('utf-8'),
                    content_type="text/plain")
 print(resp.header.__dict__)
-session.close()
+
 
 res = reqrio.get('https://www.baidu.com', headers, data={'da': 1})
 print(resp.header.__dict__)
@@ -63,3 +68,8 @@ print(res.header.__dict__)
 
 res = reqrio.get('https://www.baidu.com', headers)
 print(res.header.__dict__)
+
+
+for b in session.open_stream(Method.GET, "https://m.so.com"):
+    print(b)
+session.close()

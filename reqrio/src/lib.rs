@@ -101,7 +101,7 @@
 //!     let params=json::object! {
 //!         "p1":1,
 //!         "p2":"斯"
-//!     }
+//!     };
 //!     //get
 //!     let mut res = req.get("https://www.baidu.com".params(params), None).unwrap();
 //!     //Get response headers

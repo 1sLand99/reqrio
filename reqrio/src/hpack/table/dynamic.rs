@@ -11,7 +11,7 @@ pub struct DynamicTable {
 impl Default for DynamicTable {
     fn default() -> Self {
         DynamicTable {
-            values: vec![],
+            values: Vec::with_capacity(4096),
             max_size: 4096,
             size: 0,
         }
@@ -21,7 +21,7 @@ impl Default for DynamicTable {
 impl DynamicTable {
     pub fn new_size(max_size: usize) -> Self {
         DynamicTable {
-            values: vec![],
+            values: Vec::with_capacity(max_size),
             max_size,
             size: 0,
         }

@@ -42,8 +42,8 @@ DLL.ScReq_set_ja4.restype = c_int
 DLL.ScReq_set_proxy.argtypes = [c_void_p, c_char_p]
 DLL.ScReq_set_proxy.restype = c_int
 
-DLL.ScReq_add_param.argtypes = [c_void_p, c_char_p]
-DLL.ScReq_add_param.restype = c_int
+# DLL.ScReq_add_param.argtypes = [c_void_p, c_char_p]
+# DLL.ScReq_add_param.restype = c_int
 
 DLL.ScReq_set_timeout.argtypes = [c_void_p, c_char_p]
 DLL.ScReq_set_timeout.restype = c_int

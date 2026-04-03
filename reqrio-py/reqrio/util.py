@@ -2,6 +2,7 @@ import json
 from _ctypes import Array
 from ctypes import c_ubyte
 from typing import Union
+from reqrio import rcode
 
 
 def dict_to_u8(data: dict) -> tuple[int, Array[c_ubyte]]:
@@ -23,3 +24,15 @@ def str_bytes_to_u8(data: Union[str, bytes]) -> tuple[int, Array[c_ubyte]]:
         return str_to_u8(data)
     else:
         return bytes_to_u8(data)
+
+
+def urlencoded_str(data: dict) -> str:
+    res = ''
+    for k in data.keys():
+        res += k
+        res += "="
+        res += rcode.url_encode(json.dumps(data[k]))
+        res += "&"
+    if res.endswith("&"):
+        res = res[:-1]
+    return res
