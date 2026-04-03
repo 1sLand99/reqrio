@@ -21,16 +21,15 @@ pub use hash::*;
 use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
 use crate::error::RlsResult;
 use crate::extend::Aead;
-use crate::RlsError;
 pub use signature::{AlgorithmSigner, SignatureAlgorithm};
 use std::ffi::c_int;
 
 trait BoringResExt {
-    fn ok(self, error: RlsError) -> RlsResult<()>;
+    fn ok<E>(self, error: E) -> Result<(), E>;
 }
 
 impl BoringResExt for c_int {
-    fn ok(self, error: RlsError) -> RlsResult<()> {
+    fn ok<E>(self, error: E) -> Result<(), E> {
         if self != 1 { return Err(error); }
         Ok(())
     }

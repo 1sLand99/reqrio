@@ -1,7 +1,27 @@
 use super::bindings::*;
-use crate::error::RlsResult;
-use std::os::raw::c_void;
 use crate::ffi::CPointer;
+use std::error::Error;
+use std::fmt::Display;
+use std::os::raw::c_void;
+
+#[derive(Debug)]
+pub enum ZSTDError {
+    NewDecoderFail,
+    InitDecodeStreamFail,
+    DecodeError,
+    NewEncoderFail,
+    InitEncoderStreamFail,
+    EncodeError,
+    FinalizeError,
+}
+
+impl Display for ZSTDError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl Error for ZSTDError {}
 
 pub struct ZSTDDecode {
     stream: CPointer<ZSTD_DStream>,
@@ -10,10 +30,10 @@ pub struct ZSTDDecode {
 }
 
 impl ZSTDDecode {
-    pub fn new() -> RlsResult<ZSTDDecode> {
-        let stream = CPointer::new_checked(unsafe { ZSTD_createDStream() }, "create zstd decode stream error".into())?;
+    pub fn new() -> Result<ZSTDDecode, ZSTDError> {
+        let stream = CPointer::new_checked(unsafe { ZSTD_createDStream() }, ZSTDError::NewDecoderFail)?;
         let ret = unsafe { ZSTD_isError(ZSTD_initDStream(stream.as_mut_ptr())) };
-        if ret != 0 { return Err("init decode stream error".into()); }
+        if ret != 0 { return Err(ZSTDError::InitDecodeStreamFail); }
         Ok(ZSTDDecode {
             stream,
             buffer: [0; 4096],
@@ -21,13 +41,13 @@ impl ZSTDDecode {
         })
     }
 
-    pub fn decode(&mut self, data: &[u8]) -> RlsResult<&[u8]> {
+    pub fn decode(&mut self, data: &[u8]) -> Result<&[u8], ZSTDError> {
         self.len = 0;
         let mut buf_in = ZSTD_inBuffer::new_buf(data);
         while buf_in.pos < buf_in.size {
             let mut buf_out = ZSTD_outBuffer::new_buf(&mut self.buffer);
             let ret = unsafe { ZSTD_decompressStream(self.stream.as_mut_ptr(), &mut buf_out, &mut buf_in) };
-            if unsafe { ZSTD_isError(ret) } != 0 { return Err("zstd decode error".into()); }
+            if unsafe { ZSTD_isError(ret) } != 0 { return Err(ZSTDError::DecodeError); }
             self.len += buf_out.pos;
             if ret == 0 { break; }
         }
@@ -42,10 +62,10 @@ pub struct ZSTDEncode {
 }
 
 impl ZSTDEncode {
-    pub fn new() -> RlsResult<ZSTDEncode> {
-        let stream = CPointer::new_checked(unsafe { ZSTD_createCStream() }, "create zstd encode error".into())?;
+    pub fn new() -> Result<ZSTDEncode, ZSTDError> {
+        let stream = CPointer::new_checked(unsafe { ZSTD_createCStream() }, ZSTDError::NewEncoderFail)?;
         let ret = unsafe { ZSTD_isError(ZSTD_initCStream(stream.as_mut_ptr(), 3)) };
-        if ret != 0 { return Err("init zstd encode error".into()); }
+        if ret != 0 { return Err(ZSTDError::InitEncoderStreamFail); }
         Ok(ZSTDEncode {
             stream,
             buffer: [0; 4096],
@@ -53,13 +73,13 @@ impl ZSTDEncode {
         })
     }
 
-    pub fn encode(&mut self, data: &[u8]) -> RlsResult<&[u8]> {
+    pub fn encode(&mut self, data: &[u8]) -> Result<&[u8], ZSTDError> {
         self.len = 0;
         let mut buf_in = ZSTD_inBuffer::new_buf(data);
         while buf_in.pos < buf_in.size {
             let mut buf_out = ZSTD_outBuffer::new_buf(&mut self.buffer);
             let ret = unsafe { ZSTD_compressStream(self.stream.as_mut_ptr(), &mut buf_out, &mut buf_in) };
-            if unsafe { ZSTD_isError(ret) } != 0 { return Err("zstd encode error".into()); }
+            if unsafe { ZSTD_isError(ret) } != 0 { return Err(ZSTDError::EncodeError); }
             unsafe { ZSTD_flushStream(self.stream.as_mut_ptr(), &mut buf_out); }
             self.len += buf_out.pos;
             if ret == 0 { break; }
@@ -67,12 +87,12 @@ impl ZSTDEncode {
         Ok(&self.buffer[..self.len])
     }
 
-    pub fn finalize(&mut self) -> RlsResult<&[u8]> {
+    pub fn finalize(&mut self) -> Result<&[u8], ZSTDError> {
         self.len = 0;
         loop {
             let mut buf_out = ZSTD_outBuffer::new_buf(&mut self.buffer);
             let ret = unsafe { ZSTD_endStream(self.stream.as_mut_ptr(), &mut buf_out) };
-            if unsafe { ZSTD_isError(ret) } != 0 { return Err("zstd end stream error".into()); }
+            if unsafe { ZSTD_isError(ret) } != 0 { return Err(ZSTDError::FinalizeError); }
             self.len += buf_out.pos;
             if ret == 0 { break; }
         }
@@ -81,7 +101,7 @@ impl ZSTDEncode {
 }
 
 
-pub fn compress(data: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
+pub fn compress(data: impl AsRef<[u8]>) -> Result<Vec<u8>, ZSTDError> {
     let bound = unsafe { ZSTD_compressBound(data.as_ref().len()) };
     let mut buffer = vec![0u8; bound];
     let size = unsafe {
@@ -93,14 +113,14 @@ pub fn compress(data: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
             3,
         )
     };
-    if unsafe { ZSTD_isError(size) } != 0 { return Err("zstd compress error".into()); }
+    if unsafe { ZSTD_isError(size) } != 0 { return Err(ZSTDError::EncodeError); }
     buffer.truncate(size);
     Ok(buffer)
 }
 
-pub fn decompress(data: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
+pub fn decompress(data: impl AsRef<[u8]>) -> Result<Vec<u8>, ZSTDError> {
     let bound = unsafe { ZSTD_decompressBound(data.as_ref().as_ptr() as _, data.as_ref().len()) };
-    if bound == 0 { return Err("invalid zstd data".into()); }
+    if bound == 0 { return Err(ZSTDError::DecodeError); }
     let mut buffer = vec![0u8; bound];
     let len = unsafe {
         ZSTD_decompress(
@@ -110,7 +130,7 @@ pub fn decompress(data: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
             data.as_ref().len(),
         )
     };
-    if unsafe { ZSTD_isError(len) } != 0 { return Err("zstd decompress error".into()); }
+    if unsafe { ZSTD_isError(len) } != 0 { return Err(ZSTDError::DecodeError); }
     buffer.truncate(len);
     Ok(buffer)
 }

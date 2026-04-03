@@ -1,12 +1,10 @@
-use std::fmt::{Debug, Formatter};
-use std::ptr::null_mut;
-use std::slice;
 use crate::boring::bindings::*;
-use crate::error::RlsResult;
-use crate::RlsError;
 use crate::boring::rsa::bindings::*;
 #[cfg(feature = "zstd")]
 use crate::coder::bindings::{ZSTD_CStream, ZSTD_DStream, ZSTD_freeCStream, ZSTD_freeDStream};
+use std::fmt::{Debug, Formatter};
+use std::ptr::null_mut;
+use std::slice;
 
 pub struct CPointer<T: CFree<T>> {
     ptr: *mut T,
@@ -31,7 +29,7 @@ impl<T: CFree<T>> CPointer<T> {
         }
     }
 
-    pub fn new_checked(ptr: *mut T, e: RlsError) -> RlsResult<CPointer<T>> {
+    pub fn new_checked<E>(ptr: *mut T, e: E) -> Result<CPointer<T>, E> {
         if ptr.is_null() { return Err(e); };
         Ok(CPointer { ptr, auto_free: true })
     }

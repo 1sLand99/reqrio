@@ -1,9 +1,9 @@
 use crate::error::RlsResult;
 use crate::extend::Aead;
-use crate::hash::HashType;
+use crate::hash::{HashError, HashType};
 use crate::{Hasher, RlsError};
-use std::fmt::{Debug, Formatter};
 pub use cipher::TlsCipher;
+use std::fmt::{Debug, Formatter};
 
 pub mod iv;
 mod cipher;
@@ -313,14 +313,14 @@ impl CipherSuite {
         self.value
     }
 
-    pub fn update(&mut self, data: impl AsRef<[u8]>) -> RlsResult<()> {
+    pub fn update(&mut self, data: impl AsRef<[u8]>) -> Result<(), HashError> {
         match self.hasher.as_mut() {
-            None => Err(RlsError::HasherNone),
+            None => Err(HashError::HasherNone),
             Some(hasher) => hasher.update(data),
         }
     }
 
-    fn find_hasher(&self) -> RlsResult<Hasher> {
+    fn find_hasher(&self) -> Result<Hasher, HashError> {
         let text = self.spec().to_lowercase();
         if text.contains("sha256") {
             Ok(Hasher::new(HashType::Sha256)?)
@@ -329,12 +329,12 @@ impl CipherSuite {
         } else if text.ends_with("_sha") {
             Ok(Hasher::new(HashType::Sha256)?)
         } else {
-            Err(RlsError::HasherNone)
+            Err(HashError::UnsupportedHasher(text).into())
         }
     }
 
-    pub fn current_session_hash(&mut self) -> RlsResult<&[u8]> {
-        self.hasher.as_mut().ok_or(RlsError::HasherNone)?.current_hash()
+    pub fn current_session_hash(&mut self) -> Result<&[u8], HashError> {
+        self.hasher.as_mut().ok_or(HashError::HasherNone)?.current_hash()
     }
 
     pub fn aead(&self) -> Option<&Aead> {

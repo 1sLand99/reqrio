@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use super::param::Param;
 use crate::error::RlsResult;
 use crate::RlsError;
@@ -34,7 +35,7 @@ impl Uri {
     }
 
     ///value: 应为未编码
-    pub fn insert_param(&mut self, name: impl ToString, value: &impl AsRef<str>) {
+    pub fn insert_param<'a>(&mut self, name: impl ToString, value: impl Into<Cow<'a, str>>) {
         let name = name.to_string();
         let param = self.params.iter_mut().find(|x| x.name() == name);
         match param {

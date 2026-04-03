@@ -7,9 +7,9 @@ use super::suite::iv::Iv;
 use super::suite::CipherSuite;
 use super::suite::TlsCipher;
 use super::version::Version;
-use crate::boring::{certificate, AlgorithmSigner};
+use crate::boring::{certificate, AlgorithmSigner, HashError};
 use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
-use crate::error::RlsResult;
+use crate::error::{HandShakeError, RlsResult};
 use crate::ffi::Buf;
 use crate::message::certificate::CertificateRequest;
 use crate::share_key::SharedKey;
@@ -19,8 +19,8 @@ use std::io::Write;
 use std::mem;
 
 pub struct Connection {
-    client_random: Bytes,
-    server_random: Bytes,
+    client_random: [u8; 32],
+    server_random: [u8; 32],
     read: TlsCipher,
     write: TlsCipher,
     use_ems: bool,
@@ -36,12 +36,13 @@ pub struct Connection {
     verify: bool,
     root_stores: &'static CertStore,
     mtls_hash: SignatureAlgorithm,
+    now: u32,
 }
 impl Default for Connection {
     fn default() -> Self {
         Connection {
-            client_random: Bytes::none(),
-            server_random: Bytes::none(),
+            client_random: [0; 32],
+            server_random: [0; 32],
             read: TlsCipher::none(),
             write: TlsCipher::none(),
             use_ems: false,
@@ -57,13 +58,14 @@ impl Default for Connection {
             verify: false,
             root_stores: &certificate::ROOT_STORES,
             mtls_hash: SignatureAlgorithm::new(0),
+            now: 0,
         }
     }
 }
 
 impl Connection {
-    pub fn with_client_random(mut self, client_random: Vec<u8>) -> Connection {
-        self.client_random = Bytes::new(client_random);
+    pub fn with_client_random(mut self, client_random: [u8; 32]) -> Connection {
+        self.client_random = client_random;
         self
     }
 
@@ -77,14 +79,22 @@ impl Connection {
         self
     }
 
+    pub fn with_time(mut self, now: u32) -> Connection {
+        self.now = now;
+        self
+    }
+
     pub fn set_by_server_hello(&mut self, server_hello: &ServerHello) -> RlsResult<()> {
         self.use_ems = server_hello.use_ems();
         self.alpn = server_hello.alpn();
-        self.server_random = server_hello.random.clone();
+        self.server_random = server_hello.random.as_ref().try_into()?;
+        let server_time = u32::from_be_bytes(self.server_random[0..4].try_into()?);
+        if server_time > 60 + self.now && self.verify { return Err(HandShakeError::ClockSlow.into()); }
+        if self.now > 60 + server_time && self.verify { return Err(HandShakeError::ClockFast.into()); }
         self.cipher_suite = server_hello.cipher_suite.clone();
         self.cipher_suite.init_aead_hasher()?;
         self.cipher_suite.update(&self.session_bytes)?;
-        let hasher = self.cipher_suite.hasher().as_ref().ok_or(RlsError::HasherNone)?;
+        let hasher = self.cipher_suite.hasher().as_ref().ok_or(HashError::HasherNone)?;
         self.prf = Prf::from_hasher(hasher);
         Ok(())
     }
@@ -159,7 +169,7 @@ impl Connection {
         let share_secret = self.shared_key.diffie_hellman(self.exchange_pub_key.as_ref())?;
         let (label, seed) = match self.use_ems {
             true => ("extended master secret", self.cipher_suite.current_session_hash()?.to_vec()),
-            false => ("master secret", [self.client_random.as_bytes(), self.server_random.as_bytes()].concat())
+            false => ("master secret", [self.client_random, self.server_random].concat())
         };
         self.prf.prf(&share_secret, label, &seed, &mut self.master_secret)?;
         let mut f = OpenOptions::new().create(true).append(true).open("2.log")?;
@@ -167,7 +177,7 @@ impl Connection {
         let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
         let block_size = (aead.mac_key_len() + aead.key_len() + aead.fix_iv_len()) * 2 + aead.explicit_len();
         let mut key_block = vec![0; block_size];
-        let seed = [self.server_random.as_bytes(), self.client_random.as_bytes()].concat();
+        let seed = [self.server_random, self.client_random].concat();
         self.prf.prf(&self.master_secret, "key expansion", &seed, key_block.as_mut_slice())?;
         let (client_mac_key, remain) = key_block.split_at(aead.mac_key_len());
         let (server_mac_key, remain) = remain.split_at(aead.mac_key_len());
@@ -175,17 +185,18 @@ impl Connection {
         let (server_key, remain) = remain.split_at(aead.key_len());
         let (client_iv, remain) = remain.split_at(aead.fix_iv_len());
         let (server_iv, explicit) = remain.split_at(aead.fix_iv_len());
+        let hasher=self.cipher_suite.mac_hash().ok_or(HashError::HasherNone)?;
         match server {
             true => {
-                self.write.set_key(server_key, server_mac_key, aead, self.cipher_suite.mac_hash().ok_or(RlsError::HasherNone)?)?;
+                self.write.set_key(server_key, server_mac_key, aead, hasher)?;
                 self.write.set_iv(Iv::new(server_iv, vec![0; 8]));
-                self.read.set_key(client_key, client_mac_key, aead, self.cipher_suite.mac_hash().ok_or(RlsError::HasherNone)?)?;
+                self.read.set_key(client_key, client_mac_key, aead, hasher)?;
                 self.read.set_iv(Iv::new(client_iv, vec![]));
             }
             false => {
-                self.write.set_key(client_key, client_mac_key, aead, self.cipher_suite.mac_hash().ok_or(RlsError::HasherNone)?)?;
+                self.write.set_key(client_key, client_mac_key, aead, hasher)?;
                 self.write.set_iv(Iv::new(client_iv, explicit.to_vec()));
-                self.read.set_key(server_key, server_mac_key, aead, self.cipher_suite.mac_hash().ok_or(RlsError::HasherNone)?)?;
+                self.read.set_key(server_key, server_mac_key, aead, hasher)?;
                 self.read.set_iv(Iv::new(server_iv, vec![]));
             }
         }
@@ -194,7 +205,7 @@ impl Connection {
     }
 
     pub fn gen_server_hello<'a>(&mut self, mut client_hello: ClientHello, certificate: &'a mut [Certificate], pri_key: &RsaKey, random: &'a [u8]) -> RlsResult<RecordLayer<'a>> {
-        self.client_random = client_hello.client_random().clone();
+        self.client_random = client_hello.client_random().as_ref().try_into()?;
         let mut record = RecordLayer {
             context_type: RecordType::HandShake,
             version: Version::TLS_1_2,
