@@ -265,6 +265,10 @@ impl Header {
         self.insert("referer", referer)
     }
 
+    pub fn referer(&self) -> Option<&str> {
+        self.get("referer")?.as_string()
+    }
+
     pub fn set_accept(&mut self, accept: impl ToString) -> HlsResult<()> {
         self.insert("accept", accept)
     }
@@ -319,7 +323,7 @@ impl Header {
     pub fn uri(&self) -> &Uri {
         &self.uri
     }
-    
+
     pub fn is_empty(&self) -> bool {
         self.alpn.value().is_empty()
     }

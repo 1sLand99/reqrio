@@ -71,7 +71,7 @@ impl<'a> Message<'a> {
             Message::CertificateRequest(v) => v.len(),
             Message::CertificateVerify(v) => v.len(),
             Message::Alert(_) => 0,
-            Message::CipherSpec => 0
+            Message::CipherSpec => 1
         }
     }
 
@@ -89,7 +89,7 @@ impl<'a> Message<'a> {
             Message::CertificateRequest(v) => v.write_to(writer),
             Message::CertificateVerify(v) => v.write_to(writer),
             Message::Alert(_) => Ok(()),
-            Message::CipherSpec => Ok(())
+            Message::CipherSpec => writer.write_u8(1),
         }
     }
 

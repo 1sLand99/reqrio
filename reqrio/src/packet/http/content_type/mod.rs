@@ -73,7 +73,7 @@ impl TryFrom<&str> for ContentType {
             "application" => Ok(ContentType::Application(Application::try_from(ts)?)),
             "image" => Ok(ContentType::Image(ImageType::try_from(ts)?)),
             "text" => Ok(ContentType::Text(Text::try_from(ts)?)),
-            "multipart/form-data" => Ok(ContentType::Multipart),
+            "multipart" => Ok(ContentType::Multipart),
             "font" => Ok(ContentType::Font(Font::try_from(ts)?)),
             "video" => Ok(ContentType::Video(Video::try_from(ts)?)),
             "jpeg" => Ok(ContentType::Image(ImageType::Jpeg)),
