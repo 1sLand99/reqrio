@@ -228,16 +228,16 @@ pub trait ReqGenExt: ReqExt {
 }
 
 pub trait UrlExt {
-    fn params(&self, params: impl AsRef<JsonValue>) -> Result<Url, RlsError>;
+    fn params(&self, params: impl AsRef<JsonValue>) -> Result<Url, UrlError>;
 }
 
 impl UrlExt for str {
-    fn params(&self, params: impl AsRef<JsonValue>) -> Result<Url, RlsError> {
+    fn params(&self, params: impl AsRef<JsonValue>) -> Result<Url, UrlError> {
         let mut url = Url::try_from(self)?;
         for (key, value) in params.as_ref().entries() {
             match value {
                 JsonValue::String(value) => url.uri_mut().insert_param(key, value),
-                _ => url.uri_mut().insert_param(key, &value.dump())
+                _ => url.uri_mut().insert_param(key, value.dump())
             }
         }
         Ok(url)
@@ -245,7 +245,7 @@ impl UrlExt for str {
 }
 
 impl UrlExt for String {
-    fn params(&self, params: impl AsRef<JsonValue>) -> Result<Url, RlsError> {
+    fn params(&self, params: impl AsRef<JsonValue>) -> Result<Url, UrlError> {
         self.as_str().params(params)
     }
 }

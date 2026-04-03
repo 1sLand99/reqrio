@@ -1,6 +1,6 @@
 use crate::json::JsonError;
 use crate::hpack::HPackError;
-use reqtls::{hex, Alert, BufferError, RlsError, ALPN};
+use reqtls::{hex, Alert, BufferError, RlsError, UrlError, ALPN};
 use std::array::TryFromSliceError;
 use std::convert::Infallible;
 use std::error::Error;
@@ -189,6 +189,12 @@ impl From<TimeError> for HlsError {
 impl From<ZSTDError> for HlsError {
     fn from(value: ZSTDError) -> Self {
         HlsError::Zstd(value)
+    }
+}
+
+impl From<UrlError> for HlsError {
+    fn from(value: UrlError) -> Self {
+        HlsError::Rls(RlsError::Url(value))
     }
 }
 

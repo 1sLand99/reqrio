@@ -319,7 +319,7 @@ impl Header {
     pub fn uri(&self) -> &Uri {
         &self.uri
     }
-    
+
     pub fn is_empty(&self) -> bool {
         self.alpn.value().is_empty()
     }
@@ -448,7 +448,11 @@ impl Header {
         let mut reader = RefReader::default();
         reader.add_str(self.method.spec());
         reader.add_str(" ");
-        reader.add_str(self.uri.path());
+        if self.uri.is_empty() {
+            reader.add_str("/")
+        } else {
+            reader.add_str(self.uri.path());
+        }
         if !self.uri.params().is_empty() { reader.add_str("?") };
         for (i, param) in self.uri.params().iter().enumerate() {
             reader.add_str(param.name());
@@ -503,7 +507,7 @@ impl Header {
 
     fn as_h2_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> H2HeaderReader<'a> {
         let mut keys = vec![];
-        let uri = self.uri.to_string();
+        let uri = if self.uri.is_empty() { StrCow::Borrowed("/") } else { StrCow::Owned(self.uri.to_string()) };
         keys.push((StrCow::Borrowed(":method"), StrCow::Borrowed(self.method.spec())));
         keys.push((StrCow::Borrowed(":authority"), StrCow::Owned(param.addr.to_string().replace(":443", "").replace(":80", ""))));
         keys.push((StrCow::Borrowed(":scheme"), StrCow::Borrowed(param.scheme.spec())));
@@ -518,13 +522,13 @@ impl Header {
                 continue;
             }
             match key.value() {
-                HeaderValue::Cookies(cookies) => for cookie in cookies.as_req(param.addr.host(), &uri) {
+                HeaderValue::Cookies(cookies) => for cookie in cookies.as_req(param.addr.host(), uri.as_ref()) {
                     keys.push((StrCow::Owned(name.clone()), StrCow::Owned(cookie.as_req())));
                 }
                 _ => keys.push((StrCow::Owned(name), StrCow::Owned(key.value().to_string()))),
             }
         }
-        keys.insert(3, (StrCow::Borrowed(":path"), StrCow::Owned(self.uri.to_string())));
+        keys.insert(3, (StrCow::Borrowed(":path"), uri));
         H2HeaderReader {
             keys,
             encoder: param.encoder,
