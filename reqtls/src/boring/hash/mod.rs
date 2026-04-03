@@ -1,12 +1,14 @@
-use std::ptr::null_mut;
-pub use hmac::Hmac;
-pub use hasher::Hasher;
-use crate::boring::bindings::*;
-use crate::error::RlsResult;
-use crate::RlsError;
-
 pub mod hmac;
 mod hasher;
+mod error;
+
+use crate::boring::bindings::*;
+use crate::error::RlsResult;
+pub use error::HashError;
+pub use hasher::Hasher;
+pub use hmac::Hmac;
+use std::ptr::null_mut;
+
 
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "export", repr(C))]
@@ -44,7 +46,7 @@ impl HashType {
     }
 }
 
-fn digest(data: &[u8], out: *mut u8, sha: HashType) -> RlsResult<usize> {
+fn digest(data: &[u8], out: *mut u8, sha: HashType) -> Result<usize, HashError> {
     let mut len = 0;
     let ret = unsafe {
         EVP_Digest(
@@ -56,7 +58,7 @@ fn digest(data: &[u8], out: *mut u8, sha: HashType) -> RlsResult<usize> {
             null_mut(),
         )
     };
-    if ret != 1 { return Err(RlsError::DigestUpdateError); }
+    if ret != 1 { return Err(HashError::DigestUpdateError); }
     Ok(len as usize)
 }
 

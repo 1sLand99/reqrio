@@ -1,15 +1,14 @@
-use std::collections::HashMap;
 use crate::error::RlsResult;
-use crate::RlsError;
+use crate::url::UrlError;
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::net::{Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::str::FromStr;
 use std::sync::{LazyLock, RwLock};
 use std::time::SystemTime;
 use std::vec::IntoIter;
-use crate::url::UrlError;
 
-static  DNS: LazyLock<RwLock<HashMap<String, DNSCache>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
+static DNS: LazyLock<RwLock<HashMap<String, DNSCache>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
 
 struct DNSCache {
     route: IntoIter<SocketAddr>,
@@ -65,7 +64,7 @@ impl Addr {
 
     fn get_dns(&self) -> RlsResult<IntoIter<SocketAddr>> {
         let addr = self.to_string().to_socket_addrs()?;
-        let mut dns_write =DNS.write()?;
+        let mut dns_write = DNS.write()?;
         let t = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_secs();
         dns_write.insert(self.host.clone(), DNSCache {
             route: addr.clone(),
@@ -116,23 +115,29 @@ impl Display for Addr {
 }
 
 impl TryFrom<&str> for Addr {
-    type Error = RlsError;
-    fn try_from(value: &str) -> RlsResult<Addr> {
-        let mut i = value.split(':');
-        let mut res = Addr {
-            host: i.next().ok_or(UrlError::MissingDomain)?.to_string(),
-            port: 0,
-        };
-        if let Some(port) = i.next() {
-            res.port = port.parse().or(Err(UrlError::InvalidPort))?;
+    type Error = UrlError;
+    fn try_from(value: &str) -> Result<Addr, Self::Error> {
+        let host_pos = value.find(':');
+        match host_pos {
+            None => {
+                Ok(Addr {
+                    host: value.to_string(),
+                    port: 0,
+                })
+            }
+            Some(host_pos) => {
+                Ok(Addr {
+                    host: value[..host_pos].to_string(),
+                    port: value[host_pos + 1..].parse().or(Err(UrlError::InvalidPort(value[host_pos + 1..].to_string())))?,
+                })
+            }
         }
-        Ok(res)
     }
 }
 
 impl TryFrom<String> for Addr {
-    type Error = RlsError;
-    fn try_from(value: String) -> RlsResult<Addr> {
+    type Error = UrlError;
+    fn try_from(value: String) -> Result<Addr, UrlError> {
         Addr::try_from(value.as_str())
     }
 }

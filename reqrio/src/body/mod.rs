@@ -174,7 +174,7 @@ impl<'a> Body<'a> {
                         readers.add_str("=");
                         match v.as_str() {
                             Ok(v) => {
-                                match coder::url_encode(&v) {
+                                match coder::url_encode(v) {
                                     Cow::Borrowed(_) => readers.add_str(v),
                                     Cow::Owned(o) => readers.add_string(o)
                                 }

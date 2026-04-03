@@ -1,6 +1,6 @@
 use super::param::Param;
-use crate::error::RlsResult;
-use crate::RlsError;
+use crate::UrlError;
+use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
@@ -12,7 +12,7 @@ pub struct Uri {
 impl Default for Uri {
     fn default() -> Self {
         Uri {
-            path: "".to_string(),
+            path: String::with_capacity(1),
             params: vec![],
         }
     }
@@ -34,7 +34,8 @@ impl Uri {
     }
 
     ///value: 应为未编码
-    pub fn insert_param(&mut self, name: impl ToString, value: &impl AsRef<str>) {
+    pub fn insert_param<'a>(&mut self, name: impl ToString, value: impl Into<Cow<'a, str>>) {
+        if self.path.is_empty() { self.path += "/"; }
         let name = name.to_string();
         let param = self.params.iter_mut().find(|x| x.name() == name);
         match param {
@@ -66,7 +67,11 @@ impl Uri {
 
 impl Display for Uri {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", &self.path)?;
+        if self.path.contains("://") {
+            write!(f, "/{}", &self.path)?
+        } else {
+            write!(f, "{}", &self.path)?
+        }
         if !self.params.is_empty() { write!(f, "?")?; }
         for (i, param) in self.params.iter().enumerate() {
             write!(f, "{}", param)?;
@@ -77,22 +82,28 @@ impl Display for Uri {
 }
 
 impl TryFrom<&str> for Uri {
-    type Error = RlsError;
-    fn try_from(value: &str) -> RlsResult<Uri> {
-        let mut items = value.split("?");
-        let mut res = Uri::new_path(items.next().unwrap_or(""));
-        if let Some(param) = items.next() {
+    type Error = UrlError;
+    fn try_from(uri: &str) -> Result<Uri, UrlError> {
+        if uri.is_empty() { return Ok(Uri::new_path("/")); }
+        let path_pos = uri.find('?').unwrap_or(uri.len());
+        let path = uri[..path_pos].to_string();
+        let mut params = vec![];
+        if path_pos != uri.len() {
+            let param = &uri[path_pos + 1..];
             for item in param.split("&") {
-                res.params.push(Param::try_from(item)?);
+                params.push(Param::try_from(item)?);
             }
         }
-        Ok(res)
+        Ok(Uri {
+            path,
+            params,
+        })
     }
 }
 
 impl TryFrom<String> for Uri {
-    type Error = RlsError;
-    fn try_from(value: String) -> RlsResult<Uri> {
+    type Error = UrlError;
+    fn try_from(value: String) -> Result<Uri, UrlError> {
         Uri::try_from(value.as_str())
     }
 }

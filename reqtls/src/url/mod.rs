@@ -1,6 +1,5 @@
 use crate::coder::url_decode;
 use crate::error::RlsResult;
-use crate::RlsError;
 pub use addr::Addr;
 pub use error::UrlError;
 pub use param::Param;
@@ -42,6 +41,11 @@ impl Url {
 
     pub fn uri_mut(&mut self) -> &mut Uri {
         &mut self.uri
+    }
+
+    pub fn with_uri(mut self, uri: impl AsRef<str>) -> RlsResult<Self> {
+        self.set_uri(uri)?;
+        Ok(self)
     }
 
     pub fn into_uri(self) -> Uri { self.uri }
@@ -113,63 +117,59 @@ impl Display for Url {
 }
 
 impl TryFrom<String> for Url {
-    type Error = RlsError;
+    type Error = UrlError;
     fn try_from(t: String) -> Result<Self, Self::Error> {
         Url::try_from(t.as_str())
     }
 }
 
 impl TryFrom<&str> for Url {
-    type Error = RlsError;
-    fn try_from(t: &str) -> Result<Self, Self::Error> {
-        let mut res = Url::default();
-        let mut t = t.split("?");
-        let base = t.next().ok_or("not found url base")?;
-        let mut i = base.split("://");
-        let protocol = i.next().ok_or(UrlError::MissingScheme)?;
-        res.scheme = Scheme::try_from(protocol)?;
-        let addr = i.next().ok_or(UrlError::MissingDomain)?;
-        let addr = if addr.contains("@") {
-            let mut item = addr.split("@");
-            let mut auth = item.next().ok_or(UrlError::AuthInfoError)?.split(":");
-            res.username = url_decode(&auth.next().ok_or(UrlError::MissingUsername)?)?.into_owned();
-            res.password = url_decode(&auth.next().unwrap_or(""))?.into_owned();
-            item.next().ok_or(UrlError::MissingDomain)?
-        } else { addr };
+    type Error = UrlError;
 
-        let pos = addr.find("/");
-        res.addr = match pos {
-            None => {
-                res.uri.set_path("/");
-                Addr::try_from(addr)?
-            }
-            Some(pos) => {
-                res.uri.set_path(addr[pos..].to_string());
-                Addr::try_from(&addr[..pos])?
-            }
-        };
-        if res.addr.port() == 0 {
-            res.addr.set_port(res.scheme.default_port())
+    fn try_from(mut url: &str) -> Result<Self, Self::Error> {
+        let scheme_pos = url.find("://").ok_or(UrlError::MissingScheme)?;
+        let scheme = Scheme::try_from(&url[..scheme_pos])?;
+        url = &url[scheme_pos + 3..];
+        let mut addr_pos = url.find("/").unwrap_or(url.len());
+        let addr = &url[..addr_pos];
+        let mut username = "".to_string();
+        let mut password = "".to_string();
+        let mut addr = if addr.contains('@') {
+            let auth_pos = addr.find('@').ok_or(UrlError::AuthInfoError)?;
+            let auth = &addr[..auth_pos];
+            let username_pos = auth.find(':').ok_or(UrlError::MissingUsername)?;
+            username = url_decode(&auth[..username_pos])?.into_owned();
+            password = url_decode(&auth[username_pos + 1..])?.into_owned();
+            Addr::try_from(&addr[auth_pos + 1..])?
+        } else { Addr::try_from(addr)? };
+        if addr.port() == 0 {
+            addr.set_port(scheme.default_port());
         }
-        if let Some(param) = t.next() {
-            for item in param.split("&") {
-                res.uri.params.push(Param::try_from(item)?);
-            }
-        }
-        Ok(res)
+        let uri = if addr_pos != url.len() {
+            //在uri中存在`://`时，应该是带代理的url（如wss://），这里需要把`/`去除
+            if url.contains("://") { addr_pos += 1; }
+            Uri::try_from(&url[addr_pos..])?
+        } else { Uri::default() };
+        Ok(Url {
+            scheme,
+            addr,
+            username,
+            password,
+            uri,
+        })
     }
 }
 
 impl TryFrom<&String> for Url {
-    type Error = RlsError;
+    type Error = UrlError;
     fn try_from(t: &String) -> Result<Self, Self::Error> {
         Url::try_from(t.as_str())
     }
 }
 
-impl TryFrom<Result<Url, RlsError>> for Url {
-    type Error = RlsError;
-    fn try_from(result: Result<Url, RlsError>) -> Result<Self, Self::Error> {
+impl TryFrom<Result<Url, UrlError>> for Url {
+    type Error = UrlError;
+    fn try_from(result: Result<Url, UrlError>) -> Result<Self, Self::Error> {
         result
     }
 }
@@ -204,11 +204,11 @@ mod tests {
         let url6 = "socks5://127.0.0.1:1023";
         let url = Url::try_from(url6).unwrap();
         println!("{:#?} {}", url, url.to_string() == url6);
-        assert_eq!(url.to_string(), format!("{}/", url6));
+        assert_eq!(url.to_string(), format!("{}", url6));
         let url7 = "http://127.0.0.1:8080";
         let url = Url::try_from(url7).unwrap();
         println!("{:#?}", url);
-        assert_eq!(url.to_string(), format!("{}/", url7));
+        assert_eq!(url.to_string(), format!("{}", url7));
         let url8 = "https://www.so.com/link?m=uJUHfEbfz+ZVSx90v4iLs4mlJ1cSfmojdrI1pYls/wftn5aL/ll53A6XAa1BSX2UtYWvcHBuUKSEURqhhVHtJNCWxeXYrgMOwkXoRLHGJ4yHLzOB1C61LDwQTgDd5OjTmAFlu3YJVdfU=";
         let url = Url::try_from(url8).unwrap();
         println!("{:#?}", url);
@@ -217,6 +217,9 @@ mod tests {
         let mut uri = Url::try_from(url9).unwrap();
         uri.set_uri("wss://poe.game.qq.com/api/trade2/live/poe2/%E7%93%A6%E5%B0%94%E7%9A%84%E5%AE%BF%E5%91%BD/32Y6Wjkc5").unwrap();
         println!("{}", uri);
+        let url10 = "wss://poe.game.qq.com/wss://poe.game.qq.com/api/trade2/live/poe2/%E7%93%A6%E5%B0%94%E7%9A%84%E5%AE%BF%E5%91%BD/32Y6Wjkc5";
+        let url = Url::try_from(url10).unwrap();
+        assert_eq!(url.to_string(), url10);
         let url6 = "socks5://username:passwrod@127.0.0.1:1023/";
         let url = Url::try_from(url6).unwrap();
         println!("{}", url);

@@ -167,7 +167,9 @@ pub trait TlsStreamHandle {
     fn conn_rbuf(&mut self) -> (&mut Connection, &mut Buffer);
 
     fn handle_client_hello(config: &mut ClientConfig, buffer: &mut Buffer) -> HlsResult<Connection> {
-        let client_random = rand::random::<[u8; 32]>().to_vec();
+        let time = Time::now()?.as_secs() as u32;
+        let mut client_random = rand::random::<[u8; 32]>();
+        client_random[0..4].copy_from_slice(&time.to_be_bytes());
         let session_id = rand::random::<[u8; 32]>();
         let mut client_hello = RecordLayer::from_bytes(&mut config.fingerprint.client_hello, false, None)?;
         client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_random(&client_random);
@@ -181,7 +183,8 @@ pub trait TlsStreamHandle {
         let len = client_hello.write_to(buffer, 1)?;
         buffer.set_len(len);
 
-        let mut conn = Connection::default().with_client_random(client_random).with_verify(config.verify);
+        let mut conn = Connection::default().with_client_random(client_random)
+            .with_verify(config.verify).with_time(time);
         conn.update_session(&buffer.filled()[5..])?;
         Ok(conn)
     }

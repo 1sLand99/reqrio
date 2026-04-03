@@ -21,7 +21,7 @@ impl Default for Param {
 }
 
 impl Param {
-    pub fn new_param(name: impl ToString, value: &impl AsRef<str>) -> Param {
+    pub fn new_param<'a>(name: impl ToString, value: impl Into<Cow<'a, str>>) -> Param {
         Param {
             name: name.to_string(),
             value: coder::url_encode(value).into_owned(),
@@ -43,7 +43,7 @@ impl Param {
         Ok(value.into_owned())
     }
 
-    pub fn set_value(&mut self, value: &impl AsRef<str>) {
+    pub fn set_value<'a>(&mut self, value: impl Into<Cow<'a, str>>) {
         self.value = coder::url_encode(value).into_owned();
     }
 

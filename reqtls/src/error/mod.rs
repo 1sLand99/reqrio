@@ -1,3 +1,6 @@
+mod buffer;
+mod handshake;
+
 use crate::url::UrlError;
 use crate::Alert;
 use hex::FromHexError;
@@ -13,6 +16,9 @@ use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 use std::sync::PoisonError;
 use std::time::SystemTimeError;
+pub use buffer::BufferError;
+pub use handshake::HandShakeError;
+use crate::hash::HashError;
 
 #[derive(Debug)]
 pub enum RlsError {
@@ -22,7 +28,6 @@ pub enum RlsError {
     DecrypterNone,
     PayloadNone,
     GenKeyFromAeadNone,
-    HasherNone,
     AeadNone,
     InvalidCipherSuite,
     AeadCryptError,
@@ -45,14 +50,7 @@ pub enum RlsError {
     InitDeriveError,
     SetPeerDeriveError,
     DeriveError,
-    HmacCtxNull,
-    HmacInitError,
-    HmacUpdateError,
-    HmacFinalizeError,
     InitEvpCtxError,
-    InitDigestError,
-    DigestUpdateError,
-    DigestFinalError,
     DigestSignError,
     DigestVerifyError,
     RsaNewError,
@@ -95,10 +93,12 @@ pub enum RlsError {
     BIOGetDataError,
     GetAiaFail,
     MissingCertificateChain,
+    HandShake(HandShakeError),
     Buffer(BufferError),
     Url(UrlError),
     Currently(String),
     Alert(Alert),
+    HasherError(HashError),
 }
 
 impl Display for RlsError {
@@ -111,7 +111,6 @@ impl Display for RlsError {
             RlsError::PayloadNone => f.write_str("Payload none"),
             RlsError::GenKeyFromAeadNone => f.write_str("get key from aead none"),
             RlsError::AeadNone => f.write_str("Aead none"),
-            RlsError::HasherNone => f.write_str("Hasher none"),
             RlsError::InvalidCipherSuite => f.write_str("Invalid suite suite"),
             RlsError::AeadCryptError => f.write_str("Init aead crypto error"),
             RlsError::AeadEncryptError => f.write_str("Aead encrypt error"),
@@ -133,14 +132,7 @@ impl Display for RlsError {
             RlsError::InitDeriveError => f.write_str("Init derive error"),
             RlsError::SetPeerDeriveError => f.write_str("Set peer derive error"),
             RlsError::DeriveError => f.write_str("Derive error"),
-            RlsError::HmacCtxNull => f.write_str("Hmac ctx null"),
-            RlsError::HmacInitError => f.write_str("Hmac init error"),
-            RlsError::HmacUpdateError => f.write_str("Hmac update error"),
-            RlsError::HmacFinalizeError => f.write_str("Hmac finalize error"),
             RlsError::InitEvpCtxError => f.write_str("Init Evp ctx error"),
-            RlsError::InitDigestError => f.write_str("Init digest error"),
-            RlsError::DigestUpdateError => f.write_str("Digest update error"),
-            RlsError::DigestFinalError => f.write_str("Digest finalize error"),
             RlsError::DigestSignError => f.write_str("Digest sign error"),
             RlsError::DigestVerifyError => f.write_str("Digest verify error"),
             RlsError::RsaNewError => f.write_str("Rsa new error"),
@@ -183,10 +175,12 @@ impl Display for RlsError {
             RlsError::BIOGetDataError => f.write_str("BIO get data error"),
             RlsError::GetAiaFail => f.write_str("Get authority information access fail"),
             RlsError::MissingCertificateChain => f.write_str("Missing certificate chain"),
+            RlsError::HandShake(v) => write!(f, "HandShake({})", v),
             RlsError::Buffer(e) => write!(f, "Buffer({})", e),
             RlsError::Url(e) => write!(f, "Url({})", e),
             RlsError::Alert(alert) => write!(f, "Alert({})", alert.desc()),
             RlsError::Currently(e) => f.write_str(e),
+            RlsError::HasherError(e) => write!(f, "Hasher({})", e),
         }
     }
 }
@@ -296,24 +290,19 @@ impl From<BufferError> for RlsError {
     }
 }
 
-impl Error for RlsError {}
-
-
-#[derive(Debug)]
-pub enum BufferError {
-    Insufficient,
-    CapacityTooSmall { needed: usize, current: usize },
-    Overflow { capacity: usize, need: usize },
-}
-
-impl Display for BufferError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BufferError::Insufficient => write!(f, "Insufficient decoding data"),
-            BufferError::CapacityTooSmall { needed, current } => write!(f, "The required capacity is {}, but the actual capacity is {}.", needed, current),
-            BufferError::Overflow { capacity, need } => write!(f, "The buffer capacity is {}, but write {} out of it.", capacity, need),
-        }
+impl From<HandShakeError> for RlsError {
+    fn from(value: HandShakeError) -> Self {
+        RlsError::HandShake(value)
     }
 }
+
+impl From<HashError> for RlsError {
+    fn from(value: HashError) -> Self {
+        RlsError::HasherError(value)
+    }
+}
+
+impl Error for RlsError {}
+
 
 pub type RlsResult<T> = Result<T, RlsError>;

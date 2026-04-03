@@ -5,7 +5,8 @@ use flate2::Compression;
 use flate2::read::{DeflateDecoder, DeflateEncoder, GzDecoder, GzEncoder};
 use crate::error::RlsResult;
 #[cfg(feature = "zstd")]
-pub use zstd::{ZSTDDecode, ZSTDEncode};
+pub use zstd::{ZSTDDecode, ZSTDEncode, ZSTDError};
+use crate::UrlError;
 
 #[cfg(feature = "zstd")]
 mod zstd;
@@ -13,21 +14,29 @@ mod zstd;
 pub(crate) mod bindings;
 
 #[cfg(feature = "zstd")]
-pub fn zstd_compress(data: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
+pub fn zstd_compress(data: impl AsRef<[u8]>) -> Result<Vec<u8>, ZSTDError> {
     zstd::compress(data)
 }
 
 #[cfg(feature = "zstd")]
-pub fn zstd_decompress(data: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
+pub fn zstd_decompress(data: impl AsRef<[u8]>) -> Result<Vec<u8>, ZSTDError> {
     zstd::decompress(data)
 }
 
-pub fn url_encode(url: &impl AsRef<str>) -> Cow<'_, str> {
-    urlencoding::encode(url.as_ref())
+pub fn url_encode<'a>(url: impl Into<Cow<'a, str>>) -> Cow<'a, str> {
+    let url = url.into();
+    match urlencoding::encode(url.as_ref()) {
+        Cow::Borrowed(_) => url,
+        Cow::Owned(v) => Cow::Owned(v),
+    }
 }
 
-pub fn url_decode(url: &impl AsRef<str>) -> RlsResult<Cow<'_, str>> {
-    Ok(urlencoding::decode(url.as_ref())?)
+pub fn url_decode<'a>(url: impl Into<Cow<'a, str>>) -> Result<Cow<'a, str>, UrlError> {
+    let url = url.into();
+    match urlencoding::decode(url.as_ref())? {
+        Cow::Borrowed(_) => Ok(url),
+        Cow::Owned(v) => Ok(Cow::Owned(v)),
+    }
 }
 
 pub fn br_decompress(brd: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {

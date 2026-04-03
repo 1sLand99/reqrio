@@ -1,6 +1,6 @@
 use crate::json::JsonError;
 use crate::hpack::HPackError;
-use reqtls::{hex, Alert, BufferError, RlsError, ALPN};
+use reqtls::{hex, Alert, BufferError, RlsError, UrlError, ALPN};
 use std::array::TryFromSliceError;
 use std::convert::Infallible;
 use std::error::Error;
@@ -14,6 +14,7 @@ use std::string::FromUtf8Error;
 use std::sync::PoisonError;
 #[cfg(feature = "aync")]
 use tokio::time::error::Elapsed;
+use reqtls::coder::ZSTDError;
 use crate::form_data::FormError;
 use crate::time::TimeError;
 
@@ -33,6 +34,7 @@ pub enum HlsError {
     HPack(HPackError),
     Time(TimeError),
     Currently(String),
+    Zstd(ZSTDError),
 }
 
 impl From<&str> for HlsError {
@@ -76,6 +78,7 @@ impl Display for HlsError {
             HlsError::Body(e) => write!(f, "Body({})", e),
             HlsError::Time(e) => write!(f, "Time({:?})", e),
             HlsError::UnsupportedAlpn(alpn) => write!(f, "UnsupportedAlpn({})", alpn),
+            HlsError::Zstd(e) => write!(f, "Zstd({})", e),
         }
     }
 }
@@ -180,6 +183,18 @@ impl From<FormError> for HlsError {
 impl From<TimeError> for HlsError {
     fn from(value: TimeError) -> Self {
         HlsError::Time(value)
+    }
+}
+
+impl From<ZSTDError> for HlsError {
+    fn from(value: ZSTDError) -> Self {
+        HlsError::Zstd(value)
+    }
+}
+
+impl From<UrlError> for HlsError {
+    fn from(value: UrlError) -> Self {
+        HlsError::Rls(RlsError::Url(value))
     }
 }
 
