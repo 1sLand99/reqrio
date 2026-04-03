@@ -233,16 +233,25 @@ impl Header {
         self.insert("sec-ch-ua", sec_ch_ua.to_string())
     }
 
+    pub fn sec_ch_ua(&self) -> Option<&str> {
+        self.get("sec-ch-ua")?.as_string()
+    }
 
     pub fn set_sec_ch_ua_mobile(&mut self, sec_ch_ua_mobile: impl ToString) -> HlsResult<()> {
         self.insert("sec-ch-ua-mobile", sec_ch_ua_mobile.to_string())
     }
 
+    pub fn sec_ch_ua_mobile(&self) -> Option<&str> {
+        self.get("sec-ch-ua-mobile")?.as_string()
+    }
 
     pub fn set_sec_ch_ua_platform(&mut self, sec_ch_ua_platform: impl ToString) -> HlsResult<()> {
         self.insert("sec-ch-ua-platform", sec_ch_ua_platform.to_string())
     }
 
+    pub fn sec_ch_ua_platform(&self) -> Option<&str> {
+        self.get("sec-ch-ua-platform")?.as_string()
+    }
 
     pub fn user_agent(&self) -> Option<&str> {
         self.get("user-agent")?.as_string()

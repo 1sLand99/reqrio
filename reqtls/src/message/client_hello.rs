@@ -6,7 +6,7 @@ use crate::boring::hash;
 use crate::bytes::ByteRef;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
-use crate::extend::ExtensionType;
+use crate::extend::{ExtensionType, ExtensionValue};
 use crate::{rand, BufferError, WriteExt};
 use std::mem;
 
@@ -61,7 +61,7 @@ impl<'a> ClientHello<'a> {
                 CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
             ],
             random: ByteRef::new(&[0; 32]),
-            session_id:ByteRef::new(&[0; 32]),
+            session_id: ByteRef::new(&[0; 32]),
             compress_method: ByteRef::new(&[0]),
             extensions: vec![
                 Extension::from_type(ExtensionType::SignatureAlgorithms),
@@ -119,7 +119,7 @@ impl<'a> ClientHello<'a> {
             + self.extensions.iter().map(|x| x.len(false)).sum::<usize>()
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W)-> Result<(), BufferError> {
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
         writer.write_u8(self.handshake_type as u8)?;
         writer.write_u32(self.len() as u32 - 4, true)?;
         writer.write_u16(self.version.into_inner())?;
@@ -278,10 +278,18 @@ impl<'a> ClientHello<'a> {
         let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ApplicationLayerProtocolNegotiation);
         if let Some(ext) = extend {
             ext.add_h2_alpn();
+        } else {
+            let mut alps = ALPS::new();
+            alps.add_h2_alpn();
+            self.extensions.push(Extension::new(ExtensionType::ApplicationLayerProtocolNegotiation, ExtensionValue::ApplicationLayerProtocolNegotiation(alps)));
         }
         let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ApplicationSetting);
         if let Some(ext) = extend {
             ext.add_h2_alpn();
+        } else {
+            let mut alps = ALPS::new();
+            alps.add_h2_alpn();
+            self.extensions.push(Extension::new(ExtensionType::ApplicationSetting, ExtensionValue::ApplicationSetting(alps)));
         }
     }
 
