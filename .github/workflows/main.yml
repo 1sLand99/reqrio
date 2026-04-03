@@ -26,8 +26,8 @@ jobs:
             ${{ runner.os }}-cargo-
       - name: build and test
         run: |
-          cargo build --package reqrio --release --features export,serde
-          cargo test --features aync
+          cargo build --package reqrio --release --features export
+          cargo test --features aync,serde
       - name: Copy So
         run: |
           cp target/release/libreqrio.so reqrio-py/reqrio/
