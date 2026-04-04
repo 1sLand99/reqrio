@@ -167,6 +167,13 @@ impl TryFrom<&String> for Url {
     }
 }
 
+impl TryFrom<&&mut String> for Url {
+    type Error = UrlError;
+    fn try_from(t: &&mut String) -> Result<Self, Self::Error> {
+        Url::try_from(t.as_str())
+    }
+}
+
 impl TryFrom<Result<Url, UrlError>> for Url {
     type Error = UrlError;
     fn try_from(result: Result<Url, UrlError>) -> Result<Self, Self::Error> {
