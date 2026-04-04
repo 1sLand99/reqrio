@@ -183,6 +183,7 @@ impl Time {
         res
     }
 
+    ///Sat, 04 Apr 2026 13:42:35 GMT
     pub fn from_rfc1123(s: impl AsRef<[u8]>) -> Result<Time, TimeError> {
         let rfc1123_bs = s.as_ref();
         if rfc1123_bs.len() < 29 {
@@ -239,6 +240,7 @@ impl Time {
         })
     }
 
+    ///2026-03-26T10:02:19.911Z
     pub fn from_rfc3339(s: impl AsRef<[u8]>) -> Result<Time, TimeError> {
         let b = s.as_ref();
         let len = b.len();

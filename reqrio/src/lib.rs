@@ -227,7 +227,7 @@ pub use scq::ScReq;
 #[cfg(feature = "aync")]
 pub use stream::TlsStream;
 pub use stream::{ClientConfig, Proxy, ProxyStream, ServerConfig, SyncStream, WebSocket, WebSocketBuilder};
-pub use time::{Time, Timeout};
+pub use time::{Time, Timeout, TimeError};
 #[cfg(feature = "tokio")]
 pub use tokio;
 
