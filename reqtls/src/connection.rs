@@ -8,9 +8,8 @@ use super::suite::CipherSuite;
 use super::suite::TlsCipher;
 use super::version::Version;
 use crate::boring::{certificate, AlgorithmSigner, HashError};
-use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
-use crate::error::{HandShakeError, RlsResult};
-use crate::ffi::Buf;
+use crate::buffer::{Buf, RecordDecodeBuffer, RecordEncodeBuffer};
+use crate::error::RlsResult;
 use crate::message::certificate::CertificateRequest;
 use crate::share_key::SharedKey;
 use crate::*;
@@ -36,7 +35,7 @@ pub struct Connection {
     verify: bool,
     root_stores: &'static CertStore,
     mtls_hash: SignatureAlgorithm,
-    now: u32,
+    version: Version,
 }
 impl Default for Connection {
     fn default() -> Self {
@@ -58,7 +57,7 @@ impl Default for Connection {
             verify: false,
             root_stores: &certificate::ROOT_STORES,
             mtls_hash: SignatureAlgorithm::new(0),
-            now: 0,
+            version: Version::TLS_1_2,
         }
     }
 }
@@ -79,18 +78,10 @@ impl Connection {
         self
     }
 
-    pub fn with_time(mut self, now: u32) -> Connection {
-        self.now = now;
-        self
-    }
-
     pub fn set_by_server_hello(&mut self, server_hello: &ServerHello) -> RlsResult<()> {
         self.use_ems = server_hello.use_ems();
         self.alpn = server_hello.alpn();
         self.server_random = server_hello.random.as_ref().try_into()?;
-        let server_time = u32::from_be_bytes(self.server_random[0..4].try_into()?);
-        if server_time > 60 + self.now && self.verify { return Err(HandShakeError::ClockSlow.into()); }
-        if self.now > 60 + server_time && self.verify { return Err(HandShakeError::ClockFast.into()); }
         self.cipher_suite = server_hello.cipher_suite.clone();
         self.cipher_suite.init_aead_hasher()?;
         self.cipher_suite.update(&self.session_bytes)?;
@@ -153,14 +144,14 @@ impl Connection {
     }
 
     pub fn set_by_client_exchange_key(&mut self, client_key: ClientKeyExchange) {
-        self.exchange_pub_key = client_key.hellman_param().pub_key().clone();
+        self.exchange_pub_key = Bytes::new(client_key.hellman_param().pub_key().to_vec());
     }
 
     pub fn pub_share_key(&mut self) -> RlsResult<Buf<'_>> {
         if let SharedKey::None = self.shared_key {
             self.shared_key = SharedKey::new_pre_master_secret()?;
             let rsa = RsaCipher::new(self.certificates[0].pub_key()?)?;
-            return Ok(Buf::Vec(rsa.encrypt(self.shared_key.pub_key()?.as_slice())?));
+            return Ok(Buf::Vec(rsa.encrypt(self.shared_key.pub_key()?.as_ref())?));
         }
         self.shared_key.pub_key()
     }
@@ -185,7 +176,7 @@ impl Connection {
         let (server_key, remain) = remain.split_at(aead.key_len());
         let (client_iv, remain) = remain.split_at(aead.fix_iv_len());
         let (server_iv, explicit) = remain.split_at(aead.fix_iv_len());
-        let hasher=self.cipher_suite.mac_hash().ok_or(HashError::HasherNone)?;
+        let hasher = self.cipher_suite.mac_hash().ok_or(HashError::HasherNone)?;
         match server {
             true => {
                 self.write.set_key(server_key, server_mac_key, aead, hasher)?;
@@ -220,13 +211,13 @@ impl Connection {
         //certificate
         let mut certificates = Certificates::default();
         for certificate in certificate.iter_mut() {
-            certificates.add_certificate(certificate.as_der().as_slice());
+            certificates.add_certificate(certificate.as_der()?.as_slice());
         }
         record.messages.push(Message::Certificate(certificates));
         //server_key_exchange
         let mut server_key_exchange = ServerKeyExchange::default();
         self.shared_key = SharedKey::new(server_key_exchange.hellman_param().named_curve())?;
-        server_key_exchange.hellman_param_mut().set_pub_key(self.shared_key.pub_key()?.as_slice());
+        server_key_exchange.hellman_param_mut().set_pub_key(self.shared_key.pub_key()?.as_ref());
         let sign_data = self.gen_key_sign_data(&server_key_exchange);
         let signer = AlgorithmSigner::new_sign(pri_key.pkey(), server_key_exchange.hellman_param().signature_algorithm())?;
         server_key_exchange.hellman_param_mut().set_signature(Bytes::new(signer.sign(&sign_data)?));
@@ -268,7 +259,7 @@ impl Connection {
 
     pub fn make_message(&mut self, cty: RecordType, buffer: &mut [u8], payload: &[u8]) -> RlsResult<usize> {
         let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
-        let buffer = RecordEncodeBuffer::new(cty, buffer, payload, aead);
+        let buffer = RecordEncodeBuffer::new(cty, &self.version, buffer, payload, aead);
         self.write.encrypt(buffer)
     }
 

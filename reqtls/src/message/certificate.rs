@@ -1,15 +1,15 @@
 use super::super::bytes::Bytes;
 use super::HandshakeType;
-use crate::bytes::ByteRef;
 use crate::error::RlsResult;
 use crate::{BufferError, CertType, SignatureAlgorithm, WriteExt};
 use std::fmt::Debug;
+use crate::buffer::Buf;
 
 #[derive(Debug)]
 pub struct Certificates<'a> {
     handshake_type: HandshakeType,
     certificate_len: u32,
-    certificates: Vec<ByteRef<'a>>,
+    certificates: Vec<Buf<'a>>,
 }
 
 impl<'a> Default for Certificates<'a> {
@@ -33,7 +33,7 @@ impl<'a> Certificates<'a> {
         while index < res.certificate_len as usize + 7 {
             let len = u32::from_be_bytes([0, bytes[index], bytes[index + 1], bytes[index + 2]]) as usize;
             index += 3;
-            res.certificates.push(ByteRef::new(&bytes[index..index + len]));
+            res.certificates.push(Buf::Ref(&bytes[index..index + len]));
             index += len
         }
         Ok(res)
@@ -59,10 +59,10 @@ impl<'a> Certificates<'a> {
     }
 
     pub fn add_certificate(&mut self, cert: &'a [u8]) {
-        self.certificates.push(ByteRef::new(cert));
+        self.certificates.push(Buf::Ref(cert));
     }
 
-    pub fn certificates(&self) -> &Vec<ByteRef<'_>> {
+    pub fn certificates(&self) -> &Vec<Buf<'_>> {
         &self.certificates
     }
 }
@@ -94,7 +94,7 @@ pub struct CertificateRequest<'a> {
     handshake_type: HandshakeType,
     cert_type: Vec<CertType>,
     hashes: Vec<SignatureAlgorithm>,
-    distinguished_name: ByteRef<'a>,
+    distinguished_name: Buf<'a>,
 }
 
 impl<'a> Default for CertificateRequest<'a> {
@@ -103,7 +103,7 @@ impl<'a> Default for CertificateRequest<'a> {
             handshake_type: HandshakeType::CertificateRequest,
             cert_type: vec![],
             hashes: vec![],
-            distinguished_name: Default::default(),
+            distinguished_name: Buf::Ref(&[]),
         }
     }
 }
@@ -145,7 +145,7 @@ impl<'a> CertificateRequest<'a> {
         index += len;
         let len = u16::from_be_bytes([bytes[index], bytes[index + 1]]) as usize;
         index += 2;
-        res.distinguished_name = ByteRef::new(&bytes[index..index + len]);
+        res.distinguished_name = Buf::Ref(&bytes[index..index + len]);
         res
     }
 
@@ -182,7 +182,7 @@ impl<'a> CertificateRequest<'a> {
 pub struct CertificateVerify<'a> {
     handshake_type: HandshakeType,
     sign_hash: SignatureAlgorithm,
-    sign: ByteRef<'a>,
+    sign: Buf<'a>,
 }
 
 impl<'a> Default for CertificateVerify<'a> {
@@ -190,7 +190,7 @@ impl<'a> Default for CertificateVerify<'a> {
         CertificateVerify {
             handshake_type: HandshakeType::CertificateVerify,
             sign_hash: SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
-            sign: Default::default(),
+            sign: Buf::Ref(&[]),
         }
     }
 }
@@ -201,7 +201,7 @@ impl<'a> CertificateVerify<'a> {
         CertificateVerify {
             handshake_type: ht,
             sign_hash: SignatureAlgorithm::new(u16::from_be_bytes([bytes[4], bytes[5]])),
-            sign: ByteRef::new(&bytes[8..8 + sign_len as usize]),
+            sign: Buf::Ref(&bytes[8..8 + sign_len as usize]),
         }
     }
 
@@ -226,6 +226,6 @@ impl<'a> CertificateVerify<'a> {
     }
 
     pub fn set_sign(&mut self, sign: &'a [u8]) {
-        self.sign = ByteRef::new(sign);
+        self.sign = Buf::Ref(sign);
     }
 }

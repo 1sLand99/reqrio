@@ -1,19 +1,19 @@
 use super::super::message::HandshakeType;
-use crate::bytes::ByteRef;
+use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::{BufferError, WriteExt};
 
 #[derive(Debug)]
 pub struct TlsSessionTicket<'a> {
     lifetime: u32,
-    value: ByteRef<'a>,
+    value: Buf<'a>,
 }
 
 impl<'a> Default for TlsSessionTicket<'a> {
     fn default() -> TlsSessionTicket<'a> {
         TlsSessionTicket {
             lifetime: 3600,
-            value: ByteRef::default(),
+            value: Buf::Ref(&[]),
         }
     }
 }
@@ -23,7 +23,7 @@ impl<'a> TlsSessionTicket<'a> {
         let len = u16::from_be_bytes(bytes[4..6].try_into()?) as usize;
         Ok(TlsSessionTicket {
             lifetime: u32::from_be_bytes(bytes[0..4].try_into()?),
-            value: ByteRef::new(&bytes[6..6 + len as usize]),
+            value: Buf::Ref(&bytes[6..6 + len as usize]),
         })
     }
 
@@ -40,7 +40,7 @@ impl<'a> TlsSessionTicket<'a> {
     }
 
     pub fn set_value(&mut self, value: &'a [u8]) {
-        self.value = ByteRef::new(value);
+        self.value = Buf::Ref(value);
     }
 }
 

@@ -167,9 +167,7 @@ pub trait TlsStreamHandle {
     fn conn_rbuf(&mut self) -> (&mut Connection, &mut Buffer);
 
     fn handle_client_hello(config: &mut ClientConfig, buffer: &mut Buffer) -> HlsResult<Connection> {
-        let time = Time::now()?.as_secs() as u32;
-        let mut client_random = rand::random::<[u8; 32]>();
-        client_random[0..4].copy_from_slice(&time.to_be_bytes());
+        let client_random = rand::random::<[u8; 32]>();
         let session_id = rand::random::<[u8; 32]>();
         let mut client_hello = RecordLayer::from_bytes(&mut config.fingerprint.client_hello, false, None)?;
         client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_random(&client_random);
@@ -184,7 +182,7 @@ pub trait TlsStreamHandle {
         buffer.set_len(len);
 
         let mut conn = Connection::default().with_client_random(client_random)
-            .with_verify(config.verify).with_time(time);
+            .with_verify(config.verify);
         conn.update_session(&buffer.filled()[5..])?;
         Ok(conn)
     }
@@ -198,7 +196,7 @@ pub trait TlsStreamHandle {
             //client certificate
             let mut certificate = Certificates::default();
             if let Some(cert) = config.client_cert.get_mut(0) {
-                certificate.add_certificate(cert.as_der().as_slice());
+                certificate.add_certificate(cert.as_der()?.as_slice());
             }
             let mut record = RecordLayer::handshake();
             record.messages.push(Message::Certificate(certificate));
@@ -212,7 +210,7 @@ pub trait TlsStreamHandle {
         let client_key_exchange = record.messages.get_mut(0).ok_or(HlsError::NullPointer)?;
         let key_size = conn.cipher_suite().key_size();
         let pub_key = conn.pub_share_key()?;
-        client_key_exchange.client_key_exchange_mut().unwrap().set_pub_key(pub_key.as_slice());
+        client_key_exchange.client_key_exchange_mut().unwrap().set_pub_key(pub_key.as_ref());
         let len = record.write_to(buffer, key_size)?;
         buffer.set_len(offset + len);
         conn.update_session(&buffer[offset + 5..offset + len])?;

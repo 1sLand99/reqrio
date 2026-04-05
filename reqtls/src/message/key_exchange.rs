@@ -1,5 +1,5 @@
-use crate::bytes::ByteRef;
 use crate::{BufferError, CipherSuite, WriteExt};
+use crate::buffer::Buf;
 use crate::error::RlsResult;
 use super::super::boring::SignatureAlgorithm;
 use super::super::message::HandshakeType;
@@ -178,14 +178,14 @@ impl ServerKeyExchange {
 #[derive(Debug)]
 pub struct ClientHellmanParam<'a> {
     pub_key_len: u16,
-    pub_key: ByteRef<'a>,
+    pub_key: Buf<'a>,
 }
 
 impl<'a> ClientHellmanParam<'a> {
     pub fn new() -> ClientHellmanParam<'a> {
         ClientHellmanParam {
             pub_key_len: 0,
-            pub_key: ByteRef::default(),
+            pub_key: Buf::Ref(&[]),
         }
     }
 
@@ -193,7 +193,7 @@ impl<'a> ClientHellmanParam<'a> {
         let mut res = ClientHellmanParam::new();
         let key_size = suite.map(|x| x.key_size()).unwrap_or(1);
         res.pub_key_len = if key_size == 2 { u16::from_be_bytes([bytes[0], bytes[1]]) } else { bytes[0] as u16 };
-        res.pub_key = ByteRef::new(&bytes[key_size as usize..res.pub_key_len as usize + key_size as usize]);
+        res.pub_key = Buf::Ref(&bytes[key_size as usize..res.pub_key_len as usize + key_size as usize]);
         Ok(res)
     }
     pub fn len(&self, key_size: u8) -> usize {
@@ -208,7 +208,7 @@ impl<'a> ClientHellmanParam<'a> {
         writer.write_slice(self.pub_key.as_ref())
     }
 
-    pub fn pub_key(&self) -> &ByteRef<'a> {
+    pub fn pub_key(&self) -> &Buf<'a> {
         &self.pub_key
     }
 }
@@ -248,7 +248,7 @@ impl<'a> ClientKeyExchange<'a> {
     }
 
     pub fn set_pub_key(&mut self, pub_key: &'a [u8]) {
-        self.hellman_param.pub_key = ByteRef::new(pub_key);
+        self.hellman_param.pub_key = Buf::Ref(pub_key);
         self.hellman_param.pub_key_len = self.hellman_param.pub_key.len() as u16;
     }
 

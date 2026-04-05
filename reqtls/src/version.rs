@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Formatter};
 
 #[derive(PartialEq)]
-pub struct Version(u16);
+pub struct Version(pub(crate) u16);
 
 impl Version {
     pub const TLS_1_0: Version = Version(0x301);
@@ -16,7 +16,7 @@ impl Version {
     }
 
     pub fn into_inner(self) -> u16 { self.0 }
-    
+
     pub(crate) fn as_u16(&self) -> u16 {
         self.0
     }

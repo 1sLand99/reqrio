@@ -1,8 +1,8 @@
-use crate::error::RlsResult;
 use std::ffi::CString;
 use std::ops::Range;
 use std::os::raw::c_char;
 use crate::BufferError;
+use crate::error::RlsResult;
 
 pub trait WriteExt {
     fn write_u8(&mut self, v: u8) -> Result<(), BufferError> { self.write_slice(&v.to_be_bytes()) }

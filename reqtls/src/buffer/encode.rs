@@ -1,5 +1,5 @@
 use crate::extend::Aead;
-use crate::RecordType;
+use crate::{RecordType, Version};
 
 pub struct PayloadEncodeBuffer<'a> {
     encoded: &'a mut [u8],
@@ -24,12 +24,13 @@ pub struct RecordEncodeBuffer<'a> {
     payload: PayloadEncodeBuffer<'a>,
 }
 
+
 impl<'a> RecordEncodeBuffer<'a> {
-    pub(crate) fn new(rt: RecordType, buffer: &'a mut [u8], origin: &'a [u8], aead: &'a Aead) -> RecordEncodeBuffer<'a> {
+    pub(crate) fn new(rt: RecordType, version: &Version, buffer: &'a mut [u8], origin: &'a [u8], aead: &'a Aead) -> RecordEncodeBuffer<'a> {
         let (head, payload) = buffer.split_at_mut(5);
         head[0] = rt as u8;
-        head[1] = 3;
-        head[2] = 3;
+        head[1] = (version.0 >> 8 & 255) as u8;
+        head[2] = (version.0 & 255) as u8;
         RecordEncodeBuffer {
             aead,
             head,
@@ -68,6 +69,8 @@ impl<'a> RecordEncodeBuffer<'a> {
 
     pub fn aad(&self, seq: u64) -> [u8; 13] {
         let mut res = [0; 13];
+        let ptr=res.as_mut_ptr() as *mut u64;
+        unsafe { ptr.write_unaligned(seq); }
         res[0..8].copy_from_slice(&seq.to_be_bytes());
         res[8..11].copy_from_slice(&self.head[..3]);
         res[11..13].copy_from_slice(&(self.payload.origin.len() as u16).to_be_bytes());

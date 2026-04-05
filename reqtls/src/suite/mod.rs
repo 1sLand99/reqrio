@@ -329,7 +329,7 @@ impl CipherSuite {
         } else if text.ends_with("_sha") {
             Ok(Hasher::new(HashType::Sha256)?)
         } else {
-            Err(HashError::UnsupportedHasher(text).into())
+            Err(HashError::UnsupportedHasher(text))
         }
     }
 

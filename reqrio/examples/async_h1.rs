@@ -13,9 +13,9 @@ async fn main() {
     // let key = RsaKey::from_pri_pem_file("/home/xl/1/client.key").unwrap();
     let mut req = AcReq::new()
         .with_fingerprint(Fingerprint::random("-").unwrap())
-        .with_alpn(ALPN::Http20)
+        .with_alpn(ALPN::Http11)
         .with_timeout(timeout)
-        .with_verify(true)
+        .with_verify(false)
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::try_from("http://127.0.0.1:10240").unwrap())
         ;
@@ -95,8 +95,18 @@ async fn main() {
     // req.set_url("https://127.0.0.1:8000").await.unwrap();
     // req.set_auto_redirect(false);
     // req.set_url("https://oauth.hubei.gov.cn:8443/").await.unwrap();
-
-
+    let params = json::object! {
+        tRef:"fullpage",
+        tLc:2,
+        text28777:"",
+        tLabels:"92001903143160000052257347",
+        tABt:false,
+    };
+    req.set_auto_redirect(false);
+    let res = req.get("https://tools.usps.com/go/TrackConfirmAction".params(params.clone()), None).await.unwrap();
+    // let res = req.get("https://tools.usps.com/go/TrackConfirmAction".params(params), None).await.unwrap();
+    println!("{}", res.header());
+    println!("{}", res.text().unwrap());
     // req.set_url("https://m.so.com").await.unwrap();
     // req.set_url("https://im.jinritemai.com/").await.unwrap();
     // req.set_auto_redirect(false);
@@ -110,14 +120,14 @@ async fn main() {
     // println!("{}", req.h1_raw_string().unwrap());
     // let res = req.get().await.unwrap();
     // println!("{} {:#?}", res.header().status(), req.header().cookies());
-    let params = json::object! {
-        format:"{\\json",
-        ecount:20,
-        efirst:0
-    };
-    let url = "https://cn.bing.com/hp/api/v1/carousel".to_string();
-    // println!("{}", url);
-    let res = req.get(url.params(params), None).await.unwrap();
+    // let params = json::object! {
+    //     format:"{\\json",
+    //     ecount:20,
+    //     efirst:0
+    // };
+    // let url = "https://cn.bing.com/hp/api/v1/carousel".to_string();
+    // // println!("{}", url);
+    // let res = req.get(url.params(params), None).await.unwrap();
     // req.set_url("https://cn.bing.com/notifications/render?bnptrigger=%7B%22PartnerId%22%3A%22HomePage%22%2C%22IID%22%3A%22Bnp%22%2C%22Attributes%22%3A%7B%22RawRequestURL%22%3A%22%2F%22%7D%7D&IG=AFEA02EAF9E449A99970476597AE6CED&IID=Bnp").await.unwrap();
     // let res = req.get().await.unwrap();
     // req.set_url("https://cn.bing.com/web/xlsc.aspx?dl=1&f=8").await.unwrap();
@@ -146,5 +156,5 @@ async fn main() {
     // let res = req.get().await.unwrap();
     // let res = req.get().await.unwrap();
     // let res = req.get().await.unwrap();
-    println!("{}", res.header());
+    // println!("{}", res.header());
 }

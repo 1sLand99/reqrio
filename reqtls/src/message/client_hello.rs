@@ -3,26 +3,25 @@ use super::super::extend::Extension;
 use super::super::version::Version;
 use super::HandshakeType;
 use crate::boring::hash;
-use crate::bytes::ByteRef;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::{ExtensionType, ExtensionValue};
 use crate::{rand, BufferError, WriteExt};
 use std::mem;
-
+use crate::buffer::Buf;
 
 #[derive(Debug)]
 pub struct ClientHello<'a> {
     handshake_type: HandshakeType,
     len: u32,
     version: Version,
-    random: ByteRef<'a>,
+    random: Buf<'a>,
     session_id_len: u8,
-    session_id: ByteRef<'a>,
+    session_id: Buf<'a>,
     cipher_suites_len: u16,
     cipher_suites: Vec<CipherSuite>,
     compress_method_len: u8,
-    compress_method: ByteRef<'a>,
+    compress_method: Buf<'a>,
     extend_len: u16,
     extensions: Vec<Extension>,
 }
@@ -33,13 +32,13 @@ impl<'a> Default for ClientHello<'a> {
             handshake_type: HandshakeType::ClientHello,
             len: 0,
             version: Version::new(0),
-            random: ByteRef::default(),
+            random: Buf::Ref(&[]),
             session_id_len: 0,
-            session_id: ByteRef::default(),
+            session_id: Buf::Ref(&[]),
             cipher_suites_len: 0,
             cipher_suites: vec![],
             compress_method_len: 0,
-            compress_method: ByteRef::default(),
+            compress_method: Buf::Ref(&[]),
             extend_len: 0,
             extensions: vec![],
         }
@@ -60,9 +59,9 @@ impl<'a> ClientHello<'a> {
                 CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
                 CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
             ],
-            random: ByteRef::new(&[0; 32]),
-            session_id: ByteRef::new(&[0; 32]),
-            compress_method: ByteRef::new(&[0]),
+            random: Buf::Ref(&[0; 32]),
+            session_id: Buf::Ref(&[0; 32]),
+            compress_method: Buf::Ref(&[0]),
             extensions: vec![
                 Extension::from_type(ExtensionType::SignatureAlgorithms),
                 Extension::from_type(ExtensionType::SupportedGroup),
@@ -93,16 +92,16 @@ impl<'a> ClientHello<'a> {
         res.handshake_type = ht;
         res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]]);
         res.version = Version::new(u16::from_be_bytes([bytes[4], bytes[5]]));
-        res.random = ByteRef::new(&bytes[6..38]);
+        res.random = Buf::Ref(&bytes[6..38]);
         res.session_id_len = bytes[38];
         let index = 39 + res.session_id_len as usize;
         if index > bytes.len() { println!("{:x?}", bytes); }
-        res.session_id = ByteRef::new(&bytes[39..index]);
+        res.session_id = Buf::Ref(&bytes[39..index]);
         res.cipher_suites_len = u16::from_be_bytes([bytes[index], bytes[index + 1]]);
         res.cipher_suites = CipherSuite::from_bytes(&bytes[index + 2..index + 2 + res.cipher_suites_len as usize])?;
         let index = index + res.cipher_suites_len as usize + 2;
         res.compress_method_len = bytes[index];
-        res.compress_method = ByteRef::new(&bytes[index + 1..index + 1 + res.compress_method_len as usize]);
+        res.compress_method = Buf::Ref(&bytes[index + 1..index + 1 + res.compress_method_len as usize]);
         let index = index + res.compress_method_len as usize + 1;
         res.extend_len = u16::from_be_bytes([bytes[index], bytes[index + 1]]);
         res.extensions = Extension::from_bytes(&bytes[index + 2..index + 2 + res.extend_len as usize], false)?;
@@ -141,7 +140,7 @@ impl<'a> ClientHello<'a> {
         Ok(())
     }
 
-    pub fn client_random(&mut self) -> &ByteRef<'a> { &self.random }
+    pub fn client_random(&mut self) -> &Buf<'a> { &self.random }
 
     ///### ja3计算方式为
     /// version+','+cipher_suite(u16)+','+extend_type(u16)+','+supported_groud值(u16)+','+ec_point_format(u8)
@@ -211,11 +210,11 @@ impl<'a> ClientHello<'a> {
     }
 
     pub fn set_random(&mut self, random: &'a [u8]) {
-        self.random = ByteRef::new(random);
+        self.random = Buf::Ref(random);
     }
 
     pub fn set_session_id(&mut self, session_id: &'a [u8]) {
-        self.session_id = ByteRef::new(session_id);
+        self.session_id = Buf::Ref(session_id);
     }
 
     pub fn set_server_name(&mut self, server_name: &str) {

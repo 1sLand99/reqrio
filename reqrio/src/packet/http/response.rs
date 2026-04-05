@@ -208,13 +208,15 @@ impl Response {
     pub fn decode_body(&mut self) -> HlsResult<&mut Body> {
         if !self.body.is_raw() { return Ok(&mut self.body); }
         let chucked = self.header.get("transfer-encoding");
-        if let Some(chucked) = chucked && chucked.as_string().unwrap_or("") == "chunked" {
-            self.body.extend(coder::chunk_decode(mem::take(&mut self.raw))?);
+        println!("{} {:?}", 111, chucked.as_ref().map(|x|x.as_string()));
+        if let Some(chucked) = chucked && chucked.as_string().unwrap_or("").trim() == "chunked" {
+            self.body.extend(coder::chunk_decode(mem::take(&mut self.raw)).unwrap());
         } else {
             self.body.extend(mem::take(&mut self.raw));
         }
         let encoding = self.header.get("content-encoding");
-        self.body.decompress(encoding)?;
+        // println!("{:?}", &self.body.as_bytes().unwrap()[..10]);
+        self.body.decompress(encoding).unwrap();
         Ok(&mut self.body)
     }
 

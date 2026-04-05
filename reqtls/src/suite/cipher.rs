@@ -1,9 +1,9 @@
 use crate::boring::{CryptDecodeParam, CryptEncodeParam, Crypto};
-use crate::buffer::RecordEncodeBuffer;
+use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
 use crate::error::RlsResult;
 use crate::extend::Aead;
-use crate::{HashType, RecordDecodeBuffer};
 use crate::suite::iv::Iv;
+use crate::HashType;
 
 pub struct TlsCipher {
     crypto: Crypto,
@@ -70,12 +70,12 @@ impl TlsCipher {
 
 #[cfg(test)]
 mod tests {
+    use crate::boring::HashType;
     use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
     use crate::extend::Aead;
-    use crate::suite::iv::Iv;
-    use crate::{rand, RecordType};
-    use crate::boring::HashType;
     use crate::suite::cipher::TlsCipher;
+    use crate::suite::iv::Iv;
+    use crate::{rand, RecordType, Version};
 
     #[test]
     fn test_cipher() {
@@ -90,7 +90,7 @@ mod tests {
         cipher.set_iv(iv);
         let mut buffer = [0u8; 1024];
         let payload = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 34, 3, 3, 3];
-        let record_buffer = RecordEncodeBuffer::new(RecordType::HandShake, &mut buffer, &payload, &aead);
+        let record_buffer = RecordEncodeBuffer::new(RecordType::HandShake, &Version::TLS_1_2, &mut buffer, &payload, &aead);
         let len = cipher.encrypt(record_buffer).unwrap();
         println!("{:?}", &buffer[..len + 10]);
         cipher.seq = 0;

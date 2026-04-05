@@ -247,32 +247,6 @@
 //! * br
 //! * zstd
 
-pub use connection::Connection;
-pub use message::{Message, Alert, CertificateRequest, CertificateVerify};
-pub use message::session_ticket::{SessionTicket, TlsSessionTicket};
-pub use message::key_exchange::ServerKeyExchange;
-pub use message::server_hello::ServerHello;
-pub use message::client_hello::ClientHello;
-pub use message::key_exchange::ClientKeyExchange;
-pub use message::certificate::Certificates;
-pub use record::{RecordLayer, RecordType};
-pub use error::{RlsError, BufferError};
-pub use version::Version;
-pub use boring::{hash, hmac, base64, Cipher, CipherType, Padding, RsaCipher, RsaKey, RsaPadding,
-                 certificate::Certificate, cipher, certificate::DnType, certificate::CertSigner,
-                 certificate::CertExtend, certificate::BasicConstraint, certificate::KeyUsage,
-                 certificate::KeyIdentifier, certificate::SubjectAltName, certificate::CertStore,
-                 certificate::CertType,
-                 SignatureAlgorithm, AlgorithmSigner};
-pub use hash::{HashType, Hmac, Hasher};
-pub use hex;
-pub use suite::CipherSuite;
-pub use extend::{Extension, ExtensionType, group::GroupType, formats::EcPointFormat, SupportVersions, CompressionType};
-pub use alpn::ALPN;
-pub use ext::WriteExt;
-pub use url::{Addr, Scheme, Uri, Url, Param, UrlError};
-pub use buffer::RecordDecodeBuffer;
-
 mod extend;
 mod message;
 mod prf;
@@ -287,10 +261,34 @@ mod boring;
 mod ffi;
 pub mod coder;
 mod alpn;
-mod ext;
 mod share_key;
 mod url;
 
 #[cfg(feature = "export")]
 mod export;
 mod buffer;
+
+pub use alpn::ALPN;
+pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner, certificate::CertStore, certificate::CertType, certificate::Certificate, certificate::DnType, certificate::KeyIdentifier,
+                 certificate::KeyUsage, certificate::SubjectAltName, cipher, hash,
+                 hmac, AlgorithmSigner, Cipher,
+                 CipherType, Padding, RsaCipher,
+                 RsaKey,
+                 RsaPadding, SignatureAlgorithm};
+pub use buffer::{WriteExt, BufferError};
+pub use connection::Connection;
+pub use error::RlsError;
+pub use extend::{formats::EcPointFormat, group::GroupType, CompressionType, Extension, ExtensionType, SupportVersions};
+pub use hash::{HashType, Hasher, Hmac};
+pub use hex;
+pub use message::certificate::Certificates;
+pub use message::client_hello::ClientHello;
+pub use message::key_exchange::ClientKeyExchange;
+pub use message::key_exchange::ServerKeyExchange;
+pub use message::server_hello::ServerHello;
+pub use message::session_ticket::{SessionTicket, TlsSessionTicket};
+pub use message::{Alert, CertificateRequest, CertificateVerify, Message};
+pub use record::{RecordLayer, RecordType};
+pub use suite::CipherSuite;
+pub use url::{Addr, Param, Scheme, Uri, Url, UrlError};
+pub use version::Version;

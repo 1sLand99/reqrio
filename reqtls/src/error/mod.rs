@@ -1,8 +1,7 @@
-mod buffer;
 mod handshake;
 
 use crate::url::UrlError;
-use crate::Alert;
+use crate::{Alert, BufferError};
 use hex::FromHexError;
 use std::array::TryFromSliceError;
 use std::convert::Infallible;
@@ -16,7 +15,6 @@ use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 use std::sync::PoisonError;
 use std::time::SystemTimeError;
-pub use buffer::BufferError;
 pub use handshake::HandShakeError;
 use crate::hash::HashError;
 

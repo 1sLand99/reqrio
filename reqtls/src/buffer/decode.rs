@@ -27,7 +27,7 @@ impl<'a> RecordDecodeBuffer<'a> {
         let mut res = [0; 13];
         res[0..8].copy_from_slice(seq.to_be_bytes().as_ref());
         res[8] = self.head[0];
-        res[9..11].copy_from_slice(&self.head[1..3]); // TLS1.2
+        res[9..11].copy_from_slice(&self.head[1..3]);
         let payload_len = self.payload.origin.len() as u16 - self.aead.explicit_len() as u16 - 16;
         res[11..13].copy_from_slice(&payload_len.to_be_bytes());
         Ok(res)
@@ -50,16 +50,12 @@ impl<'a> RecordDecodeBuffer<'a> {
         }
     }
 
-    pub fn aead(&self) -> &Aead { &self.aead }
+    pub fn aead(&self) -> &Aead { self.aead }
 
     pub fn decrypted_buffer(&mut self) -> &mut [u8] {
         self.payload.decoded
     }
 
-    // pub fn origin_payload(&self) -> &[u8] {
-    //     self.payload.origin
-    // }
-
-    pub fn head(&self) -> &[u8] { &self.head }
+    pub fn head(&self) -> &[u8] { self.head }
 }
 

@@ -1,7 +1,7 @@
 use super::message::{Message, Payload};
 use super::version::Version;
-use crate::error::{BufferError, RlsResult};
-use crate::{Alert, CipherSuite, WriteExt, ALPN};
+use crate::error::RlsResult;
+use crate::{Alert, BufferError, CipherSuite, WriteExt, ALPN};
 
 #[derive(Debug, Copy, Clone)]
 pub enum RecordType {

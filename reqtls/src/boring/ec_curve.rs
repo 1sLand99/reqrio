@@ -1,10 +1,11 @@
 use super::bindings::*;
 use super::*;
+use crate::buffer::BufPtr;
 use crate::error::RlsResult;
+use crate::ffi::CPointer;
 use crate::RlsError;
 use std::ffi::c_void;
 use std::ptr::null_mut;
-use crate::ffi::{BufPtr, CPointer};
 
 pub struct EcCurve {
     ec_key: CPointer<EC_KEY>,
@@ -23,7 +24,7 @@ impl EcCurve {
         EcCurve::new(NID_secp521r1)
     }
     fn new(nid: i32) -> RlsResult<EcCurve> {
-        let ec_key = CPointer::new_checked(unsafe { EC_KEY_new_by_curve_name(nid) },RlsError::InitEcKeyError)?;
+        let ec_key = CPointer::new_checked(unsafe { EC_KEY_new_by_curve_name(nid) }, RlsError::InitEcKeyError)?;
         unsafe { EC_KEY_generate_key(ec_key.as_mut_ptr()) }.ok(RlsError::GenEcKeyError)?;
         Ok(EcCurve {
             ec_key,
@@ -43,14 +44,13 @@ impl EcCurve {
                 null_mut(),
             )
         };
-        if buf.is_null() { return Err(RlsError::GenEcKeyError); }
-        buf.set_len(len);
+        buf.check_ptr(len)?;
         Ok(buf)
     }
 
     pub fn diffie_hellman(&self, pub_key: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
         let group = unsafe { EC_KEY_get0_group(self.ec_key.as_ptr()) };
-        let server_point = CPointer::new_checked(unsafe { EC_POINT_new(group) },RlsError::InitEcPointError)?;
+        let server_point = CPointer::new_checked(unsafe { EC_POINT_new(group) }, RlsError::InitEcPointError)?;
         unsafe {
             EC_POINT_oct2point(
                 group,

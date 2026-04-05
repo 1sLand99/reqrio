@@ -143,7 +143,7 @@ mod tests {
     use crate::boring::{CryptDecodeParam, CryptEncodeParam, HashType};
     use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
     use crate::extend::Aead;
-    use crate::{base64, rand, Cipher, RecordType};
+    use crate::{base64, rand, Cipher, RecordType, Version};
 
     #[test]
     fn test_cipher() {
@@ -166,7 +166,7 @@ mod tests {
         // payload.extend(&[0; 20]);
         let payload = [1, 2, 3, 4, 5, 61, 2, 3, 4, 5, 6, 7, 8, 9, 23, 23];
         let mac_key = [12; 20];
-        let mut record_buffer = RecordEncodeBuffer::new(RecordType::HandShake, &mut buffer, &payload, &aead);
+        let mut record_buffer = RecordEncodeBuffer::new(RecordType::HandShake, &Version::TLS_1_2, &mut buffer, &payload, &aead);
         record_buffer.add_explicit_iv(&iv);
 
         let crypto = CipherCrypto::new(&aead, key, mac_key.to_vec(), HashType::Sha1).unwrap();

@@ -2,20 +2,20 @@ use super::super::extend::Extension;
 use super::super::message::HandshakeType;
 use super::super::suite::CipherSuite;
 use super::super::version::Version;
-use crate::bytes::ByteRef;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::ExtensionValue;
 use crate::{BufferError, ClientHello, ExtensionType, WriteExt, ALPN};
+use crate::buffer::Buf;
 
 #[derive(Debug)]
 pub struct ServerHello<'a> {
     handshake_type: HandshakeType,
     len: u32,
     version: Version,
-    pub(crate) random: ByteRef<'a>,
+    pub(crate) random: Buf<'a>,
     session_id_len: u8,
-    session_id: ByteRef<'a>,
+    session_id: Buf<'a>,
     pub cipher_suite: CipherSuite,
     compress_method: u8,
     extend_len: u16,
@@ -28,9 +28,9 @@ impl<'a> Default for ServerHello<'a> {
             handshake_type: HandshakeType::ServerHello,
             len: 0,
             version: Version::new(0),
-            random: ByteRef::default(),
+            random: Buf::Ref(&[]),
             session_id_len: 0,
-            session_id: ByteRef::default(),
+            session_id: Buf::Ref(&[]),
             cipher_suite: CipherSuite::new(0),
             compress_method: 0,
             extend_len: 0,
@@ -45,10 +45,10 @@ impl<'a> ServerHello<'a> {
         res.handshake_type = ht;
         res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]]);
         res.version = Version::new(u16::from_be_bytes([bytes[4], bytes[5]]));
-        res.random = ByteRef::new(&bytes[6..38]);
+        res.random = Buf::Ref(&bytes[6..38]);
         res.session_id_len = bytes[38];
         let index = 39 + res.session_id_len as usize;
-        res.session_id = ByteRef::new(&bytes[39..index]);
+        res.session_id = Buf::Ref(&bytes[39..index]);
         let v = u16::from_be_bytes([bytes[index], bytes[index + 1]]);
         res.cipher_suite = CipherSuite::new(v);
         res.compress_method = bytes[index + 2];
@@ -118,7 +118,7 @@ impl<'a> ServerHello<'a> {
             self.extensions.iter().map(|x| x.len(true)).sum::<usize>()
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError>{
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
         writer.write_u8(self.handshake_type as u8)?;
         writer.write_u32(self.len() as u32 - 4, true)?;
         writer.write_u16(self.version.into_inner())?;
@@ -136,11 +136,11 @@ impl<'a> ServerHello<'a> {
     }
 
     pub fn set_random(&mut self, random: &'a [u8]) {
-        self.random = ByteRef::new(random);
+        self.random = Buf::Ref(random);
     }
 
     pub fn set_session_id(&mut self, session_id: &'a [u8]) {
-        self.session_id = ByteRef::new(session_id);
+        self.session_id = Buf::Ref(session_id);
     }
 }
 

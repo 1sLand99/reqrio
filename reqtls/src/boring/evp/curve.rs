@@ -1,9 +1,10 @@
+use crate::boring::bindings::*;
 use crate::boring::BoringResExt;
 use crate::error::RlsResult;
+use crate::ffi::CPointer;
 use crate::RlsError;
 use std::ptr::null_mut;
-use crate::boring::bindings::*;
-use crate::ffi::{Buf, CPointer};
+use crate::buffer::Buf;
 
 pub struct EvpCurve {
     evp_key: CPointer<EVP_PKEY>,
@@ -66,7 +67,7 @@ mod tests {
     fn test_evp_curve() {
         let mut x25519 = EvpCurve::new_x25519().unwrap();
         let pub_key = x25519.pub_key().unwrap();
-        println!("{} {:?}", pub_key.len(), pub_key.as_slice());
+        println!("{} {:?}", pub_key.len(), pub_key.as_ref());
         let secret = x25519.diffie_hellman([206, 118, 3, 226, 136, 204, 138, 40, 0, 126, 104, 169, 167, 100, 179, 140, 247, 174, 108, 211, 16, 18, 195, 23, 240, 147, 55, 173, 102, 11, 202, 9]).unwrap();
         println!("{} {:?}", secret.len(), secret);
     }
