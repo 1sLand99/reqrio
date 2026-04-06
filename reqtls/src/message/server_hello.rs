@@ -62,7 +62,7 @@ impl<'a> ServerHello<'a> {
         res.version = Version::TLS_1_2;
         // res.random = ByteRef::new(random);
         // res.session_id = ByteRef::new(session_id);
-        res.cipher_suite = CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256;
+        res.cipher_suite = CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256.into();
         for extension in client_hello.take_extensions() {
             match *extension.extension_type() {
                 ExtensionType::SignatureAlgorithms => {

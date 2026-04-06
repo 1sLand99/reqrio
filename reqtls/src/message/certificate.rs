@@ -113,15 +113,15 @@ impl<'a> CertificateRequest<'a> {
         let mut res = CertificateRequest {
             cert_type: vec![CertType::RSA, CertType::ECDSA],
             hashes: vec![
-                SignatureAlgorithm::RSA_PSS_PSS_SHA256,
-                SignatureAlgorithm::RSA_PSS_PSS_SHA384,
-                SignatureAlgorithm::RSA_PSS_PSS_SHA512,
+                SignatureAlgorithm::RSA_PSS_PSS_SHA256.into(),
+                SignatureAlgorithm::RSA_PSS_PSS_SHA384.into(),
+                SignatureAlgorithm::RSA_PSS_PSS_SHA512.into(),
             ],
             ..CertificateRequest::default()
         };
         for hash in SignatureAlgorithm::ALL {
             if res.hashes.len() >= 10 { break; }
-            if res.hashes.contains(&SignatureAlgorithm::new(hash)) { continue; }
+            if res.hashes.iter().any(|x| x.as_u16() == hash) { continue; }
             res.hashes.push(SignatureAlgorithm::new(hash));
         }
         res
@@ -189,7 +189,7 @@ impl<'a> Default for CertificateVerify<'a> {
     fn default() -> Self {
         CertificateVerify {
             handshake_type: HandshakeType::CertificateVerify,
-            sign_hash: SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
+            sign_hash: SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),
             sign: Buf::Ref(&[]),
         }
     }

@@ -50,14 +50,14 @@ impl<'a> ClientHello<'a> {
         let mut res = ClientHello {
             version: Version::TLS_1_0,
             cipher_suites: vec![
-                CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-                CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-                CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-                CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+                CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA.into(),
+                CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256.into(),
+                CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384.into(),
+                CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256.into(),
                 //ecdsa
-                CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-                CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-                CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+                CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256.into(),
+                CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384.into(),
+                CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256.into(),
             ],
             random: Buf::Ref(&[0; 32]),
             session_id: Buf::Ref(&[0; 32]),
@@ -81,7 +81,7 @@ impl<'a> ClientHello<'a> {
         while res.cipher_suites.len() < 12 {
             let index = rand::random::<usize>() % suite_all.len();
             let suite = CipherSuite::new(suite_all[index]);
-            if res.cipher_suites.contains(&suite) { continue; }
+            if res.cipher_suites.iter().any(|x| x.as_u16() == suite.as_u16()) { continue; }
             res.cipher_suites.push(suite);
         }
         res

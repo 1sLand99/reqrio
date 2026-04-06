@@ -82,7 +82,7 @@ impl Connection {
         self.use_ems = server_hello.use_ems();
         self.alpn = server_hello.alpn();
         self.server_random = server_hello.random.as_ref().try_into()?;
-        self.cipher_suite = server_hello.cipher_suite.clone();
+        self.cipher_suite = server_hello.cipher_suite.as_u16().into();
         self.cipher_suite.init_aead_hasher()?;
         self.cipher_suite.update(&self.session_bytes)?;
         let hasher = self.cipher_suite.hasher().as_ref().ok_or(HashError::HasherNone)?;
@@ -112,22 +112,22 @@ impl Connection {
     pub fn set_by_cert_req(&mut self, req: CertificateRequest, cert: Option<&mut Certificate>) -> RlsResult<()> {
         if let Some(cert) = cert {
             for hash in req.into_hashes() {
-                match (&hash, cert.cert_type()?) {
-                    (&SignatureAlgorithm::RSA_PSS_RSAE_SHA256, CertType::RSA) => self.mtls_hash = hash,
-                    (&SignatureAlgorithm::RSA_PSS_RSAE_SHA384, CertType::RSA) => self.mtls_hash = hash,
-                    (&SignatureAlgorithm::RSA_PSS_RSAE_SHA512, CertType::RSA) => self.mtls_hash = hash,
-                    (&SignatureAlgorithm::ECDSA_SECP256R1_SHA256, CertType::ECDSA) => self.mtls_hash = hash,
-                    (&SignatureAlgorithm::ECDSA_SECP384R1_SHA384, CertType::ECDSA) => self.mtls_hash = hash,
-                    (&SignatureAlgorithm::ECDSA_SECP521R1_SHA512, CertType::ECDSA) => self.mtls_hash = hash,
-                    (&SignatureAlgorithm::RSA_PKCS1_SHA1, CertType::RSA) => self.mtls_hash = hash,
-                    (&SignatureAlgorithm::RSA_PKCS1_SHA256, CertType::RSA) => self.mtls_hash = hash,
-                    (&SignatureAlgorithm::RSA_PKCS1_SHA384, CertType::RSA) => self.mtls_hash = hash,
-                    (&SignatureAlgorithm::RSA_PKCS1_SHA512, CertType::RSA) => self.mtls_hash = hash,
+                match (hash.as_u16(), cert.cert_type()?) {
+                    (SignatureAlgorithm::RSA_PSS_RSAE_SHA256, CertType::RSA) => self.mtls_hash = hash,
+                    (SignatureAlgorithm::RSA_PSS_RSAE_SHA384, CertType::RSA) => self.mtls_hash = hash,
+                    (SignatureAlgorithm::RSA_PSS_RSAE_SHA512, CertType::RSA) => self.mtls_hash = hash,
+                    (SignatureAlgorithm::ECDSA_SECP256R1_SHA256, CertType::ECDSA) => self.mtls_hash = hash,
+                    (SignatureAlgorithm::ECDSA_SECP384R1_SHA384, CertType::ECDSA) => self.mtls_hash = hash,
+                    (SignatureAlgorithm::ECDSA_SECP521R1_SHA512, CertType::ECDSA) => self.mtls_hash = hash,
+                    (SignatureAlgorithm::RSA_PKCS1_SHA1, CertType::RSA) => self.mtls_hash = hash,
+                    (SignatureAlgorithm::RSA_PKCS1_SHA256, CertType::RSA) => self.mtls_hash = hash,
+                    (SignatureAlgorithm::RSA_PKCS1_SHA384, CertType::RSA) => self.mtls_hash = hash,
+                    (SignatureAlgorithm::RSA_PKCS1_SHA512, CertType::RSA) => self.mtls_hash = hash,
                     _ => continue,
                 }
                 break;
             }
-        } else { self.mtls_hash = SignatureAlgorithm::RSA_PKCS1_SHA1 }
+        } else { self.mtls_hash = SignatureAlgorithm::RSA_PKCS1_SHA1.into() }
         Ok(())
     }
 
@@ -288,7 +288,7 @@ impl Connection {
     pub fn mtls(&self) -> bool { self.mtls_hash.as_u16() != 0 }
     pub fn handle_mtls_client<W: WriteExt>(&mut self, writer: &mut W, key: &RsaKey) -> RlsResult<usize> {
         let mut cert_verify = CertificateVerify::default();
-        cert_verify.set_hash(self.mtls_hash.clone());
+        cert_verify.set_hash(self.mtls_hash.as_u16().into());
         let signer = AlgorithmSigner::new_sign(key.pkey(), &self.mtls_hash)?;
         let sign = signer.sign(mem::take(&mut self.session_bytes))?;
         cert_verify.set_sign(&sign);

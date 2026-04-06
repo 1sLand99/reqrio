@@ -16,272 +16,208 @@ pub struct CipherSuite {
 
 impl CipherSuite {
     //ecdhe-ecdhe
-    pub const TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256: CipherSuite = CipherSuite {
-        value: 0xc02b,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384: CipherSuite = CipherSuite {
-        value: 0xc02c,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256: CipherSuite = CipherSuite {
-        value: 0xc023,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384: CipherSuite = CipherSuite {
-        value: 0xc024,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA: CipherSuite = CipherSuite {
-        value: 0xc009,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA: CipherSuite = CipherSuite {
-        value: 0xc00a,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256: CipherSuite = CipherSuite {
-        value: 0xcca9,
-        hasher: None,
-        aead: None,
-    };
+    pub const TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256: u16 = 0xc02b;
+    pub const TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384: u16 = 0xc02c;
+    pub const TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256: u16 = 0xc023;
+    pub const TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384: u16 = 0xc024;
+    pub const TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA: u16 = 0xc009;
+    pub const TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA: u16 = 0xc00a;
+    pub const TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256: u16 = 0xcca9;
 
     //ecdhe-rsa
-    pub const TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256: CipherSuite = CipherSuite {
-        value: 0xc02f,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384: CipherSuite = CipherSuite {
-        value: 0xc030,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256: CipherSuite = CipherSuite {
-        value: 0xc027,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384: CipherSuite = CipherSuite {
-        value: 0xc028,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA: CipherSuite = CipherSuite {
-        value: 0xc013,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA: CipherSuite = CipherSuite {
-        value: 0xc014,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256: CipherSuite = CipherSuite {
-        value: 0xcca8,
-        hasher: None,
-        aead: None,
-    };
+    pub const TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256: u16 = 0xc02f;
+    pub const TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384: u16 = 0xc030;
+    pub const TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256: u16 = 0xc027;
+    pub const TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384: u16 = 0xc028;
+    pub const TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA: u16 = 0xc013;
+    pub const TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA: u16 = 0xc014;
+    pub const TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256: u16 = 0xcca8;
 
     //dhe-rsa
-    pub const TLS_DHE_RSA_WITH_AES_128_GCM_SHA256: CipherSuite = CipherSuite {
-        value: 0x009e,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_DHE_RSA_WITH_AES_256_GCM_SHA384: CipherSuite = CipherSuite {
-        value: 0x009f,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_DHE_RSA_WITH_AES_128_CBC_SHA256: CipherSuite = CipherSuite {
-        value: 0x0067,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_DHE_RSA_WITH_AES_256_CBC_SHA256: CipherSuite = CipherSuite {
-        value: 0x006b,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_DHE_RSA_WITH_AES_128_CBC_SHA: CipherSuite = CipherSuite {
-        value: 0x0033,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_DHE_RSA_WITH_AES_256_CBC_SHA: CipherSuite = CipherSuite {
-        value: 0x0039,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256: CipherSuite = CipherSuite {
-        value: 0xccaa,
-        hasher: None,
-        aead: None,
-    };
+    pub const TLS_DHE_RSA_WITH_AES_128_GCM_SHA256: u16 = 0x009e;
+    pub const TLS_DHE_RSA_WITH_AES_256_GCM_SHA384: u16 = 0x009f;
+    pub const TLS_DHE_RSA_WITH_AES_128_CBC_SHA256: u16 = 0x0067;
+    pub const TLS_DHE_RSA_WITH_AES_256_CBC_SHA256: u16 = 0x006b;
+    pub const TLS_DHE_RSA_WITH_AES_128_CBC_SHA: u16 = 0x0033;
+    pub const TLS_DHE_RSA_WITH_AES_256_CBC_SHA: u16 = 0x0039;
+    pub const TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256: u16 = 0xccaa;
 
 
     //rsa
-    pub const TLS_RSA_WITH_AES_128_GCM_SHA256: CipherSuite = CipherSuite {
-        value: 0x009c,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_RSA_WITH_AES_256_GCM_SHA384: CipherSuite = CipherSuite {
-        value: 0x009d,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_RSA_WITH_AES_128_CBC_SHA256: CipherSuite = CipherSuite {
-        value: 0x003c,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_RSA_WITH_AES_256_CBC_SHA256: CipherSuite = CipherSuite {
-        value: 0x003d,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_RSA_WITH_AES_128_CBC_SHA: CipherSuite = CipherSuite {
-        value: 0x002f,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_RSA_WITH_AES_256_CBC_SHA: CipherSuite = CipherSuite {
-        value: 0x0035,
-        hasher: None,
-        aead: None,
-    };
+    pub const TLS_RSA_WITH_AES_128_GCM_SHA256: u16 = 0x009c;
+    pub const TLS_RSA_WITH_AES_256_GCM_SHA384: u16 = 0x009d;
+    pub const TLS_RSA_WITH_AES_128_CBC_SHA256: u16 = 0x003c;
+    pub const TLS_RSA_WITH_AES_256_CBC_SHA256: u16 = 0x003d;
+    pub const TLS_RSA_WITH_AES_128_CBC_SHA: u16 = 0x002f;
+    pub const TLS_RSA_WITH_AES_256_CBC_SHA: u16 = 0x0035;
 
     //empty
-    pub const TLS_AES_128_GCM_SHA256: CipherSuite = CipherSuite {
-        value: 0x1301,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_AES_256_GCM_SHA384: CipherSuite = CipherSuite {
-        value: 0x1302,
-        hasher: None,
-        aead: None,
-    };
-    pub const TLS_CHACHA20_POLY1305_SHA256: CipherSuite = CipherSuite {
-        value: 0x1303,
-        hasher: None,
-        aead: None,
-    };
+    pub const TLS_AES_128_GCM_SHA256: u16 = 0x1301;
+    pub const TLS_AES_256_GCM_SHA384: u16 = 0x1302;
+    pub const TLS_CHACHA20_POLY1305_SHA256: u16 = 0x1303;
 
-    pub const TLS_EMPTY_RENEGOTIATION_INFO_SCSV: CipherSuite = CipherSuite {
-        value: 0x00ff,
-        hasher: None,
-        aead: None,
-    };
+    pub const TLS_EMPTY_RENEGOTIATION_INFO_SCSV: u16 = 0x00ff;
 
-    pub const SUITES: [u16; 31] = [0xc02b, 0xc02c, 0xc023, 0xc024, 0xc009, 0xc00a, 0xcca9, 0xc02f, 0xc030, 0xc027, 0xc028, 0xc013, 0xc014, 0xcca8, 0x009e, 0x009f, 0x0067, 0x006b, 0x0033, 0x0039, 0xccaa, 0x009c, 0x009d, 0x003c, 0x003d, 0x002f, 0x0035, 0x1301, 0x1302, 0x1303, 0x00ff];
+    pub const SUITES: [u16; 31] = [
+        CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+        CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+        CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+        CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+        CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+        CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+        CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
+
+        //ecdhe-rsa
+        CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+        CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+        CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+        CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+        CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+        CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+        CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+
+        //dhe-rsa
+        CipherSuite::TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
+        CipherSuite::TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
+        CipherSuite::TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
+        CipherSuite::TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
+        CipherSuite::TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
+        CipherSuite::TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
+        CipherSuite::TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+
+
+        //rsa
+        CipherSuite::TLS_RSA_WITH_AES_128_GCM_SHA256,
+        CipherSuite::TLS_RSA_WITH_AES_256_GCM_SHA384,
+        CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA256,
+        CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA256,
+        CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA,
+        CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA,
+
+        //empty
+        CipherSuite::TLS_AES_128_GCM_SHA256,
+        CipherSuite::TLS_AES_256_GCM_SHA384,
+        CipherSuite::TLS_CHACHA20_POLY1305_SHA256,
+        CipherSuite::TLS_EMPTY_RENEGOTIATION_INFO_SCSV,
+    ];
 
     pub fn spec(&self) -> &str {
         match self.value {
-            0xc02b => "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
-            0xc02c => "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
-            0xc023 => "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256",
-            0xc024 => "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384",
-            0xc009 => "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
-            0xc00a => "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
-            0xcca9 => "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 => "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 => "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256 => "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256",
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384 => "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384",
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA => "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA => "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 => "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
 
-            0xc02f => "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
-            0xc030 => "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
-            0xc027 => "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
-            0xc028 => "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384",
-            0xc013 => "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
-            0xc014 => "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
-            0xcca8 => "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 => "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 => "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256 => "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384 => "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384",
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA => "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA => "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+            CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 => "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
 
-            0x009e => "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256",
-            0x009f => "TLS_DHE_RSA_WITH_AES_256_GCM_SHA384",
-            0x0067 => "TLS_DHE_RSA_WITH_AES_128_CBC_SHA256",
-            0x006b => "TLS_DHE_RSA_WITH_AES_256_CBC_SHA256",
-            0x0033 => "TLS_DHE_RSA_WITH_AES_128_CBC_SHA",
-            0x0039 => "TLS_DHE_RSA_WITH_AES_256_CBC_SHA",
-            0xccaa => "TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+            CipherSuite::TLS_DHE_RSA_WITH_AES_128_GCM_SHA256 => "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256",
+            CipherSuite::TLS_DHE_RSA_WITH_AES_256_GCM_SHA384 => "TLS_DHE_RSA_WITH_AES_256_GCM_SHA384",
+            CipherSuite::TLS_DHE_RSA_WITH_AES_128_CBC_SHA256 => "TLS_DHE_RSA_WITH_AES_128_CBC_SHA256",
+            CipherSuite::TLS_DHE_RSA_WITH_AES_256_CBC_SHA256 => "TLS_DHE_RSA_WITH_AES_256_CBC_SHA256",
+            CipherSuite::TLS_DHE_RSA_WITH_AES_128_CBC_SHA => "TLS_DHE_RSA_WITH_AES_128_CBC_SHA",
+            CipherSuite::TLS_DHE_RSA_WITH_AES_256_CBC_SHA => "TLS_DHE_RSA_WITH_AES_256_CBC_SHA",
+            CipherSuite::TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256 => "TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
 
-            0x009c => "TLS_RSA_WITH_AES_128_GCM_SHA256",
-            0x009d => "TLS_RSA_WITH_AES_256_GCM_SHA384",
-            0x003c => "TLS_RSA_WITH_AES_128_CBC_SHA256",
-            0x003d => "TLS_RSA_WITH_AES_256_CBC_SHA256",
-            0x002f => "TLS_RSA_WITH_AES_128_CBC_SHA",
-            0x0035 => "TLS_RSA_WITH_AES_256_CBC_SHA",
+            CipherSuite::TLS_RSA_WITH_AES_128_GCM_SHA256 => "TLS_RSA_WITH_AES_128_GCM_SHA256",
+            CipherSuite::TLS_RSA_WITH_AES_256_GCM_SHA384 => "TLS_RSA_WITH_AES_256_GCM_SHA384",
+            CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA256 => "TLS_RSA_WITH_AES_128_CBC_SHA256",
+            CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA256 => "TLS_RSA_WITH_AES_256_CBC_SHA256",
+            CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA => "TLS_RSA_WITH_AES_128_CBC_SHA",
+            CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA => "TLS_RSA_WITH_AES_256_CBC_SHA",
 
-            0x1301 => "TLS_AES_128_GCM_SHA256",
-            0x1302 => "TLS_AES_256_GCM_SHA384",
-            0x1303 => "TLS_CHACHA20_POLY1305_SHA256",
+            CipherSuite::TLS_AES_128_GCM_SHA256 => "TLS_AES_128_GCM_SHA256",
+            CipherSuite::TLS_AES_256_GCM_SHA384 => "TLS_AES_256_GCM_SHA384",
+            CipherSuite::TLS_CHACHA20_POLY1305_SHA256 => "TLS_CHACHA20_POLY1305_SHA256",
 
-            0x00ff => "TLS_EMPTY_RENEGOTIATION_INFO_SCSV",
+            CipherSuite::TLS_EMPTY_RENEGOTIATION_INFO_SCSV => "TLS_EMPTY_RENEGOTIATION_INFO_SCSV",
             _ => "Reserved"
         }
     }
 
     pub fn key_size(&self) -> u8 {
         match self.value {
-            0x009c | 0x009d | 0x003c | 0x003d | 0x002f | 0x0035 => 2,
+            CipherSuite::TLS_RSA_WITH_AES_128_GCM_SHA256 | CipherSuite::TLS_RSA_WITH_AES_256_GCM_SHA384 |
+            CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA256 | CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA256 |
+            CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA | CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA => 2,
             _ => 1,
         }
     }
 
     pub fn is_aead(&self) -> bool {
-        matches!(self.value, 0xc02b | 0xc02c | 0xcca9 | 0xc02f | 0xc030 | 0xcca8 | 0x009e | 0x009f | 0xccaa | 0x009c | 0x009d | 0x1301 | 0x1302 | 0x1303)
+        match self.value {
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 |
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 |
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 |
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 |
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 |
+            CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 |
+            CipherSuite::TLS_DHE_RSA_WITH_AES_128_GCM_SHA256 |
+            CipherSuite::TLS_DHE_RSA_WITH_AES_256_GCM_SHA384 |
+            CipherSuite::TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256 |
+            CipherSuite::TLS_RSA_WITH_AES_128_GCM_SHA256 |
+            CipherSuite::TLS_RSA_WITH_AES_256_GCM_SHA384 |
+            CipherSuite::TLS_AES_128_GCM_SHA256 |
+            CipherSuite::TLS_AES_256_GCM_SHA384 |
+            CipherSuite::TLS_CHACHA20_POLY1305_SHA256 => true,
+            _ => false
+        }
     }
 
 
     pub fn mac_hash(&self) -> Option<HashType> {
         match self.value {
-            0xc02b => Some(HashType::Sha256),
-            0xc02c => Some(HashType::Sha384),
-            0xc023 => Some(HashType::Sha256),
-            0xc024 => Some(HashType::Sha384),
-            0xc009 => Some(HashType::Sha1),
-            0xc00a => Some(HashType::Sha1),
-            0xcca9 => Some(HashType::Sha256),
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 => Some(HashType::Sha256),
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 => Some(HashType::Sha384),
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256 => Some(HashType::Sha256),
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384 => Some(HashType::Sha384),
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA => Some(HashType::Sha1),
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA => Some(HashType::Sha1),
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 => Some(HashType::Sha256),
 
-            0xc02f => Some(HashType::Sha256),
-            0xc030 => Some(HashType::Sha384),
-            0xc027 => Some(HashType::Sha256),
-            0xc028 => Some(HashType::Sha384),
-            0xc013 => Some(HashType::Sha1),
-            0xc014 => Some(HashType::Sha1),
-            0xcca8 => Some(HashType::Sha256),
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 => Some(HashType::Sha256),
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 => Some(HashType::Sha384),
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256 => Some(HashType::Sha256),
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384 => Some(HashType::Sha384),
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA => Some(HashType::Sha1),
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA => Some(HashType::Sha1),
+            CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 => Some(HashType::Sha256),
 
-            0x009e => Some(HashType::Sha256),
-            0x009f => Some(HashType::Sha384),
-            0x0067 => Some(HashType::Sha256),
-            0x006b => Some(HashType::Sha256),
-            0x0033 => Some(HashType::Sha1),
-            0x0039 => Some(HashType::Sha1),
-            0xccaa => Some(HashType::Sha256),
+            CipherSuite::TLS_DHE_RSA_WITH_AES_128_GCM_SHA256 => Some(HashType::Sha256),
+            CipherSuite::TLS_DHE_RSA_WITH_AES_256_GCM_SHA384 => Some(HashType::Sha384),
 
-            0x009c => Some(HashType::Sha256),
-            0x009d => Some(HashType::Sha384),
-            0x003c => Some(HashType::Sha256),
-            0x003d => Some(HashType::Sha256),
-            0x002f => Some(HashType::Sha1),
-            0x0035 => Some(HashType::Sha1),
+            CipherSuite::TLS_DHE_RSA_WITH_AES_128_CBC_SHA256 => Some(HashType::Sha256),
+            CipherSuite::TLS_DHE_RSA_WITH_AES_256_CBC_SHA256 => Some(HashType::Sha256),
+            CipherSuite::TLS_DHE_RSA_WITH_AES_128_CBC_SHA => Some(HashType::Sha1),
+            CipherSuite::TLS_DHE_RSA_WITH_AES_256_CBC_SHA => Some(HashType::Sha1),
+            CipherSuite::TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256 => Some(HashType::Sha256),
 
-            0x1301 => Some(HashType::Sha256),
-            0x1302 => Some(HashType::Sha384),
-            0x1303 => Some(HashType::Sha256),
+            CipherSuite::TLS_RSA_WITH_AES_128_GCM_SHA256 => Some(HashType::Sha256),
+            CipherSuite::TLS_RSA_WITH_AES_256_GCM_SHA384 => Some(HashType::Sha384),
+            CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA256 => Some(HashType::Sha256),
+            CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA256 => Some(HashType::Sha256),
+            CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA => Some(HashType::Sha1),
+            CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA => Some(HashType::Sha1),
+
+            CipherSuite::TLS_AES_128_GCM_SHA256 => Some(HashType::Sha256),
+            CipherSuite::TLS_AES_256_GCM_SHA384 => Some(HashType::Sha384),
+            CipherSuite::TLS_CHACHA20_POLY1305_SHA256 => Some(HashType::Sha256),
             _ => None
         }
     }
 }
 
-impl PartialEq for CipherSuite {
-    fn eq(&self, other: &CipherSuite) -> bool {
-        self.value == other.value
+impl From<u16> for CipherSuite {
+    fn from(value: u16) -> Self {
+        CipherSuite::new(value)
     }
 }
 
@@ -357,15 +293,5 @@ impl CipherSuite {
 impl Debug for CipherSuite {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}(0x{:x})", self.spec(), self.value)
-    }
-}
-
-impl Clone for CipherSuite {
-    fn clone(&self) -> Self {
-        CipherSuite {
-            value: self.value,
-            hasher: None,
-            aead: None,
-        }
     }
 }

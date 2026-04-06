@@ -2,12 +2,12 @@ use crate::buffer::Buf;
 use crate::{BufferError, WriteExt};
 use std::fmt::{Debug, Formatter};
 
-#[derive(PartialEq)]
 pub struct KeyShareType(u16);
 
+
 impl KeyShareType {
-    pub const X25519MLKEM768: KeyShareType = KeyShareType(0x11ec);
-    pub const X25519: KeyShareType = KeyShareType(0x001d);
+    pub const X25519MLKEM768: u16 = 0x11ec;
+    pub const X25519: u16 = 0x001d;
     pub fn new(v: u16) -> Self {
         KeyShareType(v)
     }
@@ -15,12 +15,16 @@ impl KeyShareType {
     pub fn into_inner(self) -> u16 { self.0 }
 
     pub fn spec(&self) -> &str {
-        match *self {
+        match self.0 {
             KeyShareType::X25519MLKEM768 => "X25519MLKEM768",
             KeyShareType::X25519 => "X25519",
             _ => "Reserved",
         }
     }
+}
+
+impl From<u16> for KeyShareType {
+    fn from(v: u16) -> Self { KeyShareType::new(v) }
 }
 
 impl Debug for KeyShareType {
@@ -50,7 +54,7 @@ impl<'a> KeyShareEntry<'a> {
         let mut res = vec![];
         while index < bytes.len() {
             let mut key = KeyShareEntry::new();
-            key.group = KeyShareType::new(u16::from_be_bytes([bytes[index], bytes[index + 1]]));
+            key.group = u16::from_be_bytes([bytes[index], bytes[index + 1]]).into();
             key.exchange_len = u16::from_be_bytes([bytes[index + 2], bytes[index + 3]]);
             index = index + 4 + key.exchange_len as usize;
             key.exchange = Buf::Ref(&bytes[index - key.exchange_len as usize..index]);

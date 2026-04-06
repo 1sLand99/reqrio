@@ -64,7 +64,7 @@ impl ServerHellmanParam {
             named_curve: NamedCurve::Secp384r1,
             pub_key_len: 0,
             pub_key: Bytes::none(),
-            signature_algorithm: SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
+            signature_algorithm: SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),
             signature_len: 0,
             signature: Bytes::none(),
         }

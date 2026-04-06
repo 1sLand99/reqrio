@@ -59,13 +59,13 @@ impl SignatureAlgorithms {
         let mut res = SignatureAlgorithms::new();
         let all_sign = SignatureAlgorithm::ALL;
         res.hash = vec![
-            SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
-            SignatureAlgorithm::ECDSA_SECP256R1_SHA256,
-            SignatureAlgorithm::RSA_PKCS1_SHA256,
+            SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),
+            SignatureAlgorithm::ECDSA_SECP256R1_SHA256.into(),
+            SignatureAlgorithm::RSA_PKCS1_SHA256.into(),
         ];
         while res.hash.len() < 10 {
             let index = rand::random::<usize>() % all_sign.len();
-            if res.hash.contains(&SignatureAlgorithm::new(all_sign[index])) { continue; }
+            if res.hash.iter().any(|x| x.as_u16() == all_sign[index]) { continue; }
             res.hash.push(SignatureAlgorithm::new(all_sign[index]));
         }
         res
