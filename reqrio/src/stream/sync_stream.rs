@@ -67,11 +67,11 @@ impl<S: Read + Write> SyncStream<S> {
                             self.write_buffer.reset();
                             return Ok(true);
                         }
-                        Message::ClientHello(v) => {
+                        Message::ClientHello(mut v) => {
                             let config = config.as_mut().ok_or("config can't be null")?;
                             let random = rand::random::<[u8; 32]>();
                             let server = config.server_mut().ok_or("missing config")?;
-                            let mut record = self.conn.gen_server_hello(v, server.server_cert, server.cert_key, &random)?;
+                            let mut record = self.conn.gen_server_hello(&mut v, server.server_cert, server.cert_key, &random)?;
                             let session_id = rand::random::<[u8; 32]>();
                             record.messages[0].server_mut().ok_or(HlsError::NullPointer)?.set_session_id(&session_id);
 

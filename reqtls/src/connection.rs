@@ -195,7 +195,7 @@ impl Connection {
         Ok(())
     }
 
-    pub fn gen_server_hello<'a>(&mut self, mut client_hello: ClientHello, certificate: &'a mut [Certificate], pri_key: &RsaKey, random: &'a [u8]) -> RlsResult<RecordLayer<'a>> {
+    pub fn gen_server_hello<'a>(&mut self, client_hello: &'a mut ClientHello<'a>, certificate: &'a mut [Certificate], pri_key: &RsaKey, random: &'a [u8]) -> RlsResult<RecordLayer<'a>> {
         self.client_random = client_hello.client_random().as_ref().try_into()?;
         let mut record = RecordLayer {
             context_type: RecordType::HandShake,

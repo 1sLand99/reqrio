@@ -7,9 +7,9 @@ use formats::EcPointFormats;
 use group::SupportedGroups;
 use key_share::KeyShare;
 use psk_key::PskKey;
-use server_name::ServerName;
 use std::fmt::{Debug, Formatter};
 pub use version::SupportVersions;
+pub use server_name::ServerName;
 
 mod version;
 pub mod formats;
@@ -31,7 +31,7 @@ use crate::{BufferError, Version, WriteExt};
 pub use client_hello::Aead;
 pub use status::StatusRequest;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct ExtensionType(u16);
 
 impl ExtensionType {
@@ -44,38 +44,6 @@ impl ExtensionType {
     }
 
     pub fn as_u16(&self) -> u16 { self.0 }
-
-    pub fn default_value(&self) -> Option<ExtensionValue> {
-        match *self {
-            ExtensionType::ServerName => Some(ExtensionValue::ServerName(ServerName::new())),
-            ExtensionType::StatusRequest => Some(ExtensionValue::StatusRequest(StatusRequest::new())),
-            ExtensionType::SupportedGroup => Some(ExtensionValue::SupportedGroups(SupportedGroups::random())),
-            ExtensionType::EcPointFormats => Some(ExtensionValue::EcPointFormats(EcPointFormats::random())),
-            ExtensionType::SignatureAlgorithms => Some(ExtensionValue::SignatureAlgorithms(SignatureAlgorithms::random())),
-            ExtensionType::ApplicationLayerProtocolNegotiation => Some(ExtensionValue::ApplicationLayerProtocolNegotiation(ALPS::new())),
-            ExtensionType::SignedCertificateTimestamp => Some(ExtensionValue::SignedCertificateTimestamp),
-            ExtensionType::EncryptTheMac => Some(ExtensionValue::EncryptTheMac),
-            ExtensionType::ExtendMasterSecret => Some(ExtensionValue::MasterSecret),
-            ExtensionType::SessionTicket => Some(ExtensionValue::SessionTicket),
-            ExtensionType::CompressionCertificate => {
-                let mut cp_cer = CompressionCertificate::new();
-                cp_cer.push(CompressionType::NULL);
-                Some(ExtensionValue::CompressionCertificate(cp_cer))
-            }
-            ExtensionType::SupportedVersions => {
-                let mut supported_versions = SupportVersions::new();
-                supported_versions.push(Version::TLS_1_2);
-                Some(ExtensionValue::SupportedVersions(supported_versions))
-            }
-            ExtensionType::PskKeyExchangeMode => Some(ExtensionValue::PskKeyExchangeMode(PskKey::new())),
-            ExtensionType::KeyShare => Some(ExtensionValue::KeyShare(KeyShare::new())),
-            ExtensionType::RenegotiationInfo => Some(ExtensionValue::RenegotiationInfo(RenegotiationInfo::new())),
-            ExtensionType::EncryptedClientHello => Some(ExtensionValue::EncryptedClientHello(EncryptClientHello::new())),
-            ExtensionType::ApplicationSetting => Some(ExtensionValue::ApplicationSetting(ALPS::new())),
-            ExtensionType::PreSharedKey => Some(ExtensionValue::PreSharedKey(PreSharedKey::random())),
-            _ => None
-        }
-    }
 }
 
 #[allow(non_upper_case_globals)]
@@ -158,9 +126,9 @@ impl RenegotiationInfo {
 }
 
 #[derive(Debug)]
-pub enum ExtensionValue {
+pub enum ExtensionValue<'a> {
     PskKeyExchangeMode(PskKey),
-    KeyShare(KeyShare),
+    KeyShare(KeyShare<'a>),
     SupportedGroups(SupportedGroups),
     StatusRequest(StatusRequest),
     SignatureAlgorithms(SignatureAlgorithms),
@@ -181,8 +149,8 @@ pub enum ExtensionValue {
     Unknown(Bytes),
 }
 
-impl ExtensionValue {
-    pub fn from_bytes(t: &ExtensionType, bytes: &[u8], server: bool) -> RlsResult<Self> {
+impl<'a> ExtensionValue<'a> {
+    pub fn from_bytes(t: &ExtensionType, bytes: &'a [u8], server: bool) -> RlsResult<Self> {
         match *t {
             ExtensionType::ServerName => Ok(ExtensionValue::ServerName(ServerName::from_bytes(bytes)?)),
             ExtensionType::StatusRequest => Ok(ExtensionValue::StatusRequest(StatusRequest::from_bytes(bytes)?)),
@@ -259,13 +227,13 @@ impl ExtensionValue {
 }
 
 #[derive(Debug)]
-pub struct Extension {
+pub struct Extension<'a> {
     type_: ExtensionType,
     len: u16,
-    value: ExtensionValue,
+    value: ExtensionValue<'a>,
 }
 
-impl Default for Extension {
+impl<'a> Default for Extension<'a> {
     fn default() -> Self {
         Extension {
             type_: ExtensionType(0),
@@ -275,7 +243,7 @@ impl Default for Extension {
     }
 }
 
-impl Extension {
+impl<'a> Extension<'a> {
     pub fn new(typ: ExtensionType, value: ExtensionValue) -> Extension {
         Extension {
             type_: typ,
@@ -284,16 +252,48 @@ impl Extension {
         }
     }
 
-    pub fn from_type(t: ExtensionType) -> Extension {
+    pub fn default_value(ty: ExtensionType) -> Option<ExtensionValue<'a>> {
+        match ty {
+            ExtensionType::ServerName => Some(ExtensionValue::ServerName(ServerName::new())),
+            ExtensionType::StatusRequest => Some(ExtensionValue::StatusRequest(StatusRequest::new())),
+            ExtensionType::SupportedGroup => Some(ExtensionValue::SupportedGroups(SupportedGroups::random())),
+            ExtensionType::EcPointFormats => Some(ExtensionValue::EcPointFormats(EcPointFormats::random())),
+            ExtensionType::SignatureAlgorithms => Some(ExtensionValue::SignatureAlgorithms(SignatureAlgorithms::random())),
+            ExtensionType::ApplicationLayerProtocolNegotiation => Some(ExtensionValue::ApplicationLayerProtocolNegotiation(ALPS::new())),
+            ExtensionType::SignedCertificateTimestamp => Some(ExtensionValue::SignedCertificateTimestamp),
+            ExtensionType::EncryptTheMac => Some(ExtensionValue::EncryptTheMac),
+            ExtensionType::ExtendMasterSecret => Some(ExtensionValue::MasterSecret),
+            ExtensionType::SessionTicket => Some(ExtensionValue::SessionTicket),
+            ExtensionType::CompressionCertificate => {
+                let mut cp_cer = CompressionCertificate::new();
+                cp_cer.push(CompressionType::NULL);
+                Some(ExtensionValue::CompressionCertificate(cp_cer))
+            }
+            ExtensionType::SupportedVersions => {
+                let mut supported_versions = SupportVersions::new();
+                supported_versions.push(Version::TLS_1_2);
+                Some(ExtensionValue::SupportedVersions(supported_versions))
+            }
+            ExtensionType::PskKeyExchangeMode => Some(ExtensionValue::PskKeyExchangeMode(PskKey::new())),
+            ExtensionType::KeyShare => Some(ExtensionValue::KeyShare(KeyShare::new())),
+            ExtensionType::RenegotiationInfo => Some(ExtensionValue::RenegotiationInfo(RenegotiationInfo::new())),
+            ExtensionType::EncryptedClientHello => Some(ExtensionValue::EncryptedClientHello(EncryptClientHello::new())),
+            ExtensionType::ApplicationSetting => Some(ExtensionValue::ApplicationSetting(ALPS::new())),
+            ExtensionType::PreSharedKey => Some(ExtensionValue::PreSharedKey(PreSharedKey::random())),
+            _ => None
+        }
+    }
+
+    pub fn from_type(t: ExtensionType) -> Extension<'a> {
         let mut res = Extension::default();
-        if let Some(value) = t.default_value() {
+        if let Some(value) = Extension::default_value(t.clone()) {
             res.value = value;
         }
         res.type_ = t;
         res
     }
 
-    pub fn from_bytes(bytes: &[u8], server: bool) -> RlsResult<Vec<Extension>> {
+    pub fn from_bytes(bytes: &[u8], server: bool) -> RlsResult<Vec<Extension<'_>>> {
         let mut res = vec![];
         let mut index = 0;
         while index < bytes.len() {

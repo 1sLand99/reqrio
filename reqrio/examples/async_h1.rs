@@ -103,7 +103,7 @@ async fn main() {
         tABt:false,
     };
     req.set_auto_redirect(false);
-    let res = req.get("https://tools.usps.com/go/TrackConfirmAction".params(params.clone()), None).await.unwrap();
+    let res = req.get("https://m.so.com".params(params.clone()), None).await.unwrap();
     // let res = req.get("https://tools.usps.com/go/TrackConfirmAction".params(params), None).await.unwrap();
     println!("{}", res.header());
     println!("{}", res.text().unwrap());

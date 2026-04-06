@@ -5,7 +5,7 @@ use super::HandshakeType;
 use crate::boring::hash;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
-use crate::extend::{ExtensionType, ExtensionValue};
+use crate::extend::{ExtensionType, ExtensionValue, ServerName};
 use crate::{rand, BufferError, WriteExt};
 use std::mem;
 use crate::buffer::Buf;
@@ -23,7 +23,7 @@ pub struct ClientHello<'a> {
     compress_method_len: u8,
     compress_method: Buf<'a>,
     extend_len: u16,
-    extensions: Vec<Extension>,
+    extensions: Vec<Extension<'a>>,
 }
 
 impl<'a> Default for ClientHello<'a> {
@@ -218,11 +218,12 @@ impl<'a> ClientHello<'a> {
     }
 
     pub fn set_server_name(&mut self, server_name: &str) {
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ServerName);
+        let extend_type = ExtensionType::ServerName;
+        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &extend_type);
         match extend {
             None => {
-                let mut ext = Extension::from_type(ExtensionType::ServerName);
-                ext.set_server_name(server_name);
+                let value = ExtensionValue::ServerName(ServerName::new().with_value(server_name));
+                let ext = Extension::new(ExtensionType::ServerName, value);
                 self.extensions.push(ext);
             }
             Some(ext) => ext.set_server_name(server_name),
@@ -237,7 +238,7 @@ impl<'a> ClientHello<'a> {
         self.cipher_suites = suites;
     }
 
-    pub fn set_extension(&mut self, extension: Vec<Extension>) {
+    pub fn set_extension(&mut self, extension: Vec<Extension<'a>>) {
         self.extensions = extension;
     }
 
@@ -296,7 +297,7 @@ impl<'a> ClientHello<'a> {
         &self.cipher_suites
     }
 
-    pub fn take_extensions(&mut self) -> Vec<Extension> {
+    pub fn take_extensions(&mut self) -> Vec<Extension<'_>> {
         mem::take(&mut self.extensions)
     }
 }

@@ -19,7 +19,7 @@ pub struct ServerHello<'a> {
     pub cipher_suite: CipherSuite,
     compress_method: u8,
     extend_len: u16,
-    extensions: Vec<Extension>,
+    extensions: Vec<Extension<'a>>,
 }
 
 impl<'a> Default for ServerHello<'a> {
@@ -57,7 +57,7 @@ impl<'a> ServerHello<'a> {
         Ok(res)
     }
 
-    pub fn from_client_hello(mut client_hello: ClientHello) -> RlsResult<ServerHello<'a>> {
+    pub fn from_client_hello<'b: 'a>(client_hello: &'b mut ClientHello<'b>) -> RlsResult<ServerHello<'a>> {
         let mut res = ServerHello::default();
         res.version = Version::TLS_1_2;
         // res.random = ByteRef::new(random);

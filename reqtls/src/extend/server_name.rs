@@ -54,10 +54,15 @@ impl ServerName {
         writer.write_slice(self.value.as_ref())
     }
 
-    pub fn set_value(&mut self, value: impl ToString) {
-        self.value = value.to_string();
+    pub fn set_value(&mut self, value: impl Into<String>) {
+        self.value = value.into();
         self.len = self.value.len() as u16;
     }
 
     pub fn value(&self) -> &str { &self.value }
+
+    pub fn with_value(mut self, value: impl Into<String>) -> ServerName {
+        self.set_value(value);
+        self
+    }
 }

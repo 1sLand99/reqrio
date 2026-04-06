@@ -1,75 +1,51 @@
-use super::super::bytes::Bytes;
+use crate::buffer::Buf;
 use crate::{BufferError, WriteExt};
 use std::fmt::{Debug, Formatter};
 
+#[derive(PartialEq)]
 pub struct KeyShareType(u16);
+
 impl KeyShareType {
+    pub const X25519MLKEM768: KeyShareType = KeyShareType(0x11ec);
+    pub const X25519: KeyShareType = KeyShareType(0x001d);
     pub fn new(v: u16) -> Self {
         KeyShareType(v)
     }
 
     pub fn into_inner(self) -> u16 { self.0 }
+
+    pub fn spec(&self) -> &str {
+        match *self {
+            KeyShareType::X25519MLKEM768 => "X25519MLKEM768",
+            KeyShareType::X25519 => "X25519",
+            _ => "Reserved",
+        }
+    }
 }
 
 impl Debug for KeyShareType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match KeyShareKind::from_u16(self.0) {
-            None => f.write_str(&format!("Reserved({})", self.0)),
-            Some(kind) => f.write_str(&format!("{:?}", kind))
-        }
+        write!(f, "{}({:x})", self.spec(), self.0)
     }
 }
 
-#[allow(non_camel_case_types)]
 #[derive(Debug)]
-pub enum KeyShareKind {
-    X25519MLKEM768 = 0x11ec, //len 1216
-    x25519 = 0x1d, //len 32
-    // MLKEM768 = 0x6a6a, //len 1184
-}
-
-impl KeyShareKind {
-    pub fn from_u16(v: u16) -> Option<KeyShareKind> {
-        match v {
-            0x11ec => Some(KeyShareKind::X25519MLKEM768),
-            0x1d => Some(KeyShareKind::x25519),
-            _ => None
-        }
-    }
-
-    // pub fn gen_x25519(&self) -> (EphemeralSecret, PublicKey) {
-    //     let mut rng = rand::rngs::ThreadRng::default();
-    //     let keypair = EphemeralSecret::random_from_rng(&mut rng);
-    //     let alice_public = PublicKey::from(&keypair);
-    //     (keypair, alice_public)
-    // }
-    //
-    // fn gen_x25519mlkem768(&self) -> (EphemeralSecret, PublicKey) {
-    //     let mut rng = rand::rngs::ThreadRng::default();
-    //     let keypair = EphemeralSecret::random_from_rng(&mut rng);
-    //     let alice_public = PublicKey::from(&keypair);
-    //     let (pq_pub, pq_sec) = pqcrypto_kyber::kyber768::keypair();
-    //
-    // }
-}
-
-#[derive(Debug)]
-pub struct KeyShareEntry {
+pub struct KeyShareEntry<'a> {
     group: KeyShareType,
     exchange_len: u16,
-    exchange: Bytes,
+    exchange: Buf<'a>,
 }
 
-impl KeyShareEntry {
-    fn new() -> KeyShareEntry {
+impl<'a> KeyShareEntry<'a> {
+    fn new() -> KeyShareEntry<'a> {
         KeyShareEntry {
             group: KeyShareType(0),
             exchange_len: 0,
-            exchange: Bytes::none(),
+            exchange: Buf::Ref(&[]),
         }
     }
 
-    fn from_bytes(bytes: &[u8]) -> Vec<KeyShareEntry> {
+    fn from_bytes(bytes: &[u8]) -> Vec<KeyShareEntry<'_>> {
         let mut index = 0;
         let mut res = vec![];
         while index < bytes.len() {
@@ -77,7 +53,7 @@ impl KeyShareEntry {
             key.group = KeyShareType::new(u16::from_be_bytes([bytes[index], bytes[index + 1]]));
             key.exchange_len = u16::from_be_bytes([bytes[index + 2], bytes[index + 3]]);
             index = index + 4 + key.exchange_len as usize;
-            key.exchange = Bytes::new(bytes[index - key.exchange_len as usize..index].to_vec());
+            key.exchange = Buf::Ref(&bytes[index - key.exchange_len as usize..index]);
             res.push(key);
         }
         res
@@ -95,22 +71,22 @@ impl KeyShareEntry {
 }
 
 #[derive(Debug)]
-pub struct KeyShare {
-    len: usize,
-    entries: Vec<KeyShareEntry>,
+pub struct KeyShare<'a> {
+    len: u16,
+    entries: Vec<KeyShareEntry<'a>>,
 }
 
-impl KeyShare {
-    pub fn new() -> KeyShare {
+impl<'a> KeyShare<'a> {
+    pub fn new() -> KeyShare<'a> {
         KeyShare {
             len: 0,
             entries: vec![],
         }
     }
-    pub fn from_bytes(bytes: &[u8]) -> KeyShare {
+    pub fn from_bytes(bytes: &[u8]) -> KeyShare<'_> {
         let mut res = KeyShare::new();
-        res.len = u16::from_be_bytes([bytes[0], bytes[1]]) as usize;
-        res.entries = KeyShareEntry::from_bytes(&bytes[2..res.len + 2]);
+        res.len = u16::from_be_bytes([bytes[0], bytes[1]]);
+        res.entries = KeyShareEntry::from_bytes(&bytes[2..res.len as usize + 2]);
         res
     }
 
