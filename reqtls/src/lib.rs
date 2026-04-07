@@ -267,6 +267,7 @@ mod url;
 #[cfg(feature = "export")]
 mod export;
 mod buffer;
+mod dns;
 
 pub use alpn::ALPN;
 pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner, certificate::CertStore, certificate::CertType, certificate::Certificate, certificate::DnType, certificate::KeyIdentifier,

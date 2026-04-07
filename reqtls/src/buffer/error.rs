@@ -3,6 +3,7 @@ use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
 pub enum BufferError {
+    ///内容长度过小
     Insufficient,
     CapacityTooSmall { needed: usize, current: usize },
     Overflow { capacity: usize, need: usize },
