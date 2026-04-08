@@ -2,12 +2,12 @@ use super::{DNSError, SvcParamValue, SvcType, DNS};
 use crate::dns::add::Additional;
 use crate::dns::value::{DNSValue, DnsType};
 use crate::{rand, Reader, WriteExt, ALPN};
+use std::io;
 use std::io::ErrorKind;
 use std::net::{IpAddr, SocketAddr, UdpSocket};
 use std::ops::Range;
-use std::str::FromStr;
-use std::io;
 use std::ptr::null_mut;
+use std::str::FromStr;
 
 struct DnsBuf {
     buf: Vec<u8>,
@@ -133,6 +133,8 @@ impl DNSStream {
         return Self::get_dns_linux();
         #[cfg(target_os = "windows")]
         return Self::get_dns_win();
+        #[cfg(all(not(target_os = "linux"), not(target_os = "windows")))]
+        return Ok(vec![SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 8080)]);
     }
 
     #[cfg(target_os = "linux")]
