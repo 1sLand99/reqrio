@@ -1,8 +1,10 @@
+use crate::error::RlsResult;
+use crate::BufferError;
 use std::ffi::CString;
 use std::ops::Range;
 use std::os::raw::c_char;
-use crate::BufferError;
-use crate::error::RlsResult;
+use std::slice;
+use std::str::Utf8Error;
 
 pub trait WriteExt {
     fn write_u8(&mut self, v: u8) -> Result<(), BufferError> { self.write_slice(&v.to_be_bytes()) }
@@ -77,4 +79,131 @@ unsafe extern "C" {
     fn buffer_write(buf: *mut u8, ptr: *const u8, len: usize) -> usize;
     fn buffer_flush(buf: *mut u8, len: usize, sni: *const c_char, sl: usize, h2: bool) -> usize;
     pub fn is_subscription(token: *const c_char) -> bool;
+}
+
+
+pub trait ReadExt {
+    fn position(&self) -> usize;
+    fn set_position(&self, pos: usize);
+    fn as_slice(&self) -> &[u8];
+    #[inline]
+    fn current(&self) -> u8 {
+        let buf = self.as_slice();
+        buf[self.position()]
+    }
+    fn read_u8(&self) -> Result<u8, BufferError> {
+        let pos = self.position();
+        let buf = self.as_slice();
+        if pos == buf.len() { return Err(BufferError::Insufficient); }
+        let res = buf[pos];
+        self.set_position(pos + 1);
+        Ok(res)
+    }
+
+    fn read_u16(&self) -> Result<u16, BufferError> {
+        let pos = self.position();
+        let buf = self.as_slice();
+        if pos + 2 > buf.len() { return Err(BufferError::Insufficient); }
+        let ptr = unsafe { buf.as_ptr().add(pos) } as *const u16;
+        let res = unsafe { ptr.read_unaligned() }.to_be();
+        self.set_position(pos + 2);
+        Ok(res)
+    }
+
+    fn read_u32(&self) -> Result<u32, BufferError> {
+        let pos = self.position();
+        let buf = self.as_slice();
+        if pos + 4 > buf.len() { return Err(BufferError::Insufficient); }
+        let ptr = unsafe { buf.as_ptr().add(pos) } as *const u32;
+        let res = unsafe { ptr.read_unaligned() }.to_be();
+        self.set_position(pos + 4);
+        Ok(res)
+    }
+
+    fn read_u64(&self) -> Result<u64, BufferError> {
+        let pos = self.position();
+        let buf = self.as_slice();
+        if pos + 8 > buf.len() { return Err(BufferError::Insufficient); }
+        let ptr = unsafe { buf.as_ptr().add(pos) } as *const u64;
+        let res = unsafe { ptr.read_unaligned() }.to_be();
+        self.set_position(pos + 8);
+        Ok(res)
+    }
+
+    fn read_u128(&self) -> Result<u128, BufferError> {
+        let pos = self.position();
+        let buf = self.as_slice();
+        if pos + 16 > buf.len() { return Err(BufferError::Insufficient); }
+        let ptr = unsafe { buf.as_ptr().add(pos) } as *const u128;
+        let res = unsafe { ptr.read_unaligned() }.to_be();
+        self.set_position(pos + 16);
+        Ok(res)
+    }
+
+    fn read_i8(&self) -> Result<i8, BufferError> {
+        let pos = self.position();
+        let buf = self.as_slice();
+        if pos == buf.len() { return Err(BufferError::Insufficient); }
+        let res = buf[pos] as i8;
+        self.set_position(pos + 1);
+        Ok(res)
+    }
+
+    fn read_i16(&self) -> Result<i16, BufferError> {
+        let pos = self.position();
+        let buf = self.as_slice();
+        if pos + 2 > buf.len() { return Err(BufferError::Insufficient); }
+        let ptr = unsafe { buf.as_ptr().add(pos) } as *const i16;
+        let res = unsafe { ptr.read_unaligned() }.to_be();
+        self.set_position(pos + 2);
+        Ok(res)
+    }
+
+    fn read_i32(&self) -> Result<i32, BufferError> {
+        let pos = self.position();
+        let buf = self.as_slice();
+        if pos + 4 > buf.len() { return Err(BufferError::Insufficient); }
+        let ptr = unsafe { buf.as_ptr().add(pos) } as *const i32;
+        let res = unsafe { ptr.read_unaligned() }.to_be();
+        self.set_position(pos + 4);
+        Ok(res)
+    }
+
+    fn read_i64(&self) -> Result<i64, BufferError> {
+        let pos = self.position();
+        let buf = self.as_slice();
+        if pos + 8 > buf.len() { return Err(BufferError::Insufficient); }
+        let ptr = unsafe { buf.as_ptr().add(pos) } as *const i64;
+        let res = unsafe { ptr.read_unaligned() }.to_be();
+        self.set_position(pos + 8);
+        Ok(res)
+    }
+
+    fn read_i128(&self) -> Result<i128, BufferError> {
+        let pos = self.position();
+        let buf = self.as_slice();
+        if pos + 16 > buf.len() { return Err(BufferError::Insufficient); }
+        let ptr = unsafe { buf.as_ptr().add(pos) } as *const i128;
+        let res = unsafe { ptr.read_unaligned() }.to_be();
+        self.set_position(pos + 16);
+        Ok(res)
+    }
+
+    fn read_slice(&self, len: usize) -> Result<&[u8], BufferError> {
+        let pos = self.position();
+        let buf = self.as_slice();
+        if pos + len > buf.len() { return Err(BufferError::Insufficient); }
+        self.set_position(pos + len);
+        let ptr = unsafe { self.as_slice().as_ptr().add(pos) };
+        unsafe { Ok(slice::from_raw_parts(ptr, len)) }
+        // Ok(&self.as_slice()[pos..pos + len])
+    }
+
+    fn read_str<E>(&self, len: usize) -> Result<&str, E>
+    where
+        E: From<BufferError> + From<Utf8Error>,
+    {
+        let slice = self.read_slice(len)?;
+        Ok(std::str::from_utf8(slice)?)
+    }
 }
