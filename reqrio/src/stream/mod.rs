@@ -112,6 +112,7 @@ impl Stream {
                 Ok(ALPN::Http11)
             }
             Scheme::Https | Scheme::Wss => {
+                let t = crate::Time::now_mills().unwrap();
                 let tls_stream = SyncStream::connect(ClientConfig {
                     sni: param.addr.host(),
                     alpn: param.alpn,
@@ -121,6 +122,7 @@ impl Stream {
                     verify: param.verify,
                     ca_certs: param.ca_cert,
                 }, stream)?;
+                println!("TLS TIME: {}", crate::Time::now_mills().unwrap() - t);
                 let alpn = tls_stream.alpn().map(|x| ALPN::from_slice(x.as_bytes())).unwrap_or(ALPN::Http11);
                 *self = Stream::SyncHttps(tls_stream);
                 Ok(alpn)

@@ -13,7 +13,7 @@ async fn main() {
     // let key = RsaKey::from_pri_pem_file("/home/xl/1/client.key").unwrap();
     let mut req = AcReq::new()
         .with_fingerprint(Fingerprint::random("-").unwrap())
-        .with_alpn(ALPN::Http11)
+        .with_alpn(ALPN::Http20)
         .with_timeout(timeout)
         .with_verify(false)
         // .with_mtls(certs, key)
@@ -103,7 +103,8 @@ async fn main() {
         tABt:false,
     };
     req.set_auto_redirect(false);
-    let res = req.get("https://m.so.com".params(params.clone()), None).await.unwrap();
+    let res = req.get("https://m.so.com", None).await.unwrap();
+    // let res = req.get("https://cloudflare-dns.com/dns-query?name=_https.crypto.cloudflare.com&type=HTTPS", None).await.unwrap();
     // let res = req.get("https://tools.usps.com/go/TrackConfirmAction".params(params), None).await.unwrap();
     println!("{}", res.header());
     println!("{}", res.text().unwrap());

@@ -6,7 +6,8 @@ use std::io::ErrorKind;
 use std::net::{IpAddr, SocketAddr, UdpSocket};
 use std::ops::Range;
 use std::str::FromStr;
-use std::{fs, io};
+use std::io;
+use std::ptr::null_mut;
 
 struct DnsBuf {
     buf: Vec<u8>,
@@ -90,6 +91,29 @@ pub struct DNSStream {
 
 }
 
+#[cfg(target_os = "windows")]
+#[repr(C)]
+struct IpAddrString {
+    next: *mut IpAddrString,
+    ip_address: [u8; 16],
+    ip_mask: [u8; 16],
+    context: u32,
+}
+
+#[cfg(target_os = "windows")]
+#[repr(C)]
+struct FixedInfo {
+    host_name: [u8; 128 + 4],
+    domain_name: [u8; 128 + 4],
+    current_dns_server: *mut IpAddrString,
+    dns_server_list: IpAddrString,
+}
+
+#[cfg(target_os = "windows")]
+#[link(name = "iphlpapi")]
+unsafe extern "system" {
+    fn GetNetworkParams(p_fixed_info: *mut u8, p_out_buf_len: *mut u32) -> u32;
+}
 
 impl DNSStream {
     pub fn new() -> Result<DNSStream, DNSError> {
@@ -105,14 +129,15 @@ impl DNSStream {
     }
 
     fn get_dns_addr() -> Result<Vec<SocketAddr>, DNSError> {
-        if cfg!(target_os = "linux") {
-            Self::get_dns_linux()
-        } else { todo!() }
+        #[cfg(target_os = "linux")]
+        return Self::get_dns_linux();
+        #[cfg(target_os = "windows")]
+        return Self::get_dns_win();
     }
 
     #[cfg(target_os = "linux")]
     fn get_dns_linux() -> Result<Vec<SocketAddr>, DNSError> {
-        let resolv = fs::read_to_string("/etc/resolv.conf").map_err(|_| DNSError::FindDnsAddrFailed)?.replace("\r\n", "\n");
+        let resolv = std::fs::read_to_string("/etc/resolv.conf").map_err(|_| DNSError::FindDnsAddrFailed)?.replace("\r\n", "\n");
         let mut res = vec![];
         for line in resolv.split("\n") {
             if !line.starts_with("nameserver") { continue; }
@@ -122,6 +147,26 @@ impl DNSStream {
             res.push(SocketAddr::new(addr, 53))
         }
         Ok(res)
+    }
+
+    #[cfg(target_os = "windows")]
+    fn get_dns_win() -> Result<Vec<SocketAddr>, DNSError> {
+        let mut len = 0;
+        unsafe { GetNetworkParams(null_mut(), &mut len); }
+        let mut buffer = vec![0; len as usize];
+        unsafe { GetNetworkParams(buffer.as_mut_ptr(), &mut len) };
+        let info = unsafe { (buffer.as_ptr() as *const FixedInfo).as_ref() }.ok_or(DNSError::FindDnsAddrFailed)?;
+        let mut curr = &info.dns_server_list as *const IpAddrString;
+        let mut addrs = vec![];
+        while !curr.is_null() {
+            if let Some(ptr) = unsafe { curr.as_ref() } && let Some(addr) = ptr.ip_address.split(|x| x == &0).next() && !addr.is_empty() {
+                let addr = std::str::from_utf8(addr)?;
+                let addr = IpAddr::from_str(addr).map_err(|_| DNSError::FindDnsAddrFailed)?;
+                addrs.push(SocketAddr::new(addr, 53));
+            }
+            unsafe { curr = (*curr).next; }
+        }
+        Ok(addrs)
     }
 
     fn read(&mut self) -> Result<usize, DNSError> {
@@ -157,7 +202,7 @@ impl DNSStream {
             }).unwrap_or(vec![]);
             let mut addrs = params.iter().find(|x| x.key == SvcType::IPV4).map(|x| {
                 x.values.iter().filter_map(|x| if let SvcParamValue::IPV4(addr) = x {
-                    Some(IpAddr::V4(addr.clone()))
+                    Some(IpAddr::V4(*addr))
                 } else { None }).collect::<Vec<IpAddr>>()
             }).unwrap_or(vec![]);
             if let Some(x) = params.iter().find(|x| x.key == SvcType::IPV6) {
@@ -166,7 +211,7 @@ impl DNSStream {
                 })
             }
             let echo = params.iter().find(|x| x.key == SvcType::ECHO).map(|x|
-                if let Some(value) = x.values.iter().next() && let SvcParamValue::ECHO(x) = value {
+                if let Some(value) = x.values.first() && let SvcParamValue::ECHO(x) = value {
                     x.to_vec()
                 } else { vec![] }
             ).unwrap_or(vec![]);
