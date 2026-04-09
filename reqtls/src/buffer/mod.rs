@@ -6,10 +6,12 @@ mod error;
 use crate::ffi::CPointer;
 pub use decode::RecordDecodeBuffer;
 pub use encode::RecordEncodeBuffer;
-use std::fmt::{Debug, Formatter};
-use std::slice;
-pub use ext::WriteExt;
 pub use error::BufferError;
+pub use ext::{ReadExt, WriteExt};
+use std::cell::Cell;
+use std::fmt::{Debug, Formatter};
+use std::ops::{Index, Range, RangeFrom};
+use std::slice;
 
 pub enum Buf<'a> {
     Ptr(BufPtr),
@@ -91,4 +93,76 @@ impl Debug for BufPtr {
     }
 }
 
+pub struct Reader<'a> {
+    buf: Buf<'a>,
+    pos: Cell<usize>,
+}
 
+impl<'a> Reader<'a> {
+    pub fn from_slice(buf: &'a [u8]) -> Self {
+        Self { buf: Buf::Ref(buf), pos: Cell::new(0) }
+    }
+
+    pub fn from_vec(buf: Vec<u8>) -> Self {
+        Self { buf: Buf::Vec(buf), pos: Cell::new(0) }
+    }
+
+    pub fn with_position(self, pos: usize) -> Self {
+        self.pos.set(pos);
+        self
+    }
+}
+
+impl<'a> From<&'a [u8]> for Reader<'a> {
+    fn from(buf: &'a [u8]) -> Self {
+        Self::from_slice(buf)
+    }
+}
+
+impl<'a> From<&'a Vec<u8>> for Reader<'a> {
+    fn from(buf: &'a Vec<u8>) -> Self {
+        Self::from_slice(buf.as_slice())
+    }
+}
+
+impl<'a> From<Vec<u8>> for Reader<'a> {
+    fn from(buf: Vec<u8>) -> Self {
+        Self::from_vec(buf)
+    }
+}
+
+impl<'a> ReadExt for Reader<'a> {
+    fn position(&self) -> usize {
+        self.pos.get()
+    }
+
+    fn set_position(&self, pos: usize) {
+        self.pos.set(pos);
+    }
+
+    fn as_slice(&self) -> &[u8] {
+        self.buf.as_ref()
+    }
+}
+
+
+impl<'a> Index<usize> for Reader<'a> {
+    type Output = u8;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.buf.as_ref()[index]
+    }
+}
+
+impl<'a> Index<Range<usize>> for Reader<'a> {
+    type Output = [u8];
+    fn index(&self, index: Range<usize>) -> &Self::Output {
+        &self.buf.as_ref()[index]
+    }
+}
+
+impl<'a> Index<RangeFrom<usize>> for Reader<'a> {
+    type Output = [u8];
+    fn index(&self, index: RangeFrom<usize>) -> &Self::Output {
+        &self.buf.as_ref()[index]
+    }
+}

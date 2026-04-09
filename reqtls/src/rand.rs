@@ -163,6 +163,15 @@ impl RandomValue for u8 {
     }
 }
 
+impl RandomValue for u16 {
+    #[inline(always)]
+    fn random(rng: &mut CryptRand) -> Self {
+        let mut res = 0u16;
+        rng.fill_bytes(bytemuck::bytes_of_mut(&mut res));
+        res
+    }
+}
+
 impl RandomValue for f64 {
     #[inline(always)]
     fn random(rng: &mut CryptRand) -> f64 {

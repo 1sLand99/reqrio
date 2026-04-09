@@ -212,10 +212,3 @@ impl WriteExt for Buffer {
         self.buffer.capacity()
     }
 }
-
-impl Drop for Buffer {
-    fn drop(&mut self) {
-        self.buffer.clear();
-        self.buffer.shrink_to_fit();
-    }
-}

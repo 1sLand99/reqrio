@@ -1,0 +1,263 @@
+use super::{DNSError, SvcParamValue, SvcType, DNS};
+use crate::dns::add::Additional;
+use crate::dns::value::{DNSValue, DnsType};
+use crate::{rand, Reader, WriteExt, ALPN};
+use std::io;
+use std::io::ErrorKind;
+use std::net::{IpAddr, SocketAddr, UdpSocket};
+use std::ops::Range;
+use std::ptr::null_mut;
+use std::str::FromStr;
+
+struct DnsBuf {
+    buf: Vec<u8>,
+    len: usize,
+}
+
+impl DnsBuf {
+    fn new(capacity: usize) -> DnsBuf {
+        DnsBuf {
+            buf: vec![0; capacity],
+            len: 0,
+        }
+    }
+
+    fn filled(&self) -> &[u8] {
+        &self.buf[..self.len]
+    }
+}
+
+impl WriteExt for DnsBuf {
+    fn as_ptr(&self) -> *const u8 {
+        self.buf.as_ptr()
+    }
+
+    fn as_mut_ptr(&mut self) -> *mut u8 {
+        self.buf.as_mut_ptr()
+    }
+
+    fn add_len(&mut self, len: usize) {
+        self.len += len;
+    }
+
+    fn offset(&self) -> Range<usize> {
+        0..self.len
+    }
+
+    fn capacity(&self) -> usize {
+        self.buf.capacity()
+    }
+}
+
+#[derive(Debug)]
+pub struct DNSCache {
+    addrs: Vec<IpAddr>,
+    alpn: Vec<ALPN>,
+    echo: Vec<u8>,
+    time: u64,
+}
+
+impl DNSCache {
+    pub fn addrs(&self) -> &Vec<IpAddr> {
+        &self.addrs
+    }
+
+    pub fn set_addrs(&mut self, addrs: Vec<IpAddr>) {
+        self.addrs = addrs;
+    }
+
+    pub fn into_addrs(self) -> Vec<IpAddr> { self.addrs }
+
+    pub fn alpn(&self) -> &Vec<ALPN> {
+        &self.alpn
+    }
+
+    pub fn echo(&self) -> &Vec<u8> {
+        &self.echo
+    }
+
+    pub fn time(&self) -> u64 { self.time }
+
+    pub fn set_time(&mut self, time: u64) {
+        self.time = time;
+    }
+}
+
+pub struct DNSStream {
+    dns_addr: SocketAddr,
+    conn: UdpSocket,
+    write_buf: DnsBuf,
+    read_buf: Vec<u8>,
+
+}
+
+#[cfg(target_os = "windows")]
+#[repr(C)]
+struct IpAddrString {
+    next: *mut IpAddrString,
+    ip_address: [u8; 16],
+    ip_mask: [u8; 16],
+    context: u32,
+}
+
+#[cfg(target_os = "windows")]
+#[repr(C)]
+struct FixedInfo {
+    host_name: [u8; 128 + 4],
+    domain_name: [u8; 128 + 4],
+    current_dns_server: *mut IpAddrString,
+    dns_server_list: IpAddrString,
+}
+
+#[cfg(target_os = "windows")]
+#[link(name = "iphlpapi")]
+unsafe extern "system" {
+    fn GetNetworkParams(p_fixed_info: *mut u8, p_out_buf_len: *mut u32) -> u32;
+}
+
+impl DNSStream {
+    pub fn new() -> Result<DNSStream, DNSError> {
+        let dns_addr = Self::get_dns_addr()?.into_iter().next().ok_or(DNSError::FindDnsAddrFailed)?;
+        let conn = UdpSocket::bind("0.0.0.0:0").map_err(|_| DNSError::BindDnsAddrFailed)?;
+        // conn.set_read_timeout(Some(Duration::from_millis(100))).map_err(DNSError::DnsIoError)?;
+        Ok(DNSStream {
+            dns_addr,
+            conn,
+            write_buf: DnsBuf::new(256),
+            read_buf: vec![0; 2048],
+        })
+    }
+
+    fn get_dns_addr() -> Result<Vec<SocketAddr>, DNSError> {
+        #[cfg(target_os = "linux")]
+        return Self::get_dns_linux();
+        #[cfg(target_os = "windows")]
+        return Self::get_dns_win();
+        #[cfg(all(not(target_os = "linux"), not(target_os = "windows")))]
+        return Ok(vec![SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 8080)]);
+    }
+
+    #[cfg(target_os = "linux")]
+    fn get_dns_linux() -> Result<Vec<SocketAddr>, DNSError> {
+        let resolv = std::fs::read_to_string("/etc/resolv.conf").map_err(|_| DNSError::FindDnsAddrFailed)?.replace("\r\n", "\n");
+        let mut res = vec![];
+        for line in resolv.split("\n") {
+            if !line.starts_with("nameserver") { continue; }
+            let mut ip = line.split(" ");
+            let _ = ip.next();
+            let addr = IpAddr::from_str(ip.next().ok_or(DNSError::FindDnsAddrFailed)?).map_err(|_| DNSError::FindDnsAddrFailed)?;
+            res.push(SocketAddr::new(addr, 53))
+        }
+        Ok(res)
+    }
+
+    #[cfg(target_os = "windows")]
+    fn get_dns_win() -> Result<Vec<SocketAddr>, DNSError> {
+        let mut len = 0;
+        unsafe { GetNetworkParams(null_mut(), &mut len); }
+        let mut buffer = vec![0; len as usize];
+        unsafe { GetNetworkParams(buffer.as_mut_ptr(), &mut len) };
+        let info = unsafe { (buffer.as_ptr() as *const FixedInfo).as_ref() }.ok_or(DNSError::FindDnsAddrFailed)?;
+        let mut curr = &info.dns_server_list as *const IpAddrString;
+        let mut addrs = vec![];
+        while !curr.is_null() {
+            if let Some(ptr) = unsafe { curr.as_ref() } && let Some(addr) = ptr.ip_address.split(|x| x == &0).next() && !addr.is_empty() {
+                let addr = std::str::from_utf8(addr)?;
+                let addr = IpAddr::from_str(addr).map_err(|_| DNSError::FindDnsAddrFailed)?;
+                addrs.push(SocketAddr::new(addr, 53));
+            }
+            unsafe { curr = (*curr).next; }
+        }
+        Ok(addrs)
+    }
+
+    fn read(&mut self) -> Result<usize, DNSError> {
+        for _ in 0..3 {
+            match self.conn.recv(&mut self.read_buf) {
+                Ok(len) => return Ok(len),
+                Err(e) => if e.kind() == ErrorKind::WouldBlock {
+                    println!("{:?}", e);
+                    continue;
+                } else { return Err(DNSError::DnsIoError(e)) }
+            }
+        }
+        Err(DNSError::DnsIoError(io::Error::new(ErrorKind::TimedOut, "read timeout")))
+    }
+
+    pub fn get_dns_https(&mut self, domain: &str) -> Result<DNSCache, DNSError> {
+        self.write_buf.len = 0;
+        let cookie = rand::random::<[u8; 8]>();
+        let add = Additional::new_opt(&cookie);
+        let mut dns = DNS::new_query_https(domain);
+        dns.add_additional(add);
+        dns.write_to(&mut self.write_buf)?;
+        self.conn.send_to(self.write_buf.filled(), self.dns_addr).map_err(DNSError::DnsIoError)?;
+        let len = self.read()?;
+        let reader = Reader::from_slice(&self.read_buf[..len]);
+        let dns = DNS::from_bytes(&reader)?;
+        let answer = dns.answers().iter().find(|x| x.type_() == DnsType::HTTPS);
+        let (alpn, addrs, echo) = if let Some(answer) = answer && let DNSValue::Https { params, .. } = answer.data() {
+            let alpn = params.iter().find(|x| x.key == SvcType::ALPN).map(|x| {
+                x.values.iter().filter_map(|x| if let SvcParamValue::ALPN(alpn) = x {
+                    Some(ALPN::from_slice(alpn.as_bytes()))
+                } else { None }).collect::<Vec<ALPN>>()
+            }).unwrap_or(vec![]);
+            let mut addrs = params.iter().find(|x| x.key == SvcType::IPV4).map(|x| {
+                x.values.iter().filter_map(|x| if let SvcParamValue::IPV4(addr) = x {
+                    Some(IpAddr::V4(*addr))
+                } else { None }).collect::<Vec<IpAddr>>()
+            }).unwrap_or(vec![]);
+            if let Some(x) = params.iter().find(|x| x.key == SvcType::IPV6) {
+                x.values.iter().for_each(|x| if let SvcParamValue::IPV6(addr) = x {
+                    addrs.push(IpAddr::V6(*addr))
+                })
+            }
+            let echo = params.iter().find(|x| x.key == SvcType::ECHO).map(|x|
+                if let Some(value) = x.values.first() && let SvcParamValue::ECHO(x) = value {
+                    x.to_vec()
+                } else { vec![] }
+            ).unwrap_or(vec![]);
+            (alpn, addrs, echo)
+        } else { (vec![], vec![], vec![]) };
+        Ok(DNSCache {
+            alpn,
+            addrs,
+            echo,
+            time: 0,
+        })
+    }
+
+    pub fn get_dns_a(&mut self, domain: &str) -> Result<DNSCache, DNSError> {
+        self.write_buf.len = 0;
+        let dns = DNS::new_query_a(domain);
+        dns.write_to(&mut self.write_buf)?;
+        self.conn.send_to(self.write_buf.filled(), self.dns_addr).map_err(DNSError::DnsIoError)?;
+        let len = self.read()?;
+        let reader = Reader::from_slice(&self.read_buf[..len]);
+        let dns = DNS::from_bytes(&reader)?;
+        let addrs = dns.answers.iter().filter_map(|x| if x.type_() == DnsType::A && let DNSValue::A(addr) = x.data() {
+            Some(IpAddr::V4(*addr))
+        } else { None }).collect::<Vec<IpAddr>>();
+        Ok(DNSCache {
+            addrs,
+            alpn: vec![],
+            echo: vec![],
+            time: 0,
+        })
+    }
+}
+
+
+#[cfg(test)]
+mod test {
+    use crate::dns::stream::DNSStream;
+
+    #[test]
+    fn test_https_dns() {
+        let mut stream = DNSStream::new().unwrap();
+        let dns = stream.get_dns_https("crypto.cloudflare.com").unwrap();
+        println!("{:#?}", dns);
+        let dns = stream.get_dns_a("m.so.com").unwrap();
+        println!("{:#?}", dns);
+    }
+}

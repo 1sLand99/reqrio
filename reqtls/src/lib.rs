@@ -267,6 +267,7 @@ mod url;
 #[cfg(feature = "export")]
 mod export;
 mod buffer;
+mod dns;
 
 pub use alpn::ALPN;
 pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner, certificate::CertStore, certificate::CertType, certificate::Certificate, certificate::DnType, certificate::KeyIdentifier,
@@ -275,7 +276,7 @@ pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, 
                  CipherType, Padding, RsaCipher,
                  RsaKey,
                  RsaPadding, SignatureAlgorithm};
-pub use buffer::{WriteExt, BufferError};
+pub use buffer::{WriteExt, BufferError, Reader, ReadExt};
 pub use connection::Connection;
 pub use error::RlsError;
 pub use extend::{formats::EcPointFormat, group::GroupType, CompressionType, Extension, ExtensionType, SupportVersions};

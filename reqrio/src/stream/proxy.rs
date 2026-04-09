@@ -154,7 +154,9 @@ impl ProxyStream<std::net::TcpStream> {
         Ok(stream)
     }
     pub fn sync_connect(proxy: &Proxy, peer_addr: &Addr, timeout: &Timeout) -> HlsResult<ProxyStream<std::net::TcpStream>> {
+        let t = crate::Time::now_mills().unwrap();
         let addr = proxy.socket_addr(peer_addr)?;
+        println!("DNS TIME: {}", crate::Time::now_mills().unwrap() - t);
         let mut stream = ProxyStream::create_sync(&addr, timeout)?;
         let mut buffer = Buffer::with_capacity(1024);
         for i in 0..4 {
