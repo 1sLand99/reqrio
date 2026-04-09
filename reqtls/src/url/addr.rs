@@ -1,19 +1,15 @@
+use crate::dns::{DNSCache, DNSStream};
 use crate::error::RlsResult;
 use crate::url::UrlError;
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::net::{Ipv4Addr, SocketAddr, ToSocketAddrs};
+use std::net::{Ipv4Addr, SocketAddr};
 use std::str::FromStr;
-use std::sync::{LazyLock, RwLock};
+use std::sync::{Arc, LazyLock, RwLock};
 use std::time::SystemTime;
-use std::vec::IntoIter;
 
-static DNS: LazyLock<RwLock<HashMap<String, DNSCache>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
+static DNS: LazyLock<RwLock<HashMap<String, Arc<DNSCache>>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
 
-struct DNSCache {
-    route: IntoIter<SocketAddr>,
-    time: u64,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Addr {
@@ -62,17 +58,21 @@ impl Addr {
         self.host = host.to_string();
     }
 
-    fn get_dns(&self) -> RlsResult<IntoIter<SocketAddr>> {
-        let addr = self.to_string().to_socket_addrs()?;
-        let mut dns_write = DNS.write()?;
+    fn get_dns(&self) -> RlsResult<Arc<DNSCache>> {
+        let mut stream = DNSStream::new()?;
+        let mut cache = stream.get_dns_https(&self.host)?;
+        if cache.addrs().is_empty() {
+            let a = stream.get_dns_a(&self.host)?;
+            cache.set_addrs(a.into_addrs());
+        }
         let t = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_secs();
-        dns_write.insert(self.host.clone(), DNSCache {
-            route: addr.clone(),
-            time: t,
-        });
-        Ok(addr)
+        cache.set_time(t);
+        let cache = Arc::new(cache);
+        let mut dns_write = DNS.write()?;
+        dns_write.insert(self.host.clone(), cache.clone());
+        Ok(cache)
     }
-    pub fn socket_addr(&self) -> RlsResult<IntoIter<SocketAddr>> {
+    pub fn get_dns_cache(&self) -> RlsResult<Arc<DNSCache>> {
         let dns_read = DNS.read()?;
         match dns_read.get(&self.host) {
             None => {
@@ -81,26 +81,24 @@ impl Addr {
             }
             Some(dns) => {
                 let t = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_secs();
-                if t - dns.time > 30 * 60 {
+                if t - dns.time() > 30 * 60 {
                     drop(dns_read);
                     self.get_dns()
                 } else {
-                    Ok(dns.route.clone())
+                    Ok(dns.clone())
                 }
             }
         }
     }
 
     pub fn socket_addr_v4(&self) -> RlsResult<SocketAddr> {
-        let mut addr = self.socket_addr()?.find(|x| x.is_ipv4()).ok_or(UrlError::MissingIpv4SocketAddr)?;
-        addr.set_port(self.port);
-        Ok(addr)
+        let addr = *self.get_dns_cache()?.addrs().iter().find(|x| x.is_ipv4()).ok_or(UrlError::MissingIpv4SocketAddr)?;
+        Ok(SocketAddr::new(addr, self.port))
     }
 
     pub fn socket_addr_v6(&self) -> RlsResult<SocketAddr> {
-        let mut addr = self.socket_addr()?.find(|x| x.is_ipv6()).ok_or(UrlError::MissingIpv6SocketAddr)?;
-        addr.set_port(self.port);
-        Ok(addr)
+        let addr = *self.get_dns_cache()?.addrs().iter().find(|x| x.is_ipv6()).ok_or(UrlError::MissingIpv6SocketAddr)?;
+        Ok(SocketAddr::new(addr, self.port))
     }
 
     pub fn to_bits(&self) -> RlsResult<u32> {

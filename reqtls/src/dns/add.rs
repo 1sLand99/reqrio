@@ -1,26 +1,10 @@
 use crate::buffer::ReadExt;
 use crate::dns::error::DNSError;
 use crate::dns::{DNSClass, DNSValue, DnsType, Domain};
-use crate::Reader;
+use crate::{BufferError, Reader, WriteExt};
 use std::fmt::Debug;
 
-#[derive(Debug)]
-struct AddZ {
-    do_bit: u8,
-    reserved: u16,
-}
-
-impl AddZ {
-    pub fn from_u16(v: u16) -> AddZ {
-        AddZ {
-            do_bit: (v >> 15) as u8,
-            reserved: v & 0x7FFF,
-        }
-    }
-}
-
-#[derive(Debug)]
-struct AddOptionCode(u16);
+pub struct AddOptionCode(u16);
 
 impl AddOptionCode {
     const COOKIE: u16 = 0x000a;
@@ -33,30 +17,53 @@ impl AddOptionCode {
     }
 }
 
-enum AddOption {
-    Cookie(Vec<u8>),
-    Reserved(Vec<u8>),
+impl Debug for AddOptionCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(0x{:x})", self.spec(), self.0)
+    }
 }
 
-impl AddOption {
-    fn from_bytes(bytes: &[u8]) -> AddOption {
-        let code = AddOptionCode(u16::from_be_bytes([bytes[0], bytes[1]]));
-        let len = u16::from_be_bytes([bytes[2], bytes[3]]) as usize;
-        match code.0 {
-            AddOptionCode::COOKIE => AddOption::Cookie(bytes[4..4 + len].to_vec()),
-            _ => AddOption::Reserved(bytes[4..len].to_vec()),
-        }
+impl From<u16> for AddOptionCode {
+    fn from(code: u16) -> Self {
+        AddOptionCode(code)
     }
+}
 
+pub enum AddOption<'a> {
+    Cookie(&'a [u8]),
+    Reserved(&'a [u8]),
+}
+
+impl<'a> AddOption<'a> {
     pub fn len(&self) -> usize {
         4 + match self {
             AddOption::Cookie(v) => v.len(),
             AddOption::Reserved(v) => v.len()
         }
     }
+
+    pub fn from_bytes(reader: &'a Reader) -> Result<AddOption<'a>, DNSError> {
+        let code: AddOptionCode = reader.read_u16()?.into();
+        let len = reader.read_u16()? as usize;
+        match code.0 {
+            AddOptionCode::COOKIE => Ok(AddOption::Cookie(reader.read_slice(len)?)),
+            _ => Ok(AddOption::Reserved(reader.read_slice(len)?)),
+        }
+    }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        match self {
+            AddOption::Cookie(v) => {
+                writer.write_u16(AddOptionCode::COOKIE)?;
+                writer.write_u16(v.len() as u16)?;
+                writer.write_slice(v)
+            }
+            AddOption::Reserved(_) => unimplemented!()
+        }
+    }
 }
 
-impl Debug for AddOption {
+impl<'a> Debug for AddOption<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AddOption::Cookie(v) => write!(f, "Cookie({})", hex::encode(v)),
@@ -66,6 +73,7 @@ impl Debug for AddOption {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Additional<'a> {
     name: Domain<'a>,
     type_: DnsType,
@@ -76,9 +84,19 @@ pub struct Additional<'a> {
 }
 
 impl<'a> Additional<'a> {
+    pub fn new_opt(cookie: &'a [u8]) -> Additional<'a> {
+        Additional {
+            name: Domain::new(""),
+            type_: DnsType::OPT.into(),
+            class: DNSClass(4096),
+            live_sec: 0,
+            data_len: 0,
+            data: DNSValue::OPT(AddOption::Cookie(cookie)),
+        }
+    }
+
     pub fn from_bytes(reader: &'a Reader<'a>) -> Result<Additional<'a>, DNSError> {
         let name = Domain::from_bytes(reader)?;
-        println!("{:?}", &reader[reader.position()..]);
         let type_: DnsType = reader.read_u16()?.into();
         let class: DNSClass = reader.read_u16()?.into();
         let live_sec = reader.read_u32()?;
@@ -92,5 +110,14 @@ impl<'a> Additional<'a> {
             data_len,
             data,
         })
+    }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        self.name.write_to(writer)?;
+        writer.write_u16(self.type_.into_inner())?;
+        writer.write_u16(self.class.into_inner())?;
+        writer.write_u32(self.live_sec, false)?;
+        writer.write_u16(self.data.len() as u16)?;
+        self.data.write_to(writer)
     }
 }

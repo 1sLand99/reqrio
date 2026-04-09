@@ -3,154 +3,23 @@ mod add;
 mod query;
 mod answer;
 mod authoritative;
+mod stream;
+mod domain;
+mod value;
 
-use crate::{BufferError, Reader};
+use crate::buffer::ReadExt;
+use crate::{rand, BufferError, Reader, WriteExt};
 use add::Additional;
-use error::DNSError;
+use answer::DNSAnswer;
+use authoritative::Authoritative;
+use domain::Domain;
+pub use error::DNSError;
 use query::DNSQuery;
 use std::fmt::{Debug, Formatter};
 use std::net::{Ipv4Addr, Ipv6Addr};
-use std::ops::Range;
-use crate::buffer::ReadExt;
-use crate::dns::answer::DNSAnswer;
-use crate::dns::authoritative::Authoritative;
+pub use stream::{DNSCache, DNSStream};
+use value::{DNSValue, DnsType};
 
-
-pub struct Offset {
-    start: usize,
-    end: usize,
-}
-
-impl Offset {
-    pub fn new(start: usize, end: usize) -> Offset {
-        Offset { start, end }
-    }
-
-    pub fn new_end(offset: usize) -> Offset {
-        Offset::new(0, offset)
-    }
-
-    pub fn take(&mut self, size: usize) -> Range<usize> {
-        let res = self.start..self.start + size;
-        self.add(size);
-        res
-    }
-
-    pub fn add(&mut self, size: usize) {
-        self.start += size;
-    }
-
-    pub fn current(&self) -> usize {
-        self.start
-    }
-
-    pub fn next(&mut self) -> usize {
-        let res = self.current();
-        self.add(1);
-        res
-    }
-}
-
-
-struct Domain<'a>(Vec<&'a str>);
-
-impl<'a> Domain<'a> {
-    pub fn from_bytes<'b: 'a>(reader: &'b Reader<'a>) -> Result<Domain<'a>, DNSError> {
-        let mut names = Vec::with_capacity(100);
-        let mut pos = reader.position();
-        while reader.current() != 0 {
-            match reader.current() >> 6 == 0b11 {
-                true => {
-                    let read_pos = reader.read_u16()? as usize & 0b0011_1111_1111_1111;
-                    if reader.position() - 2 == pos { pos += 2; }
-                    reader.set_position(read_pos);
-                    // pos += 2;
-                }
-                _ => {
-                    let len = reader.read_u8()? as usize;
-                    let item = reader.read_str::<DNSError>(len)?;
-                    if reader.position() > pos {
-                        pos += 1 + item.len();
-                    }
-                    names.push(item);
-                }
-            }
-        }
-        if reader.position() < pos {
-            reader.set_position(pos);
-        } else { reader.set_position(reader.position() + 1) }
-        Ok(Domain(names))
-    }
-}
-impl<'a> Debug for Domain<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for (i, item) in self.0.iter().enumerate() {
-            write!(f, "{}", item)?;
-            if i < self.0.len() - 1 { write!(f, ".")? }
-        }
-        Ok(())
-    }
-}
-
-
-struct DnsType(u16);
-
-impl DnsType {
-    ///Host Address
-    const A: u16 = 0x0001;
-    /// Authoritative name server
-    const NS: u16 = 0x0002;
-    ///Canonical Name
-    const CNAME: u16 = 0x0005;
-    ///Start of a zone of authority
-    const SOA: u16 = 0x0006;
-    ///Domain name PoinTeR
-    const PTR: u16 = 0x000c;
-    ///IPv6 Address
-    const AAAA: u16 = 0x001c;
-    ///
-    const OPT: u16 = 0x0029;
-    ///Https specific service endpoints
-    const HTTPS: u16 = 0x0041;
-
-
-    pub fn as_u16(&self) -> u16 {
-        self.0
-    }
-
-
-    fn spec(&self) -> &str {
-        match self.0 {
-            DnsType::A => "A",
-            DnsType::NS => "NS",
-            DnsType::CNAME => "CNAME",
-            DnsType::SOA => "SOA",
-            DnsType::PTR => "PTR",
-            DnsType::AAAA => "AAAA",
-            DnsType::OPT => "OPT",
-            DnsType::HTTPS => "HTTPS",
-            _ => "Reserved"
-        }
-    }
-}
-
-impl Debug for DnsType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}(0x{:x})", self.spec(), self.0)
-    }
-}
-
-impl From<&[u8]> for DnsType {
-    fn from(bytes: &[u8]) -> Self {
-        DnsType(u16::from_be_bytes([bytes[0], bytes[1]]))
-    }
-}
-
-impl From<u16> for DnsType {
-    fn from(value: u16) -> Self {
-        DnsType(value)
-    }
-}
 
 struct SvcType(u16);
 
@@ -183,8 +52,14 @@ impl Debug for SvcType {
     }
 }
 
+impl PartialEq<u16> for SvcType {
+    fn eq(&self, other: &u16) -> bool {
+        &self.0 == other
+    }
+}
+
 #[derive(Debug)]
-enum SvcParamValue<'a> {
+pub enum SvcParamValue<'a> {
     ALPN(&'a str),
     IPV4(Ipv4Addr),
     ECHO(&'a [u8]),
@@ -192,23 +67,19 @@ enum SvcParamValue<'a> {
 }
 
 #[derive(Debug)]
-struct SvcParam<'a> {
+#[allow(dead_code)]
+pub struct SvcParam<'a> {
     key: SvcType,
     len: u16,
     values: Vec<SvcParamValue<'a>>,
 }
 
 impl<'a> SvcParam<'a> {
-    pub fn parsing(&self) -> usize {
-        4 + self.len as usize
-    }
-
     fn from_bytes(reader: &'a Reader<'a>) -> Result<SvcParam<'a>, DNSError> {
         let key: SvcType = reader.read_u16()?.into();
         let parse_len = reader.read_u16()?;
         let mut value_len = parse_len as usize;
         let mut values = vec![];
-        println!("{:?}", key);
         while value_len > 0 {
             let value = match key.0 {
                 SvcType::ALPN => {
@@ -243,70 +114,6 @@ impl<'a> SvcParam<'a> {
     }
 }
 
-#[derive(Debug)]
-enum DNSValue<'a> {
-    A(Ipv4Addr),
-    NS(Domain<'a>),
-    CName(Domain<'a>),
-    SOA {
-        primary_name: Domain<'a>,
-        authority: Domain<'a>,
-        serial_number: u32,
-        refresh_interval: u32,
-        retry_interval: u32,
-        expire_limit: u32,
-        min_ttl: u32,
-    },
-    AAAA(Ipv6Addr),
-    OPT,
-    HTTPS {
-        priority: u16,
-        target: Domain<'a>,
-        params: Vec<SvcParam<'a>>,
-    },
-}
-
-impl<'a> DNSValue<'a> {
-    pub fn from_bytes(type_: &DnsType, reader: &'a Reader<'a>, len: usize) -> Result<Self, DNSError> {
-        match type_.as_u16() {
-            DnsType::A => Ok(DNSValue::A(Ipv4Addr::from_octets(reader.read_slice(4)?.try_into().map_err(DNSError::SliceError)?))),
-            DnsType::NS => Ok(DNSValue::NS(Domain::from_bytes(reader)?)),
-            DnsType::CNAME => Ok(DNSValue::CName(Domain::from_bytes(reader)?)),
-            DnsType::SOA => {
-                let primary_name = Domain::from_bytes(reader)?;
-                let authority = Domain::from_bytes(reader)?;
-                Ok(DNSValue::SOA {
-                    primary_name,
-                    authority,
-                    serial_number: reader.read_u32()?,
-                    refresh_interval: reader.read_u32()?,
-                    retry_interval: reader.read_u32()?,
-                    expire_limit: reader.read_u32()?,
-                    min_ttl: reader.read_u32()?,
-                })
-            }
-            DnsType::AAAA => Ok(DNSValue::AAAA(Ipv6Addr::from_octets(reader.read_slice(16)?.try_into().map_err(DNSError::SliceError)?))),
-            DnsType::OPT => Ok(DNSValue::OPT),
-            DnsType::HTTPS => {
-                let start = reader.position();
-                let priority = reader.read_u16()?;
-                let target = Domain::from_bytes(reader)?;
-                let mut params = vec![];
-                while reader.position() < start + len {
-                    println!("111={:x?}", &reader[reader.position()..]);
-                    let param = SvcParam::from_bytes(reader)?;
-                    params.push(param);
-                }
-                Ok(DNSValue::HTTPS {
-                    priority,
-                    target,
-                    params,
-                })
-            }
-            _ => Err(DNSError::UnknownDNSValue(type_.as_u16()))
-        }
-    }
-}
 
 struct ReplyCode(u8);
 
@@ -365,6 +172,19 @@ impl DNSFlag {
             reply_code: (bytes[1] & 0b1111).into(),
         }
     }
+
+    pub fn into_u16(self) -> u16 {
+        (self.resp as u16) << 15 |
+            (self.opcode as u16) << 11 |
+            (self.authoritative as u16) << 10 |
+            (self.truncated as u16) << 9 |
+            (self.recursion_desired as u16) << 8 |
+            (self.recursion_available as u16) << 7 |
+            (self.z as u16) << 6 |
+            (self.answer_authenticated as u16) << 5 |
+            (self.non_authenticated as u16) << 4 |
+            (self.reply_code.0 as u16)
+    }
 }
 
 struct DNSClass(u16);
@@ -378,6 +198,8 @@ impl DNSClass {
             _ => "Reserved"
         }
     }
+
+    pub fn into_inner(self) -> u16 { self.0 }
 }
 
 impl From<&[u8]> for DNSClass {
@@ -400,6 +222,7 @@ impl Debug for DNSClass {
 
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct DNS<'a> {
     //transaction ID
     tid: u16,
@@ -415,6 +238,63 @@ pub struct DNS<'a> {
 }
 
 impl<'a> DNS<'a> {
+    pub fn new_query_https(domain: &'a str) -> DNS<'a> {
+        DNS {
+            tid: rand::random(),
+            flag: DNSFlag {
+                resp: false,
+                opcode: 0,
+                authoritative: false,
+                truncated: false,
+                recursion_desired: true,
+                recursion_available: false,
+                z: false,
+                answer_authenticated: true,
+                non_authenticated: false,
+                reply_code: ReplyCode(0),
+            },
+            questions: 1,
+            answer: 0,
+            authority: 0,
+            additional: 0,
+            queries: vec![DNSQuery::new_query(DnsType::HTTPS, domain)],
+            answers: vec![],
+            authorities: vec![],
+            adds: vec![],
+        }
+    }
+
+    pub fn new_query_a(domain: &'a str) -> DNS<'a> {
+        DNS {
+            tid: rand::random(),
+            flag: DNSFlag {
+                resp: false,
+                opcode: 0,
+                authoritative: false,
+                truncated: false,
+                recursion_desired: true,
+                recursion_available: false,
+                z: false,
+                answer_authenticated: false,
+                non_authenticated: false,
+                reply_code: ReplyCode::NO_ERROR.into(),
+            },
+            questions: 1,
+            answer: 0,
+            authority: 0,
+            additional: 0,
+            queries: vec![DNSQuery::new_query(DnsType::A, domain)],
+            answers: vec![],
+            authorities: vec![],
+            adds: vec![],
+        }
+    }
+
+    pub fn add_additional(&mut self, add: Additional<'a>) {
+        self.additional += 1;
+        self.adds.push(add);
+    }
+
     pub fn from_bytes(reader: &'a Reader<'a>) -> Result<DNS<'a>, DNSError> {
         if reader.as_slice().len() < 12 { return Err(DNSError::Buffer(BufferError::Insufficient)); }
         let tid = reader.read_u16()?;
@@ -471,13 +351,32 @@ impl<'a> DNS<'a> {
             adds,
         })
     }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u16(self.tid)?;
+        writer.write_u16(self.flag.into_u16())?;
+        writer.write_u16(self.questions)?;
+        writer.write_u16(self.answer)?;
+        writer.write_u16(self.authority)?;
+        writer.write_u16(self.additional)?;
+        for query in self.queries {
+            query.write_to(writer)?;
+        }
+        for add in self.adds {
+            add.write_to(writer)?;
+        }
+        Ok(())
+    }
+
+    pub fn answers(&self) -> &Vec<DNSAnswer<'a>> {
+        &self.answers
+    }
 }
 
 
 #[cfg(test)]
 mod tests {
     use crate::dns::DNS;
-    use crate::Reader;
 
     #[test]
     fn test_query() {
@@ -519,6 +418,11 @@ mod tests {
         println!("{:#?}", dns);
 
         let data = "5867818000010001000500150663727970746f0a636c6f7564666c61726503636f6d0000410001c00c004100010000025800850001000001000302683200040008a29f874fa29f884f000500470045fe0d00414100200020901a4dfdb98bc0fd103a31dfe1bb4e5a7822ebc5ef49351ce4bd9469e7b1ce630004000100010012636c6f7564666c6172652d6563682e636f6d000000060020260647000007000000000000a29f874f260647000007000000000000a29f884fc01300020001000002010006036e7335c013c01300020001000002010006036e7333c013c01300020001000002010006036e7334c013c01300020001000002010006036e7336c013c01300020001000002010006036e7337c013c0d6000100010000008f0004a29f0021c0d6000100010000008f0004a29f07e2c0c400010001000001270004a29f0209c0c400010001000001270004a29f0937c0e8000100010000005b0004a29f0121c0e8000100010000005b0004a29f0837c0fa00010001000001e00004a29f030bc0fa00010001000001e00004a29f0506c10c00010001000000d70004a29f0408c10c00010001000000d70004a29f0606c0d6001c0001000001df00102400cb002049000100000000a29f0021c0d6001c0001000001df00102400cb002049000100000000a29f07e2c0c4001c00010000012700102400cb002049000100000000a29f0209c0c4001c00010000012700102400cb002049000100000000a29f0937c0e8001c00010000005b00102400cb002049000100000000a29f0121c0e8001c00010000005b00102400cb002049000100000000a29f0837c0fa001c0001000001df00102400cb002049000100000000a29f030bc0fa001c0001000001df00102400cb002049000100000000a29f0506c10c001c0001000000d700102400cb002049000100000000a29f0408c10c001c0001000000d700102400cb002049000100000000a29f060600002904d0000000000000";
+        let bytes = hex::decode(data).unwrap().into();
+        let dns = DNS::from_bytes(&bytes).unwrap();
+        println!("{:#?}", dns);
+
+        let data = "3c4a81800001000100000000036170690667697468756203636f6d0000010001c00c000100010000017c000414cdf3a8";
         let bytes = hex::decode(data).unwrap().into();
         let dns = DNS::from_bytes(&bytes).unwrap();
         println!("{:#?}", dns);

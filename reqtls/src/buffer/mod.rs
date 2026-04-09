@@ -93,7 +93,6 @@ impl Debug for BufPtr {
     }
 }
 
-
 pub struct Reader<'a> {
     buf: Buf<'a>,
     pos: Cell<usize>,

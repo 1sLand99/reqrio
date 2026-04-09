@@ -3,7 +3,6 @@ use crate::BufferError;
 use std::ffi::CString;
 use std::ops::Range;
 use std::os::raw::c_char;
-use std::slice;
 use std::str::Utf8Error;
 
 pub trait WriteExt {
@@ -194,9 +193,7 @@ pub trait ReadExt {
         let buf = self.as_slice();
         if pos + len > buf.len() { return Err(BufferError::Insufficient); }
         self.set_position(pos + len);
-        let ptr = unsafe { self.as_slice().as_ptr().add(pos) };
-        unsafe { Ok(slice::from_raw_parts(ptr, len)) }
-        // Ok(&self.as_slice()[pos..pos + len])
+        Ok(&self.as_slice()[pos..pos + len])
     }
 
     fn read_str<E>(&self, len: usize) -> Result<&str, E>

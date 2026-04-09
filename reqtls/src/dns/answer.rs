@@ -5,6 +5,7 @@ use std::fmt::Debug;
 
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct DNSAnswer<'a> {
     name: Domain<'a>,
     type_: DnsType,
@@ -16,9 +17,7 @@ pub struct DNSAnswer<'a> {
 
 impl<'a> DNSAnswer<'a> {
     pub fn from_bytes(reader: &'a Reader<'a>) -> Result<DNSAnswer<'a>, DNSError> {
-        println!("{:x?}", &reader[reader.position()..]);
         let name = Domain::from_bytes(reader).unwrap();
-        println!("{:?}", name);
         let type_: DnsType = reader.read_u16()?.into();
         let class: DNSClass = reader.read_u16()?.into();
         let live_sec = reader.read_u32()?;
@@ -34,5 +33,13 @@ impl<'a> DNSAnswer<'a> {
             data,
 
         })
+    }
+
+    pub fn type_(&self) -> &DnsType {
+        &self.type_
+    }
+
+    pub fn data(&self) -> &DNSValue<'a> {
+        &self.data
     }
 }

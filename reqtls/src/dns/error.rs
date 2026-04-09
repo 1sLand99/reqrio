@@ -1,6 +1,7 @@
 use std::array::TryFromSliceError;
 use std::error::Error;
 use std::fmt::Display;
+use std::io;
 use std::str::Utf8Error;
 use crate::BufferError;
 
@@ -12,6 +13,9 @@ pub enum DNSError {
     UnknownDNSValue(u16),
     UnknownSvcType(u16),
     SliceError(TryFromSliceError),
+    FindDnsAddrFailed,
+    BindDnsAddrFailed,
+    DnsIoError(io::Error),
 }
 
 impl Display for DNSError {

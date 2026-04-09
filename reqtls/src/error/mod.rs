@@ -16,6 +16,7 @@ use std::string::FromUtf8Error;
 use std::sync::PoisonError;
 use std::time::SystemTimeError;
 pub use handshake::HandShakeError;
+use crate::dns::DNSError;
 use crate::hash::HashError;
 
 #[derive(Debug)]
@@ -97,6 +98,7 @@ pub enum RlsError {
     Currently(String),
     Alert(Alert),
     HasherError(HashError),
+    DNSError(DNSError),
 }
 
 impl Display for RlsError {
@@ -179,6 +181,7 @@ impl Display for RlsError {
             RlsError::Alert(alert) => write!(f, "Alert({})", alert.desc()),
             RlsError::Currently(e) => f.write_str(e),
             RlsError::HasherError(e) => write!(f, "Hasher({})", e),
+            RlsError::DNSError(e) => write!(f, "DNSError({:?})", e),
         }
     }
 }
@@ -297,6 +300,12 @@ impl From<HandShakeError> for RlsError {
 impl From<HashError> for RlsError {
     fn from(value: HashError) -> Self {
         RlsError::HasherError(value)
+    }
+}
+
+impl From<DNSError> for RlsError {
+    fn from(value: DNSError) -> Self {
+        RlsError::DNSError(value)
     }
 }
 
