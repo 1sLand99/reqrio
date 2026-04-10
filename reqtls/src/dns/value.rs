@@ -98,14 +98,14 @@ pub enum DNSValue<'a> {
     Null,
 }
 
-impl<'a> DNSValue<'a> {
+impl<'b, 'a: 'b> DNSValue<'a> {
     pub fn len(&self) -> usize {
         if let DNSValue::OPT(value) = self {
             value.len()
         } else { unreachable!() }
     }
 
-    pub fn from_bytes(type_: &DnsType, reader: &'a Reader<'a>, len: usize) -> Result<Self, DNSError> {
+    pub fn from_bytes(type_: &DnsType, reader: &'b Reader<'a>, len: usize) -> Result<Self, DNSError> {
         if len == 0 { return Ok(DNSValue::Null); }
         match type_.as_u16() {
             DnsType::A => Ok(DNSValue::A(Ipv4Addr::from_octets(reader.read_slice(4)?.try_into().map_err(DNSError::SliceError)?))),
@@ -126,7 +126,6 @@ impl<'a> DNSValue<'a> {
             }
             DnsType::AAAA => Ok(DNSValue::AAAA(Ipv6Addr::from_octets(reader.read_slice(16)?.try_into().map_err(DNSError::SliceError)?))),
             DnsType::OPT => {
-                println!("22={:?}", &reader[reader.position()..]);
                 Ok(DNSValue::OPT(AddOption::from_bytes(reader)?))
             }
             DnsType::HTTPS => {

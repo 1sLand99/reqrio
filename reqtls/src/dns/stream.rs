@@ -1,11 +1,12 @@
 use super::{DNSError, SvcParamValue, SvcType, DNS};
 use crate::dns::add::Additional;
 use crate::dns::value::{DNSValue, DnsType};
-use crate::{rand, Reader, WriteExt, ALPN};
+use crate::{rand, WriteExt, ALPN};
 use std::io;
 use std::io::ErrorKind;
 use std::net::{IpAddr, SocketAddr, UdpSocket};
 use std::ops::Range;
+#[cfg(target_os = "windows")]
 use std::ptr::null_mut;
 use std::str::FromStr;
 
@@ -193,8 +194,7 @@ impl DNSStream {
         dns.write_to(&mut self.write_buf)?;
         self.conn.send_to(self.write_buf.filled(), self.dns_addr).map_err(DNSError::DnsIoError)?;
         let len = self.read()?;
-        let reader = Reader::from_slice(&self.read_buf[..len]);
-        let dns = DNS::from_bytes(&reader)?;
+        let dns = DNS::from_bytes(&self.read_buf[..len])?;
         let answer = dns.answers().iter().find(|x| x.type_() == DnsType::HTTPS);
         let (alpn, addrs, echo) = if let Some(answer) = answer && let DNSValue::Https { params, .. } = answer.data() {
             let alpn = params.iter().find(|x| x.key == SvcType::ALPN).map(|x| {
@@ -233,8 +233,7 @@ impl DNSStream {
         dns.write_to(&mut self.write_buf)?;
         self.conn.send_to(self.write_buf.filled(), self.dns_addr).map_err(DNSError::DnsIoError)?;
         let len = self.read()?;
-        let reader = Reader::from_slice(&self.read_buf[..len]);
-        let dns = DNS::from_bytes(&reader)?;
+        let dns = DNS::from_bytes(&self.read_buf[..len])?;
         let addrs = dns.answers.iter().filter_map(|x| if x.type_() == DnsType::A && let DNSValue::A(addr) = x.data() {
             Some(IpAddr::V4(*addr))
         } else { None }).collect::<Vec<IpAddr>>();

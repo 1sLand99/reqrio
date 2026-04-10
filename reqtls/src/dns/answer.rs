@@ -15,15 +15,14 @@ pub struct DNSAnswer<'a> {
     data: DNSValue<'a>,
 }
 
-impl<'a> DNSAnswer<'a> {
-    pub fn from_bytes(reader: &'a Reader<'a>) -> Result<DNSAnswer<'a>, DNSError> {
-        let name = Domain::from_bytes(reader).unwrap();
+impl<'b, 'a: 'b> DNSAnswer<'a> {
+    pub fn from_bytes(reader: &'b Reader<'a>) -> Result<DNSAnswer<'a>, DNSError> {
+        let name = Domain::from_bytes(reader)?;
         let type_: DnsType = reader.read_u16()?.into();
         let class: DNSClass = reader.read_u16()?.into();
         let live_sec = reader.read_u32()?;
         let data_len = reader.read_u16()?;
         let data = DNSValue::from_bytes(&type_, reader, data_len as usize)?;
-
         Ok(DNSAnswer {
             name,
             type_,

@@ -81,10 +81,10 @@ unsafe extern "C" {
 }
 
 
-pub trait ReadExt {
+pub trait ReadExt<'a> {
     fn position(&self) -> usize;
     fn set_position(&self, pos: usize);
-    fn as_slice(&self) -> &[u8];
+    fn as_slice(&self) -> &'a [u8];
     #[inline]
     fn current(&self) -> u8 {
         let buf = self.as_slice();
@@ -188,7 +188,7 @@ pub trait ReadExt {
         Ok(res)
     }
 
-    fn read_slice(&self, len: usize) -> Result<&[u8], BufferError> {
+    fn read_slice(&self, len: usize) -> Result<&'a [u8], BufferError> {
         let pos = self.position();
         let buf = self.as_slice();
         if pos + len > buf.len() { return Err(BufferError::Insufficient); }
@@ -196,7 +196,7 @@ pub trait ReadExt {
         Ok(&self.as_slice()[pos..pos + len])
     }
 
-    fn read_str<E>(&self, len: usize) -> Result<&str, E>
+    fn read_str<E>(&self, len: usize) -> Result<&'a str, E>
     where
         E: From<BufferError> + From<Utf8Error>,
     {

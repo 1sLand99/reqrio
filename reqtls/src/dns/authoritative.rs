@@ -13,14 +13,14 @@ pub struct Authoritative<'a> {
     data: DNSValue<'a>,
 }
 
-impl<'a> Authoritative<'a> {
-    pub fn from_bytes(reader: &'a Reader<'a>) -> Result<Authoritative<'a>, DNSError> {
+impl<'b, 'a: 'b> Authoritative<'a> {
+    pub fn from_bytes(reader: &'b Reader<'a>) -> Result<Authoritative<'a>, DNSError> {
         let name = Domain::from_bytes(reader)?;
         let type_ = reader.read_u16()?.into();
         let class = reader.read_u16()?.into();
         let live_sec = reader.read_u32()?;
         let data_len = reader.read_u16()?;
-        let data = DNSValue::from_bytes(&type_, reader,data_len as usize)?;
+        let data = DNSValue::from_bytes(&type_, reader, data_len as usize)?;
 
         Ok(Authoritative {
             name,

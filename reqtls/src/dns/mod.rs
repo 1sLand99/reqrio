@@ -74,8 +74,8 @@ pub struct SvcParam<'a> {
     values: Vec<SvcParamValue<'a>>,
 }
 
-impl<'a> SvcParam<'a> {
-    fn from_bytes(reader: &'a Reader<'a>) -> Result<SvcParam<'a>, DNSError> {
+impl<'b, 'a: 'b> SvcParam<'a> {
+    fn from_bytes(reader: &'b Reader<'a>) -> Result<SvcParam<'a>, DNSError> {
         let key: SvcType = reader.read_u16()?.into();
         let parse_len = reader.read_u16()?;
         let mut value_len = parse_len as usize;
@@ -295,7 +295,8 @@ impl<'a> DNS<'a> {
         self.adds.push(add);
     }
 
-    pub fn from_bytes(reader: &'a Reader<'a>) -> Result<DNS<'a>, DNSError> {
+    pub fn from_bytes(reader: &'a [u8]) -> Result<DNS<'a>, DNSError> {
+        let reader = Reader::from_slice(reader);
         if reader.as_slice().len() < 12 { return Err(DNSError::Buffer(BufferError::Insufficient)); }
         let tid = reader.read_u16()?;
         let flag = DNSFlag::from_bytes(&reader[2..4]);
@@ -309,14 +310,14 @@ impl<'a> DNS<'a> {
         //query
         let mut queries = vec![];
         for _ in 0..questions {
-            let query = DNSQuery::from_bytes(reader)?;
+            let query = DNSQuery::from_bytes(&reader)?;
             queries.push(query);
         }
 
         //answer
         let mut answers = vec![];
         for _ in 0..answer {
-            let answer = DNSAnswer::from_bytes(reader)?;
+            let answer = DNSAnswer::from_bytes(&reader)?;
             answers.push(answer)
         }
 
@@ -324,7 +325,7 @@ impl<'a> DNS<'a> {
         let mut authorities = vec![];
 
         for _ in 0..authority {
-            let authority = Authoritative::from_bytes(reader)?;
+            let authority = Authoritative::from_bytes(&reader)?;
             authorities.push(authority)
         }
         //add
@@ -332,12 +333,10 @@ impl<'a> DNS<'a> {
 
         for _ in 0..additional {
             // println!("222={:x?}", &reader[reader.position()..]);
-            let add = Additional::from_bytes(reader)?;
+            let add = Additional::from_bytes(&reader)?;
             // println!("{:#?}", add);
             adds.push(add)
         }
-
-
         Ok(DNS {
             tid,
             flag,
@@ -382,25 +381,25 @@ mod tests {
     fn test_query() {
         //https
         let data = "809f012000010000000000010663727970746f0a636c6f7564666c61726503636f6d0000410001000029100000000000000c000a00081b51b2e252f509b3";
-        let bytes = hex::decode(data).unwrap().into();
+        let bytes = hex::decode(data).unwrap();
         let dns = DNS::from_bytes(&bytes).unwrap();
         println!("{:#?}", dns);
 
         //A (Host Address)
         let data = "937801000001000000000000127870617977616c6c657463646e2d70726f6409617a75726565646765036e65740000010001";
-        let bytes = hex::decode(data).unwrap().into();
+        let bytes = hex::decode(data).unwrap();
         let dns = DNS::from_bytes(&bytes).unwrap();
         println!("{:#?}", dns);
 
         //AAAA (IPv6 Address)
         let data = "717d01000001000000000000127870617977616c6c657463646e2d70726f6409617a75726565646765036e657400001c0001";
-        let bytes = hex::decode(data).unwrap().into();
+        let bytes = hex::decode(data).unwrap();
         let dns = DNS::from_bytes(&bytes).unwrap();
         println!("{:#?}", dns);
 
         //PTR
         let data = "49130100000100000000000002313903313732033136380331393207696e2d61646472046172706100000c0001";
-        let bytes = hex::decode(data).unwrap().into();
+        let bytes = hex::decode(data).unwrap();
         let dns = DNS::from_bytes(&bytes).unwrap();
         println!("{:#?}", dns);
     }
@@ -408,22 +407,22 @@ mod tests {
     #[test]
     fn test_dns() {
         let data = "fcd98180000100020001000002636e0462696e6703636f6d0000410001c00c0005000100000258002709636e62696e672d636e0462696e6703636f6d0e747261666669636d616e61676572036e657400c02900050001000002580013056368696e610762696e6731323303636f6d00c0620006000100000020004d066e73312d303409617a7572652d646e7303636f6d0013617a757265646e732d686f73746d6173746572096d6963726f736f667403636f6d000000000100000e100000012c0024ea000000012c";
-        let bytes = hex::decode(data).unwrap().into();
+        let bytes = hex::decode(data).unwrap();
         let dns = DNS::from_bytes(&bytes).unwrap();
         println!("{:#?}", dns);
 
         let data = "eb1481800001000a000200070b6c66332d63646e2d746f73076279746573636d03636f6d0000010001c00c000500010000025800290b6c66332d63646e2d746f73076279746573636d03636f6d017709616c696b756e6c756e03636f6d00c035000500010000025800260b6c66332d63646e2d746f73076279746573636d03636f6d087175656e6975756603636f6d00c06a000100010000025800047ce10e2bc06a000100010000025800047ce10e2dc06a000100010000025800047ce10e2ec06a000100010000025800047ce10e2cc06a000100010000025800047ce10e2fc06a000100010000025800047ce10e2ac06a000100010000025800047ce10e31c06a00010001000002580004b703cd0b087175656e6975756603636f6d00000200010000019f0016067669706e7334097175656e6975646e7303636f6d00c110000200010000019f0016067669706e7334097175656e6975646e73036e657400c12800010001000001ee000408842278c12800010001000001ee0004088ff1f9c12800010001000001ee00042f768ab8c14a000100010000005e000408898ecbc14a000100010000005e0004089327b8c14a000100010000005e00042f78e238c128001c0001000001ee00102408400a101000000000000000001111";
-        let bytes = hex::decode(data).unwrap().into();
+        let bytes = hex::decode(data).unwrap();
         let dns = DNS::from_bytes(&bytes).unwrap();
         println!("{:#?}", dns);
 
         let data = "5867818000010001000500150663727970746f0a636c6f7564666c61726503636f6d0000410001c00c004100010000025800850001000001000302683200040008a29f874fa29f884f000500470045fe0d00414100200020901a4dfdb98bc0fd103a31dfe1bb4e5a7822ebc5ef49351ce4bd9469e7b1ce630004000100010012636c6f7564666c6172652d6563682e636f6d000000060020260647000007000000000000a29f874f260647000007000000000000a29f884fc01300020001000002010006036e7335c013c01300020001000002010006036e7333c013c01300020001000002010006036e7334c013c01300020001000002010006036e7336c013c01300020001000002010006036e7337c013c0d6000100010000008f0004a29f0021c0d6000100010000008f0004a29f07e2c0c400010001000001270004a29f0209c0c400010001000001270004a29f0937c0e8000100010000005b0004a29f0121c0e8000100010000005b0004a29f0837c0fa00010001000001e00004a29f030bc0fa00010001000001e00004a29f0506c10c00010001000000d70004a29f0408c10c00010001000000d70004a29f0606c0d6001c0001000001df00102400cb002049000100000000a29f0021c0d6001c0001000001df00102400cb002049000100000000a29f07e2c0c4001c00010000012700102400cb002049000100000000a29f0209c0c4001c00010000012700102400cb002049000100000000a29f0937c0e8001c00010000005b00102400cb002049000100000000a29f0121c0e8001c00010000005b00102400cb002049000100000000a29f0837c0fa001c0001000001df00102400cb002049000100000000a29f030bc0fa001c0001000001df00102400cb002049000100000000a29f0506c10c001c0001000000d700102400cb002049000100000000a29f0408c10c001c0001000000d700102400cb002049000100000000a29f060600002904d0000000000000";
-        let bytes = hex::decode(data).unwrap().into();
+        let bytes = hex::decode(data).unwrap();
         let dns = DNS::from_bytes(&bytes).unwrap();
         println!("{:#?}", dns);
 
         let data = "3c4a81800001000100000000036170690667697468756203636f6d0000010001c00c000100010000017c000414cdf3a8";
-        let bytes = hex::decode(data).unwrap().into();
+        let bytes = hex::decode(data).unwrap();
         let dns = DNS::from_bytes(&bytes).unwrap();
         println!("{:#?}", dns);
     }

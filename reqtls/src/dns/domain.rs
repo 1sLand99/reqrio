@@ -5,12 +5,12 @@ use crate::{BufferError, Reader, WriteExt};
 
 pub struct Domain<'a>(Vec<&'a str>);
 
-impl<'a> Domain<'a> {
+impl<'b, 'a: 'b> Domain<'a> {
     pub fn new(domain: &'a str) -> Self {
         Domain(if domain.is_empty() { vec![] } else { domain.split(".").collect() })
     }
 
-    pub fn from_bytes<'b: 'a>(reader: &'b Reader<'a>) -> Result<Domain<'a>, DNSError> {
+    pub fn from_bytes(reader: &'b Reader<'a>) -> Result<Domain<'a>, DNSError> {
         let mut names = Vec::with_capacity(100);
         let mut pos = reader.position();
         while reader.current() != 0 {

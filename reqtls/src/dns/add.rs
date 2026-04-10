@@ -34,7 +34,7 @@ pub enum AddOption<'a> {
     Reserved(&'a [u8]),
 }
 
-impl<'a> AddOption<'a> {
+impl<'b, 'a: 'b> AddOption<'a> {
     pub fn len(&self) -> usize {
         4 + match self {
             AddOption::Cookie(v) => v.len(),
@@ -42,7 +42,7 @@ impl<'a> AddOption<'a> {
         }
     }
 
-    pub fn from_bytes(reader: &'a Reader) -> Result<AddOption<'a>, DNSError> {
+    pub fn from_bytes(reader: &'b Reader<'a>) -> Result<AddOption<'a>, DNSError> {
         let code: AddOptionCode = reader.read_u16()?.into();
         let len = reader.read_u16()? as usize;
         match code.0 {
@@ -83,7 +83,7 @@ pub struct Additional<'a> {
     data: DNSValue<'a>,
 }
 
-impl<'a> Additional<'a> {
+impl<'b, 'a: 'b> Additional<'a> {
     pub fn new_opt(cookie: &'a [u8]) -> Additional<'a> {
         Additional {
             name: Domain::new(""),
@@ -95,7 +95,7 @@ impl<'a> Additional<'a> {
         }
     }
 
-    pub fn from_bytes(reader: &'a Reader<'a>) -> Result<Additional<'a>, DNSError> {
+    pub fn from_bytes(reader: &'b Reader<'a>) -> Result<Additional<'a>, DNSError> {
         let name = Domain::from_bytes(reader)?;
         let type_: DnsType = reader.read_u16()?.into();
         let class: DNSClass = reader.read_u16()?.into();

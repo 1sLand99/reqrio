@@ -94,17 +94,13 @@ impl Debug for BufPtr {
 }
 
 pub struct Reader<'a> {
-    buf: Buf<'a>,
+    buf: &'a [u8],
     pos: Cell<usize>,
 }
 
 impl<'a> Reader<'a> {
     pub fn from_slice(buf: &'a [u8]) -> Self {
-        Self { buf: Buf::Ref(buf), pos: Cell::new(0) }
-    }
-
-    pub fn from_vec(buf: Vec<u8>) -> Self {
-        Self { buf: Buf::Vec(buf), pos: Cell::new(0) }
+        Self { buf, pos: Cell::new(0) }
     }
 
     pub fn with_position(self, pos: usize) -> Self {
@@ -125,13 +121,7 @@ impl<'a> From<&'a Vec<u8>> for Reader<'a> {
     }
 }
 
-impl<'a> From<Vec<u8>> for Reader<'a> {
-    fn from(buf: Vec<u8>) -> Self {
-        Self::from_vec(buf)
-    }
-}
-
-impl<'a> ReadExt for Reader<'a> {
+impl<'a> ReadExt<'a> for Reader<'a> {
     fn position(&self) -> usize {
         self.pos.get()
     }
@@ -140,8 +130,8 @@ impl<'a> ReadExt for Reader<'a> {
         self.pos.set(pos);
     }
 
-    fn as_slice(&self) -> &[u8] {
-        self.buf.as_ref()
+    fn as_slice(&self) -> &'a [u8] {
+        self.buf
     }
 }
 
@@ -149,20 +139,20 @@ impl<'a> ReadExt for Reader<'a> {
 impl<'a> Index<usize> for Reader<'a> {
     type Output = u8;
     fn index(&self, index: usize) -> &Self::Output {
-        &self.buf.as_ref()[index]
+        &self.buf[index]
     }
 }
 
 impl<'a> Index<Range<usize>> for Reader<'a> {
     type Output = [u8];
     fn index(&self, index: Range<usize>) -> &Self::Output {
-        &self.buf.as_ref()[index]
+        &self.buf[index]
     }
 }
 
 impl<'a> Index<RangeFrom<usize>> for Reader<'a> {
     type Output = [u8];
     fn index(&self, index: RangeFrom<usize>) -> &Self::Output {
-        &self.buf.as_ref()[index]
+        &self.buf[index]
     }
 }
