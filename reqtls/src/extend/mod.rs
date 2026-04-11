@@ -23,12 +23,13 @@ mod client_hello;
 mod certificate;
 mod psk_key;
 mod pre_share_key;
+pub mod ech;
 
 use crate::error::RlsResult;
 pub use crate::extend::certificate::CompressionType;
 use crate::extend::pre_share_key::PreSharedKey;
 use crate::{BufferError, Version, WriteExt};
-pub use client_hello::Aead;
+pub use ech::Aead;
 pub use status::StatusRequest;
 
 #[derive(PartialEq, Clone)]

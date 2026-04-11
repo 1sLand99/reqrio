@@ -16,6 +16,8 @@ pub enum DNSError {
     FindDnsAddrFailed,
     BindDnsAddrFailed,
     DnsIoError(io::Error),
+    UnknownAead,
+    UnknownKDF
 }
 
 impl Display for DNSError {

@@ -1,6 +1,7 @@
 use super::{DNSError, SvcParamValue, SvcType, DNS};
 use crate::dns::add::Additional;
 use crate::dns::value::{DNSValue, DnsType};
+use crate::extend::ech::EchConfig;
 use crate::{rand, WriteExt, ALPN};
 use std::io;
 use std::io::ErrorKind;
@@ -54,7 +55,7 @@ impl WriteExt for DnsBuf {
 pub struct DNSCache {
     addrs: Vec<IpAddr>,
     alpn: Vec<ALPN>,
-    echo: Vec<u8>,
+    echo: EchConfig,
     time: u64,
 }
 
@@ -73,7 +74,7 @@ impl DNSCache {
         &self.alpn
     }
 
-    pub fn echo(&self) -> &Vec<u8> {
+    pub fn echo(&self) -> &EchConfig {
         &self.echo
     }
 
@@ -212,13 +213,13 @@ impl DNSStream {
                     addrs.push(IpAddr::V6(*addr))
                 })
             }
-            let echo = params.iter().find(|x| x.key == SvcType::ECHO).map(|x|
-                if let Some(value) = x.values.first() && let SvcParamValue::ECHO(x) = value {
-                    x.to_vec()
-                } else { vec![] }
-            ).unwrap_or(vec![]);
+            let echo = params.iter().find(|x| x.key == SvcType::ECHO);
+            let echo = if let Some(echo) = echo && let Some(value) = echo.values.first() && let SvcParamValue::ECHO(x) = value {
+                println!("{:?}", x);
+                EchConfig::from_bytes(&x[2..])?
+            } else { EchConfig::new() };
             (alpn, addrs, echo)
-        } else { (vec![], vec![], vec![]) };
+        } else { (vec![], vec![], EchConfig::new()) };
         Ok(DNSCache {
             alpn,
             addrs,
@@ -240,11 +241,13 @@ impl DNSStream {
         Ok(DNSCache {
             addrs,
             alpn: vec![],
-            echo: vec![],
+            echo: EchConfig::new(),
             time: 0,
         })
     }
 }
+
+
 
 
 #[cfg(test)]
