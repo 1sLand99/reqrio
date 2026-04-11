@@ -268,6 +268,9 @@ mod url;
 mod export;
 mod buffer;
 mod dns;
+mod hkdf;
+mod key_schedule;
+mod derived;
 
 pub use alpn::ALPN;
 pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner, certificate::CertStore, certificate::CertType, certificate::Certificate, certificate::DnType, certificate::KeyIdentifier,

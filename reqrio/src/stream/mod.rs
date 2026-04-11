@@ -183,7 +183,7 @@ pub trait TlsStreamHandle {
         let len = client_hello.write_to(buffer, 1)?;
         buffer.set_len(len);
 
-        let mut conn = Connection::default().with_client_random(client_random)
+        let mut conn = Connection::from_client(client_random)
             .with_verify(config.verify);
         conn.update_session(&buffer.filled()[5..])?;
         Ok(conn)

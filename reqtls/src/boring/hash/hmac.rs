@@ -41,6 +41,13 @@ impl Hmac {
         unsafe { HMAC_Final(self.ctx.as_mut_ptr(), self.buf.as_mut_ptr(), &mut self.len) }.ok(HashError::HmacFinalizeError)?;
         Ok(&self.buf[..self.len as usize])
     }
+
+    pub fn finalize_extract(&mut self, out: &mut [u8]) -> Result<(), HashError> {
+        let mut len = out.len() as u32;
+        unsafe { HMAC_Final(self.ctx.as_mut_ptr(), out.as_mut_ptr(), &mut len) }.ok(HashError::HmacFinalizeError)?;
+        assert_eq!(len, out.len() as u32);
+        Ok(())
+    }
 }
 
 fn hmac(key: &[u8], data: &[u8], out: &mut [u8], sha: HashType) -> Result<usize, HashError> {

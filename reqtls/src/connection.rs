@@ -1,7 +1,6 @@
 use super::bytes::Bytes;
 use super::message::key_exchange::{NamedCurve, ServerKeyExchange};
 use super::message::server_hello::{ServerHello, ServerHelloDone};
-use super::prf::Prf;
 use super::record::{RecordLayer, RecordType};
 use super::suite::iv::Iv;
 use super::suite::CipherSuite;
@@ -9,27 +8,22 @@ use super::suite::TlsCipher;
 use super::version::Version;
 use crate::boring::{certificate, AlgorithmSigner, HashError};
 use crate::buffer::{Buf, RecordDecodeBuffer, RecordEncodeBuffer};
+use crate::derived::{DerivedKey, Key};
 use crate::error::RlsResult;
 use crate::message::certificate::CertificateRequest;
 use crate::share_key::SharedKey;
 use crate::*;
-use std::fs::OpenOptions;
-use std::io::Write;
 use std::mem;
 
 pub struct Connection {
-    client_random: [u8; 32],
-    server_random: [u8; 32],
     read: TlsCipher,
     write: TlsCipher,
-    use_ems: bool,
-    master_secret: [u8; 48],
     named_curve: NamedCurve,
     exchange_pub_key: Bytes,
     alpn: Option<ALPN>,
     cipher_suite: CipherSuite,
     session_bytes: Vec<u8>,
-    prf: Prf,
+    derived: DerivedKey,
     certificates: Vec<Certificate>,
     shared_key: SharedKey,
     verify: bool,
@@ -39,19 +33,22 @@ pub struct Connection {
 }
 impl Default for Connection {
     fn default() -> Self {
+        Connection::new([0; 32], [0; 32])
+    }
+}
+
+impl Connection {
+    pub fn new(client_random: [u8; 32], server_random: [u8; 32]) -> Connection {
         Connection {
-            client_random: [0; 32],
-            server_random: [0; 32],
             read: TlsCipher::none(),
             write: TlsCipher::none(),
-            use_ems: false,
-            master_secret: [0; 48],
+            // use_ems: false,
             named_curve: NamedCurve::x25519,
             exchange_pub_key: Bytes::none(),
             alpn: None,
             cipher_suite: CipherSuite::new(0),
             session_bytes: vec![],
-            prf: Prf::default(),
+            derived: DerivedKey::new(client_random, server_random),
             certificates: vec![],
             shared_key: SharedKey::None,
             verify: false,
@@ -60,12 +57,9 @@ impl Default for Connection {
             version: Version::TLS_1_2,
         }
     }
-}
 
-impl Connection {
-    pub fn with_client_random(mut self, client_random: [u8; 32]) -> Connection {
-        self.client_random = client_random;
-        self
+    pub fn from_client(random: [u8; 32]) -> Connection {
+        Connection::new(random, [0; 32])
     }
 
     pub fn with_verify(mut self, verify: bool) -> Connection {
@@ -79,14 +73,14 @@ impl Connection {
     }
 
     pub fn set_by_server_hello(&mut self, server_hello: &ServerHello) -> RlsResult<()> {
-        self.use_ems = server_hello.use_ems();
         self.alpn = server_hello.alpn();
-        self.server_random = server_hello.random.as_ref().try_into()?;
         self.cipher_suite = server_hello.cipher_suite.as_u16().into();
         self.cipher_suite.init_aead_hasher()?;
         self.cipher_suite.update(&self.session_bytes)?;
         let hasher = self.cipher_suite.hasher().as_ref().ok_or(HashError::HasherNone)?;
-        self.prf = Prf::from_hasher(hasher);
+        self.derived.init(hasher);
+        self.derived.set_server_random(server_hello.random.as_ref().try_into()?);
+        self.derived.set_ems(server_hello.use_ems());
         Ok(())
     }
 
@@ -100,8 +94,8 @@ impl Connection {
 
     fn gen_key_sign_data(&self, server_key: &ServerKeyExchange) -> Vec<u8> {
         let mut sign_data = vec![];
-        sign_data.extend_from_slice(self.client_random.as_ref());
-        sign_data.extend_from_slice(self.server_random.as_ref());
+        sign_data.extend_from_slice(self.derived.client_random());
+        sign_data.extend_from_slice(self.derived.server_random());
         sign_data.push(*server_key.hellman_param().curve_type() as u8);
         sign_data.extend(server_key.hellman_param().named_curve().as_u16().to_be_bytes());
         sign_data.push(server_key.hellman_param().pub_key().len() as u8);
@@ -158,45 +152,34 @@ impl Connection {
 
     pub fn make_cipher(&mut self, server: bool) -> RlsResult<()> {
         let share_secret = self.shared_key.diffie_hellman(self.exchange_pub_key.as_ref())?;
-        let (label, seed) = match self.use_ems {
-            true => ("extended master secret", self.cipher_suite.current_session_hash()?.to_vec()),
-            false => ("master secret", [self.client_random, self.server_random].concat())
-        };
-        self.prf.prf(&share_secret, label, &seed, &mut self.master_secret)?;
-        let mut f = OpenOptions::new().create(true).append(true).open("2.log")?;
-        f.write_all(format!("CLIENT_RANDOM {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(self.master_secret)).as_bytes())?;
-        let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
-        let block_size = (aead.mac_key_len() + aead.key_len() + aead.fix_iv_len()) * 2 + aead.explicit_len();
-        let mut key_block = vec![0; block_size];
-        let seed = [self.server_random, self.client_random].concat();
-        self.prf.prf(&self.master_secret, "key expansion", &seed, key_block.as_mut_slice())?;
-        let (client_mac_key, remain) = key_block.split_at(aead.mac_key_len());
-        let (server_mac_key, remain) = remain.split_at(aead.mac_key_len());
-        let (client_key, remain) = remain.split_at(aead.key_len());
-        let (server_key, remain) = remain.split_at(aead.key_len());
-        let (client_iv, remain) = remain.split_at(aead.fix_iv_len());
-        let (server_iv, explicit) = remain.split_at(aead.fix_iv_len());
-        let hasher = self.cipher_suite.mac_hash().ok_or(HashError::HasherNone)?;
-        match server {
-            true => {
-                self.write.set_key(server_key, server_mac_key, aead, hasher)?;
-                self.write.set_iv(Iv::new(server_iv, vec![0; 8]));
-                self.read.set_key(client_key, client_mac_key, aead, hasher)?;
-                self.read.set_iv(Iv::new(client_iv, vec![]));
-            }
-            false => {
-                self.write.set_key(client_key, client_mac_key, aead, hasher)?;
-                self.write.set_iv(Iv::new(client_iv, explicit.to_vec()));
-                self.read.set_key(server_key, server_mac_key, aead, hasher)?;
-                self.read.set_iv(Iv::new(server_iv, vec![]));
-            }
-        }
+        self.derived.make_master(Version::TLS_1_2, share_secret, self.cipher_suite.current_session_hash()?)?;
 
+
+        let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
+        let key = self.derived.make_cipher_key(Version::TLS_1_2, aead, server)?;
+
+
+        let hasher = self.cipher_suite.mac_hash().ok_or(HashError::HasherNone)?;
+        if let Key::TLS12 {
+            send_mac,
+            recv_mac,
+            send_key,
+            recv_key,
+            send_iv,
+            recv_iv,
+            explicit
+        } = key {
+            println!("1111");
+            self.write.set_key(send_key, send_mac, aead, hasher)?;
+            self.write.set_iv(Iv::new(send_iv, explicit.to_vec()));
+            self.read.set_key(recv_key, recv_mac, aead, hasher)?;
+            self.read.set_iv(Iv::new(recv_iv, vec![]));
+        }
         Ok(())
     }
 
     pub fn gen_server_hello<'a>(&mut self, client_hello: &'a mut ClientHello<'a>, certificate: &'a mut [Certificate], pri_key: &RsaKey, random: &'a [u8]) -> RlsResult<RecordLayer<'a>> {
-        self.client_random = client_hello.client_random().as_ref().try_into()?;
+        self.derived.set_client_random(client_hello.client_random().as_ref().try_into()?);
         let mut record = RecordLayer {
             context_type: RecordType::HandShake,
             version: Version::TLS_1_2,
@@ -253,7 +236,8 @@ impl Connection {
         let mut finish = [0; 16];
         finish[0..4].copy_from_slice(&[0x14, 0x00, 0x0, 0xc]);
         let session_hash = self.cipher_suite.current_session_hash()?;
-        self.prf.prf(&self.master_secret, if !server { "client finished" } else { "server finished" }, session_hash, &mut finish[4..16])?;
+        let label = if !server { "client finished" } else { "server finished" };
+        self.derived.make_finish(Version::TLS_1_2, label, session_hash, &mut finish[4..16])?;
         Ok(finish)
     }
 
