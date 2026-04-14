@@ -1,6 +1,6 @@
 use std::fmt::Display;
 use crate::error::RlsResult;
-use crate::{BufferError, WriteExt};
+use crate::{BufferError, ReadExt, Reader, WriteExt};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ALPN {
@@ -29,13 +29,11 @@ impl ALPN {
         }
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> RlsResult<Vec<ALPN>> {
-        let mut res = vec![];
-        let mut index = 0;
-        while index < bytes.len() {
-            let len = bytes[index] as usize;
-            res.push(ALPN::from_slice(&bytes[index + 1..len + index + 1]));
-            index = index + 1 + len;
+    pub fn from_reader(reader: &mut Reader<'_>) -> RlsResult<Vec<ALPN>> {
+        let mut res = Vec::with_capacity(reader.unread_len());
+        while reader.unread_len() > 0 {
+            let len=reader.read_u8()?;
+            res.push(ALPN::from_slice(reader.read_slice(len as usize)?));
         }
         Ok(res)
     }

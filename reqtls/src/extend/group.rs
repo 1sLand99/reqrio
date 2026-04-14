@@ -1,29 +1,26 @@
 use crate::error::RlsResult;
-use crate::{BufferError, NamedCurve, WriteExt};
+use crate::{BufferError, NamedCurve, ReadExt, Reader, WriteExt};
 use std::fmt::Debug;
 
 
 #[derive(Debug)]
 pub struct SupportedGroups {
-    len: u16,
     values: Vec<NamedCurve>,
 }
 
 impl SupportedGroups {
     pub fn new() -> SupportedGroups {
         SupportedGroups {
-            len: 0,
             values: vec![],
         }
     }
-    pub fn from_bytes(bytes: &[u8]) -> RlsResult<SupportedGroups> {
-        let mut res = SupportedGroups::new();
-        res.len = u16::from_be_bytes([bytes[0], bytes[1]]);
-        for chuck in bytes[2..].chunks(2) {
-            let v = u16::from_be_bytes(chuck.try_into()?);
-            res.values.push(NamedCurve::new(v));
+    pub fn from_reader(mut reader: Reader<'_>) -> RlsResult<SupportedGroups> {
+        let len = reader.read_u16()?;
+        let mut values=Vec::with_capacity(reader.unread_len());
+        for _ in (0..len).step_by(2) {
+            values.push(NamedCurve::new(reader.read_u16()?))
         }
-        Ok(res)
+        Ok(SupportedGroups { values })
     }
 
     pub fn len(&self) -> usize {

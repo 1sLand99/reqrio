@@ -138,14 +138,14 @@ pub enum ExtensionValue<'a> {
     RenegotiationInfo(RenegotiationInfo),
     ApplicationSetting(ALPS),
     ApplicationSettingOld(ALPS),
-    EncryptedClientHello(EncryptClientHello),
+    EncryptedClientHello(EncryptClientHello<'a>),
     CompressionCertificate(CompressionCertificate),
     ApplicationLayerProtocolNegotiation(ALPS),
     SessionTicket,
     EncryptTheMac,
     MasterSecret,
     SignedCertificateTimestamp,
-    PreSharedKey(PreSharedKey),
+    PreSharedKey(PreSharedKey<'a>),
     Unknown(Bytes),
 }
 
@@ -153,24 +153,24 @@ impl<'a> ExtensionValue<'a> {
     pub fn from_bytes(t: &ExtensionType, bytes: &'a [u8], server: bool) -> RlsResult<Self> {
         match *t {
             ExtensionType::ServerName => Ok(ExtensionValue::ServerName(ServerName::from_reader(Reader::from_slice(bytes))?)),
-            ExtensionType::StatusRequest => Ok(ExtensionValue::StatusRequest(StatusRequest::from_bytes(bytes)?)),
-            ExtensionType::SupportedGroup => Ok(ExtensionValue::SupportedGroups(SupportedGroups::from_bytes(bytes)?)),
-            ExtensionType::EcPointFormats => Ok(ExtensionValue::EcPointFormats(EcPointFormats::from_bytes(bytes)?)),
-            ExtensionType::SignatureAlgorithms => Ok(ExtensionValue::SignatureAlgorithms(SignatureAlgorithms::from_bytes(bytes)?)),
+            ExtensionType::StatusRequest => Ok(ExtensionValue::StatusRequest(StatusRequest::from_reader(Reader::from_slice(bytes))?)),
+            ExtensionType::SupportedGroup => Ok(ExtensionValue::SupportedGroups(SupportedGroups::from_reader(Reader::from_slice(bytes))?)),
+            ExtensionType::EcPointFormats => Ok(ExtensionValue::EcPointFormats(EcPointFormats::from_reader(Reader::from_slice(bytes))?)),
+            ExtensionType::SignatureAlgorithms => Ok(ExtensionValue::SignatureAlgorithms(SignatureAlgorithms::from_reader(Reader::from_slice(bytes))?)),
             ExtensionType::EncryptTheMac => Ok(ExtensionValue::EncryptTheMac),
             ExtensionType::ExtendMasterSecret => Ok(ExtensionValue::MasterSecret),
             ExtensionType::SessionTicket => Ok(ExtensionValue::SessionTicket),
             ExtensionType::RenegotiationInfo => Ok(ExtensionValue::RenegotiationInfo(RenegotiationInfo::from_bytes(bytes))),
-            ExtensionType::SupportedVersions => Ok(ExtensionValue::SupportedVersions(SupportVersions::from_bytes(bytes, server))),
-            ExtensionType::PskKeyExchangeMode => Ok(ExtensionValue::PskKeyExchangeMode(PskKey::from_bytes(bytes)?)),
-            ExtensionType::CompressionCertificate => Ok(ExtensionValue::CompressionCertificate(CompressionCertificate::from_bytes(bytes)?)),
-            ExtensionType::EncryptedClientHello => Ok(ExtensionValue::EncryptedClientHello(EncryptClientHello::from_bytes(bytes)?)),
+            ExtensionType::SupportedVersions => Ok(ExtensionValue::SupportedVersions(SupportVersions::from_reader(Reader::from_slice(bytes), server)?)),
+            ExtensionType::PskKeyExchangeMode => Ok(ExtensionValue::PskKeyExchangeMode(PskKey::from_reader(Reader::from_slice(bytes))?)),
+            ExtensionType::CompressionCertificate => Ok(ExtensionValue::CompressionCertificate(CompressionCertificate::from_reader(Reader::from_slice(bytes))?)),
+            ExtensionType::EncryptedClientHello => Ok(ExtensionValue::EncryptedClientHello(EncryptClientHello::from_reader(Reader::from_slice(bytes))?)),
             ExtensionType::SignedCertificateTimestamp => Ok(ExtensionValue::SignedCertificateTimestamp),
-            ExtensionType::ApplicationSetting => Ok(ExtensionValue::ApplicationSetting(ALPS::from_bytes(bytes)?)),
-            ExtensionType::KeyShare => Ok(ExtensionValue::KeyShare(KeyShare::from_bytes(bytes, server))),
-            ExtensionType::ApplicationLayerProtocolNegotiation => Ok(ExtensionValue::ApplicationLayerProtocolNegotiation(ALPS::from_bytes(bytes)?)),
-            ExtensionType::PreSharedKey => Ok(ExtensionValue::PreSharedKey(PreSharedKey::from_bytes(bytes)?)),
-            ExtensionType::ApplicationSettingOld => Ok(ExtensionValue::ApplicationSetting(ALPS::from_bytes(bytes)?)),
+            ExtensionType::ApplicationSetting => Ok(ExtensionValue::ApplicationSetting(ALPS::from_reader(Reader::from_slice(bytes))?)),
+            ExtensionType::KeyShare => Ok(ExtensionValue::KeyShare(KeyShare::from_reader(Reader::from_slice(bytes), server)?)),
+            ExtensionType::ApplicationLayerProtocolNegotiation => Ok(ExtensionValue::ApplicationLayerProtocolNegotiation(ALPS::from_reader(Reader::from_slice(bytes))?)),
+            ExtensionType::PreSharedKey => Ok(ExtensionValue::PreSharedKey(PreSharedKey::from_reader(Reader::from_slice(bytes))?)),
+            ExtensionType::ApplicationSettingOld => Ok(ExtensionValue::ApplicationSetting(ALPS::from_reader(Reader::from_slice(bytes))?)),
             _ => Ok(ExtensionValue::Unknown(Bytes::new(bytes.to_vec())))
         }
     }
@@ -410,10 +410,6 @@ impl<'a> Extension<'a> {
             ExtensionValue::ApplicationLayerProtocolNegotiation(ref mut v) => Some(v),
             _ => None
         }
-    }
-
-    pub fn remove_tls13(&mut self) {
-        if let ExtensionValue::SupportedVersions(ref mut v) = self.value { v.remove_tls13() }
     }
 
     pub fn remove_h2_alpn(&mut self) {

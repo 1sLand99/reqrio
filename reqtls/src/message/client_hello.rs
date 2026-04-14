@@ -263,17 +263,6 @@ impl<'a> ClientHello<'a> {
         }
     }
 
-    pub fn remove_tls13(&mut self) {
-        let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::PreSharedKey);
-        if let Some(pos) = pos {
-            self.extensions.remove(pos);
-        }
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::SupportedVersions);
-        if let Some(ext) = extend {
-            ext.remove_tls13()
-        }
-    }
-
     pub fn add_h2_alpn(&mut self) {
         let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ApplicationLayerProtocolNegotiation);
         if let Some(ext) = extend {

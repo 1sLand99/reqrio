@@ -1,5 +1,5 @@
 use crate::error::RlsResult;
-use crate::{BufferError, WriteExt};
+use crate::{BufferError, ReadExt, Reader, WriteExt};
 
 #[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]
@@ -18,23 +18,21 @@ impl PskKeyType {
 
 #[derive(Debug)]
 pub struct PskKey {
-    len: u8,
     mode: PskKeyType,
 }
 
 impl PskKey {
     pub fn new() -> PskKey {
         PskKey {
-            len: 0,
             mode: PskKeyType::PSK_DHE_KE,
         }
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> RlsResult<Self> {
-        let mut res = PskKey::new();
-        res.len = bytes[0];
-        res.mode = PskKeyType::from_u8(bytes[1]).ok_or("PskKeyType Unknown")?;
-        Ok(res)
+    pub fn from_reader(mut reader: Reader<'_>) -> RlsResult<Self> {
+        reader.read_u8()?;
+        Ok(PskKey {
+            mode: PskKeyType::from_u8(reader.read_u8()?).ok_or("PskKeyType Unknown")?,
+        })
     }
 
     pub fn len(&self) -> usize { 2 }
