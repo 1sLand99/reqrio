@@ -97,7 +97,7 @@ async fn main() {
     // req.set_url("https://oauth.hubei.gov.cn:8443/").await.unwrap();
     req.set_auto_redirect(false);
     // let res=req.get("https://www.link114.cn/",None).await.unwrap();
-    // let res=req.get("https://cn.bing.com".params(json::object! {}),None).await.unwrap();
+    let res=req.get("https://cn.bing.com".params(json::object! {}),None).await.unwrap();
     let res = req.get("https://m.sogou.com", None).await.unwrap();
     // let res=req.get("https://oauth.hubei.gov.cn:8443/",None).await.unwrap();
     println!("{}", res.header());
