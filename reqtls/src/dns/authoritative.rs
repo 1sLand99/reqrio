@@ -14,7 +14,7 @@ pub struct Authoritative<'a> {
 }
 
 impl<'b, 'a: 'b> Authoritative<'a> {
-    pub fn from_bytes(reader: &'b Reader<'a>) -> Result<Authoritative<'a>, DNSError> {
+    pub fn from_bytes(reader: &'b mut Reader<'a>) -> Result<Authoritative<'a>, DNSError> {
         let name = Domain::from_bytes(reader)?;
         let type_ = reader.read_u16()?.into();
         let class = reader.read_u16()?.into();

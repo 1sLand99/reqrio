@@ -1,7 +1,7 @@
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use crate::error::RlsResult;
-use crate::{BufferError, WriteExt};
+use crate::{BufferError, ReadExt, Reader, WriteExt};
 
 #[derive(PartialEq)]
 pub struct CompressionType(u16);
@@ -53,45 +53,41 @@ impl Display for CompressionType {
 
 #[derive(Debug)]
 pub struct CompressionCertificate {
-    len: u8,
-    types: Vec<CompressionType>,
+    methods: Vec<CompressionType>,
 }
 
 impl CompressionCertificate {
     pub fn new() -> CompressionCertificate {
         CompressionCertificate {
-            len: 0,
-            types: vec![],
+            methods: vec![],
         }
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> RlsResult<CompressionCertificate> {
-        let mut res = CompressionCertificate::new();
-        res.len = bytes[0];
-        let mut index = 1;
-        while index < bytes.len() {
-            let v = u16::from_be_bytes([bytes[index], bytes[index + 1]]);
-            res.types.push(CompressionType(v));
-            index += 2;
+    pub fn from_reader(mut reader: Reader<'_>) -> RlsResult<CompressionCertificate> {
+        let len = reader.read_u8()?;
+        let mut methods = Vec::with_capacity(reader.unread_len());
+        for _ in (0..len).step_by(2) {
+            methods.push(CompressionType::new(reader.read_u16()?));
         }
-
-        Ok(res)
+        Ok(CompressionCertificate {
+            methods
+        })
     }
 
     pub fn len(&self) -> usize {
-        self.types.len() * 2 + 1
+        self.methods.len() * 2 + 1
     }
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
         writer.write_u8(self.len() as u8 - 1)?;
-        for ty in self.types {
+        for ty in self.methods {
             writer.write_u16(ty.0)?;
         }
         Ok(())
     }
 
     pub fn push(&mut self, ty: CompressionType) {
-        self.types.push(ty);
+        self.methods.push(ty);
     }
 }
 

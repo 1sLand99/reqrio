@@ -21,7 +21,7 @@ impl<'a> DNSQuery<'a> {
         }
     }
 
-    pub fn from_bytes<'b>(reader: &'b Reader<'a>) -> Result<DNSQuery<'a>, DNSError> {
+    pub fn from_bytes<'b>(reader: &'b mut Reader<'a>) -> Result<DNSQuery<'a>, DNSError> {
         let name = Domain::from_bytes(reader)?;
         Ok(DNSQuery {
             name,

@@ -34,11 +34,11 @@ impl EchConfig {
         }
     }
     pub fn from_bytes(bytes: &[u8]) -> Result<EchConfig, DNSError> {
-        let reader = Reader::from_slice(bytes);
+        let mut reader = Reader::from_slice(bytes);
         Ok(EchConfig {
             ver: reader.read_u16()?,
             len: reader.read_u16()?,
-            content: EchContent::from_reader(&reader)?,
+            content: EchContent::from_reader(&mut reader)?,
         })
     }
 }
@@ -75,7 +75,7 @@ pub struct EchContent {
 }
 
 impl EchContent {
-    pub fn from_reader(reader: &Reader) -> Result<EchContent, DNSError> {
+    pub fn from_reader(reader: &mut Reader) -> Result<EchContent, DNSError> {
         let config_id = reader.read_u8()?;
         let kem_id = DHKem(reader.read_u16()?);
         let key_len = reader.read_u16()?;

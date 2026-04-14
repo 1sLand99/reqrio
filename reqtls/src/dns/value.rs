@@ -105,7 +105,7 @@ impl<'b, 'a: 'b> DNSValue<'a> {
         } else { unreachable!() }
     }
 
-    pub fn from_bytes(type_: &DnsType, reader: &'b Reader<'a>, len: usize) -> Result<Self, DNSError> {
+    pub fn from_bytes(type_: &DnsType, reader: &'b mut Reader<'a>, len: usize) -> Result<Self, DNSError> {
         if len == 0 { return Ok(DNSValue::Null); }
         match type_.as_u16() {
             DnsType::A => Ok(DNSValue::A(Ipv4Addr::from_octets(reader.read_slice(4)?.try_into().map_err(DNSError::SliceError)?))),

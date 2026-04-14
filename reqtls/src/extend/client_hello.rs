@@ -1,7 +1,7 @@
-use super::super::bytes::Bytes;
+use super::ech::{Aead, KDF};
+use crate::buffer::Buf;
 use crate::error::RlsResult;
-use crate::{BufferError, WriteExt};
-use super::ech::{KDF, Aead};
+use crate::{BufferError, ReadExt, Reader, WriteExt};
 
 #[derive(Debug, Clone, Copy)]
 enum ClientHelloType {
@@ -25,10 +25,10 @@ pub(super) struct CipherSuite {
 }
 
 impl CipherSuite {
-    pub fn from_bytes(bytes: &[u8]) -> RlsResult<CipherSuite> {
+    pub fn from_reader(reader: &mut Reader<'_>) -> RlsResult<CipherSuite> {
         Ok(CipherSuite {
-            kdf: KDF::from_u16(u16::from_be_bytes([bytes[0], bytes[1]])).ok_or("KDF Unknown")?,
-            aead: Aead::from_u16(u16::from_be_bytes([bytes[2], bytes[3]])).ok_or("AEAD Unknown")?,
+            kdf: KDF::from_u16(reader.read_u16()?).ok_or("KDF Unknown")?,
+            aead: Aead::from_u16(reader.read_u16()?).ok_or("AEAD Unknown")?,
         })
     }
 
@@ -42,18 +42,18 @@ impl CipherSuite {
 
 
 #[derive(Debug)]
-pub struct EncryptClientHello {
+pub struct EncryptClientHello<'a> {
     type_: ClientHelloType,
     cipher_suite: CipherSuite,
     config_id: u8,
     enc_len: u16,
-    enc: Bytes,
+    enc: Buf<'a>,
     payload_len: u16,
-    payload: Bytes,
+    payload: Buf<'a>,
 }
 
-impl EncryptClientHello {
-    pub fn new() -> EncryptClientHello {
+impl<'a> EncryptClientHello<'a> {
+    pub fn new() -> EncryptClientHello<'a> {
         EncryptClientHello {
             type_: ClientHelloType::OuterClientHello,
             cipher_suite: CipherSuite {
@@ -62,22 +62,21 @@ impl EncryptClientHello {
             },
             config_id: 0,
             enc_len: 0,
-            enc: Bytes::none(),
+            enc: Buf::Ref(&[]),
             payload_len: 0,
-            payload: Bytes::none(),
+            payload: Buf::Ref(&[]),
         }
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> RlsResult<EncryptClientHello> {
+    pub fn from_reader(mut reader: Reader<'a>) -> RlsResult<EncryptClientHello<'a>> {
         let mut res = EncryptClientHello::new();
-        res.type_ = ClientHelloType::from_u8(bytes[0]).ok_or("ClientHelloType Unknown")?;
-        res.cipher_suite = CipherSuite::from_bytes(&bytes[1..])?;
-        res.config_id = bytes[5];
-        res.enc_len = u16::from_be_bytes([bytes[6], bytes[7]]);
-        res.enc = Bytes::new(bytes[8..8 + res.enc_len as usize].to_vec());
-        let index = res.enc_len as usize + 8;
-        res.payload_len = u16::from_be_bytes([bytes[index], bytes[index + 1]]);
-        res.payload = Bytes::new(bytes[index + 2..index + res.payload_len as usize + 2].to_vec());
+        res.type_ = ClientHelloType::from_u8(reader.read_u8()?).ok_or("ClientHelloType Unknown")?;
+        res.cipher_suite = CipherSuite::from_reader(&mut reader)?;
+        res.config_id = reader.read_u8()?;
+        res.enc_len = reader.read_u16()?;
+        res.enc = Buf::Ref(reader.read_slice(res.enc_len as usize)?);
+        res.payload_len = reader.read_u16()?;
+        res.payload = Buf::Ref(reader.read_slice(res.payload_len as usize)?);
         Ok(res)
     }
 

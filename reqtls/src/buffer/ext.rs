@@ -1,5 +1,5 @@
 use crate::error::RlsResult;
-use crate::BufferError;
+use crate::{BufferError, Reader};
 use std::ffi::CString;
 use std::ops::Range;
 use std::os::raw::c_char;
@@ -83,14 +83,14 @@ unsafe extern "C" {
 
 pub trait ReadExt<'a> {
     fn position(&self) -> usize;
-    fn set_position(&self, pos: usize);
+    fn set_position(&mut self, pos: usize);
     fn as_slice(&self) -> &'a [u8];
     #[inline]
     fn current(&self) -> u8 {
         let buf = self.as_slice();
         buf[self.position()]
     }
-    fn read_u8(&self) -> Result<u8, BufferError> {
+    fn read_u8(&mut self) -> Result<u8, BufferError> {
         let pos = self.position();
         let buf = self.as_slice();
         if pos == buf.len() { return Err(BufferError::Insufficient); }
@@ -99,7 +99,7 @@ pub trait ReadExt<'a> {
         Ok(res)
     }
 
-    fn read_u16(&self) -> Result<u16, BufferError> {
+    fn read_u16(&mut self) -> Result<u16, BufferError> {
         let pos = self.position();
         let buf = self.as_slice();
         if pos + 2 > buf.len() { return Err(BufferError::Insufficient); }
@@ -109,7 +109,7 @@ pub trait ReadExt<'a> {
         Ok(res)
     }
 
-    fn read_u32(&self) -> Result<u32, BufferError> {
+    fn read_u32(&mut self) -> Result<u32, BufferError> {
         let pos = self.position();
         let buf = self.as_slice();
         if pos + 4 > buf.len() { return Err(BufferError::Insufficient); }
@@ -119,7 +119,17 @@ pub trait ReadExt<'a> {
         Ok(res)
     }
 
-    fn read_u64(&self) -> Result<u64, BufferError> {
+    fn read_u32_24(&mut self) -> Result<u32, BufferError> {
+        let pos = self.position();
+        let buf = self.as_slice();
+        if pos + 3 > buf.len() { return Err(BufferError::Insufficient); }
+        let ptr = unsafe { buf.as_ptr().add(pos) } as *const u32;
+        let res = unsafe { ptr.read_unaligned() << 8 }.to_be();
+        self.set_position(pos + 3);
+        Ok(res)
+    }
+
+    fn read_u64(&mut self) -> Result<u64, BufferError> {
         let pos = self.position();
         let buf = self.as_slice();
         if pos + 8 > buf.len() { return Err(BufferError::Insufficient); }
@@ -129,7 +139,7 @@ pub trait ReadExt<'a> {
         Ok(res)
     }
 
-    fn read_u128(&self) -> Result<u128, BufferError> {
+    fn read_u128(&mut self) -> Result<u128, BufferError> {
         let pos = self.position();
         let buf = self.as_slice();
         if pos + 16 > buf.len() { return Err(BufferError::Insufficient); }
@@ -139,7 +149,7 @@ pub trait ReadExt<'a> {
         Ok(res)
     }
 
-    fn read_i8(&self) -> Result<i8, BufferError> {
+    fn read_i8(&mut self) -> Result<i8, BufferError> {
         let pos = self.position();
         let buf = self.as_slice();
         if pos == buf.len() { return Err(BufferError::Insufficient); }
@@ -148,7 +158,7 @@ pub trait ReadExt<'a> {
         Ok(res)
     }
 
-    fn read_i16(&self) -> Result<i16, BufferError> {
+    fn read_i16(&mut self) -> Result<i16, BufferError> {
         let pos = self.position();
         let buf = self.as_slice();
         if pos + 2 > buf.len() { return Err(BufferError::Insufficient); }
@@ -158,7 +168,7 @@ pub trait ReadExt<'a> {
         Ok(res)
     }
 
-    fn read_i32(&self) -> Result<i32, BufferError> {
+    fn read_i32(&mut self) -> Result<i32, BufferError> {
         let pos = self.position();
         let buf = self.as_slice();
         if pos + 4 > buf.len() { return Err(BufferError::Insufficient); }
@@ -168,7 +178,7 @@ pub trait ReadExt<'a> {
         Ok(res)
     }
 
-    fn read_i64(&self) -> Result<i64, BufferError> {
+    fn read_i64(&mut self) -> Result<i64, BufferError> {
         let pos = self.position();
         let buf = self.as_slice();
         if pos + 8 > buf.len() { return Err(BufferError::Insufficient); }
@@ -178,7 +188,7 @@ pub trait ReadExt<'a> {
         Ok(res)
     }
 
-    fn read_i128(&self) -> Result<i128, BufferError> {
+    fn read_i128(&mut self) -> Result<i128, BufferError> {
         let pos = self.position();
         let buf = self.as_slice();
         if pos + 16 > buf.len() { return Err(BufferError::Insufficient); }
@@ -188,7 +198,7 @@ pub trait ReadExt<'a> {
         Ok(res)
     }
 
-    fn read_slice(&self, len: usize) -> Result<&'a [u8], BufferError> {
+    fn read_slice(&mut self, len: usize) -> Result<&'a [u8], BufferError> {
         let pos = self.position();
         let buf = self.as_slice();
         if pos + len > buf.len() { return Err(BufferError::Insufficient); }
@@ -196,11 +206,16 @@ pub trait ReadExt<'a> {
         Ok(&self.as_slice()[pos..pos + len])
     }
 
-    fn read_str<E>(&self, len: usize) -> Result<&'a str, E>
+    fn read_str<E>(&mut self, len: usize) -> Result<&'a str, E>
     where
         E: From<BufferError> + From<Utf8Error>,
     {
         let slice = self.read_slice(len)?;
         Ok(std::str::from_utf8(slice)?)
+    }
+
+    fn read_reader(&mut self, len: usize) -> Result<Reader<'a>, BufferError> {
+        let res = self.read_slice(len)?;
+        Ok(Reader::from_slice(res))
     }
 }

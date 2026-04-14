@@ -1,36 +1,34 @@
-use crate::bytes::Bytes;
+use crate::buffer::Buf;
 use crate::error::RlsResult;
-use crate::{rand, BufferError, WriteExt};
+use crate::{rand, BufferError, ReadExt, Reader, WriteExt};
 
 #[derive(Debug)]
-pub struct PskIdentity {
-    len: u16,
-    value: Bytes,
+pub struct PskIdentity<'a> {
+    value: Buf<'a>,
     age: u32,
 }
 
-impl PskIdentity {
-    fn new() -> PskIdentity {
+impl<'a> PskIdentity<'a> {
+    fn new() -> PskIdentity<'a> {
         PskIdentity {
-            len: 0,
-            value: Bytes::none(),
+            value: Buf::Ref(&[]),
             age: 0,
         }
     }
 
-    fn random() -> PskIdentity {
+    fn random() -> PskIdentity<'a> {
         let mut res = PskIdentity::new();
-        res.value = Bytes::new(rand::random::<[u8; 140]>().to_vec());
+        res.value = Buf::Vec(rand::random::<[u8; 140]>().to_vec());
         res.age = rand::random();
         res
     }
 
-    fn from_bytes(bytes: &[u8]) -> RlsResult<PskIdentity> {
-        let mut res = PskIdentity::new();
-        res.len = u16::from_be_bytes([bytes[0], bytes[1]]);
-        res.value = Bytes::new(bytes[2..2 + res.len as usize].to_vec());
-        res.age = u32::from_be_bytes(bytes[2 + res.len as usize..].try_into()?);
-        Ok(res)
+    fn from_reader(reader: &mut Reader<'a>) -> RlsResult<PskIdentity<'a>> {
+        let len = reader.read_u16()?;
+        Ok(PskIdentity {
+            value: Buf::Ref(reader.read_slice(len as usize)?),
+            age: reader.read_u32()?,
+        })
     }
 
     pub fn len(&self) -> usize {
@@ -45,30 +43,26 @@ impl PskIdentity {
 }
 
 #[derive(Debug)]
-pub struct PskBinder {
-    len: u8,
-    value: Bytes,
+pub struct PskBinder<'a> {
+    value: Buf<'a>,
 }
 
-impl PskBinder {
-    fn new() -> PskBinder {
+impl<'a> PskBinder<'a> {
+    fn new() -> PskBinder<'a> {
         PskBinder {
-            len: 0,
-            value: Bytes::none(),
+            value: Buf::Ref(&[]),
         }
     }
 
-    fn random() -> PskBinder {
+    fn random() -> PskBinder<'a> {
         let mut res = PskBinder::new();
-        res.value = Bytes::new(rand::random::<[u8; 48]>().to_vec());
+        res.value = Buf::Vec(rand::random::<[u8; 48]>().to_vec());
         res
     }
 
-    fn from_bytes(bytes: &[u8]) -> RlsResult<PskBinder> {
-        let mut res = PskBinder::new();
-        res.len = bytes[0];
-        res.value = Bytes::new(bytes[1..1 + res.len as usize].to_vec());
-        Ok(res)
+    fn from_reader(reader: &mut Reader<'a>) -> RlsResult<PskBinder<'a>> {
+        let len = reader.read_u8()?;
+        Ok(PskBinder { value: Buf::Ref(reader.read_slice(len as usize)?) })
     }
 
     pub fn len(&self) -> usize {
@@ -82,35 +76,31 @@ impl PskBinder {
 }
 
 #[derive(Debug)]
-pub struct PreSharedKey {
-    identity_len: u16,
-    identity: PskIdentity,
-    binder_len: u16,
-    binder: PskBinder,
+pub struct PreSharedKey<'a> {
+    identity: PskIdentity<'a>,
+    binder: PskBinder<'a>,
 
 }
 
-impl PreSharedKey {
-    pub fn new() -> PreSharedKey {
+impl<'a> PreSharedKey<'a> {
+    pub fn new() -> PreSharedKey<'a> {
         PreSharedKey {
-            identity_len: 0,
             identity: PskIdentity::new(),
-            binder_len: 0,
             binder: PskBinder::new(),
         }
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> RlsResult<PreSharedKey> {
-        let mut res = PreSharedKey::new();
-        res.identity_len = u16::from_be_bytes([bytes[0], bytes[1]]);
-        res.identity = PskIdentity::from_bytes(&bytes[2..2 + res.identity_len as usize])?;
-        let index = 2 + res.identity_len as usize;
-        res.binder_len = u16::from_be_bytes([bytes[index], bytes[index + 1]]);
-        res.binder = PskBinder::from_bytes(&bytes[index + 2..index + 2 + res.binder_len as usize])?;
-        Ok(res)
+    pub fn from_reader(mut reader: Reader) -> RlsResult<PreSharedKey> {
+        reader.read_u16()?;
+        let identity = PskIdentity::from_reader(&mut reader)?;
+        reader.read_u16()?;
+        Ok(PreSharedKey {
+            identity,
+            binder: PskBinder::from_reader(&mut reader)?,
+        })
     }
 
-    pub fn random() -> PreSharedKey {
+    pub fn random() -> PreSharedKey<'a> {
         let mut res = PreSharedKey::new();
         res.identity = PskIdentity::random();
         res.binder = PskBinder::random();

@@ -10,7 +10,7 @@ impl<'b, 'a: 'b> Domain<'a> {
         Domain(if domain.is_empty() { vec![] } else { domain.split(".").collect() })
     }
 
-    pub fn from_bytes(reader: &'b Reader<'a>) -> Result<Domain<'a>, DNSError> {
+    pub fn from_bytes(reader: &'b mut Reader<'a>) -> Result<Domain<'a>, DNSError> {
         let mut names = Vec::with_capacity(100);
         let mut pos = reader.position();
         while reader.current() != 0 {

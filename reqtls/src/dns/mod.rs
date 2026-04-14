@@ -75,7 +75,7 @@ pub struct SvcParam<'a> {
 }
 
 impl<'b, 'a: 'b> SvcParam<'a> {
-    fn from_bytes(reader: &'b Reader<'a>) -> Result<SvcParam<'a>, DNSError> {
+    fn from_bytes(reader: &'b mut Reader<'a>) -> Result<SvcParam<'a>, DNSError> {
         let key: SvcType = reader.read_u16()?.into();
         let parse_len = reader.read_u16()?;
         let mut value_len = parse_len as usize;
@@ -296,7 +296,7 @@ impl<'a> DNS<'a> {
     }
 
     pub fn from_bytes(reader: &'a [u8]) -> Result<DNS<'a>, DNSError> {
-        let reader = Reader::from_slice(reader);
+        let mut reader = Reader::from_slice(reader);
         if reader.as_slice().len() < 12 { return Err(DNSError::Buffer(BufferError::Insufficient)); }
         let tid = reader.read_u16()?;
         let flag = DNSFlag::from_bytes(&reader[2..4]);
@@ -310,14 +310,14 @@ impl<'a> DNS<'a> {
         //query
         let mut queries = vec![];
         for _ in 0..questions {
-            let query = DNSQuery::from_bytes(&reader)?;
+            let query = DNSQuery::from_bytes(&mut reader)?;
             queries.push(query);
         }
 
         //answer
         let mut answers = vec![];
         for _ in 0..answer {
-            let answer = DNSAnswer::from_bytes(&reader)?;
+            let answer = DNSAnswer::from_bytes(&mut reader)?;
             answers.push(answer)
         }
 
@@ -325,7 +325,7 @@ impl<'a> DNS<'a> {
         let mut authorities = vec![];
 
         for _ in 0..authority {
-            let authority = Authoritative::from_bytes(&reader)?;
+            let authority = Authoritative::from_bytes(&mut reader)?;
             authorities.push(authority)
         }
         //add
@@ -333,7 +333,7 @@ impl<'a> DNS<'a> {
 
         for _ in 0..additional {
             // println!("222={:x?}", &reader[reader.position()..]);
-            let add = Additional::from_bytes(&reader)?;
+            let add = Additional::from_bytes(&mut reader)?;
             // println!("{:#?}", add);
             adds.push(add)
         }

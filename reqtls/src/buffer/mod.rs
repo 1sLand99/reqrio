@@ -8,7 +8,6 @@ pub use decode::RecordDecodeBuffer;
 pub use encode::RecordEncodeBuffer;
 pub use error::BufferError;
 pub use ext::{ReadExt, WriteExt};
-use std::cell::Cell;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Index, Range, RangeFrom};
 use std::slice;
@@ -138,17 +137,20 @@ impl WriteExt for WriteBuffer {
 
 pub struct Reader<'a> {
     buf: &'a [u8],
-    pos: Cell<usize>,
+    pos: usize,
 }
 
 impl<'a> Reader<'a> {
     pub fn from_slice(buf: &'a [u8]) -> Self {
-        Self { buf, pos: Cell::new(0) }
+        Self { buf, pos: 0 }
     }
 
-    pub fn with_position(self, pos: usize) -> Self {
-        self.pos.set(pos);
+    pub fn with_position(mut self, pos: usize) -> Self {
+        self.pos = pos;
         self
+    }
+    pub fn unread_len(&self) -> usize {
+        self.buf.len() - self.pos
     }
 }
 
@@ -166,11 +168,11 @@ impl<'a> From<&'a Vec<u8>> for Reader<'a> {
 
 impl<'a> ReadExt<'a> for Reader<'a> {
     fn position(&self) -> usize {
-        self.pos.get()
+        self.pos
     }
 
-    fn set_position(&self, pos: usize) {
-        self.pos.set(pos);
+    fn set_position(&mut self, pos: usize) {
+        self.pos = pos;
     }
 
     fn as_slice(&self) -> &'a [u8] {

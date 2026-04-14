@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Formatter};
 use crate::error::RlsResult;
-use crate::{BufferError, WriteExt};
+use crate::{BufferError, ReadExt, Reader, WriteExt};
 
 #[allow(non_camel_case_types)]
 #[derive(Clone, PartialEq)]
@@ -36,14 +36,12 @@ impl Debug for EcPointFormat {
 
 #[derive(Debug)]
 pub struct EcPointFormats {
-    len: u8,
     formats: Vec<EcPointFormat>,
 }
 
 impl EcPointFormats {
     pub fn new() -> EcPointFormats {
         EcPointFormats {
-            len: 0,
             formats: vec![],
         }
     }
@@ -54,13 +52,13 @@ impl EcPointFormats {
         res
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> RlsResult<EcPointFormats> {
-        let mut res = EcPointFormats::new();
-        res.len = bytes[0];
-        for v in &bytes[1..] {
-            res.formats.push(EcPointFormat::new(*v));
+    pub fn from_reader(mut reader: Reader) -> RlsResult<EcPointFormats> {
+        let len = reader.read_u8()?;
+        let mut formats = Vec::with_capacity(reader.unread_len());
+        for _ in 0..len {
+            formats.push(EcPointFormat::new(reader.read_u8()?));
         }
-        Ok(res)
+        Ok(EcPointFormats { formats })
     }
 
     pub fn len(&self) -> usize { self.formats.len() + 1 }
