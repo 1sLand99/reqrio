@@ -197,12 +197,16 @@ impl<S: Read + Write> Read for SyncStream<S> {
                 RecordType::Alert => return Err(self.handle_by_alert(self.handshake_finished, record_len)?.into()),
                 RecordType::ApplicationData => {
                     let mut len = self.conn.read_message(&self.read_buffer[..record_len], buf)?;
-                    if *self.conn.version() == Version::TLS_1_3 && buf[len - 1] == 23 {
-                        len -= 1;
-                    } else {
-                        self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
-                        continue;
+                    if *self.conn.version() == Version::TLS_1_3 {
+                        if buf[len - 1] == 23 {
+                            len -= 1;
+                        } else {
+                            self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
+                            continue;
+                        }
                     }
+
+
                     self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
                     return Ok(len);
                 }
