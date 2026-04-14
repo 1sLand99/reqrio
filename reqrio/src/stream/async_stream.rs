@@ -69,6 +69,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
 
     async fn handle_message(&mut self, mut config: Option<&mut Config<'_>>) -> HlsResult<bool> {
         let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, Some(self.conn.cipher_suite()))?;
+        println!("{:#?}", record);
         match record.context_type {
             RecordType::CipherSpec => self.handshake_finished = true,
             RecordType::Alert => {
@@ -140,7 +141,41 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                     }
                 }
             }
-            RecordType::ApplicationData => {}
+            RecordType::ApplicationData => {
+                let record_len = record.len as usize + 5;
+                let mut data = vec![0; record.len as usize + 32];
+                // println!("{:x?}", &self.read_buffer[..record_len]);
+                let len = self.conn.read_message(&self.read_buffer[..record_len], &mut data).unwrap();
+                // self.conn.update_session(&data[..len])?;
+                // let record_type = RecordType::from_byte(data[len - 1]);
+                // println!("{:#?}", record_type);
+                // println!("{:?}", &data[..len]);
+                let mut index = 0;
+                while index < len - 1 {
+                    let len = u32::from_be_bytes([0, data[index + 1], data[index + 2], data[index + 3]]) as usize + 4;
+                    let message = Message::from_bytes(&mut data[index..], false, None, Version::TLS_1_3).unwrap();
+                    println!("{:#?}", message);
+                    if let Message::Finished(_) = message {
+                        let verify_data = &data[index..index + len];
+                        self.conn.verify_finish(verify_data, true)?;
+                        self.write_buffer.reset();
+                        self.write_buffer.write_slice(&[20, 3, 3, 0, 1, 1]).unwrap();
+                        let len = self.conn.make_finish_message(self.write_buffer.unfilled_mut(), false)?;
+                        println!("{}", len);
+                        self.write_buffer.add_len(len);
+                        // self.write_buffer.write_slice_in(0, &[23]).unwrap();
+                        println!("{:?}", &self.write_buffer.filled());
+                        self.stream.write_all(self.write_buffer.filled()).await?;
+                        self.write_buffer.reset();
+                        self.conn.make_cipher(false)?;
+                        return Ok(true);
+                    } else { self.conn.update_session(&data[index..index + len])?; }
+
+
+                    index += len;
+                    println!("{} {}", len, index);
+                }
+            }
         }
         Ok(false)
     }
@@ -183,7 +218,16 @@ impl<S> TlsStream<S> {
             }
             RecordType::ApplicationData => {
                 let len = self.conn.read_message(&self.read_buffer[..record_len], buf.initialized_mut())?;
-                buf.set_filled(len);
+                println!("{}", buf.initialized_mut()[len - 1]);
+                match *self.conn.version() {
+                    Version::TLS_1_3 => if buf.initialized_mut()[len - 1] == 23 {
+                        buf.set_filled(len - 1)
+                    } else {
+                        self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
+                        return Ok(0)
+                    }
+                    _ => buf.set_filled(len),
+                }
                 self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
                 return Ok(len);
             }
@@ -224,6 +268,7 @@ impl<S: AsyncRead + Unpin> AsyncRead for TlsStream<S> {
 
 impl<S: AsyncWrite + Unpin> AsyncWrite for TlsStream<S> {
     fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize, Error>> {
+        println!("wwwwwwwwwwwwwwwww={}", buf.len());
         let stream = self.get_mut();
         let chucks = buf.chunks(16384).collect::<Vec<_>>();
         if stream.pending.is_empty() {

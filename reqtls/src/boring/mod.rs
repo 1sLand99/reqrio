@@ -39,7 +39,7 @@ impl BoringResExt for c_int {
 pub(crate) struct CryptEncodeParam<'a, 'b: 'a> {
     pub(crate) nonce: &'a [u8],
     pub(crate) iv: &'a [u8],
-    pub(crate) aad: &'a [u8; 13],
+    pub(crate) aad: &'a [u8],
     pub(crate) seq: &'a u64,
     pub(crate) buffer: &'a mut RecordEncodeBuffer<'b>,
 }
@@ -47,7 +47,7 @@ pub(crate) struct CryptEncodeParam<'a, 'b: 'a> {
 pub(crate) struct CryptDecodeParam<'a, 'b: 'a> {
     pub(crate) nonce: &'a [u8],
     pub(crate) iv: &'a [u8],
-    pub(crate) aad: &'a [u8; 13],
+    pub(crate) aad: &'a [u8],
     pub(crate) seq: &'a u64,
     pub(crate) buffer: &'a mut RecordDecodeBuffer<'b>,
 }

@@ -1,6 +1,30 @@
 use crate::boring;
-use crate::boring::{Hasher, HashType};
+use crate::boring::{HashType, Hasher};
 use crate::error::RlsResult;
+
+struct PrfBuf<'a> {
+    bufs: Vec<&'a mut [u8]>,
+    pos: usize,
+    index: usize,
+}
+
+impl<'a> PrfBuf<'a> {
+    pub fn write_slice(&mut self, bi: &[u8]) -> bool {
+        if self.pos >= self.bufs.len() { return true; }
+        let buf = &mut self.bufs[self.pos];
+        if bi.len() >= buf.len() - self.index {
+            let index = buf.len() - self.index;
+            buf[self.index..].copy_from_slice(&bi[..index]);
+            self.index = 0;
+            self.pos += 1;
+            self.write_slice(&bi[index..])
+        } else {
+            buf[self.index..self.index + bi.len()].copy_from_slice(bi);
+            self.index += bi.len();
+            false
+        }
+    }
+}
 
 pub struct Prf(HashType);
 
@@ -22,25 +46,31 @@ impl Prf {
         Ok(hmac.finalize()?.to_vec())
     }
 
-    pub fn prf(&mut self, secret: &[u8], label: &str, seed: &[u8], out: &mut [u8]) -> RlsResult<()> {
+    pub fn prfs(&mut self, secret: &[u8], label: &str, seed: &[u8], bufs: Vec<&mut [u8]>) -> RlsResult<()> {
+        let mut buf = PrfBuf { bufs, pos: 0, index: 0 };
         // A(0) = HMAC_hash(secret, label + seed)
         let mut a_i = self.hmac_sha(secret, &[label.as_bytes(), seed])?;
-        let chunk_size = self.0.hash_size();
-        for chunk in out.chunks_mut(chunk_size) {
+        loop {
             // P_hash[i] = HMAC_hash(secret, A(i) + label + seed)
             let p_hash = self.hmac_sha(secret, &[&a_i, label.as_bytes(), seed])?;
-            chunk.copy_from_slice(&p_hash[..chunk.len()]);
+            let finish = buf.write_slice(p_hash.as_slice());
+            if finish { break; }
+            // chunk.copy_from_slice(&p_hash[..chunk.len()]);
             // A(i) = HMAC_hash(secret, A(i - 1))
             a_i = self.hmac_sha(secret, &[&a_i])?;
         }
         Ok(())
+    }
+
+    pub fn prf(&mut self, secret: &[u8], label: &str, seed: &[u8], bufs: &mut [u8]) -> RlsResult<()> {
+        self.prfs(secret, label, seed, vec![bufs])
     }
 }
 
 
 #[cfg(test)]
 mod tests {
-    use crate::boring::{Hasher, HashType};
+    use crate::boring::{HashType, Hasher};
     use crate::prf::Prf;
 
     #[test]
@@ -55,18 +85,29 @@ mod tests {
         let client_random = [168, 102, 144, 116, 168, 105, 73, 53, 141, 158, 97, 68, 2, 18, 204, 19, 248, 142, 178, 215, 223, 48, 197, 110, 19, 11, 72, 208, 168, 74, 129, 61];
         let server_random = [164, 16, 246, 211, 195, 19, 199, 151, 186, 4, 30, 216, 157, 252, 162, 77, 8, 173, 21, 113, 194, 5, 185, 227, 68, 79, 87, 78, 71, 82, 68, 1];
         let seed = [server_random, client_random].concat();
-        let mut key_block = [0; 32 + 32 + 12 + 12];
-        prf.prf(&master_secret, "key expansion", &seed, key_block.as_mut_slice()).unwrap();
-        println!("{:?}", key_block);
-        let (wk, remain) = key_block.split_at(32);
-        let (rk, remain) = remain.split_at(32);
-        let (wi, remain) = remain.split_at(12);
-        let (ri, remain) = remain.split_at(12);
-        let (explicit, _) = remain.split_at(0);
-        println!("{:?}", wk);
-        println!("{:?}", rk);
-        println!("{:?}", wi);
-        println!("{:?}", ri);
-        println!("{:?}", explicit);
+        let mut wk = [0; 32];
+        let mut rk = [0; 32];
+        let mut wi = [0; 12];
+        let mut ri = [0; 12];
+        let mut explicit = [0; 0];
+        // let mut key_block = [0; 32 + 32 + 12 + 12];
+        prf.prfs(&master_secret, "key expansion", &seed, vec![
+            &mut wk,
+            &mut rk,
+            &mut wi,
+            &mut ri,
+            &mut explicit
+        ]).unwrap();
+        // println!("{:?}", key_block);
+        // let (wk, remain) = key_block.split_at(32);
+        // let (rk, remain) = remain.split_at(32);
+        // let (wi, remain) = remain.split_at(12);
+        // let (ri, remain) = remain.split_at(12);
+        // let (explicit, _) = remain.split_at(0);
+        assert_eq!(wk, [160, 232, 46, 123, 17, 199, 214, 127, 79, 55, 210, 3, 178, 54, 214, 91, 134, 248, 228, 182, 149, 151, 217, 154, 147, 117, 242, 110, 212, 99, 213, 13]);
+        assert_eq!(rk, [164, 198, 66, 228, 237, 141, 213, 234, 16, 10, 31, 43, 251, 150, 0, 90, 179, 86, 160, 39, 123, 36, 130, 196, 143, 91, 102, 229, 31, 43, 19, 165]);
+        assert_eq!(wi, [63, 246, 130, 48, 155, 103, 72, 13, 37, 238, 1, 94]);
+        assert_eq!(ri, [233, 23, 102, 163, 242, 77, 144, 20, 53, 23, 212, 164]);
+        assert_eq!(explicit, []);
     }
 }

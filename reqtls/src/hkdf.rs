@@ -1,15 +1,16 @@
 use crate::error::RlsResult;
 use crate::{HashType, Hmac};
+use std::borrow::Cow;
 
 #[allow(dead_code)]
-pub struct Hkdf {
+pub struct Hkdf<'a> {
     hash: HashType,
-    prk: Vec<u8>,
+    prk: Cow<'a, [u8]>,
 }
 
 
-impl Hkdf {
-    pub fn new(salt: &[u8], ikm: &[u8], hash: HashType) -> RlsResult<Hkdf> {
+impl<'a> Hkdf<'a> {
+    pub fn new(salt: &[u8], ikm: &[u8], hash: HashType) -> RlsResult<Hkdf<'a>> {
         let prk = match salt.is_empty() {
             true => Hkdf::extract(hash, &vec![0; hash.hash_size()], ikm)?,
             false => Hkdf::extract(hash, salt, ikm)?
@@ -17,10 +18,10 @@ impl Hkdf {
         Ok(Hkdf::from_prk(prk, hash))
     }
 
-    pub fn from_prk(prk: Vec<u8>, hash: HashType) -> Hkdf {
+    pub fn from_prk(prk: impl Into<Cow<'a, [u8]>>, hash: HashType) -> Hkdf<'a> {
         Hkdf {
             hash,
-            prk,
+            prk: prk.into(),
         }
     }
 
@@ -47,6 +48,7 @@ impl Hkdf {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn extend(&mut self, infos: &[u8], out: &mut [u8]) -> RlsResult<()> {
         self.extend_multi(&[infos], out)
     }
@@ -64,12 +66,17 @@ impl Hkdf {
             content
         ], out)
     }
+
+    pub fn into_prk(self) -> Cow<'a, [u8]> { self.prk }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::derived::DerivedKey;
     use crate::hkdf::Hkdf;
-    use crate::HashType;
+    use crate::{HashType, Hasher, Version};
+    use std::fs;
+    use crate::extend::Aead;
 
     #[test]
     fn test_hkdf() {
@@ -83,5 +90,53 @@ mod tests {
         let mut hkdf = Hkdf::from_prk(secret, HashType::Sha256);
         hkdf.hkdf("tls13 derived", &info, &mut out).unwrap();
         assert_eq!(&out[..6], &[35, 255, 131, 135, 179, 156]);
+    }
+
+    #[test]
+    fn test_hkdf_local() {
+        let client_hello = fs::read("/home/xl/下载/rustls-main/ClientHello").unwrap();
+        let server_hello = fs::read("/home/xl/下载/rustls-main/ServerHello").unwrap();
+        let mut hasher = Hasher::new(HashType::Sha384).unwrap();
+        hasher.update(&client_hello).unwrap();
+        hasher.update(&server_hello).unwrap();
+        let hash = hasher.finalize().unwrap();
+        println!("session_hash: {:?}", hash);
+
+        let mut derived = DerivedKey::new([0; 32], [0; 32]);
+        derived.init(&Aead::AES_256_GCM, &Hasher::new(HashType::Sha384).unwrap(), &Version::TLS_1_3);
+        let share_secret = fs::read("/home/xl/下载/rustls-main/ShareSecret").unwrap();
+        println!("share_secret: {:?}", share_secret);
+        derived.make_handshake_traffic_secret(share_secret.clone(), &hash).unwrap();
+        let key = derived.make_tls13_cipher_key(true).unwrap();
+        println!("{:?}", key.get_side(&Version::TLS_1_3, false));
+        println!("========================>finish<============================");
+
+        let encrypted_extension = fs::read("/home/xl/下载/rustls-main/EncryptedExtensions").unwrap();
+        let certificate = fs::read("/home/xl/下载/rustls-main/Certificate").unwrap();
+        let certificate_verify = fs::read("/home/xl/下载/rustls-main/CertificateVerify").unwrap();
+        let mut hasher = Hasher::new(HashType::Sha384).unwrap();
+        hasher.update(&client_hello).unwrap();
+        hasher.update(&server_hello).unwrap();
+        hasher.update(&encrypted_extension).unwrap();
+        hasher.update(&certificate).unwrap();
+        hasher.update(&certificate_verify).unwrap();
+        let hash = hasher.finalize().unwrap();
+        println!("session_hash: {:?}", hash);
+        let server_verify = derived.make_tls13_finish(true, &hash).unwrap();
+        let mut hasher = Hasher::new(HashType::Sha384).unwrap();
+        hasher.update(&client_hello).unwrap();
+        hasher.update(&server_hello).unwrap();
+        hasher.update(&encrypted_extension).unwrap();
+        hasher.update(&certificate).unwrap();
+        hasher.update(&certificate_verify).unwrap();
+        hasher.update([20, 0, 0, 48]).unwrap();
+        hasher.update(&server_verify).unwrap();
+        let hash = hasher.finalize().unwrap();
+        println!("session_hash: {:?}", hash);
+        let client_verify = derived.make_tls13_finish(false, &hash).unwrap();
+        println!("client_verify: {:?}", client_verify);
+        derived.make_application_traffic_secret(&hash).unwrap();
+        let key = derived.make_cipher_key(&Version::TLS_1_3, false).unwrap();
+        println!("key: {:#?}", key);
     }
 }

@@ -33,7 +33,7 @@ impl StatusRequest {
 
     pub fn from_bytes(bytes: &[u8]) -> RlsResult<StatusRequest> {
         let mut res = StatusRequest::new();
-        if bytes.len() == 0 { return Ok(res); }
+        if bytes.is_empty() { return Ok(res); }
         res.status_type = StatusType::from_u8(bytes[0]).ok_or("Status Type Unknown")?;
         res.responder_id_len = u16::from_be_bytes([bytes[1], bytes[2]]);
         res.request_extend_len = u16::from_be_bytes([bytes[3], bytes[4]]);

@@ -171,20 +171,36 @@ pub trait TlsStreamHandle {
     fn handle_client_hello(config: &mut ClientConfig, buffer: &mut Buffer) -> HlsResult<Connection> {
         let client_random = rand::random::<[u8; 32]>();
         let session_id = rand::random::<[u8; 32]>();
-        let mut client_hello = RecordLayer::from_bytes(&mut config.fingerprint.client_hello, false, None)?;
-        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_random(&client_random);
-        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_server_name(config.sni);
-        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_session_id(&session_id);
+        let mut record = RecordLayer::from_bytes(&mut config.fingerprint.client_hello, false, None)?;
+        let client_hello = record.messages[0].client_mut().ok_or(HlsError::NullPointer)?;
+
+        client_hello.set_random(&client_random);
+        client_hello.set_server_name(config.sni);
+        client_hello.set_session_id(&session_id);
         match config.alpn {
-            ALPN::Http20 => client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.add_h2_alpn(),
-            _ => client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.remove_h2_alpn()
+            ALPN::Http20 => client_hello.add_h2_alpn(),
+            _ => client_hello.remove_h2_alpn()
         }
-        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.remove_tls13();
-        let len = client_hello.write_to(buffer, 1)?;
+        let mut key_share = KeyShare::default();
+        let x25519_secret = SecretKey::new(NamedCurve::X25519)?;
+        key_share.add_entry(NamedCurve::X25519, x25519_secret.pub_key()?);
+        let secp256r1 = SecretKey::new(NamedCurve::Secp256r1)?;
+        key_share.add_entry(NamedCurve::Secp256r1, secp256r1.pub_key()?);
+        let secp384r1 = SecretKey::new(NamedCurve::Secp384r1)?;
+        key_share.add_entry(NamedCurve::Secp384r1, secp384r1.pub_key()?);
+        let secp521r1 = SecretKey::new(NamedCurve::Secp521r1)?;
+        key_share.add_entry(NamedCurve::Secp521r1, secp521r1.pub_key()?);
+        client_hello.set_key_share(key_share);
+
+
+        // client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.remove_tls13();
+
+        let len = record.write_to(buffer, 1)?;
         buffer.set_len(len);
 
         let mut conn = Connection::from_client(client_random)
             .with_verify(config.verify);
+        conn.set_secret_keys(vec![x25519_secret, secp256r1, secp384r1, secp521r1]);
         conn.update_session(&buffer.filled()[5..])?;
         Ok(conn)
     }

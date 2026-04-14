@@ -2,54 +2,15 @@ use super::{DNSError, SvcParamValue, SvcType, DNS};
 use crate::dns::add::Additional;
 use crate::dns::value::{DNSValue, DnsType};
 use crate::extend::ech::EchConfig;
-use crate::{rand, WriteExt, ALPN};
+use crate::{rand, ALPN};
 use std::io;
 use std::io::ErrorKind;
 use std::net::{IpAddr, SocketAddr, UdpSocket};
-use std::ops::Range;
 #[cfg(target_os = "windows")]
 use std::ptr::null_mut;
 use std::str::FromStr;
+use crate::buffer::WriteBuffer;
 
-struct DnsBuf {
-    buf: Vec<u8>,
-    len: usize,
-}
-
-impl DnsBuf {
-    fn new(capacity: usize) -> DnsBuf {
-        DnsBuf {
-            buf: vec![0; capacity],
-            len: 0,
-        }
-    }
-
-    fn filled(&self) -> &[u8] {
-        &self.buf[..self.len]
-    }
-}
-
-impl WriteExt for DnsBuf {
-    fn as_ptr(&self) -> *const u8 {
-        self.buf.as_ptr()
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self.buf.as_mut_ptr()
-    }
-
-    fn add_len(&mut self, len: usize) {
-        self.len += len;
-    }
-
-    fn offset(&self) -> Range<usize> {
-        0..self.len
-    }
-
-    fn capacity(&self) -> usize {
-        self.buf.capacity()
-    }
-}
 
 #[derive(Debug)]
 pub struct DNSCache {
@@ -88,7 +49,7 @@ impl DNSCache {
 pub struct DNSStream {
     dns_addr: SocketAddr,
     conn: UdpSocket,
-    write_buf: DnsBuf,
+    write_buf: WriteBuffer,
     read_buf: Vec<u8>,
 
 }
@@ -125,7 +86,7 @@ impl DNSStream {
         Ok(DNSStream {
             dns_addr,
             conn,
-            write_buf: DnsBuf::new(256),
+            write_buf: WriteBuffer::new(256),
             read_buf: vec![0; 2048],
         })
     }
@@ -187,7 +148,7 @@ impl DNSStream {
     }
 
     pub fn get_dns_https(&mut self, domain: &str) -> Result<DNSCache, DNSError> {
-        self.write_buf.len = 0;
+        self.write_buf.reset();
         let cookie = rand::random::<[u8; 8]>();
         let add = Additional::new_opt(&cookie);
         let mut dns = DNS::new_query_https(domain);
@@ -229,7 +190,7 @@ impl DNSStream {
     }
 
     pub fn get_dns_a(&mut self, domain: &str) -> Result<DNSCache, DNSError> {
-        self.write_buf.len = 0;
+        self.write_buf.reset();
         let dns = DNS::new_query_a(domain);
         dns.write_to(&mut self.write_buf)?;
         self.conn.send_to(self.write_buf.filled(), self.dns_addr).map_err(DNSError::DnsIoError)?;
@@ -246,8 +207,6 @@ impl DNSStream {
         })
     }
 }
-
-
 
 
 #[cfg(test)]

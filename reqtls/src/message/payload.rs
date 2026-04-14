@@ -7,7 +7,6 @@ pub struct Payload<'a> {
 }
 
 impl<'a> Payload<'a> {
-
     pub fn from_slice(slice: &'a mut [u8]) -> Payload<'a> {
         Payload {
             value: slice,
@@ -15,6 +14,10 @@ impl<'a> Payload<'a> {
     }
 
     pub fn into_inner(self) -> &'a [u8] {
+        self.value
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
         self.value
     }
 }

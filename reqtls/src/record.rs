@@ -70,7 +70,7 @@ impl<'a> RecordLayer<'a> {
                         let (message, reset) = messages.split_at_mut(msg_len + 4);
                         messages = reset;
                         index = index + 4 + msg_len;
-                        res.messages.push(Message::from_bytes(message, payload, suite)?)
+                        res.messages.push(Message::from_bytes(message, payload, suite, Version::TLS_1_2)?)
                     } else {
                         res.messages.push(Message::Payload(Payload::from_slice(messages)));
                         break;

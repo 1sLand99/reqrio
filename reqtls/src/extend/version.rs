@@ -53,6 +53,10 @@ impl SupportVersions {
 
     pub fn versions(&self) -> &Vec<Version> { &self.versions }
 
+    pub fn next(self) -> Option<Version> {
+        self.versions.into_iter().next()
+    }
+
     pub fn set_versions(&mut self, versions: Vec<Version>) { self.versions = versions }
 
     pub fn clear(&mut self) {

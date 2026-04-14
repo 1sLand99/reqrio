@@ -4,6 +4,7 @@ use crate::Version;
 #[derive(Debug)]
 pub enum HandShakeError {
     UnsupportedVersion(Version),
+    VerifyFinishedFail
 
 }
 

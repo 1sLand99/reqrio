@@ -6,7 +6,7 @@ use crate::boring::hash;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::{ExtensionType, ExtensionValue, ServerName};
-use crate::{rand, BufferError, WriteExt};
+use crate::{rand, BufferError, KeyShare, WriteExt};
 use std::mem;
 use crate::buffer::Buf;
 
@@ -299,6 +299,16 @@ impl<'a> ClientHello<'a> {
 
     pub fn take_extensions(&mut self) -> Vec<Extension<'_>> {
         mem::take(&mut self.extensions)
+    }
+
+    pub fn extensions_mut(&mut self) -> &mut [Extension<'a>] { &mut self.extensions }
+
+    pub fn set_key_share(&mut self, key_share: KeyShare<'a>) {
+        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::KeyShare);
+        match extend {
+            None => self.extensions.push(Extension::new(ExtensionType::KeyShare, ExtensionValue::KeyShare(key_share))),
+            Some(extend) => extend.set_key_share(key_share),
+        }
     }
 }
 

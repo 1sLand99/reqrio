@@ -1,7 +1,7 @@
 use super::super::bytes::Bytes;
 use super::HandshakeType;
 use crate::error::RlsResult;
-use crate::{BufferError, CertType, SignatureAlgorithm, WriteExt};
+use crate::{BufferError, CertType, SignatureAlgorithm, Version, WriteExt};
 use std::fmt::Debug;
 use crate::buffer::Buf;
 
@@ -23,17 +23,26 @@ impl<'a> Default for Certificates<'a> {
 }
 
 impl<'a> Certificates<'a> {
-    pub fn from_bytes(ht: HandshakeType, bytes: &[u8]) -> RlsResult<Certificates<'_>> {
+    pub fn from_bytes(ht: HandshakeType, version: Version, bytes: &[u8]) -> RlsResult<Certificates<'_>> {
         let mut res = Certificates {
             handshake_type: ht,
-            certificate_len: u32::from_be_bytes([0, bytes[4], bytes[5], bytes[6]]),
+            certificate_len: match version {
+                Version::TLS_1_3 => u32::from_be_bytes([0, bytes[5], bytes[6], bytes[7]]),
+                _ => u32::from_be_bytes([0, bytes[4], bytes[5], bytes[6]]),
+            },
             ..Certificates::default()
         };
-        let mut index = 7;
-        while index < res.certificate_len as usize + 7 {
+        let pos = match version {
+            Version::TLS_1_3 => 8,
+            _ => 7
+        };
+        let mut index = pos;
+        while index < res.certificate_len as usize + pos {
             let len = u32::from_be_bytes([0, bytes[index], bytes[index + 1], bytes[index + 2]]) as usize;
+            println!("{}", len);
             index += 3;
             res.certificates.push(Buf::Ref(&bytes[index..index + len]));
+            if let Version::TLS_1_3 = version { index += 2 }
             index += len
         }
         Ok(res)

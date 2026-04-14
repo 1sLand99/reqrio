@@ -60,7 +60,11 @@ impl AcReq {
         AcReq::default()
     }
 
-    pub async fn get(&mut self, url: impl TryInto<Url>, body: impl Into<Body<'_>>) -> HlsResult<Response> {
+    pub async fn get<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
+    where
+        HlsError: From<E>,
+    {
+        let url = url.try_into()?;
         self.header.set_method(Method::GET);
         self.stream_io(url, body.into()).await
     }
@@ -158,6 +162,7 @@ impl AcReq {
                         };
                     }
                     Err(e) => {
+                        println!("{}", e);
                         if i != self.timeout.handle_times() - 1 {
                             if e.to_string().to_lowercase().contains("close") || e.to_string().contains("中止了") || e.to_string().contains("关闭") {
                                 self.re_conn().await?;

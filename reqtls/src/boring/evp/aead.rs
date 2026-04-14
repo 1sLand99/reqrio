@@ -26,16 +26,17 @@ impl AeadCrypto {
 
     pub fn encrypt(&self, param: CryptEncodeParam) -> RlsResult<()> {
         let mut out_len = 0;
+        let payload = param.buffer.payload();
         unsafe {
             EVP_AEAD_CTX_seal(
                 self.ctx.as_ptr(),
-                param.buffer.encrypted_buffer().as_mut_ptr(),
+                payload.encoded_payload().as_mut_ptr(),
                 &mut out_len,
-                param.buffer.encrypted_buffer().len(),
+                payload.encoded_payload().len(),
                 param.nonce.as_ptr(),
                 param.nonce.len(),
-                param.buffer.origin_payload().as_ptr(),
-                param.buffer.origin_payload().len(),
+                payload.origin_payload().as_ptr(),
+                payload.origin_payload().len(),
                 param.aad.as_ptr(),
                 param.aad.len(),
             )

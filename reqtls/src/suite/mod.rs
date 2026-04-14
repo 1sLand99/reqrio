@@ -51,7 +51,7 @@ impl CipherSuite {
     pub const TLS_RSA_WITH_AES_128_CBC_SHA: u16 = 0x002f;
     pub const TLS_RSA_WITH_AES_256_CBC_SHA: u16 = 0x0035;
 
-    //empty
+    //tls1.3
     pub const TLS_AES_128_GCM_SHA256: u16 = 0x1301;
     pub const TLS_AES_256_GCM_SHA384: u16 = 0x1302;
     pub const TLS_CHACHA20_POLY1305_SHA256: u16 = 0x1303;
@@ -153,8 +153,7 @@ impl CipherSuite {
     }
 
     pub fn is_aead(&self) -> bool {
-        match self.value {
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 |
+        matches!(self.value, CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 |
             CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 |
             CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 |
             CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 |
@@ -167,9 +166,7 @@ impl CipherSuite {
             CipherSuite::TLS_RSA_WITH_AES_256_GCM_SHA384 |
             CipherSuite::TLS_AES_128_GCM_SHA256 |
             CipherSuite::TLS_AES_256_GCM_SHA384 |
-            CipherSuite::TLS_CHACHA20_POLY1305_SHA256 => true,
-            _ => false
-        }
+            CipherSuite::TLS_CHACHA20_POLY1305_SHA256)
     }
 
 

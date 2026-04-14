@@ -261,7 +261,7 @@ mod boring;
 mod ffi;
 pub mod coder;
 mod alpn;
-mod share_key;
+mod secret_key;
 mod url;
 
 #[cfg(feature = "export")]
@@ -269,30 +269,26 @@ mod export;
 mod buffer;
 mod dns;
 mod hkdf;
-mod key_schedule;
 mod derived;
 
 pub use alpn::ALPN;
-pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner, certificate::CertStore, certificate::CertType, certificate::Certificate, certificate::DnType, certificate::KeyIdentifier,
-                 certificate::KeyUsage, certificate::SubjectAltName, cipher, hash,
-                 hmac, AlgorithmSigner, Cipher,
-                 CipherType, Padding, RsaCipher,
-                 RsaKey,
-                 RsaPadding, SignatureAlgorithm};
+pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner,
+                 certificate::CertStore, certificate::CertType, certificate::Certificate, certificate::DnType,
+                 certificate::KeyIdentifier, certificate::KeyUsage, certificate::SubjectAltName, cipher, hash,
+                 hmac, AlgorithmSigner, Cipher, CipherType, Padding, RsaCipher, RsaKey, RsaPadding,
+                 SignatureAlgorithm};
 pub use buffer::{BufferError, ReadExt, Reader, WriteExt};
 pub use connection::Connection;
 pub use error::RlsError;
-pub use extend::{formats::EcPointFormat, group::GroupType, CompressionType, Extension, ExtensionType, SupportVersions};
+pub use extend::{formats::EcPointFormat, CompressionType, Extension, ExtensionType, SupportVersions,
+                 KeyShare};
 pub use hash::{HashType, Hasher, Hmac};
 pub use hex;
-pub use message::certificate::Certificates;
-pub use message::client_hello::ClientHello;
-pub use message::key_exchange::ClientKeyExchange;
-pub use message::key_exchange::ServerKeyExchange;
-pub use message::server_hello::ServerHello;
-pub use message::session_ticket::{SessionTicket, TlsSessionTicket};
+pub use message::{Certificates, ClientHello, ClientKeyExchange, ServerKeyExchange, ServerHello,
+                  ServerHelloDone, SessionTicket, TlsSessionTicket, NamedCurve};
 pub use message::{Alert, CertificateRequest, CertificateVerify, Message};
 pub use record::{RecordLayer, RecordType};
 pub use suite::CipherSuite;
 pub use url::{Addr, Param, Scheme, Uri, Url, UrlError};
 pub use version::Version;
+pub use secret_key::SecretKey;

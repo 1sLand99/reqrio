@@ -93,6 +93,49 @@ impl Debug for BufPtr {
     }
 }
 
+
+pub struct WriteBuffer {
+    buf: Vec<u8>,
+    len: usize,
+}
+
+impl WriteBuffer {
+    pub(crate) fn new(capacity: usize) -> WriteBuffer {
+        WriteBuffer {
+            buf: vec![0; capacity],
+            len: 0,
+        }
+    }
+
+    pub fn filled(&self) -> &[u8] {
+        &self.buf[..self.len]
+    }
+
+    pub fn reset(&mut self) { self.len = 0; }
+}
+
+impl WriteExt for WriteBuffer {
+    fn as_ptr(&self) -> *const u8 {
+        self.buf.as_ptr()
+    }
+
+    fn as_mut_ptr(&mut self) -> *mut u8 {
+        self.buf.as_mut_ptr()
+    }
+
+    fn add_len(&mut self, len: usize) {
+        self.len += len;
+    }
+
+    fn offset(&self) -> Range<usize> {
+        0..self.len
+    }
+
+    fn capacity(&self) -> usize {
+        self.buf.capacity()
+    }
+}
+
 pub struct Reader<'a> {
     buf: &'a [u8],
     pos: Cell<usize>,

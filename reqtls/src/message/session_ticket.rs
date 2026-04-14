@@ -1,46 +1,63 @@
 use super::super::message::HandshakeType;
 use crate::buffer::Buf;
 use crate::error::RlsResult;
-use crate::{BufferError, WriteExt};
+use crate::{BufferError, Version, WriteExt};
 
 #[derive(Debug)]
+#[allow(unused)]
 pub struct TlsSessionTicket<'a> {
     lifetime: u32,
-    value: Buf<'a>,
+    age_add: u32,
+    nonce: Buf<'a>,
+    ticket: Buf<'a>,
 }
 
 impl<'a> Default for TlsSessionTicket<'a> {
     fn default() -> TlsSessionTicket<'a> {
         TlsSessionTicket {
             lifetime: 3600,
-            value: Buf::Ref(&[]),
+            age_add: 0,
+            nonce: Buf::Ref(&[]),
+            ticket: Buf::Ref(&[]),
         }
     }
 }
 
 impl<'a> TlsSessionTicket<'a> {
-    pub fn from_bytes(bytes: &'a [u8]) -> RlsResult<TlsSessionTicket<'a>> {
-        let len = u16::from_be_bytes(bytes[4..6].try_into()?) as usize;
+    pub fn from_bytes(bytes: &'a [u8], version: Version) -> RlsResult<TlsSessionTicket<'a>> {
+        let lifetime = u32::from_be_bytes(bytes[0..4].try_into()?);
+        let (age_add, nonce, index) = match version {
+            Version::TLS_1_3 => {
+                let age_add = u32::from_be_bytes(bytes[4..8].try_into()?);
+                let nonce_len = bytes[8] as usize;
+                let nonce = Buf::Ref(&bytes[9..9 + nonce_len]);
+                (age_add, nonce, 9 + nonce_len)
+            }
+            _ => (0, Buf::Ref(&[]), 4)
+        };
+        let len = u16::from_be_bytes(bytes[index..index + 2].try_into()?) as usize;
         Ok(TlsSessionTicket {
-            lifetime: u32::from_be_bytes(bytes[0..4].try_into()?),
-            value: Buf::Ref(&bytes[6..6 + len as usize]),
+            lifetime,
+            age_add,
+            nonce,
+            ticket: Buf::Ref(&bytes[index + 2..index + 2 + len]),
         })
     }
 
     pub fn is_empty(&self) -> bool { self.len() == 0 }
 
     pub fn len(&self) -> usize {
-        6 + self.value.len()
+        6 + self.ticket.len()
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W)-> Result<(), BufferError> {
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
         writer.write_u32(self.lifetime, false)?;
-        writer.write_u16(self.value.len() as u16)?;
-        writer.write_slice(self.value.as_ref())
+        writer.write_u16(self.ticket.len() as u16)?;
+        writer.write_slice(self.ticket.as_ref())
     }
 
     pub fn set_value(&mut self, value: &'a [u8]) {
-        self.value = Buf::Ref(value);
+        self.ticket = Buf::Ref(value);
     }
 }
 
@@ -60,11 +77,11 @@ impl<'a> Default for SessionTicket<'a> {
 }
 
 impl<'a> SessionTicket<'a> {
-    pub fn from_bytes(ht: HandshakeType, bytes: &'a [u8]) -> RlsResult<SessionTicket<'a>> {
+    pub fn from_bytes(ht: HandshakeType, bytes: &'a [u8], version: Version) -> RlsResult<SessionTicket<'a>> {
         let len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]]) as usize;
         Ok(SessionTicket {
             handshake_type: ht,
-            tls_ticket: TlsSessionTicket::from_bytes(&bytes[4..4 + len])?,
+            tls_ticket: TlsSessionTicket::from_bytes(&bytes[4..4 + len], version)?,
         })
     }
 

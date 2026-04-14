@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Formatter};
 
-#[derive(PartialEq)]
-pub struct Version(pub(crate) u16);
+#[derive(Copy, Clone, PartialEq)]
+pub struct Version(u16);
 
 impl Version {
     pub const TLS_1_0: Version = Version(0x301);
@@ -47,3 +47,16 @@ impl Debug for Version {
         }
     }
 }
+
+impl From<u16> for Version {
+    fn from(v: u16) -> Version {
+        Version(v)
+    }
+}
+
+impl PartialEq<u16> for Version {
+    fn eq(&self, other: &u16) -> bool {
+        self.0 == *other
+    }
+}
+

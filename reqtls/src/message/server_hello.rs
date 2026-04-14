@@ -1,4 +1,4 @@
-use super::super::extend::Extension;
+use super::super::extend::{Extension, KeyShare};
 use super::super::message::HandshakeType;
 use super::super::suite::CipherSuite;
 use super::super::version::Version;
@@ -142,6 +142,31 @@ impl<'a> ServerHello<'a> {
     pub fn set_session_id(&mut self, session_id: &'a [u8]) {
         self.session_id = Buf::Ref(session_id);
     }
+
+    pub fn supported_version(&self) -> Option<&Version> {
+        let extend = self.extensions.iter().find(|x| x.extension_type() == &ExtensionType::SupportedVersions)?;
+        if let ExtensionValue::SupportedVersions(version) = extend.value() {
+            version.versions().first()
+        } else { None }
+    }
+
+    pub fn share_key(&self) -> Option<&KeyShare<'_>> {
+        let extend = self.extensions.iter().find(|x| x.extension_type() == &ExtensionType::KeyShare)?;
+        if let ExtensionValue::KeyShare(key) = extend.value() {
+            Some(key)
+        } else { None }
+    }
+
+    // pub fn into_inner(mut self) -> (Buf<'a>, CipherSuite, Version, Option<Buf<'a>>) {
+    //     let key_share = self.extensions.extract_if(.., |x| x.extension_type() == &ExtensionType::KeyShare).next();
+    //     let key_share = if let Some(extend) = key_share && let ExtensionValue::KeyShare(key_share) = extend.into_value() {
+    //         Some(key_share)
+    //     } else { None };
+    //     let version = self.extensions.extract_if(.., |x| x.extension_type() == &ExtensionType::SupportedVersions).next();
+    //     let version=if let Some(extend) = version && let ExtensionValue::SupportedVersions(vers) = extend.into_value() {
+    //         vers.next()
+    //     }
+    // }
 }
 
 #[derive(Debug)]

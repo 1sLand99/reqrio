@@ -1,3 +1,5 @@
+use crate::Version;
+
 #[derive(Debug, Clone, Copy)]
 #[allow(non_camel_case_types)]
 pub enum Aead {
@@ -58,18 +60,33 @@ impl Aead {
         }
     }
 
-    pub fn fix_iv_len(&self) -> usize {
+    pub fn fix_iv_len(&self, version: &Version) -> usize {
         match self {
-            Aead::AES_128_GCM | Aead::AES_256_GCM => 4,
+            Aead::AES_128_GCM | Aead::AES_256_GCM => match *version {
+                Version::TLS_1_3 => 12,
+                _ => 4
+            },
             Aead::ChaCha20_POLY1305 => 12,
             Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => 16,
             _ => 0
         }
     }
 
-    pub fn explicit_len(&self) -> usize {
+    pub fn tls13_iv_len(&self) -> usize {
         match self {
-            Aead::AES_128_GCM | Aead::AES_256_GCM => 8,
+            Aead::AES_128_GCM | Aead::AES_256_GCM => 12,
+            Aead::ChaCha20_POLY1305 => 12,
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => 16,
+            _ => 0
+        }
+    }
+
+    pub fn explicit_len(&self, version: &Version) -> usize {
+        match self {
+            Aead::AES_128_GCM | Aead::AES_256_GCM => match *version {
+                Version::TLS_1_3 => 0,
+                _ => 8,
+            },
             Aead::ChaCha20_POLY1305 => 0,
             Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => 16,
             _ => 0

@@ -1,16 +1,3 @@
-use super::bytes::Bytes;
-use algorithm::SignatureAlgorithms;
-use alps::ALPS;
-use certificate::CompressionCertificate;
-use client_hello::EncryptClientHello;
-use formats::EcPointFormats;
-use group::SupportedGroups;
-use key_share::KeyShare;
-use psk_key::PskKey;
-use std::fmt::{Debug, Formatter};
-pub use version::SupportVersions;
-pub use server_name::ServerName;
-
 mod version;
 pub mod formats;
 mod server_name;
@@ -25,12 +12,24 @@ mod psk_key;
 mod pre_share_key;
 pub mod ech;
 
+use super::bytes::Bytes;
 use crate::error::RlsResult;
-pub use crate::extend::certificate::CompressionType;
-use crate::extend::pre_share_key::PreSharedKey;
 use crate::{BufferError, Version, WriteExt};
+use algorithm::SignatureAlgorithms;
+use alps::ALPS;
+use certificate::CompressionCertificate;
+pub use certificate::CompressionType;
+use client_hello::EncryptClientHello;
 pub use ech::Aead;
+use formats::EcPointFormats;
+use group::SupportedGroups;
+pub use key_share::KeyShare;
+use pre_share_key::PreSharedKey;
+use psk_key::PskKey;
+pub use server_name::ServerName;
 pub use status::StatusRequest;
+use std::fmt::{Debug, Formatter};
+pub use version::SupportVersions;
 
 #[derive(PartialEq, Clone)]
 pub struct ExtensionType(u16);
@@ -168,7 +167,7 @@ impl<'a> ExtensionValue<'a> {
             ExtensionType::EncryptedClientHello => Ok(ExtensionValue::EncryptedClientHello(EncryptClientHello::from_bytes(bytes)?)),
             ExtensionType::SignedCertificateTimestamp => Ok(ExtensionValue::SignedCertificateTimestamp),
             ExtensionType::ApplicationSetting => Ok(ExtensionValue::ApplicationSetting(ALPS::from_bytes(bytes)?)),
-            ExtensionType::KeyShare => Ok(ExtensionValue::KeyShare(KeyShare::from_bytes(bytes))),
+            ExtensionType::KeyShare => Ok(ExtensionValue::KeyShare(KeyShare::from_bytes(bytes, server))),
             ExtensionType::ApplicationLayerProtocolNegotiation => Ok(ExtensionValue::ApplicationLayerProtocolNegotiation(ALPS::from_bytes(bytes)?)),
             ExtensionType::PreSharedKey => Ok(ExtensionValue::PreSharedKey(PreSharedKey::from_bytes(bytes)?)),
             ExtensionType::ApplicationSettingOld => Ok(ExtensionValue::ApplicationSetting(ALPS::from_bytes(bytes)?)),
@@ -276,7 +275,7 @@ impl<'a> Extension<'a> {
                 Some(ExtensionValue::SupportedVersions(supported_versions))
             }
             ExtensionType::PskKeyExchangeMode => Some(ExtensionValue::PskKeyExchangeMode(PskKey::new())),
-            ExtensionType::KeyShare => Some(ExtensionValue::KeyShare(KeyShare::new())),
+            ExtensionType::KeyShare => Some(ExtensionValue::KeyShare(KeyShare::default())),
             ExtensionType::RenegotiationInfo => Some(ExtensionValue::RenegotiationInfo(RenegotiationInfo::new())),
             ExtensionType::EncryptedClientHello => Some(ExtensionValue::EncryptedClientHello(EncryptClientHello::new())),
             ExtensionType::ApplicationSetting => Some(ExtensionValue::ApplicationSetting(ALPS::new())),
@@ -386,6 +385,12 @@ impl<'a> Extension<'a> {
         if let ExtensionValue::ServerName(ref mut v) = self.value { v.set_value(value) }
     }
 
+    pub fn set_key_share(&mut self, key_share: KeyShare<'a>) {
+        if let ExtensionValue::KeyShare(ref mut key) = self.value {
+            *key = key_share;
+        }
+    }
+
     pub fn server_name(&self) -> Option<&ServerName> {
         match self.value {
             ExtensionValue::ServerName(ref v) => Some(v),
@@ -426,4 +431,8 @@ impl<'a> Extension<'a> {
             _ => {}
         }
     }
+
+    pub fn value(&self) -> &ExtensionValue<'_> { &self.value }
+
+    pub fn into_value(self) -> ExtensionValue<'a> { self.value }
 }
