@@ -1,7 +1,8 @@
-use super::message::{Message, Payload};
+use super::message::Message;
 use super::version::Version;
+use crate::buffer::Buf;
 use crate::error::RlsResult;
-use crate::{Alert, BufferError, CipherSuite, WriteExt, ALPN};
+use crate::{Alert, BufferError, CipherSuite, ReadExt, Reader, WriteExt, ALPN};
 
 #[derive(Debug, Copy, Clone)]
 pub enum RecordType {
@@ -51,49 +52,24 @@ impl<'a> RecordLayer<'a> {
         RecordLayer::new(RecordType::HandShake)
     }
 
-    pub fn from_bytes(bytes: &'a mut [u8], payload: bool, suite: Option<&CipherSuite>) -> RlsResult<RecordLayer<'a>> {
+    pub fn from_bytes(bytes: &'a [u8], payload: bool, suite: Option<&CipherSuite>) -> RlsResult<RecordLayer<'a>> {
         if bytes.len() < 5 { return Err(BufferError::Insufficient.into()); }
-        let (head, messages) = bytes.split_at_mut(5);
-        let mut res = RecordLayer::new(RecordType::from_byte(head[0]).ok_or("LayerType Unknown")?);
-        res.version = Version::new(u16::from_be_bytes([head[1], head[2]]));
-        res.len = u16::from_be_bytes([head[3], head[4]]);
-        if messages.len() < res.len as usize { return Err(BufferError::Insufficient.into()); }
-        let (mut messages, _) = messages.split_at_mut(res.len as usize);
-        let mut index = 0;
-        let total_len = messages.len();
-
-        while index < total_len {
-            match res.context_type {
-                RecordType::HandShake => {
-                    if !payload {
-                        let msg_len = u32::from_be_bytes([0, messages[1], messages[2], messages[3]]) as usize;
-                        let (message, reset) = messages.split_at_mut(msg_len + 4);
-                        messages = reset;
-                        index = index + 4 + msg_len;
-                        res.messages.push(Message::from_bytes(message, payload, suite, Version::TLS_1_2)?)
-                    } else {
-                        res.messages.push(Message::Payload(Payload::from_slice(messages)));
-                        break;
-                    }
-                }
-                RecordType::ApplicationData => {
-                    res.messages.push(Message::Payload(Payload::from_slice(messages)));
-                    break;
-                }
-                RecordType::Alert => if payload {
-                    res.messages.push(Message::Payload(Payload::from_slice(messages)));
-                    break;
-                } else {
-                    res.messages.push(Message::Alert(Alert::from_bytes(messages)?));
-                    break;
-                }
+        let mut reader = Reader::from_slice(bytes);
+        let mut res = RecordLayer::new(RecordType::from_byte(reader.read_u8()?).ok_or("LayerType Unknown")?);
+        res.version = Version::new(reader.read_u16()?);
+        res.len = reader.read_u16()?;
+        if reader.unread_len() < res.len as usize { return Err(BufferError::Insufficient.into()); }
+        let mut reader = reader.read_reader(res.len as usize)?;
+        while reader.unread_len() > 0 {
+            let message = match res.context_type {
                 RecordType::CipherSpec => {
-                    index += 1;
-                    res.messages.push(Message::CipherSpec)
+                    reader.read_u8()?;
+                    Message::CipherSpec
                 }
+                _ => Message::from_reader(&mut reader, payload, suite, Version::TLS_1_2).unwrap(),
             };
+            res.messages.push(message);
         }
-
         Ok(res)
     }
 

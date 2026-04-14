@@ -20,7 +20,7 @@ impl<'a> Default for Certificates<'a> {
 }
 
 impl<'a> Certificates<'a> {
-    pub fn from_reader(ht: HandshakeType, version: Version, mut reader: Reader<'a>) -> RlsResult<Certificates<'a>> {
+    pub fn from_reader(ht: HandshakeType, version: Version, reader: &mut Reader<'a>) -> RlsResult<Certificates<'a>> {
         if let Version::TLS_1_3 = version {
             reader.read_u8()?; //req ctx len
         }
@@ -76,7 +76,7 @@ pub struct CertificateStatus<'a> {
 }
 
 impl<'a> CertificateStatus<'a> {
-    pub fn from_reader(ht: HandshakeType, mut reader: Reader<'a>) -> RlsResult<CertificateStatus<'a>> {
+    pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<CertificateStatus<'a>> {
         let len = reader.read_u32_24()?;
         Ok(CertificateStatus {
             handshake_type: ht,
@@ -132,7 +132,7 @@ impl<'a> CertificateRequest<'a> {
         res
     }
 
-    pub fn from_reader(ht: HandshakeType, mut reader: Reader<'a>) -> RlsResult<CertificateRequest<'a>> {
+    pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<CertificateRequest<'a>> {
         let mut res = CertificateRequest {
             handshake_type: ht,
             ..Default::default()
@@ -197,7 +197,7 @@ impl<'a> Default for CertificateVerify<'a> {
 }
 
 impl<'a> CertificateVerify<'a> {
-    pub fn from_reader(ht: HandshakeType, mut reader: Reader<'a>) -> RlsResult<CertificateVerify<'a>> {
+    pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<CertificateVerify<'a>> {
         reader.read_u32_24()?;
         let sign_hash = SignatureAlgorithm::new(reader.read_u16()?);
         let sign_len = reader.read_u16()?;

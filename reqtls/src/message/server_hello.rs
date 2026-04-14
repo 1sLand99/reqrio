@@ -40,7 +40,7 @@ impl<'a> Default for ServerHello<'a> {
 }
 
 impl<'a> ServerHello<'a> {
-    pub fn from_reader(ht: HandshakeType, mut reader: Reader<'a>) -> RlsResult<ServerHello<'a>> {
+    pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<ServerHello<'a>> {
         let mut res = ServerHello::default();
         res.handshake_type = ht;
         res.len = reader.read_u32_24()?;
@@ -170,7 +170,7 @@ impl ServerHelloDone {
         }
     }
 
-    pub fn from_reader(ht: HandshakeType, mut reader: Reader<'_>) -> RlsResult<ServerHelloDone> {
+    pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'_>) -> RlsResult<ServerHelloDone> {
         Ok(ServerHelloDone {
             handshake_type: ht,
             len: reader.read_u32_24()?,

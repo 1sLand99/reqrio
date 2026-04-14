@@ -87,7 +87,7 @@ impl<'a> ClientHello<'a> {
         res
     }
 
-    pub fn from_bytes(ht: HandshakeType, mut reader: Reader<'a>) -> RlsResult<ClientHello<'a>> {
+    pub fn from_bytes(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<ClientHello<'a>> {
         let mut res = ClientHello::default();
         res.handshake_type = ht;
         res.len = reader.read_u32_24()?;
