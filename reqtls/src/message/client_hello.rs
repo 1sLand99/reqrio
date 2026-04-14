@@ -217,7 +217,7 @@ impl<'a> ClientHello<'a> {
         self.session_id = Buf::Ref(session_id);
     }
 
-    pub fn set_server_name(&mut self, server_name: &str) {
+    pub fn set_server_name(&mut self, server_name: &'a str) {
         let extend_type = ExtensionType::ServerName;
         let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &extend_type);
         match extend {

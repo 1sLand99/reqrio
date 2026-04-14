@@ -16,7 +16,7 @@ pub struct DNSAnswer<'a> {
 }
 
 impl<'b, 'a: 'b> DNSAnswer<'a> {
-    pub fn from_bytes(reader: &'b Reader<'a>) -> Result<DNSAnswer<'a>, DNSError> {
+    pub fn from_bytes(reader: &'b mut Reader<'a>) -> Result<DNSAnswer<'a>, DNSError> {
         let name = Domain::from_bytes(reader)?;
         let type_: DnsType = reader.read_u16()?.into();
         let class: DNSClass = reader.read_u16()?.into();

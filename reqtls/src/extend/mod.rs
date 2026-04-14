@@ -14,7 +14,7 @@ pub mod ech;
 
 use super::bytes::Bytes;
 use crate::error::RlsResult;
-use crate::{BufferError, Version, WriteExt};
+use crate::{BufferError, Reader, Version, WriteExt};
 use algorithm::SignatureAlgorithms;
 use alps::ALPS;
 use certificate::CompressionCertificate;
@@ -132,7 +132,7 @@ pub enum ExtensionValue<'a> {
     SupportedGroups(SupportedGroups),
     StatusRequest(StatusRequest),
     SignatureAlgorithms(SignatureAlgorithms),
-    ServerName(ServerName),
+    ServerName(ServerName<'a>),
     EcPointFormats(EcPointFormats),
     SupportedVersions(SupportVersions),
     RenegotiationInfo(RenegotiationInfo),
@@ -152,7 +152,7 @@ pub enum ExtensionValue<'a> {
 impl<'a> ExtensionValue<'a> {
     pub fn from_bytes(t: &ExtensionType, bytes: &'a [u8], server: bool) -> RlsResult<Self> {
         match *t {
-            ExtensionType::ServerName => Ok(ExtensionValue::ServerName(ServerName::from_bytes(bytes)?)),
+            ExtensionType::ServerName => Ok(ExtensionValue::ServerName(ServerName::from_reader(Reader::from_slice(bytes))?)),
             ExtensionType::StatusRequest => Ok(ExtensionValue::StatusRequest(StatusRequest::from_bytes(bytes)?)),
             ExtensionType::SupportedGroup => Ok(ExtensionValue::SupportedGroups(SupportedGroups::from_bytes(bytes)?)),
             ExtensionType::EcPointFormats => Ok(ExtensionValue::EcPointFormats(EcPointFormats::from_bytes(bytes)?)),
@@ -381,7 +381,7 @@ impl<'a> Extension<'a> {
         self.value.write_to(writer, server)
     }
 
-    pub fn set_server_name(&mut self, value: &str) {
+    pub fn set_server_name(&mut self, value: &'a str) {
         if let ExtensionValue::ServerName(ref mut v) = self.value { v.set_value(value) }
     }
 
@@ -391,7 +391,7 @@ impl<'a> Extension<'a> {
         }
     }
 
-    pub fn server_name(&self) -> Option<&ServerName> {
+    pub fn server_name(&self) -> Option<&ServerName<'a>> {
         match self.value {
             ExtensionValue::ServerName(ref v) => Some(v),
             _ => None
