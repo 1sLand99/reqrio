@@ -12,9 +12,9 @@ mod psk_key;
 mod pre_share_key;
 pub mod ech;
 
-use super::bytes::Bytes;
+use crate::buffer::Buf;
 use crate::error::RlsResult;
-use crate::{BufferError, Reader, Version, WriteExt};
+use crate::{BufferError, ReadExt, Reader, Version, WriteExt};
 use algorithm::SignatureAlgorithms;
 use alps::ALPS;
 use certificate::CompressionCertificate;
@@ -112,10 +112,10 @@ impl RenegotiationInfo {
     pub fn new() -> RenegotiationInfo {
         RenegotiationInfo { len: 0 }
     }
-    pub fn from_bytes(byte: &[u8]) -> RenegotiationInfo {
-        RenegotiationInfo {
-            len: byte[0]
-        }
+    pub fn from_reader(mut reader: Reader<'_>) -> RlsResult<RenegotiationInfo> {
+        Ok(RenegotiationInfo {
+            len: reader.read_u8()?
+        })
     }
 
     pub fn len(&self) -> usize { 1 }
@@ -146,32 +146,32 @@ pub enum ExtensionValue<'a> {
     MasterSecret,
     SignedCertificateTimestamp,
     PreSharedKey(PreSharedKey<'a>),
-    Unknown(Bytes),
+    Unknown(Buf<'a>),
 }
 
 impl<'a> ExtensionValue<'a> {
-    pub fn from_bytes(t: &ExtensionType, bytes: &'a [u8], server: bool) -> RlsResult<Self> {
+    pub fn from_bytes(t: &ExtensionType, reader: Reader<'a>, server: bool) -> RlsResult<Self> {
         match *t {
-            ExtensionType::ServerName => Ok(ExtensionValue::ServerName(ServerName::from_reader(Reader::from_slice(bytes))?)),
-            ExtensionType::StatusRequest => Ok(ExtensionValue::StatusRequest(StatusRequest::from_reader(Reader::from_slice(bytes))?)),
-            ExtensionType::SupportedGroup => Ok(ExtensionValue::SupportedGroups(SupportedGroups::from_reader(Reader::from_slice(bytes))?)),
-            ExtensionType::EcPointFormats => Ok(ExtensionValue::EcPointFormats(EcPointFormats::from_reader(Reader::from_slice(bytes))?)),
-            ExtensionType::SignatureAlgorithms => Ok(ExtensionValue::SignatureAlgorithms(SignatureAlgorithms::from_reader(Reader::from_slice(bytes))?)),
+            ExtensionType::ServerName => Ok(ExtensionValue::ServerName(ServerName::from_reader(reader)?)),
+            ExtensionType::StatusRequest => Ok(ExtensionValue::StatusRequest(StatusRequest::from_reader(reader)?)),
+            ExtensionType::SupportedGroup => Ok(ExtensionValue::SupportedGroups(SupportedGroups::from_reader(reader)?)),
+            ExtensionType::EcPointFormats => Ok(ExtensionValue::EcPointFormats(EcPointFormats::from_reader(reader)?)),
+            ExtensionType::SignatureAlgorithms => Ok(ExtensionValue::SignatureAlgorithms(SignatureAlgorithms::from_reader(reader)?)),
             ExtensionType::EncryptTheMac => Ok(ExtensionValue::EncryptTheMac),
             ExtensionType::ExtendMasterSecret => Ok(ExtensionValue::MasterSecret),
             ExtensionType::SessionTicket => Ok(ExtensionValue::SessionTicket),
-            ExtensionType::RenegotiationInfo => Ok(ExtensionValue::RenegotiationInfo(RenegotiationInfo::from_bytes(bytes))),
-            ExtensionType::SupportedVersions => Ok(ExtensionValue::SupportedVersions(SupportVersions::from_reader(Reader::from_slice(bytes), server)?)),
-            ExtensionType::PskKeyExchangeMode => Ok(ExtensionValue::PskKeyExchangeMode(PskKey::from_reader(Reader::from_slice(bytes))?)),
-            ExtensionType::CompressionCertificate => Ok(ExtensionValue::CompressionCertificate(CompressionCertificate::from_reader(Reader::from_slice(bytes))?)),
-            ExtensionType::EncryptedClientHello => Ok(ExtensionValue::EncryptedClientHello(EncryptClientHello::from_reader(Reader::from_slice(bytes))?)),
+            ExtensionType::RenegotiationInfo => Ok(ExtensionValue::RenegotiationInfo(RenegotiationInfo::from_reader(reader)?)),
+            ExtensionType::SupportedVersions => Ok(ExtensionValue::SupportedVersions(SupportVersions::from_reader(reader, server)?)),
+            ExtensionType::PskKeyExchangeMode => Ok(ExtensionValue::PskKeyExchangeMode(PskKey::from_reader(reader)?)),
+            ExtensionType::CompressionCertificate => Ok(ExtensionValue::CompressionCertificate(CompressionCertificate::from_reader(reader)?)),
+            ExtensionType::EncryptedClientHello => Ok(ExtensionValue::EncryptedClientHello(EncryptClientHello::from_reader(reader)?)),
             ExtensionType::SignedCertificateTimestamp => Ok(ExtensionValue::SignedCertificateTimestamp),
-            ExtensionType::ApplicationSetting => Ok(ExtensionValue::ApplicationSetting(ALPS::from_reader(Reader::from_slice(bytes))?)),
-            ExtensionType::KeyShare => Ok(ExtensionValue::KeyShare(KeyShare::from_reader(Reader::from_slice(bytes), server)?)),
-            ExtensionType::ApplicationLayerProtocolNegotiation => Ok(ExtensionValue::ApplicationLayerProtocolNegotiation(ALPS::from_reader(Reader::from_slice(bytes))?)),
-            ExtensionType::PreSharedKey => Ok(ExtensionValue::PreSharedKey(PreSharedKey::from_reader(Reader::from_slice(bytes))?)),
-            ExtensionType::ApplicationSettingOld => Ok(ExtensionValue::ApplicationSetting(ALPS::from_reader(Reader::from_slice(bytes))?)),
-            _ => Ok(ExtensionValue::Unknown(Bytes::new(bytes.to_vec())))
+            ExtensionType::ApplicationSetting => Ok(ExtensionValue::ApplicationSetting(ALPS::from_reader(reader)?)),
+            ExtensionType::KeyShare => Ok(ExtensionValue::KeyShare(KeyShare::from_reader(reader, server)?)),
+            ExtensionType::ApplicationLayerProtocolNegotiation => Ok(ExtensionValue::ApplicationLayerProtocolNegotiation(ALPS::from_reader(reader)?)),
+            ExtensionType::PreSharedKey => Ok(ExtensionValue::PreSharedKey(PreSharedKey::from_reader(reader)?)),
+            ExtensionType::ApplicationSettingOld => Ok(ExtensionValue::ApplicationSetting(ALPS::from_reader(reader)?)),
+            _ => Ok(ExtensionValue::Unknown(Buf::Ref(reader.as_slice())))
         }
     }
 
@@ -229,7 +229,6 @@ impl<'a> ExtensionValue<'a> {
 #[derive(Debug)]
 pub struct Extension<'a> {
     type_: ExtensionType,
-    len: u16,
     value: ExtensionValue<'a>,
 }
 
@@ -237,8 +236,7 @@ impl<'a> Default for Extension<'a> {
     fn default() -> Self {
         Extension {
             type_: ExtensionType(0),
-            len: 0,
-            value: ExtensionValue::Unknown(Bytes::none()),
+            value: ExtensionValue::Unknown(Buf::Ref(&[])),
         }
     }
 }
@@ -248,7 +246,6 @@ impl<'a> Extension<'a> {
         Extension {
             type_: typ,
             value,
-            ..Default::default()
         }
     }
 
@@ -293,17 +290,17 @@ impl<'a> Extension<'a> {
         res
     }
 
-    pub fn from_bytes(bytes: &[u8], server: bool) -> RlsResult<Vec<Extension<'_>>> {
-        let mut res = vec![];
-        let mut index = 0;
-        while index < bytes.len() {
-            let tv = u16::from_be_bytes([bytes[index], bytes[index + 1]]);
-            let mut v = Extension::default();
-            v.type_ = ExtensionType(tv);
-            v.len = u16::from_be_bytes([bytes[index + 2], bytes[index + 3]]);
-            v.value = ExtensionValue::from_bytes(&v.type_, &bytes[index + 4..index + 4 + v.len as usize], server)?;
-            index += 4 + v.len as usize;
-            res.push(v);
+    pub fn from_reader(mut reader: Reader<'a>, server: bool) -> RlsResult<Vec<Extension<'a>>> {
+        if reader.unread_len() == 0 { return Ok(vec![]); }
+        let mut res = Vec::with_capacity(reader.unread_len());
+        while reader.unread_len() > 0 {
+            let type_ = ExtensionType::new(reader.read_u16()?);
+            let len = reader.read_u16()?;
+            res.push(Extension {
+                value: ExtensionValue::from_bytes(&type_, reader.read_reader(len as usize)?, server)?,
+                type_,
+
+            });
         }
         Ok(res)
     }

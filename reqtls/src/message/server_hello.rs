@@ -5,7 +5,7 @@ use super::super::version::Version;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::ExtensionValue;
-use crate::{BufferError, ClientHello, ExtensionType, WriteExt, ALPN};
+use crate::{BufferError, ClientHello, ExtensionType, ReadExt, Reader, WriteExt, ALPN};
 use crate::buffer::Buf;
 
 #[derive(Debug)]
@@ -40,20 +40,18 @@ impl<'a> Default for ServerHello<'a> {
 }
 
 impl<'a> ServerHello<'a> {
-    pub fn from_bytes(ht: HandshakeType, bytes: &'a [u8]) -> RlsResult<ServerHello<'a>> {
+    pub fn from_reader(ht: HandshakeType, mut reader: Reader<'a>) -> RlsResult<ServerHello<'a>> {
         let mut res = ServerHello::default();
         res.handshake_type = ht;
-        res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]]);
-        res.version = Version::new(u16::from_be_bytes([bytes[4], bytes[5]]));
-        res.random = Buf::Ref(&bytes[6..38]);
-        res.session_id_len = bytes[38];
-        let index = 39 + res.session_id_len as usize;
-        res.session_id = Buf::Ref(&bytes[39..index]);
-        let v = u16::from_be_bytes([bytes[index], bytes[index + 1]]);
-        res.cipher_suite = CipherSuite::new(v);
-        res.compress_method = bytes[index + 2];
-        res.extend_len = u16::from_be_bytes([bytes[index + 3], bytes[index + 4]]);
-        res.extensions = Extension::from_bytes(&bytes[index + 5..index + 5 + res.extend_len as usize], true)?;
+        res.len = reader.read_u32_24()?;
+        res.version = Version::new(reader.read_u16()?);
+        res.random = Buf::Ref(reader.read_slice(32)?);
+        res.session_id_len = reader.read_u8()?;
+        res.session_id = Buf::Ref(reader.read_slice(res.session_id_len as usize)?);
+        res.cipher_suite = CipherSuite::new(reader.read_u16()?);
+        res.compress_method = reader.read_u8()?;
+        res.extend_len = reader.read_u16()?;
+        res.extensions = Extension::from_reader(reader.read_reader(res.extend_len as usize)?, true)?;
         Ok(res)
     }
 
@@ -156,17 +154,6 @@ impl<'a> ServerHello<'a> {
             Some(key)
         } else { None }
     }
-
-    // pub fn into_inner(mut self) -> (Buf<'a>, CipherSuite, Version, Option<Buf<'a>>) {
-    //     let key_share = self.extensions.extract_if(.., |x| x.extension_type() == &ExtensionType::KeyShare).next();
-    //     let key_share = if let Some(extend) = key_share && let ExtensionValue::KeyShare(key_share) = extend.into_value() {
-    //         Some(key_share)
-    //     } else { None };
-    //     let version = self.extensions.extract_if(.., |x| x.extension_type() == &ExtensionType::SupportedVersions).next();
-    //     let version=if let Some(extend) = version && let ExtensionValue::SupportedVersions(vers) = extend.into_value() {
-    //         vers.next()
-    //     }
-    // }
 }
 
 #[derive(Debug)]
@@ -183,11 +170,11 @@ impl ServerHelloDone {
         }
     }
 
-    pub fn from_bytes(ht: HandshakeType, bytes: &[u8]) -> RlsResult<ServerHelloDone> {
-        let mut res = ServerHelloDone::new();
-        res.handshake_type = ht;
-        res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]]);
-        Ok(res)
+    pub fn from_reader(ht: HandshakeType, mut reader: Reader<'_>) -> RlsResult<ServerHelloDone> {
+        Ok(ServerHelloDone {
+            handshake_type: ht,
+            len: reader.read_u32_24()?,
+        })
     }
 
     pub fn len(&self) -> usize {

@@ -1,7 +1,7 @@
 use super::super::message::HandshakeType;
 use crate::buffer::Buf;
 use crate::error::RlsResult;
-use crate::{BufferError, Version, WriteExt};
+use crate::{BufferError, ReadExt, Reader, Version, WriteExt};
 
 #[derive(Debug)]
 #[allow(unused)]
@@ -24,23 +24,23 @@ impl<'a> Default for TlsSessionTicket<'a> {
 }
 
 impl<'a> TlsSessionTicket<'a> {
-    pub fn from_bytes(bytes: &'a [u8], version: Version) -> RlsResult<TlsSessionTicket<'a>> {
-        let lifetime = u32::from_be_bytes(bytes[0..4].try_into()?);
-        let (age_add, nonce, index) = match version {
+    pub fn from_reader(reader: &mut Reader<'a>, version: Version) -> RlsResult<TlsSessionTicket<'a>> {
+        let lifetime = reader.read_u32()?;
+        let (age_add, nonce) = match version {
             Version::TLS_1_3 => {
-                let age_add = u32::from_be_bytes(bytes[4..8].try_into()?);
-                let nonce_len = bytes[8] as usize;
-                let nonce = Buf::Ref(&bytes[9..9 + nonce_len]);
-                (age_add, nonce, 9 + nonce_len)
+                let age_add = reader.read_u32()?;
+                let nonce_len = reader.read_u8()? as usize;
+                let nonce = Buf::Ref(reader.read_slice(nonce_len)?);
+                (age_add, nonce)
             }
-            _ => (0, Buf::Ref(&[]), 4)
+            _ => (0, Buf::Ref(&[]))
         };
-        let len = u16::from_be_bytes(bytes[index..index + 2].try_into()?) as usize;
+        let len = reader.read_u16()? as usize;
         Ok(TlsSessionTicket {
             lifetime,
             age_add,
             nonce,
-            ticket: Buf::Ref(&bytes[index + 2..index + 2 + len]),
+            ticket: Buf::Ref(reader.read_slice(len)?),
         })
     }
 
@@ -77,11 +77,11 @@ impl<'a> Default for SessionTicket<'a> {
 }
 
 impl<'a> SessionTicket<'a> {
-    pub fn from_bytes(ht: HandshakeType, bytes: &'a [u8], version: Version) -> RlsResult<SessionTicket<'a>> {
-        let len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]]) as usize;
+    pub fn from_reader(ht: HandshakeType, mut reader: Reader<'a>, version: Version) -> RlsResult<SessionTicket<'a>> {
+        reader.read_u32_24()?;
         Ok(SessionTicket {
             handshake_type: ht,
-            tls_ticket: TlsSessionTicket::from_bytes(&bytes[4..4 + len], version)?,
+            tls_ticket: TlsSessionTicket::from_reader(&mut reader, version)?,
         })
     }
 

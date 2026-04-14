@@ -123,7 +123,7 @@ impl Connection {
         sign_data.push(*server_key.hellman_param().curve_type() as u8);
         sign_data.extend(server_key.hellman_param().named_curve().as_u16().to_be_bytes());
         sign_data.push(server_key.hellman_param().pub_key().len() as u8);
-        sign_data.extend(server_key.hellman_param().pub_key().as_bytes());
+        sign_data.extend(server_key.hellman_param().pub_key().as_ref());
         sign_data
     }
 
@@ -155,7 +155,7 @@ impl Connection {
             let signature = AlgorithmSigner::new_verify(self.certificates[0].pub_key()?, server_key.hellman_param().signature_algorithm())?;
             signature.verify(sign_data, server_key.hellman_param().signature().as_ref())?;
         }
-        self.exchange_pub_key = server_key.hellman_param().pub_key().clone();
+        self.exchange_pub_key = Bytes::new(server_key.hellman_param().pub_key().to_vec());
         self.named_curve = *server_key.hellman_param().named_curve();
         let index = self.named_curve.secret_index()?;
         self.secret_key = Some(self.secret_keys.remove(index));
@@ -244,12 +244,12 @@ impl Connection {
         //server_key_exchange
         let mut server_key_exchange = ServerKeyExchange::default();
         let key = SecretKey::new(*server_key_exchange.hellman_param().named_curve())?;
-        server_key_exchange.hellman_param_mut().set_pub_key(key.pub_key()?.as_ref());
+        server_key_exchange.hellman_param_mut().set_pub_key(Buf::Vec(key.pub_key()?.to_vec()));
         self.secret_key = Some(key);
         let sign_data = self.gen_key_sign_data(&server_key_exchange);
         let signer = AlgorithmSigner::new_sign(pri_key.pkey(), server_key_exchange.hellman_param().signature_algorithm())?;
-        server_key_exchange.hellman_param_mut().set_signature(Bytes::new(signer.sign(&sign_data)?));
-        self.exchange_pub_key = server_key_exchange.hellman_param().pub_key().clone();
+        server_key_exchange.hellman_param_mut().set_signature(Buf::Vec(signer.sign(&sign_data)?));
+        self.exchange_pub_key = Bytes::new(server_key_exchange.hellman_param().pub_key().to_vec());
         self.named_curve = *server_key_exchange.hellman_param().named_curve();
         record.messages.push(Message::ServerKeyExchange(server_key_exchange));
         //server_hello_done

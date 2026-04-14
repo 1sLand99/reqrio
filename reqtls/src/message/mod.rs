@@ -17,7 +17,7 @@ pub use key_exchange::{ClientKeyExchange, ServerKeyExchange, NamedCurve};
 pub use server_hello::{ServerHello, ServerHelloDone};
 pub use session_ticket::{SessionTicket, TlsSessionTicket};
 use std::fmt::Debug;
-use crate::{BufferError, CipherSuite, Version, WriteExt};
+use crate::{BufferError, CipherSuite, Reader, Version, WriteExt};
 pub use certificate::{CertificateVerify, CertificateRequest};
 use crate::message::encrypted_extension::EncryptedExtension;
 
@@ -26,12 +26,12 @@ pub enum Message<'a> {
     ClientHello(ClientHello<'a>),
     ServerHello(ServerHello<'a>),
     Certificate(Certificates<'a>),
-    ServerKeyExchange(ServerKeyExchange),
+    ServerKeyExchange(ServerKeyExchange<'a>),
     ServerHelloDone(ServerHelloDone),
     ClientKeyExchange(ClientKeyExchange<'a>),
     NewSessionTicket(SessionTicket<'a>),
     Payload(Payload<'a>),
-    CertificateStatus(CertificateStatus),
+    CertificateStatus(CertificateStatus<'a>),
     CertificateRequest(CertificateRequest<'a>),
     CertificateVerify(CertificateVerify<'a>),
     Alert(Alert),
@@ -45,22 +45,22 @@ impl<'a> Message<'a> {
         if !payload {
             let handshake_type = HandshakeType::from_byte(bytes[0]).unwrap();
             match handshake_type {
-                HandshakeType::ClientHello => Ok(Message::ClientHello(ClientHello::from_bytes(handshake_type, bytes)?)),
-                HandshakeType::ServerHello => Ok(Message::ServerHello(ServerHello::from_bytes(handshake_type, bytes)?)),
-                HandshakeType::Certificate => Ok(Message::Certificate(Certificates::from_bytes(handshake_type, version, bytes)?)),
-                HandshakeType::ServerKeyExchange => Ok(Message::ServerKeyExchange(ServerKeyExchange::from_bytes(handshake_type, bytes)?)),
-                HandshakeType::ServerHelloDone => Ok(Message::ServerHelloDone(ServerHelloDone::from_bytes(handshake_type, bytes)?)),
-                HandshakeType::ClientKeyExchange => Ok(Message::ClientKeyExchange(ClientKeyExchange::from_bytes(handshake_type, bytes, suite)?)),
-                HandshakeType::NewSessionTicket => Ok(Message::NewSessionTicket(SessionTicket::from_bytes(handshake_type, bytes, version)?)),
-                HandshakeType::CertificateStatus => Ok(Message::CertificateStatus(CertificateStatus::from_bytes(handshake_type, bytes))),
-                HandshakeType::CertificateRequest => Ok(Message::CertificateRequest(CertificateRequest::from_bytes(handshake_type, bytes))),
-                HandshakeType::CertificateVerify => Ok(Message::CertificateVerify(CertificateVerify::from_bytes(handshake_type, bytes))),
+                HandshakeType::ClientHello => Ok(Message::ClientHello(ClientHello::from_bytes(handshake_type, Reader::from_slice(&bytes[1..]))?)),
+                HandshakeType::ServerHello => Ok(Message::ServerHello(ServerHello::from_reader(handshake_type, Reader::from_slice(&bytes[1..]))?)),
+                HandshakeType::Certificate => Ok(Message::Certificate(Certificates::from_reader(handshake_type, version, Reader::from_slice(&bytes[1..]))?)),
+                HandshakeType::ServerKeyExchange => Ok(Message::ServerKeyExchange(ServerKeyExchange::from_reader(handshake_type, Reader::from_slice(&bytes[1..]))?)),
+                HandshakeType::ServerHelloDone => Ok(Message::ServerHelloDone(ServerHelloDone::from_reader(handshake_type, Reader::from_slice(&bytes[1..]))?)),
+                HandshakeType::ClientKeyExchange => Ok(Message::ClientKeyExchange(ClientKeyExchange::from_reader(handshake_type, Reader::from_slice(&bytes[1..]), suite)?)),
+                HandshakeType::NewSessionTicket => Ok(Message::NewSessionTicket(SessionTicket::from_reader(handshake_type, Reader::from_slice(&bytes[1..]), version)?)),
+                HandshakeType::CertificateStatus => Ok(Message::CertificateStatus(CertificateStatus::from_reader(handshake_type, Reader::from_slice(&bytes[1..]))?)),
+                HandshakeType::CertificateRequest => Ok(Message::CertificateRequest(CertificateRequest::from_reader(handshake_type, Reader::from_slice(&bytes[1..]))?)),
+                HandshakeType::CertificateVerify => Ok(Message::CertificateVerify(CertificateVerify::from_reader(handshake_type, Reader::from_slice(&bytes[1..]))?)),
                 HandshakeType::Finish => {
                     println!("{:?}", bytes);
                     let len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]]) as usize;
                     Ok(Message::Finished(Payload::from_slice(&mut bytes[4..4 + len])))
                 }
-                HandshakeType::EncryptedExtensions => Ok(Message::EncryptedExtension(EncryptedExtension::from_bytes(handshake_type, bytes)?)),
+                HandshakeType::EncryptedExtensions => Ok(Message::EncryptedExtension(EncryptedExtension::from_reader(handshake_type, Reader::from_slice(&bytes[1..])).unwrap())),
             }
         } else {
             Ok(Message::Payload(Payload::from_slice(bytes)))

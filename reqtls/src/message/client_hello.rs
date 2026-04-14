@@ -6,7 +6,7 @@ use crate::boring::hash;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::{ExtensionType, ExtensionValue, ServerName};
-use crate::{rand, BufferError, KeyShare, WriteExt};
+use crate::{rand, BufferError, KeyShare, ReadExt, Reader, WriteExt};
 use std::mem;
 use crate::buffer::Buf;
 
@@ -87,24 +87,23 @@ impl<'a> ClientHello<'a> {
         res
     }
 
-    pub fn from_bytes(ht: HandshakeType, bytes: &'a [u8]) -> RlsResult<ClientHello<'a>> {
+    pub fn from_bytes(ht: HandshakeType, mut reader: Reader<'a>) -> RlsResult<ClientHello<'a>> {
         let mut res = ClientHello::default();
         res.handshake_type = ht;
-        res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]]);
-        res.version = Version::new(u16::from_be_bytes([bytes[4], bytes[5]]));
-        res.random = Buf::Ref(&bytes[6..38]);
-        res.session_id_len = bytes[38];
-        let index = 39 + res.session_id_len as usize;
-        if index > bytes.len() { println!("{:x?}", bytes); }
-        res.session_id = Buf::Ref(&bytes[39..index]);
-        res.cipher_suites_len = u16::from_be_bytes([bytes[index], bytes[index + 1]]);
-        res.cipher_suites = CipherSuite::from_bytes(&bytes[index + 2..index + 2 + res.cipher_suites_len as usize])?;
-        let index = index + res.cipher_suites_len as usize + 2;
-        res.compress_method_len = bytes[index];
-        res.compress_method = Buf::Ref(&bytes[index + 1..index + 1 + res.compress_method_len as usize]);
-        let index = index + res.compress_method_len as usize + 1;
-        res.extend_len = u16::from_be_bytes([bytes[index], bytes[index + 1]]);
-        res.extensions = Extension::from_bytes(&bytes[index + 2..index + 2 + res.extend_len as usize], false)?;
+        res.len = reader.read_u32_24()?;
+        res.version = Version::new(reader.read_u16()?);
+        res.random = Buf::Ref(reader.read_slice(32)?);
+        res.session_id_len = reader.read_u8()?;
+        res.session_id = Buf::Ref(reader.read_slice(res.session_id_len as usize)?);
+        res.cipher_suites_len = reader.read_u16()?;
+        for _ in (0..res.cipher_suites_len).step_by(2) {
+            res.cipher_suites.push(CipherSuite::new(reader.read_u16()?));
+        }
+
+        res.compress_method_len = reader.read_u8()?;
+        res.compress_method = Buf::Ref(reader.read_slice(res.compress_method_len as usize)?);
+        res.extend_len = reader.read_u16()?;
+        res.extensions = Extension::from_reader(reader.read_reader(res.extend_len as usize)?, false).unwrap();
         // println!("{}", res.ja3());
         // println!("{}", res.ja4());
         Ok(res)
