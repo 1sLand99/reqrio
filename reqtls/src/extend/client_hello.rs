@@ -1,6 +1,7 @@
-use super::super::bytes::Bytes;
+use super::ech::{Aead, KDF};
+use crate::buffer::Buf;
 use crate::error::RlsResult;
-use crate::{BufferError, WriteExt};
+use crate::{BufferError, ReadExt, Reader, WriteExt};
 
 #[derive(Debug, Clone, Copy)]
 enum ClientHelloType {
@@ -16,112 +17,18 @@ impl ClientHelloType {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-#[allow(non_camel_case_types)]
-enum KDF {
-    HKDF_SHA256 = 0x1,
-}
-
-impl KDF {
-    fn from_u16(v: u16) -> Option<KDF> {
-        match v {
-            0x01 => Some(KDF::HKDF_SHA256),
-            _ => None
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-#[allow(non_camel_case_types)]
-pub enum Aead {
-    AES_128_GCM = 0x1,
-    AES_256_GCM = 0x2,
-    ChaCha20_POLY1305 = 0x3,
-    AES_128_CCM = 0x4,
-    AES_128_CCM_8 = 0x5,
-    AES_128_CBC_SHA,
-    AES_256_CBC_SHA,
-}
-
-impl Aead {
-    fn from_u16(v: u16) -> Option<Aead> {
-        match v {
-            0x01 => Some(Aead::AES_128_GCM),
-            0x02 => Some(Aead::AES_256_GCM),
-            0x03 => Some(Aead::ChaCha20_POLY1305),
-            0x04 => Some(Aead::AES_128_CCM),
-            0x05 => Some(Aead::AES_128_CCM_8),
-            _ => None
-        }
-    }
-
-    pub fn from_cipher_kind(suite_spec: &str) -> Option<Aead> {
-        let text = suite_spec.to_lowercase();
-        if text.contains("aes_128_gcm") {
-            Some(Aead::AES_128_GCM)
-        } else if text.contains("aes_256_gcm") {
-            Some(Aead::AES_256_GCM)
-        } else if text.contains("chacha20_poly1305") {
-            Some(Aead::ChaCha20_POLY1305)
-        } else if text.contains("aes_128_cbc") {
-            Some(Aead::AES_128_CBC_SHA)
-        } else if text.contains("aes_256_cbc") {
-            Some(Aead::AES_256_CBC_SHA)
-        } else {
-            println!("{}", text);
-            None
-        }
-    }
-
-    pub fn mac_key_len(&self) -> usize {
-        match self {
-            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => 20,
-            _ => 0
-        }
-    }
-
-    pub fn key_len(&self) -> usize {
-        match self {
-            Aead::AES_128_GCM => 16,
-            Aead::AES_256_GCM => 32,
-            Aead::ChaCha20_POLY1305 => 32,
-            Aead::AES_128_CBC_SHA => 16,
-            Aead::AES_256_CBC_SHA => 32,
-            _ => 0
-        }
-    }
-
-    pub fn fix_iv_len(&self) -> usize {
-        match self {
-            Aead::AES_128_GCM | Aead::AES_256_GCM => 4,
-            Aead::ChaCha20_POLY1305 => 12,
-            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => 16,
-            _ => 0
-        }
-    }
-
-    pub fn explicit_len(&self) -> usize {
-        match self {
-            Aead::AES_128_GCM | Aead::AES_256_GCM => 8,
-            Aead::ChaCha20_POLY1305 => 0,
-            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => 16,
-            _ => 0
-        }
-    }
-}
-
 
 #[derive(Debug)]
-struct CipherSuite {
-    kdf: KDF,
-    aead: Aead,
+pub(super) struct CipherSuite {
+    pub(super) kdf: KDF,
+    pub(super) aead: Aead,
 }
 
 impl CipherSuite {
-    pub fn from_bytes(bytes: &[u8]) -> RlsResult<CipherSuite> {
+    pub fn from_reader(reader: &mut Reader<'_>) -> RlsResult<CipherSuite> {
         Ok(CipherSuite {
-            kdf: KDF::from_u16(u16::from_be_bytes([bytes[0], bytes[1]])).ok_or("KDF Unknown")?,
-            aead: Aead::from_u16(u16::from_be_bytes([bytes[2], bytes[3]])).ok_or("AEAD Unknown")?,
+            kdf: KDF::from_u16(reader.read_u16()?).ok_or("KDF Unknown")?,
+            aead: Aead::from_u16(reader.read_u16()?).ok_or("AEAD Unknown")?,
         })
     }
 
@@ -135,18 +42,18 @@ impl CipherSuite {
 
 
 #[derive(Debug)]
-pub struct EncryptClientHello {
+pub struct EncryptClientHello<'a> {
     type_: ClientHelloType,
     cipher_suite: CipherSuite,
     config_id: u8,
     enc_len: u16,
-    enc: Bytes,
+    enc: Buf<'a>,
     payload_len: u16,
-    payload: Bytes,
+    payload: Buf<'a>,
 }
 
-impl EncryptClientHello {
-    pub fn new() -> EncryptClientHello {
+impl<'a> EncryptClientHello<'a> {
+    pub fn new() -> EncryptClientHello<'a> {
         EncryptClientHello {
             type_: ClientHelloType::OuterClientHello,
             cipher_suite: CipherSuite {
@@ -155,22 +62,21 @@ impl EncryptClientHello {
             },
             config_id: 0,
             enc_len: 0,
-            enc: Bytes::none(),
+            enc: Buf::Ref(&[]),
             payload_len: 0,
-            payload: Bytes::none(),
+            payload: Buf::Ref(&[]),
         }
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> RlsResult<EncryptClientHello> {
+    pub fn from_reader(mut reader: Reader<'a>) -> RlsResult<EncryptClientHello<'a>> {
         let mut res = EncryptClientHello::new();
-        res.type_ = ClientHelloType::from_u8(bytes[0]).ok_or("ClientHelloType Unknown")?;
-        res.cipher_suite = CipherSuite::from_bytes(&bytes[1..])?;
-        res.config_id = bytes[5];
-        res.enc_len = u16::from_be_bytes([bytes[6], bytes[7]]);
-        res.enc = Bytes::new(bytes[8..8 + res.enc_len as usize].to_vec());
-        let index = res.enc_len as usize + 8;
-        res.payload_len = u16::from_be_bytes([bytes[index], bytes[index + 1]]);
-        res.payload = Bytes::new(bytes[index + 2..index + res.payload_len as usize + 2].to_vec());
+        res.type_ = ClientHelloType::from_u8(reader.read_u8()?).ok_or("ClientHelloType Unknown")?;
+        res.cipher_suite = CipherSuite::from_reader(&mut reader)?;
+        res.config_id = reader.read_u8()?;
+        res.enc_len = reader.read_u16()?;
+        res.enc = Buf::Ref(reader.read_slice(res.enc_len as usize)?);
+        res.payload_len = reader.read_u16()?;
+        res.payload = Buf::Ref(reader.read_slice(res.payload_len as usize)?);
         Ok(res)
     }
 

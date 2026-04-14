@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Formatter};
 
-#[derive(PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct Version(u16);
 
 impl Version {
@@ -16,7 +16,7 @@ impl Version {
     }
 
     pub fn into_inner(self) -> u16 { self.0 }
-    
+
     pub(crate) fn as_u16(&self) -> u16 {
         self.0
     }
@@ -47,3 +47,16 @@ impl Debug for Version {
         }
     }
 }
+
+impl From<u16> for Version {
+    fn from(v: u16) -> Version {
+        Version(v)
+    }
+}
+
+impl PartialEq<u16> for Version {
+    fn eq(&self, other: &u16) -> bool {
+        self.0 == *other
+    }
+}
+

@@ -39,33 +39,33 @@ impl Debug for Bytes {
     }
 }
 
-#[derive(Default)]
-pub struct ByteRef<'a>(&'a [u8]);
-
-impl<'a> ByteRef<'a> {
-    pub fn new(v: &'a [u8]) -> Self {
-        ByteRef(v)
-    }
-
-    pub fn as_ref(&self) -> &[u8] {
-        self.0
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    pub fn clone(&self) -> Bytes {
-        Bytes(self.0.to_vec())
-    }
-}
-
-impl<'a> Debug for ByteRef<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
-    }
-}
+// #[derive(Default)]
+// pub struct ByteRef<'a>(&'a [u8]);
+//
+// impl<'a> ByteRef<'a> {
+//     pub fn new(v: &'a [u8]) -> Self {
+//         ByteRef(v)
+//     }
+//
+//     pub fn as_ref(&self) -> &[u8] {
+//         self.0
+//     }
+//
+//     pub fn is_empty(&self) -> bool {
+//         self.0.is_empty()
+//     }
+//
+//     pub fn len(&self) -> usize {
+//         self.0.len()
+//     }
+//
+//     pub fn clone(&self) -> Bytes {
+//         Bytes(self.0.to_vec())
+//     }
+// }
+//
+// impl<'a> Debug for ByteRef<'a> {
+//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+//         write!(f, "{}", hex::encode(self.0))
+//     }
+// }

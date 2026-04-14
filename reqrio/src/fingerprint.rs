@@ -131,7 +131,7 @@ impl Fingerprint {
         let gps = items.next().ok_or("groups not found")?.split("-");
         groups.clear();
         for kid in gps {
-            groups.add_group(GroupType::new(kid.parse()?));
+            groups.add_group(NamedCurve::new(kid.parse()?));
         }
         let fts = items.next().ok_or("fts not found")?.split("-");
         let formats = extensions.iter_mut().find(|x| x.ex_point_formats().is_some()).ok_or("ec format not found")?;

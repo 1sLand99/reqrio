@@ -1,5 +1,5 @@
 use crate::error::RlsResult;
-use crate::{BufferError, WriteExt};
+use crate::{BufferError, ReadExt, Reader, WriteExt};
 
 #[derive(Debug, Copy, Clone)]
 pub enum StatusType {
@@ -31,13 +31,13 @@ impl StatusRequest {
         }
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> RlsResult<StatusRequest> {
-        let mut res = StatusRequest::new();
-        if bytes.len() == 0 { return Ok(res); }
-        res.status_type = StatusType::from_u8(bytes[0]).ok_or("Status Type Unknown")?;
-        res.responder_id_len = u16::from_be_bytes([bytes[1], bytes[2]]);
-        res.request_extend_len = u16::from_be_bytes([bytes[3], bytes[4]]);
-        Ok(res)
+    pub fn from_reader(mut reader: Reader<'_>) -> RlsResult<StatusRequest> {
+        if reader.unread_len() == 0 { return Ok(StatusRequest::new()); }
+        Ok(StatusRequest {
+            status_type: StatusType::from_u8(reader.read_u8()?).ok_or("Status Type Unknown")?,
+            responder_id_len: reader.read_u16()?,
+            request_extend_len: reader.read_u16()?,
+        })
     }
 
     pub fn len(&self) -> usize {

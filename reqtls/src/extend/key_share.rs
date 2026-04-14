@@ -1,86 +1,22 @@
-use super::super::bytes::Bytes;
-use crate::{BufferError, WriteExt};
-use std::fmt::{Debug, Formatter};
-
-pub struct KeyShareType(u16);
-impl KeyShareType {
-    pub fn new(v: u16) -> Self {
-        KeyShareType(v)
-    }
-
-    pub fn into_inner(self) -> u16 { self.0 }
-}
-
-impl Debug for KeyShareType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match KeyShareKind::from_u16(self.0) {
-            None => f.write_str(&format!("Reserved({})", self.0)),
-            Some(kind) => f.write_str(&format!("{:?}", kind))
-        }
-    }
-}
-
-#[allow(non_camel_case_types)]
-#[derive(Debug)]
-pub enum KeyShareKind {
-    X25519MLKEM768 = 0x11ec, //len 1216
-    x25519 = 0x1d, //len 32
-    // MLKEM768 = 0x6a6a, //len 1184
-}
-
-impl KeyShareKind {
-    pub fn from_u16(v: u16) -> Option<KeyShareKind> {
-        match v {
-            0x11ec => Some(KeyShareKind::X25519MLKEM768),
-            0x1d => Some(KeyShareKind::x25519),
-            _ => None
-        }
-    }
-
-    // pub fn gen_x25519(&self) -> (EphemeralSecret, PublicKey) {
-    //     let mut rng = rand::rngs::ThreadRng::default();
-    //     let keypair = EphemeralSecret::random_from_rng(&mut rng);
-    //     let alice_public = PublicKey::from(&keypair);
-    //     (keypair, alice_public)
-    // }
-    //
-    // fn gen_x25519mlkem768(&self) -> (EphemeralSecret, PublicKey) {
-    //     let mut rng = rand::rngs::ThreadRng::default();
-    //     let keypair = EphemeralSecret::random_from_rng(&mut rng);
-    //     let alice_public = PublicKey::from(&keypair);
-    //     let (pq_pub, pq_sec) = pqcrypto_kyber::kyber768::keypair();
-    //
-    // }
-}
+use crate::buffer::Buf;
+use crate::{BufferError, NamedCurve, ReadExt, Reader, WriteExt};
+use std::fmt::Debug;
+use crate::error::RlsResult;
 
 #[derive(Debug)]
-pub struct KeyShareEntry {
-    group: KeyShareType,
-    exchange_len: u16,
-    exchange: Bytes,
+pub struct KeyEntry<'a> {
+    group: NamedCurve,
+    exchange: Buf<'a>,
 }
 
-impl KeyShareEntry {
-    fn new() -> KeyShareEntry {
-        KeyShareEntry {
-            group: KeyShareType(0),
-            exchange_len: 0,
-            exchange: Bytes::none(),
-        }
-    }
-
-    fn from_bytes(bytes: &[u8]) -> Vec<KeyShareEntry> {
-        let mut index = 0;
-        let mut res = vec![];
-        while index < bytes.len() {
-            let mut key = KeyShareEntry::new();
-            key.group = KeyShareType::new(u16::from_be_bytes([bytes[index], bytes[index + 1]]));
-            key.exchange_len = u16::from_be_bytes([bytes[index + 2], bytes[index + 3]]);
-            index = index + 4 + key.exchange_len as usize;
-            key.exchange = Bytes::new(bytes[index - key.exchange_len as usize..index].to_vec());
-            res.push(key);
-        }
-        res
+impl<'a> KeyEntry<'a> {
+    fn from_reader(reader: &mut Reader<'a>) -> RlsResult<KeyEntry<'a>> {
+        let group = reader.read_u16()?.into();
+        let len = reader.read_u16()?;
+        Ok(KeyEntry {
+            group,
+            exchange: Buf::Ref(reader.read_slice(len as usize)?),
+        })
     }
 
     pub fn len(&self) -> usize {
@@ -92,26 +28,37 @@ impl KeyShareEntry {
         writer.write_u16(self.exchange.len() as u16)?;
         writer.write_slice(self.exchange.as_ref())
     }
-}
 
-#[derive(Debug)]
-pub struct KeyShare {
-    len: usize,
-    entries: Vec<KeyShareEntry>,
-}
-
-impl KeyShare {
-    pub fn new() -> KeyShare {
-        KeyShare {
-            len: 0,
-            entries: vec![],
-        }
+    pub fn name_curve(&self) -> NamedCurve {
+        self.group
     }
-    pub fn from_bytes(bytes: &[u8]) -> KeyShare {
-        let mut res = KeyShare::new();
-        res.len = u16::from_be_bytes([bytes[0], bytes[1]]) as usize;
-        res.entries = KeyShareEntry::from_bytes(&bytes[2..res.len + 2]);
-        res
+
+    pub fn exchange_key(&self) -> &Buf<'_> {
+        &self.exchange
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct KeyShare<'a> {
+    entries: Vec<KeyEntry<'a>>,
+}
+
+
+impl<'a> KeyShare<'a> {
+    pub fn from_reader(mut reader: Reader<'a>, server: bool) -> RlsResult<KeyShare<'a>> {
+        // println!("{:x?}", bytes);
+        if !server { reader.read_u16()?; }
+        let mut entries = Vec::with_capacity(reader.unread_len());
+        while reader.unread_len() > 0 {
+            entries.push(KeyEntry::from_reader(&mut reader)?);
+        }
+        Ok(KeyShare {
+            entries,
+        })
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
     }
 
     pub fn len(&self) -> usize {
@@ -124,6 +71,18 @@ impl KeyShare {
             entry.write_to(writer)?;
         }
         Ok(())
+    }
+
+    pub fn add_entry(&mut self, name_curve: impl Into<NamedCurve>, pub_key: Buf<'a>) {
+        let entry = KeyEntry {
+            group: name_curve.into(),
+            exchange: pub_key,
+        };
+        self.entries.push(entry);
+    }
+
+    pub fn key_entry(&self) -> &KeyEntry<'_> {
+        &self.entries[0]
     }
 }
 

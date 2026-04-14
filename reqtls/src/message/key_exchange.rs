@@ -1,9 +1,9 @@
-use crate::bytes::ByteRef;
-use crate::{BufferError, CipherSuite, WriteExt};
-use crate::error::RlsResult;
 use super::super::boring::SignatureAlgorithm;
 use super::super::message::HandshakeType;
-use super::super::bytes::Bytes;
+use crate::buffer::Buf;
+use crate::error::RlsResult;
+use crate::{BufferError, CipherSuite, ReadExt, Reader, WriteExt};
+use std::fmt::{Debug, Formatter};
 
 #[derive(Debug, Copy, Clone)]
 pub enum CurveType {
@@ -23,64 +23,102 @@ impl CurveType {
     }
 }
 
-#[allow(non_camel_case_types)]
-#[derive(Debug, Copy, Clone)]
-pub enum NamedCurve {
-    x25519 = 0x1d,
-    Secp256r1 = 0x17,
-    Secp384r1 = 0x18,
-    Secp521r1 = 0x19,
-}
+#[derive(Copy, Clone)]
+pub struct NamedCurve(u16);
 
+#[allow(non_upper_case_globals)]
 impl NamedCurve {
-    pub fn from_u16(v: u16) -> Option<Self> {
-        match v {
-            0x1d => Some(Self::x25519),
-            0x17 => Some(Self::Secp256r1),
-            0x18 => Some(Self::Secp384r1),
-            0x19 => Some(Self::Secp521r1),
-            _ => None
+    pub const X25519: u16 = 0x1d;
+    pub const X25519MLKEM768: u16 = 0x11ec;
+    pub const Secp256r1: u16 = 0x0017;
+    pub const Secp384r1: u16 = 0x0018;
+    pub const Secp521r1: u16 = 0x0019;
+
+    fn spec(&self) -> &str {
+        match self.0 {
+            NamedCurve::X25519 => "X25519",
+            NamedCurve::X25519MLKEM768 => "X25519MLKEM768",
+            NamedCurve::Secp256r1 => "Secp256r1",
+            NamedCurve::Secp384r1 => "Secp384r1",
+            NamedCurve::Secp521r1 => "Secp521r1",
+            _ => "Reserved"
         }
     }
 
-    pub fn as_u16(&self) -> u16 { self.clone() as u16 }
+    pub fn new(v: u16) -> NamedCurve {
+        NamedCurve(v)
+    }
+
+    pub fn into_inner(self) -> u16 { self.0 }
+
+    pub fn as_u16(&self) -> u16 {
+        self.0
+    }
+
+    pub fn is_reserved(&self) -> bool {
+        !matches!(self.0, 0x1d | 0x11ec | 0x0017 | 0x0018 | 0x0019)
+    }
+
+    pub fn secret_index(&self) -> RlsResult<usize> {
+        match self.0 {
+            NamedCurve::X25519 => Ok(0),
+            NamedCurve::Secp256r1 => Ok(1),
+            NamedCurve::Secp384r1 => Ok(2),
+            NamedCurve::Secp521r1 => Ok(3),
+            _ => Err("Unsupported pub share key".into()),
+        }
+    }
 }
 
+impl From<u16> for NamedCurve {
+    fn from(v: u16) -> Self { NamedCurve(v) }
+}
+
+impl Debug for NamedCurve {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(0x{:x})", self.spec(), self.0)
+    }
+}
+
+impl PartialEq<u16> for NamedCurve {
+    fn eq(&self, other: &u16) -> bool {
+        &self.0 == other
+    }
+}
+
+
 #[derive(Debug)]
-pub struct ServerHellmanParam {
+pub struct ServerHellmanParam<'a> {
     curve_type: CurveType,
     named_curve: NamedCurve,
     pub_key_len: u8,
-    pub_key: Bytes,
+    pub_key: Buf<'a>,
     signature_algorithm: SignatureAlgorithm,
     signature_len: u16,
-    signature: Bytes,
+    signature: Buf<'a>,
 }
 
-impl ServerHellmanParam {
-    pub fn new() -> ServerHellmanParam {
+impl<'a> ServerHellmanParam<'a> {
+    pub fn new() -> ServerHellmanParam<'a> {
         ServerHellmanParam {
             curve_type: CurveType::NamedCurve,
-            named_curve: NamedCurve::Secp384r1,
+            named_curve: NamedCurve::Secp384r1.into(),
             pub_key_len: 0,
-            pub_key: Bytes::none(),
-            signature_algorithm: SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
+            pub_key: Buf::Ref(&[]),
+            signature_algorithm: SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),
             signature_len: 0,
-            signature: Bytes::none(),
+            signature: Buf::Ref(&[]),
         }
     }
-    pub fn from_bytes(bytes: &[u8]) -> RlsResult<ServerHellmanParam> {
+    pub fn from_reader(reader: &mut Reader<'a>) -> RlsResult<ServerHellmanParam<'a>> {
         let mut res = ServerHellmanParam::new();
-        res.curve_type = CurveType::from_u8(bytes[0]).ok_or("CurveType Unknown")?;
-        let v = u16::from_be_bytes([bytes[1], bytes[2]]);
-        res.named_curve = NamedCurve::from_u16(v).ok_or(format!("NamedCurve Unknown-{}", v))?;
-        res.pub_key_len = bytes[3];
-        res.pub_key = Bytes::new(bytes[4..res.pub_key_len as usize + 4].to_vec());
-        let index = res.pub_key_len as usize + 4;
-        let v = u16::from_be_bytes([bytes[index], bytes[index + 1]]);
-        res.signature_algorithm = SignatureAlgorithm::new(v);
-        res.signature_len = u16::from_be_bytes([bytes[index + 2], bytes[index + 3]]);
-        res.signature = Bytes::new(bytes[index + 4..index + 4 + res.signature_len as usize].to_vec());
+        res.curve_type = CurveType::from_u8(reader.read_u8()?).ok_or("CurveType Unknown")?;
+        res.named_curve = NamedCurve::new(reader.read_u16()?);
+        res.pub_key_len = reader.read_u8()?;
+        res.pub_key = Buf::Ref(reader.read_slice(res.pub_key_len as usize)?);
+        res.signature_algorithm = SignatureAlgorithm::new(reader.read_u16()?);
+        res.signature_len = reader.read_u16()?;
+        res.signature = Buf::Ref(reader.read_slice(res.signature_len as usize)?);
         Ok(res)
     }
 
@@ -90,7 +128,7 @@ impl ServerHellmanParam {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
         writer.write_u8(self.curve_type as u8)?;
-        writer.write_u16(self.named_curve as u16)?;
+        writer.write_u16(self.named_curve.0)?;
         writer.write_u8(self.pub_key.len() as u8)?;
         writer.write_slice(self.pub_key.as_ref())?;
         writer.write_u16(self.signature_algorithm.into_inner())?;
@@ -100,7 +138,7 @@ impl ServerHellmanParam {
 
     pub fn curve_type(&self) -> &CurveType { &self.curve_type }
 
-    pub fn pub_key(&self) -> &Bytes {
+    pub fn pub_key(&self) -> &Buf<'a> {
         &self.pub_key
     }
 
@@ -108,7 +146,7 @@ impl ServerHellmanParam {
         &self.named_curve
     }
 
-    pub fn signature(&self) -> &Bytes {
+    pub fn signature(&self) -> &Buf<'a> {
         &self.signature
     }
 
@@ -116,43 +154,36 @@ impl ServerHellmanParam {
         &self.signature_algorithm
     }
 
-    pub fn set_pub_key(&mut self, pub_key: impl Into<Vec<u8>>) {
-        self.pub_key = Bytes::new(pub_key.into());
+    pub fn set_pub_key(&mut self, pub_key: Buf<'a>) {
+        self.pub_key = pub_key;
     }
 
-    pub fn set_signature(&mut self, signature: Bytes) {
+    pub fn set_signature(&mut self, signature: Buf<'a>) {
         self.signature = signature;
     }
 }
 
 #[derive(Debug)]
-pub struct ServerKeyExchange {
+pub struct ServerKeyExchange<'a> {
     handshake_type: HandshakeType,
-    // len: u32,
-    hellman_param: ServerHellmanParam,
+    hellman_param: ServerHellmanParam<'a>,
 }
 
-impl Default for ServerKeyExchange {
+impl<'a> Default for ServerKeyExchange<'a> {
     fn default() -> Self {
         ServerKeyExchange {
             handshake_type: HandshakeType::ServerKeyExchange,
-            // len: 0,
             hellman_param: ServerHellmanParam::new(),
         }
     }
 }
 
-impl ServerKeyExchange {
-    pub fn from_bytes(ht: HandshakeType, bytes: &[u8]) -> RlsResult<ServerKeyExchange> {
-        let len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]].try_into()?) as usize;
-        // let mut res =
-        // let mut res = ServerKeyExchange::default();
-        // res.handshake_type = ht;
-        // res.len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]].try_into()?);
-        // res.hellman_param = ServerHellmanParam::from_bytes(&bytes[4..])?;
+impl<'a> ServerKeyExchange<'a> {
+    pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<ServerKeyExchange<'a>> {
+        reader.read_u32_24()?;
         Ok(ServerKeyExchange {
             handshake_type: ht,
-            hellman_param: ServerHellmanParam::from_bytes(&bytes[4..4 + len])?,
+            hellman_param: ServerHellmanParam::from_reader(reader)?,
         })
     }
 
@@ -168,32 +199,32 @@ impl ServerKeyExchange {
         self.hellman_param.write_to(writer)
     }
 
-    pub fn hellman_param(&self) -> &ServerHellmanParam {
+    pub fn hellman_param(&self) -> &ServerHellmanParam<'a> {
         &self.hellman_param
     }
 
-    pub fn hellman_param_mut(&mut self) -> &mut ServerHellmanParam { &mut self.hellman_param }
+    pub fn hellman_param_mut(&mut self) -> &mut ServerHellmanParam<'a> { &mut self.hellman_param }
 }
 
 #[derive(Debug)]
 pub struct ClientHellmanParam<'a> {
     pub_key_len: u16,
-    pub_key: ByteRef<'a>,
+    pub_key: Buf<'a>,
 }
 
 impl<'a> ClientHellmanParam<'a> {
     pub fn new() -> ClientHellmanParam<'a> {
         ClientHellmanParam {
             pub_key_len: 0,
-            pub_key: ByteRef::default(),
+            pub_key: Buf::Ref(&[]),
         }
     }
 
-    pub fn from_bytes(bytes: &'a [u8], suite: Option<&CipherSuite>) -> RlsResult<ClientHellmanParam<'a>> {
+    pub fn from_reader(reader: &mut Reader<'a>, suite: Option<&CipherSuite>) -> RlsResult<ClientHellmanParam<'a>> {
         let mut res = ClientHellmanParam::new();
         let key_size = suite.map(|x| x.key_size()).unwrap_or(1);
-        res.pub_key_len = if key_size == 2 { u16::from_be_bytes([bytes[0], bytes[1]]) } else { bytes[0] as u16 };
-        res.pub_key = ByteRef::new(&bytes[key_size as usize..res.pub_key_len as usize + key_size as usize]);
+        res.pub_key_len = if key_size == 2 { reader.read_u16()? } else { reader.read_u8()? as u16 };
+        res.pub_key = Buf::Ref(reader.read_slice(res.pub_key_len as usize)?);
         Ok(res)
     }
     pub fn len(&self, key_size: u8) -> usize {
@@ -208,7 +239,7 @@ impl<'a> ClientHellmanParam<'a> {
         writer.write_slice(self.pub_key.as_ref())
     }
 
-    pub fn pub_key(&self) -> &ByteRef<'a> {
+    pub fn pub_key(&self) -> &Buf<'a> {
         &self.pub_key
     }
 }
@@ -229,11 +260,11 @@ impl<'a> Default for ClientKeyExchange<'a> {
 }
 
 impl<'a> ClientKeyExchange<'a> {
-    pub fn from_bytes(ht: HandshakeType, bytes: &'a [u8], suite: Option<&CipherSuite>) -> RlsResult<ClientKeyExchange<'a>> {
-        let len = u32::from_be_bytes([0, bytes[1], bytes[2], bytes[3]]) as usize;
+    pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>, suite: Option<&CipherSuite>) -> RlsResult<ClientKeyExchange<'a>> {
+        reader.read_u32_24()?;
         Ok(ClientKeyExchange {
             handshake_type: ht,
-            hellman_param: ClientHellmanParam::from_bytes(&bytes[4..4 + len], suite)?,
+            hellman_param: ClientHellmanParam::from_reader(reader, suite)?,
         })
     }
 
@@ -248,7 +279,7 @@ impl<'a> ClientKeyExchange<'a> {
     }
 
     pub fn set_pub_key(&mut self, pub_key: &'a [u8]) {
-        self.hellman_param.pub_key = ByteRef::new(pub_key);
+        self.hellman_param.pub_key = Buf::Ref(pub_key);
         self.hellman_param.pub_key_len = self.hellman_param.pub_key.len() as u16;
     }
 

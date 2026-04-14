@@ -186,6 +186,7 @@ impl AcReq {
                         };
                     }
                     Err(e) => {
+                        println!("{}", e);
                         if i != self.timeout.handle_times() - 1 {
                             if e.to_string().to_lowercase().contains("close") || e.to_string().contains("中止了") || e.to_string().contains("关闭") {
                                 self.re_conn().await?;

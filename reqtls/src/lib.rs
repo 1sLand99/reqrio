@@ -107,7 +107,7 @@
 //!     //Read certificate private key
 //!     let certificate_key = RsaKey::from_pri_pem_file("path/to/pem/key").unwrap();
 //!     //Certificate writing
-//!     fs::write("1.der", certificates[0].as_der().as_slice()).unwrap();
+//!     fs::write("1.der", certificates[0].as_der().unwrap().as_slice()).unwrap();
 //! }
 //! ```
 //!
@@ -132,7 +132,7 @@
 //!     ca_signer.add_extension(CertExtend::KeyIdentifier(vec![KeyIdentifier::Hash])).unwrap();
 //!     ca_signer.add_extension(CertExtend::BasicConstraints(vec![BasicConstraint::Critical, BasicConstraint::Ca(true)])).unwrap();
 //!     ca_signer.sign_by_self().unwrap();
-//!     fs::write("ca.der", ca_signer.cert_mut().as_der().as_slice()).unwrap();
+//!     fs::write("ca.der", ca_signer.cert_mut().as_der().unwrap().as_slice()).unwrap();
 //! }
 //! ```
 //!
@@ -193,12 +193,12 @@
 //!     println!("{}", key.to_pub_pem().unwrap());
 //!     println!("{:?}", key.to_pri_der());
 //!     println!("{:?}", key.to_pub_der());
-//!     let nkey = RsaKey::from_pub_der(key.to_pub_der().as_slice()).unwrap();
+//!     let nkey = RsaKey::from_pub_der(key.to_pub_der().unwrap().as_slice()).unwrap();
 //!     let rsa = RsaCipher::from_rsa_key(&nkey).unwrap();
 //!     let encrypted = rsa.encrypt("adsdfds").unwrap();
 //!     println!("{} {:?}", encrypted.len(), encrypted);
 //!
-//!     let nkey = RsaKey::from_pri_der(key.to_pri_der().as_slice()).unwrap();
+//!     let nkey = RsaKey::from_pri_der(key.to_pri_der().unwrap().as_slice()).unwrap();
 //!     let rsa = RsaCipher::from_rsa_key(&nkey).unwrap();
 //!     let decrypted = rsa.decrypt(encrypted.as_slice()).unwrap();
 //!     println!("{} {:?}", decrypted.len(), decrypted);
@@ -247,32 +247,6 @@
 //! * br
 //! * zstd
 
-pub use connection::Connection;
-pub use message::{Message, Alert, CertificateRequest, CertificateVerify};
-pub use message::session_ticket::{SessionTicket, TlsSessionTicket};
-pub use message::key_exchange::ServerKeyExchange;
-pub use message::server_hello::ServerHello;
-pub use message::client_hello::ClientHello;
-pub use message::key_exchange::ClientKeyExchange;
-pub use message::certificate::Certificates;
-pub use record::{RecordLayer, RecordType};
-pub use error::{RlsError, BufferError};
-pub use version::Version;
-pub use boring::{hash, hmac, base64, Cipher, CipherType, Padding, RsaCipher, RsaKey, RsaPadding,
-                 certificate::Certificate, cipher, certificate::DnType, certificate::CertSigner,
-                 certificate::CertExtend, certificate::BasicConstraint, certificate::KeyUsage,
-                 certificate::KeyIdentifier, certificate::SubjectAltName, certificate::CertStore,
-                 certificate::CertType,
-                 SignatureAlgorithm, AlgorithmSigner};
-pub use hash::{HashType, Hmac, Hasher};
-pub use hex;
-pub use suite::CipherSuite;
-pub use extend::{Extension, ExtensionType, group::GroupType, formats::EcPointFormat, SupportVersions, CompressionType};
-pub use alpn::ALPN;
-pub use ext::WriteExt;
-pub use url::{Addr, Scheme, Uri, Url, Param, UrlError};
-pub use buffer::RecordDecodeBuffer;
-
 mod extend;
 mod message;
 mod prf;
@@ -287,10 +261,34 @@ mod boring;
 mod ffi;
 pub mod coder;
 mod alpn;
-mod ext;
-mod share_key;
+mod secret_key;
 mod url;
 
 #[cfg(feature = "export")]
 mod export;
 mod buffer;
+mod dns;
+mod hkdf;
+mod derived;
+
+pub use alpn::ALPN;
+pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner,
+                 certificate::CertStore, certificate::CertType, certificate::Certificate, certificate::DnType,
+                 certificate::KeyIdentifier, certificate::KeyUsage, certificate::SubjectAltName, cipher, hash,
+                 hmac, AlgorithmSigner, Cipher, CipherType, Padding, RsaCipher, RsaKey, RsaPadding,
+                 SignatureAlgorithm};
+pub use buffer::{BufferError, ReadExt, Reader, WriteExt};
+pub use connection::Connection;
+pub use error::RlsError;
+pub use extend::{formats::EcPointFormat, CompressionType, Extension, ExtensionType, SupportVersions,
+                 KeyShare};
+pub use hash::{HashType, Hasher, Hmac};
+pub use hex;
+pub use message::{Certificates, ClientHello, ClientKeyExchange, ServerKeyExchange, ServerHello,
+                  ServerHelloDone, SessionTicket, TlsSessionTicket, NamedCurve};
+pub use message::{Alert, CertificateRequest, CertificateVerify, Message};
+pub use record::{RecordLayer, RecordType};
+pub use suite::CipherSuite;
+pub use url::{Addr, Param, Scheme, Uri, Url, UrlError};
+pub use version::Version;
+pub use secret_key::SecretKey;

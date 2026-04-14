@@ -4,17 +4,18 @@ mod cert_type;
 
 use super::bindings::*;
 use crate::boring::bindings::*;
-pub use cert_type::CertType;
 use crate::boring::BoringResExt;
+use crate::buffer::BufPtr;
 use crate::error::RlsResult;
-use crate::ffi::{BufPtr, CPointer};
-use crate::RlsError;
+use crate::ffi::CPointer;
+use crate::{BufferError, RlsError};
+pub use cert_type::CertType;
 pub use siger::{BasicConstraint, CertExtend, CertSigner, DnType, KeyIdentifier, KeyUsage, SubjectAltName};
 use std::ffi::CString;
+use std::os::raw::{c_int, c_long};
 use std::path::Path;
 use std::ptr::null_mut;
 use std::{fs, slice};
-use std::os::raw::{c_int, c_long};
 pub use store::{CertStore, ROOT_STORES};
 
 pub struct Certificate {
@@ -66,12 +67,12 @@ impl Certificate {
         Certificate::from_pem(&pem)
     }
 
-    pub fn as_der(&mut self) -> &BufPtr {
+    pub fn as_der(&mut self) -> Result<&BufPtr, BufferError> {
         if self.der.is_null() {
             let len = unsafe { i2d_X509(self.x509.as_mut_ptr(), self.der.ptr_mut()) };
-            self.der.set_len(len as usize);
+            self.der.check_ptr(len as usize)?;
         }
-        &self.der
+        Ok(&self.der)
     }
 
     pub fn as_pem(&mut self) -> RlsResult<String> {
@@ -124,7 +125,7 @@ impl Certificate {
                 let data = unsafe { ASN1_STRING_get0_data(uri as _) };
                 let len = unsafe { ASN1_STRING_length(uri as _) };
                 if len <= 0 || len == c_int::MAX || data.is_null() { return Err("nisddf".into()); }
-                let slice = unsafe { std::slice::from_raw_parts(data, len as _) };
+                let slice = unsafe { slice::from_raw_parts(data, len as _) };
                 res.push(String::from_utf8_lossy(slice).to_string())
             }
         }

@@ -1,42 +1,44 @@
-use super::super::bytes::Bytes;
 use super::HandshakeType;
-use crate::bytes::ByteRef;
+use crate::buffer::Buf;
 use crate::error::RlsResult;
-use crate::{BufferError, CertType, SignatureAlgorithm, WriteExt};
+use crate::{BufferError, CertType, ReadExt, Reader, SignatureAlgorithm, Version, WriteExt};
 use std::fmt::Debug;
 
 #[derive(Debug)]
 pub struct Certificates<'a> {
     handshake_type: HandshakeType,
-    certificate_len: u32,
-    certificates: Vec<ByteRef<'a>>,
+    certificates: Vec<Buf<'a>>,
 }
 
 impl<'a> Default for Certificates<'a> {
     fn default() -> Self {
         Certificates {
             handshake_type: HandshakeType::Certificate,
-            certificate_len: 0,
             certificates: vec![],
         }
     }
 }
 
 impl<'a> Certificates<'a> {
-    pub fn from_bytes(ht: HandshakeType, bytes: &[u8]) -> RlsResult<Certificates<'_>> {
-        let mut res = Certificates {
-            handshake_type: ht,
-            certificate_len: u32::from_be_bytes([0, bytes[4], bytes[5], bytes[6]]),
-            ..Certificates::default()
-        };
-        let mut index = 7;
-        while index < res.certificate_len as usize + 7 {
-            let len = u32::from_be_bytes([0, bytes[index], bytes[index + 1], bytes[index + 2]]) as usize;
-            index += 3;
-            res.certificates.push(ByteRef::new(&bytes[index..index + len]));
-            index += len
+    pub fn from_reader(ht: HandshakeType, version: Version, reader: &mut Reader<'a>) -> RlsResult<Certificates<'a>> {
+        if let Version::TLS_1_3 = version {
+            reader.read_u8()?; //req ctx len
         }
-        Ok(res)
+        reader.read_u32_24()?;
+        let len = reader.read_u32_24()?;
+        let mut reader = reader.read_reader(len as usize)?;
+        let mut certificates = Vec::with_capacity(len as usize);
+        while reader.unread_len() > 0 {
+            let len = reader.read_u32_24()? as usize;
+            certificates.push(Buf::Ref(reader.read_slice(len)?));
+            if let Version::TLS_1_3 = version {
+                reader.read_u16()?; //ext len
+            }
+        }
+        Ok(Certificates {
+            handshake_type: ht,
+            certificates,
+        })
     }
 
     pub fn len(&self) -> usize {
@@ -59,31 +61,34 @@ impl<'a> Certificates<'a> {
     }
 
     pub fn add_certificate(&mut self, cert: &'a [u8]) {
-        self.certificates.push(ByteRef::new(cert));
+        self.certificates.push(Buf::Ref(cert));
     }
 
-    pub fn certificates(&self) -> &Vec<ByteRef<'_>> {
+    pub fn certificates(&self) -> &Vec<Buf<'_>> {
         &self.certificates
     }
 }
 
 #[derive(Debug)]
-pub struct CertificateStatus {
-    // handshake_type: HandshakeType,
-    bytes: Bytes,
+pub struct CertificateStatus<'a> {
+    handshake_type: HandshakeType,
+    bytes: Buf<'a>,
 }
 
-impl CertificateStatus {
-    pub fn from_bytes(_ht: HandshakeType, bytes: &[u8]) -> CertificateStatus {
-        CertificateStatus {
-            // handshake_type:ht,
-            bytes: Bytes::new(bytes.to_vec()),
-        }
+impl<'a> CertificateStatus<'a> {
+    pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<CertificateStatus<'a>> {
+        let len = reader.read_u32_24()?;
+        Ok(CertificateStatus {
+            handshake_type: ht,
+            bytes: Buf::Ref(reader.read_slice(len as usize)?),
+        })
     }
 
     pub fn len(&self) -> usize { self.bytes.len() }
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u8(self.handshake_type as u8)?;
+        writer.write_u32(self.bytes.len() as u32, true)?;
         writer.write_slice(self.bytes.as_ref())
     }
 }
@@ -94,7 +99,7 @@ pub struct CertificateRequest<'a> {
     handshake_type: HandshakeType,
     cert_type: Vec<CertType>,
     hashes: Vec<SignatureAlgorithm>,
-    distinguished_name: ByteRef<'a>,
+    distinguished_name: Buf<'a>,
 }
 
 impl<'a> Default for CertificateRequest<'a> {
@@ -103,7 +108,7 @@ impl<'a> Default for CertificateRequest<'a> {
             handshake_type: HandshakeType::CertificateRequest,
             cert_type: vec![],
             hashes: vec![],
-            distinguished_name: Default::default(),
+            distinguished_name: Buf::Ref(&[]),
         }
     }
 }
@@ -113,40 +118,36 @@ impl<'a> CertificateRequest<'a> {
         let mut res = CertificateRequest {
             cert_type: vec![CertType::RSA, CertType::ECDSA],
             hashes: vec![
-                SignatureAlgorithm::RSA_PSS_PSS_SHA256,
-                SignatureAlgorithm::RSA_PSS_PSS_SHA384,
-                SignatureAlgorithm::RSA_PSS_PSS_SHA512,
+                SignatureAlgorithm::RSA_PSS_PSS_SHA256.into(),
+                SignatureAlgorithm::RSA_PSS_PSS_SHA384.into(),
+                SignatureAlgorithm::RSA_PSS_PSS_SHA512.into(),
             ],
             ..CertificateRequest::default()
         };
         for hash in SignatureAlgorithm::ALL {
             if res.hashes.len() >= 10 { break; }
-            if res.hashes.contains(&SignatureAlgorithm::new(hash)) { continue; }
+            if res.hashes.iter().any(|x| x.as_u16() == hash) { continue; }
             res.hashes.push(SignatureAlgorithm::new(hash));
         }
         res
     }
 
-    pub fn from_bytes(ht: HandshakeType, bytes: &'a [u8]) -> CertificateRequest<'a> {
+    pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<CertificateRequest<'a>> {
         let mut res = CertificateRequest {
             handshake_type: ht,
             ..Default::default()
         };
-        for count in 0..bytes[4] {
-            res.cert_type.push(CertType::new(bytes[5 + count as usize]));
+        reader.read_u32_24()?;
+        for _ in 0..reader.read_u8()? {
+            res.cert_type.push(CertType::new(reader.read_u8()?));
         }
-        let mut index = 5 + bytes[4] as usize;
-        let len = u16::from_be_bytes([bytes[index], bytes[index + 1]]) as usize;
-        index += 2;
-        for chunk in bytes[index..index + len].chunks(2) {
-            let value = u16::from_be_bytes([chunk[0], chunk[1]]);
-            res.hashes.push(SignatureAlgorithm::new(value));
+        let len = reader.read_u16()?;
+        for _ in (0..len).step_by(2) {
+            res.hashes.push(SignatureAlgorithm::new(reader.read_u16()?));
         }
-        index += len;
-        let len = u16::from_be_bytes([bytes[index], bytes[index + 1]]) as usize;
-        index += 2;
-        res.distinguished_name = ByteRef::new(&bytes[index..index + len]);
-        res
+        let len = reader.read_u16()?;
+        res.distinguished_name = Buf::Ref(reader.read_slice(len as usize)?);
+        Ok(res)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -182,27 +183,29 @@ impl<'a> CertificateRequest<'a> {
 pub struct CertificateVerify<'a> {
     handshake_type: HandshakeType,
     sign_hash: SignatureAlgorithm,
-    sign: ByteRef<'a>,
+    sign: Buf<'a>,
 }
 
 impl<'a> Default for CertificateVerify<'a> {
     fn default() -> Self {
         CertificateVerify {
             handshake_type: HandshakeType::CertificateVerify,
-            sign_hash: SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
-            sign: Default::default(),
+            sign_hash: SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),
+            sign: Buf::Ref(&[]),
         }
     }
 }
 
 impl<'a> CertificateVerify<'a> {
-    pub fn from_bytes(ht: HandshakeType, bytes: &'a [u8]) -> CertificateVerify<'a> {
-        let sign_len = u16::from_be_bytes([bytes[6], bytes[7]]);
-        CertificateVerify {
+    pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<CertificateVerify<'a>> {
+        reader.read_u32_24()?;
+        let sign_hash = SignatureAlgorithm::new(reader.read_u16()?);
+        let sign_len = reader.read_u16()?;
+        Ok(CertificateVerify {
             handshake_type: ht,
-            sign_hash: SignatureAlgorithm::new(u16::from_be_bytes([bytes[4], bytes[5]])),
-            sign: ByteRef::new(&bytes[8..8 + sign_len as usize]),
-        }
+            sign_hash,
+            sign: Buf::Ref(reader.read_slice(sign_len as usize)?),
+        })
     }
 
     pub fn is_empty(&self) -> bool {
@@ -226,6 +229,6 @@ impl<'a> CertificateVerify<'a> {
     }
 
     pub fn set_sign(&mut self, sign: &'a [u8]) {
-        self.sign = ByteRef::new(sign);
+        self.sign = Buf::Ref(sign);
     }
 }

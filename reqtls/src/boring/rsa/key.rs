@@ -1,14 +1,15 @@
+use crate::boring::bindings::{EVP_PKEY_new, EVP_PKEY};
+use crate::boring::rsa::bindings::*;
+use crate::boring::BoringResExt;
+use crate::error::RlsResult;
+use crate::ffi::CPointer;
+use crate::{BufferError, RlsError};
+use crate::RlsError::WritePubKeyError;
+use std::os::raw::c_long;
 use std::path::Path;
 use std::ptr::null_mut;
 use std::{fs, slice};
-use std::os::raw::c_long;
-use crate::boring::bindings::{EVP_PKEY_new, EVP_PKEY};
-use crate::boring::BoringResExt;
-use crate::boring::rsa::bindings::*;
-use crate::error::RlsResult;
-use crate::ffi::{BufPtr, CPointer};
-use crate::RlsError;
-use crate::RlsError::WritePubKeyError;
+use crate::buffer::BufPtr;
 
 pub struct RsaKey(CPointer<EVP_PKEY>);
 
@@ -61,18 +62,18 @@ impl RsaKey {
         Ok(String::from_utf8(out)?)
     }
 
-    pub fn to_pri_der(&self) -> BufPtr {
+    pub fn to_pri_der(&self) -> Result<BufPtr, BufferError> {
         let mut buf = BufPtr::nullptr();
         let len = unsafe { i2d_PrivateKey(self.0.as_ptr(), buf.ptr_mut()) };
-        buf.set_len(len as usize);
-        buf
+        buf.check_ptr(len as usize)?;
+        Ok(buf)
     }
 
-    pub fn to_pub_der(&self) -> BufPtr {
+    pub fn to_pub_der(&self) -> Result<BufPtr, BufferError> {
         let mut buf = BufPtr::nullptr();
         let len = unsafe { i2d_PUBKEY(self.0.as_ptr(), buf.ptr_mut()) };
-        buf.set_len(len as usize);
-        buf
+        buf.check_ptr(len as usize)?;
+        Ok(buf)
     }
 
     pub fn from_pri_pem(pem: impl AsRef<[u8]>) -> RlsResult<RsaKey> {

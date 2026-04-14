@@ -1,18 +1,16 @@
 use crate::boring::SignatureAlgorithm;
 use crate::error::RlsResult;
-use crate::{rand, BufferError, WriteExt};
+use crate::{rand, BufferError, ReadExt, Reader, WriteExt};
 
 
 #[derive(Debug)]
 pub struct SignatureAlgorithms {
-    hash_len: u16,
     hash: Vec<SignatureAlgorithm>,
 }
 
 impl SignatureAlgorithms {
     pub fn new() -> SignatureAlgorithms {
         SignatureAlgorithms {
-            hash_len: 0,
             hash: vec![],
         }
     }
@@ -29,14 +27,15 @@ impl SignatureAlgorithms {
         Ok(())
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> RlsResult<SignatureAlgorithms> {
-        let mut res = SignatureAlgorithms::new();
-        res.hash_len = u16::from_be_bytes([bytes[0], bytes[1]]);
-        for chunk in bytes[2..].chunks(2) {
-            let v = u16::from_be_bytes(chunk.try_into()?);
-            res.hash.push(SignatureAlgorithm::new(v));
+    pub fn from_reader(mut reader: Reader<'_>) -> RlsResult<SignatureAlgorithms> {
+        let len = reader.read_u16()?;
+        let mut hashes = Vec::with_capacity(reader.unread_len());
+        for _ in (0..len).step_by(2) {
+            hashes.push(SignatureAlgorithm::new(reader.read_u16()?))
         }
-        Ok(res)
+        Ok(SignatureAlgorithms {
+            hash: hashes,
+        })
     }
 
     pub fn hashes(&self) -> &Vec<SignatureAlgorithm> {
@@ -59,13 +58,13 @@ impl SignatureAlgorithms {
         let mut res = SignatureAlgorithms::new();
         let all_sign = SignatureAlgorithm::ALL;
         res.hash = vec![
-            SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
-            SignatureAlgorithm::ECDSA_SECP256R1_SHA256,
-            SignatureAlgorithm::RSA_PKCS1_SHA256,
+            SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),
+            SignatureAlgorithm::ECDSA_SECP256R1_SHA256.into(),
+            SignatureAlgorithm::RSA_PKCS1_SHA256.into(),
         ];
         while res.hash.len() < 10 {
             let index = rand::random::<usize>() % all_sign.len();
-            if res.hash.contains(&SignatureAlgorithm::new(all_sign[index])) { continue; }
+            if res.hash.iter().any(|x| x.as_u16() == all_sign[index]) { continue; }
             res.hash.push(SignatureAlgorithm::new(all_sign[index]));
         }
         res

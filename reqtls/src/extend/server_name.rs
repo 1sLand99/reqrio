@@ -1,5 +1,5 @@
 use crate::error::RlsResult;
-use crate::{BufferError, WriteExt};
+use crate::{BufferError, ReadExt, Reader, RlsError, WriteExt};
 
 #[derive(Debug, Clone, Copy)]
 pub enum NameType {
@@ -16,30 +16,30 @@ impl NameType {
 }
 
 #[derive(Debug)]
-pub struct ServerName {
+pub struct ServerName<'a> {
     list_len: u16,
     name_type: NameType,
     len: u16,
-    value: String,
+    value: &'a str,
 }
 
-impl ServerName {
-    pub fn new() -> ServerName {
+impl<'a> ServerName<'a> {
+    pub fn new() -> ServerName<'a> {
         ServerName {
             list_len: 0,
             name_type: NameType::HostName,
             len: 0,
-            value: "".to_string(),
+            value: "",
         }
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> RlsResult<ServerName> {
+    pub fn from_reader(mut reader: Reader<'a>) -> RlsResult<ServerName<'a>> {
         let mut res = ServerName::new();
-        if bytes.is_empty() { return Ok(res); }
-        res.list_len = u16::from_be_bytes([bytes[0], bytes[1]]);
-        res.name_type = NameType::from_u8(bytes[2]).ok_or("ServerName Unknown")?;
-        res.len = u16::from_be_bytes([bytes[3], bytes[4]]);
-        res.value = String::from_utf8(bytes[5..res.len as usize + 5].to_vec())?;
+        if reader.unread_len() == 0 { return Ok(res); }
+        res.list_len = reader.read_u16()?;
+        res.name_type = NameType::from_u8(reader.read_u8()?).ok_or("ServerName Unknown")?;
+        res.len = reader.read_u16()?;
+        res.value = reader.read_str::<RlsError>(res.len as usize)?;
         Ok(res)
     }
 
@@ -54,10 +54,15 @@ impl ServerName {
         writer.write_slice(self.value.as_ref())
     }
 
-    pub fn set_value(&mut self, value: impl ToString) {
-        self.value = value.to_string();
+    pub fn set_value(&mut self, value: &'a str) {
+        self.value = value;
         self.len = self.value.len() as u16;
     }
 
     pub fn value(&self) -> &str { &self.value }
+
+    pub fn with_value(mut self, value: &'a str) -> ServerName<'a> {
+        self.set_value(value);
+        self
+    }
 }

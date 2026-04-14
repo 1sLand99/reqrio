@@ -112,6 +112,7 @@ impl Stream {
                 Ok(ALPN::Http11)
             }
             Scheme::Https | Scheme::Wss => {
+                let t = crate::Time::now_mills().unwrap();
                 let tls_stream = SyncStream::connect(ClientConfig {
                     sni: param.addr.host(),
                     alpn: param.alpn,
@@ -121,6 +122,7 @@ impl Stream {
                     verify: param.verify,
                     ca_certs: param.ca_cert,
                 }, stream)?;
+                println!("TLS TIME: {}", crate::Time::now_mills().unwrap() - t);
                 let alpn = tls_stream.alpn().map(|x| ALPN::from_slice(x.as_bytes())).unwrap_or(ALPN::Http11);
                 *self = Stream::SyncHttps(tls_stream);
                 Ok(alpn)
@@ -162,29 +164,41 @@ impl Stream {
 
 
 pub trait TlsStreamHandle {
-    fn conn_wbuf(&mut self) -> (&mut Connection, &mut Buffer);
-
-    fn conn_rbuf(&mut self) -> (&mut Connection, &mut Buffer);
+    fn conn_buf(&mut self) -> (&mut Connection, &mut Buffer, &mut Buffer);
 
     fn handle_client_hello(config: &mut ClientConfig, buffer: &mut Buffer) -> HlsResult<Connection> {
-        let time = Time::now()?.as_secs() as u32;
-        let mut client_random = rand::random::<[u8; 32]>();
-        client_random[0..4].copy_from_slice(&time.to_be_bytes());
+        let client_random = rand::random::<[u8; 32]>();
         let session_id = rand::random::<[u8; 32]>();
-        let mut client_hello = RecordLayer::from_bytes(&mut config.fingerprint.client_hello, false, None)?;
-        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_random(&client_random);
-        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_server_name(config.sni);
-        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.set_session_id(&session_id);
+        let mut record = RecordLayer::from_bytes(&config.fingerprint.client_hello, false, None)?;
+        let client_hello = record.messages[0].client_mut().ok_or(HlsError::NullPointer)?;
+
+        client_hello.set_random(&client_random);
+        client_hello.set_server_name(config.sni);
+        client_hello.set_session_id(&session_id);
         match config.alpn {
-            ALPN::Http20 => client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.add_h2_alpn(),
-            _ => client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.remove_h2_alpn()
+            ALPN::Http20 => client_hello.add_h2_alpn(),
+            _ => client_hello.remove_h2_alpn()
         }
-        client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.remove_tls13();
-        let len = client_hello.write_to(buffer, 1)?;
+        let mut key_share = KeyShare::default();
+        let x25519_secret = SecretKey::new(NamedCurve::X25519)?;
+        key_share.add_entry(NamedCurve::X25519, x25519_secret.pub_key()?);
+        let secp256r1 = SecretKey::new(NamedCurve::Secp256r1)?;
+        key_share.add_entry(NamedCurve::Secp256r1, secp256r1.pub_key()?);
+        let secp384r1 = SecretKey::new(NamedCurve::Secp384r1)?;
+        key_share.add_entry(NamedCurve::Secp384r1, secp384r1.pub_key()?);
+        let secp521r1 = SecretKey::new(NamedCurve::Secp521r1)?;
+        key_share.add_entry(NamedCurve::Secp521r1, secp521r1.pub_key()?);
+        client_hello.set_key_share(key_share);
+
+
+        // client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.remove_tls13();
+
+        let len = record.write_to(buffer, 1)?;
         buffer.set_len(len);
 
-        let mut conn = Connection::default().with_client_random(client_random)
-            .with_verify(config.verify).with_time(time);
+        let mut conn = Connection::from_client(client_random)
+            .with_verify(config.verify);
+        conn.set_secret_keys(vec![x25519_secret, secp256r1, secp384r1, secp521r1]);
         conn.update_session(&buffer.filled()[5..])?;
         Ok(conn)
     }
@@ -192,13 +206,13 @@ pub trait TlsStreamHandle {
     fn handle_by_server_hello_done(&mut self, mut config: Option<&mut Config>) -> HlsResult<()> {
         let config = config.as_mut().ok_or("config can't be null")?;
         let config = config.client_mut().ok_or("missing config")?;
-        let (conn, buffer) = self.conn_wbuf();
+        let (conn, _, buffer) = self.conn_buf();
         let offset = buffer.len();
         if conn.mtls() {
             //client certificate
             let mut certificate = Certificates::default();
             if let Some(cert) = config.client_cert.get_mut(0) {
-                certificate.add_certificate(cert.as_der().as_slice());
+                certificate.add_certificate(cert.as_der()?.as_slice());
             }
             let mut record = RecordLayer::handshake();
             record.messages.push(Message::Certificate(certificate));
@@ -208,11 +222,11 @@ pub trait TlsStreamHandle {
         }
         let offset = buffer.len();
         //client key exchange
-        let mut record = RecordLayer::from_bytes(&mut config.fingerprint.client_key_exchange, false, None)?;
+        let mut record = RecordLayer::from_bytes(&config.fingerprint.client_key_exchange, false, None)?;
         let client_key_exchange = record.messages.get_mut(0).ok_or(HlsError::NullPointer)?;
         let key_size = conn.cipher_suite().key_size();
         let pub_key = conn.pub_share_key()?;
-        client_key_exchange.client_key_exchange_mut().unwrap().set_pub_key(pub_key.as_slice());
+        client_key_exchange.client_key_exchange_mut().unwrap().set_pub_key(pub_key.as_ref());
         let len = record.write_to(buffer, key_size)?;
         buffer.set_len(offset + len);
         conn.update_session(&buffer[offset + 5..offset + len])?;
@@ -233,7 +247,7 @@ pub trait TlsStreamHandle {
     }
 
     fn handle_by_alert(&mut self, handshake: bool, record_len: usize) -> Result<Alert, RlsError> {
-        let (conn, buffer) = self.conn_rbuf();
+        let (conn, buffer, _) = self.conn_buf();
         match handshake {
             true => {
                 let mut out = vec![0; 40];
@@ -242,5 +256,28 @@ pub trait TlsStreamHandle {
             }
             false => Ok(Alert::from_bytes(&buffer[5..7])?)
         }
+    }
+
+    fn handle_by_application(&mut self, record_len: usize) -> Result<bool, RlsError> {
+        let (conn, r_buf, w_buf) = self.conn_buf();
+        let mut data = vec![0; record_len + 32];
+        let len = conn.read_message(&r_buf[..record_len], &mut data)?;
+        let mut index = 0;
+        while index < len - 1 {
+            let len = u32::from_be_bytes([0, data[index + 1], data[index + 2], data[index + 3]]) as usize + 4;
+            let message = Message::from_bytes(&data[index..], false, None, Version::TLS_1_3)?;
+            if let Message::Finished(_) = message {
+                let verify_data = &data[index..index + len];
+                conn.verify_finish(verify_data, true)?;
+                w_buf.reset();
+                w_buf.write_slice(&[20, 3, 3, 0, 1, 1])?;
+                let len = conn.make_finish_message(w_buf.unfilled_mut(), false)?;
+                w_buf.add_len(len);
+                conn.make_cipher(false)?;
+                return Ok(true);
+            } else { conn.update_session(&data[index..index + len])?; }
+            index += len;
+        }
+        Ok(false)
     }
 }

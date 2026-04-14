@@ -157,7 +157,7 @@ mod tests {
         ca_signer.add_extension(CertExtend::KeyIdentifier(vec![KeyIdentifier::Hash])).unwrap();
         ca_signer.add_extension(CertExtend::BasicConstraints(vec![BasicConstraint::Critical, BasicConstraint::Ca(true)])).unwrap();
         ca_signer.sign_by_self().unwrap();
-        fs::write("ca.der", ca_signer.cert.as_der().as_slice()).unwrap();
+        fs::write("ca.der", ca_signer.cert.as_der().unwrap().as_slice()).unwrap();
 
         let mut signer = CertSigner::server_signer(2048, ca_signer.cert).unwrap();
         signer.set_expire(1).unwrap();
@@ -173,7 +173,7 @@ mod tests {
         signer.add_extension(CertExtend::KeyUsage(vec![KeyUsage::Critical, KeyUsage::DigitalSignature, KeyUsage::KeyEncipherment, KeyUsage::NonRepudiation])).unwrap();
         signer.add_extension(CertExtend::ExtKeyUsage(vec![KeyUsage::ServerAuth])).unwrap();
         signer.sign_by(&ca_signer.pkey).unwrap();
-        fs::write("s.der", signer.cert.as_der().as_slice()).unwrap();
+        fs::write("s.der", signer.cert.as_der().unwrap().as_slice()).unwrap();
 
         let mut signer = CertSigner::server_signer(2048, signer.root).unwrap();
         signer.set_expire(1).unwrap();
@@ -187,7 +187,7 @@ mod tests {
         signer.add_extension(CertExtend::KeyUsage(vec![KeyUsage::Critical, KeyUsage::DigitalSignature, KeyUsage::NonRepudiation])).unwrap();
         signer.add_extension(CertExtend::ExtKeyUsage(vec![KeyUsage::ClientAuth])).unwrap();
         signer.sign_by(&ca_signer.pkey).unwrap();
-        fs::write("c.der", signer.cert.as_der().as_slice()).unwrap();
+        fs::write("c.der", signer.cert.as_der().unwrap().as_slice()).unwrap();
         println!("{}", signer.cert.as_pem().unwrap());
     }
 }

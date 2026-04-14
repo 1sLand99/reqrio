@@ -188,7 +188,7 @@ impl ScReq {
                     }
                     println!("[ScReq] write/recv error, error: {}, handle: {}/{}", e, i + 2, self.timeout.handle_times());
                     continue;
-                }
+                } else { println!("{}", e.to_string()) }
             }
         }
         Err("stream io error".into())

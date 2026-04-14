@@ -88,12 +88,12 @@ mod tests {
         println!("{}", key.to_pub_pem().unwrap());
         println!("{:?}", key.to_pri_der());
         println!("{:?}", key.to_pub_der());
-        let nkey = RsaKey::from_pub_der(key.to_pub_der().as_slice()).unwrap();
+        let nkey = RsaKey::from_pub_der(key.to_pub_der().unwrap().as_slice()).unwrap();
         let rsa = RsaCipher::from_rsa_key(&nkey).unwrap();
         let encrypted = rsa.encrypt("adsdfds").unwrap();
         println!("{} {:?}", encrypted.len(), encrypted);
 
-        let nkey = RsaKey::from_pri_der(key.to_pri_der().as_slice()).unwrap();
+        let nkey = RsaKey::from_pri_der(key.to_pri_der().unwrap().as_slice()).unwrap();
         let rsa = RsaCipher::from_rsa_key(&nkey).unwrap();
         let decrypted = rsa.decrypt(encrypted.as_slice()).unwrap();
         println!("{} {:?}", decrypted.len(), decrypted);

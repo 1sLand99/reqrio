@@ -91,12 +91,12 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                             self.write_buffer.reset();
                             return Ok(true);
                         }
-                        Message::ClientHello(v) => {
+                        Message::ClientHello(mut v) => {
                             let len = record.len as usize + 5;
                             let config = config.as_mut().ok_or("config can't be null")?;
                             let random = rand::random::<[u8; 32]>();
                             let server = config.server_mut().ok_or("missing config")?;
-                            let mut record = self.conn.gen_server_hello(v, server.server_cert, server.cert_key, &random)?;
+                            let mut record = self.conn.gen_server_hello(&mut v, server.server_cert, server.cert_key, &random)?;
                             let session_id = rand::random::<[u8; 32]>();
                             record.messages[0].server_mut().ok_or(HlsError::NullPointer)?.set_session_id(&session_id);
 
@@ -140,7 +140,15 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                     }
                 }
             }
-            RecordType::ApplicationData => {}
+            RecordType::ApplicationData => {
+                let record_len = record.len as usize + 5;
+                let finish = self.handle_by_application(record_len)?;
+                if finish {
+                    self.stream.write_all(self.write_buffer.filled()).await?;
+                    self.write_buffer.reset();
+                    return Ok(true);
+                }
+            }
         }
         Ok(false)
     }
@@ -153,12 +161,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
 }
 
 impl<S> TlsStreamHandle for TlsStream<S> {
-    fn conn_wbuf(&mut self) -> (&mut Connection, &mut Buffer) {
-        (&mut self.conn, &mut self.write_buffer)
-    }
-
-    fn conn_rbuf(&mut self) -> (&mut Connection, &mut Buffer) {
-        (&mut self.conn, &mut self.read_buffer)
+    fn conn_buf(&mut self) -> (&mut Connection, &mut Buffer, &mut Buffer) {
+        (&mut self.conn, &mut self.read_buffer, &mut self.write_buffer)
     }
 }
 
@@ -183,7 +187,15 @@ impl<S> TlsStream<S> {
             }
             RecordType::ApplicationData => {
                 let len = self.conn.read_message(&self.read_buffer[..record_len], buf.initialized_mut())?;
-                buf.set_filled(len);
+                match *self.conn.version() {
+                    Version::TLS_1_3 => if buf.initialized_mut()[len - 1] == 23 {
+                        buf.set_filled(len - 1)
+                    } else {
+                        self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
+                        return Ok(0);
+                    }
+                    _ => buf.set_filled(len),
+                }
                 self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
                 return Ok(len);
             }

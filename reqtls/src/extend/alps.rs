@@ -1,26 +1,23 @@
 use crate::error::RlsResult;
-use crate::{BufferError, WriteExt, ALPN};
+use crate::{BufferError, ReadExt, Reader, WriteExt, ALPN};
 
 
 #[derive(Debug)]
 pub struct ALPS {
-    len: u16,
     values: Vec<ALPN>,
 }
 
 impl ALPS {
     pub fn new() -> ALPS {
         ALPS {
-            len: 0,
             values: vec![],
         }
     }
-    pub fn from_bytes(bytes: &[u8]) -> RlsResult<ALPS> {
-        let mut res = ALPS::new();
-        if bytes.is_empty() { return Ok(res); }
-        res.len = u16::from_be_bytes([bytes[0], bytes[1]]);
-        res.values = ALPN::from_bytes(&bytes[2..res.len as usize + 2])?;
-        Ok(res)
+    pub fn from_reader(mut reader: Reader<'_>) -> RlsResult<ALPS> {
+        reader.read_u16()?;
+        Ok(ALPS {
+            values: ALPN::from_reader(&mut reader)?
+        })
     }
 
     pub fn len(&self) -> usize {

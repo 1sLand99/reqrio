@@ -1,33 +1,30 @@
 use super::super::version::Version;
-use crate::{BufferError, WriteExt};
+use crate::{BufferError, ReadExt, Reader, WriteExt};
+use crate::error::RlsResult;
 
 #[derive(Debug)]
 pub struct SupportVersions {
-    len: u8,
     versions: Vec<Version>,
 }
 
 impl SupportVersions {
     pub fn new() -> Self {
         SupportVersions {
-            len: 0,
             versions: vec![],
         }
     }
 
-    pub fn from_bytes(bytes: &[u8], server: bool) -> Self {
-        let mut res = SupportVersions::new();
-        let mut index = 0;
+    pub fn from_reader(mut reader: Reader<'_>, server: bool) -> RlsResult<SupportVersions> {
         if !server {
-            res.len = bytes[0];
-            index += 1;
+            reader.read_u8()?;
         }
-
-        while index < bytes.len() {
-            res.versions.push(Version::new(u16::from_be_bytes([bytes[index], bytes[index + 1]])));
-            index += 2;
+        let mut versions = Vec::with_capacity(reader.unread_len());
+        while reader.unread_len() > 0 {
+            versions.push(Version::new(reader.read_u16()?));
         }
-        res
+        Ok(SupportVersions {
+            versions,
+        })
     }
 
     pub fn len(&self, server: bool) -> usize {
@@ -44,14 +41,11 @@ impl SupportVersions {
         Ok(())
     }
 
-    pub fn remove_tls13(&mut self) {
-        let pos = self.versions.iter().position(|x| x == &Version::TLS_1_3);
-        if let Some(pos) = pos {
-            self.versions.remove(pos);
-        }
-    }
-
     pub fn versions(&self) -> &Vec<Version> { &self.versions }
+
+    pub fn next(self) -> Option<Version> {
+        self.versions.into_iter().next()
+    }
 
     pub fn set_versions(&mut self, versions: Vec<Version>) { self.versions = versions }
 

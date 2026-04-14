@@ -95,15 +95,16 @@ impl CipherCrypto {
         let mut hmac = Hmac::new(&self.mac_key, self.hash)?;
         hmac.update(param.seq.to_be_bytes())?;
         hmac.update(&param.buffer.head()[..3])?;
-        hmac.update((param.buffer.origin_payload().len() as u16).to_be_bytes())?;
-        hmac.update(param.buffer.origin_payload())?;
+        let payload = param.buffer.payload();
+        hmac.update((payload.origin_payload().len() as u16).to_be_bytes())?;
+        hmac.update(payload.origin_payload())?;
         let mac = hmac.finalize()?;
-        let context = param.buffer.origin_payload().as_ptr();
-        let out = param.buffer.encrypted_buffer().as_mut_ptr();
-        let plain_len = self.cipher.encrypt_update(context, param.buffer.origin_payload().len(), out)?;
+        let context = payload.origin_payload().as_ptr();
+        let out = payload.encoded_payload().as_mut_ptr();
+        let plain_len = self.cipher.encrypt_update(context, payload.origin_payload().len(), out)?;
         let out = unsafe { out.add(plain_len) };
         let mac_len = self.cipher.encrypt_update(mac.as_ptr(), mac.len(), out)?;
-        let padding_len = 16 - (param.buffer.origin_payload().len() + mac.len() + 1) % 16;
+        let padding_len = 16 - (payload.origin_payload().len() + mac.len() + 1) % 16;
         let padding = vec![padding_len as u8; padding_len + 1];
         let out = unsafe { out.add(mac_len) };
         let padding_len = self.cipher.encrypt_update(padding.as_ptr(), padding.len(), out)?;
@@ -143,7 +144,7 @@ mod tests {
     use crate::boring::{CryptDecodeParam, CryptEncodeParam, HashType};
     use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
     use crate::extend::Aead;
-    use crate::{base64, rand, Cipher, RecordType};
+    use crate::{base64, rand, Cipher, RecordType, Version};
 
     #[test]
     fn test_cipher() {
@@ -166,7 +167,7 @@ mod tests {
         // payload.extend(&[0; 20]);
         let payload = [1, 2, 3, 4, 5, 61, 2, 3, 4, 5, 6, 7, 8, 9, 23, 23];
         let mac_key = [12; 20];
-        let mut record_buffer = RecordEncodeBuffer::new(RecordType::HandShake, &mut buffer, &payload, &aead);
+        let mut record_buffer = RecordEncodeBuffer::new(RecordType::HandShake, &Version::TLS_1_2, &mut buffer, &payload, &aead);
         record_buffer.add_explicit_iv(&iv);
 
         let crypto = CipherCrypto::new(&aead, key, mac_key.to_vec(), HashType::Sha1).unwrap();
@@ -182,7 +183,7 @@ mod tests {
         println!("{:?}", &buffer[..len + 10]);
         println!("-----------------encrypted---------------------");
         let mut decoded_buffer = vec![0; 1024];
-        let mut record_buffer = RecordDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, &aead).unwrap();
+        let mut record_buffer = RecordDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, &aead, &Version::TLS_1_2).unwrap();
         let len = crypto.decrypt(CryptDecodeParam {
             nonce: &[0; 12],
             iv: &iv,

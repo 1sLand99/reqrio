@@ -2,9 +2,7 @@ use crate::boring::bindings::*;
 use crate::boring::rsa::bindings::*;
 #[cfg(feature = "zstd")]
 use crate::coder::bindings::{ZSTD_CStream, ZSTD_DStream, ZSTD_freeCStream, ZSTD_freeDStream};
-use std::fmt::{Debug, Formatter};
 use std::ptr::null_mut;
-use std::slice;
 
 pub struct CPointer<T: CFree<T>> {
     ptr: *mut T,
@@ -47,64 +45,7 @@ impl<T: CFree<T>> Drop for CPointer<T> {
         self.ptr = null_mut();
     }
 }
-pub enum Buf<'a> {
-    Ptr(BufPtr),
-    Ref(&'a [u8]),
-    Vec(Vec<u8>),
-}
 
-impl<'a> Buf<'a> {
-    pub fn as_slice(&self) -> &[u8] {
-        match self {
-            Buf::Ptr(v) => v.as_slice(),
-            Buf::Ref(v) => v,
-            Buf::Vec(v) => v.as_slice(),
-        }
-    }
-
-    pub fn len(&self) -> usize {
-        match self {
-            Buf::Ptr(v) => v.len,
-            Buf::Ref(v) => v.len(),
-            Buf::Vec(v) => v.len()
-        }
-    }
-}
-
-pub struct BufPtr {
-    ptr: CPointer<u8>,
-    len: usize,
-}
-
-impl BufPtr {
-    pub fn nullptr() -> Self {
-        BufPtr {
-            ptr: CPointer::nullptr(),
-            len: 0,
-        }
-    }
-
-    pub fn is_null(&self) -> bool { self.ptr.is_null() }
-
-    pub fn ptr_mut(&mut self) -> &mut *mut u8 { self.ptr.as_mut() }
-
-    pub fn set_len(&mut self, len: usize) { self.len = len; }
-
-    pub fn len(&self) -> usize { self.len }
-
-    pub fn as_slice(&self) -> &[u8] {
-        if self.ptr.is_null() || self.len == usize::MAX { panic!("bufptr nullptr") }
-        unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
-    }
-}
-
-impl Debug for BufPtr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.ptr.is_null() || self.len == usize::MAX { return write!(f, "nullptr"); }
-        let slice = unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) };
-        write!(f, "{:?}", slice)
-    }
-}
 
 pub trait CFree<T> {
     fn free_ptr(ptr: *mut T, free: bool);
