@@ -117,19 +117,16 @@ impl DerivedKey {
             HashType::Sha384 => derived_hkdf.hkdf("tls13 derived", &DerivedKey::SHA384_SECRET, &mut derived)?,
             _ => return Err("Unknown hash secret key".into())
         }
-        println!("derived: {:?}", derived);
         //client handshake traffic
         let mut hkdf = Hkdf::new(&derived, &share_secret, self.hash)?;
         hkdf.hkdf("tls13 c hs traffic", session_hash, self.traffic_secret.c_hs_traffic_mut())?;
         let mut f = OpenOptions::new().create(true).append(true).open("2.log")?;
         f.write_all(format!("CLIENT_HANDSHAKE_TRAFFIC_SECRET {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(self.traffic_secret.c_hs_traffic())).as_bytes())?;
-        println!("client traffic: {:?}", &self.traffic_secret.c_hs_traffic());
         //server handshake traffic
         // let mut hkdf = Hkdf::new(&derived, &share_secret, self.hash)?;
         let out = self.traffic_secret.s_hs_traffic_mut();
         hkdf.hkdf("tls13 s hs traffic", session_hash, out)?;
         self.prk = hkdf.into_prk().to_vec();
-        println!("server traffic: {:?}", out);
         f.write_all(format!("SERVER_HANDSHAKE_TRAFFIC_SECRET {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(out)).as_bytes())?;
         Ok(())
     }
@@ -142,18 +139,13 @@ impl DerivedKey {
             HashType::Sha384 => hkdf.hkdf("tls13 derived", &Self::SHA384_SECRET, &mut salt).unwrap(),
             _ => return Err("Unknown hash secret key".into())
         }
-
-        println!("salt: {:?}", salt);
-
         let mut hkdf = Hkdf::new(&salt, &vec![0; self.hash.hash_size()], self.hash).unwrap();
         hkdf.hkdf("tls13 c ap traffic", session_hash, self.traffic_secret.c_ap_traffic_mut())?;
         let mut f = OpenOptions::new().create(true).append(true).open("2.log")?;
         f.write_all(format!("CLIENT_TRAFFIC_SECRET_0 {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(self.traffic_secret.c_ap_traffic())).as_bytes())?;
-        println!("client application traffic: {:?}", &self.traffic_secret.c_ap_traffic());
 
         hkdf.hkdf("tls13 s ap traffic", session_hash, self.traffic_secret.s_ap_traffic_mut())?;
         f.write_all(format!("SERVER_TRAFFIC_SECRET_0 {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(self.traffic_secret.s_ap_traffic())).as_bytes())?;
-        println!("server application traffic: {:?}", &self.traffic_secret.s_ap_traffic());
         Ok(())
     }
 
@@ -163,11 +155,14 @@ impl DerivedKey {
             false => self.traffic_secret.c_hs_traffic()
         };
         let mut hkdf = Hkdf::from_prk(traffic_secret, self.hash);
-        let mut out = vec![0; self.hash.hash_size()];
-        hkdf.hkdf("tls13 finished", &[], &mut out)?;
-        let mut hmac = Hmac::new(out, self.hash)?;
+        let mut out = vec![0; self.hash.hash_size() + 4];
+        out[0] = 20;
+        out[3] = self.hash.hash_size() as u8;
+        hkdf.hkdf("tls13 finished", &[], &mut out[4..])?;
+        let mut hmac = Hmac::new(&out[4..], self.hash)?;
         hmac.update(session_hash)?;
-        Ok(hmac.finalize()?.to_vec())
+        hmac.finalize_extract(&mut out[4..])?;
+        Ok(out)
     }
 
     pub fn make_master(&mut self, version: Version, share_secret: Vec<u8>, session_hash: &[u8]) -> RlsResult<()> {

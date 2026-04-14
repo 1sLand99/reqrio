@@ -36,7 +36,6 @@ impl TlsCipher {
         let add_arr = buffer.aad(self.seq);
         let nonce = self.iv.as_array(self.seq);
         buffer.add_explicit_iv(&nonce);
-        println!("aad: {:?}; nonce: {:?}", add_arr, nonce);
         self.crypto.encrypt(CryptEncodeParam {
             nonce: &nonce,
             iv: &nonce,
@@ -60,7 +59,6 @@ impl TlsCipher {
             Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => self.iv.decrypting_iv(),
             _ => return Err("gen nonce none".into())
         };
-        println!("seq: {}; add: {:?}; nonce: {:?}", self.seq, add, nonce);
         let len = self.crypto.decrypt(CryptDecodeParam {
             nonce: &nonce,
             iv: &nonce,

@@ -116,37 +116,11 @@ impl<S: Read + Write> SyncStream<S> {
             }
             RecordType::ApplicationData => {
                 let record_len = record.len as usize + 5;
-                let mut data = vec![0; record.len as usize + 32];
-                // println!("{:x?}", &self.read_buffer[..record_len]);
-                let len = self.conn.read_message(&self.read_buffer[..record_len], &mut data).unwrap();
-                // self.conn.update_session(&data[..len])?;
-                // let record_type = RecordType::from_byte(data[len - 1]);
-                // println!("{:#?}", record_type);
-                // println!("{:?}", &data[..len]);
-                let mut index = 0;
-                while index < len - 1 {
-                    let len = u32::from_be_bytes([0, data[index + 1], data[index + 2], data[index + 3]]) as usize + 4;
-                    let message = Message::from_bytes(&mut data[index..], false, None, Version::TLS_1_3).unwrap();
-                    println!("{:#?}", message);
-                    if let Message::Finished(_) = message {
-                        let verify_data = &data[index..index + len];
-                        self.conn.verify_finish(verify_data, true).unwrap();
-                        self.write_buffer.reset();
-                        self.write_buffer.write_slice(&[20, 3, 3, 0, 1, 1]).unwrap();
-                        let len = self.conn.make_finish_message(self.write_buffer.unfilled_mut(), false).unwrap();
-                        println!("{}", len);
-                        self.write_buffer.add_len(len);
-                        // self.write_buffer.write_slice_in(0, &[23]).unwrap();
-                        println!("{:?}", &self.write_buffer.filled());
-                        self.stream.write_all(self.write_buffer.filled()).unwrap();
-                        self.write_buffer.reset();
-                        self.conn.make_cipher(false)?;
-                        return Ok(true);
-                    } else { self.conn.update_session(&data[index..index + len])?; }
-
-
-                    index += len;
-                    println!("{} {}", len, index);
+                let finish = self.handle_by_application(record_len)?;
+                if finish {
+                    self.stream.write_all(self.write_buffer.filled())?;
+                    self.write_buffer.reset();
+                    return Ok(true);
                 }
             }
         }
@@ -167,12 +141,8 @@ impl<S: Read + Write> SyncStream<S> {
 }
 
 impl<S: Read + Write> TlsStreamHandle for SyncStream<S> {
-    fn conn_wbuf(&mut self) -> (&mut Connection, &mut Buffer) {
-        (&mut self.conn, &mut self.write_buffer)
-    }
-
-    fn conn_rbuf(&mut self) -> (&mut Connection, &mut Buffer) {
-        (&mut self.conn, &mut self.read_buffer)
+    fn conn_buf(&mut self) -> (&mut Connection, &mut Buffer, &mut Buffer) {
+        (&mut self.conn, &mut self.read_buffer, &mut self.write_buffer)
     }
 }
 
@@ -227,18 +197,12 @@ impl<S: Read + Write> Read for SyncStream<S> {
                 RecordType::Alert => return Err(self.handle_by_alert(self.handshake_finished, record_len)?.into()),
                 RecordType::ApplicationData => {
                     let mut len = self.conn.read_message(&self.read_buffer[..record_len], buf)?;
-                    println!("{}", buf[len - 1]);
-                    match *self.conn.version() {
-                        Version::TLS_1_3 => if buf[len - 1] == 23 {
-                            len -= 1;
-                        } else {
-                            self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
-                            continue;
-                        }
-                        _ => {}
+                    if *self.conn.version() == Version::TLS_1_3 && buf[len - 1] == 23 {
+                        len -= 1;
+                    } else {
+                        self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
+                        continue;
                     }
-
-
                     self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
                     return Ok(len);
                 }
@@ -250,7 +214,6 @@ impl<S: Read + Write> Read for SyncStream<S> {
 
 impl<S: Write> Write for SyncStream<S> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        println!("wwwwwwwwwwww={}", buf.len());
         let mut sent = 0;
         for chunk in buf.chunks(16384) {
             self.write_buffer.reset();

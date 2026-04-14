@@ -91,14 +91,12 @@ impl Connection {
             let aead = self.cipher_suite.aead().unwrap();
             let hasher = self.cipher_suite.mac_hash().unwrap();
             let key = self.derived.make_tls13_cipher_key(true)?;
-            println!("{:?}", key.get_side(&self.version, false));
             if let Key::TLS13 {
                 send_key,
                 send_iv,
                 recv_key,
                 recv_iv
             } = key.get_side(&self.version, false) {
-                println!("wk:{:?}\nwi:{:?}\nrk:{:?}\nri:{:?}", send_key, send_iv, recv_key, recv_iv);
                 self.write.set_key(send_key, &[], aead, hasher)?;
                 self.write.set_iv(Iv::new(send_iv, vec![]));
                 self.read.set_key(recv_key, &[], aead, hasher)?;
@@ -212,7 +210,6 @@ impl Connection {
                 recv_key,
                 recv_iv
             } => {
-                println!("wk:{:?}\nwi:{:?}\nrk:{:?}\nri:{:?}", send_key, send_iv, recv_key, recv_iv);
                 self.write.set_key(send_key, &[], aead, hasher)?;
                 self.write.set_iv(Iv::new(send_iv, vec![]));
                 self.read.set_key(recv_key, &[], aead, hasher)?;
@@ -265,14 +262,8 @@ impl Connection {
             Version::TLS_1_3 => {
                 let session_hash = self.cipher_suite.current_session_hash()?;
                 self.derived.make_application_traffic_secret(session_hash)?;
-                let mut res = self.derived.make_tls13_finish(server, session_hash)?.to_vec();
-                res.insert(0, res.len() as u8);
-                res.insert(0, 0);
-                res.insert(0, 0);
-                res.insert(0, 20);
+                let res = self.derived.make_tls13_finish(server, session_hash)?.to_vec();
                 self.update_session(&res)?;
-                // res.push(22);
-                println!("{} {:?}", res.len(), res);
                 let len = self.make_message(RecordType::HandShake, buffer, &res)?;
                 Ok(len)
             }
@@ -289,12 +280,7 @@ impl Connection {
             match self.version {
                 Version::TLS_1_3 => {
                     let session_hash = self.cipher_suite.current_session_hash()?;
-                    let mut out = self.derived.make_tls13_finish(server, session_hash)?;
-                    out.insert(0, out.len() as u8);
-                    out.insert(0, 0);
-                    out.insert(0, 0);
-                    out.insert(0, 20);
-                    println!("{:?}\n {:?}", data, out);
+                    let out = self.derived.make_tls13_finish(server, session_hash)?;
                     if data != out { return Err(HandShakeError::VerifyFinishedFail.into()); }
                 }
                 _ => {

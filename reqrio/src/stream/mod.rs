@@ -164,14 +164,12 @@ impl Stream {
 
 
 pub trait TlsStreamHandle {
-    fn conn_wbuf(&mut self) -> (&mut Connection, &mut Buffer);
-
-    fn conn_rbuf(&mut self) -> (&mut Connection, &mut Buffer);
+    fn conn_buf(&mut self) -> (&mut Connection, &mut Buffer, &mut Buffer);
 
     fn handle_client_hello(config: &mut ClientConfig, buffer: &mut Buffer) -> HlsResult<Connection> {
         let client_random = rand::random::<[u8; 32]>();
         let session_id = rand::random::<[u8; 32]>();
-        let mut record = RecordLayer::from_bytes(&mut config.fingerprint.client_hello, false, None)?;
+        let mut record = RecordLayer::from_bytes(&config.fingerprint.client_hello, false, None)?;
         let client_hello = record.messages[0].client_mut().ok_or(HlsError::NullPointer)?;
 
         client_hello.set_random(&client_random);
@@ -208,7 +206,7 @@ pub trait TlsStreamHandle {
     fn handle_by_server_hello_done(&mut self, mut config: Option<&mut Config>) -> HlsResult<()> {
         let config = config.as_mut().ok_or("config can't be null")?;
         let config = config.client_mut().ok_or("missing config")?;
-        let (conn, buffer) = self.conn_wbuf();
+        let (conn, _, buffer) = self.conn_buf();
         let offset = buffer.len();
         if conn.mtls() {
             //client certificate
@@ -224,7 +222,7 @@ pub trait TlsStreamHandle {
         }
         let offset = buffer.len();
         //client key exchange
-        let mut record = RecordLayer::from_bytes(&mut config.fingerprint.client_key_exchange, false, None)?;
+        let mut record = RecordLayer::from_bytes(&config.fingerprint.client_key_exchange, false, None)?;
         let client_key_exchange = record.messages.get_mut(0).ok_or(HlsError::NullPointer)?;
         let key_size = conn.cipher_suite().key_size();
         let pub_key = conn.pub_share_key()?;
@@ -249,7 +247,7 @@ pub trait TlsStreamHandle {
     }
 
     fn handle_by_alert(&mut self, handshake: bool, record_len: usize) -> Result<Alert, RlsError> {
-        let (conn, buffer) = self.conn_rbuf();
+        let (conn, buffer, _) = self.conn_buf();
         match handshake {
             true => {
                 let mut out = vec![0; 40];
@@ -258,5 +256,28 @@ pub trait TlsStreamHandle {
             }
             false => Ok(Alert::from_bytes(&buffer[5..7])?)
         }
+    }
+
+    fn handle_by_application(&mut self, record_len: usize) -> Result<bool, RlsError> {
+        let (conn, r_buf, w_buf) = self.conn_buf();
+        let mut data = vec![0; record_len + 32];
+        let len = conn.read_message(&r_buf[..record_len], &mut data)?;
+        let mut index = 0;
+        while index < len - 1 {
+            let len = u32::from_be_bytes([0, data[index + 1], data[index + 2], data[index + 3]]) as usize + 4;
+            let message = Message::from_bytes(&data[index..], false, None, Version::TLS_1_3)?;
+            if let Message::Finished(_) = message {
+                let verify_data = &data[index..index + len];
+                conn.verify_finish(verify_data, true)?;
+                w_buf.reset();
+                w_buf.write_slice(&[20, 3, 3, 0, 1, 1])?;
+                let len = conn.make_finish_message(w_buf.unfilled_mut(), false)?;
+                w_buf.add_len(len);
+                conn.make_cipher(false)?;
+                return Ok(true);
+            } else { conn.update_session(&data[index..index + len])?; }
+            index += len;
+        }
+        Ok(false)
     }
 }
