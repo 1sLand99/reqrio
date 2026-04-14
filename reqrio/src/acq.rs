@@ -1,3 +1,4 @@
+use std::convert::Infallible;
 use crate::body::{Body, H2FrameRBuf};
 use crate::error::HlsResult;
 use crate::ext::{ReqExt, ReqParam};
@@ -64,42 +65,62 @@ impl AcReq {
     where
         HlsError: From<E>,
     {
-        let url = url.try_into()?;
         self.header.set_method(Method::GET);
         self.stream_io(url, body.into()).await
     }
 
-    pub async fn post(&mut self, url: impl TryInto<Url>, body: impl Into<Body<'_>>) -> HlsResult<Response> {
+    pub async fn post<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
+    where
+        HlsError: From<E>,
+    {
         self.header.set_method(Method::POST);
         self.stream_io(url, body.into()).await
     }
 
-    pub async fn put(&mut self, url: impl TryInto<Url>, body: impl Into<Body<'_>>) -> HlsResult<Response> {
+    pub async fn put<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
+    where
+        HlsError: From<E>,
+    {
         self.header.set_method(Method::PUT);
         self.stream_io(url, body.into()).await
     }
 
-    pub async fn options(&mut self, url: impl TryInto<Url>, body: impl Into<Body<'_>>) -> HlsResult<Response> {
+    pub async fn options<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
+    where
+        HlsError: From<E>,
+    {
         self.header.set_method(Method::OPTIONS);
         self.stream_io(url, body.into()).await
     }
 
-    pub async fn delete(&mut self, url: impl TryInto<Url>, body: impl Into<Body<'_>>) -> HlsResult<Response> {
+    pub async fn delete<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
+    where
+        HlsError: From<E>,
+    {
         self.header.set_method(Method::DELETE);
         self.stream_io(url, body.into()).await
     }
 
-    pub async fn head(&mut self, url: impl TryInto<Url>, body: impl Into<Body<'_>>) -> HlsResult<Response> {
+    pub async fn head<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
+    where
+        HlsError: From<E>,
+    {
         self.header.set_method(Method::HEAD);
         self.stream_io(url, body.into()).await
     }
 
-    pub async fn trace(&mut self, url: impl TryInto<Url>, body: impl Into<Body<'_>>) -> HlsResult<Response> {
+    pub async fn trace<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
+    where
+        HlsError: From<E>,
+    {
         self.header.set_method(Method::TRACE);
         self.stream_io(url, body.into()).await
     }
 
-    pub async fn patch(&mut self, url: impl TryInto<Url>, body: impl Into<Body<'_>>) -> HlsResult<Response> {
+    pub async fn patch<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
+    where
+        HlsError: From<E>,
+    {
         self.header.set_method(Method::PATCH);
         self.stream_io(url, body.into()).await
     }
@@ -139,7 +160,10 @@ impl AcReq {
         Ok(response)
     }
 
-    pub async fn stream_io(&mut self, url: impl TryInto<Url>, body: Body<'_>) -> HlsResult<Response> {
+    pub async fn stream_io<E>(&mut self, url: impl TryInto<Url, Error=E>, body: Body<'_>) -> HlsResult<Response>
+    where
+        HlsError: From<E>,
+    {
         self.set_url(url).await?;
         for i in 0..self.timeout.handle_times() {
             let res = tokio::time::timeout(self.timeout.handle(), self.handle_io(&body)).await;
@@ -156,7 +180,7 @@ impl AcReq {
                                 Url::from_inner(self.scheme.clone(), self.addr.clone(), Uri::try_from(location)?)
                             };
                             self.header.set_method(Method::GET);
-                            Box::pin(self.stream_io(url, Body::none())).await
+                            Box::pin(self.stream_io::<Infallible>(url, Body::none())).await
                         } else {
                             Ok(res)
                         };
@@ -223,8 +247,11 @@ impl AcReq {
         Err("[AcReq] connection error".into())
     }
 
-    pub(crate) async fn set_url(&mut self, url: impl TryInto<Url>) -> HlsResult<()> {
-        let (scheme, addr, uri) = url.try_into().or(Err(RlsError::Url(UrlError::ParseUrlError)))?.into_inner();
+    pub(crate) async fn set_url<E>(&mut self, url: impl TryInto<Url, Error=E>) -> HlsResult<()>
+    where
+        HlsError: From<E>,
+    {
+        let (scheme, addr, uri) = url.try_into()?.into_inner();
         let old_addr = mem::replace(&mut self.addr, addr);
         let old_scheme = mem::replace(&mut self.scheme, scheme);
         self.header.set_uri(uri);
@@ -234,15 +261,21 @@ impl AcReq {
         Ok(())
     }
 
-    pub async fn send_check(&mut self, method: Method, url: impl TryInto<Url>, body: impl Into<Body<'_>>) -> HlsResult<Response> {
+    pub async fn send_check<E>(&mut self, method: Method, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
+    where
+        HlsError: From<E>,
+    {
         self.header.set_method(method);
         let response = self.stream_io(url, body.into()).await?;
         self.check_status(&response)?;
         Ok(response)
     }
 
-    pub async fn send_check_json(&mut self, method: Method, url: impl TryInto<Url>, body: impl Into<Body<'_>>,
-                                 k: impl AsRef<str>, v: impl ToString, e: Vec<impl AsRef<str>>) -> HlsResult<JsonValue> {
+    pub async fn send_check_json<E>(&mut self, method: Method, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>,
+                                    k: impl AsRef<str>, v: impl ToString, e: Vec<impl AsRef<str>>) -> HlsResult<JsonValue>
+    where
+        HlsError: From<E>,
+    {
         let response = self.send_check(method, url, body).await?;
         self.check_res(response, k, v, e)
     }
