@@ -61,6 +61,10 @@ impl Connection {
         Connection::new(random, [0; 32])
     }
 
+    pub fn client_random(&mut self) -> &[u8] {
+        self.derived.client_random()
+    }
+
     pub fn with_verify(mut self, verify: bool) -> Connection {
         self.verify = verify;
         self

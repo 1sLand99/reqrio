@@ -2,26 +2,24 @@ use std::io::Write;
 use crate::stream::config::Config;
 use crate::*;
 pub use sync_stream::SyncStream;
-#[cfg(feature = "aync")]
-pub use async_stream::TlsStream;
 pub use config::{ClientConfig, ServerConfig};
 pub use proxy::Proxy;
 pub use proxy::ProxyStream;
 pub use ws::{WebSocket, WebSocketBuilder};
 #[cfg(feature = "aync")]
-use crate::stream::astream::{AsyncTcpStream, AsyncTlsStream, TimeoutRW};
-
+pub use aync::TlsStream;
 #[cfg(feature = "aync")]
-mod async_stream;
+use aync::{TcpStreamA, TlsStreamA, TimeoutRW};
 
 mod sync_stream;
 
-#[cfg(feature = "aync")]
-mod astream;
+// #[cfg(feature = "aync")]
+// mod astream;
 mod proxy;
 mod ws;
 mod config;
-
+#[cfg(feature = "aync")]
+mod aync;
 
 pub struct ConnParam<'a> {
     pub scheme: &'a Scheme,
@@ -43,9 +41,9 @@ pub enum Stream {
     SyncHttps(SyncStream<ProxyStream<std::net::TcpStream>>),
     //异步
     #[cfg(feature = "aync")]
-    AsyncHttp(AsyncTcpStream),
+    AsyncHttp(TcpStreamA),
     #[cfg(feature = "aync")]
-    AsyncHttps(AsyncTlsStream),
+    AsyncHttps(TlsStreamA),
 }
 
 #[cfg(feature = "aync")]
@@ -55,12 +53,12 @@ impl Stream {
         let stream = tokio::time::timeout(param.timeout.connect(), ProxyStream::async_connect(param.proxy, param.addr)).await??;
         match param.scheme {
             Scheme::Http | Scheme::Ws => {
-                *self = Stream::AsyncHttp(AsyncTcpStream::from_proxy_stream(stream, param.timeout));
+                *self = Stream::AsyncHttp(TcpStreamA::from_proxy_stream(stream, param.timeout));
                 Ok(ALPN::Http11)
             }
             Scheme::Https | Scheme::Wss => {
-                let tls_stream = AsyncTlsStream::connect_timeout(param, stream).await?;
-                let alpn = tls_stream.alpn().map(|x| ALPN::from_slice(x.as_bytes())).unwrap_or(ALPN::Http11);
+                let tls_stream = TlsStreamA::connect_timeout(param, stream).await?;
+                let alpn = tls_stream.alpn().cloned().unwrap_or(ALPN::Http11);
                 *self = Stream::AsyncHttps(tls_stream);
                 Ok(alpn)
             }
@@ -71,16 +69,8 @@ impl Stream {
 
     pub async fn async_write(&mut self, buf: &[u8]) -> HlsResult<()> {
         match self {
-            Stream::AsyncHttp(s) => {
-                s.write(buf).await?;
-                s.flush().await?;
-                Ok(())
-            }
-            Stream::AsyncHttps(s) => {
-                s.write(buf).await?;
-                s.flush().await?;
-                Ok(())
-            }
+            Stream::AsyncHttp(s) => s.write_all(buf).await,
+            Stream::AsyncHttps(s) => s.write_all(buf).await,
             _ => Err("Unsupported async write".into()),
         }
     }
@@ -166,13 +156,12 @@ impl Stream {
 pub trait TlsStreamHandle {
     fn conn_buf(&mut self) -> (&mut Connection, &mut Buffer, &mut Buffer);
 
-    fn handle_client_hello(config: &mut ClientConfig, buffer: &mut Buffer) -> HlsResult<Connection> {
-        let client_random = rand::random::<[u8; 32]>();
+    fn handle_client_hello(&mut self, config: &mut ClientConfig) -> HlsResult<()> {
+        let (conn, _, buffer) = self.conn_buf();
         let session_id = rand::random::<[u8; 32]>();
         let mut record = RecordLayer::from_bytes(&config.fingerprint.client_hello, false, None)?;
         let client_hello = record.messages[0].client_mut().ok_or(HlsError::NullPointer)?;
-
-        client_hello.set_random(&client_random);
+        client_hello.set_random(conn.client_random());
         client_hello.set_server_name(config.sni);
         client_hello.set_session_id(&session_id);
         match config.alpn {
@@ -191,16 +180,12 @@ pub trait TlsStreamHandle {
         client_hello.set_key_share(key_share);
         let len = record.write_to(buffer, 1)?;
         buffer.set_len(len);
-
-        let mut conn = Connection::from_client(client_random)
-            .with_verify(config.verify);
         conn.set_secret_keys(vec![x25519_secret, secp256r1, secp384r1, secp521r1]);
         conn.update_session(&buffer.filled()[5..])?;
-        Ok(conn)
+        Ok(())
     }
 
-    fn handle_by_server_hello_done(&mut self, mut config: Option<&mut Config>) -> HlsResult<()> {
-        let config = config.as_mut().ok_or("config can't be null")?;
+    fn handle_by_server_hello_done(&mut self, config: &mut Config) -> HlsResult<()> {
         let config = config.client_mut().ok_or("missing config")?;
         let (conn, _, buffer) = self.conn_buf();
         let offset = buffer.len();
@@ -270,11 +255,13 @@ pub trait TlsStreamHandle {
     fn handle_by_application(&mut self, record_len: usize) -> Result<bool, RlsError> {
         let (conn, r_buf, w_buf) = self.conn_buf();
         w_buf.reset();
-        let len = conn.read_message(&r_buf[..record_len], w_buf.unfilled_mut())?;
+        println!("{:x?}",&r_buf.filled()[..record_len]);
+        let len = conn.read_message(&r_buf.filled()[..record_len], w_buf.unfilled_mut()).unwrap();
         let mut index = 0;
         while index < len - 1 {
             let len = u32::from_be_bytes([0, w_buf[index + 1], w_buf[index + 2], w_buf[index + 3]]) as usize + 4;
             let message = Message::from_bytes(&w_buf[index..index + len], false, None, Version::TLS_1_3)?;
+            println!("{:#?}", message);
             let finish = Self::handle_message(message, conn)?;
             if finish {
                 w_buf.reset();
