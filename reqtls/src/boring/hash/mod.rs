@@ -23,6 +23,8 @@ pub enum HashType {
 }
 
 impl HashType {
+    const SHA256_SECRET: [u8; 32] = [227, 176, 196, 66, 152, 252, 28, 20, 154, 251, 244, 200, 153, 111, 185, 36, 39, 174, 65, 228, 100, 155, 147, 76, 164, 149, 153, 27, 120, 82, 184, 85];
+    const SHA384_SECRET: [u8; 48] = [56, 176, 96, 167, 81, 172, 150, 56, 76, 217, 50, 126, 177, 177, 227, 106, 33, 253, 183, 17, 20, 190, 7, 67, 76, 12, 199, 191, 99, 246, 225, 218, 39, 78, 222, 191, 231, 111, 101, 251, 213, 26, 210, 241, 72, 152, 185, 91];
     pub fn evp_md(&self) -> *const EVP_MD {
         match self {
             HashType::MD5 => unsafe { EVP_md5() },
@@ -42,6 +44,14 @@ impl HashType {
             HashType::Sha256 => 32,
             HashType::Sha384 => 48,
             HashType::Sha512 => 64
+        }
+    }
+
+    pub(crate) fn tls13_secret(&self) -> Result<&[u8], HashError> {
+        match self {
+            HashType::Sha256 => Ok(&HashType::SHA256_SECRET),
+            HashType::Sha384 => Ok(&HashType::SHA384_SECRET),
+            _=>Err(HashError::HasherNoSecret)
         }
     }
 }

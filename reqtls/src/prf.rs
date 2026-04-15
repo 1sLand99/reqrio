@@ -55,7 +55,6 @@ impl Prf {
             let p_hash = self.hmac_sha(secret, &[&a_i, label.as_bytes(), seed])?;
             let finish = buf.write_slice(p_hash.as_slice());
             if finish { break; }
-            // chunk.copy_from_slice(&p_hash[..chunk.len()]);
             // A(i) = HMAC_hash(secret, A(i - 1))
             a_i = self.hmac_sha(secret, &[&a_i])?;
         }

@@ -189,10 +189,6 @@ pub trait TlsStreamHandle {
         let secp521r1 = SecretKey::new(NamedCurve::Secp521r1)?;
         key_share.add_entry(NamedCurve::Secp521r1, secp521r1.pub_key()?);
         client_hello.set_key_share(key_share);
-
-
-        // client_hello.messages[0].client_mut().ok_or(HlsError::NullPointer)?.remove_tls13();
-
         let len = record.write_to(buffer, 1)?;
         buffer.set_len(len);
 

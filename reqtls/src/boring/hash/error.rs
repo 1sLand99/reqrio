@@ -13,6 +13,7 @@ pub enum HashError {
     HmacFinalizeError,
     HasherNone,
     HmacHashError,
+    HasherNoSecret,
     UnsupportedHasher(String),
 }
 

@@ -12,44 +12,26 @@ use std::io::Write;
 
 
 pub struct TrafficSecret {
-    c_hs_traffic: [u8; 48],
-    s_hs_traffic: [u8; 48],
-    c_ap_traffic: [u8; 48],
-    s_ap_traffic: [u8; 48],
+    client_traffic: [u8; 48],
+    server_traffic: [u8; 48],
     size: usize,
 }
 
 impl TrafficSecret {
-    pub fn c_hs_traffic(&self) -> &[u8] {
-        &self.c_hs_traffic[..self.size]
+    pub fn client_traffic(&self) -> &[u8] {
+        &self.client_traffic[..self.size]
     }
 
-    pub fn c_hs_traffic_mut(&mut self) -> &mut [u8] {
-        &mut self.c_hs_traffic[..self.size]
+    pub fn client_traffic_mut(&mut self) -> &mut [u8] {
+        &mut self.client_traffic[..self.size]
     }
 
-    pub fn s_hs_traffic(&self) -> &[u8] {
-        &self.s_hs_traffic[..self.size]
+    pub fn server_traffic(&self) -> &[u8] {
+        &self.server_traffic[..self.size]
     }
 
-    pub fn s_hs_traffic_mut(&mut self) -> &mut [u8] {
-        &mut self.s_hs_traffic[..self.size]
-    }
-
-    pub fn c_ap_traffic(&self) -> &[u8] {
-        &self.c_ap_traffic[..self.size]
-    }
-
-    pub fn c_ap_traffic_mut(&mut self) -> &mut [u8] {
-        &mut self.c_ap_traffic[..self.size]
-    }
-
-    pub fn s_ap_traffic(&self) -> &[u8] {
-        &self.s_ap_traffic[..self.size]
-    }
-
-    pub fn s_ap_traffic_mut(&mut self) -> &mut [u8] {
-        &mut self.s_ap_traffic[..self.size]
+    pub fn server_traffic_mut(&mut self) -> &mut [u8] {
+        &mut self.server_traffic[..self.size]
     }
 }
 
@@ -67,8 +49,6 @@ pub struct DerivedKey {
 }
 
 impl DerivedKey {
-    const SHA256_SECRET: [u8; 32] = [227, 176, 196, 66, 152, 252, 28, 20, 154, 251, 244, 200, 153, 111, 185, 36, 39, 174, 65, 228, 100, 155, 147, 76, 164, 149, 153, 27, 120, 82, 184, 85];
-    const SHA384_SECRET: [u8; 48] = [56, 176, 96, 167, 81, 172, 150, 56, 76, 217, 50, 126, 177, 177, 227, 106, 33, 253, 183, 17, 20, 190, 7, 67, 76, 12, 199, 191, 99, 246, 225, 218, 39, 78, 222, 191, 231, 111, 101, 251, 213, 26, 210, 241, 72, 152, 185, 91];
     pub fn new(client_random: [u8; 32], server_random: [u8; 32]) -> Self {
         DerivedKey {
             prf: Prf::default(),
@@ -78,10 +58,8 @@ impl DerivedKey {
             server_random,
             use_ems: false,
             traffic_secret: TrafficSecret {
-                c_hs_traffic: [0; 48],
-                s_hs_traffic: [0; 48],
-                c_ap_traffic: [0; 48],
-                s_ap_traffic: [0; 48],
+                client_traffic: [0; 48],
+                server_traffic: [0; 48],
                 size: 32,
             },
             key_block: KeyBlock::default(),
@@ -110,49 +88,40 @@ impl DerivedKey {
     }
 
     pub fn make_handshake_traffic_secret(&mut self, share_secret: Vec<u8>, session_hash: &[u8]) -> RlsResult<()> {
-        let mut derived_hkdf = Hkdf::new(&[], &vec![0; self.hash.hash_size()], self.hash)?;
+        let mut derived_hkdf = Hkdf::new(&[], &self.master_secret[..self.hash.hash_size()], self.hash)?;
         let mut derived = vec![0; self.hash.hash_size()];
-        match self.hash {
-            HashType::Sha256 => derived_hkdf.hkdf("tls13 derived", &DerivedKey::SHA256_SECRET, &mut derived)?,
-            HashType::Sha384 => derived_hkdf.hkdf("tls13 derived", &DerivedKey::SHA384_SECRET, &mut derived)?,
-            _ => return Err("Unknown hash secret key".into())
-        }
+        derived_hkdf.hkdf("tls13 derived", self.hash.tls13_secret()?, &mut derived)?;
         //client handshake traffic
         let mut hkdf = Hkdf::new(&derived, &share_secret, self.hash)?;
-        hkdf.hkdf("tls13 c hs traffic", session_hash, self.traffic_secret.c_hs_traffic_mut())?;
+        hkdf.hkdf("tls13 c hs traffic", session_hash, self.traffic_secret.client_traffic_mut())?;
         let mut f = OpenOptions::new().create(true).append(true).open("2.log")?;
-        f.write_all(format!("CLIENT_HANDSHAKE_TRAFFIC_SECRET {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(self.traffic_secret.c_hs_traffic())).as_bytes())?;
+        f.write_all(format!("CLIENT_HANDSHAKE_TRAFFIC_SECRET {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(self.traffic_secret.client_traffic())).as_bytes())?;
         //server handshake traffic
-        // let mut hkdf = Hkdf::new(&derived, &share_secret, self.hash)?;
-        let out = self.traffic_secret.s_hs_traffic_mut();
-        hkdf.hkdf("tls13 s hs traffic", session_hash, out)?;
+        hkdf.hkdf("tls13 s hs traffic", session_hash, self.traffic_secret.server_traffic_mut())?;
         self.prk = hkdf.into_prk().to_vec();
-        f.write_all(format!("SERVER_HANDSHAKE_TRAFFIC_SECRET {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(out)).as_bytes())?;
+        f.write_all(format!("SERVER_HANDSHAKE_TRAFFIC_SECRET {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(self.traffic_secret.server_traffic())).as_bytes())?;
         Ok(())
     }
 
     pub fn make_application_traffic_secret(&mut self, session_hash: &[u8]) -> RlsResult<()> {
         let mut hkdf = Hkdf::from_prk(&self.prk, self.hash);
         let mut salt = vec![0; self.hash.hash_size()];
-        match self.hash {
-            HashType::Sha256 => hkdf.hkdf("tls13 derived", &Self::SHA256_SECRET, &mut salt).unwrap(),
-            HashType::Sha384 => hkdf.hkdf("tls13 derived", &Self::SHA384_SECRET, &mut salt).unwrap(),
-            _ => return Err("Unknown hash secret key".into())
-        }
-        let mut hkdf = Hkdf::new(&salt, &vec![0; self.hash.hash_size()], self.hash).unwrap();
-        hkdf.hkdf("tls13 c ap traffic", session_hash, self.traffic_secret.c_ap_traffic_mut())?;
+        hkdf.hkdf("tls13 derived", self.hash.tls13_secret()?, &mut salt)?;
+        let mut hkdf = Hkdf::new(&salt, &self.master_secret[..self.hash.hash_size()], self.hash)?;
+        hkdf.hkdf("tls13 c ap traffic", session_hash, self.traffic_secret.client_traffic_mut())?;
         let mut f = OpenOptions::new().create(true).append(true).open("2.log")?;
-        f.write_all(format!("CLIENT_TRAFFIC_SECRET_0 {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(self.traffic_secret.c_ap_traffic())).as_bytes())?;
+        f.write_all(format!("CLIENT_TRAFFIC_SECRET_0 {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(self.traffic_secret.client_traffic())).as_bytes())?;
 
-        hkdf.hkdf("tls13 s ap traffic", session_hash, self.traffic_secret.s_ap_traffic_mut())?;
-        f.write_all(format!("SERVER_TRAFFIC_SECRET_0 {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(self.traffic_secret.s_ap_traffic())).as_bytes())?;
+        hkdf.hkdf("tls13 s ap traffic", session_hash, self.traffic_secret.server_traffic_mut())?;
+        f.write_all(format!("SERVER_TRAFFIC_SECRET_0 {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(self.traffic_secret.server_traffic())).as_bytes())?;
         Ok(())
     }
 
-    pub fn make_tls13_finish(&mut self, server: bool, session_hash: &[u8]) -> RlsResult<Vec<u8>> {
+    ///make tls1.2 finish verify data, here use tls1.2 master secret as buffer,
+    fn make_tls13_finish(&mut self, server: bool, session_hash: &[u8]) -> RlsResult<Vec<u8>> {
         let traffic_secret = match server {
-            true => self.traffic_secret.s_hs_traffic(),
-            false => self.traffic_secret.c_hs_traffic()
+            true => self.traffic_secret.server_traffic(),
+            false => self.traffic_secret.client_traffic()
         };
         let mut hkdf = Hkdf::from_prk(traffic_secret, self.hash);
         let mut out = vec![0; self.hash.hash_size() + 4];
@@ -163,6 +132,14 @@ impl DerivedKey {
         hmac.update(session_hash)?;
         hmac.finalize_extract(&mut out[4..])?;
         Ok(out)
+    }
+
+    fn make_tls12_finish(&mut self, server: bool, session_hash: &[u8]) -> RlsResult<Vec<u8>> {
+        let mut finish = vec![0; 16];
+        finish[0..4].copy_from_slice(&[0x14, 0x00, 0x0, 0xc]);
+        let label = if !server { "client finished" } else { "server finished" };
+        self.prf.prf(&self.master_secret, label, session_hash, &mut finish[4..16])?;
+        Ok(finish)
     }
 
     pub fn make_master(&mut self, version: Version, share_secret: Vec<u8>, session_hash: &[u8]) -> RlsResult<()> {
@@ -179,43 +156,32 @@ impl DerivedKey {
         Ok(&self.key_block)
     }
 
-    pub fn make_tls13_cipher_key(&mut self, handshake: bool) -> RlsResult<&KeyBlock> {
-        let client_traffic_secret = match handshake {
-            true => self.traffic_secret.c_hs_traffic(),
-            false => self.traffic_secret.c_ap_traffic()
-        };
-        //client key
-        let mut hkdf = Hkdf::from_prk(client_traffic_secret, self.hash);
+    pub fn make_tls13_cipher_key(&mut self) -> RlsResult<&KeyBlock> {
+        //client
+        let mut hkdf = Hkdf::from_prk(self.traffic_secret.client_traffic(), self.hash);
         hkdf.hkdf("tls13 key", &[], self.key_block.client_key_mut())?;
-        //client iv
         hkdf.hkdf("tls13 iv", &[], self.key_block.client_iv_mut())?;
-
-        let server_traffic_secret = match handshake {
-            true => self.traffic_secret.s_hs_traffic(),
-            false => self.traffic_secret.s_ap_traffic()
-        };
-        //server key
-        let mut hkdf = Hkdf::from_prk(server_traffic_secret, self.hash);
+        //server
+        let mut hkdf = Hkdf::from_prk(self.traffic_secret.server_traffic(), self.hash);
         hkdf.hkdf("tls13 key", &[], self.key_block.server_key_mut())?;
-        //server iv
         hkdf.hkdf("tls13 iv", &[], self.key_block.server_iv_mut())?;
         Ok(&self.key_block)
     }
 
 
     pub fn make_cipher_key(&mut self, version: &Version, server: bool) -> RlsResult<Key<'_>> {
-        match *version {
-            Version::TLS_1_2 => Ok(self.make_tls12_cipher_key()?.get_side(version, server)),
-            Version::TLS_1_3 => Ok(self.make_tls13_cipher_key(false)?.get_side(version, server)),
-            _ => Err(HandShakeError::UnsupportedVersion(*version).into()),
-        }
+        Ok(match *version {
+            Version::TLS_1_2 => self.make_tls12_cipher_key()?,
+            Version::TLS_1_3 => self.make_tls13_cipher_key()?,
+            _ => return Err(HandShakeError::UnsupportedVersion(*version).into()),
+        }.get_side(version, server))
     }
 
 
-    pub fn make_finish(&mut self, version: Version, label: &str, session_hash: &[u8], out: &mut [u8]) -> RlsResult<()> {
+    pub fn make_finish(&mut self, version: Version, server: bool, session_hash: &[u8]) -> RlsResult<Vec<u8>> {
         match version {
-            Version::TLS_1_2 => self.prf.prf(&self.master_secret, label, session_hash, out),
-            // Version::TLS_1_3 => self.make_master_tls12(share_secret, session_hash),
+            Version::TLS_1_2 => self.make_tls12_finish(server, session_hash),
+            Version::TLS_1_3 => self.make_tls13_finish(server, session_hash),
             _ => Err(HandShakeError::UnsupportedVersion(version).into()),
         }
     }

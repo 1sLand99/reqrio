@@ -1,19 +1,22 @@
-## reqtls - a TLS and cryptographic foundation library designed based on BoringSSL
+## reqtls - a TLS and cryptographic foundation library designed based on [BoringSSL](https://github.com/google/boringssl)
 
-`reqtls` is a high-performance TLS and cryptographic foundation library designed for the `reqrio` ecosystem, offering comprehensive capabilities for encryption, signing, certificate handling, and encoding.
-It focuses on security, scalability, and cross-platform support, making it suitable for building HTTPS clients, proxy services, certificate issuance systems, and custom secure communication protocols.
+`reqtls` is a high-performance TLS and cryptographic foundation library designed for the `reqrio` ecosystem, offering
+comprehensive capabilities for encryption, signing, certificate handling, and encoding.
+It focuses on security, scalability, and cross-platform support, making it suitable for building HTTPS clients, proxy
+services, certificate issuance systems, and custom secure communication protocols.
+
 ## Design Objectives
 
-* Lightweight Implementation: Only implements the TLS protocol and essential encryption components to avoid excessive dependencies and bloat
+* Lightweight Implementation: Only implements the TLS protocol and essential encryption components to avoid excessive
+  dependencies and bloat
 * High controllability: Developers can directly access the TLS record layer and handshake process
 * Suitable for protocol development: Easy to use for network proxies, debugging tools, or protocol experiments
 
-## TLS Record Layer (TLS1.2)
+## TLS Record Layer (TLS1.2 and TLS1.3)
 
-`reqtls` currently implements the core functionality of TLS 1.2 Record Layer, which is used to provide encrypted communication capabilities over TCP connections. This implementation is mainly aimed at
-Protocol research, network tools, and custom TLS client/proxy development.
-
-Future versions are planned to gradually support TLS 1.3.
+`reqtls` currently implements the core functionality of TLS 1.2 and TLS 1.3 Record Layer, which is used to provide
+encrypted communication capabilities over TCP connections. This implementation is mainly aimed at Protocol research,
+network tools, and custom TLS client/proxy development.
 
 #### Supported password algorithms
 
@@ -39,6 +42,10 @@ Future versions are planned to gradually support TLS 1.3.
 * TLS_RSA_WITH_AES_256_CBC_SHA256
 * TLS_RSA_WITH_AES_128_CBC_SHA
 * TLS_RSA_WITH_AES_256_CBC_SHA
+*
+* TLS_AES_128_GCM_SHA256
+* TLS_AES_256_GCM_SHA384
+* TLS_CHACHA20_POLY1305_SHA256
 
 #### Signature algorithm
 
@@ -91,9 +98,12 @@ For specific details, please refer to
 
 ## Certificate related support
 
-During the TLS handshake process, the server typically sends an X.509 Certificate Chain to the client to prove the server's identity and provide public key information to establish a secure connection.
+During the TLS handshake process, the server typically sends an X.509 Certificate Chain to the client to prove the
+server's identity and provide public key information to establish a secure connection.
 
-Currently, `reqtls` is able to parse and extract certificate data from TLS handshakes to support key exchange and handshake processes. Some common root certificates are built-in in `reqtls`, so `reqtls` defaults to not trusting system root certificates:
+Currently, `reqtls` is able to parse and extract certificate data from TLS handshakes to support key exchange and
+handshake processes. Some common root certificates are built-in in `reqtls`, so `reqtls` defaults to not trusting system
+root certificates:
 
 ### Certificate reading/writing
 

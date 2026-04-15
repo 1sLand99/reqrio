@@ -90,7 +90,7 @@ impl Connection {
             self.derived.make_handshake_traffic_secret(share_secret, self.cipher_suite.current_session_hash()?)?;
             let aead = self.cipher_suite.aead().unwrap();
             let hasher = self.cipher_suite.mac_hash().unwrap();
-            let key = self.derived.make_tls13_cipher_key(true)?;
+            let key = self.derived.make_tls13_cipher_key()?;
             if let Key::TLS13 {
                 send_key,
                 send_iv,
@@ -115,7 +115,7 @@ impl Connection {
     }
 
     fn gen_key_sign_data(&self, server_key: &ServerKeyExchange) -> Vec<u8> {
-        let mut sign_data = vec![];
+        let mut sign_data = Vec::with_capacity(512);
         sign_data.extend_from_slice(self.derived.client_random());
         sign_data.extend_from_slice(self.derived.server_random());
         sign_data.push(*server_key.hellman_param().curve_type() as u8);
@@ -258,49 +258,23 @@ impl Connection {
     /// * aes-gcm: payload(8byte的explicit+16payload+16byte的tag)
     /// * chacha20_poly1305: payload(16payload+16byte tag)
     pub fn make_finish_message(&mut self, buffer: &mut [u8], server: bool) -> RlsResult<usize> {
-        match self.version {
-            Version::TLS_1_3 => {
-                let session_hash = self.cipher_suite.current_session_hash()?;
-                self.derived.make_application_traffic_secret(session_hash)?;
-                let res = self.derived.make_tls13_finish(server, session_hash)?.to_vec();
-                self.update_session(&res)?;
-                let len = self.make_message(RecordType::HandShake, buffer, &res)?;
-                Ok(len)
-            }
-            _ => {
-                let finish = self.make_verify_data(server)?;
-                self.update_session(finish.as_slice())?;
-                self.make_message(RecordType::HandShake, buffer, &finish)
-            }
-        }
+        let session_hash = self.cipher_suite.current_session_hash()?;
+        let finish = self.derived.make_finish(self.version, server, session_hash)?;
+        if self.version==Version::TLS_1_3 { self.derived.make_application_traffic_secret(session_hash)?; }
+        self.update_session(&finish)?;
+        self.make_message(RecordType::HandShake, buffer, &finish)
     }
 
     pub fn verify_finish(&mut self, data: &[u8], server: bool) -> RlsResult<()> {
         if self.verify {
-            match self.version {
-                Version::TLS_1_3 => {
-                    let session_hash = self.cipher_suite.current_session_hash()?;
-                    let out = self.derived.make_tls13_finish(server, session_hash)?;
-                    if data != out { return Err(HandShakeError::VerifyFinishedFail.into()); }
-                }
-                _ => {
-                    let out = self.make_verify_data(server)?;
-                    if data != out { return Err(HandShakeError::VerifyFinishedFail.into()); }
-                }
-            }
+            let session_hash = self.cipher_suite.current_session_hash()?;
+            let out = self.derived.make_finish(self.version, server, session_hash)?;
+            if data != out { return Err(HandShakeError::VerifyFinishedFail.into()); }
         }
         self.update_session(data)?;
         Ok(())
     }
 
-    fn make_verify_data(&mut self, server: bool) -> RlsResult<[u8; 16]> {
-        let mut finish = [0; 16];
-        finish[0..4].copy_from_slice(&[0x14, 0x00, 0x0, 0xc]);
-        let session_hash = self.cipher_suite.current_session_hash()?;
-        let label = if !server { "client finished" } else { "server finished" };
-        self.derived.make_finish(Version::TLS_1_2, label, session_hash, &mut finish[4..16])?;
-        Ok(finish)
-    }
 
     pub fn make_message(&mut self, cty: RecordType, buffer: &mut [u8], payload: &[u8]) -> RlsResult<usize> {
         let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
