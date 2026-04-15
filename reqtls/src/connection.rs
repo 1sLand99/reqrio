@@ -11,6 +11,7 @@ use crate::error::{HandShakeError, RlsResult};
 use crate::secret_key::SecretKey;
 use crate::*;
 use std::mem;
+use crate::message::EncryptedExtension;
 
 pub struct Connection {
     read: TlsCipher,
@@ -104,6 +105,10 @@ impl Connection {
             }
         }
         Ok(())
+    }
+
+    pub fn set_by_encrypted_extension(&mut self, encrypted: &EncryptedExtension) {
+        self.alpn = encrypted.alpn().cloned();
     }
 
     pub fn set_by_certificate(&mut self, certificate: Certificates, ext_cas: &[Certificate], sni: &str) -> RlsResult<()> {
@@ -260,7 +265,7 @@ impl Connection {
     pub fn make_finish_message(&mut self, buffer: &mut [u8], server: bool) -> RlsResult<usize> {
         let session_hash = self.cipher_suite.current_session_hash()?;
         let finish = self.derived.make_finish(self.version, server, session_hash)?;
-        if self.version==Version::TLS_1_3 { self.derived.make_application_traffic_secret(session_hash)?; }
+        if self.version == Version::TLS_1_3 { self.derived.make_application_traffic_secret(session_hash)?; }
         self.update_session(&finish)?;
         self.make_message(RecordType::HandShake, buffer, &finish)
     }

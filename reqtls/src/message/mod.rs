@@ -18,7 +18,7 @@ use std::fmt::Debug;
 use crate::{BufferError, CipherSuite, ReadExt, Reader, Version, WriteExt};
 pub use certificate::{CertificateVerify, CertificateRequest};
 use crate::buffer::Buf;
-use crate::message::encrypted_extension::EncryptedExtension;
+pub use encrypted_extension::EncryptedExtension;
 
 #[derive(Debug)]
 pub enum Message<'a> {

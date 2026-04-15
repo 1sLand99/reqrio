@@ -1,6 +1,6 @@
 use crate::error::RlsResult;
 use crate::message::HandshakeType;
-use crate::{BufferError, Extension, ReadExt, Reader, WriteExt};
+use crate::{BufferError, Extension, ExtensionType, ReadExt, Reader, WriteExt, ALPN};
 
 #[derive(Debug)]
 pub struct EncryptedExtension<'a> {
@@ -30,5 +30,12 @@ impl<'a> EncryptedExtension<'a> {
             extension.write_to(writer, false)?
         }
         Ok(())
+    }
+
+    pub fn alpn(&self) -> Option<&ALPN> {
+        let extend = self.extensions.iter().find(|x| x.extension_type() == &ExtensionType::ApplicationLayerProtocolNegotiation);
+        if let Some(extend) = extend && let Some(alps) = extend.alps() {
+            alps.values().first()
+        } else { None }
     }
 }

@@ -13,7 +13,7 @@ async fn main() {
     // let key = RsaKey::from_pri_pem_file("/home/xl/1/client.key").unwrap();
     let mut req = AcReq::new()
         // .with_fingerprint(fingerprint)
-        .with_alpn(ALPN::Http11)
+        .with_alpn(ALPN::Http20)
         .with_timeout(timeout)
         .with_verify(true)
         // .with_mtls(certs, key)

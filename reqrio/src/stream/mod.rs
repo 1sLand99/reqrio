@@ -256,22 +256,27 @@ pub trait TlsStreamHandle {
 
     fn handle_by_application(&mut self, record_len: usize) -> Result<bool, RlsError> {
         let (conn, r_buf, w_buf) = self.conn_buf();
-        let mut data = vec![0; record_len + 32];
-        let len = conn.read_message(&r_buf[..record_len], &mut data)?;
+        w_buf.reset();
+        let len = conn.read_message(&r_buf[..record_len], w_buf.unfilled_mut())?;
         let mut index = 0;
         while index < len - 1 {
-            let len = u32::from_be_bytes([0, data[index + 1], data[index + 2], data[index + 3]]) as usize + 4;
-            let message = Message::from_bytes(&data[index..], false, None, Version::TLS_1_3)?;
-            if let Message::Finished(_) = message {
-                let verify_data = &data[index..index + len];
-                conn.verify_finish(verify_data, true)?;
-                w_buf.reset();
-                w_buf.write_slice(&[20, 3, 3, 0, 1, 1])?;
-                let len = conn.make_finish_message(w_buf.unfilled_mut(), false)?;
-                w_buf.add_len(len);
-                conn.make_cipher(false)?;
-                return Ok(true);
-            } else { conn.update_session(&data[index..index + len])?; }
+            let len = u32::from_be_bytes([0, w_buf[index + 1], w_buf[index + 2], w_buf[index + 3]]) as usize + 4;
+            let message = Message::from_bytes(&w_buf[index..index + len], false, None, Version::TLS_1_3)?;
+            match message {
+                Message::Finished(_) => {
+                    let verify_data = &w_buf[index..index + len];
+                    conn.verify_finish(verify_data, true)?;
+                    w_buf.reset();
+                    w_buf.write_slice(&[20, 3, 3, 0, 1, 1])?;
+                    let len = conn.make_finish_message(w_buf.unfilled_mut(), false)?;
+                    w_buf.add_len(len);
+                    conn.make_cipher(false)?;
+                    return Ok(true);
+                }
+                Message::EncryptedExtension(ee) => conn.set_by_encrypted_extension(&ee),
+                _ => {}
+            }
+            conn.update_session(&w_buf[index..index + len])?;
             index += len;
         }
         Ok(false)
