@@ -24,7 +24,6 @@ pub struct Connecting<'a, S> {
 impl<'a, S: AsyncRead + AsyncWrite + Unpin> Connecting<'a, S> {
     fn handle_message(tls_stream: &mut TlsStream<S>, config: &mut Config<'_>, cx: &mut Context<'_>) -> Poll<HlsResult<bool>> {
         let record = RecordLayer::from_bytes(tls_stream.read_buffer.filled_mut(), tls_stream.handshake_finished, Some(tls_stream.conn.cipher_suite()))?;
-        println!("{:#?}",record);
         match record.context_type {
             RecordType::CipherSpec => tls_stream.handshake_finished = true,
             RecordType::Alert => {
@@ -154,7 +153,6 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> Future for Connecting<'a, S> {
                     return Poll::Pending;
                 }
             };
-            println!("{} {}", record_len, hello_done);
             stream.read_buffer.used_empty(record_len);
             if hello_done { break mem::replace(&mut connector.handshake, Handshake::Finished); }
         };

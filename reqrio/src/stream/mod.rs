@@ -255,13 +255,11 @@ pub trait TlsStreamHandle {
     fn handle_by_application(&mut self, record_len: usize) -> Result<bool, RlsError> {
         let (conn, r_buf, w_buf) = self.conn_buf();
         w_buf.reset();
-        println!("{:x?}",&r_buf.filled()[..record_len]);
         let len = conn.read_message(&r_buf.filled()[..record_len], w_buf.unfilled_mut()).unwrap();
         let mut index = 0;
         while index < len - 1 {
             let len = u32::from_be_bytes([0, w_buf[index + 1], w_buf[index + 2], w_buf[index + 3]]) as usize + 4;
             let message = Message::from_bytes(&w_buf[index..index + len], false, None, Version::TLS_1_3)?;
-            println!("{:#?}", message);
             let finish = Self::handle_message(message, conn)?;
             if finish {
                 w_buf.reset();
