@@ -61,12 +61,13 @@ impl<'a> Message<'a> {
                 HandshakeType::CertificateVerify => Ok(Message::CertificateVerify(CertificateVerify::from_reader(handshake_type, reader)?)),
                 HandshakeType::Finish => {
                     let len = reader.read_u32_24()?;
-                    Ok(Message::Finished(Buf::Ref(reader.read_slice(len as usize)?)))
+                    reader.add_len(len as usize);
+                    Ok(Message::Finished(Buf::Ref(reader.as_slice())))
                 }
                 HandshakeType::EncryptedExtensions => Ok(Message::EncryptedExtension(EncryptedExtension::from_reader(handshake_type, reader)?)),
             }
         } else {
-            let len=reader.unread_len();
+            let len = reader.unread_len();
             Ok(Message::Payload(Buf::Ref(reader.read_slice(len)?)))
         }
     }

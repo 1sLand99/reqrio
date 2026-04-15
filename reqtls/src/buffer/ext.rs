@@ -85,6 +85,9 @@ pub trait ReadExt<'a> {
     fn position(&self) -> usize;
     fn set_position(&mut self, pos: usize);
     fn as_slice(&self) -> &'a [u8];
+    fn add_len(&mut self, len: usize) {
+        self.set_position(self.position() + len);
+    }
     #[inline]
     fn current(&self) -> u8 {
         let buf = self.as_slice();

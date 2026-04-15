@@ -254,6 +254,19 @@ pub trait TlsStreamHandle {
         }
     }
 
+    fn handle_message(message: Message<'_>, conn: &mut Connection) -> Result<bool, RlsError> {
+        match message {
+            Message::Finished(finish) => {
+                conn.verify_finish(finish.as_ref(), true)?;
+
+                return Ok(true);
+            }
+            Message::EncryptedExtension(ee) => conn.set_by_encrypted_extension(&ee),
+            _ => {}
+        }
+        Ok(false)
+    }
+
     fn handle_by_application(&mut self, record_len: usize) -> Result<bool, RlsError> {
         let (conn, r_buf, w_buf) = self.conn_buf();
         w_buf.reset();
@@ -262,20 +275,16 @@ pub trait TlsStreamHandle {
         while index < len - 1 {
             let len = u32::from_be_bytes([0, w_buf[index + 1], w_buf[index + 2], w_buf[index + 3]]) as usize + 4;
             let message = Message::from_bytes(&w_buf[index..index + len], false, None, Version::TLS_1_3)?;
-            match message {
-                Message::Finished(_) => {
-                    let verify_data = &w_buf[index..index + len];
-                    conn.verify_finish(verify_data, true)?;
-                    w_buf.reset();
-                    w_buf.write_slice(&[20, 3, 3, 0, 1, 1])?;
-                    let len = conn.make_finish_message(w_buf.unfilled_mut(), false)?;
-                    w_buf.add_len(len);
-                    conn.make_cipher(false)?;
-                    return Ok(true);
-                }
-                Message::EncryptedExtension(ee) => conn.set_by_encrypted_extension(&ee),
-                _ => {}
+            let finish = Self::handle_message(message, conn)?;
+            if finish {
+                w_buf.reset();
+                w_buf.write_slice(&[20, 3, 3, 0, 1, 1])?;
+                let len = conn.make_finish_message(w_buf.unfilled_mut(), false)?;
+                w_buf.add_len(len);
+                conn.make_cipher(false)?;
+                return Ok(true);
             }
+
             conn.update_session(&w_buf[index..index + len])?;
             index += len;
         }
