@@ -1,6 +1,6 @@
 use crate::error::HlsResult;
 use std::fmt::{Debug, Formatter};
-use reqtls::{BufferError, WriteExt};
+use reqtls::{BufferError, ReadExt, Reader, WriteExt};
 
 #[derive(PartialEq, Copy, Clone)]
 #[repr(u16)]
@@ -15,9 +15,9 @@ pub enum H2Setting {
 }
 
 impl H2Setting {
-    pub fn from_bytes(context: &[u8]) -> HlsResult<H2Setting> {
-        let flag = u16::from_be_bytes([context[0], context[1]]);
-        let value = u32::from_be_bytes(context[2..6].try_into()?);
+    pub fn from_reader(reader: &mut Reader<'_>) -> HlsResult<H2Setting> {
+        let flag = reader.read_u16()?;
+        let value = reader.read_u32()?;
         Ok(match flag {
             0x1 => H2Setting::HeaderTableSize(value),
             0x2 => H2Setting::EnablePush(value),
@@ -49,7 +49,7 @@ impl H2Setting {
             H2Setting::Reserved { flag, value } => (*flag, value),
         };
         writer.write_u16(flag)?;
-        writer.write_ru32(value, false)
+        writer.write_ru32(value)
     }
 
     pub fn value(&self) -> &u32 {

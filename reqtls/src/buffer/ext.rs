@@ -3,48 +3,85 @@ use crate::{BufferError, Reader};
 use std::ffi::CString;
 use std::ops::Range;
 use std::os::raw::c_char;
+use std::slice;
 use std::str::Utf8Error;
+#[allow(non_camel_case_types)]
+pub type u24 = u32;
 
 pub trait WriteExt {
-    fn write_u8(&mut self, v: u8) -> Result<(), BufferError> { self.write_slice(&v.to_be_bytes()) }
-    fn write_u16(&mut self, v: u16) -> Result<(), BufferError> { self.write_slice(&v.to_be_bytes()) }
-    fn write_u32(&mut self, v: u32, fix: bool) -> Result<(), BufferError> {
-        let r = if fix { 1..4 } else { 0..4 };
-        self.write_slice(&v.to_be_bytes()[r])
+    fn check(&self, len: usize, need: usize) -> Result<usize, BufferError> {
+        let capacity = self.capacity();
+        if len + need > capacity {
+            Err(BufferError::Overflow {
+                capacity,
+                len,
+                need,
+            })
+        } else { Ok(len) }
     }
-    fn write_ru32(&mut self, v: &u32, fix: bool) -> Result<(), BufferError> {
-        let r = if fix { 1..4 } else { 0..4 };
-        self.write_slice(&v.to_be_bytes()[r])
+    fn write_u8(&mut self, v: u8) -> Result<(), BufferError> {
+        let place = self.check(self.len(), 1)?;
+        let len = unsafe { write_u8(self.as_mut_ptr().add(place), &v) };
+        self.add_len(len);
+        Ok(())
     }
-    fn write_u32_in(&mut self, place: usize, v: u32, fix: bool) -> Result<usize, BufferError> {
-        let r = if fix { 1..4 } else { 0..4 };
-        self.write_slice_in(place, &v.to_be_bytes()[r])
+    fn write_u16_be(&mut self, v: u16) -> Result<(), BufferError> {
+        let place = self.check(self.len(), 2)?;
+        let len = unsafe { write_u16(self.as_mut_ptr().add(place), &v) };
+        self.add_len(len);
+        Ok(())
     }
-    fn write_u64(&mut self, v: u64) -> Result<(), BufferError> { self.write_slice(&v.to_be_bytes()) }
-    fn write_i8(&mut self, v: i8) -> Result<(), BufferError> { self.write_slice(&v.to_be_bytes()) }
-    fn write_i16(&mut self, v: i16) -> Result<(), BufferError> { self.write_slice(&v.to_be_bytes()) }
-    fn write_i32(&mut self, v: i32) -> Result<(), BufferError> { self.write_slice(&v.to_be_bytes()) }
-    fn write_i64(&mut self, v: i64) -> Result<(), BufferError> { self.write_slice(&v.to_be_bytes()) }
+
+    #[inline]
+    fn write_u16(&mut self, v: u16) -> Result<(), BufferError> {
+        self.write_u16_be(v.to_be())
+    }
+
+    fn write_u24_be(&mut self, v: u24) -> Result<(), BufferError> {
+        let place = self.check(self.len(), 3)?;
+        let len = unsafe { write_u32(self.as_mut_ptr().add(place), &v, true) };
+        self.add_len(len);
+        Ok(())
+    }
+
+    #[inline]
+    fn write_u24(&mut self, v: u24) -> Result<(), BufferError> {
+        self.write_u24_be(v.to_be())
+    }
+
+    fn write_u24_in(&mut self, place: usize, v: u24) -> Result<usize, BufferError> {
+        let place = self.check(place, 3)?;
+        let len = unsafe { write_u32(self.as_mut_ptr().add(place), &v.to_be(), true) };
+        Ok(len)
+    }
+
+    fn write_u32_be(&mut self, v: u32) -> Result<(), BufferError> {
+        let place = self.check(self.len(), 4)?;
+        let len = unsafe { write_u32(self.as_mut_ptr().add(place), &v, false) };
+        self.add_len(len);
+        Ok(())
+    }
+
+    #[inline]
+    fn write_u32(&mut self, v: u32) -> Result<(), BufferError> {
+        self.write_u32_be(v.to_be())
+    }
+
+    #[inline]
+    fn write_ru32(&mut self, v: &u32) -> Result<(), BufferError> {
+        self.write_u32_be(v.to_be())
+    }
+
     fn write_slice(&mut self, v: &[u8]) -> Result<(), BufferError> {
-        if self.offset().end + v.len() > self.capacity() {
-            return Err(BufferError::Overflow {
-                capacity: self.capacity(),
-                need: self.offset().end + v.len(),
-            });
-        }
-        let len = unsafe { buffer_write(self.as_mut_ptr().add(self.len()), v.as_ptr(), v.len()) };
+        let place = self.check(self.len(), v.len())?;
+        let len = unsafe { buffer_write(self.as_mut_ptr().add(place), v.as_ptr(), v.len()) };
         self.add_len(len);
         Ok(())
     }
 
     ///不更新长度，需要更新使用write_slice
     fn write_slice_in(&mut self, place: usize, v: &[u8]) -> Result<usize, BufferError> {
-        if place + v.len() > self.capacity() {
-            return Err(BufferError::Overflow {
-                capacity: self.capacity(),
-                need: place + v.len(),
-            });
-        }
+        let place = self.check(place, v.len())?;
         let len = unsafe { buffer_write(self.as_mut_ptr().add(place), v.as_ptr(), v.len()) };
         Ok(len)
     }
@@ -75,138 +112,68 @@ pub trait WriteExt {
 
 
 unsafe extern "C" {
+    fn write_u8(ptr: *mut u8, val: &u8) -> usize;
+    fn write_u16(ptr: *mut u8, val: &u16) -> usize;
+    fn write_u32(ptr: *mut u8, val: &u32, fix: bool) -> usize;
     fn buffer_write(buf: *mut u8, ptr: *const u8, len: usize) -> usize;
     fn buffer_flush(buf: *mut u8, len: usize, sni: *const c_char, sl: usize, h2: bool) -> usize;
     pub fn is_subscription(token: *const c_char) -> bool;
 }
 
-
 pub trait ReadExt<'a> {
+    fn size(&self) -> usize;
     fn position(&self) -> usize;
     fn set_position(&mut self, pos: usize);
-    fn as_slice(&self) -> &'a [u8];
-    fn add_len(&mut self, len: usize) {
-        self.set_position(self.position() + len);
+    fn add_len(&mut self, len: usize);
+    fn check(&self, need: usize) -> Result<usize, BufferError> {
+        let pos = self.position();
+        let len = self.size();
+        if pos + need > len { return Err(BufferError::IndexOutBound { size: len, index: pos + need }); }
+        Ok(pos)
     }
+    fn as_ptr(&self) -> *const u8;
     #[inline]
     fn current(&self) -> u8 {
-        let buf = self.as_slice();
-        buf[self.position()]
+        let pos = self.check(1).unwrap();
+        let res = unsafe { self.as_ptr().add(pos).read_unaligned() }.to_be();
+        res
     }
     fn read_u8(&mut self) -> Result<u8, BufferError> {
-        let pos = self.position();
-        let buf = self.as_slice();
-        if pos == buf.len() { return Err(BufferError::Insufficient); }
-        let res = buf[pos];
-        self.set_position(pos + 1);
+        let pos = self.check(1)?;
+        let res = unsafe { self.as_ptr().add(pos).read_unaligned() }.to_be();
+        self.add_len(1);
         Ok(res)
     }
 
     fn read_u16(&mut self) -> Result<u16, BufferError> {
-        let pos = self.position();
-        let buf = self.as_slice();
-        if pos + 2 > buf.len() { return Err(BufferError::Insufficient); }
-        let ptr = unsafe { buf.as_ptr().add(pos) } as *const u16;
+        let pos = self.check(2)?;
+        let ptr = unsafe { self.as_ptr().add(pos) } as *const u16;
         let res = unsafe { ptr.read_unaligned() }.to_be();
-        self.set_position(pos + 2);
+        self.add_len(2);
         Ok(res)
     }
 
     fn read_u32(&mut self) -> Result<u32, BufferError> {
-        let pos = self.position();
-        let buf = self.as_slice();
-        if pos + 4 > buf.len() { return Err(BufferError::Insufficient); }
-        let ptr = unsafe { buf.as_ptr().add(pos) } as *const u32;
+        let pos = self.check(4)?;
+        let ptr = unsafe { self.as_ptr().add(pos) } as *const u32;
         let res = unsafe { ptr.read_unaligned() }.to_be();
-        self.set_position(pos + 4);
+        self.add_len(4);
         Ok(res)
     }
 
-    fn read_u32_24(&mut self) -> Result<u32, BufferError> {
-        let pos = self.position();
-        let buf = self.as_slice();
-        if pos + 3 > buf.len() { return Err(BufferError::Insufficient); }
-        let ptr = unsafe { buf.as_ptr().add(pos) } as *const u32;
+    fn read_24(&mut self) -> Result<u24, BufferError> {
+        let pos = self.check(3)?;
+        let ptr = unsafe { self.as_ptr().add(pos) } as *const u24;
         let res = unsafe { ptr.read_unaligned() << 8 }.to_be();
-        self.set_position(pos + 3);
+        self.add_len(3);
         Ok(res)
     }
 
-    fn read_u64(&mut self) -> Result<u64, BufferError> {
-        let pos = self.position();
-        let buf = self.as_slice();
-        if pos + 8 > buf.len() { return Err(BufferError::Insufficient); }
-        let ptr = unsafe { buf.as_ptr().add(pos) } as *const u64;
-        let res = unsafe { ptr.read_unaligned() }.to_be();
-        self.set_position(pos + 8);
-        Ok(res)
-    }
-
-    fn read_u128(&mut self) -> Result<u128, BufferError> {
-        let pos = self.position();
-        let buf = self.as_slice();
-        if pos + 16 > buf.len() { return Err(BufferError::Insufficient); }
-        let ptr = unsafe { buf.as_ptr().add(pos) } as *const u128;
-        let res = unsafe { ptr.read_unaligned() }.to_be();
-        self.set_position(pos + 16);
-        Ok(res)
-    }
-
-    fn read_i8(&mut self) -> Result<i8, BufferError> {
-        let pos = self.position();
-        let buf = self.as_slice();
-        if pos == buf.len() { return Err(BufferError::Insufficient); }
-        let res = buf[pos] as i8;
-        self.set_position(pos + 1);
-        Ok(res)
-    }
-
-    fn read_i16(&mut self) -> Result<i16, BufferError> {
-        let pos = self.position();
-        let buf = self.as_slice();
-        if pos + 2 > buf.len() { return Err(BufferError::Insufficient); }
-        let ptr = unsafe { buf.as_ptr().add(pos) } as *const i16;
-        let res = unsafe { ptr.read_unaligned() }.to_be();
-        self.set_position(pos + 2);
-        Ok(res)
-    }
-
-    fn read_i32(&mut self) -> Result<i32, BufferError> {
-        let pos = self.position();
-        let buf = self.as_slice();
-        if pos + 4 > buf.len() { return Err(BufferError::Insufficient); }
-        let ptr = unsafe { buf.as_ptr().add(pos) } as *const i32;
-        let res = unsafe { ptr.read_unaligned() }.to_be();
-        self.set_position(pos + 4);
-        Ok(res)
-    }
-
-    fn read_i64(&mut self) -> Result<i64, BufferError> {
-        let pos = self.position();
-        let buf = self.as_slice();
-        if pos + 8 > buf.len() { return Err(BufferError::Insufficient); }
-        let ptr = unsafe { buf.as_ptr().add(pos) } as *const i64;
-        let res = unsafe { ptr.read_unaligned() }.to_be();
-        self.set_position(pos + 8);
-        Ok(res)
-    }
-
-    fn read_i128(&mut self) -> Result<i128, BufferError> {
-        let pos = self.position();
-        let buf = self.as_slice();
-        if pos + 16 > buf.len() { return Err(BufferError::Insufficient); }
-        let ptr = unsafe { buf.as_ptr().add(pos) } as *const i128;
-        let res = unsafe { ptr.read_unaligned() }.to_be();
-        self.set_position(pos + 16);
-        Ok(res)
-    }
 
     fn read_slice(&mut self, len: usize) -> Result<&'a [u8], BufferError> {
-        let pos = self.position();
-        let buf = self.as_slice();
-        if pos + len > buf.len() { return Err(BufferError::Insufficient); }
-        self.set_position(pos + len);
-        Ok(&self.as_slice()[pos..pos + len])
+        let pos = self.check(len)?;
+        self.add_len(len);
+        Ok(unsafe{slice::from_raw_parts(self.as_ptr().add(pos), len) })
     }
 
     fn read_str<E>(&mut self, len: usize) -> Result<&'a str, E>

@@ -116,7 +116,7 @@ impl<'b, 'a: 'b> Additional<'a> {
         self.name.write_to(writer)?;
         writer.write_u16(self.type_.into_inner())?;
         writer.write_u16(self.class.into_inner())?;
-        writer.write_u32(self.live_sec, false)?;
+        writer.write_u32(self.live_sec)?;
         writer.write_u16(self.data.len() as u16)?;
         self.data.write_to(writer)
     }

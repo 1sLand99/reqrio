@@ -1,7 +1,7 @@
 use super::super::message::HandshakeType;
 use crate::buffer::Buf;
 use crate::error::RlsResult;
-use crate::{BufferError, ReadExt, Reader, Version, WriteExt};
+use crate::{u24, BufferError, ReadExt, Reader, Version, WriteExt};
 
 #[derive(Debug)]
 #[allow(unused)]
@@ -51,7 +51,7 @@ impl<'a> TlsSessionTicket<'a> {
     }
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
-        writer.write_u32(self.lifetime, false)?;
+        writer.write_u32(self.lifetime)?;
         writer.write_u16(self.ticket.len() as u16)?;
         writer.write_slice(self.ticket.as_ref())
     }
@@ -78,7 +78,7 @@ impl<'a> Default for SessionTicket<'a> {
 
 impl<'a> SessionTicket<'a> {
     pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>, version: Version) -> RlsResult<SessionTicket<'a>> {
-        reader.read_u32_24()?;
+        reader.read_24()?;
         Ok(SessionTicket {
             handshake_type: ht,
             tls_ticket: TlsSessionTicket::from_reader(reader, version)?,
@@ -93,7 +93,7 @@ impl<'a> SessionTicket<'a> {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
         writer.write_u8(self.handshake_type as u8)?;
-        writer.write_u32(self.tls_ticket.len() as u32, true)?;
+        writer.write_u24(self.tls_ticket.len() as u24)?;
         self.tls_ticket.write_to(writer)
     }
 

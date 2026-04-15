@@ -1,4 +1,4 @@
-use reqtls::WriteExt;
+use reqtls::{u24, WriteExt};
 use crate::error::HlsResult;
 use crate::{ContentType, H2Frame, HeaderKey};
 use crate::hpack::HPackEncode;
@@ -45,7 +45,7 @@ impl<'a> ReadExt for H2HeaderReader<'a> {
             self.pos += 1;
         }
         //有priority，payload长度需要frame.len-9
-        buf.write_u32_in(offset.end, (buf.offset().end - offset.end - 9) as u32, true)?;
+        buf.write_u24_in(offset.end, (buf.offset().end - offset.end - 9) as u24)?;
         self.wrote = true;
         self.wrote = true;
         Ok(buf.offset().end - offset.end)
@@ -98,7 +98,7 @@ mod tests {
         let len = reader.read(&mut Reader::new(&mut res)).unwrap();
         assert!(reader.wrote());
         let mut raw = Buffer::with_capacity(3072);
-        raw.write_u32(1957, true).unwrap(); //len
+        raw.write_u24(1957).unwrap(); //len
         raw.write_u8(1).unwrap(); //frame type
         raw.write_u8(37).unwrap(); //frame flag
         raw.write_slice(&[0, 0, 0, 1]).unwrap();

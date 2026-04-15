@@ -24,14 +24,6 @@ impl HPackCoding {
         }
     }
 
-    // pub fn decode(&mut self, context: &mut Vec<u8>) -> HlsResult<Vec<HPackItem>> {
-    //     Ok(self.decoder.decode(context)?)
-    // }
-
-    // pub fn encode(&mut self, headers: Vec<HeaderKey>) -> HlsResult<Vec<u8>> {
-    //     self.encoder.encode(headers)
-    // }
-
     pub fn encoder(&mut self) -> &mut HPackEncode { &mut self.encoder }
 
     pub fn decoder(&mut self) -> &mut HPackDecode { &mut self.decoder }

@@ -6,14 +6,14 @@ use crate::boring::hash;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::{ExtensionType, ExtensionValue, ServerName};
-use crate::{rand, BufferError, KeyShare, ReadExt, Reader, WriteExt};
+use crate::{rand, u24, BufferError, KeyShare, ReadExt, Reader, WriteExt};
 use std::mem;
 use crate::buffer::Buf;
 
 #[derive(Debug)]
 pub struct ClientHello<'a> {
     handshake_type: HandshakeType,
-    len: u32,
+    len: u24,
     version: Version,
     random: Buf<'a>,
     session_id_len: u8,
@@ -90,7 +90,7 @@ impl<'a> ClientHello<'a> {
     pub fn from_bytes(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<ClientHello<'a>> {
         let mut res = ClientHello::default();
         res.handshake_type = ht;
-        res.len = reader.read_u32_24()?;
+        res.len = reader.read_24()?;
         res.version = Version::new(reader.read_u16()?);
         res.random = Buf::Ref(reader.read_slice(32)?);
         res.session_id_len = reader.read_u8()?;
@@ -103,7 +103,7 @@ impl<'a> ClientHello<'a> {
         res.compress_method_len = reader.read_u8()?;
         res.compress_method = Buf::Ref(reader.read_slice(res.compress_method_len as usize)?);
         res.extend_len = reader.read_u16()?;
-        res.extensions = Extension::from_reader(reader.read_reader(res.extend_len as usize)?, false).unwrap();
+        res.extensions = Extension::from_reader(reader.read_reader(res.extend_len as usize)?, false)?;
         // println!("{}", res.ja3());
         // println!("{}", res.ja4());
         Ok(res)
@@ -119,7 +119,7 @@ impl<'a> ClientHello<'a> {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
         writer.write_u8(self.handshake_type as u8)?;
-        writer.write_u32(self.len() as u32 - 4, true)?;
+        writer.write_u24(self.len() as u24 - 4)?;
         writer.write_u16(self.version.into_inner())?;
         writer.write_slice(self.random.as_ref())?;
         writer.write_u8(self.session_id.len() as u8)?;
@@ -173,7 +173,7 @@ impl<'a> ClientHello<'a> {
         let ver = self.extensions.iter().find(|x| x.extension_type() == &ExtensionType::SupportedVersions);
         let ver = ver.map(|ext| {
             let versions = ext.supported_versions()?.versions();
-            let vers = versions.iter().filter(|x| x.is_reverse()).next()?;
+            let vers = versions.iter().find(|x| x.is_reverse())?;
             Some(vers.as_ja4_str())
         }).unwrap_or(Some("00")).unwrap_or("00");
         let mut suite = self.cipher_suites.iter().filter_map(|x| if x.is_reserved() {
@@ -182,18 +182,14 @@ impl<'a> ClientHello<'a> {
             Some(x.as_u16())
         }).collect::<Vec<_>>();
         suite.sort();
-        let mut exts = self.extensions.iter().filter_map(|x| if x.extension_type().is_reserved() {
+        let mut exts = self.extensions.iter().filter_map(|x| if x.extension_type().is_reserved()||x.alps().is_some()||x.server_name().is_some() {
             None
-        } else if x.alps().is_some() {
-            None
-        } else if x.server_name().is_some() {
-            None
-        } else {
+        }  else {
             Some(x.extension_type().as_u16())
         }).collect::<Vec<_>>();
         exts.sort();
         let ext = self.extensions.iter().find(|x| x.alps().is_some());
-        let alps = ext.map(|ext| Some(ext.alps()?.values().get(0)?.value())).unwrap_or(Some("00")).unwrap_or("00");
+        let alps = ext.map(|ext| Some(ext.alps()?.values().first()?.value())).unwrap_or(Some("00")).unwrap_or("00");
         let ext = self.extensions.iter().find(|x| x.signature_algorithms().is_some());
         let sign_algo = ext.map(|x| Some(x.signature_algorithms()?.hashes().iter().map(|x| x.as_u16()).collect::<Vec<_>>()));
         let sign_algo = sign_algo.unwrap_or(Some(vec![])).unwrap_or(vec![]);

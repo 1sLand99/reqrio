@@ -5,13 +5,13 @@ use super::super::version::Version;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::ExtensionValue;
-use crate::{BufferError, ClientHello, ExtensionType, ReadExt, Reader, WriteExt, ALPN};
+use crate::{u24, BufferError, ClientHello, ExtensionType, ReadExt, Reader, WriteExt, ALPN};
 use crate::buffer::Buf;
 
 #[derive(Debug)]
 pub struct ServerHello<'a> {
     handshake_type: HandshakeType,
-    len: u32,
+    len: u24,
     version: Version,
     pub(crate) random: Buf<'a>,
     session_id_len: u8,
@@ -43,7 +43,7 @@ impl<'a> ServerHello<'a> {
     pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<ServerHello<'a>> {
         let mut res = ServerHello::default();
         res.handshake_type = ht;
-        res.len = reader.read_u32_24()?;
+        res.len = reader.read_24()?;
         res.version = Version::new(reader.read_u16()?);
         res.random = Buf::Ref(reader.read_slice(32)?);
         res.session_id_len = reader.read_u8()?;
@@ -118,7 +118,7 @@ impl<'a> ServerHello<'a> {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
         writer.write_u8(self.handshake_type as u8)?;
-        writer.write_u32(self.len() as u32 - 4, true)?;
+        writer.write_u24(self.len() as u24 - 4)?;
         writer.write_u16(self.version.into_inner())?;
         writer.write_slice(self.random.as_ref())?;
         writer.write_u8(self.session_id.len() as u8)?;
@@ -159,7 +159,7 @@ impl<'a> ServerHello<'a> {
 #[derive(Debug)]
 pub struct ServerHelloDone {
     handshake_type: HandshakeType,
-    len: u32,
+    len: u24,
 }
 
 impl ServerHelloDone {
@@ -173,7 +173,7 @@ impl ServerHelloDone {
     pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'_>) -> RlsResult<ServerHelloDone> {
         Ok(ServerHelloDone {
             handshake_type: ht,
-            len: reader.read_u32_24()?,
+            len: reader.read_24()?,
         })
     }
 
@@ -183,6 +183,6 @@ impl ServerHelloDone {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
         writer.write_u8(self.handshake_type as u8)?;
-        writer.write_u32(self.len, true)
+        writer.write_u24(self.len)
     }
 }

@@ -91,7 +91,6 @@ impl EchContent {
         let name_len = reader.read_u8()?;
         let name = reader.read_str::<DNSError>(name_len as usize)?;
         let ext_len = reader.read_u16()?;
-        println!("{:?}", &reader[reader.position()..]);
         Ok(EchContent {
             config_id,
             kem_id,

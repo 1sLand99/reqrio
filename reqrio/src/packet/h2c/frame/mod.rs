@@ -1,4 +1,4 @@
-use reqtls::{BufferError, WriteExt};
+use reqtls::{u24, BufferError, ReadExt, Reader, WriteExt};
 use crate::error::HlsResult;
 use crate::Buffer;
 use std::fmt::Debug;
@@ -12,7 +12,7 @@ mod flag;
 
 #[derive(Debug)]
 pub struct H2Frame<'a> {
-    len: usize,
+    len: u24,
     frame_type: FrameType,
     flag: FrameFlag,
     stream_identifier: u32,
@@ -38,24 +38,24 @@ impl<'a> H2Frame<'a> {
 
     pub fn from_bytes(buffer: &'a Buffer) -> HlsResult<H2Frame<'a>> {
         if buffer.len() < 9 { return Err("byte not enough".into()); }
-        let len = u32::from_be_bytes([0, buffer[0], buffer[1], buffer[2]]) as usize;
-        let frame_type = FrameType::from_u8(buffer[3])?;
-        let flag = FrameFlag::from_u8(buffer[4]);
-        let mut stream_identifier = u32::from_be_bytes(buffer[5..9].try_into()?);
+        let mut reader = Reader::from_slice(buffer.filled());
+        let len = reader.read_24()?;
+        // let len = u32::from_be_bytes([0, buffer[0], buffer[1], buffer[2]]) as usize;
+        let frame_type = FrameType::from_u8(reader.read_u8()?)?;
+        let flag = FrameFlag::from_u8(reader.read_u8()?);
+        let mut stream_identifier = reader.read_u32()?;
         stream_identifier &= !2147483648;
-        if buffer.len() < 9 + len { return Err("byte not enough".into()); }
+        if reader.unread_len() < len as usize { return Err("byte not enough".into()); }
         let (dependency, weight, payload) = if flag.priority() {
-            (u32::from_be_bytes(buffer[9..13].try_into()?), buffer[13], &buffer[14..9 + len])
+            (reader.read_u32()?, reader.read_u8()?, reader.read_reader(len as usize - 5)?)
         } else {
-            (0, 0, &buffer[9..9 + len])
+            (0, 0, reader.read_reader(len as usize)?)
         };
         let mut settings = vec![];
         if frame_type == FrameType::Settings {
-            let mut cl = 0;
-            while cl < payload.len() {
-                let setting = H2Setting::from_bytes(&payload[cl..cl + 6])?;
+            while payload.unread_len() > 0 {
+                let setting = H2Setting::from_reader(&mut reader)?;
                 settings.push(setting);
-                cl += 6;
             }
         }
 
@@ -67,22 +67,22 @@ impl<'a> H2Frame<'a> {
             stream_identifier,
             stream_dependency: dependency,
             weight,
-            payload,
+            payload: payload.into_inner(),
             settings,
         })
     }
 
-    pub fn write_to<W: WriteExt>(mut self, writer: &mut W) -> Result<(), BufferError>{
-        let len = if self.flag.priority() { self.payload.len() + 5 } else { self.payload.len() } as u32;
-        writer.write_u32(len, true)?;
+    pub fn write_to<W: WriteExt>(mut self, writer: &mut W) -> Result<(), BufferError> {
+        let len = if self.flag.priority() { self.payload.len() + 5 } else { self.payload.len() } as u24;
+        writer.write_u24(len)?;
         writer.write_u8(self.frame_type.to_u8())?;
         let priority = self.flag.priority();
 
         writer.write_u8(self.flag.into_inner())?;
-        writer.write_u32(self.stream_identifier, false)?;
+        writer.write_u32(self.stream_identifier)?;
         if priority {
             self.stream_dependency |= 2147483648;
-            writer.write_u32(self.stream_dependency, false)?;
+            writer.write_u32(self.stream_dependency)?;
             writer.write_u8(self.weight)?;
         }
         match self.frame_type {
@@ -123,7 +123,7 @@ impl<'a> H2Frame<'a> {
     pub fn default_setting() -> H2Frame<'a> {
         let settings = H2Setting::default_setting();
         H2Frame {
-            len: settings.len() * 6,
+            len: settings.len() as u24 * 6,
             frame_type: FrameType::Settings,
             flag: FrameFlag::default(),
             stream_identifier: 0,
@@ -158,7 +158,7 @@ impl<'a> H2Frame<'a> {
             let (payload, remain) = body.split_at(pos);
             body = remain;
             res.push(H2Frame {
-                len: payload.len(),
+                len: payload.len() as u24,
                 frame_type: FrameType::Data,
                 flag: FrameFlag::default(),
                 stream_identifier: sid,
@@ -188,7 +188,7 @@ impl<'a> H2Frame<'a> {
     pub fn is_empty(&self) -> bool { self.len == 0 }
 
     pub fn len(&self) -> usize {
-        self.len
+        self.len as usize
     }
 
     pub fn frame_id(&self) -> u32 {

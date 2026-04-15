@@ -215,7 +215,7 @@ impl From<u16> for DNSClass {
 }
 
 impl Debug for DNSClass {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}(0x{:x})", self.spec(), self.0)
     }
 }
@@ -297,9 +297,9 @@ impl<'a> DNS<'a> {
 
     pub fn from_bytes(reader: &'a [u8]) -> Result<DNS<'a>, DNSError> {
         let mut reader = Reader::from_slice(reader);
-        if reader.as_slice().len() < 12 { return Err(DNSError::Buffer(BufferError::Insufficient)); }
+        if reader.size() < 12 { return Err(DNSError::Buffer(BufferError::Insufficient)); }
         let tid = reader.read_u16()?;
-        let flag = DNSFlag::from_bytes(&reader[2..4]);
+        let flag = DNSFlag::from_bytes(reader.read_slice(2)?);
         reader.set_position(4);
         let questions = reader.read_u16()?;
         let answer = reader.read_u16()?;

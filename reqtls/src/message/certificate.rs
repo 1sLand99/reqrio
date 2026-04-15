@@ -1,7 +1,7 @@
 use super::HandshakeType;
 use crate::buffer::Buf;
 use crate::error::RlsResult;
-use crate::{BufferError, CertType, ReadExt, Reader, SignatureAlgorithm, Version, WriteExt};
+use crate::{u24, BufferError, CertType, ReadExt, Reader, SignatureAlgorithm, Version, WriteExt};
 use std::fmt::Debug;
 
 #[derive(Debug)]
@@ -24,12 +24,12 @@ impl<'a> Certificates<'a> {
         if let Version::TLS_1_3 = version {
             reader.read_u8()?; //req ctx len
         }
-        reader.read_u32_24()?;
-        let len = reader.read_u32_24()?;
+        reader.read_24()?;
+        let len = reader.read_24()?;
         let mut reader = reader.read_reader(len as usize)?;
         let mut certificates = Vec::with_capacity(len as usize);
         while reader.unread_len() > 0 {
-            let len = reader.read_u32_24()? as usize;
+            let len = reader.read_24()? as usize;
             certificates.push(Buf::Ref(reader.read_slice(len)?));
             if let Version::TLS_1_3 = version {
                 reader.read_u16()?; //ext len
@@ -47,10 +47,10 @@ impl<'a> Certificates<'a> {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
         writer.write_u8(self.handshake_type as u8)?;
-        writer.write_u32(self.len() as u32 - 4, true)?;
-        writer.write_u32(self.len() as u32 - 7, true)?;
+        writer.write_u24(self.len() as u24 - 4)?;
+        writer.write_u24(self.len() as u24 - 7)?;
         for certificate in self.certificates {
-            writer.write_u32(certificate.len() as u32, true)?;
+            writer.write_u24(certificate.len() as u24)?;
             writer.write_slice(certificate.as_ref())?;
         }
         Ok(())
@@ -77,7 +77,7 @@ pub struct CertificateStatus<'a> {
 
 impl<'a> CertificateStatus<'a> {
     pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<CertificateStatus<'a>> {
-        let len = reader.read_u32_24()?;
+        let len = reader.read_24()?;
         Ok(CertificateStatus {
             handshake_type: ht,
             bytes: Buf::Ref(reader.read_slice(len as usize)?),
@@ -88,7 +88,7 @@ impl<'a> CertificateStatus<'a> {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
         writer.write_u8(self.handshake_type as u8)?;
-        writer.write_u32(self.bytes.len() as u32, true)?;
+        writer.write_u24(self.bytes.len() as u24)?;
         writer.write_slice(self.bytes.as_ref())
     }
 }
@@ -137,7 +137,7 @@ impl<'a> CertificateRequest<'a> {
             handshake_type: ht,
             ..Default::default()
         };
-        reader.read_u32_24()?;
+        reader.read_24()?;
         for _ in 0..reader.read_u8()? {
             res.cert_type.push(CertType::new(reader.read_u8()?));
         }
@@ -160,7 +160,7 @@ impl<'a> CertificateRequest<'a> {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
         writer.write_u8(self.handshake_type as u8)?;
-        writer.write_u32(self.len() as u32 - 4, true)?;
+        writer.write_u24(self.len() as u24 - 4)?;
         writer.write_u8(self.cert_type.len() as u8)?;
         writer.write_u16(self.hashes.len() as u16 * 2)?;
         for hash in self.hashes {
@@ -198,7 +198,7 @@ impl<'a> Default for CertificateVerify<'a> {
 
 impl<'a> CertificateVerify<'a> {
     pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<CertificateVerify<'a>> {
-        reader.read_u32_24()?;
+        reader.read_24()?;
         let sign_hash = SignatureAlgorithm::new(reader.read_u16()?);
         let sign_len = reader.read_u16()?;
         Ok(CertificateVerify {
@@ -218,7 +218,7 @@ impl<'a> CertificateVerify<'a> {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
         writer.write_u8(self.handshake_type as u8)?;
-        writer.write_u32(self.len() as u32 - 4, true)?;
+        writer.write_u24(self.len() as u24 - 4)?;
         writer.write_u16(self.sign_hash.into_inner())?;
         writer.write_u16(self.sign.len() as u16)?;
         writer.write_slice(self.sign.as_ref())

@@ -171,7 +171,7 @@ impl<'a> ExtensionValue<'a> {
             ExtensionType::ApplicationLayerProtocolNegotiation => Ok(ExtensionValue::ApplicationLayerProtocolNegotiation(ALPS::from_reader(reader)?)),
             ExtensionType::PreSharedKey => Ok(ExtensionValue::PreSharedKey(PreSharedKey::from_reader(reader)?)),
             ExtensionType::ApplicationSettingOld => Ok(ExtensionValue::ApplicationSetting(ALPS::from_reader(reader)?)),
-            _ => Ok(ExtensionValue::Unknown(Buf::Ref(reader.as_slice())))
+            _ => Ok(ExtensionValue::Unknown(Buf::Ref(reader.into_inner())))
         }
     }
 

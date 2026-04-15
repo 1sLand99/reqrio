@@ -38,7 +38,7 @@ impl<'a> PskIdentity<'a> {
     pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
         writer.write_u16(self.value.len() as u16)?;
         writer.write_slice(self.value.as_ref())?;
-        writer.write_u32(self.age, false)
+        writer.write_u32(self.age)
     }
 }
 

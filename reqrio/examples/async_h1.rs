@@ -12,7 +12,7 @@ async fn main() {
     // let certs = Certificate::from_pem_file("/home/xl/1/client.crt").unwrap();
     // let key = RsaKey::from_pri_pem_file("/home/xl/1/client.key").unwrap();
     let mut req = AcReq::new()
-        // .with_fingerprint(fingerprint)
+        .with_fingerprint(fingerprint)
         .with_alpn(ALPN::Http20)
         .with_timeout(timeout)
         .with_verify(true)
@@ -101,7 +101,7 @@ async fn main() {
     // let res = req.get("https://m.sogou.com", None).await.unwrap();
     // let res=req.get("https://oauth.hubei.gov.cn:8443/",None).await.unwrap();
     println!("{}", res.header());
-    println!("{:#?}", req.header().cookies());
+    // println!("{:#?}", req.header().cookies());
     // println!("{}",res.text().unwrap());
     // req.set_url("https://m.so.com").await.unwrap();
     // req.set_url("https://im.jinritemai.com/").await.unwrap();

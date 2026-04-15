@@ -2,7 +2,7 @@ use super::super::boring::SignatureAlgorithm;
 use super::super::message::HandshakeType;
 use crate::buffer::Buf;
 use crate::error::RlsResult;
-use crate::{BufferError, CipherSuite, ReadExt, Reader, WriteExt};
+use crate::{u24, BufferError, CipherSuite, ReadExt, Reader, WriteExt};
 use std::fmt::{Debug, Formatter};
 
 #[derive(Debug, Copy, Clone)]
@@ -180,7 +180,7 @@ impl<'a> Default for ServerKeyExchange<'a> {
 
 impl<'a> ServerKeyExchange<'a> {
     pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<ServerKeyExchange<'a>> {
-        reader.read_u32_24()?;
+        reader.read_24()?;
         Ok(ServerKeyExchange {
             handshake_type: ht,
             hellman_param: ServerHellmanParam::from_reader(reader)?,
@@ -195,7 +195,7 @@ impl<'a> ServerKeyExchange<'a> {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
         writer.write_u8(self.handshake_type as u8)?;
-        writer.write_u32(self.hellman_param.len() as u32, true)?;
+        writer.write_u24(self.hellman_param.len() as u24)?;
         self.hellman_param.write_to(writer)
     }
 
@@ -261,7 +261,7 @@ impl<'a> Default for ClientKeyExchange<'a> {
 
 impl<'a> ClientKeyExchange<'a> {
     pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>, suite: Option<&CipherSuite>) -> RlsResult<ClientKeyExchange<'a>> {
-        reader.read_u32_24()?;
+        reader.read_24()?;
         Ok(ClientKeyExchange {
             handshake_type: ht,
             hellman_param: ClientHellmanParam::from_reader(reader, suite)?,
@@ -274,7 +274,7 @@ impl<'a> ClientKeyExchange<'a> {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) -> Result<(), BufferError> {
         writer.write_u8(self.handshake_type as u8)?;
-        writer.write_u32(self.hellman_param.len(key_size) as u32, true)?;
+        writer.write_u24(self.hellman_param.len(key_size) as u24)?;
         self.hellman_param.write_to(writer, key_size)
     }
 

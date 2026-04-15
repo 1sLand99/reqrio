@@ -7,9 +7,9 @@ use crate::ffi::CPointer;
 pub use decode::RecordDecodeBuffer;
 pub use encode::RecordEncodeBuffer;
 pub use error::BufferError;
-pub use ext::{ReadExt, WriteExt};
+pub use ext::{u24, ReadExt, WriteExt};
 use std::fmt::{Debug, Formatter};
-use std::ops::{Index, Range, RangeFrom};
+use std::ops::Range;
 use std::slice;
 
 pub enum Buf<'a> {
@@ -152,6 +152,10 @@ impl<'a> Reader<'a> {
     pub fn unread_len(&self) -> usize {
         self.buf.len() - self.pos
     }
+
+    pub fn into_inner(self) -> &'a [u8] { self.buf }
+
+    pub fn inner(&self) -> &'a [u8] { self.buf }
 }
 
 impl<'a> From<&'a [u8]> for Reader<'a> {
@@ -167,6 +171,10 @@ impl<'a> From<&'a Vec<u8>> for Reader<'a> {
 }
 
 impl<'a> ReadExt<'a> for Reader<'a> {
+    fn size(&self) -> usize {
+        self.buf.len()
+    }
+
     fn position(&self) -> usize {
         self.pos
     }
@@ -175,29 +183,11 @@ impl<'a> ReadExt<'a> for Reader<'a> {
         self.pos = pos;
     }
 
-    fn as_slice(&self) -> &'a [u8] {
-        self.buf
+    fn add_len(&mut self, len: usize) {
+        self.pos += len;
     }
-}
 
-
-impl<'a> Index<usize> for Reader<'a> {
-    type Output = u8;
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.buf[index]
-    }
-}
-
-impl<'a> Index<Range<usize>> for Reader<'a> {
-    type Output = [u8];
-    fn index(&self, index: Range<usize>) -> &Self::Output {
-        &self.buf[index]
-    }
-}
-
-impl<'a> Index<RangeFrom<usize>> for Reader<'a> {
-    type Output = [u8];
-    fn index(&self, index: RangeFrom<usize>) -> &Self::Output {
-        &self.buf[index]
+    fn as_ptr(&self) -> *const u8 {
+        self.buf.as_ptr()
     }
 }
