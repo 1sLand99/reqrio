@@ -234,7 +234,9 @@ impl std::io::Write for ProxyStream<std::net::TcpStream> {
 #[cfg(feature = "aync")]
 impl ProxyStream<tokio::net::TcpStream> {
     pub async fn async_connect(proxy: &Proxy, peer_addr: &Addr) -> HlsResult<ProxyStream<tokio::net::TcpStream>> {
+        let st = Time::now_mills().unwrap();
         let addr = proxy.socket_addr(peer_addr)?;
+        println!("DNS TIME: {}", Time::now_mills().unwrap() - st);
         let mut stream = tokio::net::TcpStream::connect(addr).await?;
         let mut buffer = Buffer::with_capacity(1024);
         for i in 0..4 {

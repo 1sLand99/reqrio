@@ -50,14 +50,18 @@ pub enum Stream {
 impl Stream {
     pub async fn async_conn(&mut self, param: ConnParam<'_>) -> HlsResult<ALPN> {
         let _ = self.async_shutdown().await;
+        let st = Time::now_mills().unwrap();
         let stream = tokio::time::timeout(param.timeout.connect(), ProxyStream::async_connect(param.proxy, param.addr)).await??;
+        println!("TCP TIME: {}", Time::now_mills().unwrap() - st);
         match param.scheme {
             Scheme::Http | Scheme::Ws => {
                 *self = Stream::AsyncHttp(TcpStreamA::from_proxy_stream(stream, param.timeout));
                 Ok(ALPN::Http11)
             }
             Scheme::Https | Scheme::Wss => {
+                let st = Time::now_mills().unwrap();
                 let tls_stream = TlsStreamA::connect_timeout(param, stream).await?;
+                println!("TLS TIME: {}", Time::now_mills().unwrap() - st);
                 let alpn = tls_stream.alpn().cloned().unwrap_or(ALPN::Http11);
                 *self = Stream::AsyncHttps(tls_stream);
                 Ok(alpn)
@@ -181,6 +185,7 @@ pub trait TlsStreamHandle {
         let len = record.write_to(buffer, 1)?;
         buffer.set_len(len);
         conn.set_secret_keys(vec![x25519_secret, secp256r1, secp384r1, secp521r1]);
+        println!("{:?}",buffer.filled());
         conn.update_session(&buffer.filled()[5..])?;
         Ok(())
     }

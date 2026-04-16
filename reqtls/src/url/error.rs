@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 
 #[derive(Debug)]
@@ -17,7 +18,8 @@ pub enum UrlError {
     InvalidParamEncoded,
     InvalidScheme(String),
     InvalidPort(String),
-    Utf8Error(FromUtf8Error),
+    FromUtf8Error(FromUtf8Error),
+    Utf8Error(Utf8Error),
 }
 
 impl Display for UrlError {
@@ -36,6 +38,7 @@ impl Display for UrlError {
             UrlError::InvalidParamEncoded => write!(f, "invalid param encoding"),
             UrlError::InvalidScheme(v) => write!(f, "invalid scheme-({})", v),
             UrlError::InvalidPort(port) => write!(f, "invalid port-{}", port),
+            UrlError::FromUtf8Error(e) => write!(f, "Utf8({})", e),
             UrlError::Utf8Error(e) => write!(f, "Utf8({})", e),
         }
     }
@@ -43,7 +46,7 @@ impl Display for UrlError {
 
 impl From<FromUtf8Error> for UrlError {
     fn from(e: FromUtf8Error) -> Self {
-        UrlError::Utf8Error(e)
+        UrlError::FromUtf8Error(e)
     }
 }
 
