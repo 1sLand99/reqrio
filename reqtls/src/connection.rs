@@ -6,11 +6,11 @@ use super::suite::TlsCipher;
 use super::version::Version;
 use crate::boring::{certificate, AlgorithmSigner, HashError};
 use crate::buffer::{Buf, RecordDecodeBuffer, RecordEncodeBuffer};
-use crate::derived::{DerivedKey, Key};
+use crate::key::{DerivedKey, Key, SecretKey};
 use crate::error::{HandShakeError, RlsResult};
-use crate::secret_key::SecretKey;
 use crate::*;
 use std::mem;
+use std::path::PathBuf;
 use crate::message::EncryptedExtension;
 
 pub struct Connection {
@@ -32,12 +32,12 @@ pub struct Connection {
 }
 impl Default for Connection {
     fn default() -> Self {
-        Connection::new([0; 32], [0; 32])
+        Connection::new([0; 32], [0; 32], None)
     }
 }
 
 impl Connection {
-    pub fn new(client_random: [u8; 32], server_random: [u8; 32]) -> Connection {
+    pub fn new(client_random: [u8; 32], server_random: [u8; 32], key_log: Option<PathBuf>) -> Connection {
         Connection {
             read: TlsCipher::none(),
             write: TlsCipher::none(),
@@ -46,7 +46,7 @@ impl Connection {
             alpn: None,
             cipher_suite: CipherSuite::new(0),
             session_bytes: vec![],
-            derived: DerivedKey::new(client_random, server_random),
+            derived: DerivedKey::new(client_random, server_random, key_log),
             certificates: vec![],
             verify: false,
             root_stores: &certificate::ROOT_STORES,
@@ -57,8 +57,8 @@ impl Connection {
         }
     }
 
-    pub fn from_client(random: [u8; 32]) -> Connection {
-        Connection::new(random, [0; 32])
+    pub fn from_client(random: [u8; 32], key_log: Option<PathBuf>) -> Connection {
+        Connection::new(random, [0; 32], key_log)
     }
 
     pub fn client_random(&mut self) -> &[u8] {

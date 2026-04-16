@@ -5,15 +5,15 @@ use crate::error::HlsResult;
 use crate::stream::config::Config;
 use crate::stream::{ConnParam, TlsStreamHandle};
 use crate::{Buffer, ClientConfig, ProxyStream, ServerConfig};
+use connect::{Connecting, Handshake};
 use reqtls::{rand, Alert, Connection, RecordLayer, RecordType, Version, WriteExt, ALPN};
-use std::io;
 use std::io::Error;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
+use std::{io, mem};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::TcpStream;
-use connect::{Connecting, Handshake};
 
 
 pub struct TlsStream<S> {
@@ -48,11 +48,11 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
         }
     }
     #[inline]
-    pub fn connect(stream: S, config: ClientConfig<'_>) -> Connecting<'_, S> {
+    pub fn connect(stream: S, mut config: ClientConfig<'_>) -> Connecting<'_, S> {
         Connecting {
             handshake: Handshake::Handshaking(Box::new(TlsStream {
                 stream,
-                conn: Connection::from_client(rand::random()).with_verify(config.verify),
+                conn: Connection::from_client(rand::random(), mem::take(&mut config.key_log)).with_verify(config.verify),
                 handshake_finished: false,
                 read_buffer: Buffer::default(),
                 write_buffer: Buffer::default(),
@@ -245,15 +245,7 @@ impl TlsStreamA {
         let connect_timeout = param.timeout.connect();
         let read_timeout = param.timeout.read();
         let write_timeout = param.timeout.write();
-        let config = ClientConfig {
-            sni: param.addr.host(),
-            alpn: param.alpn,
-            fingerprint: param.fingerprint,
-            client_cert: param.cert,
-            cert_key: param.key,
-            verify: param.verify,
-            ca_certs: param.ca_cert,
-        };
+        let config = ClientConfig::from(param);
         Ok(TlsStreamA {
             stream: tokio::time::timeout(connect_timeout, TlsStream::connect(tcp, config)).await??,
             read_timeout: Some(read_timeout),

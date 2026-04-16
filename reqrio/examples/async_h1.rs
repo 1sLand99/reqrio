@@ -16,6 +16,7 @@ async fn main() {
         .with_alpn(ALPN::Http20)
         .with_timeout(timeout)
         .with_verify(true)
+        .with_key_log("2.log")
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::try_from("http://127.0.0.1:10240").unwrap())
         ;
@@ -97,9 +98,8 @@ async fn main() {
     // req.set_url("https://oauth.hubei.gov.cn:8443/").await.unwrap();
     req.set_auto_redirect(false);
     // let res=req.get("https://www.link114.cn/",None).await.unwrap();
-    // let res = req.get("https://www.bing.com".params(json::object! {}), None).await.unwrap();
-    // println!("1111");
-    let res = req.get("https://m.sogou.com", None).await.unwrap();
+    let res = req.get("https://www.bing.com".params(json::object! {}), None).await.unwrap();
+    // let res = req.get("https://m.sogou.com", None).await.unwrap();
     // let res=req.get("https://oauth.hubei.gov.cn:8443/",None).await.unwrap();
     println!("{}", res.header());
     // println!("{:#?}", req.header().cookies());

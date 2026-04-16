@@ -1,20 +1,19 @@
-use std::io::Write;
 use crate::stream::config::Config;
 use crate::*;
-pub use sync_stream::SyncStream;
-pub use config::{ClientConfig, ServerConfig};
-pub use proxy::Proxy;
-pub use proxy::ProxyStream;
-pub use ws::{WebSocket, WebSocketBuilder};
 #[cfg(feature = "aync")]
 pub use aync::TlsStream;
 #[cfg(feature = "aync")]
-use aync::{TcpStreamA, TlsStreamA, TimeoutRW};
+use aync::{TcpStreamA, TimeoutRW, TlsStreamA};
+pub use config::{ClientConfig, ServerConfig};
+pub use proxy::Proxy;
+pub use proxy::ProxyStream;
+use std::io::Write;
+use std::path::PathBuf;
+pub use sync_stream::SyncStream;
+pub use ws::{WebSocket, WebSocketBuilder};
 
 mod sync_stream;
 
-// #[cfg(feature = "aync")]
-// mod astream;
 mod proxy;
 mod ws;
 mod config;
@@ -32,6 +31,7 @@ pub struct ConnParam<'a> {
     pub cert: &'a mut Vec<Certificate>,
     pub key: &'a RsaKey,
     pub ca_cert: &'a Vec<Certificate>,
+    pub key_log: &'a Option<PathBuf>,
 }
 
 pub enum Stream {
@@ -107,15 +107,7 @@ impl Stream {
             }
             Scheme::Https | Scheme::Wss => {
                 let t = crate::Time::now_mills().unwrap();
-                let tls_stream = SyncStream::connect(ClientConfig {
-                    sni: param.addr.host(),
-                    alpn: param.alpn,
-                    fingerprint: param.fingerprint,
-                    client_cert: param.cert,
-                    cert_key: param.key,
-                    verify: param.verify,
-                    ca_certs: param.ca_cert,
-                }, stream)?;
+                let tls_stream = SyncStream::connect(ClientConfig::from(param), stream)?;
                 println!("TLS TIME: {}", crate::Time::now_mills().unwrap() - t);
                 let alpn = tls_stream.alpn().map(|x| ALPN::from_slice(x.as_bytes())).unwrap_or(ALPN::Http11);
                 *self = Stream::SyncHttps(tls_stream);
@@ -185,7 +177,6 @@ pub trait TlsStreamHandle {
         let len = record.write_to(buffer, 1)?;
         buffer.set_len(len);
         conn.set_secret_keys(vec![x25519_secret, secp256r1, secp384r1, secp521r1]);
-        println!("{:?}",buffer.filled());
         conn.update_session(&buffer.filled()[5..])?;
         Ok(())
     }

@@ -1,9 +1,38 @@
-use crate::NamedCurve;
+mod block;
+mod derived;
+
+pub use block::Key;
+pub use derived::DerivedKey;
 use crate::boring::{EcCurve, EvpCurve};
 use crate::bytes::Bytes;
 use crate::error::RlsResult;
-use crate::{rand, RlsError};
+use crate::{rand, NamedCurve, RlsError};
 use crate::buffer::Buf;
+
+pub struct TrafficSecret {
+    client_traffic: [u8; 48],
+    server_traffic: [u8; 48],
+    size: usize,
+}
+
+impl TrafficSecret {
+    pub fn client_traffic(&self) -> &[u8] {
+        &self.client_traffic[..self.size]
+    }
+
+    pub fn client_traffic_mut(&mut self) -> &mut [u8] {
+        &mut self.client_traffic[..self.size]
+    }
+
+    pub fn server_traffic(&self) -> &[u8] {
+        &self.server_traffic[..self.size]
+    }
+
+    pub fn server_traffic_mut(&mut self) -> &mut [u8] {
+        &mut self.server_traffic[..self.size]
+    }
+}
+
 
 #[allow(non_camel_case_types)]
 pub enum SecretKey {

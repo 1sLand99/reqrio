@@ -9,6 +9,7 @@ use crate::stream::{ConnParam, Stream};
 use crate::*;
 use json::JsonValue;
 use std::mem;
+use std::path::{Path, PathBuf};
 
 #[repr(C)]
 pub struct ScReq {
@@ -29,6 +30,7 @@ pub struct ScReq {
     key: RsaKey,
     ca_certs: Vec<Certificate>,
     alpn: ALPN,
+    key_log: Option<PathBuf>,
 }
 
 impl Default for ScReq {
@@ -51,6 +53,7 @@ impl Default for ScReq {
             key: RsaKey::none(),
             ca_certs: vec![],
             alpn: ALPN::Http11,
+            key_log: None,
         }
     }
 }
@@ -208,6 +211,7 @@ impl ScReq {
                 cert: &mut self.certs,
                 key: &self.key,
                 ca_cert: &self.ca_certs,
+                key_log: &self.key_log,
             };
             match self.stream.sync_conn(param) {
                 Ok(alpn) => {
@@ -361,6 +365,10 @@ impl ReqExt for ScReq {
 
     fn set_auto_redirect(&mut self, auto_redirect: bool) {
         self.auto_redirect = auto_redirect;
+    }
+
+    fn set_key_log(&mut self, path: impl AsRef<Path>) {
+        self.key_log = Some(path.as_ref().to_owned());
     }
 
     fn set_alpn(&mut self, alpn: ALPN) {

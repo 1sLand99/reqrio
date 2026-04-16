@@ -1,3 +1,4 @@
+use std::path::Path;
 use crate::body::H2FrameRBuf;
 use crate::error::HlsResult;
 use crate::hpack::HPackCoding;
@@ -45,6 +46,14 @@ pub trait ReqExt: ReqPriExt + Sized {
     fn set_auto_redirect(&mut self, auto_redirect: bool);
     fn with_auto_redirect(mut self, auto_redirect: bool) -> Self {
         self.set_auto_redirect(auto_redirect);
+        self
+    }
+
+    ///导出tls key log，不设置时读取SSLKEYLOGFILE环境变量，为保证通信安全，此功能仅Debug下起作用
+    fn set_key_log(&mut self, path: impl AsRef<Path>);
+
+    fn with_key_log(mut self, path: impl AsRef<Path>) -> Self {
+        self.set_key_log(path);
         self
     }
 

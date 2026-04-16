@@ -11,6 +11,7 @@ use crate::request::RequestBuffer;
 use crate::stream::{ConnParam, Proxy, Stream};
 use crate::*;
 use std::mem;
+use std::path::{Path, PathBuf};
 
 pub struct AcReq {
     header: Header,
@@ -30,6 +31,7 @@ pub struct AcReq {
     key: RsaKey,
     ca_certs: Vec<Certificate>,
     alpn: ALPN,
+    key_log: Option<PathBuf>,
 }
 
 impl Default for AcReq {
@@ -52,6 +54,7 @@ impl Default for AcReq {
             key: RsaKey::none(),
             ca_certs: vec![],
             alpn: ALPN::Http11,
+            key_log: None,
         }
     }
 }
@@ -220,6 +223,7 @@ impl AcReq {
                 cert: &mut self.certs,
                 key: &mut self.key,
                 ca_cert: &self.ca_certs,
+                key_log: &self.key_log,
             };
             let res = tokio::time::timeout(self.timeout.connect(), self.stream.async_conn(param)).await;
             match &res {
@@ -369,6 +373,10 @@ impl ReqExt for AcReq {
 
     fn set_auto_redirect(&mut self, auto_redirect: bool) {
         self.auto_redirect = auto_redirect;
+    }
+
+    fn set_key_log(&mut self, path: impl AsRef<Path>) {
+        self.key_log = Some(path.as_ref().to_path_buf());
     }
 
     fn set_alpn(&mut self, alpn: ALPN) {

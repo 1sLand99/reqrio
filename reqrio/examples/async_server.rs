@@ -21,6 +21,7 @@ async fn main() {
             cert_key: &pri_key,
             verify: false,
             ca_certs: &vec![],
+            key_log: None,
         }).await;
         if let Ok(mut tls_stream) = tls_stream {
             tokio::spawn(async move {

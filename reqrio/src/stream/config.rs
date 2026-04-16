@@ -1,5 +1,8 @@
+use std::env;
+use std::path::{Path, PathBuf};
 use reqtls::{Certificate, RsaKey, ALPN};
 use crate::Fingerprint;
+use crate::stream::ConnParam;
 
 pub(crate) enum Config<'a> {
     Server(ServerConfig<'a>),
@@ -31,6 +34,25 @@ pub struct ClientConfig<'a> {
     pub cert_key: &'a RsaKey,
     pub verify: bool,
     pub ca_certs: &'a [Certificate],
+    pub key_log: Option<PathBuf>,
+}
+
+impl<'a> From<ConnParam<'a>> for ClientConfig<'a> {
+    fn from(param: ConnParam<'a>) -> Self {
+        ClientConfig {
+            sni: param.addr.host(),
+            alpn: param.alpn,
+            fingerprint: param.fingerprint,
+            client_cert: param.cert,
+            cert_key: param.key,
+            verify: param.verify,
+            ca_certs: param.ca_cert,
+            key_log: param.key_log.clone().or_else(|| match env::var("SSLKEYLOGFILE") {
+                Ok(key_log) => Some(Path::new(&key_log).to_path_buf()),
+                Err(_) => None
+            }),
+        }
+    }
 }
 
 pub struct ServerConfig<'a> {
@@ -40,4 +62,5 @@ pub struct ServerConfig<'a> {
     pub cert_key: &'a RsaKey,
     pub verify: bool,
     pub ca_certs: &'a Vec<Certificate>,
+    pub key_log: Option<PathBuf>,
 }

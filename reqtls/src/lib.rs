@@ -261,7 +261,6 @@ mod boring;
 mod ffi;
 pub mod coder;
 mod alpn;
-mod secret_key;
 mod url;
 
 #[cfg(feature = "export")]
@@ -269,7 +268,7 @@ mod export;
 mod buffer;
 mod dns;
 mod hkdf;
-mod derived;
+mod key;
 
 pub use alpn::ALPN;
 pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner,
@@ -291,4 +290,4 @@ pub use record::{RecordLayer, RecordType};
 pub use suite::CipherSuite;
 pub use url::{Addr, Param, Scheme, Uri, Url, UrlError};
 pub use version::Version;
-pub use secret_key::SecretKey;
+pub use key::SecretKey;

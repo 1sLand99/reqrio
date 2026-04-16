@@ -72,7 +72,7 @@ impl<'a> Hkdf<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::derived::{DerivedKey, Key};
+    use crate::key::{DerivedKey, Key};
     use crate::extend::Aead;
     use crate::hkdf::Hkdf;
     use crate::{HashType, Hasher, Version};
@@ -94,7 +94,7 @@ mod tests {
     #[test]
     fn test_hkdf_local() {
         let hash = [160, 123, 172, 137, 109, 33, 28, 150, 18, 251, 24, 221, 150, 16, 121, 34, 68, 216, 55, 115, 134, 77, 226, 34, 247, 222, 165, 187, 194, 37, 246, 171, 37, 243, 23, 41, 163, 49, 0, 0, 137, 112, 219, 4, 9, 220, 174, 156];
-        let mut derived = DerivedKey::new([0; 32], [0; 32]);
+        let mut derived = DerivedKey::new([0; 32], [0; 32], None);
         derived.init(&Aead::AES_256_GCM, &Hasher::new(HashType::Sha384).unwrap(), &Version::TLS_1_3);
         let share_secret = [20, 12, 97, 149, 53, 54, 162, 204, 253, 108, 221, 23, 41, 241, 68, 218, 246, 201, 45, 203, 235, 232, 39, 139, 164, 162, 176, 211, 65, 52, 36, 65];
         derived.make_handshake_traffic_secret(share_secret.to_vec(), &hash).unwrap();
