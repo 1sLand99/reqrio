@@ -50,14 +50,14 @@ impl SecretKey {
         Ok(SecretKey::PreMasterSecret(Bytes::new(master_secret)))
     }
 
-    pub fn new(name_cure: impl Into<NamedCurve>) -> RlsResult<SecretKey> {
-        match name_cure.into().as_u16() {
+    pub fn new(name_cure: &NamedCurve) -> RlsResult<SecretKey> {
+        match name_cure.as_u16() {
             NamedCurve::X25519 => Ok(SecretKey::Evp(EvpCurve::new_x25519()?)),
             NamedCurve::Secp256r1 => Ok(SecretKey::Ec(EcCurve::new_p256()?)),
             NamedCurve::Secp384r1 => Ok(SecretKey::Ec(EcCurve::new_p384()?)),
             NamedCurve::Secp521r1 => Ok(SecretKey::Ec(EcCurve::new_p521()?)),
             NamedCurve::X25519MLKEM768 => Ok(SecretKey::Hybrid(X25519MlKem768::new_client()?)),
-            _ => Err("Unsupported name curve".into()),
+            _ => Err(format!("Unsupported name curve-{:?}", name_cure).into()),
         }
     }
     pub fn diffie_hellman(&mut self, pub_key: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {

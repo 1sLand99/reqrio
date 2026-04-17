@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use super::bytes::Bytes;
 use super::record::{RecordLayer, RecordType};
 use super::suite::iv::Iv;
@@ -23,7 +24,7 @@ pub struct Connection {
     session_bytes: Vec<u8>,
     derived: DerivedKey,
     certificates: Vec<Certificate>,
-    secret_keys: Vec<SecretKey>,
+    secret_keys: HashMap<NamedCurve, SecretKey>,
     secret_key: Option<SecretKey>,
     verify: bool,
     root_stores: &'static CertStore,
@@ -52,7 +53,7 @@ impl Connection {
             root_stores: &certificate::ROOT_STORES,
             mtls_hash: SignatureAlgorithm::new(0),
             version: Version::TLS_1_2,
-            secret_keys: vec![],
+            secret_keys: HashMap::new(),
             secret_key: None,
         }
     }
@@ -90,7 +91,7 @@ impl Connection {
         self.derived.set_ems(server_hello.use_ems());
         if Version::TLS_1_3 == self.version {
             let key_entry = server_hello.share_key().unwrap().key_entry();
-            let mut secret_key = self.secret_keys.remove(key_entry.name_curve().secret_index()?);
+            let mut secret_key = self.secret_keys.remove(&key_entry.name_curve()).ok_or("secret not inited")?;
             let share_secret = secret_key.diffie_hellman(key_entry.exchange_key().as_ref())?;
             self.derived.make_handshake_traffic_secret(share_secret, self.cipher_suite.current_session_hash()?)?;
             let aead = self.cipher_suite.aead().unwrap();
@@ -164,8 +165,7 @@ impl Connection {
         }
         self.exchange_pub_key = Bytes::new(server_key.hellman_param().pub_key().to_vec());
         self.named_curve = *server_key.hellman_param().named_curve();
-        let index = self.named_curve.secret_index()?;
-        self.secret_key = Some(self.secret_keys.remove(index));
+        self.secret_key = Some(SecretKey::new(server_key.hellman_param().named_curve())?);
         self.secret_keys.clear();
         self.secret_keys.shrink_to_fit();
         Ok(())
@@ -249,7 +249,7 @@ impl Connection {
         record.messages.push(Message::Certificate(certificates));
         //server_key_exchange
         let mut server_key_exchange = ServerKeyExchange::default();
-        let key = SecretKey::new(*server_key_exchange.hellman_param().named_curve())?;
+        let key = SecretKey::new(server_key_exchange.hellman_param().named_curve())?;
         server_key_exchange.hellman_param_mut().set_pub_key(Buf::Vec(key.pub_key()?.to_vec()));
         self.secret_key = Some(key);
         let sign_data = self.gen_key_sign_data(&server_key_exchange);
@@ -325,11 +325,9 @@ impl Connection {
         record.write_to(writer, 1)
     }
 
-    pub fn set_secret_keys(&mut self, keys: Vec<SecretKey>) {
+    pub fn set_secret_keys(&mut self, keys: HashMap<NamedCurve, SecretKey>) {
         self.secret_keys = keys;
     }
-
-    pub fn secret_keys(&self) -> &[SecretKey] { &self.secret_keys }
 
     pub fn version(&self) -> &Version { &self.version }
 }

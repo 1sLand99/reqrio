@@ -23,7 +23,7 @@ impl CurveType {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Hash, PartialEq, Eq)]
 pub struct NamedCurve(u16);
 
 #[allow(non_upper_case_globals)]
@@ -57,16 +57,6 @@ impl NamedCurve {
 
     pub fn is_reserved(&self) -> bool {
         !matches!(self.0, 0x1d | 0x11ec | 0x0017 | 0x0018 | 0x0019)
-    }
-
-    pub fn secret_index(&self) -> RlsResult<usize> {
-        match self.0 {
-            NamedCurve::X25519 => Ok(0),
-            NamedCurve::Secp256r1 => Ok(1),
-            NamedCurve::Secp384r1 => Ok(2),
-            NamedCurve::Secp521r1 => Ok(3),
-            _ => Err("Unsupported pub share key".into()),
-        }
     }
 }
 

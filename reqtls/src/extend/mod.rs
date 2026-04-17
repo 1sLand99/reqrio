@@ -415,6 +415,12 @@ impl<'a> Extension<'a> {
         }
     }
 
+    pub fn key_share_mut(&mut self) -> Option<&mut KeyShare<'a>> {
+        if let ExtensionValue::KeyShare(ref mut key) = self.value {
+            Some(key)
+        } else { None }
+    }
+
     pub fn server_name(&self) -> Option<&ServerName<'a>> {
         match self.value {
             ExtensionValue::ServerName(ref v) => Some(v),
@@ -450,6 +456,10 @@ impl<'a> Extension<'a> {
             ExtensionValue::ApplicationLayerProtocolNegotiation(ref mut v) => v.add_h2_alpn(),
             _ => {}
         }
+    }
+
+    pub fn remove_tls13(&mut self) {
+        if let ExtensionValue::SupportedVersions(ref mut v) = self.value { v.remove_tls13() }
     }
 
     pub fn value(&self) -> &ExtensionValue<'_> { &self.value }

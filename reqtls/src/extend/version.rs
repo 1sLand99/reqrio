@@ -41,6 +41,13 @@ impl SupportVersions {
         Ok(())
     }
 
+    pub fn remove_tls13(&mut self) {
+        let pos = self.versions.iter().position(|x| x == &Version::TLS_1_3);
+        if let Some(pos) = pos {
+            self.versions.remove(pos);
+        }
+    }
+
     pub fn versions(&self) -> &Vec<Version> { &self.versions }
 
     pub fn next(self) -> Option<Version> {

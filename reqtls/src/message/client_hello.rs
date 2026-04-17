@@ -182,9 +182,9 @@ impl<'a> ClientHello<'a> {
             Some(x.as_u16())
         }).collect::<Vec<_>>();
         suite.sort();
-        let mut exts = self.extensions.iter().filter_map(|x| if x.extension_type().is_reserved()||x.alps().is_some()||x.server_name().is_some() {
+        let mut exts = self.extensions.iter().filter_map(|x| if x.extension_type().is_reserved() || x.alps().is_some() || x.server_name().is_some() {
             None
-        }  else {
+        } else {
             Some(x.extension_type().as_u16())
         }).collect::<Vec<_>>();
         exts.sort();
@@ -292,6 +292,22 @@ impl<'a> ClientHello<'a> {
         match extend {
             None => self.extensions.push(Extension::new(ExtensionType::KeyShare, ExtensionValue::KeyShare(key_share))),
             Some(extend) => extend.set_key_share(key_share),
+        }
+    }
+
+    pub fn key_share_mut(&mut self) -> Option<&mut KeyShare<'a>> {
+        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::KeyShare);
+        extend.map(|x|x.key_share_mut()).unwrap_or(None)
+    }
+
+    pub fn remove_tls13(&mut self) {
+        let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::PreSharedKey);
+        if let Some(pos) = pos {
+            self.extensions.remove(pos);
+        }
+        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::SupportedVersions);
+        if let Some(ext) = extend {
+            ext.remove_tls13()
         }
     }
 }

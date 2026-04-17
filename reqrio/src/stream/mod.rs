@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::stream::config::Config;
 use crate::*;
 #[cfg(feature = "aync")]
@@ -164,22 +165,26 @@ pub trait TlsStreamHandle {
             ALPN::Http20 => client_hello.add_h2_alpn(),
             _ => client_hello.remove_h2_alpn()
         }
-        let mut key_share = KeyShare::default();
-        let x25519_secret = SecretKey::new(NamedCurve::X25519)?;
-        key_share.add_entry(NamedCurve::X25519, x25519_secret.pub_key()?);
-        let secp256r1 = SecretKey::new(NamedCurve::Secp256r1)?;
-        key_share.add_entry(NamedCurve::Secp256r1, secp256r1.pub_key()?);
-        let secp384r1 = SecretKey::new(NamedCurve::Secp384r1)?;
-        key_share.add_entry(NamedCurve::Secp384r1, secp384r1.pub_key()?);
-        let secp521r1 = SecretKey::new(NamedCurve::Secp521r1)?;
-        key_share.add_entry(NamedCurve::Secp521r1, secp521r1.pub_key()?);
-        let x25519_kem=SecretKey::new(NamedCurve::X25519MLKEM768)?;
-        key_share.add_entry(NamedCurve::X25519MLKEM768, x25519_kem.pub_key()?);
-        
-        client_hello.set_key_share(key_share);
+        let mut secrets = HashMap::new();
+        match client_hello.key_share_mut() {
+            //fingerprint not supported tls1.3
+            None => client_hello.remove_tls13(),
+            Some(key_share) => {
+                key_share.key_entries().iter().for_each(|key| {
+                    if let Ok(secret) = SecretKey::new(key.name_curve()) {
+                        secrets.insert(*key.name_curve(), secret);
+                    }
+                });
+                for key_entry in key_share.key_entries_mut() {
+                    if let Some(secret) = secrets.get(key_entry.name_curve()) {
+                        key_entry.set_exchange_key(secret.pub_key()?)
+                    }
+                }
+            }
+        }
         let len = record.write_to(buffer, 1)?;
         buffer.set_len(len);
-        conn.set_secret_keys(vec![x25519_secret, secp256r1, secp384r1, secp521r1]);
+        conn.set_secret_keys(secrets);
         conn.update_session(&buffer.filled()[5..])?;
         Ok(())
     }

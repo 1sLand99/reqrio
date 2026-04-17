@@ -29,12 +29,16 @@ impl<'a> KeyEntry<'a> {
         writer.write_slice(self.exchange.as_ref())
     }
 
-    pub fn name_curve(&self) -> NamedCurve {
-        self.group
+    pub fn name_curve(&self) -> &NamedCurve {
+        &self.group
     }
 
     pub fn exchange_key(&self) -> &Buf<'_> {
         &self.exchange
+    }
+
+    pub fn set_exchange_key(&mut self, exchange: Buf<'a>) {
+        self.exchange = exchange;
     }
 }
 
@@ -83,6 +87,14 @@ impl<'a> KeyShare<'a> {
 
     pub fn key_entry(&self) -> &KeyEntry<'_> {
         &self.entries[0]
+    }
+
+    pub fn key_entries(&self) -> &[KeyEntry<'_>] {
+        &self.entries
+    }
+
+    pub fn key_entries_mut(&mut self) -> &mut Vec<KeyEntry<'a>> {
+        &mut self.entries
     }
 }
 
