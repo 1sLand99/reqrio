@@ -9,10 +9,11 @@ pub(crate) mod rsa;
 mod evp;
 mod padding;
 pub mod base64;
+mod ml_kem;
 
 pub use padding::Padding;
 
-pub use evp::{cipher, Cipher, CipherType};
+pub use evp::{cipher, Cipher, CipherType, EvpError};
 pub use evp::{AeadCrypto, CipherCrypto, EvpCurve};
 
 pub use ec_curve::*;
@@ -23,6 +24,7 @@ use crate::error::RlsResult;
 use crate::extend::Aead;
 pub use signature::{AlgorithmSigner, SignatureAlgorithm};
 use std::ffi::c_int;
+pub use ml_kem::{X25519MlKem768, MlKemError};
 
 trait BoringResExt {
     fn ok<E>(self, error: E) -> Result<(), E>;

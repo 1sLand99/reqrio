@@ -121,7 +121,7 @@ impl RsaKey {
         RsaKey::new(rsa)
     }
 
-    pub fn pkey(&self) -> &CPointer<EVP_PKEY> {
+    pub(crate) fn pkey(&self) -> &CPointer<EVP_PKEY> {
         &self.0
     }
 }

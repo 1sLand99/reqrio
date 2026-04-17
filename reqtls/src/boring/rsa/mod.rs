@@ -20,7 +20,7 @@ pub struct RsaCipher {
 }
 
 impl RsaCipher {
-    pub fn new(key: &CPointer<EVP_PKEY>) -> RlsResult<RsaCipher> {
+    pub(crate) fn new(key: &CPointer<EVP_PKEY>) -> RlsResult<RsaCipher> {
         let ctx = CPointer::new(unsafe { EVP_PKEY_CTX_new(key.as_mut_ptr(), null_mut()) });
         if ctx.is_null() { return Err(RlsError::RsaNewError); }
         Ok(RsaCipher {

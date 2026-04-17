@@ -86,7 +86,7 @@ impl Certificate {
         Ok(String::from_utf8_lossy(out).to_string())
     }
 
-    pub fn pub_key(&mut self) -> RlsResult<&CPointer<EVP_PKEY>> {
+    pub(crate) fn pub_key(&mut self) -> RlsResult<&CPointer<EVP_PKEY>> {
         if self.pkey.is_null() {
             self.pkey = CPointer::new_checked(unsafe { X509_get_pubkey(self.x509.as_mut_ptr()) }, RlsError::PkeyNewError)?;
         }

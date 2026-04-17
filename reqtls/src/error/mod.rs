@@ -16,6 +16,7 @@ use std::string::FromUtf8Error;
 use std::sync::PoisonError;
 use std::time::SystemTimeError;
 pub use handshake::HandShakeError;
+use crate::boring::{EvpError, MlKemError};
 use crate::dns::DNSError;
 use crate::hash::HashError;
 
@@ -41,14 +42,6 @@ pub enum RlsError {
     InitEcPointError,
     OCT2PointError,
     ComputeKeyError,
-    InitEvpPKeyCtxError,
-    InitKeygenError,
-    KeyGenError,
-    GetPubKeyError,
-    NewPublicKeyError,
-    InitDeriveError,
-    SetPeerDeriveError,
-    DeriveError,
     InitEvpCtxError,
     DigestSignError,
     DigestVerifyError,
@@ -99,6 +92,8 @@ pub enum RlsError {
     Alert(Alert),
     HasherError(HashError),
     DNSError(DNSError),
+    EvpError(EvpError),
+    MlKemError(MlKemError),
 }
 
 impl Display for RlsError {
@@ -124,14 +119,6 @@ impl Display for RlsError {
             RlsError::InitEcPointError => f.write_str("Init EC point error"),
             RlsError::OCT2PointError => f.write_str("OCT2 EC point error"),
             RlsError::ComputeKeyError => f.write_str("Compute key error"),
-            RlsError::InitEvpPKeyCtxError => f.write_str("Init Evp P key ctx error"),
-            RlsError::InitKeygenError => f.write_str("Init keygen error"),
-            RlsError::KeyGenError => f.write_str("Key gen error"),
-            RlsError::GetPubKeyError => f.write_str("Get public key error"),
-            RlsError::NewPublicKeyError => f.write_str("New public key error"),
-            RlsError::InitDeriveError => f.write_str("Init derive error"),
-            RlsError::SetPeerDeriveError => f.write_str("Set peer derive error"),
-            RlsError::DeriveError => f.write_str("Derive error"),
             RlsError::InitEvpCtxError => f.write_str("Init Evp ctx error"),
             RlsError::DigestSignError => f.write_str("Digest sign error"),
             RlsError::DigestVerifyError => f.write_str("Digest verify error"),
@@ -182,6 +169,8 @@ impl Display for RlsError {
             RlsError::Currently(e) => f.write_str(e),
             RlsError::HasherError(e) => write!(f, "Hasher({})", e),
             RlsError::DNSError(e) => write!(f, "DNSError({:?})", e),
+            RlsError::EvpError(e) => write!(f, "EvpError({:?})", e),
+            RlsError::MlKemError(e) => write!(f, "MlKemError({:?})", e),
         }
     }
 }
@@ -309,6 +298,18 @@ impl From<DNSError> for RlsError {
     }
 }
 
+impl From<EvpError> for RlsError {
+    fn from(value: EvpError) -> Self {
+        RlsError::EvpError(value)
+    }
+}
+
+
+impl From<MlKemError> for RlsError {
+    fn from(value: MlKemError) -> Self {
+        RlsError::MlKemError(value)
+    }
+}
 impl Error for RlsError {}
 
 

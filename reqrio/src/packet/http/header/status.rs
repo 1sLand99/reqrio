@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 #[derive(Clone, PartialEq)]
 pub struct HttpStatus(u16);
@@ -75,6 +75,12 @@ impl HttpStatus {
 }
 
 impl Display for HttpStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}({})", self.spec(), self.code())
+    }
+}
+
+impl Debug for HttpStatus{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}({})", self.spec(), self.code())
     }

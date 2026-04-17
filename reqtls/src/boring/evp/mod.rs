@@ -2,6 +2,7 @@ use crate::boring::{CryptDecodeParam, HashType};
 mod curve;
 pub mod cipher;
 mod aead;
+mod error;
 
 use crate::boring::bindings::*;
 use crate::error::RlsResult;
@@ -13,6 +14,7 @@ use crate::boring::CryptEncodeParam;
 use crate::extend::Aead;
 use crate::hash::Hmac;
 use crate::RlsError;
+pub use error::EvpError;
 
 #[cfg_attr(feature = "export", repr(C))]
 #[allow(non_camel_case_types)]
@@ -38,7 +40,7 @@ pub enum CipherType {
 }
 
 impl CipherType {
-    pub fn as_boring(&self) -> *const EVP_CIPHER {
+    pub(crate) fn as_boring(&self) -> *const EVP_CIPHER {
         match self {
             CipherType::AES_128_CBC => unsafe { EVP_aes_128_cbc() }
             CipherType::AES_192_CBC => unsafe { EVP_aes_192_cbc() }

@@ -125,7 +125,6 @@ impl RenegotiationInfo {
     }
 }
 
-#[derive(Debug)]
 pub enum ExtensionValue<'a> {
     PskKeyExchangeMode(PskKey),
     KeyShare(KeyShare<'a>),
@@ -225,6 +224,34 @@ impl<'a> ExtensionValue<'a> {
         }
     }
 }
+
+impl<'a> Debug for ExtensionValue<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ExtensionValue::PskKeyExchangeMode(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
+            ExtensionValue::KeyShare(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
+            ExtensionValue::SupportedGroups(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
+            ExtensionValue::StatusRequest(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
+            ExtensionValue::SignatureAlgorithms(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
+            ExtensionValue::ServerName(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
+            ExtensionValue::EcPointFormats(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
+            ExtensionValue::SupportedVersions(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
+            ExtensionValue::RenegotiationInfo(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
+            ExtensionValue::ApplicationSetting(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
+            ExtensionValue::ApplicationSettingOld(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
+            ExtensionValue::EncryptedClientHello(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
+            ExtensionValue::CompressionCertificate(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
+            ExtensionValue::ApplicationLayerProtocolNegotiation(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
+            ExtensionValue::SessionTicket => write!(f, "SessionTicket"),
+            ExtensionValue::EncryptTheMac => write!(f, "EncryptTheMac"),
+            ExtensionValue::MasterSecret => write!(f, "MasterSecret"),
+            ExtensionValue::SignedCertificateTimestamp => write!(f, "SignedCertificateTimestamp"),
+            ExtensionValue::PreSharedKey(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
+            ExtensionValue::Unknown(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
+        }
+    }
+}
+
 
 #[derive(Debug)]
 pub struct Extension<'a> {

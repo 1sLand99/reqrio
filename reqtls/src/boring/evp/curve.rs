@@ -1,10 +1,9 @@
 use crate::boring::bindings::*;
+use crate::boring::evp::EvpError;
 use crate::boring::BoringResExt;
-use crate::error::RlsResult;
-use crate::ffi::CPointer;
-use crate::RlsError;
-use std::ptr::null_mut;
 use crate::buffer::Buf;
+use crate::ffi::CPointer;
+use std::ptr::null_mut;
 
 pub struct EvpCurve {
     evp_key: CPointer<EVP_PKEY>,
@@ -15,15 +14,15 @@ pub struct EvpCurve {
 
 
 impl EvpCurve {
-    pub fn new_x25519() -> RlsResult<EvpCurve> {
+    pub fn new_x25519() -> Result<EvpCurve, EvpError> {
         EvpCurve::new(EVP_PKEY_X25519, 32, 32)
     }
 
-    fn new(nid: i32, pub_len: usize, secret_len: usize) -> RlsResult<EvpCurve> {
-        let ctx = CPointer::new_checked(unsafe { EVP_PKEY_CTX_new_id(nid, null_mut()) }, RlsError::InitEvpPKeyCtxError)?;
-        unsafe { EVP_PKEY_keygen_init(ctx.as_mut_ptr()) }.ok(RlsError::InitKeygenError)?;
+    fn new(nid: i32, pub_len: usize, secret_len: usize) -> Result<EvpCurve, EvpError> {
+        let ctx = CPointer::new_checked(unsafe { EVP_PKEY_CTX_new_id(nid, null_mut()) }, EvpError::InitEvpPKeyCtxError)?;
+        unsafe { EVP_PKEY_keygen_init(ctx.as_mut_ptr()) }.ok(EvpError::InitKeygenError)?;
         let mut pkey = CPointer::nullptr();
-        unsafe { EVP_PKEY_keygen(ctx.as_mut_ptr(), pkey.as_mut()) }.ok(RlsError::KeyGenError)?;
+        unsafe { EVP_PKEY_keygen(ctx.as_mut_ptr(), pkey.as_mut()) }.ok(EvpError::KeyGenError)?;
         Ok(EvpCurve {
             evp_key: pkey,
             pub_key_len: pub_len,
@@ -32,15 +31,20 @@ impl EvpCurve {
         })
     }
 
-    pub fn pub_key(&self) -> RlsResult<Buf<'_>> {
-        let mut len = self.pub_key_len;
-        let mut pub_key = vec![0; len];
-        let ret = unsafe { EVP_PKEY_get_raw_public_key(self.evp_key.as_ptr(), pub_key.as_mut_ptr(), &mut len) };
-        if ret != 1 { return Err(RlsError::GetPubKeyError); }
+    pub fn pub_key(&self) -> Result<Buf<'_>, EvpError> {
+        let mut pub_key = vec![0; self.pub_key_len];
+        self.pub_key_out(&mut pub_key)?;
         Ok(Buf::Vec(pub_key))
     }
 
-    pub fn diffie_hellman(&mut self, pub_key: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
+    pub fn pub_key_out(&self, out: &mut [u8]) -> Result<(), EvpError> {
+        let mut len = out.len();
+        let ret = unsafe { EVP_PKEY_get_raw_public_key(self.evp_key.as_ptr(), out.as_mut_ptr(), &mut len) };
+        if len != out.len() { return Err(EvpError::GetPubKeyError); }
+        ret.ok(EvpError::GetPubKeyError)
+    }
+
+    pub fn diffie_hellman(&mut self, pub_key: impl AsRef<[u8]>) -> Result<Vec<u8>, EvpError> {
         let pub_key = CPointer::new_checked(unsafe {
             EVP_PKEY_new_raw_public_key(
                 self.nid,
@@ -48,12 +52,12 @@ impl EvpCurve {
                 pub_key.as_ref().as_ptr(),
                 pub_key.as_ref().len(),
             )
-        }, RlsError::NewPublicKeyError)?;
-        let ctx = CPointer::new_checked(unsafe { EVP_PKEY_CTX_new(self.evp_key.as_mut_ptr(), null_mut()) }, RlsError::InitEvpPKeyCtxError)?;
-        unsafe { EVP_PKEY_derive_init(ctx.as_mut_ptr()) }.ok(RlsError::InitDeriveError)?;
-        unsafe { EVP_PKEY_derive_set_peer(ctx.as_mut_ptr(), pub_key.as_mut_ptr()) }.ok(RlsError::SetPeerDeriveError)?;
+        }, EvpError::NewPublicKeyError)?;
+        let ctx = CPointer::new_checked(unsafe { EVP_PKEY_CTX_new(self.evp_key.as_mut_ptr(), null_mut()) }, EvpError::InitEvpPKeyCtxError)?;
+        unsafe { EVP_PKEY_derive_init(ctx.as_mut_ptr()) }.ok(EvpError::InitDeriveError)?;
+        unsafe { EVP_PKEY_derive_set_peer(ctx.as_mut_ptr(), pub_key.as_mut_ptr()) }.ok(EvpError::SetPeerDeriveError)?;
         let mut secret = vec![0u8; self.secret];
-        unsafe { EVP_PKEY_derive(ctx.as_mut_ptr(), secret.as_mut_ptr(), &mut self.secret) }.ok(RlsError::DeriveError)?;
+        unsafe { EVP_PKEY_derive(ctx.as_mut_ptr(), secret.as_mut_ptr(), &mut self.secret) }.ok(EvpError::DeriveError)?;
         Ok(secret)
     }
 }

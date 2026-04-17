@@ -149,7 +149,7 @@ impl AlgorithmSigner {
         Ok(AlgorithmSigner { md_ctx })
     }
 
-    pub fn new_verify(pkey: &CPointer<EVP_PKEY>, signature: &SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
+    pub(crate) fn new_verify(pkey: &CPointer<EVP_PKEY>, signature: &SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
         let md_ctx = CPointer::new_checked(unsafe { EVP_MD_CTX_new() }, RlsError::InitEvpCtxError)?;
         match signature.as_u16() {
             SignatureAlgorithm::RSA_PKCS1_SHA1 => {
@@ -171,7 +171,7 @@ impl AlgorithmSigner {
         }
     }
 
-    pub fn new_sign(pkey: &CPointer<EVP_PKEY>, signature: &SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
+    pub(crate) fn new_sign(pkey: &CPointer<EVP_PKEY>, signature: &SignatureAlgorithm) -> RlsResult<AlgorithmSigner> {
         let md_ctx = CPointer::new_checked(unsafe { EVP_MD_CTX_new() }, RlsError::InitEvpCtxError)?;
         match signature.as_u16() {
             SignatureAlgorithm::RSA_PKCS1_SHA1 => {
