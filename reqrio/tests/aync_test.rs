@@ -25,8 +25,8 @@ async fn test_tls13() {
 #[tokio::test]
 async fn test_auto_redirect() {
     let mut req = AcReq::new().with_alpn(ALPN::Http20).with_auto_redirect(false);
-    let res = req.get("https://www.bing.com", None).await.unwrap();
-    assert_eq!(res.header().status(), &HttpStatus::Found);
+    let res = req.get("https://bing.com/", None).await.unwrap();
+    assert_eq!(res.header().status(), &HttpStatus::Move);
 
     let mut req = AcReq::new();
     let res = req.get("https://www.github.com", None).await.unwrap();
