@@ -38,7 +38,7 @@ async fn test_auto_redirect() {
 async fn test_cipher() {
     //TLS1.3: TLS_AES_128_GCM_SHA256
     let mut req = AcReq::new()
-        .with_timeout(Timeout::longer())
+        // .with_timeout(Timeout::longer())
         .with_auto_redirect(false);
     req.get("https://m.sogou.com", None).await.unwrap();
     //TLS1.3: TLS_AES_256_GCM_SHA384
