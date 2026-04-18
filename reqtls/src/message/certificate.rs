@@ -32,7 +32,10 @@ impl<'a> Certificates<'a> {
             let len = reader.read_24()? as usize;
             certificates.push(Buf::Ref(reader.read_slice(len)?));
             if let Version::TLS_1_3 = version {
-                reader.read_u16()?; //ext len
+                let ext_len = reader.read_u16()?; //ext len
+                if ext_len > 0 {
+                    println!("cert ext: {:?}", reader.read_slice(ext_len as usize)?)
+                }
             }
         }
         Ok(Certificates {

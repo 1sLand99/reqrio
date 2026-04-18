@@ -5,18 +5,26 @@ use crate::hkdf::Hkdf;
 use crate::HashType;
 use std::mem::MaybeUninit;
 use std::ptr::null_mut;
+use crate::hash::HashError;
 
 #[derive(Debug)]
 pub enum MlKemError {
     InvalidPubKeyLen(usize),
     NewPrivateKeyError,
     DecapError,
-    EvpError(EvpError),
+    Evp(EvpError),
+    Hmac(HashError)
 }
 
 impl From<EvpError> for MlKemError {
     fn from(e: EvpError) -> Self {
-        MlKemError::EvpError(e)
+        MlKemError::Evp(e)
+    }
+}
+
+impl From<HashError> for MlKemError {
+    fn from(e: HashError) -> Self {
+        MlKemError::Hmac(e)
     }
 }
 
@@ -98,13 +106,13 @@ impl X25519MlKem768 {
     }
 
     pub fn diffie_hellman(&mut self, server: bool, key: &[u8]) -> Result<Vec<u8>, MlKemError> {
-        let x25519_secret = self.x25519.diffie_hellman(&key.as_ref()[..32])?;
+        let x25519_secret = self.x25519.diffie_hellman(&key[..32])?;
         let (_, kem) = match server {
-            true => self.kem768.encap(&key.as_ref()[32..]),
-            false => ([0; MlKem768::MLKEM768_CIPHERTEXT_BYTES], self.kem768.decap(&key.as_ref()[32..])?)
+            true => self.kem768.encap(&key[32..]),
+            false => ([0; MlKem768::MLKEM768_CIPHERTEXT_BYTES], self.kem768.decap(&key[32..])?)
         };
         let hybrid = [x25519_secret.as_slice(), &kem].concat();
-        let mut hkdf = Hkdf::new(&[], &hybrid, HashType::Sha256).unwrap();
+        let mut hkdf = Hkdf::new(&[], &hybrid, HashType::Sha256)?;
         let mut out = vec![0; 32];
         hkdf.extend(&[], &mut out).unwrap();
         Ok(out)

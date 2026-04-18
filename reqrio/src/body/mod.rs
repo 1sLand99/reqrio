@@ -140,7 +140,7 @@ impl<'a> Body<'a> {
     pub(crate) fn none() -> Body<'a> {
         Body {
             kind: BodyKind::Bytes(Cow::Borrowed(&[])),
-            ct: ContentType::Application(Application::OctetStream),
+            ct: ContentType::Null,
         }
     }
 

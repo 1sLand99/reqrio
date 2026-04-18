@@ -294,7 +294,8 @@ impl<'a> Extension<'a> {
                 Some(ExtensionValue::CompressionCertificate(cp_cer))
             }
             ExtensionType::SupportedVersions => {
-                let mut supported_versions = SupportVersions::new();
+                let mut supported_versions = SupportVersions::default();
+                supported_versions.push(Version::TLS_1_3);
                 supported_versions.push(Version::TLS_1_2);
                 Some(ExtensionValue::SupportedVersions(supported_versions))
             }

@@ -47,7 +47,7 @@ async fn test_cipher() {
     req.get("https://zwfw.hubei.gov.cn", None).await.unwrap();
     //TLS1.2: TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
     let mut req = AcReq::new();
-    req.get("https://oauth.hubei.gov.cn", None).await.unwrap();
+    req.get("https://oauth.hubei.gov.cn:8443", None).await.unwrap();
     //TLS1.2: TLS_RSA_WITH_AES_256_GCM_SHA384
     let mut req = AcReq::new();
     req.get("https://www.link114.cn/", None).await.unwrap();

@@ -147,7 +147,7 @@ impl TryFrom<&str> for Url {
         }
         let uri = if addr_pos != url.len() {
             //在uri中存在`://`时，应该是带代理的url（如wss://），这里需要把`/`去除
-            if url.contains("://") { addr_pos += 1; }
+            if url.split("?").next().map(|x| x.contains("://")).unwrap_or(false) { addr_pos += 1; }
             Uri::try_from(&url[addr_pos..])?
         } else { Uri::default() };
         Ok(Url {
@@ -190,35 +190,27 @@ mod tests {
     fn test_url() {
         let url1 = "https://docs.rs/urlencoding/2.1.3/urlencoding/";
         let url = Url::try_from(url1).unwrap();
-        println!("{:#?}", url);
         assert_eq!(url.to_string(), url1);
         let url2 = "http://www.lxspider.com/?p=956";
         let url = Url::try_from(url2).unwrap();
-        println!("{:#?}", url);
         assert_eq!(url.to_string(), url2);
         let url3 = "https://fxg.jinritemai.com/ffa/morder/order/list?btm_ppre=a2427.b76571.c902327.d871297&btm_pre=a2427.b76571.c902327.d871297&btm_show_id=1bf5f779-f687-47db-8637-4941db8e409f";
         let url = Url::try_from(url3).unwrap();
-        println!("{:#?}", url);
         assert_eq!(url.to_string(), url3);
         let url4 = "https://cn.bing.com/search?q=abogus%E8%A1%A5%E7%8E%AF%E5%A2%83&qs=UT&pq=abogus&sk=OS1LT1&sc=5-6&cvid=50BFA522127149719EEDBC510E8F26D2&sp=3&ghc=1&lq=0&ajf=60&mkt=zh-CN&FPIG=078354D7800D43BBA67D7529C688C765&first=10&FORM=PORE1&ajf=70&dayref=1&ajf=10";
         let url = Url::try_from(url4).unwrap();
-        println!("{:#?}", url);
         assert_eq!(url.to_string(), url4);
         let url5 = "https://www.baidu.com/";
         let url = Url::try_from(url5).unwrap();
-        println!("{:#?}", url);
         assert_eq!(url.to_string(), url5);
         let url6 = "socks5://127.0.0.1:1023";
         let url = Url::try_from(url6).unwrap();
-        println!("{:#?} {}", url, url.to_string() == url6);
         assert_eq!(url.to_string(), format!("{}", url6));
         let url7 = "http://127.0.0.1:8080";
         let url = Url::try_from(url7).unwrap();
-        println!("{:#?}", url);
         assert_eq!(url.to_string(), format!("{}", url7));
         let url8 = "https://www.so.com/link?m=uJUHfEbfz+ZVSx90v4iLs4mlJ1cSfmojdrI1pYls/wftn5aL/ll53A6XAa1BSX2UtYWvcHBuUKSEURqhhVHtJNCWxeXYrgMOwkXoRLHGJ4yHLzOB1C61LDwQTgDd5OjTmAFlu3YJVdfU=";
         let url = Url::try_from(url8).unwrap();
-        println!("{:#?}", url);
         assert_eq!(url.to_string(), url8);
         let url9 = "wss://poe.game.qq.com/";
         let mut uri = Url::try_from(url9).unwrap();
@@ -231,5 +223,8 @@ mod tests {
         let url = Url::try_from(url6).unwrap();
         println!("{}", url);
         assert_eq!(url.to_string(), url6);
+        let url11 = "https://login.gjzwfw.gov.cn/tacs-uc/sso/loginTrust?backUrl=https://oauth.hubei.gov.cn:8443/uias/mainChain.do?appCode=hbzwfw&checkUser=1";
+        let url = Url::try_from(url11).unwrap();
+        assert_eq!(url.to_string(), url11);
     }
 }

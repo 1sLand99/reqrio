@@ -57,8 +57,7 @@ impl DerivedKey {
             false => ("master secret", [self.client_random, self.server_random].concat())
         };
         self.prf.prf(&share_secret, label, &seed, &mut self.master_secret)?;
-        let mut f = OpenOptions::new().create(true).append(true).open("2.log")?;
-        f.write_all(format!("CLIENT_RANDOM {} {}\r\n", hex::encode(self.client_random.as_ref()), hex::encode(self.master_secret)).as_bytes())?;
+        self.export_key("CLIENT_RANDOM", hex::encode(self.master_secret))?;
         Ok(())
     }
 

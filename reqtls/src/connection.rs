@@ -91,7 +91,7 @@ impl Connection {
         self.derived.set_ems(server_hello.use_ems());
         if Version::TLS_1_3 == self.version {
             let key_entry = server_hello.share_key().unwrap().key_entry();
-            let mut secret_key = self.secret_keys.remove(&key_entry.name_curve()).ok_or("secret not inited")?;
+            let mut secret_key = self.secret_keys.remove(key_entry.name_curve()).ok_or("secret not inited")?;
             let share_secret = secret_key.diffie_hellman(key_entry.exchange_key().as_ref())?;
             self.derived.make_handshake_traffic_secret(share_secret, self.cipher_suite.current_session_hash()?)?;
             let aead = self.cipher_suite.aead().unwrap();

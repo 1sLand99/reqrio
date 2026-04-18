@@ -182,6 +182,7 @@ pub trait TlsStreamHandle {
                 }
             }
         }
+        // println!("{:#?}", record);
         let len = record.write_to(buffer, 1)?;
         buffer.set_len(len);
         conn.set_secret_keys(secrets);

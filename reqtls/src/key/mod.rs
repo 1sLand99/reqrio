@@ -40,7 +40,7 @@ pub enum SecretKey {
     Evp(EvpCurve),
     Ec(EcCurve),
     PreMasterSecret(Bytes),
-    Hybrid(X25519MlKem768),
+    Hybrid(Box<X25519MlKem768>),
 }
 
 impl SecretKey {
@@ -56,7 +56,7 @@ impl SecretKey {
             NamedCurve::Secp256r1 => Ok(SecretKey::Ec(EcCurve::new_p256()?)),
             NamedCurve::Secp384r1 => Ok(SecretKey::Ec(EcCurve::new_p384()?)),
             NamedCurve::Secp521r1 => Ok(SecretKey::Ec(EcCurve::new_p521()?)),
-            NamedCurve::X25519MLKEM768 => Ok(SecretKey::Hybrid(X25519MlKem768::new_client()?)),
+            NamedCurve::X25519MLKEM768 => Ok(SecretKey::Hybrid(Box::from(X25519MlKem768::new_client()?))),
             _ => Err(format!("Unsupported name curve-{:?}", name_cure).into()),
         }
     }

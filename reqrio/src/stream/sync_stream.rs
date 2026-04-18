@@ -37,7 +37,7 @@ impl<S: Read + Write> SyncStream<S> {
         Ok(stream)
     }
     pub fn connect(config: ClientConfig, stream: S) -> HlsResult<SyncStream<S>> {
-        SyncStream::new(stream, Connection::default().with_verify(config.verify), Config::Client(config), Buffer::default())
+        SyncStream::new(stream, Connection::from_client(rand::random(), config.key_log.clone()).with_verify(config.verify), Config::Client(config), Buffer::default())
     }
 
     pub fn accept(stream: S, config: ServerConfig<'_>) -> HlsResult<SyncStream<S>> {

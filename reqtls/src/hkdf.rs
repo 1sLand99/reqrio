@@ -1,6 +1,7 @@
 use crate::error::RlsResult;
 use crate::{HashType, Hmac};
 use std::borrow::Cow;
+use crate::hash::HashError;
 
 #[allow(dead_code)]
 pub struct Hkdf<'a> {
@@ -10,7 +11,7 @@ pub struct Hkdf<'a> {
 
 
 impl<'a> Hkdf<'a> {
-    pub fn new(salt: &[u8], ikm: &[u8], hash: HashType) -> RlsResult<Hkdf<'a>> {
+    pub fn new(salt: &[u8], ikm: &[u8], hash: HashType) -> Result<Hkdf<'a>, HashError> {
         let prk = match salt.is_empty() {
             true => Hkdf::extract(hash, &vec![0; hash.hash_size()], ikm)?,
             false => Hkdf::extract(hash, salt, ikm)?
@@ -25,7 +26,7 @@ impl<'a> Hkdf<'a> {
         }
     }
 
-    pub fn extract(hash: HashType, salt: &[u8], ikm: &[u8]) -> RlsResult<Vec<u8>> {
+    pub fn extract(hash: HashType, salt: &[u8], ikm: &[u8]) -> Result<Vec<u8>, HashError> {
         let mut out = vec![0; hash.hash_size()];
         let mut hmac = Hmac::new(salt, hash)?;
         hmac.update(ikm)?;
