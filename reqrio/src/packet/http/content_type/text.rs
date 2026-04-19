@@ -11,6 +11,7 @@ pub enum Text {
     Xml,
     XComponent,
     Json,
+    Custom(String),
 }
 
 impl Text {
@@ -23,7 +24,8 @@ impl Text {
             Text::EventStream => "text/event-stream",
             Text::Xml => "text/xml",
             Text::XComponent => "text/x-component",
-            Text::Json => "text/json"
+            Text::Json => "text/json",
+            Text::Custom(spec) => spec,
         }
     }
 }
@@ -46,7 +48,7 @@ impl TryFrom<&str> for Text {
             "xml" => Ok(Text::Xml),
             "x-component" => Ok(Text::XComponent),
             "json" => Ok(Text::Json),
-            _ => Err(format!("invalid text type {} ", value).into()),
+            _ => Ok(Text::Custom(value.to_string())),
         }
     }
 }

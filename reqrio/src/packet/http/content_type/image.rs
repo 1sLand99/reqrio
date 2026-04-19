@@ -13,6 +13,7 @@ pub enum ImageType {
     SvgXml,
     XIcon,
     WxPic,
+    Custom(String),
 }
 
 impl ImageType {
@@ -27,7 +28,8 @@ impl ImageType {
             ImageType::Jpeg => "image/jpeg",
             ImageType::SvgXml => "image/svg+xml",
             ImageType::XIcon => "image/x-icon",
-            ImageType::WxPic => "image/wxpic"
+            ImageType::WxPic => "image/wxpic",
+            ImageType::Custom(value) => value,
         }
     }
 }
@@ -51,7 +53,7 @@ impl TryFrom<&str> for ImageType {
             "apng" => Ok(ImageType::Apng),
             "avif" => Ok(ImageType::AVif),
             "x-icon" => Ok(ImageType::XIcon),
-            _ => Err(format!("invalid image type {}", value).into()),
+            _ => Ok(ImageType::Custom(value.to_string())),
         }
     }
 }

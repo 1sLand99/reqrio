@@ -5,13 +5,15 @@ use std::fmt::{Display, Formatter};
 pub enum Video {
     Mp4,
     MP2T,
+    Custom(String),
 }
 
 impl Video {
     pub fn spec(&self) -> &str {
         match self {
             Video::Mp4 => "video/mp4",
-            Video::MP2T => "video/mp2t"
+            Video::MP2T => "video/mp2t",
+            Video::Custom(spec) => spec,
         }
     }
 }
@@ -28,7 +30,7 @@ impl TryFrom<&str> for Video {
         match value.to_lowercase().as_str() {
             "mp4" => Ok(Video::Mp4),
             "mp2t" => Ok(Video::MP2T),
-            _ => Err(format!("invalid video type: {}", value).into())
+            _ => Ok(Video::Custom(value.to_string())),
         }
     }
 }

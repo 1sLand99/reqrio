@@ -25,6 +25,7 @@ pub enum ContentType {
     Video(Video),
     Binary(BinaryType),
     Upgrade,
+    Custom(String),
     Null,
 }
 
@@ -51,6 +52,7 @@ impl ContentType {
             ContentType::Video(v) => Cow::Borrowed(v.spec()),
             ContentType::Binary(_) => Cow::Borrowed("binary/octet-stream"),
             ContentType::Upgrade => Cow::Borrowed("Upgrade"),
+            ContentType::Custom(v) => Cow::Borrowed(v),
             ContentType::Null => Cow::Borrowed(""),
         }
     }
@@ -79,7 +81,7 @@ impl TryFrom<&str> for ContentType {
             "jpeg" => Ok(ContentType::Image(ImageType::Jpeg)),
             "upgrade" => Ok(ContentType::Upgrade),
             "binary" => Ok(ContentType::Binary(BinaryType::OctetStream)),
-            _ => Err(format!("invalid content type: {}", value).into()),
+            _ => Ok(ContentType::Custom(value.to_string())),
         }
     }
 }
@@ -95,6 +97,30 @@ impl TryFrom<String> for ContentType {
     type Error = HlsError;
     fn try_from(value: String) -> Result<Self, Self::Error> {
         ContentType::try_from(value.as_str())
+    }
+}
+
+impl From<Application> for ContentType {
+    fn from(value: Application) -> Self {
+        ContentType::Application(value)
+    }
+}
+
+impl From<ImageType> for ContentType {
+    fn from(value: ImageType) -> Self {
+        ContentType::Image(value)
+    }
+}
+
+impl From<Text> for ContentType {
+    fn from(value: Text) -> Self {
+        ContentType::Text(value)
+    }
+}
+
+impl From<Font> for ContentType {
+    fn from(value: Font) -> Self {
+        ContentType::Font(value)
     }
 }
 

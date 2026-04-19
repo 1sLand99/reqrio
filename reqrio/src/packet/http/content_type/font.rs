@@ -7,6 +7,7 @@ pub enum Font {
     Woff,
     Otf,
     Ttf,
+    Custom(String),
 }
 
 impl Font {
@@ -15,7 +16,8 @@ impl Font {
             Font::Woff2 => "font/woff2",
             Font::Woff => "font/woff",
             Font::Otf => "font/otf",
-            Font::Ttf => "font/ttf"
+            Font::Ttf => "font/ttf",
+            Font::Custom(spec) => spec,
         }
     }
 }
@@ -34,7 +36,7 @@ impl TryFrom<&str> for Font {
             "woff" => Ok(Font::Woff),
             "otf" => Ok(Font::Otf),
             "ttf" => Ok(Font::Ttf),
-            _ => Err(format!("invalid font type {} ", value).into()),
+            _ => Ok(Font::Custom(value.to_string())),
         }
     }
 }

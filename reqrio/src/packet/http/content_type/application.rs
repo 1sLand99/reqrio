@@ -23,6 +23,8 @@ pub enum Application {
     Jose,
     FontWoff,
     Pdf,
+    Proto,
+    Custom(String),
 }
 
 impl Application {
@@ -47,7 +49,9 @@ impl Application {
             Application::XGzip => "application/x-gzip",
             Application::Jose => "application/jose",
             Application::FontWoff => "application/font-woff",
-            Application::Pdf => "application/pdf"
+            Application::Pdf => "application/pdf",
+            Application::Proto => "application/proto",
+            Application::Custom(spec) => spec
         }
     }
 }
@@ -81,7 +85,8 @@ impl TryFrom<&str> for Application {
             "jose" => Ok(Application::Jose),
             "font-woff" => Ok(Application::FontWoff),
             "pdf" => Ok(Application::Pdf),
-            _ => Err(format!("Unknown application-{}", value).into())
+            "proto" => Ok(Application::Proto),
+            _ => Ok(Application::Custom(value.to_string())),
         }
     }
 }
