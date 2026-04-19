@@ -4,7 +4,7 @@ use super::ext::TimeoutRW;
 use crate::error::HlsResult;
 use crate::stream::config::Config;
 use crate::stream::{ConnParam, TlsStreamHandle};
-use crate::{Buffer, ClientConfig, ProxyStream, ServerConfig};
+use crate::{Buffer, ClientConfig, HlsError, ProxyStream, ServerConfig};
 use connect::{Connecting, Handshake};
 use reqtls::{rand, Alert, Connection, RecordLayer, RecordType, Version, WriteExt, ALPN};
 use std::io::Error;
@@ -161,7 +161,10 @@ impl<S: AsyncWrite + Unpin> TlsStream<S> {
         loop {
             let stream = Pin::new(&mut self.stream);
             match stream.poll_write(cx, self.write_buffer.filled())? {
-                Poll::Ready(wrote) => if self.write_buffer.used_empty(wrote) { break },
+                Poll::Ready(wrote) => {
+                    if wrote == 0 { return Poll::Ready(Err(HlsError::PeerClosedConnection)); }
+                    if self.write_buffer.used_empty(wrote) { break; }
+                }
                 Poll::Pending => return Poll::Pending,
             }
         }

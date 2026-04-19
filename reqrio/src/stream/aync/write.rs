@@ -35,9 +35,9 @@ pin_project! {
         #[pin]
         pub(crate) stream: &'a mut S,
         pub(crate) timeout: bool,
+        pub(crate) buf: &'a [u8],
         #[pin]
         pub(crate) sleep: Sleep,
-        pub(crate) buf: &'a [u8]
     }
 }
 
@@ -50,10 +50,9 @@ impl<'a, S: AsyncWrite + Unpin> Future for WriteAll<'a, S> {
                 if wrote == 0 { return Poll::Ready(Err(io::ErrorKind::WriteZero.into())); }
                 let (_, remain) = write.buf.split_at(wrote);
                 *write.buf = remain;
+                continue;
             }
-            if let Poll::Ready(ready) = poll_sleep(*write.timeout, write.sleep.as_mut(), cx, || Err(TimeError::WriteTimeout.into())) {
-                return Poll::Ready(ready);
-            }
+            return poll_sleep(*write.timeout, write.sleep.as_mut(), cx, || Err(TimeError::WriteTimeout.into()));
         }
         Poll::Ready(Ok(()))
     }
