@@ -52,3 +52,10 @@ async fn test_cipher() {
     //TLS1.2: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
     req.get("https://www.bing.com", None).await.unwrap();
 }
+
+#[tokio::test]
+async fn test_hello_retry() {
+    let mut req = AcReq::new().with_alpn(ALPN::Http20).with_auto_redirect(false);
+    let res = req.get("https://bing.com/", None).await.unwrap();
+    assert_eq!(res.header().status(), &HttpStatus::Move);
+}

@@ -133,6 +133,10 @@ impl<'a> ServerHello<'a> {
         Ok(())
     }
 
+    pub fn random(&self) -> &Buf<'a> {
+        &self.random
+    }
+
     pub fn set_random(&mut self, random: &'a [u8]) {
         self.random = Buf::Ref(random);
     }
@@ -148,7 +152,7 @@ impl<'a> ServerHello<'a> {
         } else { None }
     }
 
-    pub fn share_key(&self) -> Option<&KeyShare<'_>> {
+    pub fn key_share_extend(&self) -> Option<&KeyShare<'_>> {
         let extend = self.extensions.iter().find(|x| x.extension_type() == &ExtensionType::KeyShare)?;
         if let ExtensionValue::KeyShare(key) = extend.value() {
             Some(key)

@@ -51,7 +51,7 @@ impl<'a> RecordLayer<'a> {
         RecordLayer::new(RecordType::HandShake)
     }
 
-    pub fn from_bytes(bytes: &'a [u8], payload: bool, suite: Option<&CipherSuite>) -> RlsResult<RecordLayer<'a>> {
+    pub fn from_bytes(bytes: &'a [u8], suite: Option<&CipherSuite>) -> RlsResult<RecordLayer<'a>> {
         if bytes.len() < 5 { return Err(BufferError::Insufficient.into()); }
         let mut reader = Reader::from_slice(bytes);
         let mut res = RecordLayer::new(RecordType::from_byte(reader.read_u8()?).ok_or("LayerType Unknown")?);
@@ -60,13 +60,7 @@ impl<'a> RecordLayer<'a> {
         if reader.unread_len() < res.len as usize { return Err(BufferError::Insufficient.into()); }
         let mut reader = reader.read_reader(res.len as usize)?;
         while reader.unread_len() > 0 {
-            let message = match res.context_type {
-                RecordType::CipherSpec => {
-                    reader.read_u8()?;
-                    Message::CipherSpec
-                }
-                _ => Message::from_reader(&mut reader, payload, suite, Version::TLS_1_2).unwrap(),
-            };
+            let message = Message::from_reader(&mut reader, &res.context_type, suite, Version::TLS_1_2)?;
             res.messages.push(message);
         }
         Ok(res)

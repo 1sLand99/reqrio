@@ -185,13 +185,13 @@ impl ScReq {
                         Ok(res)
                     };
                 }
-                Err(e) => if i != self.timeout.handle_times() - 1 {
+                Err(e) => if i < self.timeout.handle_times() - 1 {
                     if self.timeout.is_peer_closed(e.to_string()) {
                         self.re_conn()?;
                     }
                     println!("[ScReq] write/recv error, error: {}, handle: {}/{}", e, i + 2, self.timeout.handle_times());
                     continue;
-                } else { println!("{}", e.to_string()) }
+                } else { return Err(e) }
             }
         }
         Err("stream io error".into())
@@ -219,10 +219,10 @@ impl ScReq {
                     if self.header.alpn() == &ALPN::Http20 { self.handle_h2_setting()?; }
                     return Ok(());
                 }
-                Err(e) => if i != self.timeout.connect_times() - 1 {
+                Err(e) => if i < self.timeout.connect_times() - 1 {
                     println!("[ScReq] continue with error-{}, handle: {}/{}", e, i + 2, self.timeout.handle_times());
                     continue;
-                }
+                } else { return Err(e) }
             }
         }
         Err("[ScReq] connection error".into())

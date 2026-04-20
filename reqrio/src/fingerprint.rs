@@ -64,7 +64,7 @@ impl Fingerprint {
 
     pub fn random(token: impl AsRef<str>) -> HlsResult<Fingerprint> {
         let mut res = Fingerprint::default();
-        let mut record = RecordLayer::from_bytes(&mut res.client_hello, false, None)?;
+        let mut record = RecordLayer::from_bytes(&mut res.client_hello, None)?;
         record.messages = vec![Message::ClientHello(ClientHello::random())];
         let mut buffer = Buffer::with_capacity(2000);
         res.legal_subscript = buffer.check_subscription(token)?;
@@ -109,7 +109,7 @@ impl Fingerprint {
     }
 
     pub fn set_ja3(&mut self, ja3: impl AsRef<str>, token: impl AsRef<str>) -> HlsResult<()> {
-        let mut record = RecordLayer::from_bytes(&mut self.client_hello, false, None)?;
+        let mut record = RecordLayer::from_bytes(&mut self.client_hello, None)?;
         let client_hello = record.messages[0].client_mut().ok_or(HlsError::NullPointer)?;
         let mut items = ja3.as_ref().split(",");
         let version = items.next().ok_or("version not found")?.parse::<u16>()?;
@@ -150,7 +150,7 @@ impl Fingerprint {
     }
 
     pub fn set_ja4(&mut self, ja4: impl AsRef<str>, token: impl AsRef<str>) -> HlsResult<()> {
-        let mut record = RecordLayer::from_bytes(&mut self.client_hello, false, None)?;
+        let mut record = RecordLayer::from_bytes(&mut self.client_hello, None)?;
         let client_hello = record.messages[0].client_mut().ok_or(RlsError::ClientHelloNone)?;
         let items = ja4.as_ref().split("_").collect::<Vec<_>>();
         if items.len() != 4 { return Err("ja4 is error".into()); }

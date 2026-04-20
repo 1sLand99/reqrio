@@ -247,6 +247,8 @@
 //! * br
 //! * zstd
 
+extern crate core;
+
 mod extend;
 mod message;
 mod prf;

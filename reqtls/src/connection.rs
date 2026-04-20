@@ -12,7 +12,7 @@ use crate::error::{HandShakeError, RlsResult};
 use crate::*;
 use std::mem;
 use std::path::PathBuf;
-use crate::message::EncryptedExtension;
+use crate::message::{EncryptedExtension, HandshakeType};
 
 pub struct Connection {
     read: TlsCipher,
@@ -38,6 +38,8 @@ impl Default for Connection {
 }
 
 impl Connection {
+    const HRR_MAGIC: [u8; 32] = [207, 33, 173, 116, 229, 154, 97, 17, 190, 29, 140, 2, 30, 101, 184, 145, 194, 162, 17, 22, 122, 187, 140, 94, 7, 158, 9, 226, 200, 168, 51, 156];
+
     pub fn new(client_random: [u8; 32], server_random: [u8; 32], key_log: Option<PathBuf>) -> Connection {
         Connection {
             read: TlsCipher::none(),
@@ -46,7 +48,7 @@ impl Connection {
             exchange_pub_key: Bytes::none(),
             alpn: None,
             cipher_suite: CipherSuite::new(0),
-            session_bytes: vec![],
+            session_bytes: Vec::with_capacity(4096),
             derived: DerivedKey::new(client_random, server_random, key_log),
             certificates: vec![],
             verify: false,
@@ -76,21 +78,38 @@ impl Connection {
         self
     }
 
-    pub fn set_by_server_hello(&mut self, server_hello: &ServerHello) -> RlsResult<()> {
+    pub fn hello_retry(&mut self, client_hello: &[u8]) -> RlsResult<()> {
+        let cl = u32::from_be_bytes([0, self.session_bytes[1], self.session_bytes[2], self.session_bytes[3]]) as usize + 4;
+        self.cipher_suite.update(&self.session_bytes[..cl])?;
+        let session_hash = self.cipher_suite.current_session_hash()?;
+        self.session_bytes[0] = HandshakeType::MessageHash as u8;
+        self.session_bytes[1] = 0;
+        self.session_bytes[2] = 0;
+        self.session_bytes[3] = session_hash.len() as u8;
+        self.session_bytes[4..session_hash.len() + 4].copy_from_slice(session_hash);
+        let len = self.session_bytes.len();
+        self.session_bytes.copy_within(cl..len, session_hash.len() + 4);
+        unsafe { self.session_bytes.set_len(session_hash.len() + 4 + len - cl); }
+        self.cipher_suite = CipherSuite::new(0);
+        self.update_session(client_hello)
+    }
+
+    pub fn set_by_server_hello(&mut self, server_hello: &ServerHello) -> RlsResult<bool> {
         self.alpn = server_hello.alpn();
         self.cipher_suite = server_hello.cipher_suite.as_u16().into();
         self.cipher_suite.init_aead_hasher()?;
-        self.cipher_suite.update(&self.session_bytes)?;
-        let hasher = self.cipher_suite.hasher().as_ref().ok_or(HashError::HasherNone)?;
-        let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
         if let Some(version) = server_hello.supported_version() {
             self.version = *version;
         }
+        if server_hello.random().as_ref() == Self::HRR_MAGIC { return Ok(true); }
+        self.cipher_suite.update(&self.session_bytes)?;
+        let hasher = self.cipher_suite.hasher().as_ref().ok_or(HashError::HasherNone)?;
+        let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
         self.derived.init(aead, hasher, &self.version);
         self.derived.set_server_random(server_hello.random.as_ref().try_into()?);
         self.derived.set_ems(server_hello.use_ems());
         if Version::TLS_1_3 == self.version {
-            let key_entry = server_hello.share_key().unwrap().key_entry();
+            let key_entry = server_hello.key_share_extend().unwrap().key_entry();
             let mut secret_key = self.secret_keys.remove(key_entry.name_curve()).ok_or("secret not inited")?;
             let share_secret = secret_key.diffie_hellman(key_entry.exchange_key().as_ref())?;
             self.derived.make_handshake_traffic_secret(share_secret, self.cipher_suite.current_session_hash()?)?;
@@ -109,7 +128,7 @@ impl Connection {
                 self.read.set_iv(Iv::new(recv_iv, vec![]));
             }
         }
-        Ok(())
+        Ok(false)
     }
 
     pub fn set_by_encrypted_extension(&mut self, encrypted: &EncryptedExtension) {
@@ -309,6 +328,10 @@ impl Connection {
             self.cipher_suite.update(data)?;
         }
         Ok(())
+    }
+
+    pub fn session_bytes(&self) -> &[u8] {
+        &self.session_bytes
     }
 
     pub fn cipher_suite(&self) -> &CipherSuite { &self.cipher_suite }

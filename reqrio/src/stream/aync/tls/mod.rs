@@ -6,7 +6,7 @@ use crate::stream::config::Config;
 use crate::stream::{ConnParam, TlsStreamHandle};
 use crate::{Buffer, ClientConfig, ProxyStream, ServerConfig};
 use connect::{Connecting, Handshake};
-use reqtls::{rand, Alert, Connection, RecordLayer, RecordType, Version, WriteExt, ALPN};
+use reqtls::{rand, Alert, Connection, HandShakeError, RecordType, Version, WriteExt, ALPN};
 use std::io::Error;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -87,8 +87,9 @@ impl<S> TlsStreamHandle for TlsStream<S> {
 
 impl<S> TlsStream<S> {
     fn read_message(&mut self, buf: &mut ReadBuf<'_>, record_len: usize) -> io::Result<usize> {
-        let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, None)?;
-        match record.context_type {
+        let record_type = RecordType::from_byte(self.read_buffer.filled()[0])
+            .ok_or(HandShakeError::UnknownRecord(self.read_buffer.filled()[0]))?;
+        match record_type {
             RecordType::CipherSpec => {
                 self.handshake_finished = true;
                 self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);

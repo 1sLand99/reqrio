@@ -15,7 +15,7 @@ pub use key_exchange::{ClientKeyExchange, ServerKeyExchange, NamedCurve};
 pub use server_hello::{ServerHello, ServerHelloDone};
 pub use session_ticket::{SessionTicket, TlsSessionTicket};
 use std::fmt::Debug;
-use crate::{BufferError, CipherSuite, ReadExt, Reader, Version, WriteExt};
+use crate::{BufferError, CipherSuite, HandShakeError, ReadExt, Reader, RecordType, Version, WriteExt};
 pub use certificate::{CertificateVerify, CertificateRequest};
 use crate::buffer::Buf;
 pub use encrypted_extension::EncryptedExtension;
@@ -40,35 +40,46 @@ pub enum Message<'a> {
 }
 
 impl<'a> Message<'a> {
-    pub fn from_bytes(bytes: &'a [u8], payload: bool, suite: Option<&CipherSuite>, version: Version) -> RlsResult<Message<'a>> {
+    pub fn from_bytes(bytes: &'a [u8], record_type: &RecordType, suite: Option<&CipherSuite>, version: Version) -> RlsResult<Message<'a>> {
         let mut reader = Reader::from_slice(bytes);
-        Message::from_reader(&mut reader, payload, suite, version)
+        Message::from_reader(&mut reader, record_type, suite, version)
     }
 
-    pub fn from_reader(reader: &mut Reader<'a>, payload: bool, suite: Option<&CipherSuite>, version: Version) -> RlsResult<Message<'a>> {
-        if !payload {
-            let handshake_type = HandshakeType::from_byte(reader.read_u8()?).unwrap();
-            match handshake_type {
-                HandshakeType::ClientHello => Ok(Message::ClientHello(ClientHello::from_bytes(handshake_type, reader)?)),
-                HandshakeType::ServerHello => Ok(Message::ServerHello(ServerHello::from_reader(handshake_type, reader)?)),
-                HandshakeType::Certificate => Ok(Message::Certificate(Certificates::from_reader(handshake_type, version, reader)?)),
-                HandshakeType::ServerKeyExchange => Ok(Message::ServerKeyExchange(ServerKeyExchange::from_reader(handshake_type, reader)?)),
-                HandshakeType::ServerHelloDone => Ok(Message::ServerHelloDone(ServerHelloDone::from_reader(handshake_type, reader)?)),
-                HandshakeType::ClientKeyExchange => Ok(Message::ClientKeyExchange(ClientKeyExchange::from_reader(handshake_type, reader, suite)?)),
-                HandshakeType::NewSessionTicket => Ok(Message::NewSessionTicket(SessionTicket::from_reader(handshake_type, reader, version)?)),
-                HandshakeType::CertificateStatus => Ok(Message::CertificateStatus(CertificateStatus::from_reader(handshake_type, reader)?)),
-                HandshakeType::CertificateRequest => Ok(Message::CertificateRequest(CertificateRequest::from_reader(handshake_type, reader)?)),
-                HandshakeType::CertificateVerify => Ok(Message::CertificateVerify(CertificateVerify::from_reader(handshake_type, reader)?)),
-                HandshakeType::Finish => {
-                    let len = reader.read_24()? as usize;
-                    reader.add_len(len);
-                    Ok(Message::Finished(Buf::Ref(&reader.inner()[..len + 4])))
-                }
-                HandshakeType::EncryptedExtensions => Ok(Message::EncryptedExtension(EncryptedExtension::from_reader(handshake_type, reader)?)),
+    fn from_reader_handshake(reader: &mut Reader<'a>, suite: Option<&CipherSuite>, version: Version) -> RlsResult<Message<'a>> {
+        let handshake_type = HandshakeType::from_byte(reader.read_u8()?).unwrap();
+        match handshake_type {
+            HandshakeType::ClientHello => Ok(Message::ClientHello(ClientHello::from_bytes(reader)?)),
+            HandshakeType::ServerHello => Ok(Message::ServerHello(ServerHello::from_reader(handshake_type, reader)?)),
+            HandshakeType::Certificate => Ok(Message::Certificate(Certificates::from_reader(handshake_type, version, reader)?)),
+            HandshakeType::ServerKeyExchange => Ok(Message::ServerKeyExchange(ServerKeyExchange::from_reader(handshake_type, reader)?)),
+            HandshakeType::ServerHelloDone => Ok(Message::ServerHelloDone(ServerHelloDone::from_reader(handshake_type, reader)?)),
+            HandshakeType::ClientKeyExchange => Ok(Message::ClientKeyExchange(ClientKeyExchange::from_reader(handshake_type, reader, suite)?)),
+            HandshakeType::NewSessionTicket => Ok(Message::NewSessionTicket(SessionTicket::from_reader(handshake_type, reader, version)?)),
+            HandshakeType::CertificateStatus => Ok(Message::CertificateStatus(CertificateStatus::from_reader(handshake_type, reader)?)),
+            HandshakeType::CertificateRequest => Ok(Message::CertificateRequest(CertificateRequest::from_reader(handshake_type, reader)?)),
+            HandshakeType::CertificateVerify => Ok(Message::CertificateVerify(CertificateVerify::from_reader(handshake_type, reader)?)),
+            HandshakeType::Finish => {
+                let len = reader.read_24()? as usize;
+                reader.add_len(len);
+                Ok(Message::Finished(Buf::Ref(&reader.inner()[..len + 4])))
             }
-        } else {
-            let len = reader.unread_len();
-            Ok(Message::Payload(Buf::Ref(reader.read_slice(len)?)))
+            HandshakeType::EncryptedExtensions => Ok(Message::EncryptedExtension(EncryptedExtension::from_reader(handshake_type, reader)?)),
+            HandshakeType::MessageHash=>Err(HandShakeError::UnsupportedMessage(handshake_type).into()),
+        }
+    }
+
+    pub fn from_reader(reader: &mut Reader<'a>, record_type: &RecordType, suite: Option<&CipherSuite>, version: Version) -> RlsResult<Message<'a>> {
+        match record_type {
+            RecordType::CipherSpec => {
+                reader.read_u8()?;
+                Ok(Message::CipherSpec)
+            }
+            RecordType::Alert => Ok(Message::Payload(Buf::Ref(reader.read_slice(2)?))),
+            RecordType::HandShake => Message::from_reader_handshake(reader, suite, version),
+            RecordType::ApplicationData => {
+                let len = reader.unread_len();
+                Ok(Message::Payload(Buf::Ref(reader.read_slice(len)?)))
+            }
         }
     }
 
@@ -194,6 +205,7 @@ pub enum HandshakeType {
     ClientKeyExchange   = 16,
     Finish              = 20,
     CertificateStatus   = 22,
+    MessageHash         = 254,
 }
 
 impl HandshakeType {
