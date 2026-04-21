@@ -156,7 +156,7 @@ pub trait TlsStreamHandle {
     fn handle_client_hello(&mut self, config: &mut ClientConfig) -> HlsResult<()> {
         let (conn, _, buffer) = self.conn_buf();
         let session_id = rand::random::<[u8; 32]>();
-        let mut record = RecordLayer::from_bytes(&config.fingerprint.client_hello, false, None)?;
+        let mut record = RecordLayer::from_bytes(&config.fingerprint.client_hello, None)?;
         let client_hello = record.messages[0].client_mut().ok_or(HlsError::NullPointer)?;
         client_hello.set_random(conn.client_random());
         client_hello.set_server_name(config.sni);
@@ -182,7 +182,6 @@ pub trait TlsStreamHandle {
                 }
             }
         }
-        // println!("{:#?}", record);
         let len = record.write_to(buffer, 1)?;
         buffer.set_len(len);
         conn.set_secret_keys(secrets);
@@ -190,7 +189,37 @@ pub trait TlsStreamHandle {
         Ok(())
     }
 
-    fn handle_by_server_hello_done(&mut self, config: &mut Config) -> HlsResult<()> {
+    fn handle_server_hello((conn, buffer): (&mut Connection, &mut Buffer), server_hello: ServerHello) -> Result<(), RlsError> {
+        let hello_retry = conn.set_by_server_hello(&server_hello)?;
+        if hello_retry {
+            let mut reader = Reader::from_slice(conn.session_bytes());
+            reader.read_u8()?;
+            let mut client = ClientHello::from_bytes(&mut reader)?;
+            let mut secrets = HashMap::new();
+            for entry in server_hello.key_share_extend().ok_or(HandShakeError::RetryNoKeyShare)?.key_entries() {
+                let secret = SecretKey::new(entry.name_curve())?;
+                secrets.insert(*entry.name_curve(), secret);
+            }
+            let mut key_share = KeyShare::default();
+            for (name_curve, secret) in secrets.iter_mut() {
+                key_share.add_entry(*name_curve, secret.pub_key()?);
+            }
+            client.set_key_share(key_share);
+            let record = RecordLayer {
+                context_type: RecordType::HandShake,
+                len: 0,
+                version: Version::TLS_1_2,
+                messages: vec![Message::ClientHello(client)],
+            };
+            let record_len = record.write_to(buffer, 1)?;
+            buffer.set_len(record_len);
+            conn.hello_retry(&buffer.filled()[5..])?;
+            conn.set_secret_keys(secrets);
+        }
+        Ok(())
+    }
+
+    fn handle_server_hello_done(&mut self, config: &mut Config) -> HlsResult<()> {
         let config = config.client_mut().ok_or("missing config")?;
         let (conn, _, buffer) = self.conn_buf();
         let offset = buffer.len();
@@ -208,7 +237,7 @@ pub trait TlsStreamHandle {
         }
         let offset = buffer.len();
         //client key exchange
-        let mut record = RecordLayer::from_bytes(&config.fingerprint.client_key_exchange, false, None)?;
+        let mut record = RecordLayer::from_bytes(&config.fingerprint.client_key_exchange, None)?;
         let client_key_exchange = record.messages.get_mut(0).ok_or(HlsError::NullPointer)?;
         let key_size = conn.cipher_suite().key_size();
         let pub_key = conn.pub_share_key()?;
@@ -261,10 +290,11 @@ pub trait TlsStreamHandle {
         let (conn, r_buf, w_buf) = self.conn_buf();
         w_buf.reset();
         let len = conn.read_message(&r_buf.filled()[..record_len], w_buf.unfilled_mut())?;
+        let record_type = RecordType::from_byte(w_buf[len - 1]).ok_or("Invalid record type")?;
         let mut index = 0;
         while index < len - 1 {
             let len = u32::from_be_bytes([0, w_buf[index + 1], w_buf[index + 2], w_buf[index + 3]]) as usize + 4;
-            let message = Message::from_bytes(&w_buf[index..index + len], false, None, Version::TLS_1_3)?;
+            let message = Message::from_bytes(&w_buf[index..index + len], &record_type, None, Version::TLS_1_3)?;
             let finish = Self::handle_message(message, conn)?;
             if finish {
                 w_buf.reset();

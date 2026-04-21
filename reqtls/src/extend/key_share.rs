@@ -12,6 +12,12 @@ pub struct KeyEntry<'a> {
 impl<'a> KeyEntry<'a> {
     fn from_reader(reader: &mut Reader<'a>) -> RlsResult<KeyEntry<'a>> {
         let group = reader.read_u16()?.into();
+        if reader.unread_len() == 0 {
+            return Ok(KeyEntry {
+                group,
+                exchange: Buf::Ref(&[]),
+            });
+        }
         let len = reader.read_u16()?;
         Ok(KeyEntry {
             group,

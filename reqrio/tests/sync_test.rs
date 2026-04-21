@@ -52,3 +52,10 @@ fn test_cipher() {
     //TLS1.2: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
     req.get("https://www.bing.com", None).unwrap();
 }
+
+#[test]
+fn test_hello_retry(){
+    let mut req = ScReq::new().with_alpn(ALPN::Http20).with_auto_redirect(false);
+    let res = req.get("https://bing.com/", None).unwrap();
+    assert_eq!(res.header().status(), &HttpStatus::Move);
+}

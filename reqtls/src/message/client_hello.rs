@@ -87,9 +87,9 @@ impl<'a> ClientHello<'a> {
         res
     }
 
-    pub fn from_bytes(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<ClientHello<'a>> {
+    pub fn from_bytes(reader: &mut Reader<'a>) -> RlsResult<ClientHello<'a>> {
         let mut res = ClientHello::default();
-        res.handshake_type = ht;
+        res.handshake_type = HandshakeType::ClientHello;
         res.len = reader.read_24()?;
         res.version = Version::new(reader.read_u16()?);
         res.random = Buf::Ref(reader.read_slice(32)?);
@@ -297,7 +297,7 @@ impl<'a> ClientHello<'a> {
 
     pub fn key_share_mut(&mut self) -> Option<&mut KeyShare<'a>> {
         let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::KeyShare);
-        extend.map(|x|x.key_share_mut()).unwrap_or(None)
+        extend.map(|x| x.key_share_mut()).unwrap_or(None)
     }
 
     pub fn remove_tls13(&mut self) {

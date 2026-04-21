@@ -20,13 +20,13 @@ pub struct Timeout {
 
 impl Default for Timeout {
     fn default() -> Self {
-        Timeout::new_same(3000,3)
+        Timeout::new_same(3000, 3)
     }
 }
 
 impl Timeout {
-    pub fn new_same(timeout: u64, handles: i32)->Timeout{
-        Timeout{
+    pub fn new_same(timeout: u64, handles: i32) -> Timeout {
+        Timeout {
             connect: Duration::from_millis(timeout),
             read: Duration::from_millis(timeout),
             write: Duration::from_millis(timeout),
@@ -92,6 +92,7 @@ impl Timeout {
 
     pub fn set_handle_times(&mut self, handle_times: i32) {
         self.handle_times = handle_times;
+        self.connect_times = handle_times;
     }
 }
 

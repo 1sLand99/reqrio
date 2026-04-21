@@ -61,6 +61,8 @@ pub enum AlertDesc {
     NoRenegotiation = 100,
     ///一方接收到的SSL/TLS扩展不被另一方支持或理解
     UnsupportedExtension = 110,
+    //未知的ServerName
+    UnrecognisedName = 112,
 }
 
 impl AlertDesc {
@@ -91,6 +93,7 @@ impl AlertDesc {
             90 => Some(AlertDesc::UserCanceled),
             100 => Some(AlertDesc::NoRenegotiation),
             110 => Some(AlertDesc::UnsupportedExtension),
+            112 => Some(AlertDesc::UnrecognisedName),
             _ => None,
         }
     }
@@ -124,6 +127,7 @@ impl Display for AlertDesc {
             AlertDesc::UserCanceled => f.write_str("UserCanceled"),
             AlertDesc::NoRenegotiation => f.write_str("NoRenegotiation"),
             AlertDesc::UnsupportedExtension => f.write_str("UnsupportedExtension"),
+            AlertDesc::UnrecognisedName => f.write_str("UnrecognisedName"),
         }
     }
 }

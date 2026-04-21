@@ -45,7 +45,7 @@ impl<S: Read + Write> SyncStream<S> {
     }
 
     fn handle_message(&mut self, mut config: Option<&mut Config>) -> HlsResult<bool> {
-        let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), self.handshake_finished, Some(self.conn.cipher_suite()))?;
+        let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), Some(self.conn.cipher_suite()))?;
         match record.context_type {
             RecordType::CipherSpec => self.handshake_finished = true,
             RecordType::Alert => {
@@ -55,7 +55,14 @@ impl<S: Read + Write> SyncStream<S> {
             RecordType::HandShake => {
                 for message in record.messages {
                     match message {
-                        Message::ServerHello(v) => self.conn.set_by_server_hello(&v)?,
+                        Message::ServerHello(v) => {
+                            SyncStream::<S>::handle_server_hello((&mut self.conn, &mut self.write_buffer), v)?;
+                            if !self.write_buffer.is_empty() {
+                                self.handshake_finished = false;
+                                self.stream.write_all(self.write_buffer.filled())?;
+                                self.write_buffer.reset();
+                            }
+                        }
                         Message::Certificate(v) => {
                             let param = config.as_mut().ok_or("conn param can't be null")?;
                             let config = param.client_mut().ok_or("missing config")?;
@@ -63,7 +70,7 @@ impl<S: Read + Write> SyncStream<S> {
                         }
                         Message::ServerKeyExchange(v) => self.conn.set_by_server_exchange_key(v)?,
                         Message::ServerHelloDone(_) => {
-                            self.handle_by_server_hello_done(config.as_mut().ok_or("conn param can't be null")?)?;
+                            self.handle_server_hello_done(config.as_mut().ok_or("conn param can't be null")?)?;
                             self.stream.write_all(self.write_buffer.filled())?;
                             self.write_buffer.reset();
                             return Ok(true);
@@ -178,7 +185,7 @@ impl<S: Read> SyncStream<S> {
         } else {
             self.read_zero()?
         };
-        if !self.handshake_finished && self.read_buffer[0] == 22 { self.conn.update_session(&self.read_buffer.filled()[5..record_len])?; }
+        if self.read_buffer[0] == 22 { self.conn.update_session(&self.read_buffer.filled()[5..record_len])?; }
         Ok(record_len)
     }
 }
@@ -187,7 +194,8 @@ impl<S: Read + Write> Read for SyncStream<S> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         loop {
             let record_len = self.read_next_packet()?;
-            match RecordType::from_byte(self.read_buffer[0]).ok_or(io::Error::other("Unknown record type"))? {
+            let record_type = RecordType::from_byte(self.read_buffer[0]).ok_or(HandShakeError::UnknownRecord(self.read_buffer[0]))?;
+            match record_type {
                 RecordType::CipherSpec | RecordType::HandShake => {
                     if self.handshake_finished {
                         self.conn.read_message(&self.read_buffer[..record_len], buf)?;

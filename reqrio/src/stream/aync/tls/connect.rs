@@ -23,7 +23,7 @@ pub struct Connecting<'a, S> {
 
 impl<'a, S: AsyncRead + AsyncWrite + Unpin> Connecting<'a, S> {
     fn handle_message(tls_stream: &mut TlsStream<S>, config: &mut Config<'_>, cx: &mut Context<'_>) -> Poll<HlsResult<bool>> {
-        let record = RecordLayer::from_bytes(tls_stream.read_buffer.filled_mut(), tls_stream.handshake_finished, Some(tls_stream.conn.cipher_suite()))?;
+        let record = RecordLayer::from_bytes(tls_stream.read_buffer.filled(), Some(tls_stream.conn.cipher_suite()))?;
         match record.context_type {
             RecordType::CipherSpec => tls_stream.handshake_finished = true,
             RecordType::Alert => {
@@ -33,7 +33,18 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> Connecting<'a, S> {
             RecordType::HandShake => {
                 for message in record.messages {
                     match message {
-                        Message::ServerHello(v) => tls_stream.conn.set_by_server_hello(&v)?,
+                        Message::ServerHello(v) => {
+                            if tls_stream.write_buffer.is_empty() {
+                                TlsStream::<S>::handle_server_hello((&mut tls_stream.conn, &mut tls_stream.write_buffer), v)?;
+                            }
+                            if !tls_stream.write_buffer.is_empty() {
+                                tls_stream.handshake_finished = false;
+                                return match tls_stream.write_buffer(cx)? {
+                                    Poll::Ready(_) => Poll::Ready(Ok(false)),
+                                    Poll::Pending => Poll::Pending
+                                };
+                            }
+                        }
                         Message::Certificate(v) => {
                             let config = config.client_mut().ok_or("missing config")?;
                             tls_stream.conn.set_by_certificate(v, config.ca_certs, config.sni)?;
@@ -41,7 +52,7 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> Connecting<'a, S> {
                         Message::ServerKeyExchange(v) => tls_stream.conn.set_by_server_exchange_key(v)?,
                         Message::ServerHelloDone(_) => {
                             if tls_stream.write_buffer.is_empty() {
-                                tls_stream.handle_by_server_hello_done(config)?;
+                                tls_stream.handle_server_hello_done(config)?;
                             }
                             return match tls_stream.write_buffer(cx)? {
                                 Poll::Ready(_) => Poll::Ready(Ok(true)),
