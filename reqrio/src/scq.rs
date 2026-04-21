@@ -237,7 +237,7 @@ impl ScReq {
         self.fingerprint = fingerprint;
     }
 
-    pub fn set_url<E>(&mut self, url: impl TryInto<Url, Error=E>) -> HlsResult<()>
+    pub(crate) fn set_url<E>(&mut self, url: impl TryInto<Url, Error=E>) -> HlsResult<()>
     where
         HlsError: From<E>,
     {
@@ -328,10 +328,9 @@ impl ReqPriExt for ScReq {
             header: &mut self.header,
             buffer: &mut self.buffer,
             hpack_coder: &mut self.hpack_coder,
-            callback: &mut self.callback,
-            addr: &self.addr,
-            scheme: &self.scheme,
             sid: &self.stream_id,
+            callback: &mut self.callback,
+
         }
     }
 }

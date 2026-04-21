@@ -333,10 +333,7 @@ impl ReqPriExt for AcReq {
             buffer: &mut self.buffer,
             hpack_coder: &mut self.hpack_coder,
             callback: &mut self.callback,
-            addr: &self.addr,
             sid: &self.stream_id,
-            scheme: &self.scheme,
-
         }
     }
 }

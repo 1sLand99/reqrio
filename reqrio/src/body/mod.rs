@@ -156,8 +156,8 @@ impl<'a> Body<'a> {
     #[cfg(feature = "serde")]
     pub fn form<T: Serialize>(value: &T) -> HlsResult<Body<'a>> {
         let form = json::from_struct(value).map_err(|e| format!("struct to json error, {}", e))?;
-        Ok(Body{
-            kind:BodyKind::Data(HCow::Owned(form)),
+        Ok(Body {
+            kind: BodyKind::Data(HCow::Owned(form)),
             ct: ContentType::form(),
         })
     }
@@ -189,6 +189,20 @@ impl<'a> Body<'a> {
             BodyKind::Bytes(bytes) => Ok(RawBodyReader::Bytes(RefReader::new_buf(bytes.as_ref()))),
             BodyKind::Files(file) => Ok(RawBodyReader::File(file.as_reader()?)),
         }
+    }
+
+    pub fn to_vec(&self) -> HlsResult<Vec<u8>> {
+        let mut body = self.as_reader()?;
+        let mut res = vec![0; body.len()];
+        let mut reader = Reader::new(&mut res);
+        let len = body.read(&mut reader)?;
+        assert_eq!(len, res.len());
+        Ok(res)
+    }
+
+    pub fn to_string(&self) -> HlsResult<String> {
+        let res = self.to_vec()?;
+        Ok(String::from_utf8(res)?)
     }
 
     pub fn context_type(&self) -> &ContentType { &self.ct }

@@ -12,8 +12,6 @@ pub(crate) struct ReqParam<'a> {
     pub(crate) header: &'a mut Header,
     pub(crate) buffer: &'a mut Buffer,
     pub(crate) hpack_coder: &'a mut HPackCoding,
-    pub(crate) addr: &'a Addr,
-    pub(crate) scheme: &'a Scheme,
     pub(crate) sid: &'a u32,
     pub(crate) callback: &'a mut Option<ReqCallback>,
 }
@@ -209,23 +207,15 @@ pub(crate) trait ReqPriExt {
 
 pub trait ReqGenExt: ReqExt {
     fn stream_mut(&mut self) -> &mut Stream;
-    fn body_raw(&mut self, body: &Body<'_>) -> HlsResult<Vec<u8>> {
-        let body_reader = body.as_reader()?;
-        Self::read_to_vec(body_reader)
-    }
-
-    fn body_raw_string(&mut self, body: &Body<'_>) -> HlsResult<String> {
-        Ok(String::from_utf8_lossy(&self.body_raw(body)?).to_string())
-    }
 
     /// * 最好在调试模式使用，生产模式使用时，一个请求将会产生两次reader，影响效率
     /// * H2严禁使用，否则影响hpack编码
-    fn h1_raw_string(&mut self, body: &Body<'_>) -> HlsResult<String> {
-        let body_raw = self.body_raw(body)?;
+    fn h1_raw_string(&mut self, url: &Url, body: &Body<'_>) -> HlsResult<String> {
+        let body_raw = body.to_vec()?;
         let param = self.req_param();
         let header_reader = param.header.as_reader(HeaderParam {
-            addr: param.addr,
-            scheme: param.scheme,
+            addr: url.addr(),
+            scheme: url.scheme(),
             encoder: param.hpack_coder.encoder(),
             stream_identifier: param.sid,
             body_len: body_raw.len(),

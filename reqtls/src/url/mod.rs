@@ -63,6 +63,9 @@ impl Url {
         self.addr = addr;
     }
 
+    pub fn scheme(&self) -> &Scheme {
+        &self.scheme
+    }
     pub fn set_scheme(&mut self, proto: Scheme) {
         self.scheme = proto;
     }
