@@ -84,27 +84,27 @@ fn build_finger(suites: Vec<CipherSuite>, groups: Vec<NamedCurve>) -> Fingerprin
 async fn test_ecdhe_rsa() {
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256.into()],
-        vec![NamedCurve::X25519.into()], );
+        vec![NamedCurve::X25519.into(), NamedCurve::Secp256r1.into()], );
     let mut req = AcReq::new().with_fingerprint(fingerprint);
     req.get("https://m.so.com", None).await.unwrap();
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384.into()],
-        vec![NamedCurve::X25519.into()], );
+        vec![NamedCurve::X25519.into(), NamedCurve::Secp256r1.into()], );
     let mut req = AcReq::new().with_fingerprint(fingerprint);
     req.get("https://m.so.com", None).await.unwrap();
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256.into()],
-        vec![NamedCurve::X25519.into()], );
+        vec![NamedCurve::X25519.into(), NamedCurve::Secp256r1.into()], );
     let mut req = AcReq::new().with_fingerprint(fingerprint);
     req.get("https://m.so.com", None).await.unwrap();
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA.into()],
-        vec![NamedCurve::X25519.into()], );
+        vec![NamedCurve::X25519.into(), NamedCurve::Secp256r1.into()], );
     let mut req = AcReq::new().with_fingerprint(fingerprint);
     req.get("https://m.so.com", None).await.unwrap();
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA.into()],
-        vec![NamedCurve::X25519.into()], );
+        vec![NamedCurve::X25519.into(), NamedCurve::Secp256r1.into()], );
     let mut req = AcReq::new().with_fingerprint(fingerprint);
     req.get("https://m.so.com", None).await.unwrap();
     // let fingerprint = build_finger(
@@ -125,12 +125,12 @@ async fn test_ecdhe_rsa() {
 async fn test_rsa() {
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA.into()],
-        vec![NamedCurve::X25519.into()], );
+        vec![NamedCurve::X25519.into(), NamedCurve::Secp256r1.into()], );
     let mut req = AcReq::new().with_fingerprint(fingerprint);
     req.get("https://m.baidu.com", None).await.unwrap();
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA.into()],
-        vec![NamedCurve::X25519.into()], );
+        vec![NamedCurve::X25519.into(), NamedCurve::Secp256r1.into()], );
     let mut req = AcReq::new().with_fingerprint(fingerprint);
     req.get("https://m.baidu.com", None).await.unwrap();
 }

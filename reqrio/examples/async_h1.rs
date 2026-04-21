@@ -105,8 +105,7 @@ async fn main() {
     req.set_auto_redirect(false);
     // let res=req.get("https://www.link114.cn/",None).await.unwrap();
     // let res = req.get("https://www.bing.com".params(json::object! {}), vec![0u8; 0].ty(Application::Json)).await.unwrap();
-    let res=req.get("https://www.baidu.com",None).await.unwrap();
-    // let res = req.get("https://m.sogou.com", None).await.unwrap();
+    let res = req.get("https://m.sogou.com", None).await.unwrap();
     // let res=req.get("https://oauth.hubei.gov.cn:8443/",None).await.unwrap();
     // let res = req.get("https://zwfw.hubei.gov.cn/web/user/uias_login.do?appCode=hbzwfw&gotoUrl=https%3A%2F%2Fzwfw.hubei.gov.cn%2Fwebview%2Fgrkj%2Fwelcome.html&p01=", None).await.unwrap();
     println!("{}", res.header());
