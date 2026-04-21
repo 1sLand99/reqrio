@@ -105,7 +105,7 @@ pub extern "system" fn ScReq_set_ja3(req: *mut ScReq, ja3: *const c_char, token:
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let ja3 = unsafe { CStr::from_ptr(ja3) }.to_str()?.to_string();
         let token = unsafe { CStr::from_ptr(token) }.to_str()?;
-        let fingerprint = Fingerprint::new_ja3(ja3, token)?;
+        let fingerprint = Fingerprint::from_ja3(ja3, token)?;
         let ret = fingerprint.legal_subscript();
         req.set_fingerprint(fingerprint);
         Ok(ret)
@@ -119,7 +119,7 @@ pub extern "system" fn ScReq_set_ja4(req: *mut ScReq, ja4: *const c_char, token:
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let ja4 = unsafe { CStr::from_ptr(ja4) }.to_str()?.to_string();
         let token = unsafe { CStr::from_ptr(token) }.to_str()?;
-        let fingerprint = Fingerprint::new_ja4(ja4, token)?;
+        let fingerprint = Fingerprint::from_ja4(ja4, token)?;
         let ret = fingerprint.legal_subscript();
         req.set_fingerprint(fingerprint);
         Ok(ret)

@@ -3,13 +3,14 @@ use crate::error::RlsResult;
 use crate::{BufferError, ReadExt, Reader, WriteExt};
 
 #[allow(non_camel_case_types)]
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Copy)]
 pub struct EcPointFormat(u8);
 
 impl EcPointFormat {
     pub const UNCOMPRESSED: EcPointFormat = EcPointFormat(0x0);
     pub const ANSI_X962_PRIME: EcPointFormat = EcPointFormat(0x1);
     pub const ANSI_X962_CHAR2: EcPointFormat = EcPointFormat(0x2);
+    pub const ALL: [EcPointFormat; 3] = [EcPointFormat::UNCOMPRESSED, EcPointFormat::ANSI_X962_PRIME, EcPointFormat::ANSI_X962_CHAR2];
 
     pub fn spec(&self) -> &str {
         match *self {

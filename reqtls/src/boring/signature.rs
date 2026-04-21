@@ -6,6 +6,7 @@ use crate::RlsError;
 use std::fmt::{Debug, Formatter};
 use std::ptr::null_mut;
 
+#[derive(Clone)]
 pub struct SignatureAlgorithm(u16);
 
 impl SignatureAlgorithm {
@@ -116,6 +117,12 @@ impl SignatureAlgorithm {
 
 impl From<u16> for SignatureAlgorithm {
     fn from(v: u16) -> SignatureAlgorithm { SignatureAlgorithm(v) }
+}
+
+impl PartialEq<u16> for &SignatureAlgorithm {
+    fn eq(&self, other: &u16) -> bool {
+        &self.0 == other
+    }
 }
 
 impl Debug for SignatureAlgorithm {

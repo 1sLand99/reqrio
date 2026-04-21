@@ -1,7 +1,3 @@
-use std::ffi::CStr;
-use std::os::raw::c_char;
-use crate::{Url, UrlError};
-
 mod cipher;
 mod hasher;
 mod coder;

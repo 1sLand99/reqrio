@@ -29,18 +29,35 @@ pub struct NamedCurve(u16);
 #[allow(non_upper_case_globals)]
 impl NamedCurve {
     pub const X25519: u16 = 0x1d;
+    pub const X448: u16 = 0x1e;
     pub const X25519MLKEM768: u16 = 0x11ec;
     pub const Secp256r1: u16 = 0x0017;
     pub const Secp384r1: u16 = 0x0018;
     pub const Secp521r1: u16 = 0x0019;
+    pub const FFDHE2048: u16 = 0x0100;
+    pub const FFDHE3072: u16 = 0x0101;
+    pub const FFDHE4096: u16 = 0x0102;
+    pub const FFDHE6144: u16 = 0x0103;
+    pub const FFDHE8192: u16 = 0x0104;
+
+
+    pub const ALL: [u16; 11] = [NamedCurve::X25519, NamedCurve::X448, NamedCurve::Secp256r1, NamedCurve::Secp384r1,
+        NamedCurve::Secp521r1, NamedCurve::X25519MLKEM768, NamedCurve::FFDHE2048, NamedCurve::FFDHE3072,
+        NamedCurve::FFDHE4096, NamedCurve::FFDHE6144, NamedCurve::FFDHE8192];
 
     fn spec(&self) -> &str {
         match self.0 {
             NamedCurve::X25519 => "X25519",
+            NamedCurve::X448 => "X448",
             NamedCurve::X25519MLKEM768 => "X25519MLKEM768",
             NamedCurve::Secp256r1 => "Secp256r1",
             NamedCurve::Secp384r1 => "Secp384r1",
             NamedCurve::Secp521r1 => "Secp521r1",
+            NamedCurve::FFDHE2048 => "FFDHE2048",
+            NamedCurve::FFDHE3072 => "FFDHE3072",
+            NamedCurve::FFDHE4096 => "FFDHE4096",
+            NamedCurve::FFDHE6144 => "FFDHE6144",
+            NamedCurve::FFDHE8192 => "FFDHE8192",
             _ => "Reserved"
         }
     }
@@ -56,12 +73,18 @@ impl NamedCurve {
     }
 
     pub fn is_reserved(&self) -> bool {
-        !matches!(self.0, 0x1d | 0x11ec | 0x0017 | 0x0018 | 0x0019)
+        !NamedCurve::ALL.contains(&self.0)
     }
 }
 
 impl From<u16> for NamedCurve {
     fn from(v: u16) -> Self { NamedCurve(v) }
+}
+
+impl PartialEq<u16> for &NamedCurve {
+    fn eq(&self, other: &u16) -> bool {
+        &self.0 == other
+    }
 }
 
 impl Debug for NamedCurve {
@@ -243,17 +266,17 @@ pub struct ClientKeyExchange<'a> {
 impl<'a> Default for ClientKeyExchange<'a> {
     fn default() -> Self {
         ClientKeyExchange {
-            handshake_type: HandshakeType::ClientHello,
+            handshake_type: HandshakeType::ClientKeyExchange,
             hellman_param: ClientHellmanParam::new(),
         }
     }
 }
 
 impl<'a> ClientKeyExchange<'a> {
-    pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>, suite: Option<&CipherSuite>) -> RlsResult<ClientKeyExchange<'a>> {
+    pub fn from_reader(reader: &mut Reader<'a>, suite: Option<&CipherSuite>) -> RlsResult<ClientKeyExchange<'a>> {
         reader.read_24()?;
         Ok(ClientKeyExchange {
-            handshake_type: ht,
+            handshake_type: HandshakeType::ClientKeyExchange,
             hellman_param: ClientHellmanParam::from_reader(reader, suite)?,
         })
     }

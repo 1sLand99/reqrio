@@ -189,14 +189,13 @@ impl AcReq {
                         };
                     }
                     Err(e) => {
-                        println!("{}", e);
                         if i != self.timeout.handle_times() - 1 {
                             if e.to_string().to_lowercase().contains("close") || e.to_string().contains("中止了") || e.to_string().contains("关闭") {
                                 self.re_conn().await?;
                             }
                             println!("[AcReq] write/recv with error-{}, handle: {}/{}", e, i + 2, self.timeout.handle_times());
                             continue;
-                        }
+                        } else { return Err(e); }
                     }
                 }
 
@@ -289,9 +288,9 @@ impl AcReq {
     pub async fn handle_h2_setting(&mut self) -> HlsResult<()> {
         self.stream_id = 0;
         self.buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")?;
-        self.buffer.write_slice(self.fingerprint.h2_setting())?;
-        self.hpack_coder = HPackCoding::new(65535);
-        self.buffer.write_slice(self.fingerprint.h2_window_update())?;
+        self.fingerprint.h2_setting().write_to(&mut self.buffer)?;
+        self.hpack_coder = HPackCoding::new(65536);
+        self.fingerprint.h2_window_update().write_to(&mut self.buffer)?;
         self.stream.async_write(self.buffer.filled()).await?;
         self.buffer.reset();
         self.stream_id += 1;

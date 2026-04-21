@@ -58,7 +58,7 @@ impl CipherSuite {
 
     pub const TLS_EMPTY_RENEGOTIATION_INFO_SCSV: u16 = 0x00ff;
 
-    pub const SUITES: [u16; 31] = [
+    pub const ALL: [u16; 31] = [
         CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
         CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
         CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
@@ -218,6 +218,36 @@ impl From<u16> for CipherSuite {
     }
 }
 
+impl From<&u16> for CipherSuite {
+    fn from(value: &u16) -> Self {
+        CipherSuite::new(*value)
+    }
+}
+
+impl PartialEq for CipherSuite {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+
+impl PartialEq<u16> for CipherSuite {
+    fn eq(&self, other: &u16) -> bool {
+        self.value == *other
+    }
+}
+
+impl PartialEq<u16> for &CipherSuite {
+    fn eq(&self, other: &u16) -> bool {
+        self.value == *other
+    }
+}
+
+impl Clone for CipherSuite {
+    fn clone(&self) -> Self {
+        CipherSuite::new(self.value)
+    }
+}
+
 impl CipherSuite {
     pub fn new(v: u16) -> CipherSuite {
         CipherSuite {
@@ -237,7 +267,7 @@ impl CipherSuite {
     }
 
     pub fn is_reserved(&self) -> bool {
-        !CipherSuite::SUITES.contains(&self.value)
+        !CipherSuite::ALL.contains(&self.value)
     }
 
     pub fn into_inner(self) -> u16 { self.value }

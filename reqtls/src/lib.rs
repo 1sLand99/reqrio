@@ -247,8 +247,6 @@
 //! * br
 //! * zstd
 
-extern crate core;
-
 mod extend;
 mod message;
 mod prf;
@@ -271,6 +269,7 @@ mod buffer;
 mod dns;
 mod hkdf;
 mod key;
+mod finger;
 
 pub use alpn::ALPN;
 pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner,
@@ -281,7 +280,7 @@ pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, 
 pub use buffer::{BufferError, ReadExt, Reader, WriteExt, u24};
 pub use connection::Connection;
 pub use error::{RlsError, HandShakeError};
-pub use extend::{formats::EcPointFormat, CompressionType, Extension, ExtensionType, SupportVersions,
+pub use extend::{formats::EcPointFormat, CompressionMethod, Extension, ExtensionType, SupportVersions,
                  KeyShare};
 pub use hash::{HashType, Hasher, Hmac};
 pub use hex;
@@ -293,3 +292,5 @@ pub use suite::CipherSuite;
 pub use url::{Addr, Param, Scheme, Uri, Url, UrlError};
 pub use version::Version;
 pub use key::SecretKey;
+pub use bytes::Bytes;
+pub use finger::TlsFinger;

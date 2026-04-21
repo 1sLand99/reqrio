@@ -4,31 +4,31 @@ use crate::error::RlsResult;
 use crate::{BufferError, ReadExt, Reader, WriteExt};
 
 #[derive(PartialEq)]
-pub struct CompressionType(u16);
+pub struct CompressionMethod(u16);
 
-impl CompressionType {
-    pub const NULL: CompressionType = CompressionType(0);
-    pub const DEFLATE: CompressionType = CompressionType(1);
-    pub const BROTLI: CompressionType = CompressionType(2);
-    pub const GZIP: CompressionType = CompressionType(0xFFFF);
-    pub const ZSTD: CompressionType = CompressionType(0xFFFE);
-    pub fn new(value: u16) -> CompressionType {
-        CompressionType(value)
+impl CompressionMethod {
+    pub const NULL: CompressionMethod = CompressionMethod(0);
+    pub const DEFLATE: CompressionMethod = CompressionMethod(1);
+    pub const BROTLI: CompressionMethod = CompressionMethod(2);
+    pub const GZIP: CompressionMethod = CompressionMethod(0xFFFF);
+    pub const ZSTD: CompressionMethod = CompressionMethod(0xFFFE);
+    pub fn new(value: u16) -> CompressionMethod {
+        CompressionMethod(value)
     }
 
-    pub fn from_bytes(bytes: impl AsRef<[u8]>) -> CompressionType {
+    pub fn from_bytes(bytes: impl AsRef<[u8]>) -> CompressionMethod {
         match bytes.as_ref() {
-            b"deflate" => CompressionType::DEFLATE,
-            b"br" => CompressionType::BROTLI,
-            b"gzip" => CompressionType::GZIP,
-            b"zstd" => CompressionType::ZSTD,
-            _ => CompressionType::NULL
+            b"deflate" => CompressionMethod::DEFLATE,
+            b"br" => CompressionMethod::BROTLI,
+            b"gzip" => CompressionMethod::GZIP,
+            b"zstd" => CompressionMethod::ZSTD,
+            _ => CompressionMethod::NULL
         }
     }
 }
 
 
-impl Debug for CompressionType {
+impl Debug for CompressionMethod {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.0 {
             0 => write!(f, "Null(0)"),
@@ -39,13 +39,13 @@ impl Debug for CompressionType {
     }
 }
 
-impl Display for CompressionType {
+impl Display for CompressionMethod {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match *self {
-            CompressionType::DEFLATE => write!(f, "deflate"),
-            CompressionType::BROTLI => write!(f, "br"),
-            CompressionType::GZIP => write!(f, "gzip"),
-            CompressionType::ZSTD => write!(f, "zstd"),
+            CompressionMethod::DEFLATE => write!(f, "deflate"),
+            CompressionMethod::BROTLI => write!(f, "br"),
+            CompressionMethod::GZIP => write!(f, "gzip"),
+            CompressionMethod::ZSTD => write!(f, "zstd"),
             _ => Err(fmt::Error),
         }
     }
@@ -53,7 +53,7 @@ impl Display for CompressionType {
 
 #[derive(Debug)]
 pub struct CompressionCertificate {
-    methods: Vec<CompressionType>,
+    methods: Vec<CompressionMethod>,
 }
 
 impl CompressionCertificate {
@@ -67,7 +67,7 @@ impl CompressionCertificate {
         let len = reader.read_u8()?;
         let mut methods = Vec::with_capacity(reader.unread_len());
         for _ in (0..len).step_by(2) {
-            methods.push(CompressionType::new(reader.read_u16()?));
+            methods.push(CompressionMethod::new(reader.read_u16()?));
         }
         Ok(CompressionCertificate {
             methods
@@ -86,7 +86,7 @@ impl CompressionCertificate {
         Ok(())
     }
 
-    pub fn push(&mut self, ty: CompressionType) {
+    pub fn push(&mut self, ty: CompressionMethod) {
         self.methods.push(ty);
     }
 }

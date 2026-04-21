@@ -53,7 +53,7 @@ impl<'a> Message<'a> {
             HandshakeType::Certificate => Ok(Message::Certificate(Certificates::from_reader(handshake_type, version, reader)?)),
             HandshakeType::ServerKeyExchange => Ok(Message::ServerKeyExchange(ServerKeyExchange::from_reader(handshake_type, reader)?)),
             HandshakeType::ServerHelloDone => Ok(Message::ServerHelloDone(ServerHelloDone::from_reader(handshake_type, reader)?)),
-            HandshakeType::ClientKeyExchange => Ok(Message::ClientKeyExchange(ClientKeyExchange::from_reader(handshake_type, reader, suite)?)),
+            HandshakeType::ClientKeyExchange => Ok(Message::ClientKeyExchange(ClientKeyExchange::from_reader(reader, suite)?)),
             HandshakeType::NewSessionTicket => Ok(Message::NewSessionTicket(SessionTicket::from_reader(handshake_type, reader, version)?)),
             HandshakeType::CertificateStatus => Ok(Message::CertificateStatus(CertificateStatus::from_reader(handshake_type, reader)?)),
             HandshakeType::CertificateRequest => Ok(Message::CertificateRequest(CertificateRequest::from_reader(handshake_type, reader)?)),
@@ -64,7 +64,7 @@ impl<'a> Message<'a> {
                 Ok(Message::Finished(Buf::Ref(&reader.inner()[..len + 4])))
             }
             HandshakeType::EncryptedExtensions => Ok(Message::EncryptedExtension(EncryptedExtension::from_reader(handshake_type, reader)?)),
-            HandshakeType::MessageHash=>Err(HandShakeError::UnsupportedMessage(handshake_type).into()),
+            HandshakeType::MessageHash => Err(HandShakeError::UnsupportedMessage(handshake_type).into()),
         }
     }
 

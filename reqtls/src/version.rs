@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
 
 #[derive(Copy, Clone, PartialEq)]
@@ -8,6 +9,7 @@ impl Version {
     pub const TLS_1_1: Version = Version(0x302);
     pub const TLS_1_2: Version = Version(0x303);
     pub const TLS_1_3: Version = Version(0x304);
+    pub const ALL: [Version; 4] = [Version::TLS_1_0, Version::TLS_1_1, Version::TLS_1_2, Version::TLS_1_3];
 }
 
 impl Version {
@@ -60,3 +62,8 @@ impl PartialEq<u16> for Version {
     }
 }
 
+impl PartialOrd<u16> for Version {
+    fn partial_cmp(&self, other: &u16) -> Option<Ordering> {
+        self.0.partial_cmp(other)
+    }
+}

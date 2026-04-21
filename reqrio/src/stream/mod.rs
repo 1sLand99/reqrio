@@ -156,8 +156,7 @@ pub trait TlsStreamHandle {
     fn handle_client_hello(&mut self, config: &mut ClientConfig) -> HlsResult<()> {
         let (conn, _, buffer) = self.conn_buf();
         let session_id = rand::random::<[u8; 32]>();
-        let mut record = RecordLayer::from_bytes(&config.fingerprint.client_hello, None)?;
-        let client_hello = record.messages[0].client_mut().ok_or(HlsError::NullPointer)?;
+        let mut client_hello = config.fingerprint.tls().build_client_hello()?;
         client_hello.set_random(conn.client_random());
         client_hello.set_server_name(config.sni);
         client_hello.set_session_id(&session_id);
@@ -182,6 +181,9 @@ pub trait TlsStreamHandle {
                 }
             }
         }
+        let mut record = RecordLayer::handshake();
+        record.messages = vec![Message::ClientHello(client_hello)];
+
         let len = record.write_to(buffer, 1)?;
         buffer.set_len(len);
         conn.set_secret_keys(secrets);
@@ -237,11 +239,12 @@ pub trait TlsStreamHandle {
         }
         let offset = buffer.len();
         //client key exchange
-        let mut record = RecordLayer::from_bytes(&config.fingerprint.client_key_exchange, None)?;
-        let client_key_exchange = record.messages.get_mut(0).ok_or(HlsError::NullPointer)?;
+        let mut client_key_exchange = config.fingerprint.tls().build_client_key_exchange(Some(conn.cipher_suite()))?;
         let key_size = conn.cipher_suite().key_size();
         let pub_key = conn.pub_share_key()?;
-        client_key_exchange.client_key_exchange_mut().unwrap().set_pub_key(pub_key.as_ref());
+        client_key_exchange.set_pub_key(pub_key.as_ref());
+        let mut record = RecordLayer::handshake();
+        record.messages.push(Message::ClientKeyExchange(client_key_exchange));
         let len = record.write_to(buffer, key_size)?;
         buffer.set_len(offset + len);
         conn.update_session(&buffer[offset + 5..offset + len])?;
@@ -253,7 +256,7 @@ pub trait TlsStreamHandle {
             buffer.set_len(offset + len);
             conn.update_session(&buffer[offset + 5..offset + len])?;
         }
-        buffer.write_slice(&config.fingerprint.change_cipher_spec)?;
+        buffer.write_slice(config.fingerprint.tls().change_cipher_spec())?;
 
 
         let record_len = conn.make_finish_message(buffer.unfilled_mut(), false)?;
@@ -293,20 +296,28 @@ pub trait TlsStreamHandle {
         let record_type = RecordType::from_byte(w_buf[len - 1]).ok_or("Invalid record type")?;
         let mut index = 0;
         while index < len - 1 {
-            let len = u32::from_be_bytes([0, w_buf[index + 1], w_buf[index + 2], w_buf[index + 3]]) as usize + 4;
-            let message = Message::from_bytes(&w_buf[index..index + len], &record_type, None, Version::TLS_1_3)?;
-            let finish = Self::handle_message(message, conn)?;
-            if finish {
-                w_buf.reset();
-                w_buf.write_slice(&[20, 3, 3, 0, 1, 1])?;
-                let len = conn.make_finish_message(w_buf.unfilled_mut(), false)?;
-                w_buf.add_len(len);
-                conn.make_cipher(false)?;
-                return Ok(true);
-            }
+            match record_type {
+                RecordType::Alert => {
+                    let alert = Alert::from_bytes(&w_buf[index..index+len])?;
+                    return Err(RlsError::Alert(alert));
+                }
+                _ => {
+                    let len = u32::from_be_bytes([0, w_buf[index + 1], w_buf[index + 2], w_buf[index + 3]]) as usize + 4;
+                    let message = Message::from_bytes(&w_buf[index..index + len], &record_type, None, Version::TLS_1_3)?;
+                    let finish = Self::handle_message(message, conn)?;
+                    if finish {
+                        w_buf.reset();
+                        w_buf.write_slice(&[20, 3, 3, 0, 1, 1])?;
+                        let len = conn.make_finish_message(w_buf.unfilled_mut(), false)?;
+                        w_buf.add_len(len);
+                        conn.make_cipher(false)?;
+                        return Ok(true);
+                    }
 
-            conn.update_session(&w_buf[index..index + len])?;
-            index += len;
+                    conn.update_session(&w_buf[index..index + len])?;
+                    index += len;
+                }
+            }
         }
         Ok(false)
     }

@@ -18,7 +18,7 @@ use crate::{BufferError, ReadExt, Reader, Version, WriteExt};
 use algorithm::SignatureAlgorithms;
 use alps::ALPS;
 use certificate::CompressionCertificate;
-pub use certificate::CompressionType;
+pub use certificate::CompressionMethod;
 use client_hello::EncryptClientHello;
 pub use ech::Aead;
 use formats::EcPointFormats;
@@ -55,12 +55,14 @@ impl ExtensionType {
     pub const SignatureAlgorithms: ExtensionType = ExtensionType(0xd);
     pub const ApplicationLayerProtocolNegotiation: ExtensionType = ExtensionType(0x10);
     pub const SignedCertificateTimestamp: ExtensionType = ExtensionType(0x12);
+    pub const Padding: ExtensionType = ExtensionType(0x15);
     pub const EncryptTheMac: ExtensionType = ExtensionType(0x16);
     pub const ExtendMasterSecret: ExtensionType = ExtensionType(0x17);
     pub const SessionTicket: ExtensionType = ExtensionType(0x23);
     pub const CompressionCertificate: ExtensionType = ExtensionType(0x1b);
     pub const SupportedVersions: ExtensionType = ExtensionType(0x2b);
     pub const PskKeyExchangeMode: ExtensionType = ExtensionType(0x2d);
+    pub const PostHandshakeAuth: ExtensionType = ExtensionType(0x31);
     pub const KeyShare: ExtensionType = ExtensionType(0x33);
     pub const RenegotiationInfo: ExtensionType = ExtensionType(0xff01);
     pub const EncryptedClientHello: ExtensionType = ExtensionType(0xfe0d);
@@ -68,7 +70,7 @@ impl ExtensionType {
     pub const PreSharedKey: ExtensionType = ExtensionType(0x29);
     pub const ApplicationSettingOld: ExtensionType = ExtensionType(0x4469);
 
-    pub const EXTENSIONS: [u16; 19] = [0x0, 0x5, 0xa, 0xb, 0xd, 0x10, 0x12, 0x16, 0x17, 0x23, 0x1b, 0x2b, 0x2d, 0x33, 0xff01, 0xfe0d, 0x44cd, 0x29, 0x4469];
+    pub const EXTENSIONS: [u16; 21] = [0x0, 0x5, 0xa, 0xb, 0xd, 0x10, 0x12, 0x15, 0x16, 0x17, 0x23, 0x1b, 0x2b, 0x2d, 0x31, 0x33, 0xff01, 0xfe0d, 0x44cd, 0x29, 0x4469];
 
     pub fn spec(&self) -> &'static str {
         match self.0 {
@@ -79,12 +81,14 @@ impl ExtensionType {
             0xd => "SignatureAlgorithms",
             0x10 => "ApplicationLayerProtocolNegotiation",
             0x12 => "SignedCertificateTimestamp",
+            0x15 => "Padding",
             0x16 => "EncryptTheMac",
             0x17 => "ExtendMasterSecret",
             0x23 => "SessionTicket",
             0x1b => "CompressionCertificate",
             0x2b => "SupportedVersions",
             0x2d => "PskKeyExchangeMode",
+            0x31 => "PostHandshakeAuth",
             0x33 => "KeyShare",
             0xff01 => "RenegotiationInfo",
             0xfe0d => "EncryptedClientHello",
@@ -290,7 +294,7 @@ impl<'a> Extension<'a> {
             ExtensionType::SessionTicket => Some(ExtensionValue::SessionTicket),
             ExtensionType::CompressionCertificate => {
                 let mut cp_cer = CompressionCertificate::new();
-                cp_cer.push(CompressionType::NULL);
+                cp_cer.push(CompressionMethod::NULL);
                 Some(ExtensionValue::CompressionCertificate(cp_cer))
             }
             ExtensionType::SupportedVersions => {

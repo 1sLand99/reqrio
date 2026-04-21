@@ -72,21 +72,20 @@ impl<'a> H2Frame<'a> {
         })
     }
 
-    pub fn write_to<W: WriteExt>(mut self, writer: &mut W) -> Result<(), BufferError> {
+    pub fn write_to<W: WriteExt>(&self, writer: &mut W) -> Result<(), BufferError> {
         let len = if self.flag.priority() { self.payload.len() + 5 } else { self.payload.len() } as u24;
         writer.write_u24(len)?;
         writer.write_u8(self.frame_type.to_u8())?;
         let priority = self.flag.priority();
 
-        writer.write_u8(self.flag.into_inner())?;
+        writer.write_u8(self.flag.as_u8())?;
         writer.write_u32(self.stream_identifier)?;
         if priority {
-            self.stream_dependency |= 2147483648;
-            writer.write_u32(self.stream_dependency)?;
+            writer.write_u32(self.stream_dependency | 2147483648)?;
             writer.write_u8(self.weight)?;
         }
         match self.frame_type {
-            FrameType::Settings => for setting in self.settings {
+            FrameType::Settings => for setting in &self.settings {
                 setting.write_to(writer)?;
             }
             _ => writer.write_slice(self.payload)?,
@@ -116,7 +115,7 @@ impl<'a> H2Frame<'a> {
         let mut frame = H2Frame::none_frame();
         frame.len = 4;
         frame.frame_type = FrameType::WindowUpdate;
-        frame.payload = &[0, 239, 0, 1];
+        frame.payload = &[127, 255, 0, 0];
         frame
     }
 
@@ -130,7 +129,7 @@ impl<'a> H2Frame<'a> {
             stream_dependency: 0,
             weight: 0,
             settings,
-            payload: &[],
+            payload: &[0; 24],
         }
     }
 

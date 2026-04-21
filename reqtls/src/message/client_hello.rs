@@ -1,14 +1,14 @@
-use super::super::suite::CipherSuite;
 use super::super::extend::Extension;
+use super::super::suite::CipherSuite;
 use super::super::version::Version;
 use super::HandshakeType;
 use crate::boring::hash;
+use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::{ExtensionType, ExtensionValue, ServerName};
-use crate::{rand, u24, BufferError, KeyShare, ReadExt, Reader, WriteExt};
+use crate::{u24, BufferError, KeyShare, ReadExt, Reader, WriteExt};
 use std::mem;
-use crate::buffer::Buf;
 
 #[derive(Debug)]
 pub struct ClientHello<'a> {
@@ -31,14 +31,14 @@ impl<'a> Default for ClientHello<'a> {
         ClientHello {
             handshake_type: HandshakeType::ClientHello,
             len: 0,
-            version: Version::new(0),
+            version: Version::TLS_1_2,
             random: Buf::Ref(&[]),
             session_id_len: 0,
             session_id: Buf::Ref(&[]),
             cipher_suites_len: 0,
             cipher_suites: vec![],
-            compress_method_len: 0,
-            compress_method: Buf::Ref(&[]),
+            compress_method_len: 1,
+            compress_method: Buf::Ref(&[0]),
             extend_len: 0,
             extensions: vec![],
         }
@@ -46,47 +46,6 @@ impl<'a> Default for ClientHello<'a> {
 }
 
 impl<'a> ClientHello<'a> {
-    pub fn random() -> ClientHello<'a> {
-        let mut res = ClientHello {
-            version: Version::TLS_1_0,
-            cipher_suites: vec![
-                CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA.into(),
-                CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256.into(),
-                CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384.into(),
-                CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256.into(),
-                //ecdsa
-                CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256.into(),
-                CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384.into(),
-                CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256.into(),
-            ],
-            random: Buf::Ref(&[0; 32]),
-            session_id: Buf::Ref(&[0; 32]),
-            compress_method: Buf::Ref(&[0]),
-            extensions: vec![
-                Extension::from_type(ExtensionType::SignatureAlgorithms),
-                Extension::from_type(ExtensionType::SupportedGroup),
-                Extension::from_type(ExtensionType::CompressionCertificate),
-                Extension::from_type(ExtensionType::SupportedVersions),
-                Extension::from_type(ExtensionType::ApplicationLayerProtocolNegotiation),
-                Extension::from_type(ExtensionType::ServerName),
-                Extension::from_type(ExtensionType::EcPointFormats),
-                Extension::from_type(ExtensionType::RenegotiationInfo),
-                Extension::from_type(ExtensionType::ExtendMasterSecret),
-                // Extension::from_type(ExtensionType::SignedCertificateTimestamp),
-                // Extension::from_type(ExtensionType::SessionTicket)
-            ],
-            ..Default::default()
-        };
-        let suite_all = CipherSuite::SUITES;
-        while res.cipher_suites.len() < 12 {
-            let index = rand::random::<usize>() % suite_all.len();
-            let suite = CipherSuite::new(suite_all[index]);
-            if res.cipher_suites.iter().any(|x| x.as_u16() == suite.as_u16()) { continue; }
-            res.cipher_suites.push(suite);
-        }
-        res
-    }
-
     pub fn from_bytes(reader: &mut Reader<'a>) -> RlsResult<ClientHello<'a>> {
         let mut res = ClientHello::default();
         res.handshake_type = HandshakeType::ClientHello;
@@ -157,7 +116,7 @@ impl<'a> ClientHello<'a> {
         } else { vec![] };
         let extend = self.extensions.iter().find(|x| x.ex_point_formats().is_some());
         let formats = if let Some(extend) = extend && let Some(formats) = extend.ex_point_formats() {
-            formats.formats().iter().map(|x| x.clone().into_inner().to_string()).collect::<Vec<_>>()
+            formats.formats().iter().map(|x| (*x).into_inner().to_string()).collect::<Vec<_>>()
         } else {
             vec![]
         };
@@ -231,6 +190,10 @@ impl<'a> ClientHello<'a> {
 
     pub fn set_cipher_suites(&mut self, suites: Vec<CipherSuite>) {
         self.cipher_suites = suites;
+    }
+
+    pub fn add_extension(&mut self, extension: Extension<'a>) {
+        self.extensions.push(extension);
     }
 
     pub fn set_extension(&mut self, extension: Vec<Extension<'a>>) {
