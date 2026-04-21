@@ -96,9 +96,9 @@ impl Proxy {
 
     pub fn socket_addr(&self, peer_addr: &Addr) -> HlsResult<SocketAddr> {
         match self {
-            Proxy::Null => Ok(peer_addr.socket_addr_v4()?),
-            Proxy::HttpPlain(url) => Ok(url.addr().socket_addr_v4()?),
-            Proxy::Socks5(url) => Ok(url.addr().socket_addr_v4()?),
+            Proxy::Null => Ok(peer_addr.socket_addr()?),
+            Proxy::HttpPlain(url) => Ok(url.addr().socket_addr()?),
+            Proxy::Socks5(url) => Ok(url.addr().socket_addr()?),
         }
     }
 }
