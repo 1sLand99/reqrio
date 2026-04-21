@@ -103,7 +103,6 @@ impl Addr {
 
     pub fn socket_addr(&self) -> RlsResult<SocketAddr> {
         let dns = self.get_dns_cache()?;
-        println!("{:?}", dns);
         let addr = dns.addrs().iter().next().ok_or("missing dns address")?;
         Ok(SocketAddr::new(*addr, self.port))
     }
