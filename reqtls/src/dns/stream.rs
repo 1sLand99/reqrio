@@ -21,6 +21,14 @@ pub struct DNSCache {
 }
 
 impl DNSCache {
+    pub fn new_addrs(addrs: Vec<IpAddr>) -> Self {
+        DNSCache {
+            addrs,
+            alpn: vec![],
+            echo: EchConfig::new(),
+            time: 0,
+        }
+    }
     pub fn addrs(&self) -> &Vec<IpAddr> {
         &self.addrs
     }
@@ -136,6 +144,7 @@ impl DNSStream {
 
     fn read(&mut self) -> Result<usize, DNSError> {
         for _ in 0..3 {
+            println!("1111");
             match self.conn.recv(&mut self.read_buf) {
                 Ok(len) => return Ok(len),
                 Err(e) => if e.kind() == ErrorKind::WouldBlock {
@@ -189,15 +198,17 @@ impl DNSStream {
         })
     }
 
-    pub fn get_dns_a(&mut self, domain: &str) -> Result<DNSCache, DNSError> {
+    fn get_dns(&mut self, ty: impl Into<DnsType>, domain: &str) -> Result<DNSCache, DNSError> {
         self.write_buf.reset();
-        let dns = DNS::new_query_a(domain);
+        let dns = DNS::new_query(vec![ty], domain);
         dns.write_to(&mut self.write_buf)?;
         self.conn.send_to(self.write_buf.filled(), self.dns_addr).map_err(DNSError::DnsIoError)?;
         let len = self.read()?;
         let dns = DNS::from_bytes(&self.read_buf[..len])?;
         let addrs = dns.answers.iter().filter_map(|x| if x.type_() == DnsType::A && let DNSValue::A(addr) = x.data() {
             Some(IpAddr::V4(*addr))
+        } else if x.type_() == DnsType::AAAA && let DNSValue::AAAA(addr) = x.data() {
+            Some(IpAddr::V6(*addr))
         } else { None }).collect::<Vec<IpAddr>>();
         Ok(DNSCache {
             addrs,
@@ -205,6 +216,14 @@ impl DNSStream {
             echo: EchConfig::new(),
             time: 0,
         })
+    }
+
+    pub fn get_dns_a(&mut self, domain: &str) -> Result<DNSCache, DNSError> {
+        self.get_dns(DnsType::A, domain)
+    }
+
+    pub fn get_dns_aaaa(&mut self, domain: &str) -> Result<DNSCache, DNSError> {
+        self.get_dns(DnsType::AAAA, domain)
     }
 }
 
@@ -216,9 +235,15 @@ mod test {
     #[test]
     fn test_https_dns() {
         let mut stream = DNSStream::new().unwrap();
-        let dns = stream.get_dns_https("crypto.cloudflare.com").unwrap();
+        // let dns = stream.get_dns_https("crypto.cloudflare.com").unwrap();
+        // println!("{:#?}", dns);
+        // let dns = stream.get_dns_a("m.so.com").unwrap();
+        // println!("{:#?}", dns);
+        let dns = stream.get_dns_https("www.baidu.com").unwrap();
         println!("{:#?}", dns);
-        let dns = stream.get_dns_a("m.so.com").unwrap();
+        let dns = stream.get_dns_a("www.baidu.com").unwrap();
+        println!("{:#?}", dns);
+        let dns = stream.get_dns_aaaa("www.baidu.com").unwrap();
         println!("{:#?}", dns);
     }
 }

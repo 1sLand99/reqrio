@@ -3,7 +3,7 @@ use crate::error::RlsResult;
 use crate::url::UrlError;
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::net::{Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 use std::sync::{Arc, LazyLock, RwLock};
 use std::time::SystemTime;
@@ -59,12 +59,22 @@ impl Addr {
     }
 
     fn get_dns(&self) -> RlsResult<Arc<DNSCache>> {
-        let mut stream = DNSStream::new()?;
-        let mut cache = stream.get_dns_https(&self.host)?;
-        if cache.addrs().is_empty() {
-            let a = stream.get_dns_a(&self.host)?;
-            cache.set_addrs(a.into_addrs());
-        }
+        let mut cache = match IpAddr::from_str(&self.host) {
+            Ok(addr) => DNSCache::new_addrs(vec![addr]),
+            Err(_) => {
+                let mut stream = DNSStream::new()?;
+                let mut cache = stream.get_dns_https(&self.host)?;
+                if cache.addrs().is_empty() {
+                    let a = stream.get_dns_a(&self.host)?;
+                    if a.addrs().is_empty() {
+                        let aaaa = stream.get_dns_aaaa(&self.host)?;
+                        cache.set_addrs(aaaa.into_addrs())
+                    } else { cache.set_addrs(a.into_addrs()); }
+                }
+                cache
+            }
+        };
+
         let t = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_secs();
         cache.set_time(t);
         let cache = Arc::new(cache);
@@ -96,18 +106,6 @@ impl Addr {
         println!("{:?}", dns);
         let addr = dns.addrs().iter().next().ok_or("missing dns address")?;
         Ok(SocketAddr::new(*addr, self.port))
-    }
-
-    fn socket_addr_v4(&self) -> RlsResult<SocketAddr> {
-        let dns = self.get_dns_cache()?;
-        println!("{:?}", dns);
-        let addr = *self.get_dns_cache()?.addrs().iter().find(|x| x.is_ipv4()).ok_or(UrlError::MissingIpv4SocketAddr)?;
-        Ok(SocketAddr::new(addr, self.port))
-    }
-
-    fn socket_addr_v6(&self) -> RlsResult<SocketAddr> {
-        let addr = *self.get_dns_cache()?.addrs().iter().find(|x| x.is_ipv6()).ok_or(UrlError::MissingIpv6SocketAddr)?;
-        Ok(SocketAddr::new(addr, self.port))
     }
 
     pub fn to_bits(&self) -> RlsResult<u32> {
@@ -156,5 +154,17 @@ impl From<SocketAddr> for Addr {
             host: value.ip().to_string(),
             port: value.port(),
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::Addr;
+
+    #[test]
+    fn test_addr() {
+        let addr = Addr::new_addr("127.0.0.1", 1234);
+        println!("{}", addr.socket_addr().unwrap());
     }
 }

@@ -264,7 +264,7 @@ impl<'a> DNS<'a> {
         }
     }
 
-    pub fn new_query_a(domain: &'a str) -> DNS<'a> {
+    pub fn new_query(tys:Vec<impl Into<DnsType>> , domain: &'a str) -> DNS<'a> {
         DNS {
             tid: rand::random(),
             flag: DNSFlag {
@@ -279,11 +279,11 @@ impl<'a> DNS<'a> {
                 non_authenticated: false,
                 reply_code: ReplyCode::NO_ERROR.into(),
             },
-            questions: 1,
+            questions: tys.len() as u16,
             answer: 0,
             authority: 0,
             additional: 0,
-            queries: vec![DNSQuery::new_query(DnsType::A, domain)],
+            queries: tys.into_iter().map(|x|DNSQuery::new_query(x.into(), domain)).collect(),
             answers: vec![],
             authorities: vec![],
             adds: vec![],
