@@ -1,7 +1,7 @@
 use super::error::UrlError;
 use std::fmt::Display;
 
-#[derive(Eq, PartialEq, Debug, Clone)]
+#[derive(Eq, PartialEq, Debug, Clone, Copy)]
 pub enum Scheme {
     Http,
     Https,

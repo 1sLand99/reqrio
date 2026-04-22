@@ -40,7 +40,7 @@ pub struct ClientConfig<'a> {
 impl<'a> From<ConnParam<'a>> for ClientConfig<'a> {
     fn from(param: ConnParam<'a>) -> Self {
         ClientConfig {
-            sni: param.addr.host(),
+            sni: param.url.sni(),
             alpn: param.alpn,
             fingerprint: param.fingerprint,
             client_cert: param.cert,

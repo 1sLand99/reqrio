@@ -1,16 +1,15 @@
 mod h1;
 mod h2;
 
-use reqtls::{Addr, Scheme};
 use crate::error::HlsResult;
 use crate::hpack::HPackEncode;
 use crate::reader::{ReadExt, Reader};
 pub(super) use h1::H1HeaderReader;
 pub(super) use h2::H2HeaderReader;
+use reqtls::Url;
 
 pub struct HeaderParam<'a> {
-    pub(crate) addr: &'a Addr,
-    pub(crate) scheme: &'a Scheme,
+    pub(crate) url: &'a Url,
     pub(crate) encoder: &'a mut HPackEncode,
     pub(crate) stream_identifier: &'a u32,
     pub(crate) body_len: usize,

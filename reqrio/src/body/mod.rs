@@ -179,7 +179,7 @@ impl<'a> Body<'a> {
                                     Cow::Owned(o) => readers.add_string(o)
                                 }
                             }
-                            Err(_) => readers.add_string(coder::url_encode(&v.dump()).into_owned())
+                            Err(_) => readers.add_string(coder::url_encode(v.dump()).into_owned())
                         }
                         if i != data.entries().count() - 1 { readers.add_str("&") }
                     }

@@ -20,6 +20,7 @@ pub struct Url {
     uri: Uri,
     username: String,
     password: String,
+    domain: Option<String>,
 }
 
 impl Default for Url {
@@ -30,6 +31,7 @@ impl Default for Url {
             uri: Uri::default(),
             username: "".to_string(),
             password: "".to_string(),
+            domain: None,
         }
     }
 }
@@ -46,6 +48,15 @@ impl Url {
     pub fn with_uri(mut self, uri: impl AsRef<str>) -> RlsResult<Self> {
         self.set_uri(uri)?;
         Ok(self)
+    }
+
+    pub fn with_domain(mut self, domain: impl Into<String>) -> Self {
+        self.domain = Some(domain.into());
+        self
+    }
+
+    pub fn sni(&self) -> &str {
+        self.domain.as_deref().unwrap_or(self.addr.host())
     }
 
     pub fn into_uri(self) -> Uri { self.uri }
@@ -159,6 +170,7 @@ impl TryFrom<&str> for Url {
             username,
             password,
             uri,
+            domain: None,
         })
     }
 }

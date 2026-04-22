@@ -31,16 +31,6 @@ pub extern "system" fn ws_set_proxy(builder: *mut WebSocketBuilder<ScReq>, proxy
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn ws_set_url(builder: *mut WebSocketBuilder<ScReq>, url: *const c_char) -> i32 {
-    || -> HlsResult<i32>{
-        let builder = unsafe { builder.as_mut().ok_or(HlsError::NullPointer) }?;
-        let url = unsafe { CStr::from_ptr(url) }.to_str()?;
-        builder.set_url(url)?;
-        Ok(0)
-    }().unwrap_or(-1)
-}
-
-#[unsafe(no_mangle)]
 pub extern "system" fn ws_set_uri(builder: *mut WebSocketBuilder<ScReq>, uri: *const c_char) -> i32 {
     || -> HlsResult<i32>{
         let builder = unsafe { builder.as_mut().ok_or(HlsError::NullPointer) }?;
@@ -51,10 +41,11 @@ pub extern "system" fn ws_set_uri(builder: *mut WebSocketBuilder<ScReq>, uri: *c
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn ws_open(builder: *mut WebSocketBuilder<ScReq>) -> *mut WebSocket {
+pub extern "system" fn ws_open(builder: *mut WebSocketBuilder<ScReq>, url: *const Url) -> *mut WebSocket {
     || -> HlsResult<*mut WebSocket>{
         let builder = unsafe { Box::from_raw(builder) };
-        let ws = builder.build()?;
+        let url=unsafe{url.as_ref()}.ok_or(HlsError::NullPointer)?;
+        let ws = builder.build(url)?;
         Ok(Box::into_raw(Box::new(ws)))
     }().unwrap_or_else(|e| {
         println!("{}", e);

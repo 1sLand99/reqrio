@@ -41,7 +41,7 @@ impl<S: ReqExt> WebSocketBuilder<S> {
     }
 
     pub fn set_uri(&mut self, uri: impl TryInto<Uri>) -> Result<(), RlsError> {
-        self.0.header_mut().set_uri(uri.try_into().map_err(|_|UrlError::ParseUriError)?);
+        self.0.header_mut().set_uri(uri.try_into().map_err(|_| UrlError::ParseUriError)?);
         Ok(())
     }
 
@@ -52,39 +52,19 @@ impl<S: ReqExt> WebSocketBuilder<S> {
 }
 
 impl WebSocketBuilder<ScReq> {
-    pub fn build(mut self) -> HlsResult<WebSocket> {
-        self.0.re_conn()?;
+    pub fn build(mut self, url: &Url) -> HlsResult<WebSocket> {
+        self.0.re_conn(url)?;
         WebSocket::add_header(self.0.header_mut())?;
-        Ok(WebSocket::new(WebSocket::connect_sync(self.0)?))
-    }
-
-    pub fn set_url(&mut self, url: impl AsRef<str>) -> HlsResult<()> {
-        self.0.set_url(url.as_ref())?;
-        Ok(())
-    }
-
-    pub fn with_url(mut self, url: impl AsRef<str>) -> HlsResult<Self> {
-        self.set_url(url)?;
-        Ok(self)
+        Ok(WebSocket::new(WebSocket::connect_sync(self.0, url)?))
     }
 }
 
 #[cfg(feature = "aync")]
 impl WebSocketBuilder<AcReq> {
-    pub async fn build(mut self) -> HlsResult<WebSocket> {
-        self.0.re_conn().await?;
+    pub async fn build(mut self, url: &Url) -> HlsResult<WebSocket> {
+        self.0.re_conn(url).await?;
         WebSocket::add_header(self.0.header_mut())?;
         Ok(WebSocket::new(WebSocket::connect_async(self.0).await?))
-    }
-
-    pub async fn set_async_url(&mut self, url: impl AsRef<str>) -> HlsResult<()> {
-        self.0.set_url(url.as_ref()).await?;
-        Ok(())
-    }
-
-    pub async fn with_async_url(mut self, url: impl AsRef<str>) -> HlsResult<Self> {
-        self.set_async_url(url).await?;
-        Ok(self)
     }
 }
 
@@ -136,22 +116,21 @@ impl WebSocket {
     }
 
 
-    fn connect_sync(mut req: ScReq) -> HlsResult<Stream> {
-        let resp = req.handle_io(&Body::none())?;
+    fn connect_sync(mut req: ScReq, url: &Url) -> HlsResult<Stream> {
+        let resp = req.handle_io(url, &Body::none())?;
         let status = resp.header().status();
         if status != &HttpStatus::SwitchingProtocols { return Err(format!("Connect fail with code-{}", status).into()); }
         Ok(req.into_stream())
     }
 
     pub fn open(url: impl AsRef<str>) -> HlsResult<WebSocket> {
-        Self::sync_build().with_url(url)?.build()
+        Self::sync_build().build(&Url::try_from(url.as_ref())?)
     }
 
     pub fn open_raw(url: impl AsRef<str>, context: impl AsRef<[u8]>) -> HlsResult<WebSocket> {
         let mut req = ScReq::new().with_timeout(Timeout::longer());
-        req.set_url(url.as_ref())?;
         req.req_param().buffer.write_slice(context.as_ref())?;
-        Ok(WebSocket::new(Self::connect_sync(req)?))
+        Ok(WebSocket::new(Self::connect_sync(req, &Url::try_from(url.as_ref())?)?))
     }
 
 
@@ -191,13 +170,13 @@ impl WebSocket {
     }
 
     pub async fn open_async(url: impl AsRef<str>) -> HlsResult<WebSocket> {
-        Self::async_build().with_async_url(url).await?.build().await
+        Self::async_build().build(&Url::try_from(url.as_ref())?).await
     }
 
     pub async fn open_async_raw(url: impl AsRef<str>, context: impl AsRef<[u8]>) -> HlsResult<WebSocket> {
         let mut req = AcReq::new().with_timeout(Timeout::longer());
-        req.set_url(url.as_ref()).await?;
         req.req_param().buffer.write_slice(context.as_ref())?;
+        req.set_url(&Url::try_from(url.as_ref())?).await?;
         Ok(WebSocket::new(Self::connect_async(req).await?))
     }
 

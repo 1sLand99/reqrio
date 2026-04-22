@@ -2,7 +2,7 @@ use crate::error::HlsResult;
 use crate::time::Timeout;
 use crate::{json, BodyExt, Cookie, HlsError, Method, Proxy, ReqExt, ScReq, ALPN};
 use crate::{ContentType, Fingerprint};
-use reqtls::hex;
+use reqtls::{hex, Url};
 use std::ffi::{c_char, CStr, CString};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::slice;
@@ -193,7 +193,7 @@ pub unsafe extern "C" fn ScReq_stream_io(
             let content_type = ContentType::try_from(ct)?;
             let url = unsafe { CStr::from_ptr(url) }.to_str()?;
             let body = unsafe { slice::from_raw_parts(body, body_len) };
-            let body=body.ty(content_type);
+            let body = body.ty(content_type);
             let mut resp = req.stream_io(url, body)?;
             let res = json::object! {
                 "header":resp.header(),
@@ -216,10 +216,11 @@ pub unsafe extern "C" fn ScReq_stream_io(
 }
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn ScReq_reconnect(req: *mut ScReq) -> i32 {
+pub extern "system" fn ScReq_reconnect(req: *mut ScReq, url: *const Url) -> i32 {
     || -> HlsResult<i32> {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
-        req.re_conn()?;
+        let url = unsafe { url.as_ref() }.ok_or(HlsError::NullPointer)?;
+        req.re_conn(url)?;
         Ok(0)
     }().unwrap_or(-1)
 }

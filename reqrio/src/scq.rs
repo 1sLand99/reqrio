@@ -1,4 +1,3 @@
-use std::convert::Infallible;
 use crate::body::{Body, H2FrameRBuf};
 use crate::ext::{ReqParam, ReqPriExt};
 use crate::hpack::HPackCoding;
@@ -8,14 +7,12 @@ use crate::request::RequestBuffer;
 use crate::stream::{ConnParam, Stream};
 use crate::*;
 use json::JsonValue;
-use std::mem;
+use std::convert::Infallible;
 use std::path::{Path, PathBuf};
 
 #[repr(C)]
 pub struct ScReq {
     header: Header,
-    scheme: Scheme,
-    addr: Addr,
     stream: Stream,
     callback: Option<ReqCallback>,
     timeout: Timeout,
@@ -31,14 +28,13 @@ pub struct ScReq {
     ca_certs: Vec<Certificate>,
     alpn: ALPN,
     key_log: Option<PathBuf>,
+    host: String,
 }
 
 impl Default for ScReq {
     fn default() -> Self {
         ScReq {
             header: Header::new_req_h1(),
-            scheme: Scheme::Http,
-            addr: Addr::default(),
             stream: Stream::NonConnection,
             callback: None,
             timeout: Timeout::default(),
@@ -52,8 +48,9 @@ impl Default for ScReq {
             certs: vec![],
             key: RsaKey::none(),
             ca_certs: vec![],
-            alpn: ALPN::Http11,
+            alpn: ALPN::Http20,
             key_log: None,
+            host: "".to_string(),
         }
     }
 }
@@ -137,10 +134,9 @@ impl ScReq {
         Ok(response)
     }
 
-    pub(crate) fn handle_io(&mut self, body: &Body) -> HlsResult<Response> {
+    pub(crate) fn handle_io(&mut self, url: &Url, body: &Body) -> HlsResult<Response> {
         let mut request = RequestBuffer::new(&mut self.header, body, HeaderParam {
-            addr: &self.addr,
-            scheme: &self.scheme,
+            url,
             stream_identifier: &self.stream_id,
             encoder: self.hpack_coder.encoder(),
             body_len: 0,
@@ -166,18 +162,19 @@ impl ScReq {
     where
         HlsError: From<E>,
     {
-        self.set_url(url)?;
+        let mut url = url.try_into()?;
+        self.set_url(&url)?;
         for i in 0..self.timeout.handle_times() {
-            let res = self.handle_io(&body);
+            let res = self.handle_io(&url, &body);
             self.buffer.reset();
             match res {
                 Ok(res) => {
                     let code = res.header().status().code();
                     return if self.auto_redirect && (300..400).contains(&code) {
                         let location = res.header().location().ok_or("missing location")?;
-                        let url = match location.starts_with("http") {
-                            true => Url::try_from(location)?,
-                            false => Url::from_inner(self.scheme.clone(), self.addr.clone(), Uri::try_from(location)?)
+                        match location.starts_with("http") {
+                            true => url = Url::try_from(location)?,
+                            false => url.set_uri(location)?
                         };
                         self.header.set_method(Method::GET);
                         self.stream_io::<Infallible>(url, Body::none())
@@ -187,7 +184,7 @@ impl ScReq {
                 }
                 Err(e) => if i < self.timeout.handle_times() - 1 {
                     if self.timeout.is_peer_closed(e.to_string()) {
-                        self.re_conn()?;
+                        self.re_conn(&url)?;
                     }
                     println!("[ScReq] write/recv error, error: {}, handle: {}/{}", e, i + 2, self.timeout.handle_times());
                     continue;
@@ -197,12 +194,11 @@ impl ScReq {
         Err("stream io error".into())
     }
 
-    pub fn re_conn(&mut self) -> HlsResult<()> {
+    pub fn re_conn(&mut self, url: &Url) -> HlsResult<()> {
         self.buffer.reset();
         for i in 0..self.timeout.connect_times() {
             let param = ConnParam {
-                scheme: &self.scheme,
-                addr: &self.addr,
+                url,
                 proxy: &self.proxy,
                 timeout: &self.timeout,
                 fingerprint: &mut self.fingerprint,
@@ -217,6 +213,7 @@ impl ScReq {
                 Ok(alpn) => {
                     self.header.init_by_alpn(alpn);
                     if self.header.alpn() == &ALPN::Http20 { self.handle_h2_setting()?; }
+                    self.host = url.sni().to_string();
                     return Ok(());
                 }
                 Err(e) => if i < self.timeout.connect_times() - 1 {
@@ -237,16 +234,10 @@ impl ScReq {
         self.fingerprint = fingerprint;
     }
 
-    pub(crate) fn set_url<E>(&mut self, url: impl TryInto<Url, Error=E>) -> HlsResult<()>
-    where
-        HlsError: From<E>,
+    pub(crate) fn set_url(&mut self, url: &Url) -> HlsResult<()>
     {
-        let (scheme, addr, uri) = url.try_into()?.into_inner();
-        let old_addr = mem::replace(&mut self.addr, addr);
-        let old_scheme = mem::replace(&mut self.scheme, scheme);
-        self.header.set_uri(uri);
-        if old_addr.host() != self.addr.host() || self.scheme != old_scheme {
-            self.re_conn()?;
+        if self.host != url.sni() || self.stream.scheme() != Some(*url.scheme()) {
+            self.re_conn(url)?;
         }
         Ok(())
     }

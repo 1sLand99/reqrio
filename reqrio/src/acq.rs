@@ -10,13 +10,10 @@ use crate::reader::{ReadExt, Reader};
 use crate::request::RequestBuffer;
 use crate::stream::{ConnParam, Proxy, Stream};
 use crate::*;
-use std::mem;
 use std::path::{Path, PathBuf};
 
 pub struct AcReq {
     header: Header,
-    scheme: Scheme,
-    addr: Addr,
     stream: Stream,
     timeout: Timeout,
     callback: Option<ReqCallback>,
@@ -32,14 +29,13 @@ pub struct AcReq {
     ca_certs: Vec<Certificate>,
     alpn: ALPN,
     key_log: Option<PathBuf>,
+    host: String,
 }
 
 impl Default for AcReq {
     fn default() -> Self {
         AcReq {
             header: Header::new_req_h1(),
-            scheme: Scheme::Http,
-            addr: Addr::default(),
             stream: Stream::NonConnection,
             timeout: Timeout::default(),
             callback: None,
@@ -53,8 +49,9 @@ impl Default for AcReq {
             certs: vec![],
             key: RsaKey::none(),
             ca_certs: vec![],
-            alpn: ALPN::Http11,
+            alpn: ALPN::Http20,
             key_log: None,
+            host: "".to_string(),
         }
     }
 }
@@ -138,10 +135,9 @@ impl AcReq {
         Ok(response)
     }
 
-    pub(crate) async fn handle_io(&mut self, body: &Body<'_>) -> HlsResult<Response> {
+    pub(crate) async fn handle_io(&mut self, url: &Url, body: &Body<'_>) -> HlsResult<Response> {
         let mut request = RequestBuffer::new(&mut self.header, body, HeaderParam {
-            addr: &self.addr,
-            scheme: &self.scheme,
+            url,
             encoder: self.hpack_coder.encoder(),
             stream_identifier: &self.stream_id,
             body_len: 0,
@@ -167,9 +163,10 @@ impl AcReq {
     where
         HlsError: From<E>,
     {
-        self.set_url(url).await?;
+        let mut url = url.try_into()?;
+        self.set_url(&url).await?;
         for i in 0..self.timeout.handle_times() {
-            let res = tokio::time::timeout(self.timeout.handle(), self.handle_io(&body)).await;
+            let res = tokio::time::timeout(self.timeout.handle(), self.handle_io(&url, &body)).await;
             self.buffer.reset();
             match res {
                 Ok(res) => match res {
@@ -177,11 +174,10 @@ impl AcReq {
                         let code = res.header().status().code();
                         return if self.auto_redirect && (300..400).contains(&code) {
                             let location = res.header().location().ok_or("missing location")?;
-                            let url = if location.starts_with("http") {
-                                Url::try_from(location)?
-                            } else {
-                                Url::from_inner(self.scheme.clone(), self.addr.clone(), Uri::try_from(location)?)
-                            };
+                            match location.starts_with("http") {
+                                true => url = Url::try_from(location)?,
+                                false => url.set_uri(location)?,
+                            }
                             self.header.set_method(Method::GET);
                             Box::pin(self.stream_io::<Infallible>(url, Body::none())).await
                         } else {
@@ -191,7 +187,7 @@ impl AcReq {
                     Err(e) => {
                         if i != self.timeout.handle_times() - 1 {
                             if e.to_string().to_lowercase().contains("close") || e.to_string().contains("中止了") || e.to_string().contains("关闭") {
-                                self.re_conn().await?;
+                                self.re_conn(&url).await?;
                             }
                             println!("[AcReq] write/recv with error-{}, handle: {}/{}", e, i + 2, self.timeout.handle_times());
                             continue;
@@ -208,12 +204,11 @@ impl AcReq {
         Err("stream io error".into())
     }
 
-    pub async fn re_conn(&mut self) -> HlsResult<()> {
+    pub async fn re_conn(&mut self, url: &Url) -> HlsResult<()> {
         self.buffer.reset();
         for i in 0..self.timeout.connect_times() {
             let param = ConnParam {
-                scheme: &self.scheme,
-                addr: &self.addr,
+                url,
                 proxy: &self.proxy,
                 timeout: &self.timeout,
                 fingerprint: &mut self.fingerprint,
@@ -240,6 +235,7 @@ impl AcReq {
                     Ok(alpn) => {
                         self.header.init_by_alpn(alpn);
                         if self.header.alpn() == &ALPN::Http20 { self.handle_h2_setting().await?; }
+                        self.host = url.sni().to_string();
                         Ok(())
                     }
                     Err(e) => Err(e),
@@ -250,16 +246,9 @@ impl AcReq {
         Err("[AcReq] connection error".into())
     }
 
-    pub(crate) async fn set_url<E>(&mut self, url: impl TryInto<Url, Error=E>) -> HlsResult<()>
-    where
-        HlsError: From<E>,
-    {
-        let (scheme, addr, uri) = url.try_into()?.into_inner();
-        let old_addr = mem::replace(&mut self.addr, addr);
-        let old_scheme = mem::replace(&mut self.scheme, scheme);
-        self.header.set_uri(uri);
-        if self.addr.host() != old_addr.host() || self.scheme != old_scheme {
-            self.re_conn().await?;
+    pub(crate) async fn set_url(&mut self, url: &Url) -> HlsResult<()> {
+        if self.host != url.sni() || self.stream.scheme() != Some(*url.scheme()) {
+            self.re_conn(url).await?;
         }
         Ok(())
     }

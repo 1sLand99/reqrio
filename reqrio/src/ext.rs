@@ -214,8 +214,7 @@ pub trait ReqGenExt: ReqExt {
         let body_raw = body.to_vec()?;
         let param = self.req_param();
         let header_reader = param.header.as_reader(HeaderParam {
-            addr: url.addr(),
-            scheme: url.scheme(),
+            url,
             encoder: param.hpack_coder.encoder(),
             stream_identifier: param.sid,
             body_len: body_raw.len(),
@@ -228,6 +227,7 @@ pub trait ReqGenExt: ReqExt {
 
 pub trait UrlExt {
     fn params(&self, params: impl AsRef<JsonValue>) -> Result<Url, UrlError>;
+    fn sni(&self, sni: impl Into<String>) -> Result<Url, UrlError>;
 }
 
 impl UrlExt for str {
@@ -241,10 +241,18 @@ impl UrlExt for str {
         }
         Ok(url)
     }
+    
+    fn sni(&self, sni: impl Into<String>) -> Result<Url, UrlError> {
+        Ok(Url::try_from(self)?.with_domain(sni))
+    }
 }
 
 impl UrlExt for String {
     fn params(&self, params: impl AsRef<JsonValue>) -> Result<Url, UrlError> {
         self.as_str().params(params)
+    }
+
+    fn sni(&self, sni: impl Into<String>) -> Result<Url, UrlError> {
+        Ok(Url::try_from(self)?.with_domain(sni))
     }
 }

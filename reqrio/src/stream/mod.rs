@@ -22,8 +22,7 @@ mod config;
 mod aync;
 
 pub struct ConnParam<'a> {
-    pub scheme: &'a Scheme,
-    pub addr: &'a Addr,
+    pub url: &'a Url,
     pub proxy: &'a Proxy,
     pub timeout: &'a Timeout,
     pub fingerprint: &'a mut Fingerprint,
@@ -47,14 +46,28 @@ pub enum Stream {
     AsyncHttps(TlsStreamA),
 }
 
+impl Stream {
+    pub fn scheme(&self) -> Option<Scheme> {
+        match self {
+            Stream::NonConnection => None,
+            Stream::SyncHttp(_) => Some(Scheme::Http),
+            Stream::SyncHttps(_) => Some(Scheme::Https),
+            #[cfg(feature = "aync")]
+            Stream::AsyncHttp(_) => Some(Scheme::Http),
+            #[cfg(feature = "aync")]
+            Stream::AsyncHttps(_) => Some(Scheme::Https),
+        }
+    }
+}
+
 #[cfg(feature = "aync")]
 impl Stream {
     pub async fn async_conn(&mut self, param: ConnParam<'_>) -> HlsResult<ALPN> {
         let _ = self.async_shutdown().await;
         let st = Time::now_mills().unwrap();
-        let stream = tokio::time::timeout(param.timeout.connect(), ProxyStream::async_connect(param.proxy, param.addr)).await??;
+        let stream = tokio::time::timeout(param.timeout.connect(), ProxyStream::async_connect(param.proxy, param.url.addr())).await??;
         println!("TCP TIME: {}", Time::now_mills().unwrap() - st);
-        match param.scheme {
+        match param.url.scheme() {
             Scheme::Http | Scheme::Ws => {
                 *self = Stream::AsyncHttp(TcpStreamA::from_proxy_stream(stream, param.timeout));
                 Ok(ALPN::Http11)
@@ -100,8 +113,8 @@ impl Stream {
 impl Stream {
     pub fn sync_conn(&mut self, param: ConnParam) -> HlsResult<ALPN> {
         let _ = self.sync_shutdown();
-        let stream = ProxyStream::sync_connect(param.proxy, param.addr, param.timeout)?;
-        match param.scheme {
+        let stream = ProxyStream::sync_connect(param.proxy, param.url.addr(), param.timeout)?;
+        match param.url.scheme() {
             Scheme::Http | Scheme::Ws => {
                 *self = Stream::SyncHttp(stream);
                 Ok(ALPN::Http11)
@@ -298,7 +311,7 @@ pub trait TlsStreamHandle {
         while index < len - 1 {
             match record_type {
                 RecordType::Alert => {
-                    let alert = Alert::from_bytes(&w_buf[index..index+len])?;
+                    let alert = Alert::from_bytes(&w_buf[index..index + len])?;
                     return Err(RlsError::Alert(alert));
                 }
                 _ => {

@@ -457,38 +457,38 @@ impl Header {
         Ok(())
     }
 
-    fn as_h1_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> H1HeaderReader<'a> {
+    fn as_h1_reader<'a>(&'a self, params: HeaderParam<'a>, ct: &'a ContentType) -> H1HeaderReader<'a> {
         let mut reader = RefReader::default();
         reader.add_str(self.method.spec());
         reader.add_str(" ");
-        if self.uri.is_empty() {
+        if params.url.uri().is_empty() {
             reader.add_str("/")
         } else {
-            reader.add_str(self.uri.path());
+            reader.add_str(params.url.uri().path());
         }
-        if !self.uri.params().is_empty() { reader.add_str("?") };
-        for (i, param) in self.uri.params().iter().enumerate() {
+        if !params.url.uri().params().is_empty() { reader.add_str("?") };
+        for (i, param) in params.url.uri().params().iter().enumerate() {
             reader.add_str(param.name());
             reader.add_str("=");
             reader.add_str(param.value_raw());
-            if i != self.uri.params().len() - 1 { reader.add_str("&") }
+            if i != params.url.uri().params().len() - 1 { reader.add_str("&") }
         }
         reader.add_str(" ");
         reader.add_str("HTTP/1.1");
         reader.add_str("\r\n");
         for key in self.keys.iter() {
-            if H1HeaderReader::skip_h1_key(key, &param.body_len, ct) { continue; }
+            if H1HeaderReader::skip_h1_key(key, &params.body_len, ct) { continue; }
             reader.add_str(key.name());
             reader.add_str(": ");
             match key.name() {
                 "host" | "Host" => {
-                    reader.add_str(param.addr.host());
-                    if param.addr.port() != 80 && param.addr.port() != 443 {
+                    reader.add_str(params.url.sni());
+                    if params.url.addr().port() != 80 && params.url.addr().port() != 443 {
                         reader.add_str(":");
-                        reader.add_string(param.addr.port().to_string());
+                        reader.add_string(params.url.addr().port().to_string());
                     }
                 }
-                "content-length" | "Content-Length" => reader.add_string(param.body_len.to_string()),
+                "content-length" | "Content-Length" => reader.add_string(params.body_len.to_string()),
                 "content-type" | "Content-Type" => match ct.spec() {
                     Cow::Borrowed(b) => reader.add_str(b),
                     Cow::Owned(o) => reader.add_string(o),
@@ -520,10 +520,14 @@ impl Header {
 
     fn as_h2_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> H2HeaderReader<'a> {
         let mut keys = vec![];
-        let uri = if self.uri.is_empty() { StrCow::Borrowed("/") } else { StrCow::Owned(self.uri.to_string()) };
+        let uri = if param.url.uri().is_empty() { StrCow::Borrowed("/") } else { StrCow::Owned(param.url.uri().to_string()) };
         keys.push((StrCow::Borrowed(":method"), StrCow::Borrowed(self.method.spec())));
-        keys.push((StrCow::Borrowed(":authority"), StrCow::Owned(param.addr.to_string().replace(":443", "").replace(":80", ""))));
-        keys.push((StrCow::Borrowed(":scheme"), StrCow::Borrowed(param.scheme.spec())));
+        if param.url.addr().port() == 443 || param.url.addr().port() == 80 {
+            keys.push((StrCow::Borrowed(":authority"), StrCow::Borrowed(param.url.sni())));
+        } else {
+            keys.push((StrCow::Borrowed(":authority"), StrCow::Owned(format!("{}:{}", param.url.sni(), param.url.addr().port()))));
+        }
+        keys.push((StrCow::Borrowed(":scheme"), StrCow::Borrowed(param.url.scheme().spec())));
         for key in self.keys.iter() {
             if H2HeaderReader::skip_h2_key(key, ct) { continue; }
             let name = key.name_lower();
@@ -535,7 +539,7 @@ impl Header {
                 continue;
             }
             match key.value() {
-                HeaderValue::Cookies(cookies) => for cookie in cookies.as_req(param.addr.host(), uri.as_ref()) {
+                HeaderValue::Cookies(cookies) => for cookie in cookies.as_req(param.url.sni(), uri.as_ref()) {
                     keys.push((StrCow::Owned(name.clone()), StrCow::Owned(cookie.as_req())));
                 }
                 _ => keys.push((StrCow::Owned(name), StrCow::Owned(key.value().to_string()))),
