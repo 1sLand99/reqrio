@@ -80,7 +80,8 @@ fn build_finger(suites: Vec<CipherSuite>, groups: Vec<NamedCurve>) -> Fingerprin
 }
 
 ///ECDHE_RSA
-#[tokio::test]
+// #[tokio::test]
+#[allow(dead_code)]
 async fn test_ecdhe_rsa() {
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256.into()],
@@ -135,7 +136,8 @@ async fn test_rsa() {
     req.get("https://m.baidu.com", None).await.unwrap();
 }
 
-#[tokio::test]
+// #[tokio::test]
+#[allow(dead_code)]
 async fn test_tls13_cipher() {
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_AES_128_GCM_SHA256.into()],

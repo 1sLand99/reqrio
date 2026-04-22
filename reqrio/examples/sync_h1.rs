@@ -5,7 +5,7 @@ fn main() {
     timeout.set_handle_times(1);
     let mut req = ScReq::new().with_alpn(ALPN::Http20).with_auto_redirect(false)
         .with_timeout(timeout).with_key_log("2.log");
-    let res = req.get("https://bing.com/", None).unwrap();
+    let res = req.get("https://www.baidu.com/", None).unwrap();
     assert_eq!(res.header().status(), &HttpStatus::Move);
     return;
 
