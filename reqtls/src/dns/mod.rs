@@ -264,32 +264,6 @@ impl<'a> DNS<'a> {
         }
     }
 
-    pub fn new_query(tys:Vec<impl Into<DnsType>> , domain: &'a str) -> DNS<'a> {
-        DNS {
-            tid: rand::random(),
-            flag: DNSFlag {
-                resp: false,
-                opcode: 0,
-                authoritative: false,
-                truncated: false,
-                recursion_desired: true,
-                recursion_available: false,
-                z: false,
-                answer_authenticated: false,
-                non_authenticated: false,
-                reply_code: ReplyCode::NO_ERROR.into(),
-            },
-            questions: tys.len() as u16,
-            answer: 0,
-            authority: 0,
-            additional: 0,
-            queries: tys.into_iter().map(|x|DNSQuery::new_query(x.into(), domain)).collect(),
-            answers: vec![],
-            authorities: vec![],
-            adds: vec![],
-        }
-    }
-
     pub fn add_additional(&mut self, add: Additional<'a>) {
         self.additional += 1;
         self.adds.push(add);

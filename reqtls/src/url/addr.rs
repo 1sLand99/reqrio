@@ -3,7 +3,7 @@ use crate::error::RlsResult;
 use crate::url::UrlError;
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::str::FromStr;
 use std::sync::{Arc, LazyLock, RwLock};
 use std::time::SystemTime;
@@ -65,11 +65,8 @@ impl Addr {
                 let mut stream = DNSStream::new()?;
                 let mut cache = stream.get_dns_https(&self.host)?;
                 if cache.addrs().is_empty() {
-                    let a = stream.get_dns_a(&self.host)?;
-                    if a.addrs().is_empty() {
-                        let aaaa = stream.get_dns_aaaa(&self.host)?;
-                        cache.set_addrs(aaaa.into_addrs())
-                    } else { cache.set_addrs(a.into_addrs()); }
+                    let addrs=format!("{}:{}",self.host,self.port).to_socket_addrs()?.map(|x|x.ip()).collect();
+                    cache.set_addrs(addrs);
                 }
                 cache
             }
