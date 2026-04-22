@@ -213,7 +213,7 @@ mod test {
         // let dns = stream.get_dns_a("m.so.com").unwrap();
         // println!("{:#?}", dns);
         let dns = stream.get_dns_https("cn.bing.com").unwrap();
-        // println!("{:#?}", dns);
+        println!("{:#?}", dns);
         // let dns = stream.get_dns_a("www.baidu.com").unwrap();
         // println!("{:#?}", dns);
         // let dns = stream.get_dns_aaaa("www.baidu.com").unwrap();
