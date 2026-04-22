@@ -41,11 +41,11 @@ impl H2Setting {
     pub fn write_to<W: WriteExt>(&self, writer: &mut W) -> Result<(), BufferError> {
         let (flag, value) = match self {
             H2Setting::HeaderTableSize(v) => (0x1, v),
-            H2Setting::EnablePush(v) => (0x1, v),
-            H2Setting::MaxConcurrentStreams(v) => (0x1, v),
-            H2Setting::InitialWindowSize(v) => (0x1, v),
-            H2Setting::MaxFrameSize(v) => (0x1, v),
-            H2Setting::MaxHeaderListSize(v) => (0x1, v),
+            H2Setting::EnablePush(v) => (0x2, v),
+            H2Setting::MaxConcurrentStreams(v) => (0x3, v),
+            H2Setting::InitialWindowSize(v) => (0x4, v),
+            H2Setting::MaxFrameSize(v) => (0x5, v),
+            H2Setting::MaxHeaderListSize(v) => (0x6, v),
             H2Setting::Reserved { flag, value } => (*flag, value),
         };
         writer.write_u16(flag)?;
