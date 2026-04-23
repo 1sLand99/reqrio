@@ -164,6 +164,7 @@ impl Stream {
 
 
 pub trait TlsStreamHandle {
+    const CHANGE_CIPHER_SPEC: [u8; 6] = [20, 3, 3, 0, 1, 1];
     fn conn_buf(&mut self) -> (&mut Connection, &mut Buffer, &mut Buffer);
 
     fn handle_client_hello(&mut self, config: &mut ClientConfig) -> HlsResult<()> {
@@ -252,7 +253,7 @@ pub trait TlsStreamHandle {
         }
         let offset = buffer.len();
         //client key exchange
-        let mut client_key_exchange = config.fingerprint.tls().build_client_key_exchange(Some(conn.cipher_suite()))?;
+        let mut client_key_exchange = ClientKeyExchange::default();
         let key_size = conn.cipher_suite().key_size();
         let pub_key = conn.pub_share_key()?;
         client_key_exchange.set_pub_key(pub_key.as_ref());
@@ -269,7 +270,7 @@ pub trait TlsStreamHandle {
             buffer.set_len(offset + len);
             conn.update_session(&buffer[offset + 5..offset + len])?;
         }
-        buffer.write_slice(config.fingerprint.tls().change_cipher_spec())?;
+        buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
 
 
         let record_len = conn.make_finish_message(buffer.unfilled_mut(), false)?;
@@ -320,7 +321,7 @@ pub trait TlsStreamHandle {
                     let finish = Self::handle_message(message, conn)?;
                     if finish {
                         w_buf.reset();
-                        w_buf.write_slice(&[20, 3, 3, 0, 1, 1])?;
+                        w_buf.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
                         let len = conn.make_finish_message(w_buf.unfilled_mut(), false)?;
                         w_buf.add_len(len);
                         conn.make_cipher(false)?;

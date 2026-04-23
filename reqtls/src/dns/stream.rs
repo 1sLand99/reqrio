@@ -166,7 +166,6 @@ impl DNSStream {
         self.conn.send_to(self.write_buf.filled(), self.dns_addr).map_err(DNSError::DnsIoError)?;
         let len = self.read()?;
         let dns = DNS::from_bytes(&self.read_buf[..len])?;
-        println!("{:#?}", dns);
         let answer = dns.answers().iter().find(|x| x.type_() == DnsType::HTTPS);
         let (alpn, addrs, echo) = if let Some(answer) = answer && let DNSValue::Https { params, .. } = answer.data() {
             let alpn = params.iter().find(|x| x.key == SvcType::ALPN).map(|x| {
@@ -186,7 +185,6 @@ impl DNSStream {
             }
             let echo = params.iter().find(|x| x.key == SvcType::ECHO);
             let echo = if let Some(echo) = echo && let Some(value) = echo.values.first() && let SvcParamValue::ECHO(x) = value {
-                println!("{:?}", x);
                 EchConfig::from_bytes(&x[2..])?
             } else { EchConfig::new() };
             (alpn, addrs, echo)

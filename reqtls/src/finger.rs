@@ -9,11 +9,6 @@ use crate::extend::group::SupportedGroups;
 #[derive(Debug)]
 pub enum TlsFinger {
     ClientHello(Bytes),
-    TLS12HandShake {
-        client_hello: Bytes,
-        client_key_exchange: Bytes,
-        change_cipher_spec: Bytes,
-    },
     Custom {
         ///cipher suites
         suites: Vec<CipherSuite>,
@@ -37,11 +32,6 @@ impl TlsFinger {
     pub fn build_client_hello(&self) -> Result<ClientHello<'_>, RlsError> {
         match self {
             TlsFinger::ClientHello(client_hello) => {
-                let mut reader = Reader::from_slice(&client_hello.as_ref()[5..]);
-                reader.read_u8()?;
-                ClientHello::from_bytes(&mut reader)
-            }
-            TlsFinger::TLS12HandShake { client_hello, .. } => {
                 let mut reader = Reader::from_slice(&client_hello.as_ref()[5..]);
                 reader.read_u8()?;
                 ClientHello::from_bytes(&mut reader)
@@ -104,24 +94,6 @@ impl TlsFinger {
         }
     }
 
-    pub fn build_client_key_exchange(&self, suite: Option<&CipherSuite>) -> RlsResult<ClientKeyExchange<'_>> {
-        match self {
-            TlsFinger::ClientHello(_) | TlsFinger::Custom { .. } => Ok(ClientKeyExchange::default()),
-            TlsFinger::TLS12HandShake { client_key_exchange, .. } => {
-                let mut reader = Reader::from_slice(&client_key_exchange.as_ref()[5..]);
-                reader.read_u8()?;
-                ClientKeyExchange::from_reader(&mut reader, suite)
-            }
-        }
-    }
-
-    pub fn change_cipher_spec(&self) -> &[u8] {
-        match self {
-            TlsFinger::ClientHello(_) | TlsFinger::Custom { .. } => &[20, 3, 3, 0, 1, 1],
-            TlsFinger::TLS12HandShake { change_cipher_spec, .. } => change_cipher_spec.as_ref(),
-        }
-    }
-
     fn random_formats() -> Vec<EcPointFormat> {
         let mut ec_formats: Vec<EcPointFormat> = vec![];
         while ec_formats.len() < 3 {
@@ -154,7 +126,7 @@ impl TlsFinger {
         ];
         while suites.len() < 16 {
             let suite = CipherSuite::ALL[rand::random::<usize>() % 31];
-            if suites.iter().any(|x| x == &suite) { continue; }
+            if suites.iter().any(|x| x == suite) { continue; }
             suites.push(suite.into());
         }
         let mut groups: Vec<NamedCurve> = vec![NamedCurve::X25519.into(), NamedCurve::Secp256r1.into()];
