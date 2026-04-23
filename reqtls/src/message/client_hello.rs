@@ -49,7 +49,7 @@ impl<'a> ClientHello<'a> {
     pub fn from_bytes(reader: &mut Reader<'a>) -> RlsResult<ClientHello<'a>> {
         let mut res = ClientHello::default();
         res.handshake_type = HandshakeType::ClientHello;
-        res.len = reader.read_24()?;
+        res.len = reader.read_u24()?;
         res.version = Version::new(reader.read_u16()?);
         res.random = Buf::Ref(reader.read_slice(32)?);
         res.session_id_len = reader.read_u8()?;

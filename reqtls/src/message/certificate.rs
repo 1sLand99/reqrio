@@ -24,12 +24,12 @@ impl<'a> Certificates<'a> {
         if let Version::TLS_1_3 = version {
             reader.read_u8()?; //req ctx len
         }
-        reader.read_24()?;
-        let len = reader.read_24()?;
+        reader.read_u24()?;
+        let len = reader.read_u24()?;
         let mut reader = reader.read_reader(len as usize)?;
         let mut certificates = Vec::with_capacity(len as usize);
         while reader.unread_len() > 0 {
-            let len = reader.read_24()? as usize;
+            let len = reader.read_u24()? as usize;
             certificates.push(Buf::Ref(reader.read_slice(len)?));
             if let Version::TLS_1_3 = version {
                 let ext_len = reader.read_u16()?; //ext len
@@ -80,7 +80,7 @@ pub struct CertificateStatus<'a> {
 
 impl<'a> CertificateStatus<'a> {
     pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<CertificateStatus<'a>> {
-        let len = reader.read_24()?;
+        let len = reader.read_u24()?;
         Ok(CertificateStatus {
             handshake_type: ht,
             bytes: Buf::Ref(reader.read_slice(len as usize)?),
@@ -140,7 +140,7 @@ impl<'a> CertificateRequest<'a> {
             handshake_type: ht,
             ..Default::default()
         };
-        reader.read_24()?;
+        reader.read_u24()?;
         for _ in 0..reader.read_u8()? {
             res.cert_type.push(CertType::new(reader.read_u8()?));
         }
@@ -201,7 +201,7 @@ impl<'a> Default for CertificateVerify<'a> {
 
 impl<'a> CertificateVerify<'a> {
     pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<CertificateVerify<'a>> {
-        reader.read_24()?;
+        reader.read_u24()?;
         let sign_hash = SignatureAlgorithm::new(reader.read_u16()?);
         let sign_len = reader.read_u16()?;
         Ok(CertificateVerify {

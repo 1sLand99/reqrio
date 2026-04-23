@@ -136,7 +136,7 @@ impl<'a> H2Frame<'a> {
     pub fn from_bytes(buffer: &'a Buffer) -> HlsResult<H2Frame<'a>> {
         if buffer.len() < 9 { return Err("byte not enough".into()); }
         let mut reader = Reader::from_slice(buffer.filled());
-        let len = reader.read_24()?;
+        let len = reader.read_u24()?;
         // let len = u32::from_be_bytes([0, buffer[0], buffer[1], buffer[2]]) as usize;
         let frame_type = FrameType::from_u8(reader.read_u8()?)?;
         let flag = FrameFlag::from_u8(reader.read_u8()?);

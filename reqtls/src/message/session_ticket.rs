@@ -78,7 +78,7 @@ impl<'a> Default for SessionTicket<'a> {
 
 impl<'a> SessionTicket<'a> {
     pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>, version: Version) -> RlsResult<SessionTicket<'a>> {
-        reader.read_24()?;
+        reader.read_u24()?;
         Ok(SessionTicket {
             handshake_type: ht,
             tls_ticket: TlsSessionTicket::from_reader(reader, version)?,

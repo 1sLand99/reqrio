@@ -43,7 +43,7 @@ impl<'a> ServerHello<'a> {
     pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<ServerHello<'a>> {
         let mut res = ServerHello::default();
         res.handshake_type = ht;
-        res.len = reader.read_24()?;
+        res.len = reader.read_u24()?;
         res.version = Version::new(reader.read_u16()?);
         res.random = Buf::Ref(reader.read_slice(32)?);
         res.session_id_len = reader.read_u8()?;
@@ -177,7 +177,7 @@ impl ServerHelloDone {
     pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'_>) -> RlsResult<ServerHelloDone> {
         Ok(ServerHelloDone {
             handshake_type: ht,
-            len: reader.read_24()?,
+            len: reader.read_u24()?,
         })
     }
 

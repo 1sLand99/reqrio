@@ -10,7 +10,7 @@ pub struct EncryptedExtension<'a> {
 
 impl<'a> EncryptedExtension<'a> {
     pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<EncryptedExtension<'a>> {
-        reader.read_24()?;
+        reader.read_u24()?;
         let extend_len = reader.read_u16()?;
         Ok(EncryptedExtension {
             handshake_type: ht,

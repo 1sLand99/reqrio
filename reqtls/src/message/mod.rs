@@ -59,7 +59,7 @@ impl<'a> Message<'a> {
             HandshakeType::CertificateRequest => Ok(Message::CertificateRequest(CertificateRequest::from_reader(handshake_type, reader)?)),
             HandshakeType::CertificateVerify => Ok(Message::CertificateVerify(CertificateVerify::from_reader(handshake_type, reader)?)),
             HandshakeType::Finish => {
-                let len = reader.read_24()? as usize;
+                let len = reader.read_u24()? as usize;
                 reader.add_len(len);
                 Ok(Message::Finished(Buf::Ref(&reader.inner()[..len + 4])))
             }

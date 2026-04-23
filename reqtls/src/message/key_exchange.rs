@@ -193,7 +193,7 @@ impl<'a> Default for ServerKeyExchange<'a> {
 
 impl<'a> ServerKeyExchange<'a> {
     pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<ServerKeyExchange<'a>> {
-        reader.read_24()?;
+        reader.read_u24()?;
         Ok(ServerKeyExchange {
             handshake_type: ht,
             hellman_param: ServerHellmanParam::from_reader(reader)?,
@@ -274,7 +274,7 @@ impl<'a> Default for ClientKeyExchange<'a> {
 
 impl<'a> ClientKeyExchange<'a> {
     pub fn from_reader(reader: &mut Reader<'a>, suite: Option<&CipherSuite>) -> RlsResult<ClientKeyExchange<'a>> {
-        reader.read_24()?;
+        reader.read_u24()?;
         Ok(ClientKeyExchange {
             handshake_type: HandshakeType::ClientKeyExchange,
             hellman_param: ClientHellmanParam::from_reader(reader, suite)?,
