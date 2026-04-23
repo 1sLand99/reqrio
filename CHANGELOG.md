@@ -1,3 +1,97 @@
+# reqrio-v0.3.0
+
+`v0.3.0`是一次重要的架构升级，标志着 reqrio 从基础 HTTP 客户端，演进为具备 TLS / 流式处理能力的可控网络栈。
+
+## ✨ 新特性
+
+### 🔧 全新 HTTP API
+
+* 重构请求接口，提升可读性与扩展性
+* 为复杂请求场景与后续功能扩展打下基础
+
+### 🌐 内置 ECH 查询支持
+
+* 支持查询域名的 ECH（Encrypted ClientHello）配置
+* 可基于查询结果构建 ECH 数据
+* 为 TLS 指纹模拟与隐私增强连接提供基础能力
+
+### 🌊 流式响应解析（Reader）
+
+* 提供轻量级二进制解析工具（Reader）
+* 支持类型：
+    * u8 / u16 / u24 / u32
+    * &[u8] / str
+* 适用于 TLS / DNS / HTTP 等协议解析场景
+
+## 🎯 指纹级网络行为控制（Fingerprint）
+
+在 v0.3.0 中，Fingerprint 体系进行了重构，支持对 TLS 与 HTTP/2 行为的精细控制。
+
+### 🔐 自定义 TLS 指纹
+
+支持自定义：
+
+* Cipher Suites
+* Supported Groups
+* Signature Algorithms
+* TLS Versions
+* Extensions 
+* ...
+
+```text
+let tls = TlsFinger::Custom {
+    suites: vec![CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256.into(), ],
+    groups: vec![NamedCurve::X25519.into()],
+    algorithms: vec![SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into()],
+    versions: vec![Version::TLS_1_3, Version::TLS_1_2],
+    ec_formats: vec![EcPointFormat::UNCOMPRESSED],
+    compress_methods: vec![],
+    extensions: vec![ExtensionType::StatusRequest],
+};
+```
+
+👉 可用于：
+
+* TLS 指纹模拟（如 JA3/JA4）
+* 反爬对抗
+* 协议研究
+
+### ⚡ 自定义 HTTP/2 指纹
+
+支持自定义 HTTP/2 设置帧与优先级参数：
+
+```text
+let h2 = H2Finger {
+    setting: vec![
+        H2Setting::EnablePush(0),
+        H2Setting::HeaderTableSize(4096),
+        H2Setting::InitialWindowSize(8192),
+        H2Setting::MaxHeaderListSize(242144)
+    ],
+    window_size: 2147418112,
+    weight: 234, //优先权重
+    priority: true, //优先级
+};
+```
+
+👉 可用于：
+
+* 构造 HTTP/2 指纹（Settings / Window / Priority）
+* 模拟浏览器网络行为
+* 精细控制连接调度策略
+
+## 🔐 支持 TLS 1.3
+
+* 完整支持 TLS 1.3 握手流程
+* 支持与自定义 TLS 指纹联动
+* 为浏览器级 TLS 行为模拟提供基础
+
+## Contact
+
+* Tg: https://t.me/+VVfbAeug-ohhZjU1
+* QQ: 1083315546
+
+
 # reqrio-v0.2.0
 
 `v0.2.0` focuses on improving the high-performance request streaming architecture and expanding the TLS capabilities of
@@ -132,9 +226,6 @@ Client mTLS can be enabled by configuring a client certificate and private key t
 
 * Tg: https://t.me/+VVfbAeug-ohhZjU1
 * QQ: 1083315546
-
-
-
 
 # reqrio-v0.1.0
 

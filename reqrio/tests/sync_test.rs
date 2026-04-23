@@ -1,5 +1,5 @@
-use reqrio::{Buffer, Fingerprint, HttpStatus, ReqExt, ScReq};
-use reqtls::{CipherSuite, EcPointFormat, ExtensionType, NamedCurve, SignatureAlgorithm, TlsFinger, Version, WriteExt, ALPN};
+use reqrio::{Fingerprint, HttpStatus, ReqExt, ScReq};
+use reqtls::{CipherSuite, EcPointFormat, ExtensionType, NamedCurve, SignatureAlgorithm, TlsFinger, Version, ALPN};
 
 #[test]
 fn test_tls12() {

@@ -68,6 +68,14 @@ impl Fingerprint {
         })
     }
 
+    pub fn from_client_hello(ch: Vec<u8>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {
+        Ok(Fingerprint {
+            tls: TlsFinger::ClientHello(Bytes::new(ch)),
+            legal_subscript: Buffer::with_capacity(0).check_subscription(token)?,
+            ..Default::default()
+        })
+    }
+
     pub fn from_hex_all(hex_str: impl AsRef<str>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {
         let mut client_hello = hex::decode(hex_str.as_ref())?;
         let len = u16::from_be_bytes([client_hello[3], client_hello[4]]) as usize + 5;
