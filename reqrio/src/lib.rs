@@ -214,7 +214,7 @@ pub use body::{Body, BodyData, BodyExt};
 pub use buffer::Buffer;
 pub use error::HlsError;
 pub use ext::{ReqExt, ReqGenExt, UrlExt};
-pub use fingerprint::Fingerprint;
+pub use fingerprint::{Fingerprint, H2Finger};
 pub use form_data::{FileForm, HttpFile};
 pub use packet::{
     Application, ContentType, Cookie, Font, FrameFlag, FrameType, H2Frame, H2Setting, Header,

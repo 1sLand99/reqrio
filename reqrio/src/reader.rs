@@ -172,7 +172,7 @@ impl<'a> Debug for StrCow<'a> {
     }
 }
 
-
+#[derive(Debug)]
 pub enum HCow<'a, T> {
     Borrowed(&'a T),
     Owned(T),

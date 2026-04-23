@@ -141,6 +141,8 @@ impl AcReq {
             encoder: self.hpack_coder.encoder(),
             stream_identifier: &self.stream_id,
             body_len: 0,
+            priority: &self.fingerprint.h2().priority,
+            weight: &self.fingerprint.h2().weight,
         })?;
         self.buffer.reset();
         loop {
@@ -277,9 +279,9 @@ impl AcReq {
     pub async fn handle_h2_setting(&mut self) -> HlsResult<()> {
         self.stream_id = 0;
         self.buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")?;
-        self.fingerprint.h2_setting().write_to(&mut self.buffer)?;
+        self.fingerprint.h2().build_setting().write_to(&mut self.buffer)?;
         self.hpack_coder = HPackCoding::new(65536);
-        self.fingerprint.h2_window_update().write_to(&mut self.buffer)?;
+        self.fingerprint.h2().build_window_update().write_to(&mut self.buffer)?;
         self.stream.async_write(self.buffer.filled()).await?;
         self.buffer.reset();
         self.stream_id += 1;

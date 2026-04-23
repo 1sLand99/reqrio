@@ -13,6 +13,8 @@ pub struct HeaderParam<'a> {
     pub(crate) encoder: &'a mut HPackEncode,
     pub(crate) stream_identifier: &'a u32,
     pub(crate) body_len: usize,
+    pub(crate) weight: &'a u8,
+    pub(crate) priority: &'a bool,
 }
 
 pub enum HeaderReader<'a> {

@@ -140,6 +140,8 @@ impl ScReq {
             stream_identifier: &self.stream_id,
             encoder: self.hpack_coder.encoder(),
             body_len: 0,
+            weight: &self.fingerprint.h2().weight,
+            priority: &self.fingerprint.h2().priority,
         })?;
         self.buffer.reset();
         loop {
@@ -274,8 +276,8 @@ impl ScReq {
         self.hpack_coder = HPackCoding::new(65536);
         self.stream_id = 0;
         self.buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")?;
-        self.fingerprint.h2_setting().write_to(&mut self.buffer)?;
-        self.fingerprint.h2_window_update().write_to(&mut self.buffer)?;
+        self.fingerprint.h2().build_setting().write_to(&mut self.buffer)?;
+        self.fingerprint.h2().build_window_update().write_to(&mut self.buffer)?;
         // self.buffer.write_slice(self.fingerprint.h2_setting())?;
         // self.buffer.write_slice(self.fingerprint.h2_window_update())?;
         self.stream.sync_write(self.buffer.filled())?;

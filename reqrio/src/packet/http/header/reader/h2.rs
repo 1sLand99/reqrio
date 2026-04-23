@@ -1,13 +1,16 @@
 use crate::error::HlsResult;
 use crate::hpack::HPackEncode;
+use crate::packet::H2EncodeFrame;
 use crate::reader::{ReadExt, Reader, StrCow};
-use crate::{ContentType, H2Frame, HeaderKey};
+use crate::{ContentType, HeaderKey};
 use reqtls::{u24, WriteExt};
 
 pub(crate) struct H2HeaderReader<'a> {
     pub(crate) keys: Vec<(StrCow<'a>, StrCow<'a>)>,
     pub(crate) encoder: &'a mut HPackEncode,
     pub(crate) stream_identifier: &'a u32,
+    pub(crate) priority: &'a bool,
+    pub(crate) weight: &'a u8,
     pub(crate) wrote: bool,
     pub(crate) pos: usize,
     pub(crate) body_len: usize,
@@ -35,8 +38,8 @@ impl<'a> ReadExt for H2HeaderReader<'a> {
         let len: usize = self.keys.iter().map(|(k, v)| k.len() + v.len()).sum();
         if buf.unfilled_len() < 59 + len { return Ok(0); }
         let offset = buf.offset();
-        let mut header_frame = H2Frame::new_header(self.body_len, *self.stream_identifier);
-        header_frame.set_priority(146);
+        let mut header_frame = H2EncodeFrame::new_header(self.body_len, *self.stream_identifier);
+        if *self.priority { header_frame.set_priority(*self.weight) }
         header_frame.write_to(buf)?;
         for (i, (key, value)) in self.keys.iter().enumerate() {
             if i < self.pos { continue; }
@@ -92,6 +95,8 @@ mod tests {
             encoder: &mut encoder,
             stream_identifier: &sid,
             body_len: 0,
+            weight: &146,
+            priority: &true,
         }, &ContentType::Null);
         let len = reader.read(&mut Reader::new(&mut res)).unwrap();
         assert!(reader.wrote());

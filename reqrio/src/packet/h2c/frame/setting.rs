@@ -29,14 +29,14 @@ impl H2Setting {
         })
     }
 
-    pub fn default_setting() -> Vec<H2Setting> {
-        vec![
-            H2Setting::HeaderTableSize(65536),
-            H2Setting::EnablePush(0),
-            H2Setting::InitialWindowSize(6291456),
-            H2Setting::MaxHeaderListSize(242144)
-        ]
-    }
+    // pub fn default_setting() -> Vec<H2Setting> {
+    //     vec![
+    //         H2Setting::HeaderTableSize(65536),
+    //         H2Setting::EnablePush(0),
+    //         H2Setting::InitialWindowSize(6291456),
+    //         H2Setting::MaxHeaderListSize(242144)
+    //     ]
+    // }
 
     pub fn write_to<W: WriteExt>(&self, writer: &mut W) -> Result<(), BufferError> {
         let (flag, value) = match self {

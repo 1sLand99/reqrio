@@ -218,6 +218,8 @@ pub trait ReqGenExt: ReqExt {
             encoder: param.hpack_coder.encoder(),
             stream_identifier: param.sid,
             body_len: body_raw.len(),
+            priority: &false,
+            weight: &0,
         }, body.context_type());
         let mut header = Self::read_to_vec(header_reader)?;
         header.extend(body_raw);
@@ -241,7 +243,7 @@ impl UrlExt for str {
         }
         Ok(url)
     }
-    
+
     fn sni(&self, sni: impl Into<String>) -> Result<Url, UrlError> {
         Ok(Url::try_from(self)?.with_domain(sni))
     }

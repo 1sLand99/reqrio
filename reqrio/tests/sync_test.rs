@@ -35,48 +35,45 @@ fn test_auto_redirect() {
 }
 
 fn build_finger(suites: Vec<CipherSuite>, groups: Vec<NamedCurve>) -> Fingerprint {
-    Fingerprint {
-        tls: TlsFinger::Custom {
-            suites,
-            groups,
-            algorithms: vec![
-                SignatureAlgorithm::RSA_PKCS1_SHA1.into(),
-                SignatureAlgorithm::RSA_PKCS1_SHA256.into(),
-                SignatureAlgorithm::RSA_PKCS1_SHA384.into(),
-                SignatureAlgorithm::RSA_PKCS1_SHA512.into(),
-                SignatureAlgorithm::ECDSA_SECP256R1_SHA256.into(),
-                SignatureAlgorithm::ECDSA_SECP384R1_SHA384.into(),
-                SignatureAlgorithm::ECDSA_SECP521R1_SHA512.into(),
-                SignatureAlgorithm::RSA_PSS_PSS_SHA256.into(),
-                SignatureAlgorithm::RSA_PSS_PSS_SHA384.into(),
-                SignatureAlgorithm::RSA_PSS_PSS_SHA512.into(),
-                SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),
-                SignatureAlgorithm::RSA_PSS_RSAE_SHA384.into(),
-                SignatureAlgorithm::RSA_PSS_RSAE_SHA512.into(),
-            ],
-            versions: vec![Version::TLS_1_3, Version::TLS_1_2],
-            ec_formats: vec![EcPointFormat::UNCOMPRESSED],
-            compress_methods: vec![],
-            extensions: vec![
-                ExtensionType::StatusRequest,
-                ExtensionType::SupportedGroup,
-                ExtensionType::EcPointFormats,
-                ExtensionType::SignatureAlgorithms,
-                ExtensionType::SignedCertificateTimestamp,
-                ExtensionType::ExtendMasterSecret,
-                ExtensionType::CompressionCertificate,
-                ExtensionType::SessionTicket,
-                ExtensionType::SupportedVersions,
-                ExtensionType::PskKeyExchangeMode,
-                ExtensionType::KeyShare,
-                ExtensionType::ApplicationSetting,
-                ExtensionType::ServerName,
-                ExtensionType::ApplicationLayerProtocolNegotiation
-            ],
-        },
-        legal_subscript: Buffer::with_capacity(0).check_subscription("2f-o7ffnfc-j2f7q7n-k7ffnfc-m423p26-k").unwrap_or(1),
-        ..Default::default()
-    }
+    let tls=TlsFinger::Custom {
+        suites,
+        groups,
+        algorithms: vec![
+            SignatureAlgorithm::RSA_PKCS1_SHA1.into(),
+            SignatureAlgorithm::RSA_PKCS1_SHA256.into(),
+            SignatureAlgorithm::RSA_PKCS1_SHA384.into(),
+            SignatureAlgorithm::RSA_PKCS1_SHA512.into(),
+            SignatureAlgorithm::ECDSA_SECP256R1_SHA256.into(),
+            SignatureAlgorithm::ECDSA_SECP384R1_SHA384.into(),
+            SignatureAlgorithm::ECDSA_SECP521R1_SHA512.into(),
+            SignatureAlgorithm::RSA_PSS_PSS_SHA256.into(),
+            SignatureAlgorithm::RSA_PSS_PSS_SHA384.into(),
+            SignatureAlgorithm::RSA_PSS_PSS_SHA512.into(),
+            SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),
+            SignatureAlgorithm::RSA_PSS_RSAE_SHA384.into(),
+            SignatureAlgorithm::RSA_PSS_RSAE_SHA512.into(),
+        ],
+        versions: vec![Version::TLS_1_3, Version::TLS_1_2],
+        ec_formats: vec![EcPointFormat::UNCOMPRESSED],
+        compress_methods: vec![],
+        extensions: vec![
+            ExtensionType::StatusRequest,
+            ExtensionType::SupportedGroup,
+            ExtensionType::EcPointFormats,
+            ExtensionType::SignatureAlgorithms,
+            ExtensionType::SignedCertificateTimestamp,
+            ExtensionType::ExtendMasterSecret,
+            ExtensionType::CompressionCertificate,
+            ExtensionType::SessionTicket,
+            ExtensionType::SupportedVersions,
+            ExtensionType::PskKeyExchangeMode,
+            ExtensionType::KeyShare,
+            ExtensionType::ApplicationSetting,
+            ExtensionType::ServerName,
+            ExtensionType::ApplicationLayerProtocolNegotiation
+        ],
+    };
+    Fingerprint::new_tls(tls,"2f-o7ffnfc-j2f7q7n-k7ffnfc-m423p26-k").unwrap()
 }
 
 ///ECDHE_RSA

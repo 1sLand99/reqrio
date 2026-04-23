@@ -24,3 +24,6 @@ package-lock.json
 reqrio-go/.idea
 reqrio-go/2.log
 .idea
+reqtls/c.der
+reqtls/ca.der
+reqtls/s.der

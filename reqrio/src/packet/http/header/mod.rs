@@ -553,6 +553,8 @@ impl Header {
             pos: 0,
             body_len: param.body_len,
             stream_identifier: param.stream_identifier,
+            weight: param.weight,
+            priority: param.priority,
         }
     }
 

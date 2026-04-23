@@ -82,6 +82,8 @@ mod tests {
             encoder: &mut encoder,
             stream_identifier: &sid,
             body_len: 0,
+            weight: &0,
+            priority: &false,
         }, &ContentType::Null);
         let len = reader.read(&mut Reader::new(&mut res)).unwrap();
         assert_eq!(len, reader.len());
