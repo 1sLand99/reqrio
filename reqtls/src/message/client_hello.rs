@@ -222,22 +222,15 @@ impl<'a> ClientHello<'a> {
     }
 
     pub fn add_h2_alpn(&mut self) {
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ApplicationLayerProtocolNegotiation);
-        if let Some(ext) = extend {
-            ext.add_h2_alpn();
-        } else {
-            let mut alps = ALPS::new();
-            alps.add_h2_alpn();
-            self.extensions.push(Extension::new(ExtensionType::ApplicationLayerProtocolNegotiation, ExtensionValue::ApplicationLayerProtocolNegotiation(alps)));
-        }
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ApplicationSetting);
-        if let Some(ext) = extend {
-            ext.add_h2_alpn();
-        } else {
-            let mut alps = ALPS::new();
-            alps.add_h2_alpn();
-            self.extensions.push(Extension::new(ExtensionType::ApplicationSetting, ExtensionValue::ApplicationSetting(alps)));
-        }
+        let mut handle_alps=|et:ExtensionType|{
+            let extend=self.extensions.iter_mut().find(|x| x.extension_type() == &et);
+            if let Some(extend) = extend {
+                extend.add_h2_alpn();
+            }
+        };
+        handle_alps(ExtensionType::ApplicationLayerProtocolNegotiation);
+        handle_alps(ExtensionType::ApplicationSetting);
+        handle_alps(ExtensionType::ApplicationSettingOld);
     }
 
     pub fn cipher_suites(&self) -> &Vec<CipherSuite> {
