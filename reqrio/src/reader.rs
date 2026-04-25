@@ -4,11 +4,11 @@ use std::fmt::{Debug, Formatter};
 use std::io::{Cursor, Read};
 use std::ops::{Deref, Range};
 
-pub struct Reader<'a> {
+pub struct Writer<'a> {
     buffer: &'a mut [u8],
     pos: usize,
 }
-impl<'a> Reader<'a> {
+impl<'a> Writer<'a> {
     pub fn new(buffer: &'a mut [u8]) -> Self {
         Self { buffer, pos: 0 }
     }
@@ -30,7 +30,7 @@ impl<'a> Reader<'a> {
     }
 }
 
-impl<'a> WriteExt for Reader<'a> {
+impl<'a> WriteExt for Writer<'a> {
     fn as_ptr(&self) -> *const u8 {
         self.buffer.as_ptr()
     }
@@ -102,7 +102,7 @@ impl<R: AsRef<[u8]>> ReadExt for RefReader<R> {
     fn len(&self) -> usize {
         self.bufs.iter().map(|x| x.get_ref().as_ref().len()).sum()
     }
-    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
+    fn read(&mut self, buf: &mut Writer) -> HlsResult<usize> {
         let start = buf.offset().end;
         for (index, reader) in self.bufs.iter_mut().enumerate() {
             if index < self.pos {
@@ -128,7 +128,7 @@ impl<R: AsRef<[u8]>> ReadExt for RefReader<R> {
 pub trait ReadExt {
     fn wrote(&self) -> bool;
     fn len(&self) -> usize;
-    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize>;
+    fn read(&mut self, buf: &mut Writer) -> HlsResult<usize>;
 }
 
 pub enum StrCow<'a> {

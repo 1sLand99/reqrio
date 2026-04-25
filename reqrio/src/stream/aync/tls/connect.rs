@@ -117,7 +117,7 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> Connecting<'a, S> {
             RecordType::ApplicationData => {
                 if tls_stream.write_buffer.is_empty() {
                     let record_len = record.len as usize + 5;
-                    tls_stream.handle_by_application(record_len)?;
+                    tls_stream.handle_by_application(record_len, config)?;
                 }
                 if !tls_stream.write_buffer.is_empty() {
                     return match tls_stream.write_buffer(cx)? {

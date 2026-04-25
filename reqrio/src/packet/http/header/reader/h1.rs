@@ -1,5 +1,5 @@
 use crate::error::HlsResult;
-use crate::reader::{ReadExt, Reader, RefReader, StrCow};
+use crate::reader::{ReadExt, Writer, RefReader, StrCow};
 use crate::{ContentType, HeaderKey};
 use reqtls::WriteExt;
 
@@ -30,7 +30,7 @@ impl<'a> ReadExt for H1HeaderReader<'a> {
         self.reader.len()
     }
 
-    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
+    fn read(&mut self, buf: &mut Writer) -> HlsResult<usize> {
         let start = buf.offset().end;
         if self.pos == 0 {
             self.reader.read(buf)?;
@@ -47,7 +47,7 @@ impl<'a> ReadExt for H1HeaderReader<'a> {
 #[cfg(test)]
 mod tests {
     use crate::packet::HeaderParam;
-    use crate::reader::{ReadExt, Reader};
+    use crate::reader::{ReadExt, Writer};
     use crate::{ContentType, Header, Method};
     use reqtls::{Uri, Url};
 
@@ -85,7 +85,7 @@ mod tests {
             weight: &0,
             priority: &false,
         }, &ContentType::Null);
-        let len = reader.read(&mut Reader::new(&mut res)).unwrap();
+        let len = reader.read(&mut Writer::new(&mut res)).unwrap();
         assert_eq!(len, reader.len());
         assert!(reader.wrote());
         let raw = vec![

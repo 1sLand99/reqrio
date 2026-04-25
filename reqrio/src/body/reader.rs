@@ -1,6 +1,6 @@
 use crate::error::HlsResult;
 use crate::form_data::HttpFileReader;
-use crate::reader::{ReadExt, Reader, RefReader, StrCow};
+use crate::reader::{ReadExt, Writer, RefReader, StrCow};
 use crate::*;
 
 pub enum RawBodyReader<'a> {
@@ -26,7 +26,7 @@ impl<'a> ReadExt for RawBodyReader<'a> {
         }
     }
 
-    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
+    fn read(&mut self, buf: &mut Writer) -> HlsResult<usize> {
         match self {
             RawBodyReader::Data(data) => data.read(buf),
             RawBodyReader::Bytes(bytes) => bytes.read(buf),
@@ -131,7 +131,7 @@ impl<'a> ReadExt for H2FrameHead<'a> {
         9 + self.pd_len as usize
     }
 
-    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
+    fn read(&mut self, buf: &mut Writer) -> HlsResult<usize> {
         let start = buf.offset().end;
         if buf.unfilled_len() < 14 { return Ok(buf.offset().end - start); }
         buf.write_u24(self.pd_len)?;
@@ -181,7 +181,7 @@ impl<'a> ReadExt for H2BodyReader<'a> {
         self.frames.iter().map(|x| x.len()).sum()
     }
 
-    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
+    fn read(&mut self, buf: &mut Writer) -> HlsResult<usize> {
         let start = buf.offset().end;
         for (index, frame) in self.frames.iter_mut().enumerate() {
             if index < self.pos { continue; }
@@ -193,7 +193,7 @@ impl<'a> ReadExt for H2BodyReader<'a> {
             if buf.unfilled_len() < frame.pd_len as usize { return Ok(buf.offset().end - start); }
             let want = frame.pd_len as usize - self.frame_wrote;
             let end = if buf.unfilled().len() < want { buf.unfilled_len() } else { want };
-            let mut render = Reader::new(&mut buf.unfilled()[..end]);
+            let mut render = Writer::new(&mut buf.unfilled()[..end]);
             let len = self.body.read(&mut render)?;
             buf.add_len(len);
             assert_eq!(len, want);
@@ -206,7 +206,7 @@ impl<'a> ReadExt for H2BodyReader<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::reader::{ReadExt, Reader};
+    use crate::reader::{ReadExt, Writer};
     use crate::{json, Body, BodyData};
 
     #[test]
@@ -219,22 +219,22 @@ mod tests {
         let body = data.form();
         let mut body_reader = body.as_reader().unwrap();
         let mut res = vec![0; 1024];
-        let len = body_reader.read(&mut Reader::new(&mut res)).unwrap();
+        let len = body_reader.read(&mut Writer::new(&mut res)).unwrap();
         assert_eq!(&res[..len], b"a=1&b=%E6%94%B6%E5%88%B0%E5%8F%8D%E9%A6%88&v=%7B%22k%22%3A1%2C%22b%22%3Atrue%7D");
         let body = Body::from(data);
         let mut body_reader = body.as_reader().unwrap();
-        let len = body_reader.read(&mut Reader::new(&mut res)).unwrap();
+        let len = body_reader.read(&mut Writer::new(&mut res)).unwrap();
         assert_eq!(&res[..len], b"{\"a\":1,\"b\":\"\xE6\x94\xB6\xE5\x88\xB0\xE5\x8F\x8D\xE9\xA6\x88\",\"v\":{\"k\":1,\"b\":true}}");
 
         let body = Body::from(&[1, 2, 3, 4, 5, 12, 3, 4, 56]);
         let mut body_reader = body.as_reader().unwrap();
-        let len = body_reader.read(&mut Reader::new(&mut res)).unwrap();
+        let len = body_reader.read(&mut Writer::new(&mut res)).unwrap();
         assert_eq!(&res[..len], [1, 2, 3, 4, 5, 12, 3, 4, 56]);
 
 
         let body = Body::from("12345,2345fdgf");
         let mut body_reader = body.as_reader().unwrap();
-        let len = body_reader.read(&mut Reader::new(&mut res)).unwrap();
+        let len = body_reader.read(&mut Writer::new(&mut res)).unwrap();
         assert_eq!(&res[..len], b"12345,2345fdgf");
     }
 }

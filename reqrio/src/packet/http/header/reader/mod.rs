@@ -3,7 +3,7 @@ mod h2;
 
 use crate::error::HlsResult;
 use crate::hpack::HPackEncode;
-use crate::reader::{ReadExt, Reader};
+use crate::reader::{ReadExt, Writer};
 pub(super) use h1::H1HeaderReader;
 pub(super) use h2::H2HeaderReader;
 use reqtls::Url;
@@ -37,7 +37,7 @@ impl<'a> ReadExt for HeaderReader<'a> {
         }
     }
 
-    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
+    fn read(&mut self, buf: &mut Writer) -> HlsResult<usize> {
         match self {
             HeaderReader::H1(h1) => h1.read(buf),
             HeaderReader::H2(h2) => h2.read(buf),

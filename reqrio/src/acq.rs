@@ -6,7 +6,7 @@ use crate::ext::{ReqGenExt, ReqPriExt};
 use crate::hpack::HPackCoding;
 use crate::json::JsonValue;
 use crate::packet::{FrameFlag, FrameType, H2Frame, HeaderParam};
-use crate::reader::{ReadExt, Reader};
+use crate::reader::{ReadExt, Writer};
 use crate::request::RequestBuffer;
 use crate::stream::{ConnParam, Proxy, Stream};
 use crate::*;
@@ -135,7 +135,7 @@ impl AcReq {
         Ok(response)
     }
 
-    pub(crate) async fn handle_io(&mut self, url: &Url, body: &Body<'_>) -> HlsResult<Response> {
+    pub async fn send(&mut self, url: &Url, body: &Body<'_>) -> HlsResult<()> {
         let mut request = RequestBuffer::new(&mut self.header, body, HeaderParam {
             url,
             encoder: self.hpack_coder.encoder(),
@@ -146,11 +146,16 @@ impl AcReq {
         })?;
         self.buffer.reset();
         loop {
-            let mut render = Reader::new(self.buffer.unfilled_mut());
-            let len = request.read(&mut render)?;
+            let mut writer = Writer::new(self.buffer.unfilled_mut());
+            let len = request.read(&mut writer)?;
             if len == 0 { break; }
-            self.stream.async_write(render.filled()).await?;
+            self.stream.async_write(writer.filled()).await?;
         }
+        Ok(())
+    }
+
+    pub(crate) async fn handle_io(&mut self, url: &Url, body: &Body<'_>) -> HlsResult<Response> {
+        self.send(url, body).await?;
         let response = match self.header.alpn() {
             ALPN::Http20 => self.h2c_io().await,
             _ => self.h1_io().await

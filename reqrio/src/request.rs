@@ -1,7 +1,7 @@
 use crate::body::{Body, BodyReader, H2BodyReader};
 use crate::error::HlsResult;
 use crate::packet::{HeaderParam, HeaderReader};
-use crate::reader::{ReadExt, Reader};
+use crate::reader::{ReadExt, Writer};
 use crate::Header;
 use reqtls::{WriteExt, ALPN};
 
@@ -36,7 +36,7 @@ impl<'a> ReadExt for RequestBuffer<'a> {
         self.hdr_reader.len() + self.body_reader.len()
     }
 
-    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
+    fn read(&mut self, buf: &mut Writer) -> HlsResult<usize> {
         let start = buf.offset().end;
         if !self.header_wrote {
             self.hdr_reader.read(buf)?;

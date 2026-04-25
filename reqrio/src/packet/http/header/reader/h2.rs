@@ -1,7 +1,7 @@
 use crate::error::HlsResult;
 use crate::hpack::HPackEncode;
 use crate::packet::H2EncodeFrame;
-use crate::reader::{ReadExt, Reader, StrCow};
+use crate::reader::{ReadExt, Writer, StrCow};
 use crate::{ContentType, HeaderKey};
 use reqtls::{u24, WriteExt};
 
@@ -34,7 +34,7 @@ impl<'a> ReadExt for H2HeaderReader<'a> {
         unreachable!()
     }
 
-    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
+    fn read(&mut self, buf: &mut Writer) -> HlsResult<usize> {
         let len: usize = self.keys.iter().map(|(k, v)| k.len() + v.len()).sum();
         if buf.unfilled_len() < 59 + len { return Ok(0); }
         let offset = buf.offset();
@@ -60,7 +60,7 @@ impl<'a> ReadExt for H2HeaderReader<'a> {
 mod tests {
     use crate::hpack::HPackEncode;
     use crate::packet::HeaderParam;
-    use crate::reader::{ReadExt, Reader};
+    use crate::reader::{ReadExt, Writer};
     use crate::{Buffer, ContentType, Header, Method};
     use reqtls::{Uri, Url, WriteExt};
 
@@ -98,7 +98,7 @@ mod tests {
             weight: &146,
             priority: &true,
         }, &ContentType::Null);
-        let len = reader.read(&mut Reader::new(&mut res)).unwrap();
+        let len = reader.read(&mut Writer::new(&mut res)).unwrap();
         assert!(reader.wrote());
         let mut raw = Buffer::with_capacity(3072);
         raw.write_u24(1957).unwrap(); //len

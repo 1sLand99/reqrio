@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use crate::stream::config::Config;
 use crate::*;
 #[cfg(feature = "aync")]
@@ -8,6 +7,7 @@ use aync::{TcpStreamA, TimeoutRW, TlsStreamA};
 pub use config::{ClientConfig, ServerConfig};
 pub use proxy::Proxy;
 pub use proxy::ProxyStream;
+use std::collections::HashMap;
 use std::io::Write;
 use std::path::PathBuf;
 pub use sync_stream::SyncStream;
@@ -290,7 +290,7 @@ pub trait TlsStreamHandle {
         }
     }
 
-    fn handle_message(message: Message<'_>, conn: &mut Connection) -> Result<bool, RlsError> {
+    fn handle_message(message: Message<'_>, config: &mut Config<'_>, conn: &mut Connection) -> Result<bool, RlsError> {
         match message {
             Message::Finished(finish) => {
                 conn.verify_finish(finish.as_ref(), true)?;
@@ -298,16 +298,23 @@ pub trait TlsStreamHandle {
                 return Ok(true);
             }
             Message::EncryptedExtension(ee) => conn.set_by_encrypted_extension(&ee),
+            Message::Certificate(certs) => {
+                let config = config.client_mut().ok_or("missing config")?;
+                conn.set_by_certificate(certs, config.ca_certs, config.sni)?
+            }
+            Message::CertificateVerify(verify) => conn.verify_cert(verify, true)?,
             _ => {}
         }
         Ok(false)
     }
 
-    fn handle_by_application(&mut self, record_len: usize) -> Result<bool, RlsError> {
+    fn handle_by_application(&mut self, record_len: usize, config: &mut Config) -> Result<bool, RlsError> {
+        let st = Time::now_mills().unwrap();
         let (conn, r_buf, w_buf) = self.conn_buf();
         w_buf.reset();
         let len = conn.read_message(&r_buf.filled()[..record_len], w_buf.unfilled_mut())?;
         let record_type = RecordType::from_byte(w_buf[len - 1]).ok_or("Invalid record type")?;
+
         let mut index = 0;
         while index < len - 1 {
             match record_type {
@@ -318,13 +325,14 @@ pub trait TlsStreamHandle {
                 _ => {
                     let len = u32::from_be_bytes([0, w_buf[index + 1], w_buf[index + 2], w_buf[index + 3]]) as usize + 4;
                     let message = Message::from_bytes(&w_buf[index..index + len], &record_type, None, Version::TLS_1_3)?;
-                    let finish = Self::handle_message(message, conn)?;
+                    let finish = Self::handle_message(message, config, conn)?;
                     if finish {
                         w_buf.reset();
                         w_buf.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
                         let len = conn.make_finish_message(w_buf.unfilled_mut(), false)?;
                         w_buf.add_len(len);
                         conn.make_cipher(false)?;
+                        println!("HANDLE_APPLICATION: {}", Time::now_mills().unwrap() - st);
                         return Ok(true);
                     }
 
@@ -333,6 +341,7 @@ pub trait TlsStreamHandle {
                 }
             }
         }
+        println!("HANDLE_APPLICATION: {}", Time::now_mills().unwrap() - st);
         Ok(false)
     }
 }

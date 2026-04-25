@@ -8,6 +8,13 @@
 
 * 重构请求接口，提升可读性与扩展性
 * 为复杂请求场景与后续功能扩展打下基础
+* 现在可以通过以下方式快速请求
+```text
+let mut req = ScReq::new();
+let url = "https://www.baidu.com/";
+let resp = req.get(url, None).unwrap();
+println!("{}", resp.header());
+```
 
 ### 🌐 内置 ECH 查询支持
 
@@ -15,17 +22,17 @@
 * 可基于查询结果构建 ECH 数据
 * 为 TLS 指纹模拟与隐私增强连接提供基础能力
 
-### 🌊 流式响应解析（Reader）
+### 🌊 流式响应解析
 
-* 提供轻量级二进制解析工具（Reader）
+* 提供轻量级二进制解析工具`Reader`
 * 支持类型：
     * u8 / u16 / u24 / u32
     * &[u8] / str
 * 适用于 TLS / DNS / HTTP 等协议解析场景
 
-## 🎯 指纹级网络行为控制（Fingerprint）
+## 🎯 指纹级网络行为控制
 
-在 v0.3.0 中，Fingerprint 体系进行了重构，支持对 TLS 与 HTTP/2 行为的精细控制。
+在 v0.3.0 中，`Fingerprint` 体系进行了重构，支持对 TLS 与 HTTP/2 行为的精细控制。
 
 ### 🔐 自定义 TLS 指纹
 

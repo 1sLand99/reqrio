@@ -2,7 +2,7 @@ use crate::body::{Body, H2FrameRBuf};
 use crate::ext::{ReqParam, ReqPriExt};
 use crate::hpack::HPackCoding;
 use crate::packet::{FrameFlag, HeaderParam};
-use crate::reader::{ReadExt, Reader};
+use crate::reader::{ReadExt, Writer};
 use crate::request::RequestBuffer;
 use crate::stream::{ConnParam, Stream};
 use crate::*;
@@ -145,7 +145,7 @@ impl ScReq {
         })?;
         self.buffer.reset();
         loop {
-            let mut render = Reader::new(self.buffer.unfilled_mut());
+            let mut render = Writer::new(self.buffer.unfilled_mut());
             let len = request.read(&mut render)?;
             if len == 0 { break; }
             self.stream.sync_write(render.filled())?;

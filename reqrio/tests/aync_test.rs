@@ -1,5 +1,5 @@
-use reqrio::{AcReq, Buffer, Fingerprint, H2Finger, HttpStatus, ReqExt};
-use reqtls::{CipherSuite, EcPointFormat, ExtensionType, NamedCurve, SignatureAlgorithm, TlsFinger, Version, WriteExt, ALPN};
+use reqrio::{AcReq, Fingerprint, HttpStatus, ReqExt};
+use reqtls::{CipherSuite, EcPointFormat, ExtensionType, NamedCurve, SignatureAlgorithm, TlsFinger, Version, ALPN};
 
 #[tokio::test]
 async fn test_tls12() {

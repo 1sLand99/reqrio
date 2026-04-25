@@ -154,6 +154,22 @@ impl Connection {
         sign_data
     }
 
+    pub fn verify_cert(&mut self, verify: CertificateVerify<'_>, server: bool) -> RlsResult<()> {
+        if !self.verify { return Ok(()); }
+        let mut sign_data = Vec::with_capacity(256);
+        sign_data.extend([0x20; 64]);
+        match server {
+            true => sign_data.extend_from_slice(b"TLS 1.3, server CertificateVerify"),
+            false => sign_data.extend_from_slice(b"TLS 1.3, client CertificateVerify")
+        }
+        sign_data.push(0);
+        sign_data.extend_from_slice(self.cipher_suite.current_session_hash()?);
+        let cert = self.certificates.first_mut().ok_or("missing cert")?;
+        let signer = AlgorithmSigner::new_verify(cert.pub_key()?, verify.hash())?;
+        signer.verify(sign_data, verify.sign().as_ref())?;
+        Ok(())
+    }
+
     pub fn set_by_cert_req(&mut self, req: CertificateRequest, cert: Option<&mut Certificate>) -> RlsResult<()> {
         if let Some(cert) = cert {
             for hash in req.into_hashes() {
@@ -179,7 +195,7 @@ impl Connection {
     pub fn set_by_server_exchange_key(&mut self, server_key: ServerKeyExchange) -> RlsResult<()> {
         if self.verify {
             let sign_data = self.gen_key_sign_data(&server_key);
-            let signature = AlgorithmSigner::new_verify(self.certificates[0].pub_key()?, server_key.hellman_param().signature_algorithm())?;
+            let signature = AlgorithmSigner::new_verify(self.certificates[0].pub_key()?, *server_key.hellman_param().signature_algorithm())?;
             signature.verify(sign_data, server_key.hellman_param().signature().as_ref())?;
         }
         self.exchange_pub_key = Bytes::new(server_key.hellman_param().pub_key().to_vec());

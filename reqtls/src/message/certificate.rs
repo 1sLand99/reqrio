@@ -34,7 +34,8 @@ impl<'a> Certificates<'a> {
             if let Version::TLS_1_3 = version {
                 let ext_len = reader.read_u16()?; //ext len
                 if ext_len > 0 {
-                    println!("cert ext: {:?}", reader.read_slice(ext_len as usize)?)
+                    let _exts = reader.read_slice(ext_len as usize)?;
+                    // println!("cert ext: {:?}", reader.read_slice(ext_len as usize)?)
                 }
             }
         }
@@ -233,5 +234,13 @@ impl<'a> CertificateVerify<'a> {
 
     pub fn set_sign(&mut self, sign: &'a [u8]) {
         self.sign = Buf::Ref(sign);
+    }
+
+    pub fn hash(&self) -> SignatureAlgorithm {
+        self.sign_hash
+    }
+
+    pub fn sign(&self) -> &Buf<'_> {
+        &self.sign
     }
 }

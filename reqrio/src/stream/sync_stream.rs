@@ -124,7 +124,7 @@ impl<S: Read + Write> SyncStream<S> {
             }
             RecordType::ApplicationData => {
                 let record_len = record.len as usize + 5;
-                let finish = self.handle_by_application(record_len)?;
+                let finish = self.handle_by_application(record_len, config.as_mut().ok_or("config can't be null")?)?;
                 if finish {
                     self.stream.write_all(self.write_buffer.filled())?;
                     self.write_buffer.reset();

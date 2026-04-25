@@ -3,7 +3,7 @@ use crate::body::H2FrameRBuf;
 use crate::error::HlsResult;
 use crate::hpack::HPackCoding;
 use crate::packet::*;
-use crate::reader::{ReadExt, Reader};
+use crate::reader::{ReadExt, Writer};
 use crate::stream::Stream;
 use crate::*;
 use json::JsonValue;
@@ -118,7 +118,7 @@ pub(crate) trait ReqPriExt {
         let mut res = vec![0; 1024];
         let mut filled = 0;
         loop {
-            let mut buf_reader = Reader::new(&mut res[filled..]);
+            let mut buf_reader = Writer::new(&mut res[filled..]);
             let len = reader.read(&mut buf_reader)?;
             filled += len;
             if reader.wrote() { break; }

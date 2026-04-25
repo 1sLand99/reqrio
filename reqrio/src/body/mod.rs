@@ -3,7 +3,7 @@ mod reader;
 
 use crate::error::HlsResult;
 use crate::form_data::HttpFile;
-use crate::reader::{HCow, ReadExt, Reader, RefReader, StrCow};
+use crate::reader::{HCow, ReadExt, Writer, RefReader, StrCow};
 use crate::*;
 use crate::{Application, ContentType, Text};
 pub use ext::{BodyData, BodyExt};
@@ -194,7 +194,7 @@ impl<'a> Body<'a> {
     pub fn to_vec(&self) -> HlsResult<Vec<u8>> {
         let mut body = self.as_reader()?;
         let mut res = vec![0; body.len()];
-        let mut reader = Reader::new(&mut res);
+        let mut reader = Writer::new(&mut res);
         let len = body.read(&mut reader)?;
         assert_eq!(len, res.len());
         Ok(res)
@@ -228,7 +228,7 @@ impl<'a> ReadExt for BodyReader<'a> {
         }
     }
 
-    fn read(&mut self, buf: &mut Reader) -> HlsResult<usize> {
+    fn read(&mut self, buf: &mut Writer) -> HlsResult<usize> {
         match self {
             BodyReader::HTTP1(h1) => h1.read(buf),
             BodyReader::HTTP2(h2) => h2.read(buf)
