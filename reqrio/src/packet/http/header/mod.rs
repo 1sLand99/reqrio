@@ -76,7 +76,6 @@ impl Header {
             HeaderKey::new("content-encoding", HeaderValue::String("".to_string())),
             HeaderKey::new("content-type", HeaderValue::String("".to_string())),
             HeaderKey::new("authorization", HeaderValue::String("".to_string())),
-            HeaderKey::new("content-type", HeaderValue::String("".to_string())),
         ];
         res
     }
@@ -528,6 +527,7 @@ impl Header {
             keys.push((StrCow::Borrowed(":authority"), StrCow::Owned(format!("{}:{}", param.url.sni(), param.url.addr().port()))));
         }
         keys.push((StrCow::Borrowed(":scheme"), StrCow::Borrowed(param.url.scheme().spec())));
+        println!("{}", self);
         for key in self.keys.iter() {
             if H2HeaderReader::skip_h2_key(key, ct) { continue; }
             let name = key.name_lower();
