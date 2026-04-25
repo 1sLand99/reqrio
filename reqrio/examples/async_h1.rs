@@ -104,8 +104,8 @@ async fn main() {
     req.set_auto_redirect(false);
     // let res = req.get("https://dns.alidns.com/resolve?name=crypto.cloudflare.com&type=HTTPS", None).await.unwrap();
     // let res=req.get("https://www.link114.cn/",None).await.unwrap();
-    let res = req.get("https://bing.com".params(json::object! {}), vec![0u8; 0].ty(Application::Json)).await.unwrap();
-    // let res = req.get("https://117.89.181.21".sni("m.sogou.com"), None).await.unwrap();
+    // let res = req.get("https://bing.com".params(json::object! {}), vec![0u8; 0].ty(Application::Json)).await.unwrap();
+    let res = req.get("https://117.89.181.21".sni("m.sogou.com"), None).await.unwrap();
     // let res=req.get("https://oauth.hubei.gov.cn:8443/",None).await.unwrap();
     // let res = req.get("https://zwfw.hubei.gov.cn/web/user/uias_login.do?appCode=hbzwfw&gotoUrl=https%3A%2F%2Fzwfw.hubei.gov.cn%2Fwebview%2Fgrkj%2Fwelcome.html&p01=", None).await.unwrap();
     println!("{}", res.header());

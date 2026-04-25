@@ -124,8 +124,8 @@ impl<'a> From<HttpFile> for Body<'a> {
         let md5 = hash::md5_hex(r).unwrap_or_else(|_| hex::encode(r));
         let boundary = Arc::new(format!("----WebKitFormBoundary{}", &md5[..16]));
         Body {
-            ct: ContentType::File(boundary),
-            kind: BodyKind::Files(HCow::Owned(file)),
+            ct: ContentType::File(boundary.clone()),
+            kind: BodyKind::Files(HCow::Owned(file.with_boundary(boundary))),
 
         }
     }
