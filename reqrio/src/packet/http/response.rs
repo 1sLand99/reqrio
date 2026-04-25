@@ -210,13 +210,12 @@ impl Response {
         let chucked = self.header.get("transfer-encoding");
         println!("{} {:?}", 111, chucked.as_ref().map(|x|x.as_string()));
         if let Some(chucked) = chucked && chucked.as_string().unwrap_or("").trim() == "chunked" {
-            self.body.extend(coder::chunk_decode(mem::take(&mut self.raw)).unwrap());
+            self.body.extend(coder::chunk_decode(mem::take(&mut self.raw))?);
         } else {
             self.body.extend(mem::take(&mut self.raw));
         }
         let encoding = self.header.get("content-encoding");
-        // println!("{:?}", &self.body.as_bytes().unwrap()[..10]);
-        self.body.decompress(encoding).unwrap();
+        self.body.decompress(encoding)?;
         Ok(&mut self.body)
     }
 
