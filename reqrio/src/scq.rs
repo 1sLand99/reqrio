@@ -249,8 +249,9 @@ impl ScReq {
         HlsError: From<E>,
     {
         self.header.set_method(method);
-        let response = self.stream_io(url, body.into())?;
-        self.check_status(&response)?;
+        let url=url.try_into()?;
+        let response = self.stream_io::<Infallible>(url.clone(), body.into())?;
+        self.check_status(&url,&response)?;
         Ok(response)
     }
 

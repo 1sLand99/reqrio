@@ -186,10 +186,10 @@ pub(crate) trait ReqPriExt {
         }
     }
 
-    fn check_status(&self, response: &Response) -> HlsResult<()> {
+    fn check_status(&self,uri:&Url, response: &Response) -> HlsResult<()> {
         let status = response.header().status();
         match status.code() {
-            400..600 => Err(format!("网络请求错误-{}", status).into()),
+            400..600 => Err(format!("网络请求错误-{}({})", status,uri).into()),
             _ => Ok(())
         }
     }

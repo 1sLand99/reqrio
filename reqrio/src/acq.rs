@@ -66,7 +66,7 @@ impl AcReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::GET);
-        self.stream_io(url, body.into()).await
+        self.stream_io(&mut url.try_into()?, body.into()).await
     }
 
     pub async fn post<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
@@ -74,7 +74,7 @@ impl AcReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::POST);
-        self.stream_io(url, body.into()).await
+        self.stream_io(&mut url.try_into()?, body.into()).await
     }
 
     pub async fn put<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
@@ -82,7 +82,7 @@ impl AcReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::PUT);
-        self.stream_io(url, body.into()).await
+        self.stream_io(&mut url.try_into()?, body.into()).await
     }
 
     pub async fn options<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
@@ -90,7 +90,7 @@ impl AcReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::OPTIONS);
-        self.stream_io(url, body.into()).await
+        self.stream_io(&mut url.try_into()?, body.into()).await
     }
 
     pub async fn delete<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
@@ -98,7 +98,7 @@ impl AcReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::DELETE);
-        self.stream_io(url, body.into()).await
+        self.stream_io(&mut url.try_into()?, body.into()).await
     }
 
     pub async fn head<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
@@ -106,7 +106,7 @@ impl AcReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::HEAD);
-        self.stream_io(url, body.into()).await
+        self.stream_io(&mut url.try_into()?, body.into()).await
     }
 
     pub async fn trace<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
@@ -114,7 +114,7 @@ impl AcReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::TRACE);
-        self.stream_io(url, body.into()).await
+        self.stream_io(&mut url.try_into()?, body.into()).await
     }
 
     pub async fn patch<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
@@ -122,7 +122,7 @@ impl AcReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::PATCH);
-        self.stream_io(url, body.into()).await
+        self.stream_io(&mut url.try_into()?, body.into()).await
     }
 
     pub async fn h1_io(&mut self) -> HlsResult<Response> {
@@ -166,12 +166,9 @@ impl AcReq {
         Ok(response)
     }
 
-    pub async fn stream_io<E>(&mut self, url: impl TryInto<Url, Error=E>, body: Body<'_>) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
+    pub async fn stream_io(&mut self, url: &mut Url, body: Body<'_>) -> HlsResult<Response>
     {
-        let mut url = url.try_into()?;
-        self.set_url(&url).await?;
+        self.set_url(url).await?;
         for i in 0..self.timeout.handle_times() {
             let res = tokio::time::timeout(self.timeout.handle(), self.handle_io(&url, &body)).await;
             self.buffer.reset();
@@ -182,11 +179,11 @@ impl AcReq {
                         return if self.auto_redirect && (300..400).contains(&code) {
                             let location = res.header().location().ok_or("missing location")?;
                             match location.starts_with("http") {
-                                true => url = Url::try_from(location)?,
+                                true => *url = Url::try_from(location)?,
                                 false => url.set_uri(location)?,
                             }
                             self.header.set_method(Method::GET);
-                            Box::pin(self.stream_io::<Infallible>(url, Body::none())).await
+                            Box::pin(self.stream_io(url, Body::none())).await
                         } else {
                             Ok(res)
                         };
@@ -265,8 +262,9 @@ impl AcReq {
         HlsError: From<E>,
     {
         self.header.set_method(method);
-        let response = self.stream_io(url, body.into()).await?;
-        self.check_status(&response)?;
+        let mut url =url.try_into()?;
+        let response = self.stream_io(&mut url, body.into()).await?;
+        self.check_status(&url,&response)?;
         Ok(response)
     }
 

@@ -527,7 +527,7 @@ impl Header {
             keys.push((StrCow::Borrowed(":authority"), StrCow::Owned(format!("{}:{}", param.url.sni(), param.url.addr().port()))));
         }
         keys.push((StrCow::Borrowed(":scheme"), StrCow::Borrowed(param.url.scheme().spec())));
-        println!("{}", self);
+        // println!("{}", self);
         for key in self.keys.iter() {
             if H2HeaderReader::skip_h2_key(key, ct) { continue; }
             let name = key.name_lower();
