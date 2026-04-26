@@ -46,6 +46,7 @@ impl<S: Read + Write> SyncStream<S> {
 
     fn handle_message(&mut self, mut config: Option<&mut Config>) -> HlsResult<bool> {
         let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), Some(self.conn.cipher_suite()))?;
+        println!("{:?}", record);
         match record.context_type {
             RecordType::CipherSpec => self.handshake_finished = true,
             RecordType::Alert => {

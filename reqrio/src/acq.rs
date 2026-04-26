@@ -1,4 +1,3 @@
-use std::convert::Infallible;
 use crate::body::{Body, H2FrameRBuf};
 use crate::error::HlsResult;
 use crate::ext::{ReqExt, ReqParam};
