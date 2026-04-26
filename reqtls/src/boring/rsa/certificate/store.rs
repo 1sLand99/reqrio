@@ -68,6 +68,7 @@ impl CertStore {
             let err = unsafe { X509_STORE_CTX_get_error(ctx.as_mut_ptr()) };
             if err == X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT || err == X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY {
                 let aia = certs.last().ok_or("cert empty")?.get_aia().or(Err(RlsError::IssuerUnknown))?;
+                if aia.is_empty() { return Err(RlsError::IssuerUnknown); }
                 for uri in aia {
                     let cert = download_cert(uri)?;
                     certs.push(cert);

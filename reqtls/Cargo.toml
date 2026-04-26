@@ -17,5 +17,4 @@ urlencoding = "2.1.3"
 
 [features]
 zstd = []
-dylib = []
 export=[]
