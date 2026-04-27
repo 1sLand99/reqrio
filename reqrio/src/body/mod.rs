@@ -1,9 +1,10 @@
 mod ext;
 mod reader;
+mod multi_form;
 
 use crate::error::HlsResult;
-use crate::form_data::HttpFile;
-use crate::reader::{HCow, ReadExt, Writer, RefReader, StrCow};
+pub use multi_form::{HttpFile, FileForm, FormError};
+use crate::reader::{HCow, ReadExt, RefReader, StrCow, Writer};
 use crate::*;
 use crate::{Application, ContentType, Text};
 pub use ext::{BodyData, BodyExt};

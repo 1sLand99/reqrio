@@ -15,7 +15,7 @@ use std::sync::PoisonError;
 #[cfg(feature = "aync")]
 use tokio::time::error::Elapsed;
 use reqtls::coder::ZSTDError;
-use crate::form_data::FormError;
+use crate::body::FormError;
 use crate::time::TimeError;
 
 #[derive(Debug)]

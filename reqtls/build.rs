@@ -3,13 +3,13 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 fn main() {
-    
+
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap();
     println!("cargo:rustc-link-search={}/lib/{}/{}", manifest_dir, target_os, target_env);
-    println!("cargo:rustc-link-lib=dylib=bcrypto");
-    println!("cargo:rustc-link-lib=dylib=zstd");
+    println!("cargo:rustc-link-lib=bcrypto");
+    println!("cargo:rustc-link-lib=zstd");
     let mut dll_src = PathBuf::from_str(manifest_dir.as_str()).unwrap();
     dll_src.push("lib");
     dll_src.push(target_os.as_str());

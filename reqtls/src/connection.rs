@@ -138,8 +138,8 @@ impl Connection {
     pub fn set_by_certificate(&mut self, certificate: Certificates, ext_cas: &[Certificate], sni: &str) -> RlsResult<()> {
         for certificate in certificate.certificates() {
             self.certificates.push(Certificate::from_der(certificate.as_ref())?);
+            if !self.verify { return Ok(()); }
         }
-        if !self.verify { return Ok(()); }
         self.root_stores.verify_cert(&mut self.certificates, ext_cas, sni)
     }
 

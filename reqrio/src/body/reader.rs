@@ -1,5 +1,5 @@
 use crate::error::HlsResult;
-use crate::form_data::HttpFileReader;
+use crate::body::multi_form::HttpFileReader;
 use crate::reader::{ReadExt, Writer, RefReader, StrCow};
 use crate::*;
 

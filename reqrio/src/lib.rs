@@ -191,7 +191,6 @@ mod error;
 #[cfg(feature = "export")]
 mod export;
 mod ext;
-mod form_data;
 mod packet;
 mod scq;
 mod stream;
@@ -210,12 +209,11 @@ pub const CHUNK_END: [u8; 7] = [13, 10, 48, 13, 10, 13, 10];
 use crate::error::HlsResult;
 #[cfg(feature = "aync")]
 pub use acq::AcReq;
-pub use body::{Body, BodyData, BodyExt};
+pub use body::{Body, FileForm, HttpFile, BodyData, BodyExt};
 pub use buffer::Buffer;
 pub use error::HlsError;
 pub use ext::{ReqExt, ReqGenExt, UrlExt};
 pub use fingerprint::{Fingerprint, H2Finger};
-pub use form_data::{FileForm, HttpFile};
 pub use packet::{
     Application, ContentType, Cookie, Font, FrameFlag, FrameType, H2Frame, H2Setting, Header,
     HeaderKey, HeaderValue, HttpStatus, Method, Response, Text, WsFrame, WsOpcode,
@@ -226,7 +224,7 @@ pub use scq::ScReq;
 #[cfg(feature = "aync")]
 pub use stream::TlsStream;
 pub use stream::{ClientConfig, Proxy, ProxyStream, ServerConfig, SyncStream, WebSocket, WebSocketBuilder};
-pub use time::{Time, Timeout, TimeError};
+pub use time::{Time, TimeError, Timeout};
 #[cfg(feature = "tokio")]
 pub use tokio;
 

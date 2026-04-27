@@ -4,7 +4,7 @@ mod reader;
 mod file_form;
 
 use crate::error::HlsResult;
-use crate::form_data::field::FormField;
+use crate::body::multi_form::field::FormField;
 use crate::reader::RefReader;
 pub use error::FormError;
 pub use reader::HttpFileReader;
