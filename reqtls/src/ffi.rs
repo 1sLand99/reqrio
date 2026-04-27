@@ -62,6 +62,8 @@ macro_rules! c_pointer_free {
     };
 }
 
+// pub(crate) use c_pointer_free;
+
 c_pointer_free!(EC_KEY, EC_KEY_free);
 c_pointer_free!(u8, OPENSSL_free);
 c_pointer_free!(EC_POINT, EC_POINT_free);
@@ -75,7 +77,7 @@ c_pointer_free!(RSA, RSA_free);
 c_pointer_free!(BIGNUM, BN_free);
 c_pointer_free!(BIO, BIO_free);
 c_pointer_free!(X509, X509_free);
-c_pointer_free!(STACK, sk_free);
+c_pointer_free!(OPENSSL_STACK, sk_free);
 c_pointer_free!(X509_STORE, X509_STORE_free);
 c_pointer_free!(X509_STORE_CTX, X509_STORE_CTX_free);
 #[cfg(feature = "zstd")]

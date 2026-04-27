@@ -69,7 +69,7 @@ impl Certificate {
 
     pub fn as_der(&mut self) -> Result<&BufPtr, BufferError> {
         if self.der.is_null() {
-            let len = unsafe { i2d_X509(self.x509.as_mut_ptr(), self.der.ptr_mut()) };
+            let len = unsafe { i2d_X509(self.x509.as_ptr(), self.der.ptr_mut()) };
             self.der.check_ptr(len as usize)?;
         }
         Ok(&self.der)
@@ -88,7 +88,7 @@ impl Certificate {
 
     pub(crate) fn pub_key(&mut self) -> RlsResult<&CPointer<EVP_PKEY>> {
         if self.pkey.is_null() {
-            self.pkey = CPointer::new_checked(unsafe { X509_get_pubkey(self.x509.as_mut_ptr()) }, RlsError::PkeyNewError)?;
+            self.pkey = CPointer::new_checked(unsafe { X509_get_pubkey(self.x509.as_ptr()) }, RlsError::PkeyNewError)?;
         }
         Ok(&self.pkey)
     }
@@ -97,7 +97,7 @@ impl Certificate {
         let sni = sni.into();
         let sni_len = sni.len();
         let c_sni = CString::new(sni)?;
-        unsafe { X509_check_host(self.x509.as_mut_ptr(), c_sni.as_ptr(), sni_len, 0, null_mut()) }.ok(RlsError::CertSniInvalid)
+        unsafe { X509_check_host(self.x509.as_ptr(), c_sni.as_ptr(), sni_len, 0, null_mut()) }.ok(RlsError::CertSniInvalid)
     }
 
     pub fn x509(&self) -> &CPointer<X509> { &self.x509 }
