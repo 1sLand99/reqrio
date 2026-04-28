@@ -118,7 +118,7 @@ impl TlsFinger {
         algorithms
     }
 
-    pub fn random() -> RlsResult<TlsFinger> {
+    pub fn random() -> TlsFinger {
         let mut suites: Vec<CipherSuite> = vec![
             CipherSuite::TLS_AES_128_GCM_SHA256.into(),
             CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA.into(),
@@ -142,7 +142,7 @@ impl TlsFinger {
             versions.push(ver);
         }
 
-        Ok(TlsFinger::Custom {
+        TlsFinger::Custom {
             suites,
             groups,
             algorithms: TlsFinger::random_algorithms(),
@@ -162,7 +162,7 @@ impl TlsFinger {
                 ExtensionType::StatusRequest,
                 ExtensionType::KeyShare
             ],
-        })
+        }
     }
 
     pub fn from_ja3(ja3: impl AsRef<str>) -> RlsResult<TlsFinger> {

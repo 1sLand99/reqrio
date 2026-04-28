@@ -1,22 +1,49 @@
-use crate::error::HlsResult;
-use crate::{json, UrlExt};
-use reqtls::Url;
-use std::ffi::CStr;
+use std::ffi::CString;
 use std::os::raw::c_char;
-use std::ptr::null_mut;
+use std::sync::LazyLock;
+use crate::error::HlsResult;
+use crate::HlsError;
 
 mod req;
 mod wss;
 
+static CONVERT_ERROR: LazyLock<CString> = LazyLock::new(|| unsafe { CString::from_vec_unchecked(b"convert error fail".to_vec()) });
 
-#[unsafe(no_mangle)]
-#[allow(non_snake_case)]
-pub extern "C" fn Url_new(url: *const c_char, params: *const c_char) -> *mut Url {
-    || -> HlsResult<*mut Url> {
-        let base_url = unsafe { CStr::from_ptr(url) }.to_str()?;
-        let params = unsafe { CStr::from_ptr(params) }.to_str()?;
-        let params = json::parse(params)?;
-        let url = base_url.params(params)?;
-        Ok(Box::into_raw(Box::new(url)))
-    }().unwrap_or(null_mut())
+fn handle_err1<T, E: ToString>(e: E, err: *mut *mut c_char, t: T) -> T {
+    let ce = CString::new(e.to_string().replace("\0", "")).unwrap_or_else(|_| CONVERT_ERROR.clone());
+    unsafe { *err = ce.into_raw(); }
+    t
 }
+
+fn handle_err2<E: ToString>(e: E) -> *mut c_char {
+    let ce = CString::new(e.to_string().replace("\0", "")).unwrap_or_else(|_| CONVERT_ERROR.clone());
+    ce.into_raw()
+}
+
+fn check_run<T>(func: impl Fn() -> HlsResult<T>, handle: impl Fn(HlsError) -> T) -> T {
+    func().unwrap_or_else(handle)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

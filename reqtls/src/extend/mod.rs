@@ -106,6 +106,10 @@ impl Debug for ExtensionType {
     }
 }
 
+impl From<u16> for ExtensionType {
+    fn from(value: u16) -> Self { ExtensionType(value) }
+}
+
 
 #[derive(Debug)]
 pub struct RenegotiationInfo {

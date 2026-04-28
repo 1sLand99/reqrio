@@ -51,6 +51,12 @@ impl Display for CompressionMethod {
     }
 }
 
+impl From<u16> for CompressionMethod {
+    fn from(value: u16) -> CompressionMethod {
+        CompressionMethod::new(value)
+    }
+}
+
 #[derive(Debug)]
 pub struct CompressionCertificate {
     methods: Vec<CompressionMethod>,

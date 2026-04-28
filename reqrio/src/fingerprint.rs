@@ -60,12 +60,12 @@ impl Fingerprint {
 }
 
 impl Fingerprint {
-    pub fn random(token: impl AsRef<str>) -> HlsResult<Fingerprint> {
-        Ok(Fingerprint {
-            tls: TlsFinger::random()?,
-            legal_subscript: Buffer::with_capacity(0).check_subscription(token)?,
+    pub fn random(token: impl AsRef<str>) -> Fingerprint {
+        Fingerprint {
+            tls: TlsFinger::random(),
+            legal_subscript: Buffer::with_capacity(0).check_subscription(token).unwrap_or(-2),
             ..Default::default()
-        })
+        }
     }
 
     pub fn from_client_hello(ch: Vec<u8>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {

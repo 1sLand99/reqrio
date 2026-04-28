@@ -35,6 +35,12 @@ impl Debug for EcPointFormat {
     }
 }
 
+impl From<u8> for EcPointFormat {
+    fn from(v: u8) -> EcPointFormat {
+        EcPointFormat::new(v)
+    }
+}
+
 #[derive(Debug)]
 pub struct EcPointFormats {
     formats: Vec<EcPointFormat>,

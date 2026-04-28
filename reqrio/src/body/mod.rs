@@ -13,6 +13,8 @@ pub use reader::{H2BodyReader, H2FrameRBuf};
 use reqrio_json::JsonValue;
 use reqtls::{hash, rand};
 use std::borrow::Cow;
+#[cfg(feature = "export")]
+use std::slice;
 use std::sync::Arc;
 #[cfg(feature = "serde")]
 use serde::Serialize;
@@ -21,6 +23,11 @@ pub enum BodyKind<'a> {
     Data(HCow<'a, JsonValue>),
     Bytes(Cow<'a, [u8]>),
     Files(HCow<'a, HttpFile>),
+    #[cfg(feature = "export")]
+    CPtr {
+        data: *const u8,
+        len: usize,
+    },
 }
 
 impl<'a, 'b: 'a> From<&'b BodyKind<'a>> for BodyKind<'a> {
@@ -28,7 +35,9 @@ impl<'a, 'b: 'a> From<&'b BodyKind<'a>> for BodyKind<'a> {
         match value {
             BodyKind::Data(data) => BodyKind::Data(HCow::Borrowed(data.as_ref())),
             BodyKind::Bytes(bytes) => BodyKind::Bytes(Cow::Borrowed(bytes.as_ref())),
-            BodyKind::Files(file) => BodyKind::Files(HCow::Borrowed(file.as_ref()))
+            BodyKind::Files(file) => BodyKind::Files(HCow::Borrowed(file.as_ref())),
+            #[cfg(feature = "export")]
+            BodyKind::CPtr { data, len } => BodyKind::CPtr { data: *data, len: *len },
         }
     }
 }
@@ -138,6 +147,12 @@ impl<'a> From<Option<()>> for Body<'a> {
 }
 
 impl<'a> Body<'a> {
+    pub fn new(body: BodyKind<'a>, ty: ContentType) -> Body<'a> {
+        Body {
+            kind: body,
+            ct: ty,
+        }
+    }
     pub(crate) fn none() -> Body<'a> {
         Body {
             kind: BodyKind::Bytes(Cow::Borrowed(&[])),
@@ -189,6 +204,11 @@ impl<'a> Body<'a> {
             }
             BodyKind::Bytes(bytes) => Ok(RawBodyReader::Bytes(RefReader::new_buf(bytes.as_ref()))),
             BodyKind::Files(file) => Ok(RawBodyReader::File(file.as_reader()?)),
+            #[cfg(feature = "export")]
+            BodyKind::CPtr { data, len } => {
+                let data = unsafe { slice::from_raw_parts(*data, *len) };
+                Ok(RawBodyReader::Bytes(RefReader::new_buf(data)))
+            }
         }
     }
 
