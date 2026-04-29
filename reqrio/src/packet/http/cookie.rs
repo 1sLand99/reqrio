@@ -151,8 +151,8 @@ impl Cookie {
 }
 
 #[cfg(feature = "export")]
-impl From<Cookie> for JsonValue {
-    fn from(cookie: Cookie) -> Self {
+impl From<&Cookie> for JsonValue {
+    fn from(cookie: &Cookie) -> Self {
         json::object! {
             "name": cookie.name.clone(),
             "value": cookie.value.clone(),

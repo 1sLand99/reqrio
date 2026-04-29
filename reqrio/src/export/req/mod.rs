@@ -1,11 +1,12 @@
 mod url;
 mod finger;
+mod response;
+mod body;
 
-use crate::body::BodyKind;
 use crate::export::{check_run, handle_err1, handle_err2};
 use crate::time::Timeout;
 use crate::{json, Body, Cookie, HlsError, Method, Proxy, ReqExt, ReqGenExt, Response, ScReq, ALPN};
-use crate::{ContentType, Fingerprint};
+use crate::Fingerprint;
 use reqtls::Url;
 use std::ffi::{c_char, CStr, CString};
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -64,12 +65,24 @@ pub extern "system" fn ScReq_set_verify(req: *mut ScReq, verify: bool) -> *mut c
     }, handle_err2)
 }
 
+
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
 pub extern "system" fn ScReq_set_redirect(req: *mut ScReq, redirect: bool) -> *mut c_char {
     check_run(move || {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         req.set_auto_redirect(redirect);
+        Ok(null_mut())
+    }, handle_err2)
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_set_key_log(req: *mut ScReq, key_log: *const c_char) -> *mut c_char {
+    check_run(move || {
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
+        let key_log = unsafe { CStr::from_ptr(key_log) }.to_str()?;
+        req.set_key_log(key_log);
         Ok(null_mut())
     }, handle_err2)
 }
@@ -133,15 +146,7 @@ pub extern "system" fn ScReq_add_cookie(req: *mut ScReq, name: *const c_char, va
     }, handle_err2)
 }
 
-#[unsafe(no_mangle)]
-#[allow(non_snake_case)]
-pub extern "C" fn Body_new(data: *const u8, len: usize, ty: *const c_char, err: *mut *mut c_char) -> *mut Body<'static> {
-    check_run(move || {
-        let ty = unsafe { CStr::from_ptr(ty) }.to_str()?;
-        let ty = ContentType::try_from(ty)?;
-        Ok(Box::into_raw(Box::new(Body::new(BodyKind::CPtr { data, len }, ty))))
-    }, |e| handle_err1(e, err, null_mut()))
-}
+
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]

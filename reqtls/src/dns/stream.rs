@@ -144,7 +144,6 @@ impl DNSStream {
 
     fn read(&mut self) -> Result<usize, DNSError> {
         for _ in 0..3 {
-            println!("1111");
             match self.conn.recv(&mut self.read_buf) {
                 Ok(len) => return Ok(len),
                 Err(e) => if e.kind() == ErrorKind::WouldBlock {

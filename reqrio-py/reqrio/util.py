@@ -1,8 +1,10 @@
+import ctypes
 import json
 from _ctypes import Array
 from ctypes import c_ubyte
 from typing import Union
 from reqrio import rcode
+from reqrio.bindings import DLL
 
 
 def dict_to_u8(data: dict) -> tuple[int, Array[c_ubyte]]:
@@ -36,3 +38,17 @@ def urlencoded_str(data: dict) -> str:
     if res.endswith("&"):
         res = res[:-1]
     return res
+
+
+def check_char_err(err: Union[ctypes.c_char_p, ctypes.c_void_p]):
+    if err is None: return False, ""
+    if type(err) == ctypes.c_void_p:
+        error = ctypes.cast(err, ctypes.c_char_p).value.decode('utf-8')
+        DLL.char_free(err)
+        return True, error
+    else:
+        if err.value is None:
+            return False, ""
+        error = err.value.decode('utf-8')
+        DLL.char_free(err)
+        return True, error

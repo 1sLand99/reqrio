@@ -78,6 +78,10 @@ impl HttpFile {
         }
     }
 
+    pub fn set_data(&mut self, data: JsonValue) {
+        self.data = data.into_entries().map(|(k, v)| FormField::new(k, v.dump())).collect();
+    }
+
     #[inline]
     pub fn with_boundary(mut self, boundary: Arc<String>) -> HttpFile {
         self.set_boundary(boundary);

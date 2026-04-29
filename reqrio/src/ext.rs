@@ -86,7 +86,7 @@ pub trait ReqExt: ReqPriExt + Sized {
     }
     fn set_headers(&mut self, mut headers: Header, keep_cookie: bool) {
         if keep_cookie {
-            let cks = self.header_mut().cookies().unwrap_or(&vec![]).clone();
+            let cks = self.header_mut().cookies().unwrap_or(&[]).to_vec();
             headers.set_cookies(cks);
         }
         *self.header_mut() = headers;

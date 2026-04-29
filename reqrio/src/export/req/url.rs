@@ -36,3 +36,11 @@ pub extern "C" fn Url_remove_param(url: *mut Url, name: *const c_char) -> *mut c
         Ok(null_mut())
     }, handle_err2)
 }
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "C" fn Url_drop(url: *mut Url) {
+    if url.is_null() { return; }
+    let url = unsafe { Box::from_raw(url) };
+    drop(url);
+}

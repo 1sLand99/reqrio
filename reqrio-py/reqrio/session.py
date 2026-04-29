@@ -5,27 +5,56 @@ from reqrio.alpn import ALPN
 from reqrio.bindings import DLL, CALLBACK
 from reqrio.method import Method
 from reqrio.response import Response
+from tests.test_session import params
 
 
 class Session:
-    # alpn值是字符串['http/1.1','h2']
-    def __init__(self, alpn: ALPN = ALPN.HTTP11, rand_tls=False, token="", verify: bool = True):
+    def __init__(
+            self,
+            alpn: ALPN = ALPN.HTTP11,
+            verify: bool = True,
+            proxy: str = None,
+            key_log: str = None,
+            ja3: str = None,
+            ja4: str = None,
+            client_hello: bytes = None,
+            random_tls: bool = False,
+            custom_tls: dict = None,
+            token: str = ""
+    ):
         """
         :param
         :param alpn: HTTP版本
-        :param rand_tls:使用随机指纹，仅订阅版本
+        :param verify: 是否进行证书链验证
+        :param proxy: 格式:http://127.0.0.1:10000、socks5://127.0.0.1:10001、socks5://username@password127.0.0.1:10001
+        :param key_log: 导出TLS握手密钥，可用于wireshark抓包分析
+        :param ja3: 使用ja3设置指纹
+        :param ja4: 使用ja4设置指纹
+        :param client_hello: 使用client_hello数据设置指纹
+        :param random_tls: 使用随机指纹
+        :param custom_tls: 使用自定义指纹，具体参数参阅https://github.com/xllgl2017/reqrio
+        :param token: 修改指纹时所有的认证token
         """
+
         self.dll = DLL
         self.callback = CALLBACK
-
+        # alpn
         self.hid = self.dll.ScReq_new()
-        if self.hid == -1: raise Exception('init fail')
-        r = self.dll.ScReq_set_alpn(self.hid, alpn.value.encode('utf-8'))
-        if r == -1: raise Exception('set alpn error')
-        if rand_tls:
-            r = self.dll.ScReq_set_random_fingerprint(self.hid, token.encode('utf-8'))
-            if r == -1: raise Exception('set rand tls error')
-        self.dll.ScReq_set_verify(self.hid, verify)
+        err = self.dll.ScReq_set_alpn(self.hid, alpn.value.encode('utf-8'))
+        err, msg = util.check_char_err(err)
+        if err: raise Exception(msg)
+        # verify
+        self._set_fingerprint(random_tls, ja3, ja4, client_hello, custom_tls, token)
+        err, msg = util.check_char_err(self.dll.ScReq_set_verify(self.hid, verify))
+        if err: raise Exception(msg)
+        # proxy
+        if proxy is not None:
+            err, msg = util.check_char_err(self.dll.ScReq_set_proxy(self.hid, proxy.encode('utf-8')))
+            if err: raise Exception(msg)
+        # keylog
+        if key_log is not None:
+            err, msg = util.check_char_err(self.dll.ScReq_set_key_log(self.hid, key_log.encode("utf-8")))
+            if err: raise Exception(msg)
 
     def set_timeout(self, connect: int = 3000, read: int = 3000, write: int = 3000, handle: int = 30000,
                     connect_times: int = 3, handle_times: int = 3):
@@ -47,36 +76,57 @@ class Session:
             'handle_times': handle_times,
         }
         import json
-        r = self.dll.ScReq_set_timeout(self.hid, json.dumps(timeout).encode('utf-8'))
-        if r == -1: raise Exception('set timeout error')
+        err, msg = util.check_char_err(self.dll.ScReq_set_timeout(self.hid, json.dumps(timeout).encode('utf-8')))
+        if err: raise Exception(msg)
         return
 
     def set_headers(self, header: dict):
         import json
-        r = self.dll.ScReq_set_header_json(self.hid, json.dumps(header).encode('utf-8'))
-        if r == -1: raise Exception('set header error')
+        err, msg = util.check_char_err(self.dll.ScReq_set_header_json(self.hid, json.dumps(header).encode('utf-8')))
+        if err: raise Exception(msg)
+        return
 
     def add_header(self, name: str, value: str):
-        r = self.dll.ScReq_add_header(self.hid, name.encode('utf-8'), value.encode('utf-8'))
-        if r == -1: raise Exception('add header error')
+        err, msg = util.check_char_err(self.dll.ScReq_add_header(self.hid, name.encode('utf-8'), value.encode('utf-8')))
+        if err: raise Exception(msg)
 
-    def set_fingerprint(self, fingerprint: str, token: str):
-        """指纹数据，是tls握手过程中客户端发出的数据（转十六进制）hex(client_hello+client_key_exchanged+change_cipher_spec)"""
-        r = self.dll.ScReq_set_fingerprint(self.hid, fingerprint.encode('utf-8'), token.encode('utf-8'))
-        if r == -1: raise Exception('set fingerprint error')
-
-    def set_ja3(self, ja3: str, token: str):
-        r = self.dll.ScReq_set_ja3(self.hid, ja3.encode('utf-8'), token.encode('utf-8'))
-        if r == -1: raise Exception('set ja3 error')
-
-    def set_ja4(self, ja4: str, token: str):
-        r = self.dll.ScReq_set_ja4(self.hid, ja4.encode('utf-8'), token.encode('utf-8'))
-        if r == -1: raise Exception('set ja4 error')
-
-    def set_proxy(self, proxy: str):
-        """设置代理，格式:http://127.0.0.1:10000、socks5://127.0.0.1:10001、socks5://username@password127.0.0.1:10001"""
-        r = self.dll.ScReq_set_proxy(self.hid, proxy.encode('utf-8'))
-        if r == -1: raise Exception('set proxy error,proxy=' + proxy)
+    def _set_fingerprint(
+            self,
+            random: bool = None,
+            ja3: str = None,
+            ja4: str = None,
+            client_hello: bytes = None,
+            custom: dict = None,
+            token: str = ""
+    ):
+        err = c_char_p()
+        if ja3 is not None:
+            fingerprint = self.dll.Fingerprint_from_ja3(ja3.encode('utf-8'), token.encode('utf-8'), byref(err))
+            err, msg = util.check_char_err(err)
+            if err: raise Exception(msg)
+        elif ja4 is not None:
+            fingerprint = self.dll.Fingerprint_from_ja4(ja4.encode('utf-8'), token.encode('utf-8'), byref(err))
+            err, msg = util.check_char_err(err)
+            if err: raise Exception(msg)
+        elif client_hello is not None:
+            dl, data = util.bytes_to_u8(client_hello)
+            fingerprint = self.dll.Fingerprint_from_client_hello(data, dl, token.encode('utf-8'), byref(err))
+            err, msg = util.check_char_err(err)
+            if err: raise Exception(msg)
+        elif random:
+            fingerprint = self.dll.Fingerprint_random(token.encode('utf-8'), byref(err))
+            err, msg = util.check_char_err(err)
+            if err: raise Exception(msg)
+        elif custom is not None:
+            import json
+            custom = json.dumps(custom)
+            fingerprint = self.dll.Fingerprint_custom(custom.encode('utf-8'), token.encode('utf-8'), byref(err))
+            err, msg = util.check_char_err(err)
+            if err: raise Exception(msg)
+        else:
+            return
+        err, msg = util.check_char_err(self.dll.ScReq_set_fingerprint(self.hid, fingerprint))
+        if err: raise Exception(msg)
 
     def set_cookie(self, cookie: str):
         r = self.dll.ScReq_set_cookie(self.hid, cookie.encode('utf-8'))
@@ -86,87 +136,122 @@ class Session:
         r = self.dll.ScReq_add_cookie(self.hid, name.encode('utf-8'), value.encode('utf-8'))
         if r == -1: raise Exception('set json error')
 
-    def set_params(self, param: dict):
-        for k in param.keys():
-            self.add_param(k, str(param[k]))
-        return
-
-    def add_param(self, name: str, value: str):
-        r = self.dll.ScReq_add_param(self.hid, name.encode('utf-8'), value.encode('utf-8'))
-        if r == -1: raise Exception('add param error')
-
-    @staticmethod
-    def _format_body(data: dict = None, jd: dict = None, bs: bytes = None, ct: str = None):
-        if data is not None:
-            res = util.urlencoded_str(data)
-            ln, u8 = util.str_to_u8(res)
-            if ct is None:
-                return u8, ln, "application/x-www-form-urlencoded"
-            else:
-                return u8, ln, ct
-        if jd is not None:
-            ln, u8 = util.dict_to_u8(jd)
-            if ct is None:
-                return u8, ln, "application/json"
-            else:
-                return u8, ln, ct
-
-        if bs is not None:
-            ln, u8 = util.bytes_to_u8(bs)
-            if ct is None:
-                return u8, ln, "application/octet-stream"
-            else:
-                return u8, ln, ct
-        ln, u8 = util.bytes_to_u8(bytes([]))
-        return u8, ln, "application/octet-stream"
-
-    def send_request(self, method: Method, url: str, params: dict = None, data: dict = None, json: dict = None,
-                     bs: bytes = None, content_type: str = None):
-        u8, ln, ct = self._format_body(data, json, bs, content_type)
-        if params is not None:
-            url = f'{url}?{util.urlencoded_str(params)}'
-        resp = self.dll.ScReq_stream_io(self.hid, method.value, url.encode('utf-8'), u8, ln, ct.encode('utf-8'))
-        bs = string_at(resp).decode('utf-8')
-        self.dll.char_free(resp)
+    def send_request(
+            self,
+            method: Method,
+            url: str,
+            params: dict = None,
+            body: bytes = bytes([]),
+            content_type: str = "",
+            auto_redirect: bool = True
+    ) -> Response:
+        """
+        :param method: 请求方法
+        :param url: 请求地址
+        :param params: 请求参数
+        :param body: 请求体
+        :param content_type: 请求体的类型
+        :param auto_redirect: 是否对重定向链接进行自动跳转，默认是
+        :return:
+        """
         try:
-            import json
-            response = Response(json.loads(bytes.fromhex(bs)))
-            response.header.method = method
-            return response
-        except Exception as _:
-            raise Exception(bs)
+            err, msg = util.check_char_err(self.dll.ScReq_set_redirect(self.hid, auto_redirect))
+            if err: raise Exception(msg)
+            # url
+            err = c_char_p()
+            url = self.dll.Url_new(url.encode('utf-8'), byref(err))
+            err, msg = util.check_char_err(err)
+            if err: raise Exception(msg)
+            if params is not None:
+                for name in params.keys():
+                    value = str(params[name])
+                    err, msg = util.check_char_err(
+                        self.dll.Url_add_param(url, name.encode('utf-8'), value.encode('utf-8')))
+                    if err: raise Exception(msg)
+            # body
+            bl, u8 = util.bytes_to_u8(body)
+            err = c_char_p()
+            body = self.dll.Body_new(u8, bl, content_type.encode('utf-8'), byref(err))
+            err, msg = util.check_char_err(err)
+            if err: raise Exception(msg)
+            err = c_char_p()
+            resp = self.dll.ScReq_stream_io(self.hid, method.value, url, body, byref(err))
+            url = None
+            body = None
+            err, msg = util.check_char_err(err)
+            if err: raise Exception(msg)
+            return Response(resp)
+        finally:
+            if type(url) == int:
+                self.dll.Url_drop(url)
+            if type(body) == int:
+                self.dll.Body_drop(body)
+
+    def pre_send(self, method: Method, url: str, params: dict = None, data: dict = None, json: dict = None,
+                 bytes: bytes = None, text: str = None, files: list[dict[str, str]] = None, **kwargs):
+        if files is not None:
+            http_file = self.dll.HttpFile_new()
+            for file in files:
+                try:
+                    err = c_char_p()
+                    path = file["path"].encode('utf-8')
+                    field_name = file["field_name"].encode('utf-8')
+                    file_type = file["filetype"].encode('utf-8')
+                    form = self.dll.FileForm_new(path, field_name, file_type, byref(err))
+                    err, msg = util.check_char_err(err)
+                    if err: raise Exception(msg)
+                    err, msg = util.check_char_err(self.dll.HttpFile_add_form(http_file, form))
+                    if err: raise Exception(msg)
+                finally:
+                    self.dll.HttpFile_drop(http_file)
+
+
+
+        elif data is not None:
+            body = util.urlencoded_str(data).encode('utf-8')
+        elif json is not None:
+            import json as j
+            body = j.dumps(json).encode('utf-8')
+        elif text is not None:
+            body = text.encode('utf-8')
+        elif bytes is not None:
+            body = bytes
+        else:
+            import builtins
+            body = builtins.bytes([])
+        return self.send_request(method, url, params, body, **kwargs)
 
     def get(self, url: str, params: dict = None, data: dict = None, json: dict = None,
-            bs: bytes = None, content_type: str = None) -> Response:
-        return self.send_request(Method.GET, url, params, data, json, bs, content_type)
+            bytes: bytes = None, text: str = None, **kwargs) -> Response:
+        return self.pre_send(Method.GET, url, params, data, json, bytes, text, **kwargs)
 
     def post(self, url: str, params: dict = None, data: dict = None, json: dict = None,
-             bs: bytes = None, content_type: str = None) -> Response:
-        return self.send_request(Method.POST, url, params, data, json, bs, content_type)
+             bytes: bytes = None, text: str = None, **kwargs) -> Response:
+        return self.pre_send(Method.POST, url, params, data, json, bytes, text, **kwargs)
 
     def put(self, url: str, params: dict = None, data: dict = None, json: dict = None,
-            bs: bytes = None, content_type: str = None) -> Response:
-        return self.send_request(Method.PUT, url, params, data, json, bs, content_type)
+            bytes: bytes = None, text: str = None, **kwargs) -> Response:
+        return self.pre_send(Method.PUT, url, params, data, json, bytes, text, **kwargs)
 
     def head(self, url: str, params: dict = None, data: dict = None, json: dict = None,
-             bs: bytes = None, content_type: str = None) -> Response:
-        return self.send_request(Method.HEAD, url, params, data, json, bs, content_type)
+             bytes: bytes = None, text: str = None, **kwargs) -> Response:
+        return self.pre_send(Method.HEAD, url, params, data, json, bytes, text, **kwargs)
 
     def delete(self, url: str, params: dict = None, data: dict = None, json: dict = None,
-               bs: bytes = None, content_type: str = None) -> Response:
-        return self.send_request(Method.DELETE, url, params, data, json, bs, content_type)
+               bytes: bytes = None, text: str = None, **kwargs) -> Response:
+        return self.pre_send(Method.DELETE, url, params, data, json, bytes, text, **kwargs)
 
     def options(self, url: str, params: dict = None, data: dict = None, json: dict = None,
-                bs: bytes = None, content_type: str = None) -> Response:
-        return self.send_request(Method.OPTIONS, url, params, data, json, bs, content_type)
+                bytes: bytes = None, text: str = None, **kwargs) -> Response:
+        return self.pre_send(Method.OPTIONS, url, params, data, json, bytes, text, **kwargs)
 
     def trace(self, url: str, params: dict = None, data: dict = None, json: dict = None,
-              bs: bytes = None, content_type: str = None) -> Response:
-        return self.send_request(Method.TRACE, url, params, data, json, bs, content_type)
+              bytes: bytes = None, text: str = None, **kwargs) -> Response:
+        return self.pre_send(Method.TRACE, url, params, data, json, bytes, text, **kwargs)
 
     def patch(self, url: str, params: dict = None, data: dict = None, json: dict = None,
-              bs: bytes = None, content_type: str = None) -> Response:
-        return self.send_request(Method.PATCH, url, params, data, json, bs, content_type)
+              bytes: bytes = None, text: str = None, **kwargs) -> Response:
+        return self.pre_send(Method.PATCH, url, params, data, json, bytes, text, **kwargs)
 
     def session_reconnect(self):
         r = self.dll.reconnect(self.hid)

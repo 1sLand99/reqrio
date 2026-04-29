@@ -1,6 +1,6 @@
 import os
 import sys
-from ctypes import cdll, CFUNCTYPE, c_void_p, c_int, c_char, c_uint32, c_char_p, c_bool, c_ubyte, c_size_t
+from ctypes import cdll, CFUNCTYPE, c_void_p, c_int, c_char, c_uint32, c_char_p, c_bool, c_ubyte, c_size_t, c_uint16
 
 from _ctypes import POINTER
 
@@ -13,55 +13,110 @@ else:
     raise Exception('unsupported platform')
 DLL = cdll.LoadLibrary(dll_path)
 
+# ==========================>Fingerprint<=============================
+DLL.Fingerprint_from_ja3.argtypes = [c_char_p, c_char_p, POINTER(c_char_p)]
+DLL.Fingerprint_from_ja3.restype = c_void_p
+
+DLL.Fingerprint_from_ja4.argtypes = [c_char_p, c_char_p, POINTER(c_char_p)]
+DLL.Fingerprint_from_ja4.restype = c_void_p
+
+DLL.Fingerprint_from_client_hello.argtypes = [POINTER(c_ubyte), c_size_t, c_char_p, POINTER(c_char_p)]
+DLL.Fingerprint_from_client_hello.restype = c_void_p
+
+DLL.Fingerprint_random.argtypes = [c_char_p, POINTER(c_char_p)]
+DLL.Fingerprint_random.restype = c_void_p
+
+DLL.Fingerprint_custom.argtypes = [c_char_p, c_char_p, POINTER(c_char_p)]
+DLL.Fingerprint_custom.restype = c_void_p
+
+# ===========================>Url<===================================
+DLL.Url_new.argtypes = [c_char_p, POINTER(c_char_p)]
+DLL.Url_new.restype = c_void_p
+
+DLL.Url_add_param.argtypes = [c_void_p, c_char_p, c_char_p]
+DLL.Url_add_param.restype = c_void_p
+
+DLL.Url_drop.argtypes = [c_void_p]
+
+# ===========================>Body<===================================
+DLL.Body_new.argtypes = [POINTER(c_ubyte), c_size_t, c_char_p, POINTER(c_char_p)]
+DLL.Body_new.restype = c_void_p
+
+DLL.HttpFile_new.argtypes = []
+DLL.HttpFile_new.restype = c_void_p
+
+DLL.HttpFile_new.argtypes = [c_void_p, c_void_p]
+DLL.HttpFile_new.restype = c_void_p
+
+DLL.FileForm_new.argtypes = [c_char_p, c_char_p, c_char_p, POINTER(c_char_p)]
+DLL.FileForm_new.restype = c_void_p
+
+DLL.HttpFile_drop.argtypes = [c_void_p]
+
+DLL.Body_drop.argtypes = [c_void_p]
+
+# ==========================>Response<=============================
+
+DLL.Response_status_code.argtypes = [c_void_p, POINTER(c_char_p)]
+DLL.Response_status_code.restype = c_uint16
+
+DLL.Response_bytes.argtypes = [c_void_p, POINTER(c_size_t), POINTER(c_char_p)]
+DLL.Response_bytes.restype = POINTER(c_ubyte)
+
+DLL.Response_get_header.argtypes = [c_void_p, c_char_p, POINTER(c_char_p)]
+DLL.Response_get_header.restype = c_void_p
+
+DLL.Response_cookies.argtypes = [c_void_p, POINTER(c_char_p)]
+DLL.Response_cookies.restype = c_void_p
+
+DLL.Response_drop.argtypes = [c_void_p]
+
+# ===========================>ScReq<===================================
+
 # 初始化函数
 DLL.ScReq_new.restype = c_void_p
 
 DLL.ScReq_set_header_json.argtypes = [c_void_p, c_char_p]
-DLL.ScReq_set_header_json.restype = c_int
+DLL.ScReq_set_header_json.restype = c_void_p
 
 DLL.ScReq_add_header.argtypes = [c_void_p, c_char_p, c_char_p]
-DLL.ScReq_add_header.restype = c_int
+DLL.ScReq_add_header.restype = c_void_p
 
 DLL.ScReq_set_alpn.argtypes = [c_void_p, c_char_p]
-DLL.ScReq_set_alpn.restype = c_int
+DLL.ScReq_set_alpn.restype = c_void_p
 
 DLL.ScReq_set_verify.argtypes = [c_void_p, c_bool]
+DLL.ScReq_set_verify.restype = c_void_p
 
-DLL.ScReq_set_random_fingerprint.argtypes = [c_void_p, c_char_p]
-DLL.ScReq_set_random_fingerprint.restype = c_int
+DLL.ScReq_set_redirect.argtypes = [c_void_p, c_bool]
+DLL.ScReq_set_redirect.restype = c_void_p
 
-DLL.ScReq_set_fingerprint.argtypes = [c_void_p, c_char_p, c_char_p]
-DLL.ScReq_set_fingerprint.restype = c_int
+DLL.ScReq_set_key_log.argtypes = [c_void_p, c_char_p]
+DLL.ScReq_set_key_log.restype = c_void_p
 
-DLL.ScReq_set_ja3.argtypes = [c_void_p, c_char_p, c_char_p]
-DLL.ScReq_set_ja3.restype = c_int
-
-DLL.ScReq_set_ja4.argtypes = [c_void_p, c_char_p, c_char_p]
-DLL.ScReq_set_ja4.restype = c_int
+DLL.ScReq_set_fingerprint.argtypes = [c_void_p, c_void_p]
+DLL.ScReq_set_fingerprint.restype = c_void_p
 
 DLL.ScReq_set_proxy.argtypes = [c_void_p, c_char_p]
-DLL.ScReq_set_proxy.restype = c_int
-
-# DLL.ScReq_add_param.argtypes = [c_void_p, c_char_p]
-# DLL.ScReq_add_param.restype = c_int
+DLL.ScReq_set_proxy.restype = c_void_p
 
 DLL.ScReq_set_timeout.argtypes = [c_void_p, c_char_p]
-DLL.ScReq_set_timeout.restype = c_int
+DLL.ScReq_set_timeout.restype = c_void_p
 
 DLL.ScReq_set_cookie.argtypes = [c_void_p, c_char_p]
-DLL.ScReq_set_cookie.restype = c_int
+DLL.ScReq_set_cookie.restype = c_void_p
 
 DLL.ScReq_add_cookie.argtypes = [c_void_p, c_char_p, c_char_p]
-DLL.ScReq_add_cookie.restype = c_int
+DLL.ScReq_add_cookie.restype = c_void_p
 
 CALLBACK = CFUNCTYPE(None, POINTER(c_char), c_uint32)
 DLL.ScReq_set_callback.argtypes = [c_void_p, CALLBACK]
-DLL.ScReq_set_callback.restype = c_int
+DLL.ScReq_set_callback.restype = c_void_p
 
 DLL.ScReq_reconnect.argtypes = [c_void_p]
-DLL.ScReq_reconnect.restype = c_int
+DLL.ScReq_reconnect.restype = c_void_p
 
-DLL.ScReq_stream_io.argtypes = [c_void_p, c_int, c_void_p, POINTER(c_ubyte), c_size_t, c_void_p]
+DLL.ScReq_stream_io.argtypes = [c_void_p, c_int, c_void_p, c_void_p, POINTER(c_char_p)]
 DLL.ScReq_stream_io.restype = c_void_p
 
 DLL.ScReq_drop.argtypes = [c_void_p]
@@ -77,9 +132,6 @@ DLL.ws_add_header.restype = c_int
 
 DLL.ws_set_proxy.argtypes = [c_void_p, c_char_p]
 DLL.ws_set_proxy.restype = c_int
-
-DLL.ws_set_url.argtypes = [c_void_p, c_char_p]
-DLL.ws_set_url.restype = c_int
 
 DLL.ws_set_uri.argtypes = [c_void_p, c_char_p]
 DLL.ws_set_uri.restype = c_int

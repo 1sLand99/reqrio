@@ -319,7 +319,7 @@ impl Header {
         }
     }
 
-    pub fn cookies(&self) -> Option<&Vec<Cookie>> {
+    pub fn cookies(&self) -> Option<&[Cookie]> {
         let header = self.keys.iter().find(|x| x.name_lower() == "cookie" || x.name_lower() == "set-cookie");
         header?.cookies()
     }
@@ -563,27 +563,6 @@ impl Header {
             ALPN::Http20 => HeaderReader::H2(self.as_h2_reader(param, ct)),
             _ => HeaderReader::H1(self.as_h1_reader(param, ct))
         }
-    }
-}
-
-#[cfg(feature = "export")]
-impl From<&Header> for JsonValue {
-    fn from(value: &Header) -> Self {
-        let mut header = crate::json::object! {
-            "uri":value.uri.to_string(),
-            "method":value.method.to_string(),
-            "status":value.status.code(),
-            "agreement":value.alpn.to_string(),
-            "keys":{}
-        };
-        for key in &value.keys {
-            let value = match key.value() {
-                HeaderValue::Cookies(v) => JsonValue::from(v.inner().clone()),
-                _ => JsonValue::String(key.value().to_string())
-            };
-            let _ = header["keys"].insert(key.name(), value);
-        }
-        header
     }
 }
 

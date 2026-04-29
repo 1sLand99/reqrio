@@ -21,7 +21,7 @@ impl HeaderKey {
         }
     }
 
-    pub fn cookies(&self) -> Option<&Vec<Cookie>> {
+    pub fn cookies(&self) -> Option<&[Cookie]> {
         match self.value {
             HeaderValue::Cookies(ref cookies) => Some(cookies.inner()),
             _ => None,

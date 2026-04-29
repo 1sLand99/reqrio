@@ -20,7 +20,7 @@ fn handle_err2<E: ToString>(e: E) -> *mut c_char {
     ce.into_raw()
 }
 
-fn check_run<T>(func: impl Fn() -> HlsResult<T>, handle: impl Fn(HlsError) -> T) -> T {
+fn check_run<T>(mut func: impl FnMut() -> HlsResult<T>, handle: impl Fn(HlsError) -> T) -> T {
     func().unwrap_or_else(handle)
 }
 
