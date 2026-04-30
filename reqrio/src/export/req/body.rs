@@ -16,6 +16,13 @@ pub extern "C" fn Body_new(data: *const u8, len: usize, ty: *const c_char, err: 
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
+pub extern "C" fn Body_none() -> *mut Body<'static> {
+    let body: Body = None.into();
+    Box::into_raw(Box::new(body))
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
 pub extern "C" fn Body_new_files(file: *mut HttpFile, data: *const c_char, err: *mut *mut c_char) -> *mut Body<'static> {
     check_run(move || {
         let mut file = unsafe { Box::from_raw(file) };

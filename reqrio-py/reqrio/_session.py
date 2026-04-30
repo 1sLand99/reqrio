@@ -5,12 +5,12 @@ from reqrio.alpn import ALPN
 from reqrio.bindings import DLL, CALLBACK
 from reqrio.method import Method
 from reqrio.response import Response
-from tests.test_session import params
 
 
 class Session:
     def __init__(
             self,
+            headers: dict = None,
             alpn: ALPN = ALPN.HTTP11,
             verify: bool = True,
             proxy: str = None,
@@ -55,6 +55,8 @@ class Session:
         if key_log is not None:
             err, msg = util.check_char_err(self.dll.ScReq_set_key_log(self.hid, key_log.encode("utf-8")))
             if err: raise Exception(msg)
+        if headers is not None:
+            self.set_headers(headers)
 
     def set_timeout(self, connect: int = 3000, read: int = 3000, write: int = 3000, handle: int = 30000,
                     connect_times: int = 3, handle_times: int = 3):
@@ -80,9 +82,9 @@ class Session:
         if err: raise Exception(msg)
         return
 
-    def set_headers(self, header: dict):
+    def set_headers(self, headers: dict):
         import json
-        err, msg = util.check_char_err(self.dll.ScReq_set_header_json(self.hid, json.dumps(header).encode('utf-8')))
+        err, msg = util.check_char_err(self.dll.ScReq_set_header_json(self.hid, json.dumps(headers).encode('utf-8')))
         if err: raise Exception(msg)
         return
 
@@ -140,9 +142,8 @@ class Session:
             self,
             method: Method,
             url: str,
+            body: c_void_p,
             params: dict = None,
-            body: bytes = bytes([]),
-            content_type: str = "",
             auto_redirect: bool = True
     ) -> Response:
         """
@@ -150,7 +151,6 @@ class Session:
         :param url: 请求地址
         :param params: 请求参数
         :param body: 请求体
-        :param content_type: 请求体的类型
         :param auto_redirect: 是否对重定向链接进行自动跳转，默认是
         :return:
         """
@@ -168,12 +168,6 @@ class Session:
                     err, msg = util.check_char_err(
                         self.dll.Url_add_param(url, name.encode('utf-8'), value.encode('utf-8')))
                     if err: raise Exception(msg)
-            # body
-            bl, u8 = util.bytes_to_u8(body)
-            err = c_char_p()
-            body = self.dll.Body_new(u8, bl, content_type.encode('utf-8'), byref(err))
-            err, msg = util.check_char_err(err)
-            if err: raise Exception(msg)
             err = c_char_p()
             resp = self.dll.ScReq_stream_io(self.hid, method.value, url, body, byref(err))
             url = None
@@ -187,8 +181,18 @@ class Session:
             if type(body) == int:
                 self.dll.Body_drop(body)
 
-    def pre_send(self, method: Method, url: str, params: dict = None, data: dict = None, json: dict = None,
-                 bytes: bytes = None, text: str = None, files: list[dict[str, str]] = None, **kwargs):
+    def pre_send(
+            self,
+            method: Method,
+            url: str,
+            params: dict = None,
+            data: dict = None,
+            json: dict = None,
+            bytes: bytes = None,
+            text: str = None,
+            files: list[dict[str, str]] = None,
+            content_type: str = None,
+            **kwargs):
         if files is not None:
             http_file = self.dll.HttpFile_new()
             for file in files:
@@ -202,24 +206,47 @@ class Session:
                     if err: raise Exception(msg)
                     err, msg = util.check_char_err(self.dll.HttpFile_add_form(http_file, form))
                     if err: raise Exception(msg)
-                finally:
+                except Exception as e:
                     self.dll.HttpFile_drop(http_file)
-
-
-
+                    raise e
+            if data is not None:
+                import json
+                data = json.dumps(data).encode('utf-8')
+            else:
+                data = '{}'.encode('utf-8')
+            err = c_char_p()
+            body = self.dll.Body_new_files(http_file, data, byref(err))
         elif data is not None:
-            body = util.urlencoded_str(data).encode('utf-8')
+            bl, u8 = util.bytes_to_u8(util.urlencoded_str(data).encode('utf-8'))
+            err = c_char_p()
+            if content_type is None:
+                content_type = 'application/x-www-form-urlencoded'
+            body = self.dll.Body_new(u8, bl, content_type.encode('utf-8'), byref(err))
         elif json is not None:
             import json as j
-            body = j.dumps(json).encode('utf-8')
+            bl, u8 = util.str_to_u8(j.dumps(json))
+            if content_type is None:
+                content_type = 'application/json'
+            err = c_char_p()
+            body = self.dll.Body_new(u8, bl, content_type.encode('utf-8'), byref(err))
         elif text is not None:
-            body = text.encode('utf-8')
+            bl, u8 = util.str_to_u8(text)
+            if content_type is None:
+                content_type = 'text/plain'
+            err = c_char_p()
+            body = self.dll.Body_new(u8, bl, content_type.encode('utf-8'), byref(err))
         elif bytes is not None:
-            body = bytes
+            bl, u8 = util.bytes_to_u8(bytes)
+            if content_type is None:
+                content_type = 'application/octet-stream'
+            err = c_char_p()
+            body = self.dll.Body_new(u8, bl, content_type.encode('utf-8'), byref(err))
         else:
-            import builtins
-            body = builtins.bytes([])
-        return self.send_request(method, url, params, body, **kwargs)
+            err = c_char_p()
+            body = self.dll.Body_none()
+        err, msg = util.check_char_err(err)
+        if err: raise Exception(msg)
+        return self.send_request(method, url, body, params, **kwargs)
 
     def get(self, url: str, params: dict = None, data: dict = None, json: dict = None,
             bytes: bytes = None, text: str = None, **kwargs) -> Response:

@@ -42,11 +42,17 @@ DLL.Url_drop.argtypes = [c_void_p]
 DLL.Body_new.argtypes = [POINTER(c_ubyte), c_size_t, c_char_p, POINTER(c_char_p)]
 DLL.Body_new.restype = c_void_p
 
+DLL.Body_none.argtypes = []
+DLL.Body_none.restype = c_void_p
+
+DLL.Body_new_files.argtypes = [c_void_p, c_char_p, POINTER(c_char_p)]
+DLL.Body_new_files.restype = c_void_p
+
 DLL.HttpFile_new.argtypes = []
 DLL.HttpFile_new.restype = c_void_p
 
-DLL.HttpFile_new.argtypes = [c_void_p, c_void_p]
-DLL.HttpFile_new.restype = c_void_p
+DLL.HttpFile_add_form.argtypes = [c_void_p, c_void_p]
+DLL.HttpFile_add_form.restype = c_void_p
 
 DLL.FileForm_new.argtypes = [c_char_p, c_char_p, c_char_p, POINTER(c_char_p)]
 DLL.FileForm_new.restype = c_void_p

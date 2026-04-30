@@ -1,6 +1,6 @@
 from reqrio.alpn import ALPN
 from reqrio.response import Response
-from reqrio.session import Session
+from reqrio._session import Session
 from reqrio.method import Method
 from reqrio.websocket import WebSocket, WsOpCode, WsFrame
 from reqrio.cipher import CipherType, Cipher
@@ -8,6 +8,8 @@ from reqrio.hash import HashType, Hasher, Hmac
 from reqrio.b64 import Base64, b64encode, b64decode
 from typing import Union
 from reqrio.rcode import url_encode, url_decode, hex_encode, hex_decode
+from reqrio._finger import Algorithm, CompressionMethod, Group, Version, EcPointFormat, ExtensionType, CipherSuite, \
+    H2Setting
 
 
 # pyinstaller.exe -F --collect-binaries reqrio .\1.py

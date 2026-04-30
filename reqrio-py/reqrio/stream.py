@@ -3,7 +3,7 @@ from threading import Thread
 
 from _queue import Empty
 
-from reqrio.session import Session
+from reqrio._session import Session
 from reqrio.method import Method
 
 

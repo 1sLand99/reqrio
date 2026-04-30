@@ -29,15 +29,15 @@ jobs:
           cargo build --package reqrio --release --features export
           cargo test --features aync,serde
           cargo test --features aync,serde --release
-#      - name: Copy So
-#        run: |
-#          cp target/release/libreqrio.so reqrio-py/reqrio/
-#      - name: Set PYTHONPATH
-#        run: echo "PYTHONPATH=${{ github.workspace }}/reqrio-py" >> $GITHUB_ENV
-#      - name: Run Python FFI Test
-#        run: |
-#          python reqrio-py/tests/test_session.py
-#          python reqrio-py/tests/test_cipher.py
+      - name: Copy So
+        run: |
+          cp target/release/libreqrio.so reqrio-py/reqrio/
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=${{ github.workspace }}/reqrio-py" >> $GITHUB_ENV
+      - name: Run Python FFI Test
+        run: |
+          python reqrio-py/tests/test_session.py
+          python reqrio-py/tests/test_cipher.py
 #      - name: Run Go FFI Test
 #        env:
 #          LD_LIBRARY_PATH: ${{ github.workspace }}/reqrio-go
@@ -64,15 +64,15 @@ jobs:
           cargo build --package reqrio --release --features export
           cargo test --features aync,serde
           cargo test --features aync,serde --release
-#      - name: Copy DLL
-#        run: |
-#          copy target\\release\\reqrio.dll reqrio-py\\reqrio\\
-#      - name: Set PYTHONPATH
-#        run: echo "PYTHONPATH=${{ github.workspace }}\\reqrio-py" >> $env:GITHUB_ENV
-#      - name: Run Python FFI Test
-#        run: |
-#          python reqrio-py/tests/test_session.py
-#          python reqrio-py/tests/test_cipher.py
+      - name: Copy DLL
+        run: |
+          copy target\\release\\reqrio.dll reqrio-py\\reqrio\\
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=${{ github.workspace }}\\reqrio-py" >> $env:GITHUB_ENV
+      - name: Run Python FFI Test
+        run: |
+          python reqrio-py/tests/test_session.py
+          python reqrio-py/tests/test_cipher.py
 #      - name: build-gnu
 #        run: cargo build --package reqrio --release --features export --target x86_64-pc-windows-gnu
 #      - uses: actions/setup-go@v5
