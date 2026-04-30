@@ -1,11 +1,9 @@
-import json
 import ctypes
-from ctypes import c_char_p, byref, c_size_t, c_void_p
+import json
+from ctypes import c_char_p, byref, c_size_t
 
-from Tools.demo.sortvisu import Array
-
-from reqrio.bindings import DLL
 from reqrio import util
+from reqrio.bindings import DLL
 
 
 class Response:
