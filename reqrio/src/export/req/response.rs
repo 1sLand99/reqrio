@@ -26,9 +26,9 @@ pub extern "C" fn Response_bytes(resp: *mut Response, len: &mut usize, err: *mut
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "C" fn Response_get_header(resp: *mut Response, name: *const c_char, err: *mut *mut c_char) -> *mut c_char {
+pub extern "C" fn Response_get_header(resp: *const Response, name: *const c_char, err: *mut *mut c_char) -> *mut c_char {
     check_run(move || {
-        let resp = unsafe { resp.as_mut() }.ok_or(HlsError::NullPointer)?;
+        let resp = unsafe { resp.as_ref() }.ok_or(HlsError::NullPointer)?;
         let name = unsafe { CStr::from_ptr(name) }.to_str()?;
         let value = resp.header().get(name).ok_or(format!("not found header by key `{}`", name))?;
         let res = CString::new(value.to_string()).unwrap_or_else(|_| CONVERT_ERROR.clone());
@@ -38,9 +38,9 @@ pub extern "C" fn Response_get_header(resp: *mut Response, name: *const c_char, 
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "C" fn Response_cookies(resp: *mut Response, err: *mut *mut c_char) -> *mut c_char {
+pub extern "C" fn Response_cookies(resp: *const Response, err: *mut *mut c_char) -> *mut c_char {
     check_run(move || {
-        let resp = unsafe { resp.as_mut() }.ok_or(HlsError::NullPointer)?;
+        let resp = unsafe { resp.as_ref() }.ok_or(HlsError::NullPointer)?;
         let mut res = json::array![];
         if let Some(cookies) = resp.header().cookies() {
             for cookie in cookies {

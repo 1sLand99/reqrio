@@ -1,182 +1,295 @@
 package org.xllgl2017;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.sun.jna.Pointer;
-import org.apache.commons.codec.DecoderException;
+import com.sun.jna.ptr.PointerByReference;
 
 import java.util.HashMap;
 
 public class Session implements AutoCloseable {
-    private static final ReqrioLibrary INSTANCE = ReqrioLibrary.loadLibrary();
+    public static final ReqrioLibrary INSTANCE = ReqrioLibrary.loadLibrary();
     private final Pointer req;
     private boolean closed = false;
 
-    public Session(ALPN alpn) {
+    /// 初始化Session
+    ///
+    /// @param alpn :设置请求的版本，默认HTTP/2.0
+    public Session(ALPN alpn) throws Exception {
         this.req = INSTANCE.ScReq_new();
-        INSTANCE.ScReq_set_alpn(this.req, alpn.getValue());
+        this.setALPN(alpn);
     }
 
     public Session() {
         this.req = INSTANCE.ScReq_new();
     }
 
-    public void setVerify(boolean verify) {
-        INSTANCE.ScReq_set_verify(this.req, verify);
+    /// 是否对证书链进行验证
+    public void setVerify(boolean verify) throws Exception {
+        Pointer err = INSTANCE.ScReq_set_verify(this.req, verify);
+        if (err != null) {
+            String err_msg = err.getString(0);
+            INSTANCE.char_free(err);
+            throw new Exception(err_msg);
+        }
     }
 
-    public void setHeaderJson(String header) throws Exception {
-        int res = INSTANCE.ScReq_set_header_json(this.req, header);
-        if (res == -1) throw new Exception("set header json error");
+    /// 对重定向链接是否自动跳转，默认跳转
+    public void setAutoRedirect(boolean auto_redirect) throws Exception {
+        Pointer err = INSTANCE.ScReq_set_redirect(this.req, auto_redirect);
+        if (err != null) {
+            String err_msg = err.getString(0);
+            INSTANCE.char_free(err);
+            throw new Exception(err_msg);
+        }
     }
 
-    public void useRandomFingerprint(String token) throws Exception {
-        int res = INSTANCE.ScReq_set_random_fingerprint(this.req, token);
-        if (res == -1) throw new Exception("use random fingerprint error");
+    /// 设置 TLS 导出握手中生成的通讯密钥的路径
+    ///
+    /// @param path :keylog导出的路径
+    public void setKeyLog(String path) throws Exception {
+        Pointer err = INSTANCE.ScReq_set_key_log(this.req, path);
+        if (err != null) {
+            String err_msg = err.getString(0);
+            INSTANCE.char_free(err);
+            throw new Exception(err_msg);
+        }
     }
 
-    public void setHeaders(Headers headers) {
+    /// 设置请求头
+    ///
+    /// @param header :是一个json字符串，例如: {"User-Agent":"xxx","Host":"xxx"}
+    public void setHeaders(String header) throws Exception {
+        Pointer err = INSTANCE.ScReq_set_header_json(this.req, header);
+        if (err != null) {
+            String err_msg = err.getString(0);
+            INSTANCE.char_free(err);
+            throw new Exception(err_msg);
+        }
+    }
+
+    /// 设置请求头
+    public void setHeaders(HashMap<String, String> headers) throws Exception {
+        for (String name : headers.keySet()) {
+            this.addHeader(name, headers.get(name));
+        }
+    }
+
+    /// 添加请求头，若已存在则进行覆盖
+    public void addHeader(String name, String value) throws Exception {
+        Pointer err = INSTANCE.ScReq_add_header(this.req, name, value);
+        if (err != null) {
+            String err_msg = err.getString(0);
+            INSTANCE.char_free(err);
+            throw new Exception(err_msg);
+        }
+    }
+
+
+    /// 设置请求头
+    public void setHeaders(Headers headers) throws Exception {
         HashMap<String, String> keys = headers.getKeys();
         for (String name : keys.keySet()) {
-            INSTANCE.ScReq_add_header(this.req, name, keys.get(name));
+            Pointer err = INSTANCE.ScReq_add_header(this.req, name, keys.get(name));
+            if (err != null) {
+                String err_msg = err.getString(0);
+                INSTANCE.char_free(err);
+                throw new Exception(err_msg);
+            }
         }
         for (Cookie cookie : headers.getCookies()) {
-            INSTANCE.ScReq_add_cookie(this.req, cookie.getName(), cookie.getValue());
+            Pointer err = INSTANCE.ScReq_add_cookie(this.req, cookie.getName(), cookie.getValue());
+            if (err != null) {
+                String err_msg = err.getString(0);
+                INSTANCE.char_free(err);
+                throw new Exception(err_msg);
+            }
         }
     }
 
-    public void addHeader(String name, String value) throws Exception {
-        int res = INSTANCE.ScReq_add_header(this.req, name, value);
-        if (res == -1) throw new Exception("add header error");
+    public void setFingerprint(Fingerprint fingerprint) throws Exception {
+        Pointer err1 = Session.INSTANCE.ScReq_set_fingerprint(this.req, fingerprint.getRaw());
+        fingerprint.drop();
+        if (err1 != null) {
+            String err_msg = err1.getString(0);
+            INSTANCE.char_free(err1);
+            throw new Exception(err_msg);
+        }
     }
 
-    public void setALPN(ALPN alpn) throws Exception {
-        int res = INSTANCE.ScReq_set_alpn(this.req, alpn.getValue());
-        if (res == -1) throw new Exception("set alpn error");
+    private void setALPN(ALPN alpn) throws Exception {
+        Pointer err = INSTANCE.ScReq_set_alpn(this.req, alpn.getValue());
+        if (err != null) {
+            String err_msg = err.getString(0);
+            INSTANCE.char_free(err);
+            throw new Exception(err_msg);
+        }
     }
 
-    public void set_fingerprint(String fingerprint, String token) throws Exception {
-        int res = INSTANCE.ScReq_set_fingerprint(this.req, fingerprint, token);
-        if (res == -1) throw new Exception("set fingerprint error");
-    }
 
-    public void setJa3(String ja3, String token) throws Exception {
-        int res = INSTANCE.ScReq_set_ja3(this.req, ja3, token);
-        if (res == -1) throw new Exception("set ja3 error");
-    }
-
-    public void setJa4(String ja4, String token) throws Exception {
-        int res = INSTANCE.ScReq_set_ja4(this.req, ja4, token);
-        if (res == -1) throw new Exception("set ja4 error");
-    }
-
+    /// 设置代理，需要在初始化时设置；后期修改需要调reconnect
+    ///
+    /// @param proxy :代理地址，例如:http_plain: http://127.0.0.1:10280; socks5: socks://127.0.0.1:10279
     public void setProxy(String proxy) throws Exception {
-        int res = INSTANCE.ScReq_set_proxy(this.req, proxy);
-        if (res == -1) throw new Exception("set alpn error");
-    }
-
-    public void setUrl(String url) throws Exception {
-        int res = INSTANCE.ScReq_set_url(this.req, url);
-        if (res == -1) throw new Exception("set url error");
-    }
-
-    public void addParam(String name, String value) throws Exception {
-        int res = INSTANCE.ScReq_add_param(this.req, name, value);
-        if (res == -1) throw new Exception("add param error");
-    }
-
-    public void setData(JsonObject data) throws Exception {
-        this.setBytes(new Gson().toJson(data).getBytes(), "application/x-www-form-urlencoded");
-    }
-
-    public void setJson(JsonElement json) throws Exception {
-        this.setBytes(new Gson().toJson(json).getBytes(), "application/json");
-    }
-
-    public void setBytes(byte[] bytes) throws Exception {
-        this.setBytes(bytes, "application/octet-stream");
-    }
-
-    public void setBytes(byte[] bytes, String ct) throws Exception {
-        int res = INSTANCE.ScReq_set_bytes(this.req, bytes, bytes.length, ct);
-        if (res == -1) throw new Exception("set body error");
-    }
-
-    public void setText(String text) throws Exception {
-        this.setBytes(text.getBytes(), "text/plain");
-    }
-
-    public void setContextType(String ct) throws Exception {
-        int ret = INSTANCE.ScReq_set_context_type(this.req, ct);
-        if (ret == -1) throw new Exception("set context type error");
+        Pointer err = INSTANCE.ScReq_set_proxy(this.req, proxy);
+        if (err != null) {
+            String err_msg = err.getString(0);
+            INSTANCE.char_free(err);
+            throw new Exception(err_msg);
+        }
     }
 
     public void setTimeout(Timeout timeout) throws Exception {
         Gson gson = new Gson();
-        int res = INSTANCE.ScReq_set_timeout(this.req, gson.toJson(timeout));
-        if (res == -1) throw new Exception("set timeout error");
+        Pointer err = INSTANCE.ScReq_set_timeout(this.req, gson.toJson(timeout));
+        if (err != null) {
+            String err_msg = err.getString(0);
+            INSTANCE.char_free(err);
+            throw new Exception(err_msg);
+        }
     }
 
     public void setCookie(String cookie) throws Exception {
-        int res = INSTANCE.ScReq_set_cookie(this.req, cookie);
-        if (res == -1) throw new Exception("set cookie error");
+        Pointer err = INSTANCE.ScReq_set_cookie(this.req, cookie);
+        if (err != null) {
+            String err_msg = err.getString(0);
+            INSTANCE.char_free(err);
+            throw new Exception(err_msg);
+        }
     }
 
     public void addCookie(String name, String value) throws Exception {
-        int res = INSTANCE.ScReq_add_cookie(this.req, name, value);
-        if (res == -1) throw new Exception("add cookie error");
+        Pointer err = INSTANCE.ScReq_add_cookie(this.req, name, value);
+        if (err != null) {
+            String err_msg = err.getString(0);
+            INSTANCE.char_free(err);
+            throw new Exception(err_msg);
+        }
     }
 
-    public void reconnect() throws Exception {
-        int ret = INSTANCE.ScReq_reconnect(this.req);
-        if (ret == -1) throw new Exception("reconnect error");
+    /// 关闭 tls 流，将发送Alert(CloseNotify)
+    public void closeStream() throws Exception {
+        Pointer err = INSTANCE.ScReq_close_stream(this.req);
+        if (err != null) {
+            String err_msg = err.getString(0);
+            INSTANCE.char_free(err);
+            throw new Exception(err_msg);
+        }
     }
 
-    public void set_callback(ScReqCallback cb) throws Exception {
-        int ret = INSTANCE.ScReq_set_callback(this.req, cb);
-        if (ret == -1) throw new Exception("set callback error");
+//    public void reconnect() throws Exception {
+//        int ret = INSTANCE.ScReq_reconnect(this.req);
+//        if (ret == -1) throw new Exception("reconnect error");
+//    }
+
+//    public void set_callback(ScReqCallback cb) throws Exception {
+//        int ret = INSTANCE.ScReq_set_callback(this.req, cb);
+//        if (ret == -1) throw new Exception("set callback error");
+//    }
+
+
+    /// 发送 HTTP 请求
+    ///
+    /// @param method : 请求方法
+    /// @param url    :请求地址
+    /// @param body   :请求体
+    public Response send(Method method, Url url, Body body) throws Exception {
+        try (url; body) {
+            PointerByReference err = new PointerByReference();
+            Pointer ptr = INSTANCE.ScReq_stream_io(this.req, method.getValue(), url.getRaw(), body.raw, err);
+            url.setRaw(null);
+            body.raw = null;
+            if (err.getValue() != null) {
+                String err_msg = err.getValue().getString(0);
+                INSTANCE.char_free(err.getValue());
+                throw new Exception(err_msg);
+            }
+            return new Response(ptr);
+        }
+    }
+
+    public Response get(Url url, Body body) throws Exception {
+        return this.send(Method.GET, url, body);
+    }
+
+    public Response get(String url, Body body) throws Exception {
+        try (body) {
+            return this.get(new Url(url), body);
+        }
+    }
+
+    public Response get(String url) throws Exception {
+        return this.get(url, new Body());
+    }
+
+    public Response post(Url url, Body body) throws Exception {
+        return this.send(Method.POST, url, body);
+    }
+
+    public Response post(String url, Body body) throws Exception {
+        try (body) {
+            return this.post(new Url(url), body);
+        }
     }
 
 
-    public Response send(Method method) throws DecoderException {
-        Pointer ptr = INSTANCE.ScReq_stream_io(this.req, method.getValue());
-        String hex_res = ptr.getString(0);
-        Response response = new Response(hex_res);
-        INSTANCE.char_free(ptr);
-        return response;
+    public Response put(Url url, Body body) throws Exception {
+        return this.send(Method.PUT, url, body);
     }
 
-    public Response get() throws Exception {
-        return this.send(Method.GET);
+    public Response put(String url, Body body) throws Exception {
+        try (body) {
+            return this.put(new Url(url), body);
+        }
     }
 
-    public Response post() throws Exception {
-        return this.send(Method.POST);
+    public Response options(Url url, Body body) throws Exception {
+        return this.send(Method.OPTIONS, url, body);
     }
 
-    public Response put() throws Exception {
-        return this.send(Method.PUT);
+    public Response options(String url, Body body) throws Exception {
+        try (body) {
+            return this.options(new Url(url), body);
+        }
     }
 
-    public Response options() throws Exception {
-        return this.send(Method.OPTIONS);
+    public Response head(Url url, Body body) throws Exception {
+        return this.send(Method.HEAD, url, body);
     }
 
-    public Response head() throws Exception {
-        return this.send(Method.HEAD);
+    public Response head(String url, Body body) throws Exception {
+        try (body) {
+            return this.head(new Url(url), body);
+        }
     }
 
-    public Response delete() throws Exception {
-        return this.send(Method.DELETE);
+    public Response delete(Url url, Body body) throws Exception {
+        return this.send(Method.DELETE, url, body);
     }
 
-    public Response trace() throws Exception {
-        return this.send(Method.TRACE);
+    public Response delete(String url, Body body) throws Exception {
+        try (body) {
+            return this.delete(new Url(url), body);
+        }
     }
 
-    public Response patch() throws Exception {
-        return this.send(Method.PATCH);
+    public Response trace(Url url, Body body) throws Exception {
+        return this.send(Method.TRACE, url, body);
+    }
+
+    public Response trace(String url, Body body) throws Exception {
+        try (body) {
+            return this.trace(new Url(url), body);
+        }
+    }
+
+    public Response patch(Url url, Body body) throws Exception {
+        return this.send(Method.PATCH, url, body);
+    }
+
+    public Response patch(String url, Body body) throws Exception {
+        try (body) {
+            return this.patch(new Url(url), body);
+        }
     }
 
     @Override

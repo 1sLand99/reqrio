@@ -49,9 +49,9 @@ Content-Length: 423"#).unwrap();
     // req.set_url(url).await.unwrap();
     // req.set_json(data);
 
-    // let url="https://220.167.102.112/xhr/front/trade/priority/rushPurchase/hot/branch/one";
-    // let res = req.post(url.sni("h5.moutai519.com.cn"), data).await.unwrap();
-    let res=req.post("https://shangoue.meituan.com",None).await.unwrap();
+    let url="https://220.167.102.112/xhr/front/trade/priority/rushPurchase/hot/branch/one";
+    let res = req.post(url.sni("h5.moutai519.com.cn"), data).await.unwrap();
+    // let res=req.post("https://shangoue.meituan.com",None).await.unwrap();
     println!("{}", res.header());
     if res.header().get("connection").unwrap().to_string().contains("close") {
         req.stream_mut().async_shutdown().await.unwrap();
