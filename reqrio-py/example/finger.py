@@ -1,10 +1,14 @@
+import reqrio
 from example.req import headers
 from reqrio import *
+
+TOKEN = "<token>"
 
 
 # ====================================>TLS Example<======================================
 
 def ua_tls():
+    print("================>[TLS WITH UA]<==================")
     fingerprint = {
         "sec_ch_ua": "\"Microsoft Edge\";v=\"131\", \"Chromium\";v=\"131\", \"Not_A Brand\";v=\"24\"",
         "sec_ch_ua_mobile": "?0",
@@ -16,36 +20,48 @@ def ua_tls():
     del fingerprint["tls_finger"]
     hdr = headers.copy()
     hdr.update(fingerprint)
-    session = Session(headers, alpn=ALPN.HTTP20, client_hello=client_hello, token="<token>")
+    session = Session(headers, alpn=ALPN.HTTP20, client_hello=client_hello, token=TOKEN)
     resp = session.get('https://www.baidu.com')
+    print('code: ', resp.statue_code())
+    print('body: ', len(resp.bytes()))
+
+    resp = reqrio.get('https://www.baidu.com', headers, client_hello=client_hello, token=TOKEN)
     print('code: ', resp.statue_code())
     print('body: ', len(resp.bytes()))
 
 
 def ja3():
+    print("================>[JA3 TLS]<==================")
     ja3_str = "771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-17513-21,29-23-24,0"
-    session = Session(ja3=ja3_str, token="<token>")
+    session = Session(ja3=ja3_str, token=TOKEN)
     resp = session.get('https://www.baidu.com')
+    print('code: ', resp.statue_code())
+    print('body: ', len(resp.bytes()))
+
+    resp = reqrio.get('https://www.baidu.com', headers, ja3=ja3_str, token=TOKEN)
     print('code: ', resp.statue_code())
     print('body: ', len(resp.bytes()))
 
 
 def ja4():
+    print("================>[JA4 TLS]<==================")
     ja4_str = "t13d1516h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0017,001b,0023,002b,002d,0033,44cd,fe0d,ff01_0403,0804,0401,0503,0805,0501,0806,0601"
-    session = Session(ja4=ja4_str, token="<token>")
+    session = Session(ja4=ja4_str, token=TOKEN)
     resp = session.get('https://www.baidu.com')
     print('code: ', resp.statue_code())
     print('body: ', len(resp.bytes()))
 
 
 def rand_tls():
-    session = Session(random_tls=True, token="<token>")
+    print("================>[RANDOM TLS]<==================")
+    session = Session(random_tls=True, token=TOKEN)
     resp = session.get('https://www.baidu.com')
     print('code: ', resp.statue_code())
     print('body: ', len(resp.bytes()))
 
 
 def custom_finger():
+    print("================>[CUSTOM TLS]<==================")
     finger = {
         "suites": [
             CipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
@@ -114,9 +130,7 @@ def custom_finger():
     }
     import json
     print(json.dumps(finger))
-    session = Session(headers, custom_tls=finger, token='<token>')
+    session = Session(headers, custom_tls=finger, token=TOKEN)
     resp = session.get("https://www.baidu.com")
     print('code: ', resp.statue_code())
     print('body: ', len(resp.bytes()))
-
-

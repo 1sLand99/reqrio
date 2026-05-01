@@ -166,7 +166,7 @@ impl ScReq {
     {
         let mut url = url.try_into()?;
         self.set_url(&url)?;
-        for i in 0..self.timeout.handle_times() {
+        for i in 1..=self.timeout.handle_times() {
             let res = self.handle_io(&url, &body);
             self.buffer.reset();
             match res {
@@ -184,13 +184,11 @@ impl ScReq {
                         Ok(res)
                     };
                 }
-                Err(e) => if i < self.timeout.handle_times() - 1 {
-                    if self.timeout.is_peer_closed(e.to_string()) {
-                        self.re_conn(&url)?;
-                    }
-                    println!("[ScReq] write/recv error, error: {}, handle: {}/{}", e, i + 2, self.timeout.handle_times());
-                    continue;
-                } else { return Err(e) }
+                Err(e) => if i >= self.timeout.handle_times() {
+                    return Err(e);
+                } else if self.timeout.is_peer_closed(e.to_string()) {
+                    self.re_conn(&url)?;
+                }
             }
         }
         Err("stream io error".into())
@@ -198,7 +196,7 @@ impl ScReq {
 
     pub fn re_conn(&mut self, url: &Url) -> HlsResult<()> {
         self.buffer.reset();
-        for i in 0..self.timeout.connect_times() {
+        for i in 1..=self.timeout.connect_times() {
             let param = ConnParam {
                 url,
                 proxy: &self.proxy,
@@ -218,10 +216,9 @@ impl ScReq {
                     self.host = url.sni().to_string();
                     return Ok(());
                 }
-                Err(e) => if i < self.timeout.connect_times() - 1 {
-                    println!("[ScReq] continue with error-{}, handle: {}/{}", e, i + 2, self.timeout.handle_times());
-                    continue;
-                } else { return Err(e) }
+                Err(e) => if i >= self.timeout.connect_times() {
+                    return Err(e);
+                }
             }
         }
         Err("[ScReq] connection error".into())
@@ -249,9 +246,9 @@ impl ScReq {
         HlsError: From<E>,
     {
         self.header.set_method(method);
-        let url=url.try_into()?;
+        let url = url.try_into()?;
         let response = self.stream_io::<Infallible>(url.clone(), body.into())?;
-        self.check_status(&url,&response)?;
+        self.check_status(&url, &response)?;
         Ok(response)
     }
 

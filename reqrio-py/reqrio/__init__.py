@@ -19,26 +19,47 @@ def _pyinstaller_hooks_dir():
     return [str(Path(__file__).with_name("hooks").resolve())]
 
 
-def send(url: str, method: Method, headers: dict = None, params: dict = None, data: dict = None, json: dict = None,
-         alpn=ALPN.HTTP11, verify: bool = True, proxy: str = None):
-    req = session.Session(alpn, verify=verify)
-    if proxy is not None:
-        req.set_proxy(proxy)
-    if headers is not None:
-        req.set_headers(headers)
-    resp = req.send_request(method, url, params=params, data=data, json=json)
+def send(
+        method: Method,
+        url: str,
+        params: dict = None,
+
+        headers: dict = None,
+        alpn=ALPN.HTTP11,
+        verify: bool = True,
+        proxy: str = None,
+        key_log: str = None,
+
+        data: dict = None,
+        json: dict = None,
+        bytes: bytes = None,
+        text: str = None,
+        files: list[dict[str, str]] = None,
+        content_type: str = None,
+
+        auto_redirect: bool = True,
+        ja3: str = None,
+        ja4: str = None,
+        client_hello: bytes = None,
+        random_tls: bool = False,
+        custom_tls: dict = None,
+        token: str = "",
+
+):
+    req = Session(headers, alpn, verify, proxy, key_log, ja3, ja4, client_hello, random_tls, custom_tls, token)
+    resp = req.pre_send(method, url, params, data, json, bytes, text, files, content_type, auto_redirect=auto_redirect)
     req.close()
     return resp
 
 
-def get(url: str, headers: dict = None, params: dict = None, data: dict = None, json: dict = None,
-        alpn=ALPN.HTTP11, verify: bool = True, proxy: str = None) -> Response:
-    return send(url, Method.GET, headers, params, data, json, alpn, verify, proxy)
+def get(url: str, headers: dict = None, data: dict = None, json: dict = None, params: dict = None,
+        **kwargs) -> Response:
+    return send(Method.GET, url, params, headers, data=data, json=json, **kwargs)
 
 
-def post(url: str, headers: dict = None, params: dict = None, data: dict = None, json: dict = None,
-         alpn=ALPN.HTTP11, verify: bool = True, proxy: str = None) -> Response:
-    return send(url, Method.POST, headers, params, data, json, alpn, verify, proxy)
+def post(url: str, headers: dict = None, data: dict = None, json: dict = None, params: dict = None,
+         **kwargs) -> Response:
+    return send(Method.POST, url, params, headers, data=data, json=json, **kwargs)
 
 
 def en_b64(ct: CipherType, data: Union[str, bytes], key: Union[str, bytes], iv: Union[str, bytes] = None) -> str:

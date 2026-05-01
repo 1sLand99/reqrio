@@ -168,39 +168,29 @@ impl AcReq {
     pub async fn stream_io(&mut self, url: &mut Url, body: Body<'_>) -> HlsResult<Response>
     {
         self.set_url(url).await?;
-        for i in 0..self.timeout.handle_times() {
-            let res = tokio::time::timeout(self.timeout.handle(), self.handle_io(&url, &body)).await;
+        for i in 1..=self.timeout.handle_times() {
+            let res = tokio::time::timeout(self.timeout.handle(), self.handle_io(url, &body)).await;
             self.buffer.reset();
             match res {
-                Ok(res) => match res {
-                    Ok(res) => {
-                        let code = res.header().status().code();
-                        return if self.auto_redirect && (300..400).contains(&code) {
-                            let location = res.header().location().ok_or("missing location")?;
-                            match location.starts_with("http") {
-                                true => *url = Url::try_from(location)?,
-                                false => url.set_uri(location)?,
-                            }
-                            self.header.set_method(Method::GET);
-                            Box::pin(self.stream_io(url, Body::none())).await
-                        } else {
-                            Ok(res)
-                        };
-                    }
-                    Err(e) => {
-                        if i != self.timeout.handle_times() - 1 {
-                            if e.to_string().to_lowercase().contains("close") || e.to_string().contains("中止了") || e.to_string().contains("关闭") {
-                                self.re_conn(&url).await?;
-                            }
-                            println!("[AcReq] write/recv with error-{}, handle: {}/{}", e, i + 2, self.timeout.handle_times());
-                            continue;
-                        } else { return Err(e); }
-                    }
-                }
-
-                Err(_) => if i != self.timeout.handle_times() - 1 {
-                    println!("[AcReq] write/recv timeout, timeout: {:?}, handle: {}/{}", self.timeout.handle(), i + 2, self.timeout.handle_times());
-                    continue;
+                Err(_) => if i >= self.timeout.handle_times() { return Err(HlsError::Time(TimeError::HandleTimeout)) }
+                Ok(Err(e)) => if i >= self.timeout.handle_times() {
+                    return Err(e)
+                } else if self.timeout.is_peer_closed(e.to_string()) {
+                    self.re_conn(url).await?;
+                },
+                Ok(Ok(resp)) => {
+                    let code = resp.header().status().code();
+                    return if self.auto_redirect && (300..400).contains(&code) {
+                        let location = resp.header().location().ok_or("missing location")?;
+                        match location.starts_with("http") {
+                            true => *url = Url::try_from(location)?,
+                            false => url.set_uri(location)?,
+                        }
+                        self.header.set_method(Method::GET);
+                        Box::pin(self.stream_io(url, Body::none())).await
+                    } else {
+                        Ok(resp)
+                    };
                 }
             }
         }
@@ -209,7 +199,7 @@ impl AcReq {
 
     pub async fn re_conn(&mut self, url: &Url) -> HlsResult<()> {
         self.buffer.reset();
-        for i in 0..self.timeout.connect_times() {
+        for i in 1..=self.timeout.connect_times() {
             let param = ConnParam {
                 url,
                 proxy: &self.proxy,
@@ -223,28 +213,17 @@ impl AcReq {
                 key_log: &self.key_log,
             };
             let res = tokio::time::timeout(self.timeout.connect(), self.stream.async_conn(param)).await;
-            match &res {
-                Ok(res) => if let Err(e) = res && i != self.timeout.handle_times() - 1 {
-                    println!("[AcReq] connect with error-{}, handle: {}/{}", e, i + 2, self.timeout.handle_times());
-                    continue;
-                }
-                Err(e) => if i != self.timeout.handle_times() - 1 {
-                    println!("[AcReq] connect error, error: {:?}, handle: {}/{}", e.to_string(), i + 2, self.timeout.handle_times());
-                    continue;
+            match res {
+                Err(_) => if i >= self.timeout.handle_times() { return Err(HlsError::Time(TimeError::ConnectTimeout)) }
+                Ok(Err(e)) => if i >= self.timeout.handle_times() { return Err(e) }
+                Ok(Ok(alpn)) => {
+                    self.header.init_by_alpn(alpn);
+                    if self.header.alpn() == &ALPN::Http20 { self.handle_h2_setting().await?; }
+                    self.host = url.sni().to_string();
+                    return Ok(());
                 }
             }
-            return match res {
-                Ok(res) => match res {
-                    Ok(alpn) => {
-                        self.header.init_by_alpn(alpn);
-                        if self.header.alpn() == &ALPN::Http20 { self.handle_h2_setting().await?; }
-                        self.host = url.sni().to_string();
-                        Ok(())
-                    }
-                    Err(e) => Err(e),
-                },
-                Err(_) => Err(format!("connect timeout, handle:{}; timeout: {:?}", self.timeout.handle_times(), self.timeout.connect()).into())
-            };
+            continue;
         }
         Err("[AcReq] connection error".into())
     }
@@ -261,9 +240,9 @@ impl AcReq {
         HlsError: From<E>,
     {
         self.header.set_method(method);
-        let mut url =url.try_into()?;
+        let mut url = url.try_into()?;
         let response = self.stream_io(&mut url, body.into()).await?;
-        self.check_status(&url,&response)?;
+        self.check_status(&url, &response)?;
         Ok(response)
     }
 

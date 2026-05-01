@@ -23,6 +23,8 @@ pub enum TimeError {
     WriteTimeout,
     FlushTimeout,
     ShutdownTimeout,
+    HandleTimeout,
+    ConnectTimeout,
 }
 
 impl Display for TimeError {

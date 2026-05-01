@@ -27,7 +27,7 @@ class Session:
         :param alpn: HTTP版本
         :param verify: 是否进行证书链验证
         :param proxy: 格式:http://127.0.0.1:10000、socks5://127.0.0.1:10001、socks5://username@password127.0.0.1:10001
-        :param key_log: 导出TLS握手密钥，可用于wireshark抓包分析
+        :param key_log: 导出TLS握手密钥，可用于Wireshark抓包分析
         :param ja3: 使用ja3设置指纹
         :param ja4: 使用ja4设置指纹
         :param client_hello: 使用client_hello数据设置指纹
@@ -131,12 +131,12 @@ class Session:
         if err: raise Exception(msg)
 
     def set_cookie(self, cookie: str):
-        r = self.dll.ScReq_set_cookie(self.hid, cookie.encode('utf-8'))
-        if r == -1: raise Exception('set json error')
+        err, msg = util.check_char_err(self.dll.ScReq_set_cookie(self.hid, cookie.encode('utf-8')))
+        if err: raise Exception(msg)
 
     def add_cookie(self, name: str, value: str):
-        r = self.dll.ScReq_add_cookie(self.hid, name.encode('utf-8'), value.encode('utf-8'))
-        if r == -1: raise Exception('set json error')
+        err, msg = util.check_char_err(self.dll.ScReq_add_cookie(self.hid, name.encode('utf-8'), value.encode('utf-8')))
+        if err: raise Exception(msg)
 
     def send_request(
             self,
@@ -149,8 +149,8 @@ class Session:
         """
         :param method: 请求方法
         :param url: 请求地址
-        :param params: 请求参数
         :param body: 请求体
+        :param params: 请求参数
         :param auto_redirect: 是否对重定向链接进行自动跳转，默认是
         :return:
         """
@@ -178,8 +178,7 @@ class Session:
         finally:
             if type(url) == int:
                 self.dll.Url_drop(url)
-            if type(body) == int:
-                self.dll.Body_drop(body)
+            self.dll.Body_drop(body)
 
     def pre_send(
             self,
@@ -284,6 +283,10 @@ class Session:
         r = self.dll.reconnect(self.hid)
         if r == -1:
             raise Exception("重连失败")
+
+    def close_stream(self):
+        err, msg = util.check_char_err(self.dll.ScReq_close_stream(self.hid))
+        if err: raise Exception(msg)
 
     def open_stream(self, method: Method, url: str, params: dict = None, data: dict = None, json: dict = None,
                     bs: bytes = None, content_type: str = None):

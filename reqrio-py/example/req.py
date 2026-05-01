@@ -1,3 +1,4 @@
+import reqrio
 from reqrio import *
 
 headers = {
@@ -20,17 +21,24 @@ headers = {
     "sec-ch-ua-platform": '"Windows"'
 }
 
+
 # ============================>Session Method<================================
 
 
 def get():
+    print("===========>reqrio [GET]<============")
     session = Session(headers)
     resp = session.get("https://www.baidu.com")
+    print('code: ', resp.statue_code())
+    print('body: ', len(resp.bytes()))
+    #
+    resp = reqrio.get("https://www.baidu.com", headers)
     print('code: ', resp.statue_code())
     print('body: ', len(resp.bytes()))
 
 
 def get_with_params():
+    print("===========>reqrio [GET Params]<============")
     session = Session(headers)
     params = {
         'a': 3,
@@ -39,33 +47,47 @@ def get_with_params():
     resp = session.get("https://www.baidu.com", params)
     print('code: ', resp.statue_code())
     print('body: ', len(resp.bytes()))
+    #
+    resp = reqrio.get("https://www.baidu.com", headers, params=params)
+    print('code: ', resp.statue_code())
+    print('body: ', len(resp.bytes()))
 
 
 def post_form():
+    print("===========>reqrio [POST Form]<============")
     session = Session(headers)
     data = {
         'a': 3,
         "b": {'fgfdg': 'dg'}
     }
-    resp = session.get("https://www.baidu.com", data=data)
+    resp = session.post("https://www.baidu.com", data=data)
+    print('code: ', resp.statue_code())
+    print('body: ', len(resp.bytes()))
+    #
+    resp = reqrio.post("https://www.baidu.com", headers, data=data)
     print('code: ', resp.statue_code())
     print('body: ', len(resp.bytes()))
 
 
 def post_json():
+    print("===========>reqrio [POST Json]<============")
     session = Session(headers)
     data = {
         'a': 3,
         "b": {'fgfdg': 'dg'}
     }
-    resp = session.get("https://www.baidu.com", json=data)
+    resp = session.post("https://www.baidu.com", json=data)
+    print('code: ', resp.statue_code())
+    print('body: ', len(resp.bytes()))
+    #
+    resp = session.post("https://www.baidu.com", headers, json=data)
     print('code: ', resp.statue_code())
     print('body: ', len(resp.bytes()))
 
 
 def post_text():
     session = Session(headers)
-    resp = session.get("https://www.baidu.com", text="test req body text")
+    resp = session.post("https://www.baidu.com", text="test req body text")
     print('code: ', resp.statue_code())
     print('body: ', len(resp.bytes()))
 
@@ -74,7 +96,7 @@ def upload_file():
     session = Session(headers)
     files = [
         {
-            "path": "../../2.log",  # 文件的路径，可以是相对路径和绝对路径
+            "path": "../../README.md",  # 文件的路径，可以是相对路径和绝对路径
             "field_name": "file",  # 文件的属性名，如浏览器预览: file: [二进制]
             "filetype": "text/plain"  # 设置文件类型
         }
@@ -83,7 +105,6 @@ def upload_file():
         "age": 10,
         "name": "test"
     }
-    resp = session.get("https://www.baidu.com", data=data, files=files)
+    resp = session.post("https://www.baidu.com", data=data, files=files)
     print('code: ', resp.statue_code())
     print('body: ', len(resp.bytes()))
-

@@ -41,9 +41,9 @@ impl Timeout {
     }
 
     pub fn is_peer_closed(&self, status: impl AsRef<str>) -> bool {
-        let close_status = vec!["broken pipe", "reset by peer", "peer close", "关闭", "中止了"];
+        let close_status = vec!["broken pipe", "reset by peer", "关闭", "中止了", "close"];
         let status = status.as_ref().to_lowercase();
-        close_status.into_iter().any(|x| status.contains(&x))
+        close_status.into_iter().any(|x| status.contains(x))
     }
 
     pub fn connect(&self) -> Duration {
