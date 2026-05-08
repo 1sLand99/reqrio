@@ -5,6 +5,7 @@ use crate::packet::http::cookie::Cookie;
 pub struct HeaderKey {
     name: String,
     value: HeaderValue,
+    reserved: bool,
 }
 
 impl HeaderKey {
@@ -12,12 +13,23 @@ impl HeaderKey {
         HeaderKey {
             name: "".to_string(),
             value: HeaderValue::String("".to_string()),
+            reserved: false,
         }
     }
+
     pub fn new(name: impl ToString, value: HeaderValue) -> HeaderKey {
         HeaderKey {
             name: name.to_string(),
             value,
+            reserved: false,
+        }
+    }
+
+    pub(crate) fn new_reserved(name: impl ToString, value: HeaderValue) -> HeaderKey {
+        HeaderKey{
+            name:name.to_string(),
+            value,
+            reserved: true,
         }
     }
 
@@ -43,4 +55,6 @@ impl HeaderKey {
     }
 
     pub fn into_value(self) -> HeaderValue { self.value }
+    
+    pub fn is_reserved(&self) -> bool { self.reserved }
 }

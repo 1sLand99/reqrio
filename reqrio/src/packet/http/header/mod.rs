@@ -48,34 +48,34 @@ impl Header {
         res.alpn = ALPN::Http20;
         res.keys = vec![
             //h2 order
-            HeaderKey::new("cache-control", HeaderValue::String("".to_string())),
-            HeaderKey::new("sec-ch-ua", HeaderValue::String("".to_string())),
-            HeaderKey::new("sec-ch-ua-mobile", HeaderValue::String("".to_string())),
-            HeaderKey::new("sec-ch-ua-full-version", HeaderValue::String("".to_string())),
-            HeaderKey::new("sec-ch-ua-arch", HeaderValue::String("".to_string())),
-            HeaderKey::new("sec-ch-ua-platform", HeaderValue::String("".to_string())),
-            HeaderKey::new("sec-ch-ua-platform-version", HeaderValue::String("".to_string())),
-            HeaderKey::new("sec-ch-ua-model", HeaderValue::String("".to_string())),
-            HeaderKey::new("sec-ch-ua-bitness", HeaderValue::String("".to_string())),
-            HeaderKey::new("sec-ch-ua-full-version-list", HeaderValue::String("".to_string())),
-            HeaderKey::new("upgrade-insecure-requests", HeaderValue::Bool(true)),
-            HeaderKey::new("user-agent", HeaderValue::String("".to_string())),
-            HeaderKey::new("accept", HeaderValue::String("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".to_string())),
-            HeaderKey::new("origin", HeaderValue::String("".to_string())),
-            HeaderKey::new("sec-fetch-site", HeaderValue::String("".to_string())),
-            HeaderKey::new("sec-fetch-mode", HeaderValue::String("".to_string())),
-            HeaderKey::new("sec-fetch-user", HeaderValue::String("".to_string())),
-            HeaderKey::new("sec-fetch-dest", HeaderValue::String("".to_string())),
-            HeaderKey::new("sec-fetch-storage-access", HeaderValue::String("".to_string())),
-            HeaderKey::new("referer", HeaderValue::String("".to_string())),
-            HeaderKey::new("accept-encoding", HeaderValue::String("gzip, deflate, br, zstd".to_string())),
-            HeaderKey::new("accept-language", HeaderValue::String("zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6".to_string())),
-            HeaderKey::new("cookie", HeaderValue::Cookies(CookieManager::new(vec![]))),
+            HeaderKey::new_reserved("cache-control", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("sec-ch-ua", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("sec-ch-ua-mobile", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("sec-ch-ua-full-version", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("sec-ch-ua-arch", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("sec-ch-ua-platform", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("sec-ch-ua-platform-version", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("sec-ch-ua-model", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("sec-ch-ua-bitness", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("sec-ch-ua-full-version-list", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("upgrade-insecure-requests", HeaderValue::Bool(true)),
+            HeaderKey::new_reserved("user-agent", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("accept", HeaderValue::String("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".to_string())),
+            HeaderKey::new_reserved("origin", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("sec-fetch-site", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("sec-fetch-mode", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("sec-fetch-user", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("sec-fetch-dest", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("sec-fetch-storage-access", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("referer", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("accept-encoding", HeaderValue::String("gzip, deflate, br, zstd".to_string())),
+            HeaderKey::new_reserved("accept-language", HeaderValue::String("zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6".to_string())),
+            HeaderKey::new_reserved("cookie", HeaderValue::Cookies(CookieManager::new(vec![]))),
             HeaderKey::new("priority", HeaderValue::String("".to_string())),
             //unknown or http
-            HeaderKey::new("content-encoding", HeaderValue::String("".to_string())),
-            HeaderKey::new("content-type", HeaderValue::String("".to_string())),
-            HeaderKey::new("authorization", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("content-encoding", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("content-type", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("authorization", HeaderValue::String("".to_string())),
         ];
         res
     }
@@ -84,29 +84,28 @@ impl Header {
         let mut res = Header::new_res();
         res.alpn = ALPN::Http11;
         res.keys = vec![
-            HeaderKey::new("Host", HeaderValue::String("".to_string())),
-            HeaderKey::new("Connection", HeaderValue::String("".to_string())),
-            HeaderKey::new("Content-Length", HeaderValue::Number(0)),
-            HeaderKey::new("Authorization", HeaderValue::String("".to_string())),
-            HeaderKey::new("Content-Type", HeaderValue::String("".to_string())),
-            HeaderKey::new("Cache-Control", HeaderValue::String("".to_string())),
-            HeaderKey::new("sec-ch-ua", HeaderValue::String("".to_string())),
-            HeaderKey::new("sec-ch-ua-mobile", HeaderValue::String("".to_string())),
-            HeaderKey::new("sec-ch-ua-platform", HeaderValue::String("".to_string())),
-            HeaderKey::new("Upgrade-Insecure-Requests", HeaderValue::Bool(true)),
-            HeaderKey::new("User-Agent", HeaderValue::String("".to_string())),
-            HeaderKey::new("Accept", HeaderValue::String("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".to_string())),
-            HeaderKey::new("Sec-Fetch-Site", HeaderValue::String("".to_string())),
-            HeaderKey::new("Sec-Fetch-Mode", HeaderValue::String("".to_string())),
-            HeaderKey::new("Sec-Fetch-User", HeaderValue::String("".to_string())),
-            HeaderKey::new("Sec-Fetch-Dest", HeaderValue::String("".to_string())),
-            HeaderKey::new("Sec-Fetch-Storage-Access", HeaderValue::String("".to_string())),
-            HeaderKey::new("Referer", HeaderValue::String("".to_string())),
-            HeaderKey::new("Accept-Encoding", HeaderValue::String("gzip, deflate, br, zstd".to_string())),
-            HeaderKey::new("Accept-Language", HeaderValue::String("zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6".to_string())),
-            HeaderKey::new("Cookie", HeaderValue::Cookies(CookieManager::new(vec![]))),
-            HeaderKey::new("Origin", HeaderValue::String("".to_string())),
-            // HeaderKey::new("pragma", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("Host", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("Connection", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("Content-Length", HeaderValue::Number(0)),
+            HeaderKey::new_reserved("Authorization", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("Content-Type", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("Cache-Control", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("sec-ch-ua", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("sec-ch-ua-mobile", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("sec-ch-ua-platform", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("Upgrade-Insecure-Requests", HeaderValue::Bool(true)),
+            HeaderKey::new_reserved("User-Agent", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("Accept", HeaderValue::String("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".to_string())),
+            HeaderKey::new_reserved("Sec-Fetch-Site", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("Sec-Fetch-Mode", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("Sec-Fetch-User", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("Sec-Fetch-Dest", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("Sec-Fetch-Storage-Access", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("Referer", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("Accept-Encoding", HeaderValue::String("gzip, deflate, br, zstd".to_string())),
+            HeaderKey::new_reserved("Accept-Language", HeaderValue::String("zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6".to_string())),
+            HeaderKey::new_reserved("Cookie", HeaderValue::Cookies(CookieManager::new(vec![]))),
+            HeaderKey::new_reserved("Origin", HeaderValue::String("".to_string())),
 
         ];
         res
@@ -131,7 +130,7 @@ impl Header {
         for key in &self.keys {
             if key.value().to_string() == "" && http { continue; }
             match key.name_lower().as_str() {
-                "set-cookie" => for cookie in key.cookies().unwrap_or(&vec![]) {
+                "set-cookie" => for cookie in key.cookies().unwrap_or(&[]) {
                     res.push(format!("Set-Cookie: {}", cookie.as_res()));
                 },
                 _ => res.push(format!("{}: {}", key.name(), key.value()))
@@ -498,7 +497,7 @@ impl Header {
                             reader.add_str(cookie.name());
                             reader.add_str("=");
                             reader.add_str(cookie.value());
-                            if index != key.cookies().unwrap_or(&vec![]).len() - 1 { reader.add_str("; ") }
+                            if index != key.cookies().unwrap_or(&[]).len() - 1 { reader.add_str("; ") }
                         }
                     }
                 }

@@ -17,7 +17,7 @@ impl<'a> H1HeaderReader<'a> {
         if is_ct && !matches!(ct, ContentType::Null) { return false; }
         let is_host = key.name().eq_ignore_ascii_case("host");
         if is_host { return false; }
-        key.value().is_empty()
+        key.value().is_empty() && key.is_reserved()
     }
 }
 

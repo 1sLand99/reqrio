@@ -21,7 +21,7 @@ impl<'a> H2HeaderReader<'a> {
     pub(crate) fn skip_h2_key(key: &HeaderKey, ct: &ContentType) -> bool {
         let is_ct = key.name().eq_ignore_ascii_case("content-type");
         if is_ct && !matches!(ct,ContentType::Null) { return false; }
-        H2HeaderReader::INVALID_KEYS.contains(&key.name_lower().as_str()) || key.value().is_empty()
+        H2HeaderReader::INVALID_KEYS.contains(&key.name_lower().as_str()) || (key.value().is_empty() && key.is_reserved())
     }
 }
 
