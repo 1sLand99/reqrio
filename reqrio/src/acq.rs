@@ -28,7 +28,7 @@ pub struct AcReq {
     ca_certs: Vec<Certificate>,
     alpn: ALPN,
     key_log: Option<PathBuf>,
-    host: String,
+    url: Url,
 }
 
 impl Default for AcReq {
@@ -50,7 +50,7 @@ impl Default for AcReq {
             ca_certs: vec![],
             alpn: ALPN::Http20,
             key_log: None,
-            host: "".to_string(),
+            url: Default::default(),
         }
     }
 }
@@ -176,7 +176,7 @@ impl AcReq {
                 Ok(Err(e)) => if i >= self.timeout.handle_times() {
                     return Err(e)
                 } else if self.timeout.is_peer_closed(e.to_string()) {
-                    self.re_conn(url).await?;
+                    self.re_conn(None).await?;
                 },
                 Ok(Ok(resp)) => {
                     let code = resp.header().status().code();
@@ -197,11 +197,11 @@ impl AcReq {
         Err("stream io error".into())
     }
 
-    pub async fn re_conn(&mut self, url: &Url) -> HlsResult<()> {
+    pub async fn re_conn(&mut self, url: Option<&Url>) -> HlsResult<()> {
         self.buffer.reset();
         for i in 1..=self.timeout.connect_times() {
             let param = ConnParam {
-                url,
+                url: url.unwrap_or(&self.url),
                 proxy: &self.proxy,
                 timeout: &self.timeout,
                 fingerprint: &mut self.fingerprint,
@@ -219,7 +219,9 @@ impl AcReq {
                 Ok(Ok(alpn)) => {
                     self.header.init_by_alpn(alpn);
                     if self.header.alpn() == &ALPN::Http20 { self.handle_h2_setting().await?; }
-                    self.host = url.sni().to_string();
+                    if let Some(url) = url {
+                        self.url = url.clone();
+                    }
                     return Ok(());
                 }
             }
@@ -229,8 +231,8 @@ impl AcReq {
     }
 
     pub(crate) async fn set_url(&mut self, url: &Url) -> HlsResult<()> {
-        if self.host != url.sni() || self.stream.scheme() != Some(*url.scheme()) {
-            self.re_conn(url).await?;
+        if self.url.sni() != url.sni() || self.stream.scheme() != Some(*url.scheme()) {
+            self.re_conn(Some(url)).await?;
         }
         Ok(())
     }

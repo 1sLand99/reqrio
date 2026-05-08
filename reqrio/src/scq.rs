@@ -28,7 +28,7 @@ pub struct ScReq {
     ca_certs: Vec<Certificate>,
     alpn: ALPN,
     key_log: Option<PathBuf>,
-    host: String,
+    url: Url,
 }
 
 impl Default for ScReq {
@@ -50,7 +50,7 @@ impl Default for ScReq {
             ca_certs: vec![],
             alpn: ALPN::Http20,
             key_log: None,
-            host: "".to_string(),
+            url: Url::default(),
         }
     }
 }
@@ -187,18 +187,18 @@ impl ScReq {
                 Err(e) => if i >= self.timeout.handle_times() {
                     return Err(e);
                 } else if self.timeout.is_peer_closed(e.to_string()) {
-                    self.re_conn(&url)?;
+                    self.re_conn(None)?;
                 }
             }
         }
         Err("stream io error".into())
     }
 
-    pub fn re_conn(&mut self, url: &Url) -> HlsResult<()> {
+    pub fn re_conn(&mut self, url: Option<&Url>) -> HlsResult<()> {
         self.buffer.reset();
         for i in 1..=self.timeout.connect_times() {
             let param = ConnParam {
-                url,
+                url: url.unwrap_or(&self.url),
                 proxy: &self.proxy,
                 timeout: &self.timeout,
                 fingerprint: &mut self.fingerprint,
@@ -213,7 +213,9 @@ impl ScReq {
                 Ok(alpn) => {
                     self.header.init_by_alpn(alpn);
                     if self.header.alpn() == &ALPN::Http20 { self.handle_h2_setting()?; }
-                    self.host = url.sni().to_string();
+                    if let Some(url) = url {
+                        self.url = url.clone();
+                    }
                     return Ok(());
                 }
                 Err(e) => if i >= self.timeout.connect_times() {
@@ -235,8 +237,8 @@ impl ScReq {
 
     pub(crate) fn set_url(&mut self, url: &Url) -> HlsResult<()>
     {
-        if self.host != url.sni() || self.stream.scheme() != Some(*url.scheme()) {
-            self.re_conn(url)?;
+        if self.url.sni() != url.sni() || self.stream.scheme() != Some(*url.scheme()) {
+            self.re_conn(Some(url))?;
         }
         Ok(())
     }
@@ -276,8 +278,6 @@ impl ScReq {
         self.buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")?;
         self.fingerprint.h2().build_setting().write_to(&mut self.buffer)?;
         self.fingerprint.h2().build_window_update().write_to(&mut self.buffer)?;
-        // self.buffer.write_slice(self.fingerprint.h2_setting())?;
-        // self.buffer.write_slice(self.fingerprint.h2_window_update())?;
         self.stream.sync_write(self.buffer.filled())?;
         self.buffer.reset();
         self.stream_id += 1;
