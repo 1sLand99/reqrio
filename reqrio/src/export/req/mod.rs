@@ -170,11 +170,10 @@ pub unsafe extern "C" fn ScReq_stream_io(
 }
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn ScReq_reconnect(req: *mut ScReq, url: *const Url) -> *mut c_char {
+pub extern "system" fn ScReq_reconnect(req: *mut ScReq) -> *mut c_char {
     check_run(move || {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
-        let url = unsafe { url.as_ref() }.ok_or(HlsError::NullPointer)?;
-        req.re_conn(url)?;
+        req.re_conn(None)?;
         Ok(null_mut())
     }, handle_err2)
 }

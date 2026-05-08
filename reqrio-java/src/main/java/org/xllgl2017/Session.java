@@ -176,10 +176,14 @@ public class Session implements AutoCloseable {
         }
     }
 
-//    public void reconnect() throws Exception {
-//        int ret = INSTANCE.ScReq_reconnect(this.req);
-//        if (ret == -1) throw new Exception("reconnect error");
-//    }
+    public void reconnect() throws Exception {
+        Pointer err = INSTANCE.ScReq_reconnect(this.req);
+        if (err != null) {
+            String err_msg = err.getString(0);
+            INSTANCE.char_free(err);
+            throw new Exception(err_msg);
+        }
+    }
 
 //    public void set_callback(ScReqCallback cb) throws Exception {
 //        int ret = INSTANCE.ScReq_set_callback(this.req, cb);

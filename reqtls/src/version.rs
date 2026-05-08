@@ -45,7 +45,7 @@ impl Debug for Version {
             0x302 => write!(f, "TLS_1_1(0x{:x})", self.0),
             0x303 => write!(f, "TLS_1_2(0x{:x})", self.0),
             0x304 => write!(f, "TLS_1_3(0x{:x})", self.0),
-            _ => write!(f, "Reserved({})", self.0)
+            _ => write!(f, "Reserved({:x})", self.0)
         }
     }
 }

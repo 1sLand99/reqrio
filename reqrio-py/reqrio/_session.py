@@ -279,10 +279,9 @@ class Session:
               bytes: bytes = None, text: str = None, **kwargs) -> Response:
         return self.pre_send(Method.PATCH, url, params, data, json, bytes, text, **kwargs)
 
-    def session_reconnect(self):
-        r = self.dll.reconnect(self.hid)
-        if r == -1:
-            raise Exception("重连失败")
+    def reconnect(self):
+        err, msg = util.check_char_err(self.dll.ScReq_reconnect(self.hid))
+        if err: raise Exception(msg)
 
     def close_stream(self):
         err, msg = util.check_char_err(self.dll.ScReq_close_stream(self.hid))

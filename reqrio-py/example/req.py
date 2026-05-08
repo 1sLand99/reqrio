@@ -47,6 +47,7 @@ def get_with_params():
     resp = session.get("https://www.baidu.com", params)
     print('code: ', resp.statue_code())
     print('body: ', len(resp.bytes()))
+    session.reconnect()
     #
     resp = reqrio.get("https://www.baidu.com", headers, params=params)
     print('code: ', resp.statue_code())

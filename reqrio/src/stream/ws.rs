@@ -53,7 +53,7 @@ impl<S: ReqExt> WebSocketBuilder<S> {
 
 impl WebSocketBuilder<ScReq> {
     pub fn build(mut self, url: &Url) -> HlsResult<WebSocket> {
-        self.0.re_conn(url)?;
+        self.0.re_conn(Some(url))?;
         WebSocket::add_header(self.0.header_mut())?;
         Ok(WebSocket::new(WebSocket::connect_sync(self.0, url)?))
     }
@@ -62,7 +62,7 @@ impl WebSocketBuilder<ScReq> {
 #[cfg(feature = "aync")]
 impl WebSocketBuilder<AcReq> {
     pub async fn build(mut self, url: &Url) -> HlsResult<WebSocket> {
-        self.0.re_conn(url).await?;
+        self.0.re_conn(Some(url)).await?;
         WebSocket::add_header(self.0.header_mut())?;
         Ok(WebSocket::new(WebSocket::connect_async(self.0).await?))
     }

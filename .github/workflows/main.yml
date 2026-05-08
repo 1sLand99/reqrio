@@ -26,9 +26,9 @@ jobs:
             ${{ runner.os }}-cargo-
       - name: build and test
         run: |
-          cargo build --package reqrio --release --features export
           cargo test --features aync,serde
           cargo test --features aync,serde --release
+          cargo build --package reqrio --release --features export
       - name: Copy So
         run: |
           cp target/release/libreqrio.so reqrio-py/reqrio/
@@ -61,9 +61,9 @@ jobs:
             ${{ runner.os }}-cargo-
       - name: build-msvc
         run: |
-          cargo build --package reqrio --release --features export
           cargo test --features aync,serde
           cargo test --features aync,serde --release
+          cargo build --package reqrio --release --features export
       - name: Copy DLL
         run: |
           copy target\\release\\reqrio.dll reqrio-py\\reqrio\\

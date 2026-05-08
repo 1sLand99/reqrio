@@ -35,7 +35,7 @@ public interface ReqrioLibrary extends Library {
 
 //    int ScReq_set_callback(Pointer req, ScReqCallback cb);
 
-//    int ScReq_reconnect(Pointer req);
+    Pointer ScReq_reconnect(Pointer req);
 
     Pointer ScReq_stream_io(Pointer req, int method, Pointer url, Pointer body, PointerByReference err);
 
