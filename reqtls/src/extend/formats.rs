@@ -31,7 +31,7 @@ impl EcPointFormat {
 
 impl Debug for EcPointFormat {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}(0x{:x})", self.spec(), self.0)
+        write!(f, "{}(0x{:02x})", self.spec(), self.0)
     }
 }
 

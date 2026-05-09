@@ -1,21 +1,12 @@
 package org.xllgl2017;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
+import com.google.gson.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 public class CustomFingerprint {
     List<Integer> suites = new ArrayList<>();
-    List<Integer> groups = new ArrayList<>();
-    List<Integer> algorithms = new ArrayList<>();
-    List<Integer> versions = new ArrayList<>();
-    List<Integer> ec_formats = new ArrayList<>();
-    List<Integer> compression_methods = new ArrayList<>();
-    List<Integer> extensions = new ArrayList<>();
+    Map<String, JsonElement> extensions = new LinkedHashMap<>();
     HashMap<String, JsonElement> settings = new HashMap<>();
     int window_size;
     int weight;
@@ -30,12 +21,20 @@ public class CustomFingerprint {
         this.suites.add(suite);
     }
 
-    public void addGroup(SupportGroup group) {
-        this.addGroup(group.value);
+    public void addSupportedGroup(SupportGroup group) {
+        this.addSupportedGroup(group.value);
     }
 
-    public void addGroup(int group) {
-        this.groups.add(group);
+    public void addSupportedGroup(int group) {
+        String key = String.valueOf(ExtensionType.SupportedGroup.value);
+        JsonArray values;
+        try {
+            values = this.extensions.getOrDefault(key, new JsonArray()).getAsJsonArray();
+        } catch (NullPointerException e) {
+            values = new JsonArray();
+        }
+        values.add(group);
+        this.extensions.put(key, values);
     }
 
     public void addAlgorithm(Algorithm algorithm) {
@@ -43,15 +42,47 @@ public class CustomFingerprint {
     }
 
     public void addAlgorithm(int algorithm) {
-        this.algorithms.add(algorithm);
+        String key = String.valueOf(ExtensionType.SignatureAlgorithms.value);
+        JsonArray values;
+        try {
+            values = this.extensions.getOrDefault(key, new JsonArray()).getAsJsonArray();
+        } catch (NullPointerException e) {
+            values = new JsonArray();
+        }
+        values.add(algorithm);
+        this.extensions.put(key, values);
     }
 
-    public void addVersion(Version version) {
-        this.addVersion(version.value);
+    public void addSupportedVersion(Version version) {
+        this.addSupportedVersion(version.value);
     }
 
-    public void addVersion(int version) {
-        this.versions.add(version);
+    public void addSupportedVersion(int version) {
+        String key = String.valueOf(ExtensionType.SupportedVersions.value);
+        JsonArray values;
+        try {
+            values = this.extensions.getOrDefault(key, new JsonArray()).getAsJsonArray();
+        } catch (NullPointerException e) {
+            values = new JsonArray();
+        }
+        values.add(version);
+        this.extensions.put(key, values);
+    }
+
+    public void addKeyShare(SupportGroup group) {
+        this.addKeyShare(group.value);
+    }
+
+    public void addKeyShare(int group) {
+        String key = String.valueOf(ExtensionType.KeyShare.value);
+        JsonArray values;
+        try {
+            values = this.extensions.getOrDefault(key, new JsonArray()).getAsJsonArray();
+        } catch (NullPointerException e) {
+            values = new JsonArray();
+        }
+        values.add(group);
+        this.extensions.put(key, values);
     }
 
     public void addEcPointFormat(EcPointFormat format) {
@@ -59,15 +90,31 @@ public class CustomFingerprint {
     }
 
     public void addEcPointFormat(int format) {
-        this.ec_formats.add(format);
+        String key = String.valueOf(ExtensionType.EcPointFormats.value);
+        JsonArray values;
+        try {
+            values = this.extensions.getOrDefault(key, new JsonArray()).getAsJsonArray();
+        } catch (NullPointerException e) {
+            values = new JsonArray();
+        }
+        values.add(format);
+        this.extensions.put(key, values);
     }
 
-    public void addCompressionMethod(CompressionMethod method) {
-        this.addCompressionMethod(method.value);
+    public void addCompressionCertificate(CompressionMethod method) {
+        this.addCompressionCertificate(method.value);
     }
 
-    public void addCompressionMethod(int method) {
-        this.compression_methods.add(method);
+    public void addCompressionCertificate(int method) {
+        String key = String.valueOf(ExtensionType.CompressionCertificate.value);
+        JsonArray values;
+        try {
+            values = this.extensions.getOrDefault(key, new JsonArray()).getAsJsonArray();
+        } catch (NullPointerException e) {
+            values = new JsonArray();
+        }
+        values.add(method);
+        this.extensions.put(key, values);
     }
 
     public void addExtension(ExtensionType extensionType) {
@@ -75,7 +122,15 @@ public class CustomFingerprint {
     }
 
     public void addExtension(int value) {
-        this.extensions.add(value);
+        String key = String.valueOf(value);
+        if (this.extensions.containsKey(key)) return;
+        this.extensions.put(key, null);
+    }
+
+    public void addExtension(int typ, JsonElement value) {
+        String key = String.valueOf(typ);
+        if (this.extensions.containsKey(key)) return;
+        this.extensions.put(key, value);
     }
 
     public void addSetting(H2SettingType type, int value) {

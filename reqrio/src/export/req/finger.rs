@@ -1,6 +1,6 @@
 use crate::export::{check_run, handle_err1};
 use crate::{json, Fingerprint, H2Finger, H2Setting};
-use reqtls::TlsFinger;
+use reqtls::{Bytes, CompressionMethod, EcPointFormat, Extension, ExtensionType, ExtensionValue, NamedCurve, SignatureAlgorithm, TlsFinger, Version, ALPN};
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::ptr::null_mut;
@@ -52,15 +52,54 @@ pub extern "system" fn Fingerprint_custom(custom: *const c_char, token: *const c
     check_run(move || {
         let custom = json::from_bytes(unsafe { CStr::from_ptr(custom) }.to_bytes())?;
         let token = unsafe { CStr::from_ptr(token) }.to_str()?;
+        let mut extensions = vec![];
+        for (key, value) in custom["extensions"].entries() {
+            let typ = ExtensionType::new(key.parse().or(Err("Invalid extend type"))?);
+            match typ.as_u16() {
+                ExtensionType::SignatureAlgorithms if !value.is_null() => {
+                    let values: Vec<SignatureAlgorithm> = value.members().map(|x| x.as_u16().unwrap_or(0).into()).collect();
+                    extensions.push(Extension::new(typ, ExtensionValue::Algorithms(values)));
+                }
+                ExtensionType::CompressionCertificate if !value.is_null() => {
+                    let values: Vec<CompressionMethod> = value.members().map(|x| x.as_u16().unwrap_or(0).into()).collect();
+                    extensions.push(Extension::new(typ, ExtensionValue::CompressionMethods(values)));
+                }
+                ExtensionType::EcPointFormats if !value.is_null() => {
+                    let values: Vec<EcPointFormat> = value.members().map(|x| x.as_u8().unwrap_or(0).into()).collect();
+                    extensions.push(Extension::new(typ, ExtensionValue::EcPointFormats(values)));
+                }
+                ExtensionType::SupportedVersions if !value.is_null() => {
+                    let values: Vec<Version> = value.members().map(|x| x.as_u16().unwrap_or(0).into()).collect();
+                    extensions.push(Extension::new(typ, ExtensionValue::SupportedVersions(values)));
+                }
+                ExtensionType::SupportedGroup | ExtensionType::KeyShare if !value.is_null() => {
+                    let values: Vec<NamedCurve> = value.members().map(|x| x.as_u16().unwrap_or(0).into()).collect();
+                    extensions.push(Extension::new(typ, ExtensionValue::Curves(values)));
+                }
+                ExtensionType::ApplicationLayerProtocolNegotiation | ExtensionType::ApplicationSetting | ExtensionType::ApplicationSettingOld if !value.is_null() => {
+                    let values = value.members().map(|x| ALPN::from_slice(x.as_str().unwrap_or("").as_bytes())).collect();
+                    extensions.push(Extension::new(typ, ExtensionValue::Alps(values)))
+                }
+                ExtensionType::Padding if !value.is_null() => {
+                    let value=value.as_usize().unwrap_or(0);
+                    extensions.push(Extension::new(typ, ExtensionValue::Padding(value)));
+                }
+                _ => match typ.is_reserved() && !value.is_null() {
+                    true => {
+                        let value = value.members().map(|x| x.as_u8().unwrap_or(0)).collect();
+                        extensions.push(Extension::new(typ, ExtensionValue::Bytes(Bytes::new(value))))
+                    }
+                    false => extensions.push(Extension::new_default(typ))
+                }
+            }
+        }
+
+
         let tls = TlsFinger::Custom {
-            algorithms: custom["algorithms"].members().map(|x| x.as_u16().unwrap_or(0).into()).collect(),
-            compress_methods: custom["compress_methods"].members().map(|x| x.as_u16().unwrap_or(0).into()).collect(),
-            ec_formats: custom["ec_formats"].members().map(|x| x.as_u8().unwrap_or(0).into()).collect(),
             suites: custom["suites"].members().map(|x| x.as_u16().unwrap_or(0).into()).collect(),
-            versions: custom["versions"].members().map(|x| x.as_u16().unwrap_or(0).into()).collect(),
-            extensions: custom["extensions"].members().map(|x| x.as_u16().unwrap_or(0).into()).collect(),
-            groups: custom["groups"].members().map(|x| x.as_u16().unwrap_or(0).into()).collect(),
+            extensions,
         };
+        println!("{:#?}", tls);
         let mut h2 = H2Finger {
             setting: vec![],
             window_size: custom["window_size"].as_u32().or(Err("missing window_size"))?,

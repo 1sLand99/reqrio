@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display, Formatter};
 use crate::error::RlsResult;
 use crate::{BufferError, ReadExt, Reader, WriteExt};
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone)]
 pub struct CompressionMethod(u16);
 
 impl CompressionMethod {
@@ -31,10 +31,10 @@ impl CompressionMethod {
 impl Debug for CompressionMethod {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.0 {
-            0 => write!(f, "Null(0)"),
-            1 => write!(f, "Deflate(1)"),
-            2 => write!(f, "Brotli(2)"),
-            _ => write!(f, "Reserved({})", self.0),
+            0 => write!(f, "Null(0x{:04x})", self.0),
+            1 => write!(f, "Deflate(0x{:04x})", self.0),
+            2 => write!(f, "Brotli(0x{:04x})", self.0),
+            _ => write!(f, "Reserved(0x{:04x})", self.0),
         }
     }
 }

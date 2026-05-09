@@ -62,7 +62,7 @@ impl<'a> ServerHello<'a> {
         // res.session_id = ByteRef::new(session_id);
         res.cipher_suite = CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256.into();
         for extension in client_hello.take_extensions() {
-            match *extension.extension_type() {
+            match extension.extension_type().as_u16() {
                 ExtensionType::SignatureAlgorithms => {
                     // let mut signature = SignatureAlgorithms::new();
                     // signature.push_hash(SignatureAlgorithm::RSA_PKCS1_SHA256);

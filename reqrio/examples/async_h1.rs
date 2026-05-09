@@ -2,10 +2,88 @@ use std::time::Duration;
 use tokio::time::sleep;
 use reqrio::*;
 
+fn gen_im_finger() -> TlsFinger {
+    TlsFinger::Custom {
+        suites: vec![
+            CipherSuite::new(0xcaca),
+            CipherSuite::TLS_AES_128_GCM_SHA256.into(),
+            CipherSuite::TLS_AES_256_GCM_SHA384.into(),
+            CipherSuite::TLS_CHACHA20_POLY1305_SHA256.into(),
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256.into(),
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256.into(),
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384.into(),
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384.into(),
+            CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256.into(),
+            CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256.into(),
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA.into(),
+            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA.into(),
+            CipherSuite::TLS_RSA_WITH_AES_128_GCM_SHA256.into(),
+            CipherSuite::TLS_RSA_WITH_AES_256_GCM_SHA384.into(),
+            CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA.into(),
+            CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA.into(),
+        ],
+        extensions: vec![
+            Extension::new_default(ExtensionType::new(0x1a1a)),
+            Extension::new_default(ExtensionType::ServerName),
+            Extension::new_default(ExtensionType::ExtendMasterSecret),
+            Extension::new_default(ExtensionType::RenegotiationInfo),
+            Extension::new(ExtensionType::SupportedGroup, ExtensionValue::Curves(vec![
+                NamedCurve::new(0xeaea),
+                NamedCurve::X25519.into(),
+                NamedCurve::Secp256r1.into(),
+                NamedCurve::Secp384r1.into(),
+            ])),
+            Extension::new(ExtensionType::EcPointFormats, ExtensionValue::EcPointFormats(vec![EcPointFormat::UNCOMPRESSED])),
+            Extension::new_default(ExtensionType::SessionTicket),
+            Extension::new(ExtensionType::ApplicationLayerProtocolNegotiation, ExtensionValue::Alps(vec![
+                ALPN::Http20,
+                ALPN::Http11
+            ])),
+            Extension::new_default(ExtensionType::StatusRequest),
+            Extension::new(ExtensionType::SignatureAlgorithms, ExtensionValue::Algorithms(vec![
+                SignatureAlgorithm::ECDSA_SECP256R1_SHA256.into(),
+                SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),
+                SignatureAlgorithm::RSA_PKCS1_SHA256.into(),
+                SignatureAlgorithm::ECDSA_SECP384R1_SHA384.into(),
+                SignatureAlgorithm::RSA_PSS_RSAE_SHA384.into(),
+                SignatureAlgorithm::RSA_PKCS1_SHA384.into(),
+                SignatureAlgorithm::RSA_PSS_RSAE_SHA512.into(),
+                SignatureAlgorithm::RSA_PKCS1_SHA512.into(),
+            ])),
+            Extension::new_default(ExtensionType::SignedCertificateTimestamp),
+            Extension::new(ExtensionType::KeyShare, ExtensionValue::Curves(vec![
+                NamedCurve::new(0xeaea),
+                NamedCurve::X25519.into(),
+            ])),
+            Extension::new(ExtensionType::PskKeyExchangeMode, ExtensionValue::PskMode(PskMode::PSK_DHE_KE)),
+            Extension::new(ExtensionType::SupportedVersions, ExtensionValue::SupportedVersions(vec![
+                Version::new(0xdada),
+                Version::TLS_1_3,
+                Version::TLS_1_2,
+                Version::TLS_1_1,
+                Version::TLS_1_0,
+            ])),
+            Extension::new(ExtensionType::CompressionCertificate, ExtensionValue::CompressionMethods(vec![CompressionMethod::BROTLI])),
+            Extension::new(ExtensionType::ApplicationSettingOld, ExtensionValue::Alps(vec![ALPN::Http20])),
+            Extension::new(ExtensionType::new(0x3a3a), ExtensionValue::Bytes(Bytes::new(vec![0]))),
+            Extension::new(ExtensionType::Padding, ExtensionValue::Padding(192))
+        ],
+    }
+}
+
+
 #[tokio::main]
 async fn main() {
+    Fingerprint::from_ja4("t13d1516h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0017,001b,0023,002b,002d,0033,44cd,fe0d,ff01_0403,0804,0401,0503,0805,0501,0806,0601","").unwrap();
+    return;
+    let fingerprint = Fingerprint::new_tls(gen_im_finger(), "2f-o7ffnfc-j2f7q7n-k7ffnfc-m423p26-k").unwrap();
     let fingerpirnt = Fingerprint::from_hex_all("1603010200010001fc0303daf602c8f741db35b1ce2fa67c4edd38a6a21e22e9e78a563a3433551102a2a6201f0910cad3e2496077c3102b9d64adf9dd177622a1e3f3bb77dd17659e9559970020caca130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035010001931a1a000000000018001600001368352e6d6f757461693531392e636f6d2e636e00170000ff01000100000a000a0008eaea001d00170018000b00020100002300000010000e000c02683208687474702f312e31000500050100000000000d0012001004030804040105030805050108060601001200000033002b0029eaea000100001d002006648fc930928438e9a9a9f495a947ef0fa1592c42ba347ee73df14376ef0346002d00020101002b000b0adada0304030303020301001b00030200024469000500030268323a3a000100001500c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "2f-o7ffnfc-j2f7q7n-k7ffnfc-m423p26-k").unwrap();
-    println!("{:#?}",fingerpirnt.tls().build_client_hello().unwrap());
+    println!("{:#?}", fingerpirnt.tls().build_client_hello(&ALPN::Http20).unwrap());
+
+    // let mut buffer = Buffer::with_capacity(1024);
+    // fingerpirnt.tls().build_client_hello().unwrap().write_to(&mut buffer).unwrap();
+    // println!("{:?}", buffer.filled());
+    // return;
     let mut header = Header::try_from(r#"
 Host: h5.moutai519.com.cn
 Connection: keep-alive
@@ -34,7 +112,7 @@ Content-Length: 423"#).unwrap();
 
     println!("{}", header);
     let mut req = AcReq::new()
-        .with_fingerprint(fingerpirnt)
+        .with_fingerprint(fingerprint)
         // .with_alpn(ALPN::Http20)
         // .with_mtls(certs, key)
         .with_verify(true)
@@ -51,7 +129,7 @@ Content-Length: 423"#).unwrap();
 
     let url = "https://220.167.102.112/xhr/front/trade/priority/rushPurchase/hot/branch/one";
     let res = req.post(url.sni("h5.moutai519.com.cn"), data).await.unwrap();
-    // let res=req.post("https://shangoue.meituan.com",None).await.unwrap();
+    // let res = req.post("https://shangoue.meituan.com", None).await.unwrap();
     println!("{}", res.header());
     if res.header().get("connection").unwrap().to_string().contains("close") {
         req.stream_mut().async_shutdown().await.unwrap();
@@ -77,7 +155,6 @@ Content-Length: 423"#).unwrap();
     // let key = RsaKey::from_pri_pem_file("/home/xl/1/client.key").unwrap();
     let mut req = AcReq::new()
         // .with_fingerprint(fingerprint)
-        .with_alpn(ALPN::Http20)
         .with_timeout(timeout)
         .with_verify(true)
         .with_key_log("2.log")

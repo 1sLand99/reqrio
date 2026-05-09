@@ -112,7 +112,7 @@ impl WebSocket {
 
 impl WebSocket {
     pub fn sync_build() -> WebSocketBuilder<ScReq> {
-        WebSocketBuilder(ScReq::new().with_timeout(Timeout::longer()).with_alpn(ALPN::Http11))
+        WebSocketBuilder(ScReq::new().with_timeout(Timeout::longer()))
     }
 
 
@@ -158,7 +158,7 @@ impl WebSocket {
 #[cfg(feature = "aync")]
 impl WebSocket {
     pub fn async_build() -> WebSocketBuilder<AcReq> {
-        WebSocketBuilder(AcReq::new().with_timeout(Timeout::longer()).with_alpn(ALPN::Http11))
+        WebSocketBuilder(AcReq::new().with_timeout(Timeout::longer()))
     }
 
     async fn connect_async(mut req: AcReq) -> HlsResult<Stream> {

@@ -11,7 +11,7 @@ class Session:
     def __init__(
             self,
             headers: dict = None,
-            alpn: ALPN = ALPN.HTTP11,
+            alpn: str = ALPN.HTTP11,
             verify: bool = True,
             proxy: str = None,
             key_log: str = None,
@@ -40,7 +40,7 @@ class Session:
         self.callback = CALLBACK
         # alpn
         self.hid = self.dll.ScReq_new()
-        err = self.dll.ScReq_set_alpn(self.hid, alpn.value.encode('utf-8'))
+        err = self.dll.ScReq_set_alpn(self.hid, alpn.encode('utf-8'))
         err, msg = util.check_char_err(err)
         if err: raise Exception(msg)
         # verify

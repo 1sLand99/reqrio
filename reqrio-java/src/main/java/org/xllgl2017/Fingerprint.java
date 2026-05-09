@@ -1,6 +1,7 @@
 package org.xllgl2017;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.PointerByReference;
 
@@ -65,8 +66,10 @@ public class Fingerprint {
     /// @param token :认证token，联系客服
     public static Fingerprint fromCustom(CustomFingerprint custom, String token) throws Exception {
         Fingerprint fingerprint = new Fingerprint();
-        Gson gson = new Gson();
+        Gson gson = new GsonBuilder().serializeNulls().create();
         PointerByReference err = new PointerByReference();
+        System.out.println(custom);
+        System.out.println(gson.toJsonTree(custom));
         fingerprint.raw = Session.INSTANCE.Fingerprint_custom(gson.toJson(custom), token, err);
         if (err.getValue() != null) {
             String err_msg = err.getValue().getString(0);

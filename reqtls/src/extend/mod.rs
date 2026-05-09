@@ -17,7 +17,7 @@ use crate::error::RlsResult;
 use crate::{BufferError, ReadExt, Reader, Version, WriteExt};
 use algorithm::SignatureAlgorithms;
 use alps::ALPS;
-use certificate::CompressionCertificate;
+pub use certificate::CompressionCertificate;
 pub use certificate::CompressionMethod;
 use client_hello::EncryptClientHello;
 pub use ech::Aead;
@@ -25,13 +25,14 @@ use formats::EcPointFormats;
 use group::SupportedGroups;
 pub use key_share::KeyShare;
 use pre_share_key::PreSharedKey;
-use psk_key::PskKey;
+pub use psk_key::PskKey;
+pub use psk_key::PskMode;
 pub use server_name::ServerName;
 pub use status::StatusRequest;
 use std::fmt::{Debug, Formatter};
 pub use version::SupportVersions;
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Copy)]
 pub struct ExtensionType(u16);
 
 impl ExtensionType {
@@ -48,27 +49,27 @@ impl ExtensionType {
 
 #[allow(non_upper_case_globals)]
 impl ExtensionType {
-    pub const ServerName: ExtensionType = ExtensionType(0x0);
-    pub const StatusRequest: ExtensionType = ExtensionType(0x5);
-    pub const SupportedGroup: ExtensionType = ExtensionType(0xa);
-    pub const EcPointFormats: ExtensionType = ExtensionType(0xb);
-    pub const SignatureAlgorithms: ExtensionType = ExtensionType(0xd);
-    pub const ApplicationLayerProtocolNegotiation: ExtensionType = ExtensionType(0x10);
-    pub const SignedCertificateTimestamp: ExtensionType = ExtensionType(0x12);
-    pub const Padding: ExtensionType = ExtensionType(0x15);
-    pub const EncryptTheMac: ExtensionType = ExtensionType(0x16);
-    pub const ExtendMasterSecret: ExtensionType = ExtensionType(0x17);
-    pub const SessionTicket: ExtensionType = ExtensionType(0x23);
-    pub const CompressionCertificate: ExtensionType = ExtensionType(0x1b);
-    pub const SupportedVersions: ExtensionType = ExtensionType(0x2b);
-    pub const PskKeyExchangeMode: ExtensionType = ExtensionType(0x2d);
-    pub const PostHandshakeAuth: ExtensionType = ExtensionType(0x31);
-    pub const KeyShare: ExtensionType = ExtensionType(0x33);
-    pub const RenegotiationInfo: ExtensionType = ExtensionType(0xff01);
-    pub const EncryptedClientHello: ExtensionType = ExtensionType(0xfe0d);
-    pub const ApplicationSetting: ExtensionType = ExtensionType(0x44cd);
-    pub const PreSharedKey: ExtensionType = ExtensionType(0x29);
-    pub const ApplicationSettingOld: ExtensionType = ExtensionType(0x4469);
+    pub const ServerName: u16 = 0x0;
+    pub const StatusRequest: u16 = 0x5;
+    pub const SupportedGroup: u16 = 0xa;
+    pub const EcPointFormats: u16 = 0xb;
+    pub const SignatureAlgorithms: u16 = 0xd;
+    pub const ApplicationLayerProtocolNegotiation: u16 = 0x10;
+    pub const SignedCertificateTimestamp: u16 = 0x12;
+    pub const Padding: u16 = 0x15;
+    pub const EncryptTheMac: u16 = 0x16;
+    pub const ExtendMasterSecret: u16 = 0x17;
+    pub const SessionTicket: u16 = 0x23;
+    pub const CompressionCertificate: u16 = 0x1b;
+    pub const SupportedVersions: u16 = 0x2b;
+    pub const PskKeyExchangeMode: u16 = 0x2d;
+    pub const PostHandshakeAuth: u16 = 0x31;
+    pub const KeyShare: u16 = 0x33;
+    pub const RenegotiationInfo: u16 = 0xff01;
+    pub const EncryptedClientHello: u16 = 0xfe0d;
+    pub const ApplicationSetting: u16 = 0x44cd;
+    pub const PreSharedKey: u16 = 0x29;
+    pub const ApplicationSettingOld: u16 = 0x4469;
 
     pub const EXTENSIONS: [u16; 21] = [0x0, 0x5, 0xa, 0xb, 0xd, 0x10, 0x12, 0x15, 0x16, 0x17, 0x23, 0x1b, 0x2b, 0x2d, 0x31, 0x33, 0xff01, 0xfe0d, 0x44cd, 0x29, 0x4469];
 
@@ -102,12 +103,18 @@ impl ExtensionType {
 
 impl Debug for ExtensionType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}(0x{:x})", self.spec(), self.0)
+        write!(f, "{}(0x{:04x})", self.spec(), self.0)
     }
 }
 
 impl From<u16> for ExtensionType {
     fn from(value: u16) -> Self { ExtensionType(value) }
+}
+
+impl PartialEq<u16> for ExtensionType {
+    fn eq(&self, other: &u16) -> bool {
+        &self.0 == other
+    }
 }
 
 
@@ -153,12 +160,13 @@ pub enum ExtensionValue<'a> {
     MasterSecret,
     SignedCertificateTimestamp,
     PreSharedKey(PreSharedKey<'a>),
+    Padding(usize),
     Unknown(Buf<'a>),
 }
 
 impl<'a> ExtensionValue<'a> {
-    pub fn from_bytes(t: &ExtensionType, reader: Reader<'a>, server: bool) -> RlsResult<Self> {
-        match *t {
+    pub fn from_reader(t: &ExtensionType, reader: Reader<'a>, server: bool) -> RlsResult<Self> {
+        match t.0 {
             ExtensionType::ServerName => Ok(ExtensionValue::ServerName(ServerName::from_reader(reader)?)),
             ExtensionType::StatusRequest => Ok(ExtensionValue::StatusRequest(StatusRequest::from_reader(reader)?)),
             ExtensionType::SupportedGroup => Ok(ExtensionValue::SupportedGroups(SupportedGroups::from_reader(reader)?)),
@@ -178,6 +186,7 @@ impl<'a> ExtensionValue<'a> {
             ExtensionType::ApplicationLayerProtocolNegotiation => Ok(ExtensionValue::ApplicationLayerProtocolNegotiation(ALPS::from_reader(reader)?)),
             ExtensionType::PreSharedKey => Ok(ExtensionValue::PreSharedKey(PreSharedKey::from_reader(reader)?)),
             ExtensionType::ApplicationSettingOld => Ok(ExtensionValue::ApplicationSetting(ALPS::from_reader(reader)?)),
+            ExtensionType::Padding => Ok(ExtensionValue::Padding(reader.unread_len())),
             _ => Ok(ExtensionValue::Unknown(Buf::Ref(reader.into_inner())))
         }
     }
@@ -203,7 +212,8 @@ impl<'a> ExtensionValue<'a> {
             ExtensionValue::MasterSecret => 0,
             ExtensionValue::SignedCertificateTimestamp => 0,
             ExtensionValue::PreSharedKey(v) => v.len(),
-            ExtensionValue::Unknown(v) => v.len()
+            ExtensionValue::Unknown(v) => v.len(),
+            ExtensionValue::Padding(v) => *v,
         }
     }
 
@@ -229,6 +239,7 @@ impl<'a> ExtensionValue<'a> {
             ExtensionValue::SignedCertificateTimestamp => Ok(()),
             ExtensionValue::PreSharedKey(v) => v.write_to(writer),
             ExtensionValue::ApplicationSettingOld(v) => v.write_to(writer),
+            ExtensionValue::Padding(size) => writer.write_slice(&vec![0u8; size]),
         }
     }
 }
@@ -256,6 +267,7 @@ impl<'a> Debug for ExtensionValue<'a> {
             ExtensionValue::SignedCertificateTimestamp => write!(f, "SignedCertificateTimestamp"),
             ExtensionValue::PreSharedKey(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
             ExtensionValue::Unknown(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
+            ExtensionValue::Padding(size) => write!(f, "Padding({})", size),
         }
     }
 }
@@ -277,15 +289,15 @@ impl<'a> Default for Extension<'a> {
 }
 
 impl<'a> Extension<'a> {
-    pub fn new(typ: ExtensionType, value: ExtensionValue) -> Extension {
+    pub fn new(typ: impl Into<ExtensionType>, value: ExtensionValue) -> Extension {
         Extension {
-            type_: typ,
+            type_: typ.into(),
             value,
         }
     }
 
     pub fn default_value(ty: ExtensionType) -> Option<ExtensionValue<'a>> {
-        match ty {
+        match ty.0 {
             ExtensionType::ServerName => Some(ExtensionValue::ServerName(ServerName::new())),
             ExtensionType::StatusRequest => Some(ExtensionValue::StatusRequest(StatusRequest::new())),
             ExtensionType::SupportedGroup => Some(ExtensionValue::SupportedGroups(SupportedGroups::random())),
@@ -333,7 +345,7 @@ impl<'a> Extension<'a> {
             let type_ = ExtensionType::new(reader.read_u16()?);
             let len = reader.read_u16()?;
             res.push(Extension {
-                value: ExtensionValue::from_bytes(&type_, reader.read_reader(len as usize)?, server)?,
+                value: ExtensionValue::from_reader(&type_, reader.read_reader(len as usize)?, server)?,
                 type_,
 
             });

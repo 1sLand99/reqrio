@@ -1,3 +1,4 @@
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import org.apache.commons.codec.binary.Hex;
@@ -135,6 +136,7 @@ public class Main {
     static CustomFingerprint getFinger() {
         CustomFingerprint finger = new CustomFingerprint();
 
+        finger.addSuite(0x4a4a);
         finger.addSuite(CipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256);
         finger.addSuite(CipherSuite.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384);
         finger.addSuite(CipherSuite.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256);
@@ -143,32 +145,6 @@ public class Main {
         finger.addSuite(CipherSuite.TLS_AES_128_GCM_SHA256);
         finger.addSuite(CipherSuite.TLS_AES_256_GCM_SHA384);
         finger.addSuite(CipherSuite.TLS_CHACHA20_POLY1305_SHA256);
-
-        finger.addGroup(SupportGroup.X25519);
-        finger.addGroup(SupportGroup.Secp256r1);
-        finger.addGroup(SupportGroup.Secp384r1);
-        finger.addGroup(SupportGroup.Secp521r1);
-
-        finger.addAlgorithm(Algorithm.RSA_PKCS1_SHA1);
-        finger.addAlgorithm(Algorithm.RSA_PKCS1_SHA256);
-        finger.addAlgorithm(Algorithm.RSA_PKCS1_SHA384);
-        finger.addAlgorithm(Algorithm.RSA_PKCS1_SHA512);
-        finger.addAlgorithm(Algorithm.ECDSA_SECP256R1_SHA256);
-        finger.addAlgorithm(Algorithm.ECDSA_SECP384R1_SHA384);
-        finger.addAlgorithm(Algorithm.ECDSA_SECP521R1_SHA512);
-        finger.addAlgorithm(Algorithm.RSA_PSS_PSS_SHA256);
-        finger.addAlgorithm(Algorithm.RSA_PSS_PSS_SHA384);
-        finger.addAlgorithm(Algorithm.RSA_PSS_PSS_SHA512);
-        finger.addAlgorithm(Algorithm.RSA_PSS_RSAE_SHA256);
-        finger.addAlgorithm(Algorithm.RSA_PSS_RSAE_SHA384);
-        finger.addAlgorithm(Algorithm.RSA_PSS_RSAE_SHA512);
-
-        finger.addVersion(Version.TLS_1_3);
-        finger.addVersion(Version.TLS_1_2);
-
-        finger.addEcPointFormat(EcPointFormat.UNCOMPRESSED);
-
-        finger.addCompressionMethod(CompressionMethod.NULL);
 
         finger.addExtension(ExtensionType.StatusRequest);
         finger.addExtension(ExtensionType.SupportedGroup);
@@ -184,6 +160,39 @@ public class Main {
         finger.addExtension(ExtensionType.ApplicationSetting);
         finger.addExtension(ExtensionType.ServerName);
         finger.addExtension(ExtensionType.ApplicationLayerProtocolNegotiation);
+        JsonArray v1 = new JsonArray();
+        v1.add(0);
+        finger.addExtension(0xeaea, v1);
+
+        finger.addSupportedGroup(SupportGroup.X25519);
+        finger.addSupportedGroup(SupportGroup.Secp256r1);
+        finger.addSupportedGroup(SupportGroup.Secp384r1);
+        finger.addSupportedGroup(SupportGroup.Secp521r1);
+
+        finger.addAlgorithm(Algorithm.RSA_PKCS1_SHA1);
+        finger.addAlgorithm(Algorithm.RSA_PKCS1_SHA256);
+        finger.addAlgorithm(Algorithm.RSA_PKCS1_SHA384);
+        finger.addAlgorithm(Algorithm.RSA_PKCS1_SHA512);
+        finger.addAlgorithm(Algorithm.ECDSA_SECP256R1_SHA256);
+        finger.addAlgorithm(Algorithm.ECDSA_SECP384R1_SHA384);
+        finger.addAlgorithm(Algorithm.ECDSA_SECP521R1_SHA512);
+        finger.addAlgorithm(Algorithm.RSA_PSS_PSS_SHA256);
+        finger.addAlgorithm(Algorithm.RSA_PSS_PSS_SHA384);
+        finger.addAlgorithm(Algorithm.RSA_PSS_PSS_SHA512);
+        finger.addAlgorithm(Algorithm.RSA_PSS_RSAE_SHA256);
+        finger.addAlgorithm(Algorithm.RSA_PSS_RSAE_SHA384);
+        finger.addAlgorithm(Algorithm.RSA_PSS_RSAE_SHA512);
+
+        finger.addSupportedVersion(Version.TLS_1_3);
+        finger.addSupportedVersion(Version.TLS_1_2);
+
+        finger.addEcPointFormat(EcPointFormat.UNCOMPRESSED);
+
+        finger.addCompressionCertificate(CompressionMethod.NULL);
+
+        finger.addKeyShare(0xdada);
+        finger.addKeyShare(SupportGroup.X25519);
+
 
         finger.addSetting(H2SettingType.HeaderTableSize, 65536);
         finger.addSetting(H2SettingType.EnablePush, 0);
@@ -194,7 +203,6 @@ public class Main {
         finger.setPriority(true, 147);
         return finger;
     }
-
 
     public static void custom_finger() throws Exception {
         Session session = new Session(ALPN.HTTP20);

@@ -170,17 +170,12 @@ pub trait TlsStreamHandle {
     fn handle_client_hello(&mut self, config: &mut ClientConfig) -> HlsResult<()> {
         let (conn, _, buffer) = self.conn_buf();
         let session_id = rand::random::<[u8; 32]>();
-        let mut client_hello = config.fingerprint.tls().build_client_hello()?;
+        let mut client_hello = config.fingerprint.tls().build_client_hello(config.alpn)?;
         client_hello.set_random(conn.client_random());
         client_hello.set_server_name(config.sni);
         client_hello.set_session_id(&session_id);
-        match config.alpn {
-            ALPN::Http20 => client_hello.add_h2_alpn(),
-            _ => client_hello.remove_h2_alpn()
-        }
         let mut secrets = HashMap::new();
         match client_hello.key_share_mut() {
-            //fingerprint not supported tls1.3
             None => client_hello.remove_tls13(),
             Some(key_share) => {
                 key_share.key_entries().iter().for_each(|key| {

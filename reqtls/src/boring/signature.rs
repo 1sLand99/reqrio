@@ -127,7 +127,7 @@ impl PartialEq<u16> for &SignatureAlgorithm {
 
 impl Debug for SignatureAlgorithm {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}(0x{:x})", self.spec(), self.0)
+        write!(f, "{}(0x{:04x})", self.spec(), self.0)
     }
 }
 

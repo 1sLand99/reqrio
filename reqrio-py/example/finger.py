@@ -73,49 +73,57 @@ def custom_finger():
             CipherSuite.TLS_AES_256_GCM_SHA384,
             CipherSuite.TLS_CHACHA20_POLY1305_SHA256,
         ],
-        "groups": [
-            Group.X25519,
-            Group.Secp256r1,
-            Group.Secp384r1,
-            Group.Secp521r1,
-        ],
-        "algorithms": [
-            Algorithm.RSA_PKCS1_SHA1,
-            Algorithm.RSA_PKCS1_SHA256,
-            Algorithm.RSA_PKCS1_SHA384,
-            Algorithm.RSA_PKCS1_SHA512,
-            Algorithm.ECDSA_SECP256R1_SHA256,
-            Algorithm.ECDSA_SECP384R1_SHA384,
-            Algorithm.ECDSA_SECP521R1_SHA512,
-            Algorithm.RSA_PSS_PSS_SHA256,
-            Algorithm.RSA_PSS_PSS_SHA384,
-            Algorithm.RSA_PSS_PSS_SHA512,
-            Algorithm.RSA_PSS_RSAE_SHA256,
-            Algorithm.RSA_PSS_RSAE_SHA384,
-            Algorithm.RSA_PSS_RSAE_SHA512,
-        ],
-        "versions": [
-            Version.TLS_1_3,
-            Version.TLS_1_2
-        ],
-        "ec_formats": [EcPointFormat.UNCOMPRESSED],
         "compress_methods": [CompressionMethod.NULL],
-        "extensions": [
-            ExtensionType.StatusRequest,
-            ExtensionType.SupportedGroup,
-            ExtensionType.EcPointFormats,
-            ExtensionType.SignatureAlgorithms,
-            ExtensionType.SignedCertificateTimestamp,
-            ExtensionType.ExtendMasterSecret,
-            ExtensionType.CompressionCertificate,
-            ExtensionType.SessionTicket,
-            ExtensionType.SupportedVersions,
-            ExtensionType.PskKeyExchangeMode,
-            ExtensionType.KeyShare,
-            ExtensionType.ApplicationSetting,
-            ExtensionType.ServerName,
-            ExtensionType.ApplicationLayerProtocolNegotiation
-        ],
+        "extensions": {
+            ExtensionType.StatusRequest: None,
+            ExtensionType.SupportedGroup: [
+                Group.X25519,
+                Group.Secp256r1,
+                Group.Secp384r1,
+                Group.Secp521r1,
+            ],
+            ExtensionType.EcPointFormats: [EcPointFormat.UNCOMPRESSED],
+            ExtensionType.SignatureAlgorithms: [
+                Algorithm.RSA_PKCS1_SHA1,
+                Algorithm.RSA_PKCS1_SHA256,
+                Algorithm.RSA_PKCS1_SHA384,
+                Algorithm.RSA_PKCS1_SHA512,
+                Algorithm.ECDSA_SECP256R1_SHA256,
+                Algorithm.ECDSA_SECP384R1_SHA384,
+                Algorithm.ECDSA_SECP521R1_SHA512,
+                Algorithm.RSA_PSS_PSS_SHA256,
+                Algorithm.RSA_PSS_PSS_SHA384,
+                Algorithm.RSA_PSS_PSS_SHA512,
+                Algorithm.RSA_PSS_RSAE_SHA256,
+                Algorithm.RSA_PSS_RSAE_SHA384,
+                Algorithm.RSA_PSS_RSAE_SHA512,
+            ],
+            ExtensionType.SignedCertificateTimestamp: None,
+            ExtensionType.ExtendMasterSecret: None,
+            ExtensionType.CompressionCertificate: [CompressionMethod.NULL],
+            ExtensionType.SessionTicket: None,
+            ExtensionType.SupportedVersions: [
+                0xeaea,
+                Version.TLS_1_3,
+                Version.TLS_1_2
+            ],
+            ExtensionType.PskKeyExchangeMode: None,
+            ExtensionType.KeyShare: [
+                Group.X25519,
+                Group.Secp256r1,
+            ],
+            ExtensionType.ApplicationSetting: [
+                ALPN.HTTP20,
+                ALPN.HTTP11
+            ],
+            ExtensionType.ServerName: None,
+            ExtensionType.ApplicationLayerProtocolNegotiation: [
+                ALPN.HTTP20,
+                ALPN.HTTP11
+            ],
+            ExtensionType.Padding: 12,
+            0xdada: [0]
+        },
         # http2 frame setting
         "settings": {
             H2Setting.HeaderTableSize: 65536,

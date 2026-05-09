@@ -41,11 +41,11 @@ impl Version {
 impl Debug for Version {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self.0 {
-            0x301 => write!(f, "TLS_1_0(0x{:x})", self.0),
-            0x302 => write!(f, "TLS_1_1(0x{:x})", self.0),
-            0x303 => write!(f, "TLS_1_2(0x{:x})", self.0),
-            0x304 => write!(f, "TLS_1_3(0x{:x})", self.0),
-            _ => write!(f, "Reserved({:x})", self.0)
+            0x301 => write!(f, "TLS_1_0(0x{:04x})", self.0),
+            0x302 => write!(f, "TLS_1_1(0x{:04x})", self.0),
+            0x303 => write!(f, "TLS_1_2(0x{:04x})", self.0),
+            0x304 => write!(f, "TLS_1_3(0x{:04x})", self.0),
+            _ => write!(f, "Reserved(0x{:04x})", self.0)
         }
     }
 }
