@@ -6,8 +6,8 @@ setup(name='reqrio', version="0.3.0-alpha1", packages=find_packages(),
     })
 
 '''
- D:\projects\py\baidu\.venv\Scripts\python.exe -m pip install --upgrade build
-D:\projects\py\baidu\.venv\Scripts\python.exe -m pip install --upgrade twine
-D:\projects\py\baidu\.venv\Scripts\python.exe -m build
-D:\projects\py\baidu\.venv\Scripts\python.exe -m twine upload .\dist\* --verbose
+D:\softwares\python3.9.7\python.exe -m pip install --upgrade build
+D:\softwares\python3.9.7\python.exe -m pip install --upgrade twine
+D:\softwares\python3.9.7\python.exe -m build
+D:\softwares\python3.9.7\python.exe -m twine upload .\dist\* --verbose
 '''
