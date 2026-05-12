@@ -9,7 +9,7 @@ import java.util.List;
 
 
 public class Main {
-    static String TOKEN = "2f-o7ffnfc-j2f7q7n-k7ffnfc-m423p26-k";
+    static String TOKEN = "<token>";
 
     private static Headers getHeaders() {
         Headers headers = new Headers();
