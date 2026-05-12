@@ -197,6 +197,15 @@ impl AcReq {
         Err("stream io error".into())
     }
 
+    pub async fn connect<E>(mut self, url: impl TryInto<Url, Error=E>) -> HlsResult<AcReq>
+    where
+        HlsError: From<E>,
+    {
+        let url = url.try_into()?;
+        self.re_conn(Some(&url)).await?;
+        Ok(self)
+    }
+
     pub async fn re_conn(&mut self, url: Option<&Url>) -> HlsResult<()> {
         self.buffer.reset();
         for i in 1..=self.timeout.connect_times() {

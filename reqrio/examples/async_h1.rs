@@ -23,6 +23,7 @@ async fn main() {
         .with_key_log("2.log")
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::try_from("http://127.0.0.1:10240").unwrap())
+        .connect("https://www.baidu.com").await.unwrap()
         ;
     let headers = json::object! {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",

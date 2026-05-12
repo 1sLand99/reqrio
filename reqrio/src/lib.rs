@@ -98,19 +98,18 @@
 //!
 //! # fn ff() {
 //!     # let mut req = ScReq::new();
-//!     let params=json::object! {
-//!         "p1":1,
-//!         "p2":"斯"
-//!     };
-//!     //get
-//!     let mut res = req.get("https://www.baidu.com".params(params), None).unwrap();
-//!     //Get response headers
-//!     let header = res.header();
-//!     //Get the response body; the body here has already been decoded.
-//!     let body = res.decode_body().unwrap();
-//!     //Try decoding to JSON
-//!     let json = res.json().unwrap();
-//!
+//! let params=json::object! {
+//!     "p1":1,
+//!     "p2":"斯"
+//! };
+//! //get
+//! let mut res = req.get("https://www.baidu.com".params(params), None).unwrap();
+//! //Get response headers
+//! let header = res.header();
+//! //Get the response body; the body here has already been decoded.
+//! let body = res.decode_body().unwrap();
+//! //Try decoding to JSON
+//! let json = res.json().unwrap();
 //! # }
 //! ```
 //!
@@ -119,12 +118,12 @@
 //! # use reqrio::*;
 //! # fn ff() {
 //!     # let mut req = ScReq::new();
-//!     let url="https://www.baidu.com/api";
-//!     let data=json::object! {
-//!         "field1":"value1",
-//!         "field2":"value2"
-//!     };
-//!     let resp=req.post(url,data.form()).unwrap();
+//! let url="https://www.baidu.com/api";
+//! let data=json::object! {
+//!     "field1":"value1",
+//!     "field2":"value2"
+//! };
+//! let resp=req.post(url,data.form()).unwrap();
 //! # }
 //! ```
 //! * Post with json data
@@ -132,12 +131,12 @@
 //! # use reqrio::*;
 //! # fn ff() {
 //!     # let mut req = ScReq::new();
-//!     let url="https://www.baidu.com/api";
-//!     let data=json::object! {
-//!         "field1":"value1",
-//!         "field2":"value2"
-//!     };
-//!     let resp=req.post(url,data).unwrap();
+//! let url="https://www.baidu.com/api";
+//! let data=json::object! {
+//!     "field1":"value1",
+//!     "field2":"value2"
+//! };
+//! let resp=req.post(url,data).unwrap();
 //! # }
 //! ```
 //! Post with form/json data, which struct impl `Serialize`
@@ -146,13 +145,13 @@
 //! # use serde::Serialize;
 //! # fn ff() {
 //!     # let mut req = ScReq::new();
-//!     #[derive(Serialize)]
-//!     struct Data{
-//!         field1:String,
-//!         field2:bool
-//!     }
-//!     let url="https://www.baidu.com/api";
-//!     let resp=req.post(url,Body::json(&Data{field1:"value".to_string(),field2:false}).unwrap()).unwrap();
+//! #[derive(Serialize)]
+//! struct Data{
+//!     field1:String,
+//!     field2:bool
+//! }
+//! let url="https://www.baidu.com/api";
+//! let resp=req.post(url,Body::json(&Data{field1:"value".to_string(),field2:false}).unwrap()).unwrap();
 //! # }
 //! ```
 //! ```rust
