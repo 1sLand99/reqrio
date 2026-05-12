@@ -120,9 +120,7 @@ impl Stream {
                 Ok(ALPN::Http11)
             }
             Scheme::Https | Scheme::Wss => {
-                let t = crate::Time::now_mills().unwrap();
                 let tls_stream = SyncStream::connect(ClientConfig::from(param), stream)?;
-                println!("TLS TIME: {}", crate::Time::now_mills().unwrap() - t);
                 let alpn = tls_stream.alpn().map(|x| ALPN::from_slice(x.as_bytes())).unwrap_or(ALPN::Http11);
                 *self = Stream::SyncHttps(tls_stream);
                 Ok(alpn)
@@ -304,7 +302,6 @@ pub trait TlsStreamHandle {
     }
 
     fn handle_by_application(&mut self, record_len: usize, config: &mut Config) -> Result<bool, RlsError> {
-        let st = Time::now_mills().unwrap();
         let (conn, r_buf, w_buf) = self.conn_buf();
         w_buf.reset();
         let len = conn.read_message(&r_buf.filled()[..record_len], w_buf.unfilled_mut())?;
@@ -327,7 +324,6 @@ pub trait TlsStreamHandle {
                         let len = conn.make_finish_message(w_buf.unfilled_mut(), false)?;
                         w_buf.add_len(len);
                         conn.make_cipher(false)?;
-                        println!("HANDLE_APPLICATION: {}", Time::now_mills().unwrap() - st);
                         return Ok(true);
                     }
 
@@ -336,7 +332,6 @@ pub trait TlsStreamHandle {
                 }
             }
         }
-        println!("HANDLE_APPLICATION: {}", Time::now_mills().unwrap() - st);
         Ok(false)
     }
 }

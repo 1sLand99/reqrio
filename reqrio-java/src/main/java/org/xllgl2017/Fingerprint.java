@@ -13,11 +13,7 @@ public class Fingerprint {
         Fingerprint fingerprint = new Fingerprint();
         PointerByReference err = new PointerByReference();
         fingerprint.raw = Session.INSTANCE.Fingerprint_random(token, err);
-        if (err.getValue() != null) {
-            String err_msg = err.getValue().getString(0);
-            Session.INSTANCE.char_free(err.getValue());
-            throw new Exception(err_msg);
-        }
+        util.check_err_pointer(err);
         return fingerprint;
     }
 
@@ -27,11 +23,7 @@ public class Fingerprint {
         Fingerprint fingerprint = new Fingerprint();
         PointerByReference err = new PointerByReference();
         fingerprint.raw = Session.INSTANCE.Fingerprint_from_ja3(ja3, token, err);
-        if (err.getValue() != null) {
-            String err_msg = err.getValue().getString(0);
-            Session.INSTANCE.char_free(err.getValue());
-            throw new Exception(err_msg);
-        }
+        util.check_err_pointer(err);
         return fingerprint;
     }
 
@@ -41,11 +33,7 @@ public class Fingerprint {
         Fingerprint fingerprint = new Fingerprint();
         PointerByReference err = new PointerByReference();
         fingerprint.raw = Session.INSTANCE.Fingerprint_from_ja4(ja4, token, err);
-        if (err.getValue() != null) {
-            String err_msg = err.getValue().getString(0);
-            Session.INSTANCE.char_free(err.getValue());
-            throw new Exception(err_msg);
-        }
+        util.check_err_pointer(err);
         return fingerprint;
     }
 
@@ -55,11 +43,7 @@ public class Fingerprint {
         Fingerprint fingerprint = new Fingerprint();
         PointerByReference err = new PointerByReference();
         fingerprint.raw = Session.INSTANCE.Fingerprint_from_client_hello(client_hello, client_hello.length, token, err);
-        if (err.getValue() != null) {
-            String err_msg = err.getValue().getString(0);
-            Session.INSTANCE.char_free(err.getValue());
-            throw new Exception(err_msg);
-        }
+        util.check_err_pointer(err);
         return fingerprint;
     }
 
@@ -68,14 +52,8 @@ public class Fingerprint {
         Fingerprint fingerprint = new Fingerprint();
         Gson gson = new GsonBuilder().serializeNulls().create();
         PointerByReference err = new PointerByReference();
-        System.out.println(custom);
-        System.out.println(gson.toJsonTree(custom));
         fingerprint.raw = Session.INSTANCE.Fingerprint_custom(gson.toJson(custom), token, err);
-        if (err.getValue() != null) {
-            String err_msg = err.getValue().getString(0);
-            Session.INSTANCE.char_free(err.getValue());
-            throw new Exception(err_msg);
-        }
+        util.check_err_pointer(err);
         return fingerprint;
     }
 

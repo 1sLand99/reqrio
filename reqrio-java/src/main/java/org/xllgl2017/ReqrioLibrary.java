@@ -15,6 +15,8 @@ public interface ReqrioLibrary extends Library {
 
     Pointer ScReq_add_header(Pointer req, String key, String value);
 
+    Pointer ScReq_remove_header(Pointer req, String key);
+
     Pointer ScReq_set_alpn(Pointer req, String alpn);
 
     Pointer ScReq_set_verify(Pointer req, boolean verify);
@@ -52,6 +54,8 @@ public interface ReqrioLibrary extends Library {
     Pointer Url_add_param(Pointer url, String name, String value);
 
     Pointer Url_remove_param(Pointer url, String name);
+
+    Pointer Url_set_sni(Pointer url, String sni);
 
     void Url_drop(Pointer url);
 
@@ -143,7 +147,7 @@ public interface ReqrioLibrary extends Library {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            System.out.println(dll_file);
+//            System.out.println(dll_file);
             return Native.load(dll_file.getAbsolutePath(), ReqrioLibrary.class);
         } catch (Exception e) {
             throw new RuntimeException(e);

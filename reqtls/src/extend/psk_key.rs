@@ -25,6 +25,12 @@ impl Debug for PskMode {
     }
 }
 
+impl From<u8> for PskMode {
+    fn from(value: u8) -> PskMode {
+        PskMode(value)
+    }
+}
+
 #[derive(Debug)]
 pub struct PskKey {
     mode: PskMode,

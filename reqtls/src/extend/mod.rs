@@ -14,7 +14,7 @@ pub mod ech;
 
 use crate::buffer::Buf;
 use crate::error::RlsResult;
-use crate::{BufferError, ReadExt, Reader, Version, WriteExt};
+use crate::{BufferError, ReadExt, Reader, Version, WriteExt, ALPN};
 use algorithm::SignatureAlgorithms;
 use alps::ALPS;
 pub use certificate::CompressionCertificate;
@@ -303,7 +303,7 @@ impl<'a> Extension<'a> {
             ExtensionType::SupportedGroup => Some(ExtensionValue::SupportedGroups(SupportedGroups::random())),
             ExtensionType::EcPointFormats => Some(ExtensionValue::EcPointFormats(EcPointFormats::random())),
             ExtensionType::SignatureAlgorithms => Some(ExtensionValue::SignatureAlgorithms(SignatureAlgorithms::random())),
-            ExtensionType::ApplicationLayerProtocolNegotiation => Some(ExtensionValue::ApplicationLayerProtocolNegotiation(ALPS::new())),
+            ExtensionType::ApplicationLayerProtocolNegotiation => Some(ExtensionValue::ApplicationLayerProtocolNegotiation(ALPS::new(vec![ALPN::Http20, ALPN::Http11]))),
             ExtensionType::SignedCertificateTimestamp => Some(ExtensionValue::SignedCertificateTimestamp),
             ExtensionType::EncryptTheMac => Some(ExtensionValue::EncryptTheMac),
             ExtensionType::ExtendMasterSecret => Some(ExtensionValue::MasterSecret),
@@ -323,7 +323,8 @@ impl<'a> Extension<'a> {
             ExtensionType::KeyShare => Some(ExtensionValue::KeyShare(KeyShare::default())),
             ExtensionType::RenegotiationInfo => Some(ExtensionValue::RenegotiationInfo(RenegotiationInfo::new())),
             ExtensionType::EncryptedClientHello => Some(ExtensionValue::EncryptedClientHello(EncryptClientHello::new())),
-            ExtensionType::ApplicationSetting => Some(ExtensionValue::ApplicationSetting(ALPS::new())),
+            ExtensionType::ApplicationSetting => Some(ExtensionValue::ApplicationSetting(ALPS::new(vec![ALPN::Http20, ALPN::Http11]))),
+            ExtensionType::ApplicationSettingOld => Some(ExtensionValue::ApplicationSettingOld(ALPS::new(vec![ALPN::Http20, ALPN::Http11]))),
             ExtensionType::PreSharedKey => Some(ExtensionValue::PreSharedKey(PreSharedKey::random())),
             _ => None
         }
@@ -331,7 +332,7 @@ impl<'a> Extension<'a> {
 
     pub fn from_type(t: ExtensionType) -> Extension<'a> {
         let mut res = Extension::default();
-        if let Some(value) = Extension::default_value(t.clone()) {
+        if let Some(value) = Extension::default_value(t) {
             res.value = value;
         }
         res.type_ = t;

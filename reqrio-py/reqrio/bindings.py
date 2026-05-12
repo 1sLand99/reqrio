@@ -88,6 +88,9 @@ DLL.ScReq_set_header_json.restype = c_void_p
 DLL.ScReq_add_header.argtypes = [c_void_p, c_char_p, c_char_p]
 DLL.ScReq_add_header.restype = c_void_p
 
+DLL.ScReq_remove_header.argtypes = [c_void_p, c_char_p]
+DLL.ScReq_remove_header.restype = c_void_p
+
 DLL.ScReq_set_alpn.argtypes = [c_void_p, c_char_p]
 DLL.ScReq_set_alpn.restype = c_void_p
 

@@ -92,6 +92,10 @@ class Session:
         err, msg = util.check_char_err(self.dll.ScReq_add_header(self.hid, name.encode('utf-8'), value.encode('utf-8')))
         if err: raise Exception(msg)
 
+    def remove_header(self, name: str):
+        err, msg = util.check_char_err(self.dll.ScReq_remove_header(self.hid, name.encode('utf-8')))
+        if err: raise Exception(msg);
+
     def _set_fingerprint(
             self,
             random: bool = None,

@@ -75,7 +75,7 @@ impl<'a> ServerHello<'a> {
                     // res.extensions.push(Extension::new(ExtensionType::EcPointFormats, ExtensionValue::EcPointFormats(ec_point_formats)));
                 }
                 ExtensionType::ApplicationLayerProtocolNegotiation => {
-                    let mut alps = ALPS::new();
+                    let mut alps = ALPS::new(vec![]);
                     alps.add_alpn(ALPN::Http11);
                     res.extensions.push(Extension::new(ExtensionType::ApplicationLayerProtocolNegotiation, ExtensionValue::ApplicationLayerProtocolNegotiation(alps)));
                 }

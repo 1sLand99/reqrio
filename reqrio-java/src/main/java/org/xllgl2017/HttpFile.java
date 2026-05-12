@@ -25,18 +25,12 @@ public class HttpFile implements AutoCloseable {
     public void addFile(String path, String fieldName, String content_type) throws Exception {
         PointerByReference err = new PointerByReference();
         Pointer form = Session.INSTANCE.FileForm_new(path, fieldName, content_type, err);
-        if (err.getValue() != null) {
-            this.close();
-            String err_msg = err.getValue().getString(0);
-            Session.INSTANCE.char_free(err.getValue());
-            throw new Exception(err_msg);
-        }
-        Pointer err1 = Session.INSTANCE.HttpFile_add_form(this.raw, form);
-        if (err1 != null) {
-            this.close();
-            String err_msg = err1.getString(0);
-            Session.INSTANCE.char_free(err1);
-            throw new Exception(err_msg);
+        try {
+            util.check_err_pointer(err);
+            util.check_err(Session.INSTANCE.HttpFile_add_form(this.raw, form));
+        } catch (Exception e) {
+            close();
+            throw e;
         }
     }
 

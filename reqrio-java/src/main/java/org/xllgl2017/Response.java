@@ -22,11 +22,7 @@ public class Response implements AutoCloseable {
         if (this.raw == null) throw new Exception("Response is dropped");
         PointerByReference err = new PointerByReference();
         int code = Session.INSTANCE.Response_status_code(this.raw, err);
-        if (err.getValue() != null) {
-            String err_msg = err.getValue().getString(0);
-            Session.INSTANCE.char_free(err.getValue());
-            throw new Exception(err_msg);
-        }
+        util.check_err_pointer(err);
         return code;
 
     }
@@ -35,11 +31,7 @@ public class Response implements AutoCloseable {
         if (this.raw == null) throw new Exception("Response is dropped");
         PointerByReference err = new PointerByReference();
         Pointer value = Session.INSTANCE.Response_get_header(this.raw, name, err);
-        if (err.getValue() != null) {
-            String err_msg = err.getValue().getString(0);
-            Session.INSTANCE.char_free(err.getValue());
-            throw new Exception(err_msg);
-        }
+        util.check_err_pointer(err);
         String value_str = value.getString(0);
         Session.INSTANCE.char_free(value);
         return value_str;
@@ -54,11 +46,7 @@ public class Response implements AutoCloseable {
         PointerByReference err = new PointerByReference();
         LongByReference len = new LongByReference();
         Pointer ptr = Session.INSTANCE.Response_bytes(this.raw, len, err);
-        if (err.getValue() != null) {
-            String err_msg = err.getValue().getString(0);
-            Session.INSTANCE.char_free(err.getValue());
-            throw new Exception(err_msg);
-        }
+        util.check_err_pointer(err);
         return ptr.getByteArray(0, (int) len.getValue());
     }
 
@@ -78,11 +66,7 @@ public class Response implements AutoCloseable {
     public ArrayList<Cookie> getCookies() throws Exception {
         PointerByReference err = new PointerByReference();
         Pointer ptr = Session.INSTANCE.Response_cookies(this.raw, err);
-        if (err.getValue() != null) {
-            String err_msg = err.getValue().getString(0);
-            Session.INSTANCE.char_free(err.getValue());
-            throw new Exception(err_msg);
-        }
+        util.check_err_pointer(err);
         String cookie_str = ptr.getString(0);
         Session.INSTANCE.char_free(ptr);
         Gson gson = new Gson();

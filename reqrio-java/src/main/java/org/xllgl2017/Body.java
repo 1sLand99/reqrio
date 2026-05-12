@@ -15,16 +15,17 @@ public class Body implements AutoCloseable {
         this.raw = Session.INSTANCE.Body_none();
     }
 
+    /// @param body        :请求体二进制
+    /// @param contentType : 请求头类型
+    public Body(byte[] body, String contentType) throws Exception {
+        PointerByReference err = new PointerByReference();
+        this.raw = Session.INSTANCE.Body_new(body, body.length, contentType, err);
+        util.check_err_pointer(err);
+    }
+
     /// @param json :json请求头
     public Body(JsonElement json) throws Exception {
-        byte[] jbs = json.toString().getBytes();
-        PointerByReference err = new PointerByReference();
-        this.raw = Session.INSTANCE.Body_new(jbs, jbs.length, "application/json", err);
-        if (err.getValue() != null) {
-            String err_str = err.getValue().getString(0);
-            Session.INSTANCE.char_free(err.getValue());
-            throw new Exception(err_str);
-        }
+        this(json.toString().getBytes(), "application/json");
     }
 
     public Body(HashMap<String, String> forms) throws Exception {
@@ -45,42 +46,17 @@ public class Body implements AutoCloseable {
         byte[] form_bytes = encoded.getBytes();
         PointerByReference err = new PointerByReference();
         this.raw = Session.INSTANCE.Body_new(form_bytes, form_bytes.length, "application/x-www-form-urlencoded", err);
-        if (err.getValue() != null) {
-            String err_msg = err.getValue().getString(0);
-            Session.INSTANCE.char_free(err.getValue());
-            throw new Exception(err_msg);
-        }
+        util.check_err_pointer(err);
 
     }
 
     /// @param text         :请求体文本
-    /// @param content_type : 请求头类型
-    public Body(String text, String content_type) throws Exception {
-        byte[] tbs = text.getBytes();
-        PointerByReference err = new PointerByReference();
-        this.raw = Session.INSTANCE.Body_new(tbs, tbs.length, content_type, err);
-        if (err.getValue() != null) {
-            String err_str = err.getValue().getString(0);
-            Session.INSTANCE.char_free(err.getValue());
-            throw new Exception(err_str);
-        }
-    }
-
-    /// @param bytes        :二进制请求体
-    /// @param content_type : 请求头类型
-    public Body(byte[] bytes, String content_type) throws Exception {
-        PointerByReference err = new PointerByReference();
-        this.raw = Session.INSTANCE.Body_new(bytes, bytes.length, content_type, err);
-        if (err.getValue() != null) {
-            String err_str = err.getValue().getString(0);
-            Session.INSTANCE.char_free(err.getValue());
-            throw new Exception(err_str);
-        }
+    public Body(String text) throws Exception {
+        this(text.getBytes(), "text/plain");
     }
 
     public Body(HttpFile file) throws Exception {
         this(file, new HashMap<>());
-
     }
 
     /// @param data 表单其他字段
@@ -88,11 +64,7 @@ public class Body implements AutoCloseable {
         PointerByReference err = new PointerByReference();
         Gson gson = new Gson();
         this.raw = Session.INSTANCE.Body_new_files(file.getRaw(), gson.toJson(data), err);
-        if (err.getValue() != null) {
-            String err_msg = err.getValue().getString(0);
-            Session.INSTANCE.char_free(err.getValue());
-            throw new Exception(err_msg);
-        }
+        util.check_err_pointer(err);
     }
 
     @Override

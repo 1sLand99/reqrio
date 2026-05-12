@@ -208,7 +208,6 @@ impl Response {
     pub fn decode_body(&mut self) -> HlsResult<&mut Body> {
         if !self.body.is_raw() { return Ok(&mut self.body); }
         let chucked = self.header.get("transfer-encoding");
-        println!("{} {:?}", 111, chucked.as_ref().map(|x|x.as_string()));
         if let Some(chucked) = chucked && chucked.as_string().unwrap_or("").trim() == "chunked" {
             self.body.extend(coder::chunk_decode(mem::take(&mut self.raw))?);
         } else {

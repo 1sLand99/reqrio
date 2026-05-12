@@ -55,81 +55,87 @@ impl Extension {
     }
 
     fn build_extension(&self) -> E<'_> {
-        match self.type_.as_u16() {
-            ExtensionType::SupportedGroup if let ExtensionValue::Curves(ref groups) = self.value => {
+        match (self.type_.as_u16(), &self.value) {
+            (ExtensionType::SupportedGroup, ExtensionValue::Curves(groups)) => {
                 let mut support_group = SupportedGroups::new();
                 for group in groups {
                     support_group.add_group(*group);
                 }
                 E::new(self.type_, EV::SupportedGroups(support_group))
             }
-            ExtensionType::SignatureAlgorithms  if let ExtensionValue::Algorithms(ref algorithms) = self.value => {
+            (ExtensionType::SignatureAlgorithms, ExtensionValue::Algorithms(algorithms)) => {
                 let mut sign_alg = SignatureAlgorithms::new();
                 for algorithm in algorithms {
                     sign_alg.push_hash(*algorithm);
                 }
                 E::new(self.type_, EV::SignatureAlgorithms(sign_alg))
             }
-            ExtensionType::SupportedVersions  if let ExtensionValue::SupportedVersions(ref versions) = self.value => {
+            (ExtensionType::SupportedVersions, ExtensionValue::SupportedVersions(versions)) => {
                 let mut support_versions = SupportVersions::default();
                 for version in versions {
                     support_versions.push(*version);
                 }
                 E::new(self.type_, EV::SupportedVersions(support_versions))
             }
-            ExtensionType::EcPointFormats  if let ExtensionValue::EcPointFormats(ref formats) = self.value => {
+            (ExtensionType::EcPointFormats, ExtensionValue::EcPointFormats(formats)) => {
                 let mut ec_point_formats = EcPointFormats::new();
                 for ec_format in formats {
                     ec_point_formats.add_format(*ec_format);
                 }
                 E::new(self.type_, EV::EcPointFormats(ec_point_formats))
             }
-            ExtensionType::KeyShare if let ExtensionValue::Curves(ref shares) = self.value => {
+            (ExtensionType::KeyShare, ExtensionValue::Curves(shares)) => {
                 let mut key_share = KeyShare::default();
                 for group in shares {
-                    key_share.add_entry(*group, Buf::Ref(&[0]))
+                    match group.as_u16() {
+                        NamedCurve::X25519 => key_share.add_entry(*group, Buf::Ref(&[0])),
+                        NamedCurve::Secp256r1 => key_share.add_entry(*group, Buf::Ref(&[0])),
+                        NamedCurve::Secp384r1 => key_share.add_entry(*group, Buf::Ref(&[0])),
+                        NamedCurve::Secp521r1 => key_share.add_entry(*group, Buf::Ref(&[0])),
+                        NamedCurve::X25519MLKEM768 => key_share.add_entry(*group, Buf::Ref(&[0])),
+                        _ => if group.is_reserved() { key_share.add_entry(*group, Buf::Ref(&[0])) },
+                    }
                 }
                 E::new(self.type_, EV::KeyShare(key_share))
             }
-            ExtensionType::CompressionCertificate  if let ExtensionValue::CompressionMethods(ref methods) = self.value => {
+            (ExtensionType::CompressionCertificate, ExtensionValue::CompressionMethods(methods)) => {
                 let mut comp_cert = CompressionCertificate::new();
                 for method in methods {
                     comp_cert.push(*method);
                 }
                 E::new(self.type_, EV::CompressionCertificate(comp_cert))
             }
-            ExtensionType::Padding => E::new(ExtensionType::Padding, EV::Padding(if let ExtensionValue::Padding(size) = self.value {
-                size
-            } else { 0 })),
-            ExtensionType::PskKeyExchangeMode  if let ExtensionValue::PskMode(mode) = self.value => {
+            (ExtensionType::Padding, ExtensionValue::Padding(size)) => {
+                E::new(ExtensionType::Padding, EV::Padding(*size))
+            }
+            (ExtensionType::PskKeyExchangeMode, ExtensionValue::PskMode(mode)) => {
                 let mut psk_key = PskKey::new();
-                psk_key.set_mode(mode);
+                psk_key.set_mode(*mode);
                 E::new(self.type_, EV::PskKeyExchangeMode(psk_key))
             }
-            ExtensionType::ApplicationLayerProtocolNegotiation  if let ExtensionValue::Alps(ref alps) = self.value => {
-                let mut value = ALPS::new();
+            (ExtensionType::ApplicationLayerProtocolNegotiation, ExtensionValue::Alps(alps)) => {
+                let mut value = ALPS::new(vec![]);
                 for alpn in alps {
                     value.add_alpn(alpn.clone());
                 }
                 E::new(self.type_, EV::ApplicationLayerProtocolNegotiation(value))
             }
-            ExtensionType::ApplicationSetting  if let ExtensionValue::Alps(ref alps) = self.value => {
-                let mut value = ALPS::new();
+            (ExtensionType::ApplicationSetting, ExtensionValue::Alps(alps)) => {
+                let mut value = ALPS::new(vec![]);
                 for alpn in alps {
                     value.add_alpn(alpn.clone());
                 }
                 E::new(self.type_, EV::ApplicationSetting(value))
             }
-            ExtensionType::ApplicationSettingOld  if let ExtensionValue::Alps(ref alps) = self.value => {
-                let mut value = ALPS::new();
+            (ExtensionType::ApplicationSettingOld, ExtensionValue::Alps(alps)) => {
+                let mut value = ALPS::new(vec![]);
                 for alpn in alps {
                     value.add_alpn(alpn.clone());
                 }
                 E::new(self.type_, EV::ApplicationSettingOld(value))
             }
-            _ => if let ExtensionValue::Bytes(ref bs) = self.value {
-                E::new(self.type_, EV::Unknown(Buf::Ref(bs.as_ref())))
-            } else { E::from_type(self.type_) },
+            (_, ExtensionValue::Bytes(bs)) => E::new(self.type_, EV::Unknown(Buf::Ref(bs.as_ref()))),
+            (_, _) => E::from_type(self.type_)
         }
     }
 }
@@ -139,32 +145,6 @@ impl From<u16> for Extension {
         Extension::new_default(typ)
     }
 }
-
-// #[derive(Debug)]
-// pub struct CustomFinger {
-//     ///cipher suites
-//     pub suites: Vec<CipherSuite>,
-//     // supported groups
-//     // pub groups: Vec<NamedCurve>,
-//     // signature algorithm
-//     // pub algorithms: Vec<SignatureAlgorithm>,
-//     // supported versions
-//     // pub versions: Vec<Version>,
-//     // ec point format
-//     // pub ec_formats: Vec<EcPointFormat>,
-//     // certificate compression
-//     // pub compress_methods: Vec<CompressionMethod>,
-//     ///extension
-//     pub extensions: Vec<Extension>,
-//     // padding size
-//     // pub padding: usize,
-//     // tls1.3  psk exchange mode
-//     // pub psk_mode: PskMode,
-//     // ApplicationLayerProtocolNegotiation and ApplicationSetting
-//     // pub alpn: Vec<ALPN>,
-//     // ApplicationSettingOld
-//     // pub alpn_old: Vec<ALPN>,
-// }
 
 #[derive(Debug)]
 pub enum TlsFinger {
@@ -279,8 +259,8 @@ impl TlsFinger {
         let mut versions = vec![];
         let version = items.first().ok_or("version not found")?.parse::<u16>()?;
         for v in Version::ALL {
-            if v > version { continue; }
-            versions.push(v);
+            if v < version { continue; }
+            versions.insert(0, v);
         }
         let mut suites: Vec<CipherSuite> = vec![];
         for suite in items.get(1).ok_or("suites not found")?.split("-") {

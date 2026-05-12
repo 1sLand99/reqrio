@@ -1,8 +1,10 @@
+use std::borrow::Cow;
 use crate::body::BodyKind;
 use crate::export::{check_run, handle_err1, handle_err2};
 use crate::{json, Body, ContentType, FileForm, HlsError, HttpFile};
 use std::ffi::{c_char, CStr};
 use std::ptr::null_mut;
+use std::slice;
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
@@ -10,7 +12,8 @@ pub extern "C" fn Body_new(data: *const u8, len: usize, ty: *const c_char, err: 
     check_run(move || {
         let ty = unsafe { CStr::from_ptr(ty) }.to_str()?;
         let ty = ContentType::try_from(ty)?;
-        Ok(Box::into_raw(Box::new(Body::new(BodyKind::CPtr { data, len }, ty))))
+        let body = unsafe { slice::from_raw_parts(data, len) }.to_vec();
+        Ok(Box::into_raw(Box::new(Body::new(BodyKind::Bytes(Cow::Owned(body)), ty))))
     }, |e| handle_err1(e, err, null_mut()))
 }
 

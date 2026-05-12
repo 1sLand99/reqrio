@@ -45,6 +45,17 @@ pub extern "system" fn ScReq_add_header(req: *mut ScReq, key: *const c_char, val
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
+pub extern "system" fn ScReq_remove_header(req: *mut ScReq, key: *const c_char) -> *mut c_char {
+    check_run(move || {
+        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
+        let key = unsafe { CStr::from_ptr(key) }.to_str()?;
+        req.remove_header(key);
+        Ok(null_mut())
+    }, handle_err2)
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
 pub extern "system" fn ScReq_set_alpn(req: *mut ScReq, alpn: *const c_char) -> *mut c_char {
     check_run(move || {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
@@ -145,7 +156,6 @@ pub extern "system" fn ScReq_add_cookie(req: *mut ScReq, name: *const c_char, va
         Ok(null_mut())
     }, handle_err2)
 }
-
 
 
 #[unsafe(no_mangle)]

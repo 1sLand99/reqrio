@@ -3,6 +3,7 @@ package org.xllgl2017;
 import com.google.gson.Gson;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.PointerByReference;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 
@@ -15,7 +16,7 @@ public class Session implements AutoCloseable {
     ///
     /// @param alpn :设置请求的版本，默认HTTP/2.0
     public Session(ALPN alpn) throws Exception {
-        this.req = INSTANCE.ScReq_new();
+        this();
         this.setALPN(alpn);
     }
 
@@ -25,46 +26,26 @@ public class Session implements AutoCloseable {
 
     /// 是否对证书链进行验证
     public void setVerify(boolean verify) throws Exception {
-        Pointer err = INSTANCE.ScReq_set_verify(this.req, verify);
-        if (err != null) {
-            String err_msg = err.getString(0);
-            INSTANCE.char_free(err);
-            throw new Exception(err_msg);
-        }
+        util.check_err(INSTANCE.ScReq_set_verify(this.req, verify));
     }
 
     /// 对重定向链接是否自动跳转，默认跳转
     public void setAutoRedirect(boolean auto_redirect) throws Exception {
-        Pointer err = INSTANCE.ScReq_set_redirect(this.req, auto_redirect);
-        if (err != null) {
-            String err_msg = err.getString(0);
-            INSTANCE.char_free(err);
-            throw new Exception(err_msg);
-        }
+        util.check_err(INSTANCE.ScReq_set_redirect(this.req, auto_redirect));
     }
 
     /// 设置 TLS 导出握手中生成的通讯密钥的路径
     ///
     /// @param path :keylog导出的路径
     public void setKeyLog(String path) throws Exception {
-        Pointer err = INSTANCE.ScReq_set_key_log(this.req, path);
-        if (err != null) {
-            String err_msg = err.getString(0);
-            INSTANCE.char_free(err);
-            throw new Exception(err_msg);
-        }
+        util.check_err(INSTANCE.ScReq_set_key_log(this.req, path));
     }
 
     /// 设置请求头
     ///
     /// @param header :是一个json字符串，例如: {"User-Agent":"xxx","Host":"xxx"}
     public void setHeaders(String header) throws Exception {
-        Pointer err = INSTANCE.ScReq_set_header_json(this.req, header);
-        if (err != null) {
-            String err_msg = err.getString(0);
-            INSTANCE.char_free(err);
-            throw new Exception(err_msg);
-        }
+        util.check_err(INSTANCE.ScReq_set_header_json(this.req, header));
     }
 
     /// 设置请求头
@@ -76,12 +57,12 @@ public class Session implements AutoCloseable {
 
     /// 添加请求头，若已存在则进行覆盖
     public void addHeader(String name, String value) throws Exception {
-        Pointer err = INSTANCE.ScReq_add_header(this.req, name, value);
-        if (err != null) {
-            String err_msg = err.getString(0);
-            INSTANCE.char_free(err);
-            throw new Exception(err_msg);
-        }
+        util.check_err(INSTANCE.ScReq_add_header(this.req, name, value));
+    }
+
+    /// @param name :待删除的请求头名
+    public void removeHeader(String name) throws Exception {
+        util.check_err(INSTANCE.ScReq_remove_header(this.req, name));
     }
 
 
@@ -89,40 +70,20 @@ public class Session implements AutoCloseable {
     public void setHeaders(Headers headers) throws Exception {
         HashMap<String, String> keys = headers.getKeys();
         for (String name : keys.keySet()) {
-            Pointer err = INSTANCE.ScReq_add_header(this.req, name, keys.get(name));
-            if (err != null) {
-                String err_msg = err.getString(0);
-                INSTANCE.char_free(err);
-                throw new Exception(err_msg);
-            }
+            util.check_err(INSTANCE.ScReq_add_header(this.req, name, keys.get(name)));
         }
         for (Cookie cookie : headers.getCookies()) {
-            Pointer err = INSTANCE.ScReq_add_cookie(this.req, cookie.getName(), cookie.getValue());
-            if (err != null) {
-                String err_msg = err.getString(0);
-                INSTANCE.char_free(err);
-                throw new Exception(err_msg);
-            }
+            util.check_err(INSTANCE.ScReq_add_cookie(this.req, cookie.getName(), cookie.getValue()));
         }
     }
 
     public void setFingerprint(Fingerprint fingerprint) throws Exception {
-        Pointer err1 = Session.INSTANCE.ScReq_set_fingerprint(this.req, fingerprint.getRaw());
+        util.check_err(Session.INSTANCE.ScReq_set_fingerprint(this.req, fingerprint.getRaw()));
         fingerprint.drop();
-        if (err1 != null) {
-            String err_msg = err1.getString(0);
-            INSTANCE.char_free(err1);
-            throw new Exception(err_msg);
-        }
     }
 
     private void setALPN(ALPN alpn) throws Exception {
-        Pointer err = INSTANCE.ScReq_set_alpn(this.req, alpn.getValue());
-        if (err != null) {
-            String err_msg = err.getString(0);
-            INSTANCE.char_free(err);
-            throw new Exception(err_msg);
-        }
+        util.check_err(INSTANCE.ScReq_set_alpn(this.req, alpn.getValue()));
     }
 
 
@@ -130,59 +91,29 @@ public class Session implements AutoCloseable {
     ///
     /// @param proxy :代理地址，例如:http_plain: http://127.0.0.1:10280; socks5: socks://127.0.0.1:10279
     public void setProxy(String proxy) throws Exception {
-        Pointer err = INSTANCE.ScReq_set_proxy(this.req, proxy);
-        if (err != null) {
-            String err_msg = err.getString(0);
-            INSTANCE.char_free(err);
-            throw new Exception(err_msg);
-        }
+        util.check_err(INSTANCE.ScReq_set_proxy(this.req, proxy));
     }
 
     public void setTimeout(Timeout timeout) throws Exception {
         Gson gson = new Gson();
-        Pointer err = INSTANCE.ScReq_set_timeout(this.req, gson.toJson(timeout));
-        if (err != null) {
-            String err_msg = err.getString(0);
-            INSTANCE.char_free(err);
-            throw new Exception(err_msg);
-        }
+        util.check_err(INSTANCE.ScReq_set_timeout(this.req, gson.toJson(timeout)));
     }
 
     public void setCookie(String cookie) throws Exception {
-        Pointer err = INSTANCE.ScReq_set_cookie(this.req, cookie);
-        if (err != null) {
-            String err_msg = err.getString(0);
-            INSTANCE.char_free(err);
-            throw new Exception(err_msg);
-        }
+        util.check_err(INSTANCE.ScReq_set_cookie(this.req, cookie));
     }
 
     public void addCookie(String name, String value) throws Exception {
-        Pointer err = INSTANCE.ScReq_add_cookie(this.req, name, value);
-        if (err != null) {
-            String err_msg = err.getString(0);
-            INSTANCE.char_free(err);
-            throw new Exception(err_msg);
-        }
+        util.check_err(INSTANCE.ScReq_add_cookie(this.req, name, value));
     }
 
     /// 关闭 tls 流，将发送Alert(CloseNotify)
     public void closeStream() throws Exception {
-        Pointer err = INSTANCE.ScReq_close_stream(this.req);
-        if (err != null) {
-            String err_msg = err.getString(0);
-            INSTANCE.char_free(err);
-            throw new Exception(err_msg);
-        }
+        util.check_err(INSTANCE.ScReq_close_stream(this.req));
     }
 
     public void reconnect() throws Exception {
-        Pointer err = INSTANCE.ScReq_reconnect(this.req);
-        if (err != null) {
-            String err_msg = err.getString(0);
-            INSTANCE.char_free(err);
-            throw new Exception(err_msg);
-        }
+        util.check_err(INSTANCE.ScReq_reconnect(this.req));
     }
 
 //    public void set_callback(ScReqCallback cb) throws Exception {
@@ -196,17 +127,13 @@ public class Session implements AutoCloseable {
     /// @param method : 请求方法
     /// @param url    :请求地址
     /// @param body   :请求体
-    public Response send(Method method, Url url, Body body) throws Exception {
+    public Response send(@NotNull Method method, @NotNull Url url, @NotNull Body body) throws Exception {
         try (url; body) {
             PointerByReference err = new PointerByReference();
             Pointer ptr = INSTANCE.ScReq_stream_io(this.req, method.getValue(), url.getRaw(), body.raw, err);
             url.setRaw(null);
             body.raw = null;
-            if (err.getValue() != null) {
-                String err_msg = err.getValue().getString(0);
-                INSTANCE.char_free(err.getValue());
-                throw new Exception(err_msg);
-            }
+            util.check_err_pointer(err);
             return new Response(ptr);
         }
     }
@@ -219,6 +146,10 @@ public class Session implements AutoCloseable {
         try (body) {
             return this.get(new Url(url), body);
         }
+    }
+
+    public Response get(Url url) throws Exception {
+        return this.get(url, new Body());
     }
 
     public Response get(String url) throws Exception {
@@ -234,7 +165,6 @@ public class Session implements AutoCloseable {
             return this.post(new Url(url), body);
         }
     }
-
 
     public Response put(Url url, Body body) throws Exception {
         return this.send(Method.PUT, url, body);

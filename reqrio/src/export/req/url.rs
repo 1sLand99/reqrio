@@ -39,6 +39,17 @@ pub extern "C" fn Url_remove_param(url: *mut Url, name: *const c_char) -> *mut c
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
+pub extern "C" fn Url_set_sni(url: *mut Url, sni: *const c_char) -> *mut c_char {
+    check_run(move || {
+        let url = unsafe { url.as_mut() }.ok_or(HlsError::NullPointer)?;
+        let sni = unsafe { CStr::from_ptr(sni) }.to_str()?;
+        url.set_domain(sni);
+        Ok(null_mut())
+    }, handle_err2)
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
 pub extern "C" fn Url_drop(url: *mut Url) {
     if url.is_null() { return; }
     let url = unsafe { Box::from_raw(url) };

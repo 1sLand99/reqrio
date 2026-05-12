@@ -81,8 +81,12 @@ pub extern "system" fn Fingerprint_custom(custom: *const c_char, token: *const c
                     extensions.push(Extension::new(typ, ExtensionValue::Alps(values)))
                 }
                 ExtensionType::Padding if !value.is_null() => {
-                    let value=value.as_usize().unwrap_or(0);
+                    let value = value.as_usize().unwrap_or(0);
                     extensions.push(Extension::new(typ, ExtensionValue::Padding(value)));
+                }
+                ExtensionType::PskKeyExchangeMode if !value.is_null() => {
+                    let value = value.as_u8().unwrap_or(0).into();
+                    extensions.push(Extension::new(typ, ExtensionValue::PskMode(value)));
                 }
                 _ => match typ.is_reserved() && !value.is_null() {
                     true => {
@@ -99,7 +103,6 @@ pub extern "system" fn Fingerprint_custom(custom: *const c_char, token: *const c
             suites: custom["suites"].members().map(|x| x.as_u16().unwrap_or(0).into()).collect(),
             extensions,
         };
-        println!("{:#?}", tls);
         let mut h2 = H2Finger {
             setting: vec![],
             window_size: custom["window_size"].as_u32().or(Err("missing window_size"))?,

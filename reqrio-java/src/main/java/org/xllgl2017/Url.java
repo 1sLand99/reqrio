@@ -8,48 +8,53 @@ import java.util.HashMap;
 public class Url implements AutoCloseable {
     private Pointer raw;
 
+    /// 初始化
+    ///
+    /// @param url :请求地址
     public Url(String url) throws Exception {
         PointerByReference err = new PointerByReference();
         this.raw = Session.INSTANCE.Url_new(url, err);
-        if (err.getValue() != null) {
-            String err_msg = err.getValue().getString(0);
-            Session.INSTANCE.char_free(err.getValue());
-            throw new Exception(err_msg);
-        }
+        util.check_err_pointer(err);
     }
 
+    /// @param sni :域名
+    public Url(String url, String sni) throws Exception {
+        this(url);
+        this.setSni(sni);
+    }
+
+    /// @param params url请求参数，value应为未编码
     public Url(String url_str, HashMap<String, String> params) throws Exception {
-        PointerByReference err = new PointerByReference();
-        this.raw = Session.INSTANCE.Url_new(url_str, err);
-        if (err.getValue() != null) {
-            String err_msg = err.getValue().getString(0);
-            Session.INSTANCE.char_free(err.getValue());
-            throw new Exception(err_msg);
-        }
+        this(url_str);
         for (String key : params.keySet()) {
             this.add_param(key, params.get(key));
         }
     }
 
+    /// 添加一个请求参数，若这个值已存在则会被覆盖
+    ///
+    /// @param name  :参数名
+    /// @param value :参数值
     public void add_param(String name, String value) throws Exception {
         if (this.raw == null) throw new Exception("Url had dropped");
-        Pointer err = Session.INSTANCE.Url_add_param(this.raw, name, value);
-        if (err != null) {
-            this.close();
-            String err_msg = err.getString(0);
-            Session.INSTANCE.char_free(err);
-            throw new Exception(err_msg);
+        try {
+            util.check_err(Session.INSTANCE.Url_add_param(this.raw, name, value));
+        } catch (Exception e) {
+            close();
+            throw e;
         }
     }
 
+    /// 删除一个参数
+    ///
+    /// @param name :待删除的参数名
     public void remove_param(String name) throws Exception {
         if (this.raw == null) throw new Exception("Url had dropped");
-        Pointer err = Session.INSTANCE.Url_remove_param(this.raw, name);
-        if (err != null) {
-            this.close();
-            String err_msg = err.getString(0);
-            Session.INSTANCE.char_free(err);
-            throw new Exception(err_msg);
+        try {
+            util.check_err(Session.INSTANCE.Url_remove_param(this.raw, name));
+        } catch (Exception e) {
+            close();
+            throw e;
         }
     }
 
@@ -60,6 +65,17 @@ public class Url implements AutoCloseable {
 
     public void setRaw(Pointer raw) {
         this.raw = raw;
+    }
+
+    /// @param sni :域名，在使用ip url时设置
+    public void setSni(String sni) throws Exception {
+        if (this.raw == null) throw new Exception("Url had dropped");
+        try {
+            util.check_err(Session.INSTANCE.Url_set_sni(this.raw, sni));
+        } catch (Exception e) {
+            close();
+            throw e;
+        }
     }
 
     @Override

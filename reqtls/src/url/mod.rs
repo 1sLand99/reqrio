@@ -55,6 +55,10 @@ impl Url {
         self
     }
 
+    pub fn set_domain(&mut self, domain: impl Into<String>) {
+        self.domain = Some(domain.into());
+    }
+
     pub fn sni(&self) -> &str {
         self.domain.as_deref().unwrap_or(self.addr.host())
     }

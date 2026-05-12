@@ -1,148 +1,11 @@
-use std::time::Duration;
-use tokio::time::sleep;
 use reqrio::*;
-
-fn gen_im_finger() -> TlsFinger {
-    TlsFinger::Custom {
-        suites: vec![
-            CipherSuite::new(0xcaca),
-            CipherSuite::TLS_AES_128_GCM_SHA256.into(),
-            CipherSuite::TLS_AES_256_GCM_SHA384.into(),
-            CipherSuite::TLS_CHACHA20_POLY1305_SHA256.into(),
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256.into(),
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256.into(),
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384.into(),
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384.into(),
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256.into(),
-            CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256.into(),
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA.into(),
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA.into(),
-            CipherSuite::TLS_RSA_WITH_AES_128_GCM_SHA256.into(),
-            CipherSuite::TLS_RSA_WITH_AES_256_GCM_SHA384.into(),
-            CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA.into(),
-            CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA.into(),
-        ],
-        extensions: vec![
-            Extension::new_default(ExtensionType::new(0x1a1a)),
-            Extension::new_default(ExtensionType::ServerName),
-            Extension::new_default(ExtensionType::ExtendMasterSecret),
-            Extension::new_default(ExtensionType::RenegotiationInfo),
-            Extension::new(ExtensionType::SupportedGroup, ExtensionValue::Curves(vec![
-                NamedCurve::new(0xeaea),
-                NamedCurve::X25519.into(),
-                NamedCurve::Secp256r1.into(),
-                NamedCurve::Secp384r1.into(),
-            ])),
-            Extension::new(ExtensionType::EcPointFormats, ExtensionValue::EcPointFormats(vec![EcPointFormat::UNCOMPRESSED])),
-            Extension::new_default(ExtensionType::SessionTicket),
-            Extension::new(ExtensionType::ApplicationLayerProtocolNegotiation, ExtensionValue::Alps(vec![
-                ALPN::Http20,
-                ALPN::Http11
-            ])),
-            Extension::new_default(ExtensionType::StatusRequest),
-            Extension::new(ExtensionType::SignatureAlgorithms, ExtensionValue::Algorithms(vec![
-                SignatureAlgorithm::ECDSA_SECP256R1_SHA256.into(),
-                SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),
-                SignatureAlgorithm::RSA_PKCS1_SHA256.into(),
-                SignatureAlgorithm::ECDSA_SECP384R1_SHA384.into(),
-                SignatureAlgorithm::RSA_PSS_RSAE_SHA384.into(),
-                SignatureAlgorithm::RSA_PKCS1_SHA384.into(),
-                SignatureAlgorithm::RSA_PSS_RSAE_SHA512.into(),
-                SignatureAlgorithm::RSA_PKCS1_SHA512.into(),
-            ])),
-            Extension::new_default(ExtensionType::SignedCertificateTimestamp),
-            Extension::new(ExtensionType::KeyShare, ExtensionValue::Curves(vec![
-                NamedCurve::new(0xeaea),
-                NamedCurve::X25519.into(),
-            ])),
-            Extension::new(ExtensionType::PskKeyExchangeMode, ExtensionValue::PskMode(PskMode::PSK_DHE_KE)),
-            Extension::new(ExtensionType::SupportedVersions, ExtensionValue::SupportedVersions(vec![
-                Version::new(0xdada),
-                Version::TLS_1_3,
-                Version::TLS_1_2,
-                Version::TLS_1_1,
-                Version::TLS_1_0,
-            ])),
-            Extension::new(ExtensionType::CompressionCertificate, ExtensionValue::CompressionMethods(vec![CompressionMethod::BROTLI])),
-            Extension::new(ExtensionType::ApplicationSettingOld, ExtensionValue::Alps(vec![ALPN::Http20])),
-            Extension::new(ExtensionType::new(0x3a3a), ExtensionValue::Bytes(Bytes::new(vec![0]))),
-            Extension::new(ExtensionType::Padding, ExtensionValue::Padding(192))
-        ],
-    }
-}
-
 
 #[tokio::main]
 async fn main() {
-    Fingerprint::from_ja4("t13d1516h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0017,001b,0023,002b,002d,0033,44cd,fe0d,ff01_0403,0804,0401,0503,0805,0501,0806,0601","").unwrap();
-    return;
-    let fingerprint = Fingerprint::new_tls(gen_im_finger(), "2f-o7ffnfc-j2f7q7n-k7ffnfc-m423p26-k").unwrap();
-    let fingerpirnt = Fingerprint::from_hex_all("1603010200010001fc0303daf602c8f741db35b1ce2fa67c4edd38a6a21e22e9e78a563a3433551102a2a6201f0910cad3e2496077c3102b9d64adf9dd177622a1e3f3bb77dd17659e9559970020caca130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035010001931a1a000000000018001600001368352e6d6f757461693531392e636f6d2e636e00170000ff01000100000a000a0008eaea001d00170018000b00020100002300000010000e000c02683208687474702f312e31000500050100000000000d0012001004030804040105030805050108060601001200000033002b0029eaea000100001d002006648fc930928438e9a9a9f495a947ef0fa1592c42ba347ee73df14376ef0346002d00020101002b000b0adada0304030303020301001b00030200024469000500030268323a3a000100001500c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "2f-o7ffnfc-j2f7q7n-k7ffnfc-m423p26-k").unwrap();
-    println!("{:#?}", fingerpirnt.tls().build_client_hello(&ALPN::Http20).unwrap());
+    let fingerprint = Fingerprint::from_ja3("771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-17513-21,29-23-24,0", "2f-o7ffnfc-j2f7q7n-k7ffnfc-m423p26-k").unwrap();
 
-    // let mut buffer = Buffer::with_capacity(1024);
-    // fingerpirnt.tls().build_client_hello().unwrap().write_to(&mut buffer).unwrap();
-    // println!("{:?}", buffer.filled());
-    // return;
-    let mut header = Header::try_from(r#"
-Host: h5.moutai519.com.cn
-Connection: keep-alive
-MT-V: faadf75ac25d8abe0f27732f3fj
-MT-Device-ID: clips_cEEkFiIXJkByQXJDJRB0R3cWIUR8TylPKRouGH5JcA==
-Content-Web-Bb: 87e543a10f6d5cb28987e543a10f6dcbef8c47bc549abfc3ea7aac2808c4e85c97af05e45e4a24a3bc03e294b909f175e3cafa23d3baf7aa96b112e6461687d4c87b6bed34e3ee3bbec6e452d997f6cb7e3830acdffc08f5f5d52e575f1e1cc249101541f124b023b650430bafa2fb5ea6f1dd0e1cc8270a21c9830aa083cdd464cc685fbb0abcd5a92c45f67614fe53a12c49855284b3a436bfcb7591caa453956577ee9f0a5fd0ba608177035ad8e869080d8751de20fdcf75c314271cfd276bb768a9a93f554e74cd87e89288890c83c09574a967509d08104ee94365cfbe9dcd9e7ee135d383df9f71a03d27ff2282aa7b98fa893cd8ba7a2bb2a73678c365c34f79263193806257c4ac1285d5431504997a2afb641e65a6b453b0a22d6060b3b6ba5ff5a6da3d2ad38526366853ee601945f80d907bb846aa03d5eed27ca02ec6b6c2a0099096ed070a37b133bd1093ae6b13ef63c3a2424b02e8eb8ac110505dd37b4e0e1588b8366a75432db9d0d06c825708daba59aae9cbd4ca75e0
-MT-APP-Version: 1.9.6
-Sdk-Ver-Bb: V3.5.0_20260403.1_imaotai
-content-type: application/json
-Accept: application/json, text/javascript, */*; q=0.01
-Content-Hh-Bb: 10e33ddf06731b3914edc463e80b1f5c
-X-Requested-With: XMLHttpRequest
-MT-Info: a3f9c2b8471de05f9b6c4e1287d5a9c1
-User-Agent: Mozilla/5.0 (Linux; Android 12; 2201123C Build/SKQ1.211006.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/95.0.4638.74 Mobile Safari/537.36 moutaiapp/1.9.6 device-id/d22ac8c225fbdad138a287317b258535 BS-DVID/CV1z6ADnxGokMzTGFd-1XJEXM4uku4K-yg0YsqsFywHz_46-4Wv2GYDt8gv0djt96IP9zr3LyklfrYLeYtDarYQ
-MT-K: 1777893752116
-Origin: https://h5.moutai519.com.cn
-Sec-Fetch-Site: same-origin
-Sec-Fetch-Mode: cors
-Sec-Fetch-Dest: empty
-Referer: https://h5.moutai519.com.cn/mt/item/smsp-detail?appConfig=2_1_2
-Accept-Encoding: gzip, deflate
-Accept-Language: zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7
-Cookie: MT-Token-Wap=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJtdCIsImV4cCI6MTc4MDM2MTk2NSwidXNlcklkIjoxMTk3MzM3NDEwLCJkZXZpY2VJZCI6ImNsaXBzX2NFRWtGaUlYSmtCeVFYSkRKUkIwUjNjV0lVUjhUeWxQS1JvdUdINUpjQT09IiwiaWF0IjoxNzc3NzY5OTY1fQ.Ej5gLah0FDO19pbdO2WzIHwYyasiGv7uAhUjQlzL7g8; MT-Device-ID-Wap=clips_cEEkFiIXJkByQXJDJRB0R3cWIUR8TylPKRouGH5JcA==; gdxidpyhxdE=MyuYse8gur39N%5CXBZ%5Cei5%2F07R6AOpH7A%2F0uuZY1EkVCYQD67Wu2a98TSEtuSpOldjk1h5TDmdXknMYC3ojc938dsbElNVSMmmTCp1DPW9OCQWvGKyTbo0VsC%2F6TNhpsiprY%5COQt3qin3rCbZN%2FhNuyvDP6TGEbHkhGV%5CWanAn2q8V0%5C2%3A1777826251350; _sdk_v_=V3.5.0_20260403.1_imaotai; _bs_device_id=bid-8867863987771-1518-ae4a; _d_u=432a1d531c62c4824f7203434b1d5a18e17c5577055af88aeb385d41d50e8ea8224ce18ff0479d10f76d8d8cb571c1fb45c4a1988b24171cf6ffdc8b7a802c31f04e71feaf35cce128630548ebd891510b6773b0b48da3a87ce2c2e622a6ded27f4770ac0a562b5adbe89495ddfc09b4d5f34e8f86e6141908308438fdc28618c0d0db3441885e75c309165af920f02d08f45085826e22c6080d4930ca5f77f8eaaec8658effecc3ebafa1ef0254aeea47aa15e726c8ad9b9ddfde0419b6618b8c54ded22dd4daa7c2266db61ddc3fd18e38301b82ab2f1a16d6913601545989a405a57928c675925b496307530d4ff6971265c3f0ce9811f8032aeb30bb8519
-Content-Length: 423"#).unwrap();
-    header.insert("x-csrf-token", "").unwrap();
-
-    println!("{}", header);
-    let mut req = AcReq::new()
-        .with_fingerprint(fingerprint)
-        // .with_alpn(ALPN::Http20)
-        // .with_mtls(certs, key)
-        .with_verify(true)
-        .with_timeout(Timeout::new_same(10000, 2))
-        .with_key_log("2.log")
-        // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10280))
-        ;
-    req.set_headers(header, false);
-
-    let data = json::object! {"actParam":"salGYFt5S6bQg3QmZ92dY6bsH+8CAJ0R8kZwwurslmXbTh0epueTLDQriQRinhZlHxazFMfUEIr7IQzUxd3hjNAb2U/yYWciM2reBPdS+APR4IV9CE60Nb9n+Id++Pf4yYcdUEBJaTXQuMzNblj0M90JBJQbOG40L7GZCPdELGylgHK9C0F8BlSFNh80hSdRw2KmOJL2HAYyfuscHG0qTsHXECJ4+OHwBTcRt+dKDOhyl3LSAL5a8Eb3Ht1vLgleDKmr0SzyDEIVOJuSPW23F4Fmq7NPIOnPY8hL5XL3ewpBpgGWj53vu2SVi27sTRioopNhjW6J2SOQyUsHFj60EpCbMwh6++NkGum/ltUZ1OHpN7psICQQXb9FDuak/2ytffZiKbZcLWgiF+FuuB2ofXV77NfUhTTr7xO6S/J32rI="};
-    // req.set_headers_json(headers).unwrap();
-    // req.set_url(url).await.unwrap();
-    // req.set_json(data);
-
-    let url = "https://220.167.102.112/xhr/front/trade/priority/rushPurchase/hot/branch/one";
-    let res = req.post(url.sni("h5.moutai519.com.cn"), data).await.unwrap();
-    // let res = req.post("https://shangoue.meituan.com", None).await.unwrap();
-    println!("{}", res.header());
-    if res.header().get("connection").unwrap().to_string().contains("close") {
-        req.stream_mut().async_shutdown().await.unwrap();
-    }
-    req.stream_mut().async_shutdown().await.unwrap();
-    println!("{}", res.text().unwrap());
-    sleep(Duration::from_hours(12)).await;
-    //
-    return;
     let mut timeout = Timeout::longer();
     timeout.set_handle_times(1);
-    let fingerprint = Fingerprint::from_hex_all("16030105b7010005b303030197f07eba2317b09411ccca32c3ca4520c7a4d427d4617d3219e9173c21567b207ef647003b4151c1a8f1f4e72b3e2821b98a5af7d7f7f1cb9912965dd8be2e620014130213011303c02cc02bcca9c030c02fcca800ff01000556000d0016001405030403060308070806080508040601050104010017000000230000000000160014000011736730332e636b636c6f75642e696e666f000500050100000000000a000a000811ec001d00170018002d00020101002b00050403040303000b00020100003304ea04e811ec04c0f0a71f3c99832eb733b81ba2c01c0807b94c4877963bd3ae5d08af1d02cf0f719337f948cf5938421c52ae8baacaacbffe32cc91abaa8f89a2f5002f7029102a02ae330255eeda21a8a6517ee872f646273b97ad094c6bde77a9829c6eee7ab9a7799823c3a7aed931dda20cbb2c45ac58133ac4351c38438d4b5f2dbac976b8a955d153bab3769657bc07f51f0715ab9e561b12496aa02238ed2b32816446ba367074930d8efb0cabd48387127d5bca9bada07acb29c9fe1958c6e0cf2b6b53365626898c32fcf23b3eb11b339abbeff313c8097263382d42b090d8765bd262a3b63a45dbf5c04ab94417a35dad713293d1991802ca67da9ccc527f6ce629df08a073b4193e372898d23f04c14bc7053e1112707f2c187876b98ca91aaafc0bcd61806b211d99e60d1eb8bdcefb04bba3a0e4ca1c7d4945c7e5567aa5025b57cca2e80991892debf11a4b067136581d3ed59912460be9f24941c34e88d4661cb09f464097b9b573e8d349871b0db3a513e3c61983a5c5193850f400226ed30c17a6b615b077564647ae6ab09f3cc5cbc74cc78990f20311f2eb37f9e077215098c64335a1e25fa9876f3593ccb9004413731cef6c09472b507d4395b23a242f723843601bbfe4c330ebce51da911967a85ad1a5792999341a117c407c86a49461887828b818bad9c600db50a2ca4ac86199394031afe9a28677631ce49785cc782818a29a14c2375c4aa79998e241207cbc603a32b142843b73d52ec1b92f7b1aca57817ce5d4109ee8734617c8e69147ee59252838a1639276adba5672049a661146f7039dcb18a93c0b634c87cd51fc2a187935bb5062b4d0322596c223a49c052bc8fb12acfeeb428002aa62d660016b9460016f28984a175890a5d67c74466d44117184d219ccc27d3d551de595111f2b185e929e324954a3568e6dd63e10ab4e5947185df02f648a9a8af436516aa813679b787b807b003245a796795cb91453a8482283fa66aa66a3837f4a6ee2d2340962a2cc9c4e62c6033947605ce72e0046aab962871c9850bbeb0d8d14c47391bab9a59c3e35c1e47ccb8a0c8ee855cc99ec64a993579d993f9e12711d16aa61aa2a915c0baa6acf3df4c9521a4dcd4c002ec56bfb4c7b5116ab06f1859d857c939ca29fcb6e23c93d6975ca6f49a6c0d1a5246bc8894893914122c3cb3220939e3aa916358360386ba76603ab9440916bf585c5537f26b77f2e7459bc707ee47527b54b239bcb58254288e75a927673ae74050eb35280b16369aacb85da861302f19fec1c7ac17185367b6a7c773f6b1abc0bb685f4cc518153c3a76c4d89795444f493adf373b40a92e9f18eaf224d90d48f0e6a7213a2b860a36f585b84ca24a33ce72014ec43dc046b0612922eb457a24049655a664072b2832314a6f2ccadf7b862692069d269cc62351bd279d683068327b668065084890c3f3c04d959adf2903ad1424a9a60b1cf3aa24ea81dbcf71ed8c82bd3cc271dda799d2b0d2f208163bc7f8b66a48db9a4aed10eb705690734cfa575b4deeca83619524aeb963e9c2ee81c7f51d91efe0a1f2f79a332b02bbe8a55e8625025f387b5a27982a78296f4c172720606073b2ada9bb924a44b941e81f90811ad449914919c6dd9a9562c2a99c5833bc010d91e65fe3ac6022cd7e274d3e9a787bbef8ec3507c25b8fa29475e235fda8ac4a6af9f31001d00203ac6022cd7e274d3e9a787bbef8ec3507c25b8fa29475e235fda8ac4a6af9f311603030046100000424104ff635373fbbfbc37444a2026372f57fd06c5205bacfe32b61261a9d29bf1fca57f91ef22cb2ba46af8cf9ae7c3123f56634099af297dcd30835cd81664005fb9140303000101", "2f-o7ffnfc-j2f7q7n-k7ffnfc-m423p26-k").unwrap();
-
 
     // let fingerprint = Fingerprint::from_ja3("771,4866-4867-4865-49196-49200-49195-49199-52393-52392-49188-49192-49187-49191-159-158-107-103-255,0-11-10-16-22-23-49-13-43-45-51-21,29-23-30-25-24-256-257-258-259-260,0-1-2", "2f-o7ffnfc-j2f7q7n-k7ffnfc-m423p26-k").unwrap();
     // let fingerprint = Fingerprint::from_ja4("t13d1516h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0017,001b,0023,002b,002d,0033,44cd,fe0d,ff01_0403,0804,0401,0503,0805,0501,0806,0601", "2f-o7ffnfc-j2f7q7n-k7ffnfc-m423p26-k").unwrap();
@@ -154,7 +17,7 @@ Content-Length: 423"#).unwrap();
     // let certs = Certificate::from_pem_file("/home/xl/1/client.crt").unwrap();
     // let key = RsaKey::from_pri_pem_file("/home/xl/1/client.key").unwrap();
     let mut req = AcReq::new()
-        // .with_fingerprint(fingerprint)
+        .with_fingerprint(fingerprint)
         .with_timeout(timeout)
         .with_verify(true)
         .with_key_log("2.log")
@@ -243,7 +106,7 @@ Content-Length: 423"#).unwrap();
     // let res = req.get("https://www.bing.com".params(json::object! {}), vec![0u8; 0].ty(Application::Json)).await.unwrap();
     // let res = req.get("https://117.89.181.21".sni("m.sogou.com"), None).await.unwrap();
     // let res=req.get("https://oauth.hubei.gov.cn:8443/",None).await.unwrap();
-    let res = req.get("https://zwfw.hubei.gov.cn/web/user/uias_login.do?appCode=hbzwfw&gotoUrl=https%3A%2F%2Fzwfw.hubei.gov.cn%2Fwebview%2Fgrkj%2Fwelcome.html&p01=", None).await.unwrap();
+    let res = req.get("https://www.baidu.com", None).await.unwrap();
     println!("{}", res.header());
     // println!("{}", res.json().unwrap().pretty())
     // println!("{:#?}", req.header().cookies());

@@ -8,9 +8,9 @@ pub struct ALPS {
 }
 
 impl ALPS {
-    pub fn new() -> ALPS {
+    pub fn new(values: Vec<ALPN>) -> ALPS {
         ALPS {
-            values: vec![],
+            values
         }
     }
     pub fn from_reader(mut reader: Reader<'_>) -> RlsResult<ALPS> {

@@ -117,8 +117,72 @@ public class CustomFingerprint {
         this.extensions.put(key, values);
     }
 
+    public void addApplicationLayerProtocolNegotiation(ALPN alpn) {
+        this.addApplicationLayerProtocolNegotiation(alpn.getValue());
+    }
+
+    public void addApplicationLayerProtocolNegotiation(String alpn) {
+        String key = String.valueOf(ExtensionType.ApplicationLayerProtocolNegotiation.value);
+        JsonArray values;
+        try {
+            values = this.extensions.getOrDefault(key, new JsonArray()).getAsJsonArray();
+        } catch (NullPointerException e) {
+            values = new JsonArray();
+        }
+        values.add(alpn);
+        this.extensions.put(key, values);
+    }
+
+    public void addApplicationSetting(ALPN alpn) {
+        this.addApplicationSetting(alpn.getValue());
+    }
+
+    public void addApplicationSetting(String alpn) {
+        String key = String.valueOf(ExtensionType.ApplicationSetting.value);
+        JsonArray values;
+        try {
+            values = this.extensions.getOrDefault(key, new JsonArray()).getAsJsonArray();
+        } catch (NullPointerException e) {
+            values = new JsonArray();
+        }
+        values.add(alpn);
+        this.extensions.put(key, values);
+    }
+
+    public void addApplicationSettingOld(ALPN alpn) {
+        this.addApplicationSettingOld(alpn.getValue());
+    }
+
+    public void addApplicationSettingOld(String alpn) {
+        String key = String.valueOf(ExtensionType.ApplicationSettingOld.value);
+        JsonArray values;
+        try {
+            values = this.extensions.getOrDefault(key, new JsonArray()).getAsJsonArray();
+        } catch (NullPointerException e) {
+            values = new JsonArray();
+        }
+        values.add(alpn);
+        this.extensions.put(key, values);
+    }
+
+    public void setPskMode(int mode) {
+        String key = String.valueOf(ExtensionType.PskKeyExchangeMode.value);
+        if (this.extensions.containsKey(key)) {
+            this.extensions.replace(key, new JsonPrimitive(mode));
+        } else {
+            this.extensions.put(key, new JsonPrimitive(mode));
+        }
+
+
+    }
+
+
     public void addExtension(ExtensionType extensionType) {
         this.addExtension(extensionType.value);
+    }
+
+    public void addExtension(ExtensionType typ, JsonElement value) {
+        this.addExtension(typ.value, value);
     }
 
     public void addExtension(int value) {
