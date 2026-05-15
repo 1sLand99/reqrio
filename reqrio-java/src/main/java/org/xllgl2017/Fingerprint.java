@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.PointerByReference;
+import static org.xllgl2017.ReqrioLibrary.REQRIO;
 
 public class Fingerprint {
     private Pointer raw;
@@ -12,7 +13,7 @@ public class Fingerprint {
     public static Fingerprint random(String token) throws Exception {
         Fingerprint fingerprint = new Fingerprint();
         PointerByReference err = new PointerByReference();
-        fingerprint.raw = Session.INSTANCE.Fingerprint_random(token, err);
+        fingerprint.raw = REQRIO.Fingerprint_random(token, err);
         util.check_err_pointer(err);
         return fingerprint;
     }
@@ -22,7 +23,7 @@ public class Fingerprint {
     public static Fingerprint fromJa3(String ja3, String token) throws Exception {
         Fingerprint fingerprint = new Fingerprint();
         PointerByReference err = new PointerByReference();
-        fingerprint.raw = Session.INSTANCE.Fingerprint_from_ja3(ja3, token, err);
+        fingerprint.raw = REQRIO.Fingerprint_from_ja3(ja3, token, err);
         util.check_err_pointer(err);
         return fingerprint;
     }
@@ -32,7 +33,7 @@ public class Fingerprint {
     public static Fingerprint fromJa4(String ja4, String token) throws Exception {
         Fingerprint fingerprint = new Fingerprint();
         PointerByReference err = new PointerByReference();
-        fingerprint.raw = Session.INSTANCE.Fingerprint_from_ja4(ja4, token, err);
+        fingerprint.raw = REQRIO.Fingerprint_from_ja4(ja4, token, err);
         util.check_err_pointer(err);
         return fingerprint;
     }
@@ -42,7 +43,7 @@ public class Fingerprint {
     public static Fingerprint fromClientHello(byte[] client_hello, String token) throws Exception {
         Fingerprint fingerprint = new Fingerprint();
         PointerByReference err = new PointerByReference();
-        fingerprint.raw = Session.INSTANCE.Fingerprint_from_client_hello(client_hello, client_hello.length, token, err);
+        fingerprint.raw = REQRIO.Fingerprint_from_client_hello(client_hello, client_hello.length, token, err);
         util.check_err_pointer(err);
         return fingerprint;
     }
@@ -52,7 +53,7 @@ public class Fingerprint {
         Fingerprint fingerprint = new Fingerprint();
         Gson gson = new GsonBuilder().serializeNulls().create();
         PointerByReference err = new PointerByReference();
-        fingerprint.raw = Session.INSTANCE.Fingerprint_custom(gson.toJson(custom), token, err);
+        fingerprint.raw = REQRIO.Fingerprint_custom(gson.toJson(custom), token, err);
         util.check_err_pointer(err);
         return fingerprint;
     }

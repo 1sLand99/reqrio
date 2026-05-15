@@ -125,6 +125,9 @@ DLL.ScReq_set_callback.restype = c_void_p
 DLL.ScReq_reconnect.argtypes = [c_void_p]
 DLL.ScReq_reconnect.restype = c_void_p
 
+DLL.ScReq_connect.argtypes = [c_void_p, c_char_p]
+DLL.ScReq_connect.restype = c_void_p
+
 DLL.ScReq_close_stream.argtypes = [c_void_p]
 DLL.ScReq_close_stream.restype = c_void_p
 

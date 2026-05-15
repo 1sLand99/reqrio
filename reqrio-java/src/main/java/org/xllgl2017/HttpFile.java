@@ -3,11 +3,13 @@ package org.xllgl2017;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.PointerByReference;
 
+import static org.xllgl2017.ReqrioLibrary.REQRIO;
+
 public class HttpFile implements AutoCloseable {
     private Pointer raw;
 
     public HttpFile() {
-        this.raw = Session.INSTANCE.HttpFile_new();
+        this.raw = REQRIO.HttpFile_new();
     }
 
 
@@ -24,10 +26,10 @@ public class HttpFile implements AutoCloseable {
     /// @param content_type :文件内容类型
     public void addFile(String path, String fieldName, String content_type) throws Exception {
         PointerByReference err = new PointerByReference();
-        Pointer form = Session.INSTANCE.FileForm_new(path, fieldName, content_type, err);
+        Pointer form = REQRIO.FileForm_new(path, fieldName, content_type, err);
         try {
             util.check_err_pointer(err);
-            util.check_err(Session.INSTANCE.HttpFile_add_form(this.raw, form));
+            util.check_err(REQRIO.HttpFile_add_form(this.raw, form));
         } catch (Exception e) {
             close();
             throw e;
@@ -45,7 +47,7 @@ public class HttpFile implements AutoCloseable {
     @Override
     public void close() {
         if (this.raw == null) return;
-        Session.INSTANCE.HttpFile_drop(this.raw);
+        REQRIO.HttpFile_drop(this.raw);
         this.raw = null;
     }
 }

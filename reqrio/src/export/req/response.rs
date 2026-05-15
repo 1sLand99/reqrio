@@ -23,6 +23,16 @@ pub extern "C" fn Response_bytes(resp: *mut Response, len: &mut usize, err: *mut
         Ok(res.as_ptr())
     }, |e| handle_err1(e, err, null()))
 }
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "C" fn Response_header_keys(resp: *const Response, err: *mut *mut c_char) -> *mut c_char {
+    check_run(move || {
+        let resp = unsafe { resp.as_ref() }.ok_or(HlsError::NullPointer)?;
+        let keys=resp.header().keys().iter().map(|x|x.name()).collect::<Vec<&str>>();
+        Ok(CString::new(keys.join(",,,,"))?.into_raw())
+    }, |e| handle_err1(e, err, null_mut()))
+}
+
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]

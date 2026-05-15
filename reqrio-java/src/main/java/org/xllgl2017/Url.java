@@ -5,15 +5,22 @@ import com.sun.jna.ptr.PointerByReference;
 
 import java.util.HashMap;
 
+import static org.xllgl2017.ReqrioLibrary.REQRIO;
+
 public class Url implements AutoCloseable {
     private Pointer raw;
+
+    public Pointer pointer() throws Exception {
+        if (this.raw == null) throw new Exception("Url had dropped");
+        return this.raw;
+    }
 
     /// 初始化
     ///
     /// @param url :请求地址
     public Url(String url) throws Exception {
         PointerByReference err = new PointerByReference();
-        this.raw = Session.INSTANCE.Url_new(url, err);
+        this.raw = REQRIO.Url_new(url, err);
         util.check_err_pointer(err);
     }
 
@@ -27,7 +34,7 @@ public class Url implements AutoCloseable {
     public Url(String url_str, HashMap<String, String> params) throws Exception {
         this(url_str);
         for (String key : params.keySet()) {
-            this.add_param(key, params.get(key));
+            this.addParam(key, params.get(key));
         }
     }
 
@@ -35,10 +42,9 @@ public class Url implements AutoCloseable {
     ///
     /// @param name  :参数名
     /// @param value :参数值
-    public void add_param(String name, String value) throws Exception {
-        if (this.raw == null) throw new Exception("Url had dropped");
+    public void addParam(String name, String value) throws Exception {
         try {
-            util.check_err(Session.INSTANCE.Url_add_param(this.raw, name, value));
+            util.check_err(REQRIO.Url_add_param(this.pointer(), name, value));
         } catch (Exception e) {
             close();
             throw e;
@@ -48,19 +54,13 @@ public class Url implements AutoCloseable {
     /// 删除一个参数
     ///
     /// @param name :待删除的参数名
-    public void remove_param(String name) throws Exception {
-        if (this.raw == null) throw new Exception("Url had dropped");
+    public void removeParam(String name) throws Exception {
         try {
-            util.check_err(Session.INSTANCE.Url_remove_param(this.raw, name));
+            util.check_err(REQRIO.Url_remove_param(this.pointer(), name));
         } catch (Exception e) {
             close();
             throw e;
         }
-    }
-
-    public Pointer getRaw() throws Exception {
-        if (this.raw == null) throw new Exception("Url had dropped");
-        return raw;
     }
 
     public void setRaw(Pointer raw) {
@@ -69,9 +69,8 @@ public class Url implements AutoCloseable {
 
     /// @param sni :域名，在使用ip url时设置
     public void setSni(String sni) throws Exception {
-        if (this.raw == null) throw new Exception("Url had dropped");
         try {
-            util.check_err(Session.INSTANCE.Url_set_sni(this.raw, sni));
+            util.check_err(REQRIO.Url_set_sni(this.pointer(), sni));
         } catch (Exception e) {
             close();
             throw e;
@@ -80,8 +79,8 @@ public class Url implements AutoCloseable {
 
     @Override
     public void close() {
-        if (this.raw != null)
-            Session.INSTANCE.Url_drop(this.raw);
+        if (this.raw == null) return;
+        REQRIO.Url_drop(this.raw);
         this.raw = null;
     }
 }

@@ -287,6 +287,11 @@ class Session:
         err, msg = util.check_char_err(self.dll.ScReq_reconnect(self.hid))
         if err: raise Exception(msg)
 
+    def connect(self, host: str, port=443):
+        url = f"https://{host}:{port}"
+        err, msg = util.check_char_err(self.dll.ScReq_connect(self.hid, url.encode('utf-8')))
+        if err: raise Exception(msg)
+
     def close_stream(self):
         err, msg = util.check_char_err(self.dll.ScReq_close_stream(self.hid))
         if err: raise Exception(msg)

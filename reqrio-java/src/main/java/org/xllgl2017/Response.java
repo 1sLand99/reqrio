@@ -10,74 +10,81 @@ import com.sun.jna.ptr.PointerByReference;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Response implements AutoCloseable {
-    private Pointer raw;
+import static org.xllgl2017.ReqrioLibrary.REQRIO;
 
-    public Response(Pointer raw) {
-        this.raw = raw;
+public class Response {
+    private final int statusCode;
+    private final Headers headers = new Headers();
+    private final byte[] body;
+
+
+    public Response(Pointer raw) throws Exception {
+        try {
+            // status code
+            PointerByReference err = new PointerByReference();
+            this.statusCode = REQRIO.Response_status_code(raw, err);
+            util.check_err_pointer(err);
+
+            //header
+            Pointer key_ptr = REQRIO.Response_header_keys(raw, err);
+            util.check_err_pointer(err);
+            String[] keys = key_ptr.getString(0).split(",,,,");
+            REQRIO.char_free(key_ptr);
+            for (String key : keys) {
+                Pointer ptr = REQRIO.Response_get_header(raw, key, err);
+                util.check_err_pointer(err);
+                this.headers.addHeader(key, ptr.getString(0));
+                REQRIO.char_free(ptr);
+            }
+
+            //cookies
+            Pointer ptr = REQRIO.Response_cookies(raw, err);
+            util.check_err_pointer(err);
+            String cookie_str = ptr.getString(0);
+            REQRIO.char_free(ptr);
+            Gson gson = new Gson();
+            ArrayList<Cookie> cookies = gson.fromJson(cookie_str, new TypeToken<ArrayList<Cookie>>() {
+            }.getType());
+            this.headers.setCookies(cookies);
+
+            //body
+            LongByReference len = new LongByReference();
+            Pointer body_ptr = REQRIO.Response_bytes(raw, len, err);
+            util.check_err_pointer(err);
+            this.body = body_ptr.getByteArray(0, (int) len.getValue());
+        } finally {
+            REQRIO.Response_drop(raw);
+        }
+    }
+
+    public int statusCode() {
+        return this.statusCode;
 
     }
 
-    public int status_code() throws Exception {
-        if (this.raw == null) throw new Exception("Response is dropped");
-        PointerByReference err = new PointerByReference();
-        int code = Session.INSTANCE.Response_status_code(this.raw, err);
-        util.check_err_pointer(err);
-        return code;
-
+    public String getHeader(String name) {
+        return this.headers.get(name);
     }
 
-    public String get_header(String name) throws Exception {
-        if (this.raw == null) throw new Exception("Response is dropped");
-        PointerByReference err = new PointerByReference();
-        Pointer value = Session.INSTANCE.Response_get_header(this.raw, name, err);
-        util.check_err_pointer(err);
-        String value_str = value.getString(0);
-        Session.INSTANCE.char_free(value);
-        return value_str;
+    public String location() {
+        return this.getHeader("location");
     }
 
-    public String location() throws Exception {
-        return this.get_header("location");
+    public byte[] bytes() {
+        return this.body;
     }
 
-    public byte[] bytes() throws Exception {
-        if (this.raw == null) throw new Exception("Response is dropped");
-        PointerByReference err = new PointerByReference();
-        LongByReference len = new LongByReference();
-        Pointer ptr = Session.INSTANCE.Response_bytes(this.raw, len, err);
-        util.check_err_pointer(err);
-        return ptr.getByteArray(0, (int) len.getValue());
-    }
-
-    public String text() throws Exception {
+    public String text() {
         return new String(this.bytes());
     }
 
-    public JsonElement json() throws Exception {
+    public JsonElement json() {
         Gson gson = new Gson();
         return gson.fromJson(this.text(), JsonElement.class);
     }
 
-    public Pointer getRaw() {
-        return raw;
+    public List<Cookie> getCookies() {
+        return headers.getCookies();
     }
 
-    public ArrayList<Cookie> getCookies() throws Exception {
-        PointerByReference err = new PointerByReference();
-        Pointer ptr = Session.INSTANCE.Response_cookies(this.raw, err);
-        util.check_err_pointer(err);
-        String cookie_str = ptr.getString(0);
-        Session.INSTANCE.char_free(ptr);
-        Gson gson = new Gson();
-        return gson.fromJson(cookie_str, new TypeToken<ArrayList<Cookie>>() {
-        }.getType());
-    }
-
-    @Override
-    public void close() {
-        if (this.raw == null) return;
-        Session.INSTANCE.Response_drop(this.raw);
-        this.raw = null;
-    }
 }

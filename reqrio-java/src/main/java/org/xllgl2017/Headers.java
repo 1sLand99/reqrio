@@ -6,7 +6,7 @@ import java.util.List;
 
 public class Headers {
     private final HashMap<String, String> keys;
-    private final List<Cookie> cookies;
+    private List<Cookie> cookies;
 
     public Headers() {
         this.keys = new HashMap<>();
@@ -41,7 +41,18 @@ public class Headers {
         }
     }
 
+    public void setCookies(ArrayList<Cookie> cookies) {
+        this.cookies = cookies;
+    }
+
     public HashMap<String, String> getKeys() {
         return keys;
+    }
+
+    public String get(String name) {
+        for (String key : this.keys.keySet()) {
+            if (key.equalsIgnoreCase(name)) return this.keys.get(key);
+        }
+        return null;
     }
 }

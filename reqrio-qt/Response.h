@@ -8,26 +8,27 @@
 #include "Header.h"
 
 
-class Response {
-    Headers headers;
-    QByteArray body;
+class Response : QObject {
+    Q_OBJECT
+
+    bindings::Response *raw_ptr;
 
 public:
-    Response();
+    explicit Response(bindings::Response *ptr, QObject *parent = nullptr);
 
-    explicit Response(const char *resp);
+    ~Response() override;
 
-    ~Response();
+    [[nodiscard]] int statusCode() const;
 
-    [[nodiscard]] int length() const;
+    [[nodiscard]] QByteArray bytes() const;
 
-    [[nodiscard]] QString toString() const;
+    [[nodiscard]] QString text() const;
 
-    [[nodiscard]] QByteArray toByteArray() const;
+    [[nodiscard]] QJsonDocument json() const;
 
-    [[nodiscard]] QJsonDocument toJson() const;
+    [[nodiscard]] QString getHeader(const QString &name) const;
 
-    Headers getHeader();
+    [[nodiscard]] QList<Cookie> cookies() const;
 };
 
 

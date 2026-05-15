@@ -10,7 +10,6 @@ use json::JsonValue;
 use std::convert::Infallible;
 use std::path::{Path, PathBuf};
 
-#[repr(C)]
 pub struct ScReq {
     header: Header,
     stream: Stream,

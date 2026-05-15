@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(reqrio-qt)
 
+set(CMAKE_AUTOMOC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_PREFIX_PATH D:/softwares/qt/5.15.2/msvc2019_64)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
@@ -17,7 +18,14 @@ add_library(reqrio-qt STATIC bindings.h
         Timeout.cpp
         Timeout.h
         WebSocket.cpp
-        WebSocket.h)
+        WebSocket.h
+        Url.cpp
+        Url.h
+        util.h
+        Body.cpp
+        Body.h
+        Fingerprint.cpp
+        Fingerprint.h)
 
 link_directories(${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(reqrio-qt PUBLIC Qt${QT_VERSION_MAJOR}::Core reqrio)

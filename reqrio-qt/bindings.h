@@ -4,6 +4,56 @@
 
 namespace bindings {
     extern "C" {
+    ///=========================>[Url]<=====================
+    struct Url;
+
+    Url *Url_new(const char *url, char **err);
+
+    char *Url_add_param(Url *url, const char *name, const char *value);
+
+    char *Url_remove_param(Url *url, const char *name);
+
+    char *Url_set_sni(Url *url, const char *sni);
+
+    void Url_drop(Url *url);
+
+    ///=========================>[Response]<=====================
+    struct Response;
+
+    uint16_t Response_status_code(const Response *response, char **err);
+
+    uint8_t *Response_bytes(Response *response, size_t *len, char **err);
+
+    char *Response_get_header(Response *response, const char *name, char **err);
+
+    char *Response_cookies(Response *response, char **err);
+
+    void Response_drop(Response *response);
+
+    ///=========================>[Body]<=====================
+    struct Body;
+
+    Body *Body_new(const uint8_t *data, size_t len, const char *ty, char **err);
+
+    Body *Body_none();
+
+    struct HttpFile;
+
+    Body *Body_new_files(HttpFile *files, char *data, char **err);
+
+    HttpFile *HttpFile_new();
+
+    struct FileForm;
+
+    char *HttpFile_add_form(HttpFile *file, FileForm *form);
+
+    FileForm *FileForm_new(const char *path, const char *field_name, const char *filetype, char **err);
+
+    void HttpFile_drop(HttpFile *file);
+
+    void Body_drop(Body *body);
+
+
     enum Method {
         GET = 0,
         POST = 1,
@@ -16,51 +66,67 @@ namespace bindings {
         PATCH = 8,
     };
 
+    ///=========================>[Fingerprint]<=====================
+    struct Fingerprint;
+
+    Fingerprint *Fingerprint_from_ja3(const char *ja3, const char *token, char **err);
+
+    Fingerprint *Fingerprint_from_ja4(const char *ja4, const char *token, char **err);
+
+    Fingerprint *Fingerprint_from_client_hello(const uint8_t *u8, size_t len, const char *token, char **err);
+
+    Fingerprint *Fingerprint_random(const char *token, char **err);
+
+    Fingerprint *Fingerprint_custom(const char *custom, const char *token, char **err);
+
+    ///=========================>[ScReq]<=====================
     struct ScReq;
 
     ScReq *ScReq_new();
 
-    int ScReq_set_header_json(ScReq *req, const char *header);
+    char *ScReq_set_header_json(ScReq *req, const char *header);
 
-    int ScReq_add_header(ScReq *req, const char *key, const char *value);
+    char *ScReq_add_header(ScReq *req, const char *key, const char *value);
 
-    int ScReq_set_alpn(ScReq *req, const char *alpn);
+    char *ScReq_remove_header(ScReq *req, const char *key);
 
-    void ScReq_set_verify(ScReq *req, bool);
+    char *ScReq_set_alpn(ScReq *req, const char *alpn);
 
-    int ScReq_set_random_fingerprint(ScReq *req, const char *token);
+    char *ScReq_set_verify(ScReq *req, bool verify);
 
-    int ScReq_set_fingerprint(ScReq *req, const char *fingerprint, const char *token);
+    char *ScReq_set_redirect(ScReq *req, bool redirect);
 
-    int ScReq_set_ja3(ScReq *req, const char *ja3, const char *token);
+    char *ScReq_set_key_log(ScReq *req, const char *key_log);
 
-    int ScReq_set_ja4(ScReq *req, const char *ja4, const char *token);
+    char *ScReq_set_fingerprint(ScReq *req, Fingerprint *fingerprint);
 
-    int ScReq_set_proxy(ScReq *req, const char *proxy);
+    // int ScReq_set_ja3(ScReq *req, const char *ja3, const char *token);
 
-    int ScReq_set_url(ScReq *req, const char *url);
+    // int ScReq_set_ja4(ScReq *req, const char *ja4, const char *token);
 
-    int ScReq_add_param(ScReq *req, const char *name, const char *value);
+    char *ScReq_set_proxy(ScReq *req, const char *proxy);
 
-    int ScReq_set_bytes(ScReq *req, const uint8_t *bytes, uint32_t len, const char *ct);
+    char *ScReq_set_timeout(ScReq *req, const char *timeout);
 
-    int ScReq_set_context_type(ScReq *req, const char *ct);
+    char *ScReq_set_cookie(ScReq *req, const char *cookie);
 
-    int ScReq_set_timeout(ScReq *req, const char *timeout);
+    char *ScReq_add_cookie(ScReq *req, const char *name, const char *value);
 
-    int ScReq_set_cookie(ScReq *req, const char *cookie);
+    Response *ScReq_stream_io(ScReq *req, Method method, Url *url, Body *body, char **err);
 
-    int ScReq_add_cookie(ScReq *req, const char *name, const char *value);
 
-    typedef void (*Callback)(const char *data, uint32_t len);
+    // typedef void (*Callback)(const char *data, uint32_t len);
 
-    int ScReq_set_callback(ScReq *req, Callback callback);
+    // int ScReq_set_callback(ScReq *req, Callback callback);
 
-    int ScReq_reconnect(ScReq *req);
+    char *ScReq_reconnect(ScReq *req);
 
-    char *ScReq_stream_io(ScReq *req, Method method);
+    char *ScReq_connect(ScReq *req);
+
+    char *ScReq_close_stream(ScReq *req);
 
     void ScReq_drop(ScReq *req);
+
 
     void char_free(char *p);
 
@@ -87,5 +153,7 @@ namespace bindings {
     int ws_write(WS_SOCKET *ws, int opcode, bool mask, const char *msg);
 
     void ws_close(WS_SOCKET *ws);
+
+    char *url_encode(const char *str);
     }
 }

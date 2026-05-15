@@ -9,6 +9,8 @@ import com.sun.jna.ptr.PointerByReference;
 import java.io.IOException;
 
 public interface ReqrioLibrary extends Library {
+    public static final ReqrioLibrary REQRIO = ReqrioLibrary.loadLibrary();
+
     Pointer ScReq_new();
 
     Pointer ScReq_set_header_json(Pointer req, String header);
@@ -38,6 +40,8 @@ public interface ReqrioLibrary extends Library {
 //    int ScReq_set_callback(Pointer req, ScReqCallback cb);
 
     Pointer ScReq_reconnect(Pointer req);
+
+    Pointer ScReq_connect(Pointer req, String url);
 
     Pointer ScReq_stream_io(Pointer req, int method, Pointer url, Pointer body, PointerByReference err);
 
@@ -84,6 +88,8 @@ public interface ReqrioLibrary extends Library {
     Pointer Response_get_header(Pointer resp, String name, PointerByReference err);
 
     Pointer Response_cookies(Pointer resp, PointerByReference err);
+
+    Pointer Response_header_keys(Pointer resp, PointerByReference err);
 
     void Response_drop(Pointer resp);
 

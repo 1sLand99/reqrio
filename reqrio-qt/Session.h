@@ -7,6 +7,12 @@
 
 #include "Response.h"
 #include "Timeout.h"
+#include "util.h"
+#include "bindings.h"
+#include "Body.h"
+#include "Fingerprint.h"
+#include "Url.h"
+
 using namespace std;
 
 enum ALPN {
@@ -15,35 +21,28 @@ enum ALPN {
 };
 
 
-class Session {
+class Session : QObject {
+    Q_OBJECT
     bindings::ScReq *req = nullptr;
 
 public:
-    explicit Session();
+    explicit Session(QObject *parent = nullptr);
 
-    ~Session();
+    ~Session() override;
 
-    explicit Session(ALPN alpn, bool rand_tls = false, const QString &token = "", bool verify = true);
+    explicit Session(ALPN alpn, bool verify = true, QObject *parent = nullptr);
 
-    void setHeaderJson(const QString &header) const;
+    void setHeader(const QJsonDocument &header) const;
 
     void addHeader(const QString &name, const QString &value) const;
 
     void setAlpn(ALPN alpn) const;
 
+    void setVerify(bool verify) const;
+
+    void setKeyLog(const QString &key_log) const;
+
     void setProxy(const QString &proxy) const;
-
-    void addParam(const QString &name, const QString &value) const;
-
-    void setData(const QString &data) const;
-
-    void setJson(const QString &json) const;
-
-    void setBytes(const uint8_t *bytes, const QString &ct = "application/octet-stream") const;
-
-    void setText(const QString &text) const;
-
-    void setContextType(const QString &contextType) const;
 
     void setTimeout(const Timeout &timeout) const;
 
@@ -51,37 +50,28 @@ public:
 
     void addCookie(const QString &name, const QString &value) const;
 
-    void setFingerprint(const QString &fingerprint, const QString &token) const;
+    void setFingerprint(Fingerprint *fingerprint) const;
 
-    void setJa3(const QString &ja3, const QString &token) const;
+    // void setCallback(bindings::Callback callback) const;
+    [[nodiscard]] Response send(bindings::Method method, Url *url, Body *body) const;
 
-    void setJa4(const QString &ja4, const QString &token) const;
+    [[nodiscard]] Response get(Url *, Body *) const;
 
-    void setCallback(bindings::Callback callback) const;
+    [[nodiscard]] Response post(Url *, Body *) const;
 
-    [[nodiscard]] Response get() const;
+    [[nodiscard]] Response put(Url *, Body *) const;
 
-    [[nodiscard]] Response post() const;
+    [[nodiscard]] Response options(Url *, Body *) const;
 
-    [[nodiscard]] Response put() const;
+    [[nodiscard]] Response head(Url *, Body *) const;
 
-    [[nodiscard]] Response options() const;
+    [[nodiscard]] Response delete_(Url *, Body *) const;
 
-    [[nodiscard]] Response head() const;
+    [[nodiscard]] Response trace(Url *, Body *) const;
 
-    [[nodiscard]] Response delete_() const;
-
-    [[nodiscard]] Response trace() const;
-
-    [[nodiscard]] Response patch() const;
-
-    void setUrl(const QString &url) const;
-
-    void close() const;
+    [[nodiscard]] Response patch(Url *, Body *) const;
 
 private:
-    [[nodiscard]] Response send(bindings::Method method) const;
-
     static const char *alpn_str(ALPN alpn) {
         switch (alpn) {
             case HTTP20:

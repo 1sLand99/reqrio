@@ -181,11 +181,26 @@ pub unsafe extern "C" fn ScReq_stream_io(
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
 pub extern "system" fn ScReq_reconnect(req: *mut ScReq) -> *mut c_char {
-    check_run(move || {
-        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
-        req.re_conn(None)?;
-        Ok(null_mut())
-    }, handle_err2)
+    catch_unwind(AssertUnwindSafe(|| {
+        check_run(move || {
+            let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
+            req.re_conn(None)?;
+            Ok(null_mut())
+        }, handle_err2)
+    })).unwrap_or_else(|_| handle_err2("程序panic"))
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_connect(req: *mut ScReq, url: *const c_char) -> *mut c_char {
+    catch_unwind(AssertUnwindSafe(|| {
+        check_run(move || {
+            let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
+            let url = unsafe { CStr::from_ptr(url) }.to_str()?.try_into()?;
+            req.re_conn(Some(&url))?;
+            Ok(null_mut())
+        }, handle_err2)
+    })).unwrap_or_else(|_| handle_err2("程序panic"))
 }
 
 #[unsafe(no_mangle)]

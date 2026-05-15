@@ -37,33 +37,34 @@ public class Main {
 
     public static void get() throws Exception {
         try (Session session = new Session(ALPN.HTTP20)) {
+            session.connect("www.baidu.com");
             session.setHeaders(getHeaders());
             Body body = new Body();
             ///get with str
             Response resp = session.get("https://www.baidu.com", body);
-            System.out.println("code: " + resp.status_code());
+            System.out.println("code: " + resp.statusCode());
             System.out.println("len: " + resp.bytes().length);
             List<Cookie> cookies = resp.getCookies();
             for (Cookie cookie : cookies) {
                 System.out.println("Set-Cookie: " + cookie.getName() + "=" + cookie.getValue());
             }
-            resp.close();
+            System.out.println("header: " + resp.getHeader("server"));
+            System.out.println("body: " + resp.text().substring(0, 100));
 
             session.removeHeader("accept");
             ///get with [Url]
             session.reconnect();
             Url url = new Url("https://www.baidu.com");
             Response resp1 = session.get(url, new Body());
-            System.out.println("code: " + resp1.status_code());
+            System.out.println("code: " + resp1.statusCode());
             System.out.println("len: " + resp1.bytes().length);
-            resp1.close();
 
             /// get with [Url] and sni
             Url url1 = new Url("https://183.2.172.177", "www.baidu.com");
-            try (Response resp2 = session.get(url1)) {
-                System.out.println("code: " + resp2.status_code());
-                System.out.println("len: " + resp2.bytes().length);
-            }
+            Response resp2 = session.get(url1);
+            System.out.println("code: " + resp2.statusCode());
+            System.out.println("len: " + resp2.bytes().length);
+
             session.closeStream();
         }
     }
@@ -79,9 +80,8 @@ public class Main {
         obj1.add("key2", new JsonPrimitive("value2"));
         obj.add("field3", obj1);
         Response resp = session.post("https://www.baidu.com", new Body(obj));
-        System.out.println("code: " + resp.status_code());
+        System.out.println("code: " + resp.statusCode());
         System.out.println("len: " + resp.bytes().length);
-        resp.close();
         session.close();
     }
 
@@ -91,14 +91,10 @@ public class Main {
         HashMap<String, String> obj = new HashMap<>();
         obj.put("field1", "1");
         obj.put("field2", "1234");
-        JsonObject obj1 = new JsonObject();
-        obj1.add("key1", new JsonPrimitive("value1"));
-        obj1.add("key2", new JsonPrimitive("value2"));
         obj.put("field3", "{\"key1\": \"value1\", \"key2\": \"value2\"}");
         Response resp = session.post("https://www.baidu.com", new Body(obj));
-        System.out.println("code: " + resp.status_code());
+        System.out.println("code: " + resp.statusCode());
         System.out.println("len: " + resp.bytes().length);
-        resp.close();
         session.close();
     }
 
@@ -107,14 +103,12 @@ public class Main {
         session.setHeaders(getHeaders());
         byte[] bs = "test byte body".getBytes();
         Response resp = session.post("https://www.baidu.com", new Body(bs, "text/plain"));
-        System.out.println("code: " + resp.status_code());
+        System.out.println("code: " + resp.statusCode());
         System.out.println("len: " + resp.bytes().length);
-        resp.close();
 
         Response resp1 = session.post("https://www.baidu.com", new Body("test byte body"));
-        System.out.println("code: " + resp1.status_code());
+        System.out.println("code: " + resp1.statusCode());
         System.out.println("len: " + resp1.bytes().length);
-        resp1.close();
         session.close();
     }
 
@@ -124,9 +118,8 @@ public class Main {
         HttpFile file = new HttpFile();
         file.addFile("2.log");
         Response resp = session.post("https://www.baidu.com", new Body(file));
-        System.out.println("code: " + resp.status_code());
+        System.out.println("code: " + resp.statusCode());
         System.out.println("len: " + resp.bytes().length);
-        resp.close();
         session.close();
     }
 
@@ -134,14 +127,13 @@ public class Main {
         Session session = new Session(ALPN.HTTP20);
         session.setHeaders(getHeaders());
         Url url = new Url("https://www.baidu.com");
-        url.add_param("p1", "v1");
-        url.add_param("p2", "v2");
-        url.add_param("p3", "{'sdfdsf':34}");
+        url.addParam("p1", "v1");
+        url.addParam("p2", "v2");
+        url.addParam("p3", "{'sdfdsf':34}");
         Response resp = session.put(url, new Body());
         session.close();
-        System.out.println("code: " + resp.status_code());
+        System.out.println("code: " + resp.statusCode());
         System.out.println("len: " + resp.bytes().length);
-        resp.close();
 
     }
 
@@ -150,9 +142,8 @@ public class Main {
         session.setHeaders(getHeaders());
         Body body = new Body();
         Response resp = session.send(Method.GET, new Url("https://www.baidu.com"), body);
-        System.out.println("code: " + resp.status_code());
+        System.out.println("code: " + resp.statusCode());
         System.out.println("len: " + resp.bytes().length);
-        resp.close();
         session.close();
     }
 
@@ -232,9 +223,8 @@ public class Main {
         session.setFingerprint(Fingerprint.fromCustom(getFinger(), TOKEN));
         session.setHeaders(getHeaders());
         Response resp = session.get("https://www.baidu.com");
-        System.out.println("code: " + resp.status_code());
+        System.out.println("code: " + resp.statusCode());
         System.out.println("len: " + resp.bytes().length);
-        resp.close();
         session.close();
 
     }
@@ -245,9 +235,8 @@ public class Main {
         session.setFingerprint(Fingerprint.fromJa3(ja3, TOKEN));
         session.setHeaders(getHeaders());
         Response resp = session.get("https://www.baidu.com");
-        System.out.println("code: " + resp.status_code());
+        System.out.println("code: " + resp.statusCode());
         System.out.println("len: " + resp.bytes().length);
-        resp.close();
         session.close();
     }
 
@@ -257,9 +246,8 @@ public class Main {
         session.setFingerprint(Fingerprint.fromJa4(ja4, TOKEN));
         session.setHeaders(getHeaders());
         Response resp = session.get("https://www.baidu.com");
-        System.out.println("code: " + resp.status_code());
+        System.out.println("code: " + resp.statusCode());
         System.out.println("len: " + resp.bytes().length);
-        resp.close();
         session.close();
     }
 
@@ -268,9 +256,8 @@ public class Main {
         session.setFingerprint(Fingerprint.random(TOKEN));
         session.setHeaders(getHeaders());
         Response resp = session.get("https://www.baidu.com");
-        System.out.println("code: " + resp.status_code());
+        System.out.println("code: " + resp.statusCode());
         System.out.println("len: " + resp.bytes().length);
-        resp.close();
         session.close();
     }
 
@@ -284,9 +271,8 @@ public class Main {
         session.addHeader("sec-ch-ua-platform", "\"Linux\"");
         session.addHeader("user-agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0");
         Response resp = session.get("https://www.baidu.com");
-        System.out.println("code: " + resp.status_code());
+        System.out.println("code: " + resp.statusCode());
         System.out.println("len: " + resp.bytes().length);
-        resp.close();
         session.close();
     }
 

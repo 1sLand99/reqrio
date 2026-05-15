@@ -14,19 +14,17 @@ void callback(const char *data, uint32_t len) {
 }
 
 int main(int argc, char *argv[]) {
-    Session session(HTTP20, true, "1", false);
-    session.setUrl("https://m.so.com");
-    session.setText("sdfsdf");
-    session.setCallback(callback);
-    Response resp = session.get();
-    qDebug() << resp.getHeader().getStatus();
+    Session session(HTTP20);
+    Response resp = session.get(new Url("https://m.so.com"), new Body());
+    qDebug() << resp.statusCode();
+    qDebug() << resp.text()<<resp.text().length();
 
-    try {
-        WebSocket webSocket("wss://alive.github.com");
-        webSocket.open();
-    } catch (std::exception &e) {
-        qDebug() << e.what();
-    }
+    // try {
+    //     WebSocket webSocket("wss://alive.github.com");
+    //     webSocket.open();
+    // } catch (std::exception &e) {
+    //     qDebug() << e.what();
+    // }
 
     // QJsonObject obj = webSocket.read();
 }

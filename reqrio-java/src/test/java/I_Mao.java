@@ -121,10 +121,9 @@ public class I_Mao {
         Url url = new Url("https://220.167.102.112/xhr/front/trade/priority/rushPurchase/hot/branch/one", SNI);
         JsonObject data = new JsonObject();
         data.add("actParam", new JsonPrimitive("salGYFt5S6bQg3QmZ92dY6bsH+8CAJ0R8kZwwurslmXbTh0epueTLDQriQRinhZlHxazFMfUEIr7IQzUxd3hjNAb2U/yYWciM2reBPdS+APR4IV9CE60Nb9n+Id++Pf4yYcdUEBJaTXQuMzNblj0M90JBJQbOG40L7GZCPdELGylgHK9C0F8BlSFNh80hSdRw2KmOJL2HAYyfuscHG0qTsHXECJ4+OHwBTcRt+dKDOhyl3LSAL5a8Eb3Ht1vLgleDKmr0SzyDEIVOJuSPW23F4Fmq7NPIOnPY8hL5XL3ewpBpgGWj53vu2SVi27sTRioopNhjW6J2SOQyUsHFj60EpCbMwh6++NkGum/ltUZ1OHpN7psICQQXb9FDuak/2ytffZiKbZcLWgiF+FuuB2ofXV77NfUhTTr7xO6S/J32rI="));
-        try (Response response = session.post(url, new Body(data))) {
-            System.out.println(response.status_code());
-            System.out.println(response.text());
-        }
+        Response response = session.post(url, new Body(data));
+        System.out.println(response.statusCode());
+        System.out.println(response.text());
         session.close();
 
 
