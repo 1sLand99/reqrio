@@ -24,9 +24,9 @@ namespace bindings {
 
     uint8_t *Response_bytes(Response *response, size_t *len, char **err);
 
-    char *Response_get_header(Response *response, const char *name, char **err);
+    char *Response_get_header(const Response *response, const char *name, char **err);
 
-    char *Response_cookies(Response *response, char **err);
+    char *Response_cookies(const Response *response, char **err);
 
     void Response_drop(Response *response);
 
@@ -39,7 +39,7 @@ namespace bindings {
 
     struct HttpFile;
 
-    Body *Body_new_files(HttpFile *files, char *data, char **err);
+    Body *Body_new_files(HttpFile *files, const char *data, char **err);
 
     HttpFile *HttpFile_new();
 

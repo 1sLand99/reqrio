@@ -240,7 +240,7 @@ impl AcReq {
     }
 
     pub(crate) async fn set_url(&mut self, url: &Url) -> HlsResult<()> {
-        if self.url.sni() != url.sni() || self.stream.scheme() != Some(*url.scheme()) {
+        if self.url.addr().host() != url.addr().host() || self.stream.scheme() != Some(*url.scheme()) {
             self.re_conn(Some(url)).await?;
         }
         Ok(())

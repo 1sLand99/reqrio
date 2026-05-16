@@ -3,7 +3,8 @@
 //
 
 #include "Fingerprint.h"
-#include "Fingerprint.h"
+
+#include <QJsonDocument>
 
 #include "util.h"
 
@@ -38,4 +39,19 @@ bindings::Fingerprint *Fingerprint::take() {
     bindings::Fingerprint *raw = this->raw_ptr;
     this->raw_ptr = nullptr;
     return raw;
+}
+
+Fingerprint *Fingerprint::fromClientHello(const QByteArray &bs, const QString &token, QObject *parent) {
+    char *err = nullptr;
+    const auto ptr = reinterpret_cast<const uint8_t *>(bs.constData());
+    const auto raw = bindings::Fingerprint_from_client_hello(ptr, bs.length(), token.toUtf8(), &err);
+    util::check_err(err);
+    return new Fingerprint(raw, parent);
+}
+
+Fingerprint *Fingerprint::fromCustom(const QJsonObject &custom, const QString &token, QObject *parent) {
+    char *err = nullptr;
+    const auto raw = bindings::Fingerprint_custom(QJsonDocument(custom).toJson(), token.toUtf8(), &err);
+    util::check_err(err);
+    return new Fingerprint(raw, parent);
 }

@@ -11,10 +11,10 @@ Session::Session(QObject *parent) : QObject(parent) {
     this->req = bindings::ScReq_new();
 }
 
-
-Session::Session(const ALPN alpn, const bool verify, QObject *parent) : Session(parent) {
+Session::Session(const ALPN alpn, const bool verify, const bool auto_redirect, QObject *parent) : Session(parent) {
     this->setAlpn(alpn);
     this->setVerify(verify);
+    this->setRedirect(auto_redirect);
 }
 
 void Session::setHeader(const QJsonDocument &header) const {
@@ -32,6 +32,10 @@ void Session::setAlpn(const ALPN alpn) const {
 
 void Session::setVerify(const bool verify) const {
     util::check_err(bindings::ScReq_set_verify(this->req, verify));
+}
+
+void Session::setRedirect(const bool auto_redirect) const {
+    util::check_err(bindings::ScReq_set_redirect(this->req, auto_redirect));
 }
 
 void Session::setKeyLog(const QString &key_log) const {
@@ -58,11 +62,14 @@ void Session::addCookie(const QString &name, const QString &value) const {
 
 void Session::setFingerprint(Fingerprint *fingerprint) const {
     util::check_err(bindings::ScReq_set_fingerprint(this->req, fingerprint->take()));
+    delete fingerprint;
 }
 
 Response Session::send(const bindings::Method method, Url *url, Body *body) const {
     char *err = nullptr;
     const auto resp_ptr = bindings::ScReq_stream_io(this->req, method, url->take(), body->take(), &err);
+    delete url;
+    delete body;
     util::check_err(err);
     return Response(resp_ptr);
 }
@@ -76,9 +83,28 @@ Response Session::get(Url *url, Body *body) const {
     return send(bindings::GET, url, body);
 }
 
+Response Session::get(const QString &url, Body *body) const {
+    return this->get(new Url(url), body);
+}
+
+Response Session::get(const QString &url) const {
+    return this->get(url, new Body());
+}
 
 Response Session::post(Url *url, Body *body) const {
     return send(bindings::POST, url, body);
+}
+
+Response Session::post(const QString &url, Body *body) const {
+    return post(new Url(url), body);
+}
+
+Response Session::post(const QString &url, const QJsonDocument &body) const {
+    return post(url, new Body(body));
+}
+
+Response Session::post(const QString &url, const QMap<QString, QString> &body) const {
+    return post(url, new Body(body));
 }
 
 Response Session::put(Url *url, Body *body) const {

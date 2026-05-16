@@ -12,8 +12,7 @@
 class Fingerprint : QObject {
     Q_OBJECT
 
-private:
-    bindings::Fingerprint *raw_ptr;
+bindings::Fingerprint *raw_ptr;
 
 public:
     explicit Fingerprint(bindings::Fingerprint *, QObject *parent = nullptr);
@@ -22,7 +21,11 @@ public:
 
     static Fingerprint *fromJa3(const QString &ja3, const QString &token, QObject *parent = nullptr);
 
-    static Fingerprint *fromJa4(const QString &ja3, const QString &token, QObject *parent = nullptr);
+    static Fingerprint *fromJa4(const QString &ja4, const QString &token, QObject *parent = nullptr);
+
+    static Fingerprint *fromClientHello(const QByteArray &bs, const QString &token, QObject *parent = nullptr);
+
+    static Fingerprint *fromCustom(const QJsonObject &, const QString &token, QObject *parent = nullptr);
 
     static Fingerprint *random(const QString &token, QObject *parent = nullptr);
 };

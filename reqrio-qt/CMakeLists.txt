@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(reqrio-qt)
 
+add_compile_options(/utf-8)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_PREFIX_PATH D:/softwares/qt/5.15.2/msvc2019_64)
@@ -25,7 +26,14 @@ add_library(reqrio-qt STATIC bindings.h
         Body.cpp
         Body.h
         Fingerprint.cpp
-        Fingerprint.h)
+        Fingerprint.h
+        CipherSuite.h
+        Algorithm.h
+        CompressionMethod.h
+        Group.h
+        Version.h
+        EcPointFormat.h
+        ExtensionType.h)
 
 link_directories(${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(reqrio-qt PUBLIC Qt${QT_VERSION_MAJOR}::Core reqrio)

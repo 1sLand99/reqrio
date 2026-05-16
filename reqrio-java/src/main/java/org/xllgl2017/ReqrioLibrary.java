@@ -9,7 +9,7 @@ import com.sun.jna.ptr.PointerByReference;
 import java.io.IOException;
 
 public interface ReqrioLibrary extends Library {
-    public static final ReqrioLibrary REQRIO = ReqrioLibrary.loadLibrary();
+    ReqrioLibrary REQRIO = ReqrioLibrary.loadLibrary();
 
     Pointer ScReq_new();
 
