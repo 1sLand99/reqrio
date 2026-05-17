@@ -71,6 +71,7 @@ enum Method {
 ### TLS参数
 
 #### CipherSuite
+
 ```c
 enum CipherSuite {
     // ecdhe-ecdhe
@@ -118,6 +119,7 @@ enum CipherSuite {
 ```
 
 #### ExtensionType
+
 ```c
 enum ExtensionType {
     ServerName = 0x0,
@@ -145,6 +147,7 @@ enum ExtensionType {
 ```
 
 #### SupportGroup
+
 ```c
 enum SupportGroup {
     X25519 = 0x1d,
@@ -163,6 +166,7 @@ enum SupportGroup {
 ```
 
 #### Version
+
 ```c
 enum Version {
     TLS_1_0 = 0x301,
@@ -173,6 +177,7 @@ enum Version {
 ```
 
 #### CompressionMethod
+
 ```c
 enum CompressionMethod {
     NUL = 0,
@@ -184,6 +189,7 @@ enum CompressionMethod {
 ```
 
 #### EcPointFormat
+
 ```c
 enum EcPointFormat {
     UNCOMPRESSED = 0,
@@ -196,13 +202,28 @@ enum EcPointFormat {
 
 Session指纹，包含TLS指纹和HTTP/2指纹
 
-| No. | Function                      | Params                                              | Res           |
-|:---:|:------------------------------|:----------------------------------------------------|:--------------|
-|  1  | Fingerprint_from_ja3          | const char *, const char *, char **                 | Fingerprint * |
-|  2  | Fingerprint_from_ja4          | const char *, const char *, char **                 | Fingerprint * |
-|  3  | Fingerprint_custom            | const char *, const char *token, char **            | Fingerprint * |
-|  4  | Fingerprint_random            | const char *, char **                               | Fingerprint * |
-|  5  | Fingerprint_from_client_hello | const uint8_t *, size_t, const char *token, char ** | Fingerprint * |
+| No. | Function                       | Params                                              | Res           |
+|:---:|:-------------------------------|:----------------------------------------------------|:--------------|
+|  1  | Fingerprint_from_ja3           | const char *, const char *, char **                 | Fingerprint * |
+|  2  | Fingerprint_from_ja4           | const char *, const char *, char **                 | Fingerprint * |
+|  3  | Fingerprint_custom             | const char *, const char *token, char **            | Fingerprint * |
+|  4  | Fingerprint_random             | const char *, char **                               | Fingerprint * |
+|  5  | Fingerprint_from_client_hello  | const uint8_t *, size_t, const char *token, char ** | Fingerprint * |
+|  6  | Fingerprint_new                | const char *                                        | Fingerprint * |
+|  7  | Fingerprint_add_cipher_suite   | Fingerprint *, u16                                  | -             |
+|  8  | Fingerprint_add_ext            | Fingerprint *, u16                                  | -             |
+|  9  | Fingerprint_add_ext_alps       | Fingerprint *, u16, const char **, size_t           | -             |
+| 10  | Fingerprint_add_ext_version    | Fingerprint *, u16, const uint16_t *, size_t        | -             |
+| 11  | Fingerprint_add_ext_curve      | Fingerprint *, u16, const uint16_t *, size_t        | -             |
+| 12  | Fingerprint_add_ext_psk_mode   | Fingerprint *, u16, u8                              | -             |
+| 13  | Fingerprint_add_ext_padding    | Fingerprint *, u16, size_t                          | -             |
+| 14  | Fingerprint_add_ext_bytes      | Fingerprint *, u16, const uint8_t *, size_t         | -             |
+| 15  | Fingerprint_add_ext_algorithm  | Fingerprint *, u16, const uint16_t *, size_t        | -             |
+| 16  | Fingerprint_add_ext_ec_point   | Fingerprint *, u16, const uint8_t *, size_t         | -             |
+| 17  | Fingerprint_add_h2_setting     | Fingerprint *, u16, u32                             | -             |
+| 18  | Fingerprint_set_h2_window_size | Fingerprint *, u32                                  | -             |
+| 19  | Fingerprint_set_h2_priority    | Fingerprint *, bool, u8                             | -             |
+| 20  | Fingerprint_drop               | Fingerprint *                                       | -             |
 
 ## Body
 

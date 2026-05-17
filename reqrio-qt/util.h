@@ -20,12 +20,12 @@ namespace util {
         throw std::runtime_error(msg.toStdString());
     }
 
-    inline QByteArray encode_url_form(const QMap<QString, QString>& forms) {
+    inline QByteArray encode_url_form(const QMap<QString, QString> &forms) {
         QString res;
-        for (const QString& key: forms.keys()) {
-            res.append(key);
+        for (auto it = forms.cbegin(); it != forms.cend(); ++it) {
+            res.append(it.key());
             res.append("=");
-            char *value = bindings::url_encode(forms.value(key).toUtf8());
+            char *value = bindings::url_encode(it.value().toUtf8());
             res.append(QString::fromUtf8(value));
             bindings::char_free(value);
             res.append("&");
@@ -33,5 +33,15 @@ namespace util {
         if (res.endsWith("&"))
             res.remove(res.lastIndexOf('&'));
         return res.toUtf8();
+    }
+
+    static QString alpn_str(const ALPN alpn) {
+        switch (alpn) {
+            case HTTP20:
+                return "h2";
+            case HTTP11:
+                return "http/1.1";
+        }
+        return "";
     }
 }

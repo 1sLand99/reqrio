@@ -340,4 +340,16 @@ impl TlsFinger {
             extensions,
         })
     }
+
+    pub fn add_cipher_suite(&mut self, suite: CipherSuite) {
+        if let TlsFinger::Custom { suites, .. } = self {
+            suites.push(suite);
+        }
+    }
+
+    pub fn add_extension(&mut self, ext_typ: ExtensionType, value: ExtensionValue) {
+        if let TlsFinger::Custom { extensions, .. } = self {
+            extensions.push(Extension::new(ext_typ, value))
+        }
+    }
 }

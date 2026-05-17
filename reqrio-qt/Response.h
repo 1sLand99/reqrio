@@ -5,7 +5,8 @@
 #ifndef REQRIO_RESPONSE_H
 #define REQRIO_RESPONSE_H
 
-#include "Header.h"
+#include "bindings.h"
+#include "Cookie.h"
 
 
 class Response : QObject {

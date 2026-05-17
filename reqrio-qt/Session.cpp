@@ -26,8 +26,8 @@ void Session::addHeader(const QString &name, const QString &value) const {
 }
 
 void Session::setAlpn(const ALPN alpn) const {
-    const char *alpn_str = Session::alpn_str(alpn);
-    util::check_err(bindings::ScReq_set_alpn(this->req, alpn_str));
+    const auto alpn_str = util::alpn_str(alpn);
+    util::check_err(bindings::ScReq_set_alpn(this->req, alpn_str.toUtf8()));
 }
 
 void Session::setVerify(const bool verify) const {
@@ -65,7 +65,7 @@ void Session::setFingerprint(Fingerprint *fingerprint) const {
     delete fingerprint;
 }
 
-Response Session::send(const bindings::Method method, Url *url, Body *body) const {
+Response Session::send(const Method method, Url *url, Body *body) const {
     char *err = nullptr;
     const auto resp_ptr = bindings::ScReq_stream_io(this->req, method, url->take(), body->take(), &err);
     delete url;
@@ -80,7 +80,7 @@ Response Session::send(const bindings::Method method, Url *url, Body *body) cons
 
 
 Response Session::get(Url *url, Body *body) const {
-    return send(bindings::GET, url, body);
+    return send(GET, url, body);
 }
 
 Response Session::get(const QString &url, Body *body) const {
@@ -92,7 +92,7 @@ Response Session::get(const QString &url) const {
 }
 
 Response Session::post(Url *url, Body *body) const {
-    return send(bindings::POST, url, body);
+    return send(POST, url, body);
 }
 
 Response Session::post(const QString &url, Body *body) const {
@@ -108,27 +108,27 @@ Response Session::post(const QString &url, const QMap<QString, QString> &body) c
 }
 
 Response Session::put(Url *url, Body *body) const {
-    return send(bindings::PUT, url, body);
+    return send(PUT, url, body);
 }
 
 Response Session::head(Url *url, Body *body) const {
-    return send(bindings::HEAD, url, body);
+    return send(HEAD, url, body);
 }
 
 Response Session::options(Url *url, Body *body) const {
-    return send(bindings::OPTIONS, url, body);
+    return send(OPTIONS, url, body);
 }
 
 Response Session::trace(Url *url, Body *body) const {
-    return send(bindings::TRACE, url, body);
+    return send(TRACE, url, body);
 }
 
 Response Session::delete_(Url *url, Body *body) const {
-    return send(bindings::DELETE, url, body);
+    return send(DELETE, url, body);
 }
 
 Response Session::patch(Url *url, Body *body) const {
-    return send(bindings::PATCH, url, body);
+    return send(PATCH, url, body);
 }
 
 

@@ -2,6 +2,23 @@
 
 #include <cstdint>
 
+enum ALPN {
+    HTTP20,
+    HTTP11
+};
+
+enum Method {
+    GET = 0,
+    POST = 1,
+    PUT = 2,
+    HEAD = 3,
+    DELETE = 4,
+    OPTIONS = 5,
+    TRACE = 6,
+    CONNECT = 7,
+    PATCH = 8,
+};
+
 namespace bindings {
     extern "C" {
     ///=========================>[Url]<=====================
@@ -53,19 +70,6 @@ namespace bindings {
 
     void Body_drop(Body *body);
 
-
-    enum Method {
-        GET = 0,
-        POST = 1,
-        PUT = 2,
-        HEAD = 3,
-        DELETE = 4,
-        OPTIONS = 5,
-        TRACE = 6,
-        CONNECT = 7,
-        PATCH = 8,
-    };
-
     ///=========================>[Fingerprint]<=====================
     struct Fingerprint;
 
@@ -78,6 +82,38 @@ namespace bindings {
     Fingerprint *Fingerprint_random(const char *token, char **err);
 
     Fingerprint *Fingerprint_custom(const char *custom, const char *token, char **err);
+
+    Fingerprint *Fingerprint_new(const char *token);
+
+    void Fingerprint_add_cipher_suite(Fingerprint *fingerprint, uint16_t suite);
+
+    void Fingerprint_add_ext(Fingerprint *fingerprint, uint16_t ext_typ);
+
+    void Fingerprint_add_ext_alps(Fingerprint *fingerprint, uint16_t ext_typ, const char **alps, size_t len);
+
+    void Fingerprint_add_ext_version(Fingerprint *fingerprint, uint16_t ext_typ, const uint16_t *version, size_t len);
+
+    void Fingerprint_add_ext_curve(Fingerprint *fingerprint, uint16_t ext_typ, const uint16_t *curve, size_t len);
+
+    void Fingerprint_add_ext_compress(Fingerprint *fingerprint, uint16_t ext_typ, const uint16_t *compress, size_t len);
+
+    void Fingerprint_add_ext_psk_mode(Fingerprint *fingerprint, uint16_t ext_typ, uint8_t mode);
+
+    void Fingerprint_add_ext_padding(Fingerprint *fingerprint, uint16_t ext_typ, size_t padding);
+
+    void Fingerprint_add_ext_bytes(Fingerprint *fingerprint, uint16_t ext_typ, const uint8_t *bytes, size_t len);
+
+    void Fingerprint_add_ext_algorithm(Fingerprint *fingerprint, uint16_t ext_typ, const uint16_t *algo, size_t len);
+
+    void Fingerprint_add_ext_ec_point(Fingerprint *fingerprint, uint16_t ext_typ, const uint8_t *point, size_t len);
+
+    void Fingerprint_add_h2_setting(Fingerprint *fingerprint, uint16_t flag, uint32_t value);
+
+    void Fingerprint_set_h2_window_size(Fingerprint *fingerprint, uint32_t size);
+
+    void Fingerprint_set_h2_priority(Fingerprint *fingerprint, bool priority, uint8_t weight);
+
+    void Fingerprint_drop(Fingerprint *fingerprint);
 
     ///=========================>[ScReq]<=====================
     struct ScReq;

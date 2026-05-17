@@ -73,7 +73,6 @@ def custom_finger():
             CipherSuite.TLS_AES_256_GCM_SHA384,
             CipherSuite.TLS_CHACHA20_POLY1305_SHA256,
         ],
-        "compress_methods": [CompressionMethod.NULL],
         "extensions": {
             ExtensionType.StatusRequest: None,
             ExtensionType.SupportedGroup: [

@@ -7,18 +7,12 @@
 
 #include "Response.h"
 #include "Timeout.h"
-#include "util.h"
 #include "bindings.h"
 #include "Body.h"
 #include "Fingerprint.h"
 #include "Url.h"
 
 using namespace std;
-
-enum ALPN {
-    HTTP20,
-    HTTP11,
-};
 
 
 class Session : QObject {
@@ -80,7 +74,7 @@ public:
     /// @param method:请求的方法
     /// @param url:请求的Url
     /// @param body:请求的Body
-    [[nodiscard]] Response send(bindings::Method method, Url *url, Body *body) const;
+    [[nodiscard]] Response send(Method method, Url *url, Body *body) const;
 
     [[nodiscard]] Response get(Url *, Body *) const;
 
@@ -108,16 +102,7 @@ public:
 
     [[nodiscard]] Response patch(Url *, Body *) const;
 
-private:
-    static const char *alpn_str(ALPN alpn) {
-        switch (alpn) {
-            case HTTP20:
-                return "h2";
-            case HTTP11:
-                return "http/1.1";
-        }
-        return "";
-    };
+
 };
 
 

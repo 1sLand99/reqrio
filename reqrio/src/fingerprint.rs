@@ -22,6 +22,19 @@ impl H2Finger {
     pub fn build_window_update(&self) -> H2EncodeFrame<'_> {
         H2EncodeFrame::new_window_update(&self.window_size)
     }
+
+    pub fn add_setting(&mut self, setting: H2Setting) {
+        self.setting.push(setting);
+    }
+
+    pub fn set_window_size(&mut self, window_size: u32) {
+        self.window_size = window_size;
+    }
+
+    pub fn set_priority(&mut self, priority: bool, weight: u8) {
+        self.priority = priority;
+        self.weight = weight;
+    }
 }
 
 #[derive(Debug)]
@@ -32,6 +45,19 @@ pub struct Fingerprint {
 }
 
 impl Fingerprint {
+    pub fn new_custom(token: impl AsRef<str>) -> Fingerprint {
+        Fingerprint {
+            tls: TlsFinger::Custom { suites: vec![], extensions: vec![] },
+            h2: H2Finger {
+                setting: vec![],
+                window_size: 0,
+                weight: 0,
+                priority: false,
+            },
+            legal_subscript: Buffer::new_bytes(vec![]).check_subscription(token).unwrap_or(-2),
+        }
+    }
+
     pub fn new(tls: TlsFinger, h2: H2Finger, token: impl AsRef<str>) -> HlsResult<Self> {
         Ok(Fingerprint {
             tls,
@@ -52,11 +78,17 @@ impl Fingerprint {
         &self.h2
     }
 
+    pub fn h2_mut(&mut self) -> &mut H2Finger {
+        &mut self.h2
+    }
+
     pub fn legal_subscript(&self) -> i32 {
         self.legal_subscript
     }
 
     pub fn tls(&self) -> &TlsFinger { &self.tls }
+
+    pub fn tls_mut(&mut self) -> &mut TlsFinger { &mut self.tls }
 }
 
 impl Fingerprint {

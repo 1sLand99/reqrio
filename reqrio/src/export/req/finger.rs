@@ -8,6 +8,167 @@ use std::slice;
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
+pub extern "system" fn Fingerprint_new(token: *const c_char) -> *mut Fingerprint {
+    let token = unsafe { CStr::from_ptr(token) }.to_str().unwrap_or("");
+    Box::into_raw(Box::new(Fingerprint::new_custom(token)))
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn Fingerprint_add_cipher_suite(fingerprint: *mut Fingerprint, suite: u16) {
+    let fingerprint = unsafe { fingerprint.as_mut() };
+    if let Some(fingerprint) = fingerprint {
+        fingerprint.tls_mut().add_cipher_suite(suite.into());
+    }
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn Fingerprint_add_ext(fingerprint: *mut Fingerprint, ext_typ: u16) {
+    let fingerprint = unsafe { fingerprint.as_mut() };
+    if let Some(fingerprint) = fingerprint {
+        fingerprint.tls_mut().add_extension(ext_typ.into(), ExtensionValue::Default);
+    }
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn Fingerprint_add_ext_alps(fingerprint: *mut Fingerprint, ext_typ: u16, alpn: *const *const c_char, len: usize) {
+    let fingerprint = unsafe { fingerprint.as_mut() };
+    let alps = unsafe { slice::from_raw_parts(alpn, len) }.iter().map(|&alpn| {
+        let alpn = unsafe { CStr::from_ptr(alpn) }.to_bytes();
+        ALPN::from_slice(alpn)
+    }).collect::<Vec<_>>();
+    if let Some(fingerprint) = fingerprint {
+        fingerprint.tls_mut().add_extension(ext_typ.into(), ExtensionValue::Alps(alps));
+    }
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn Fingerprint_add_ext_version(fingerprint: *mut Fingerprint, ext_typ: u16, version: *const u16, len: usize) {
+    let fingerprint = unsafe { fingerprint.as_mut() };
+    let versions = unsafe { slice::from_raw_parts(version, len) }.iter().map(|&x| x.into()).collect::<Vec<_>>();
+    if let Some(fingerprint) = fingerprint {
+        fingerprint.tls_mut().add_extension(ext_typ.into(), ExtensionValue::SupportedVersions(versions));
+    }
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn Fingerprint_add_ext_curve(fingerprint: *mut Fingerprint, ext_typ: u16, curve: *const u16, len: usize) {
+    let fingerprint = unsafe { fingerprint.as_mut() };
+    let curves = unsafe { slice::from_raw_parts(curve, len) }.iter().map(|&x| x.into()).collect::<Vec<_>>();
+    if let Some(fingerprint) = fingerprint {
+        fingerprint.tls_mut().add_extension(ext_typ.into(), ExtensionValue::Curves(curves));
+    }
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn Fingerprint_add_ext_compress(fingerprint: *mut Fingerprint, ext_typ: u16, method: *const u16, len: usize) {
+    let fingerprint = unsafe { fingerprint.as_mut() };
+    let methods = unsafe { slice::from_raw_parts(method, len) }.iter().map(|&x| x.into()).collect::<Vec<_>>();
+    if let Some(fingerprint) = fingerprint {
+        fingerprint.tls_mut().add_extension(ext_typ.into(), ExtensionValue::CompressionMethods(methods));
+    }
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn Fingerprint_add_ext_psk_mode(fingerprint: *mut Fingerprint, ext_typ: u16, mode: u8) {
+    let fingerprint = unsafe { fingerprint.as_mut() };
+    if let Some(fingerprint) = fingerprint {
+        fingerprint.tls_mut().add_extension(ext_typ.into(), ExtensionValue::PskMode(mode.into()));
+    }
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn Fingerprint_add_ext_padding(fingerprint: *mut Fingerprint, ext_typ: u16, padding: usize) {
+    let fingerprint = unsafe { fingerprint.as_mut() };
+    if let Some(fingerprint) = fingerprint {
+        fingerprint.tls_mut().add_extension(ext_typ.into(), ExtensionValue::Padding(padding));
+    }
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn Fingerprint_add_ext_bytes(fingerprint: *mut Fingerprint, ext_typ: u16, bs: *const u8, len: usize) {
+    let fingerprint = unsafe { fingerprint.as_mut() };
+    let bs = unsafe { slice::from_raw_parts(bs, len) };
+    if let Some(fingerprint) = fingerprint {
+        fingerprint.tls_mut().add_extension(ext_typ.into(), ExtensionValue::Bytes(Bytes::new(bs.to_vec())));
+    }
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn Fingerprint_add_ext_algorithm(fingerprint: *mut Fingerprint, ext_typ: u16, algorithms: *const u16, len: usize) {
+    let fingerprint = unsafe { fingerprint.as_mut() };
+    let algorithms = unsafe { slice::from_raw_parts(algorithms, len) }.iter().map(|&x| x.into()).collect::<Vec<_>>();
+    if let Some(fingerprint) = fingerprint {
+        fingerprint.tls_mut().add_extension(ext_typ.into(), ExtensionValue::Algorithms(algorithms));
+    }
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn Fingerprint_add_ext_ec_point(fingerprint: *mut Fingerprint, ext_typ: u16, ec_point: *const u8, len: usize) {
+    let fingerprint = unsafe { fingerprint.as_mut() };
+    let points = unsafe { slice::from_raw_parts(ec_point, len) }.iter().map(|&x| x.into()).collect::<Vec<_>>();
+    if let Some(fingerprint) = fingerprint {
+        fingerprint.tls_mut().add_extension(ext_typ.into(), ExtensionValue::EcPointFormats(points));
+    }
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn Fingerprint_add_h2_setting(fingerprint: *mut Fingerprint, flag: u16, value: u32) {
+    let fingerprint = unsafe { fingerprint.as_mut() };
+    if let Some(fingerprint) = fingerprint {
+        fingerprint.h2_mut().add_setting(match flag {
+            1 => H2Setting::HeaderTableSize(value),
+            2 => H2Setting::EnablePush(value),
+            3 => H2Setting::MaxConcurrentStreams(value),
+            4 => H2Setting::InitialWindowSize(value),
+            5 => H2Setting::MaxFrameSize(value),
+            6 => H2Setting::MaxHeaderListSize(value),
+            _ => H2Setting::Reserved { flag, value }
+        });
+    }
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn Fingerprint_set_h2_window_size(fingerprint: *mut Fingerprint, size: u32) {
+    let fingerprint = unsafe { fingerprint.as_mut() };
+    if let Some(fingerprint) = fingerprint {
+        fingerprint.h2_mut().set_window_size(size);
+    }
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn Fingerprint_set_h2_priority(fingerprint: *mut Fingerprint, priority: bool, weight: u8) {
+    let fingerprint = unsafe { fingerprint.as_mut() };
+    if let Some(fingerprint) = fingerprint {
+        fingerprint.h2_mut().set_priority(priority, weight);
+    }
+}
+
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn Fingerprint_drop(fingerprint: *mut Fingerprint) {
+    if fingerprint.is_null() { return; }
+    let fingerprint = unsafe { Box::from_raw(fingerprint) };
+    drop(fingerprint);
+}
+
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
 pub extern "system" fn Fingerprint_from_ja3(ja3: *const c_char, token: *const c_char, err: *mut *mut c_char) -> *mut Fingerprint {
     check_run(move || {
         let ja3 = unsafe { CStr::from_ptr(ja3) }.to_str()?;
