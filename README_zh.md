@@ -11,12 +11,11 @@
 
 # reqrio
 
-## 介绍
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`reqrio` 是一个面向高性能与浏览器级行为模拟设计的 HTTP 请求库，主要用于需要精确控制网络行为的场景，
+比如协议研究、指纹分析、高并发采集以及复杂反爬环境下的请求构造。
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;reqrio 是一个旨在快速、轻松且便捷地发送 HTTP 请求的库。
-其目标是实现快速、简单便捷的HTTP请求使用。
-
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Reqrio是一个HTTP请求库，支持多种协议和语言绑定，提供高性能的HTTP客户端功能。
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`reqrio`是由Rust编写HTTP客户端请求库,并通过ffi绑定到多个语言。支持HTTP/1.1、HTTP/2.0;
+TLS支持TLS 1.2, TLS 1.3
 
 ## 特性/亮点
 
@@ -112,7 +111,6 @@ session=Session(rand_tls=True, token="<token>")
 - [Node.js (FFI)](https://www.npmjs.com/package/reqrio)
 - Qt/C++ (FFI)
 - Go (CGO)
-
 
 ## 使用示例
 

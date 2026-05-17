@@ -26,4 +26,4 @@ hook-dirs = "reqrio:_pyinstaller_hooks_dir"
 
 
 [project.urls]
-Homepage = "https://github.com/xllgl2017/reqrio/tree/master/reqrio"
+Homepage = "https://github.com/xllgl2017/reqrio/tree/main/reqrio"

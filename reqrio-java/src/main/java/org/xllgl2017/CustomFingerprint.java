@@ -176,7 +176,6 @@ public class CustomFingerprint {
 
     }
 
-
     public void addExtension(ExtensionType extensionType) {
         this.addExtension(extensionType.value);
     }

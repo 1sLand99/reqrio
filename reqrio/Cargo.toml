@@ -5,7 +5,7 @@ edition = "2024"
 readme = "README.md"
 description = "A lightweight, high-performance, fingerprint-based HTTP request library."
 license-file = "../LICENSE-APACHE"
-repository = "https://github.com/xllgl2017/reqrio/tree/master/reqrio"
+repository = "https://github.com/xllgl2017/reqrio/tree/main/reqrio"
 
 [lib]
 name = "reqrio"

@@ -71,7 +71,7 @@ impl Header {
             HeaderKey::new_reserved("accept-encoding", HeaderValue::String("gzip, deflate, br, zstd".to_string())),
             HeaderKey::new_reserved("accept-language", HeaderValue::String("zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6".to_string())),
             HeaderKey::new_reserved("cookie", HeaderValue::Cookies(CookieManager::new(vec![]))),
-            HeaderKey::new("priority", HeaderValue::String("".to_string())),
+            HeaderKey::new_reserved("priority", HeaderValue::String("".to_string())),
             //unknown or http
             HeaderKey::new_reserved("content-encoding", HeaderValue::String("".to_string())),
             HeaderKey::new_reserved("content-type", HeaderValue::String("".to_string())),

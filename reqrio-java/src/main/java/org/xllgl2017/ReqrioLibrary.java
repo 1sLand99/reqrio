@@ -134,7 +134,7 @@ public interface ReqrioLibrary extends Library {
             if (os_name.contains("win"))
                 dll_name = "reqrio.dll";
             else if (os_name.contains("nux") || os_name.contains("nix"))
-                dll_name = "libreqrio.os";
+                dll_name = "libreqrio.so";
             else throw new Exception("unsupported system");
             String tmp_dir = System.getProperty("java.io.tmpdir");
             java.io.File dll_file = new java.io.File(tmp_dir, dll_name);

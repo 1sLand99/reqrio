@@ -68,9 +68,10 @@ Borrow (borrowing). File uploads are read through into_deader to reduce memory o
 ## Quick start
 
 * Init Req
+
 ```rust
 use reqrio::*;
-fn ff(){
+fn ff() {
     let mut req = ScReq::new()
         //The default is to use http/1.1
         .with_alpn(ALPN::Http20);
@@ -92,16 +93,18 @@ fn ff(){
         "sec-ch-ua-mobile": "?0",
         "sec-ch-ua-platform": r#""Windows""#
     };
-    let mut req=ScReq::new()
+    let mut req = ScReq::new()
         //The default is to use http/1.1
         .with_alpn(ALPN::Http20)
         //By default, there are no request headers; you need to configure them yourself.
         .with_header_json(headers).unwrap()
         //Set request timeout and number of attempts to request
-        .with_timeout(Timeout::new_same(3000,3));
+        .with_timeout(Timeout::new_same(3000, 3));
 }
 ```
+
 * Sample GET
+
 ```rust
 use reqrio::*;
 
@@ -115,53 +118,58 @@ fn ff() {
     let body = res.decode_body().unwrap();
     //Try decoding to JSON
     let json = res.json().unwrap();
-
 }
 ```
 
 * Post with form data
+
 ```rust
 use reqrio::*;
 fn ff() {
     let mut req = ScReq::new();
-    let url="https://www.baidu.com/api";
-    let data=json::object! {
+    let url = "https://www.baidu.com/api";
+    let data = json::object! {
         "field1":"value1",
         "field2":"value2"
     };
-    let resp=req.post(url,data.form()).unwrap();
+    let resp = req.post(url, data.form()).unwrap();
 }
 ```
+
 * Post with json data
+
 ```rust
 use reqrio::*;
 fn ff() {
     let mut req = ScReq::new();
-    let url="https://www.baidu.com/api";
-    let data=json::object! {
+    let url = "https://www.baidu.com/api";
+    let data = json::object! {
         "field1":"value1",
         "field2":"value2"
     };
-    let resp=req.post(url,data).unwrap();
+    let resp = req.post(url, data).unwrap();
 }
 ```
+
 * Post with form/json data, which struct impl `Serialize`
 
 need add serde feature
+
 ```rust
 use reqrio::*;
 use serde::Serialize;
 fn ff() {
     let mut req = ScReq::new();
     #[derive(Serialize)]
-    struct Data{
-        field1:String,
-        field2:bool
+    struct Data {
+        field1: String,
+        field2: bool
     }
-    let url="https://www.baidu.com/api";
-    let resp=req.post(url,Body::json(&Data{field1:"value".to_string(),field2:false}).unwrap()).unwrap();
+    let url = "https://www.baidu.com/api";
+    let resp = req.post(url, Body::json(&Data { field1: "value".to_string(), field2: false }).unwrap()).unwrap();
 }
 ```
+
 ```rust
 use reqrio::*;
 

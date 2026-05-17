@@ -55,4 +55,10 @@ public class Headers {
         }
         return null;
     }
+
+    public String getOrDefault(String name, String d) {
+        String res = this.get(name);
+        if (res == null) return d;
+        return res;
+    }
 }

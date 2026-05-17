@@ -10,7 +10,7 @@
     <packaging>jar</packaging>
     <name>reqrio</name>
     <description>A lightweight, high concurrency HTTP request library</description>
-    <url>https://github.com/xllgl2017/reqrio/tree/master/reqrio</url>
+    <url>https://github.com/xllgl2017/reqrio/tree/main/reqrio</url>
     <properties>
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
@@ -32,7 +32,7 @@
     <scm>
         <connection>scm:git:git://github.com/xllgl2017/reqrio.git</connection>
         <developerConnection>scm:git:ssh://github.com:xllgl2017/reqrio.git</developerConnection>
-        <url>https://github.com/xllgl2017/reqrio/tree/master/reqrio</url>
+        <url>https://github.com/xllgl2017/reqrio/tree/main/reqrio</url>
     </scm>
     <distributionManagement>
         <repository>
