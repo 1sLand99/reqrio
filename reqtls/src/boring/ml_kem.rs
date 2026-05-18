@@ -1,8 +1,6 @@
 use crate::boring::bindings::*;
 use crate::boring::evp::EvpError;
 use crate::boring::{BoringResExt, EvpCurve};
-use crate::hkdf::Hkdf;
-use crate::HashType;
 use std::mem::MaybeUninit;
 use std::ptr::null_mut;
 use crate::hash::HashError;
@@ -13,7 +11,7 @@ pub enum MlKemError {
     NewPrivateKeyError,
     DecapError,
     Evp(EvpError),
-    Hmac(HashError)
+    Hmac(HashError),
 }
 
 impl From<EvpError> for MlKemError {
@@ -96,8 +94,8 @@ impl X25519MlKem768 {
     pub fn new_client() -> Result<X25519MlKem768, MlKemError> {
         let mut pub_key = [0; 32 + MlKem768::MLKEM768_PUBLIC_KEY_BYTES];
         let x25519 = EvpCurve::new_x25519()?;
-        x25519.pub_key_out(&mut pub_key[..32])?;
-        let kem768 = MlKem768::new_pubkey(&mut pub_key[32..])?;
+        x25519.pub_key_out(&mut pub_key[1184..])?;
+        let kem768 = MlKem768::new_pubkey(&mut pub_key[..1184])?;
         Ok(X25519MlKem768 {
             kem768,
             x25519,
@@ -106,16 +104,12 @@ impl X25519MlKem768 {
     }
 
     pub fn diffie_hellman(&mut self, server: bool, key: &[u8]) -> Result<Vec<u8>, MlKemError> {
-        let x25519_secret = self.x25519.diffie_hellman(&key[..32])?;
+        let x25519_secret = self.x25519.diffie_hellman(&key[1088..])?;
         let (_, kem) = match server {
             true => self.kem768.encap(&key[32..]),
-            false => ([0; MlKem768::MLKEM768_CIPHERTEXT_BYTES], self.kem768.decap(&key[32..])?)
+            false => ([0; MlKem768::MLKEM768_CIPHERTEXT_BYTES], self.kem768.decap(&key[..1088])?)
         };
-        let hybrid = [x25519_secret.as_slice(), &kem].concat();
-        let mut hkdf = Hkdf::new(&[], &hybrid, HashType::Sha256)?;
-        let mut out = vec![0; 32];
-        hkdf.extend(&[], &mut out).unwrap();
-        Ok(out)
+        Ok([kem.as_slice(),x25519_secret.as_slice()].concat())
     }
 
     pub fn pub_key(&self) -> &[u8] {

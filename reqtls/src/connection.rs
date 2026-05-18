@@ -12,7 +12,7 @@ use crate::error::{HandShakeError, RlsResult};
 use crate::*;
 use std::mem;
 use std::path::PathBuf;
-use crate::message::{EncryptedExtension, HandshakeType};
+use crate::message::{CompressedCertificate, EncryptedExtension, HandshakeType};
 
 pub struct Connection {
     read: TlsCipher,
@@ -141,6 +141,19 @@ impl Connection {
             if !self.verify { return Ok(()); }
         }
         self.root_stores.verify_cert(&mut self.certificates, ext_cas, sni)
+    }
+
+    pub fn set_by_compressed_certificate(&mut self, cc: CompressedCertificate<'_>, ext_cas: &[Certificate], sni: &str) -> RlsResult<()> {
+        match cc.algorithm() {
+            CompressionMethod::BROTLI => {
+                let data = coder::br_decompress(cc.compressed_data())?;
+                let mut reader = Reader::from_slice(&data);
+                let certs = Certificates::from_reader(Version::TLS_1_3, &mut reader, true)?;
+                self.set_by_certificate(certs, ext_cas, sni)?;
+                Ok(())
+            }
+            _ => panic!("unsupported compression method"),
+        }
     }
 
     fn gen_key_sign_data(&self, server_key: &ServerKeyExchange) -> Vec<u8> {

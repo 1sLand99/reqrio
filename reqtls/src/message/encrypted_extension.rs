@@ -15,12 +15,12 @@ impl<'a> EncryptedExtension<'a> {
         let extend_len = reader.read_u16()?;
         Ok(EncryptedExtension {
             handshake_type: ht,
-            extensions: Extension::from_reader(reader.read_reader(extend_len as usize)?, false)?,
+            extensions: Extension::from_reader(reader.read_reader(extend_len as usize)?, true)?,
         })
     }
 
     pub fn len(&self) -> usize {
-        6 + self.extensions.iter().map(|x| x.len(false)).sum::<usize>()
+        6 + self.extensions.iter().map(|x| x.len(true)).sum::<usize>()
     }
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
@@ -28,7 +28,7 @@ impl<'a> EncryptedExtension<'a> {
         writer.write_u24(self.len() as u24 - 4)?;
         writer.write_u16(self.len() as u16 - 6)?;
         for extension in self.extensions {
-            extension.write_to(writer, false)?
+            extension.write_to(writer, true)?
         }
         Ok(())
     }

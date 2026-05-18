@@ -16,7 +16,7 @@ pub use server_hello::{ServerHello, ServerHelloDone};
 pub use session_ticket::{SessionTicket, TlsSessionTicket};
 use std::fmt::Debug;
 use crate::{BufferError, CipherSuite, HandShakeError, ReadExt, Reader, RecordType, Version, WriteExt};
-pub use certificate::{CertificateVerify, CertificateRequest};
+pub use certificate::{CertificateVerify, CertificateRequest, CompressedCertificate};
 use crate::buffer::Buf;
 pub use encrypted_extension::EncryptedExtension;
 
@@ -25,6 +25,7 @@ pub enum Message<'a> {
     ClientHello(ClientHello<'a>),
     ServerHello(ServerHello<'a>),
     Certificate(Certificates<'a>),
+    CompressedCertificate(CompressedCertificate<'a>),
     ServerKeyExchange(ServerKeyExchange<'a>),
     ServerHelloDone(ServerHelloDone),
     ClientKeyExchange(ClientKeyExchange<'a>),
@@ -50,7 +51,8 @@ impl<'a> Message<'a> {
         match handshake_type {
             HandshakeType::ClientHello => Ok(Message::ClientHello(ClientHello::from_bytes(reader)?)),
             HandshakeType::ServerHello => Ok(Message::ServerHello(ServerHello::from_reader(handshake_type, reader)?)),
-            HandshakeType::Certificate => Ok(Message::Certificate(Certificates::from_reader(handshake_type, version, reader)?)),
+            HandshakeType::Certificate => Ok(Message::Certificate(Certificates::from_reader(version, reader, false)?)),
+            HandshakeType::CompressedCertificate => Ok(Message::CompressedCertificate(CompressedCertificate::from_reader(handshake_type, reader)?)),
             HandshakeType::ServerKeyExchange => Ok(Message::ServerKeyExchange(ServerKeyExchange::from_reader(handshake_type, reader)?)),
             HandshakeType::ServerHelloDone => Ok(Message::ServerHelloDone(ServerHelloDone::from_reader(handshake_type, reader)?)),
             HandshakeType::ClientKeyExchange => Ok(Message::ClientKeyExchange(ClientKeyExchange::from_reader(reader, suite)?)),
@@ -88,6 +90,7 @@ impl<'a> Message<'a> {
             Message::ClientHello(v) => v.len(),
             Message::ServerHello(v) => v.len(),
             Message::Certificate(v) => v.len(),
+            Message::CompressedCertificate(v) => v.len(),
             Message::ServerKeyExchange(v) => v.len(),
             Message::ServerHelloDone(v) => v.len(),
             Message::ClientKeyExchange(v) => v.len(key_size),
@@ -108,6 +111,7 @@ impl<'a> Message<'a> {
             Message::ClientHello(v) => v.write_to(writer),
             Message::ServerHello(v) => v.write_to(writer),
             Message::Certificate(v) => v.write_to(writer),
+            Message::CompressedCertificate(v) => v.write_to(writer),
             Message::ServerKeyExchange(v) => v.write_to(writer),
             Message::ServerHelloDone(v) => v.write_to(writer),
             Message::ClientKeyExchange(v) => v.write_to(writer, key_size),
@@ -193,19 +197,20 @@ impl<'a> Message<'a> {
 #[derive(Debug, Copy, Clone)]
 #[repr(u8)]
 pub enum HandshakeType {
-    ClientHello         = 1,
-    ServerHello         = 2,
-    NewSessionTicket    = 4,
-    EncryptedExtensions = 8,
-    Certificate         = 11,
-    ServerKeyExchange   = 12,
-    CertificateRequest  = 13,
-    ServerHelloDone     = 14,
-    CertificateVerify   = 15,
-    ClientKeyExchange   = 16,
-    Finish              = 20,
-    CertificateStatus   = 22,
-    MessageHash         = 254,
+    ClientHello           = 1,
+    ServerHello           = 2,
+    NewSessionTicket      = 4,
+    EncryptedExtensions   = 8,
+    Certificate           = 11,
+    ServerKeyExchange     = 12,
+    CertificateRequest    = 13,
+    ServerHelloDone       = 14,
+    CertificateVerify     = 15,
+    ClientKeyExchange     = 16,
+    Finish                = 20,
+    CertificateStatus     = 22,
+    CompressedCertificate = 25,
+    MessageHash           = 254,
 }
 
 impl HandshakeType {
@@ -223,6 +228,7 @@ impl HandshakeType {
             16 => Some(HandshakeType::ClientKeyExchange),
             20 => Some(HandshakeType::Finish),
             22 => Some(HandshakeType::CertificateStatus),
+            25 => Some(HandshakeType::CompressedCertificate),
             _ => None
         }
     }

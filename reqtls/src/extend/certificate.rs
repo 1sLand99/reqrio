@@ -25,6 +25,10 @@ impl CompressionMethod {
             _ => CompressionMethod::NULL
         }
     }
+    
+    pub fn into_inner(self) -> u16 {
+        self.0
+    }
 }
 
 
@@ -58,42 +62,42 @@ impl From<u16> for CompressionMethod {
 }
 
 #[derive(Debug)]
-pub struct CompressionCertificate {
-    methods: Vec<CompressionMethod>,
+pub struct CompressCertificate {
+    algorithms: Vec<CompressionMethod>,
 }
 
-impl CompressionCertificate {
-    pub fn new() -> CompressionCertificate {
-        CompressionCertificate {
-            methods: vec![],
+impl CompressCertificate {
+    pub fn new() -> CompressCertificate {
+        CompressCertificate {
+            algorithms: vec![],
         }
     }
 
-    pub fn from_reader(mut reader: Reader<'_>) -> RlsResult<CompressionCertificate> {
+    pub fn from_reader(mut reader: Reader<'_>) -> RlsResult<CompressCertificate> {
         let len = reader.read_u8()?;
         let mut methods = Vec::with_capacity(reader.unread_len());
         for _ in (0..len).step_by(2) {
             methods.push(CompressionMethod::new(reader.read_u16()?));
         }
-        Ok(CompressionCertificate {
-            methods
+        Ok(CompressCertificate {
+            algorithms: methods
         })
     }
 
     pub fn len(&self) -> usize {
-        self.methods.len() * 2 + 1
+        self.algorithms.len() * 2 + 1
     }
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
         writer.write_u8(self.len() as u8 - 1)?;
-        for ty in self.methods {
+        for ty in self.algorithms {
             writer.write_u16(ty.0)?;
         }
         Ok(())
     }
 
     pub fn push(&mut self, ty: CompressionMethod) {
-        self.methods.push(ty);
+        self.algorithms.push(ty);
     }
 }
 

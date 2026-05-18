@@ -1,7 +1,7 @@
 use super::HandshakeType;
 use crate::buffer::Buf;
 use crate::error::RlsResult;
-use crate::{u24, BufferError, CertType, ReadExt, Reader, SignatureAlgorithm, Version, WriteExt};
+use crate::{u24, BufferError, CertType, CompressionMethod, ReadExt, Reader, SignatureAlgorithm, Version, WriteExt};
 use std::fmt::Debug;
 
 #[derive(Debug)]
@@ -20,11 +20,11 @@ impl<'a> Default for Certificates<'a> {
 }
 
 impl<'a> Certificates<'a> {
-    pub fn from_reader(ht: HandshakeType, version: Version, reader: &mut Reader<'a>) -> RlsResult<Certificates<'a>> {
+    pub fn from_reader(version: Version, reader: &mut Reader<'a>, compressed: bool) -> RlsResult<Certificates<'a>> {
+        if !compressed { reader.read_u24()?; }
         if let Version::TLS_1_3 = version {
             reader.read_u8()?; //req ctx len
         }
-        reader.read_u24()?;
         let len = reader.read_u24()?;
         let mut reader = reader.read_reader(len as usize)?;
         let mut certificates = Vec::with_capacity(len as usize);
@@ -35,12 +35,12 @@ impl<'a> Certificates<'a> {
                 let ext_len = reader.read_u16()?; //ext len
                 if ext_len > 0 {
                     let _exts = reader.read_slice(ext_len as usize)?;
-                    // println!("cert ext: {:?}", reader.read_slice(ext_len as usize)?)
+                    // println!("cert ext: {:?}", _exts)
                 }
             }
         }
         Ok(Certificates {
-            handshake_type: ht,
+            handshake_type: HandshakeType::Certificate,
             certificates,
         })
     }
@@ -242,5 +242,49 @@ impl<'a> CertificateVerify<'a> {
 
     pub fn sign(&self) -> &Buf<'_> {
         &self.sign
+    }
+}
+
+
+#[derive(Debug)]
+pub struct CompressedCertificate<'a> {
+    handshake_type: HandshakeType,
+    algorithm: CompressionMethod,
+    uncompressed_len: u24,
+    data: Buf<'a>,
+}
+
+
+impl<'a> CompressedCertificate<'a> {
+    pub fn len(&self) -> usize {
+        1 + 3 + 2 + 3 + 3 + self.data.len()
+    }
+    pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<CompressedCertificate<'a>> {
+        reader.read_u24()?;
+        let algorithm = reader.read_u16()?.into();
+        let uncompressed_len = reader.read_u24()?;
+        let len = reader.read_u24()? as usize;
+        Ok(CompressedCertificate {
+            handshake_type: ht,
+            algorithm,
+            uncompressed_len,
+            data: Buf::Ref(reader.read_slice(len)?),
+        })
+    }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        writer.write_u8(self.handshake_type as u8)?;
+        writer.write_u16(self.algorithm.into_inner())?;
+        writer.write_u24(self.uncompressed_len)?;
+        writer.write_u24(self.data.len() as u24)?;
+        writer.write_slice(self.data.as_ref())
+    }
+
+    pub fn algorithm(&self) -> CompressionMethod {
+        self.algorithm
+    }
+
+    pub fn compressed_data(&self) -> &Buf<'_> {
+        &self.data
     }
 }

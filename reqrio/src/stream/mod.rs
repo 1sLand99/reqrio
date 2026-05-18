@@ -295,6 +295,10 @@ pub trait TlsStreamHandle {
                 let config = config.client_mut().ok_or("missing config")?;
                 conn.set_by_certificate(certs, config.ca_certs, config.sni)?
             }
+            Message::CompressedCertificate(cc) => {
+                let config = config.client_mut().ok_or("missing config")?;
+                conn.set_by_compressed_certificate(cc, config.ca_certs, config.sni)?
+            }
             Message::CertificateVerify(verify) => conn.verify_cert(verify, true)?,
             _ => {}
         }
@@ -306,7 +310,6 @@ pub trait TlsStreamHandle {
         w_buf.reset();
         let len = conn.read_message(&r_buf.filled()[..record_len], w_buf.unfilled_mut())?;
         let record_type = RecordType::from_byte(w_buf[len - 1]).ok_or("Invalid record type")?;
-
         let mut index = 0;
         while index < len - 1 {
             match record_type {

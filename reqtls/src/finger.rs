@@ -3,7 +3,7 @@ use crate::*;
 use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::extend::algorithm::SignatureAlgorithms;
-use crate::extend::{ExtensionValue as EV, Extension as E, CompressionCertificate, PskKey, PskMode};
+use crate::extend::{ExtensionValue as EV, Extension as E, CompressCertificate, PskKey, PskMode};
 use crate::extend::alps::ALPS;
 use crate::extend::formats::EcPointFormats;
 use crate::extend::group::SupportedGroups;
@@ -99,7 +99,7 @@ impl Extension {
                 E::new(self.type_, EV::KeyShare(key_share))
             }
             (ExtensionType::CompressionCertificate, ExtensionValue::CompressionMethods(methods)) => {
-                let mut comp_cert = CompressionCertificate::new();
+                let mut comp_cert = CompressCertificate::new();
                 for method in methods {
                     comp_cert.push(*method);
                 }

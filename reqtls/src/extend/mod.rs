@@ -17,7 +17,7 @@ use crate::error::RlsResult;
 use crate::{BufferError, ReadExt, Reader, Version, WriteExt, ALPN};
 use algorithm::SignatureAlgorithms;
 use alps::ALPS;
-pub use certificate::CompressionCertificate;
+pub use certificate::CompressCertificate;
 pub use certificate::CompressionMethod;
 use client_hello::EncryptClientHello;
 pub use ech::Aead;
@@ -153,7 +153,7 @@ pub enum ExtensionValue<'a> {
     ApplicationSetting(ALPS),
     ApplicationSettingOld(ALPS),
     EncryptedClientHello(EncryptClientHello<'a>),
-    CompressionCertificate(CompressionCertificate),
+    CompressionCertificate(CompressCertificate),
     ApplicationLayerProtocolNegotiation(ALPS),
     SessionTicket(Buf<'a>),
     EncryptTheMac,
@@ -178,8 +178,14 @@ impl<'a> ExtensionValue<'a> {
             ExtensionType::RenegotiationInfo => Ok(ExtensionValue::RenegotiationInfo(RenegotiationInfo::from_reader(reader)?)),
             ExtensionType::SupportedVersions => Ok(ExtensionValue::SupportedVersions(SupportVersions::from_reader(reader, server)?)),
             ExtensionType::PskKeyExchangeMode => Ok(ExtensionValue::PskKeyExchangeMode(PskKey::from_reader(reader)?)),
-            ExtensionType::CompressionCertificate => Ok(ExtensionValue::CompressionCertificate(CompressionCertificate::from_reader(reader)?)),
-            ExtensionType::EncryptedClientHello => Ok(ExtensionValue::EncryptedClientHello(EncryptClientHello::from_reader(reader)?)),
+            ExtensionType::CompressionCertificate => Ok(ExtensionValue::CompressionCertificate(CompressCertificate::from_reader(reader)?)),
+            ExtensionType::EncryptedClientHello => {
+                if server {
+                    Ok(ExtensionValue::Unknown(Buf::Ref(reader.into_inner())))
+                } else {
+                    Ok(ExtensionValue::EncryptedClientHello(EncryptClientHello::from_reader(reader)?))
+                }
+            }
             ExtensionType::SignedCertificateTimestamp => Ok(ExtensionValue::SignedCertificateTimestamp),
             ExtensionType::ApplicationSetting => Ok(ExtensionValue::ApplicationSetting(ALPS::from_reader(reader)?)),
             ExtensionType::KeyShare => Ok(ExtensionValue::KeyShare(KeyShare::from_reader(reader, server)?)),
@@ -309,7 +315,7 @@ impl<'a> Extension<'a> {
             ExtensionType::ExtendMasterSecret => Some(ExtensionValue::MasterSecret),
             ExtensionType::SessionTicket => Some(ExtensionValue::SessionTicket(Buf::Ref(&[]))),
             ExtensionType::CompressionCertificate => {
-                let mut cp_cer = CompressionCertificate::new();
+                let mut cp_cer = CompressCertificate::new();
                 cp_cer.push(CompressionMethod::NULL);
                 Some(ExtensionValue::CompressionCertificate(cp_cer))
             }
