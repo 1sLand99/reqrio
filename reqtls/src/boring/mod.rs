@@ -24,7 +24,7 @@ use crate::error::RlsResult;
 use crate::extend::Aead;
 pub use signature::{AlgorithmSigner, SignatureAlgorithm};
 use std::ffi::c_int;
-pub use ml_kem::{X25519MlKem768, MlKemError};
+pub use ml_kem::{MLKEMError, Hybrid};
 
 trait BoringResExt {
     fn ok<E>(self, error: E) -> Result<(), E>;

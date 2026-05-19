@@ -8,5 +8,4 @@ pub enum EvpError {
     SetPeerDeriveError,
     NewPublicKeyError,
     DeriveError,
-
 }

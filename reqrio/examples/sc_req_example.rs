@@ -17,9 +17,9 @@ fn build_finger() -> Fingerprint {
             ExtensionType::StatusRequest.into(),
             Extension::new(ExtensionType::SupportedGroup, ExtensionValue::Curves(vec![
                 NamedCurve::X25519.into(),
-                NamedCurve::Secp256r1.into(),
-                NamedCurve::Secp384r1.into(),
-                NamedCurve::Secp521r1.into(),
+                NamedCurve::SecP256r1.into(),
+                NamedCurve::SecP384r1.into(),
+                NamedCurve::SecP521r1.into(),
             ])),
             Extension::new(ExtensionType::EcPointFormats, ExtensionValue::EcPointFormats(vec![EcPointFormat::UNCOMPRESSED])),
             Extension::new(ExtensionType::SignatureAlgorithms, ExtensionValue::Algorithms(vec![
@@ -48,7 +48,7 @@ fn build_finger() -> Fingerprint {
             Extension::new(ExtensionType::PskKeyExchangeMode, ExtensionValue::PskMode(PskMode::PSK_DHE_KE)),
             Extension::new(ExtensionType::KeyShare, ExtensionValue::Curves(vec![
                 NamedCurve::X25519.into(),
-                NamedCurve::Secp256r1.into(),
+                NamedCurve::SecP256r1.into(),
             ])),
             Extension::new(ExtensionType::ApplicationSetting, ExtensionValue::Alps(vec![
                 ALPN::Http20,

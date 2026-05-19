@@ -44,20 +44,25 @@ impl EvpCurve {
         ret.ok(EvpError::GetPubKeyError)
     }
 
-    pub fn diffie_hellman(&mut self, pub_key: impl AsRef<[u8]>) -> Result<Vec<u8>, EvpError> {
+    pub fn diffie_hellman_extract(&mut self, pubkey: impl AsRef<[u8]>, out: &mut [u8]) -> Result<(), EvpError> {
         let pub_key = CPointer::new_checked(unsafe {
             EVP_PKEY_new_raw_public_key(
                 self.nid,
                 null_mut(),
-                pub_key.as_ref().as_ptr(),
-                pub_key.as_ref().len(),
+                pubkey.as_ref().as_ptr(),
+                pubkey.as_ref().len(),
             )
         }, EvpError::NewPublicKeyError)?;
         let ctx = CPointer::new_checked(unsafe { EVP_PKEY_CTX_new(self.evp_key.as_mut_ptr(), null_mut()) }, EvpError::InitEvpPKeyCtxError)?;
         unsafe { EVP_PKEY_derive_init(ctx.as_mut_ptr()) }.ok(EvpError::InitDeriveError)?;
         unsafe { EVP_PKEY_derive_set_peer(ctx.as_mut_ptr(), pub_key.as_mut_ptr()) }.ok(EvpError::SetPeerDeriveError)?;
+        unsafe { EVP_PKEY_derive(ctx.as_mut_ptr(), out.as_mut_ptr(), &mut self.secret) }.ok(EvpError::DeriveError)?;
+        Ok(())
+    }
+
+    pub fn diffie_hellman(&mut self, pub_key: impl AsRef<[u8]>) -> Result<Vec<u8>, EvpError> {
         let mut secret = vec![0u8; self.secret];
-        unsafe { EVP_PKEY_derive(ctx.as_mut_ptr(), secret.as_mut_ptr(), &mut self.secret) }.ok(EvpError::DeriveError)?;
+        self.diffie_hellman_extract(pub_key, &mut secret)?;
         Ok(secret)
     }
 }

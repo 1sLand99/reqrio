@@ -354,8 +354,6 @@ unsafe extern "C" {
 
     pub(crate) fn EC_POINT_free(point: *mut EC_POINT);
 
-    pub(crate) fn EC_GROUP_get_degree(group: *const EC_GROUP) -> c_uint;
-
     pub(crate) fn OPENSSL_free(ptr: *mut c_void);
 
     pub(crate) fn MLKEM768_generate_key(

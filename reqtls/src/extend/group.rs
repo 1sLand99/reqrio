@@ -53,9 +53,9 @@ impl SupportedGroups {
         let mut res = SupportedGroups::new();
         res.values = vec![
             NamedCurve::X25519.into(),
-            NamedCurve::Secp256r1.into(),
-            NamedCurve::Secp384r1.into(),
-            NamedCurve::Secp521r1.into(),
+            NamedCurve::SecP256r1.into(),
+            NamedCurve::SecP384r1.into(),
+            NamedCurve::SecP521r1.into(),
         ];
         res
     }

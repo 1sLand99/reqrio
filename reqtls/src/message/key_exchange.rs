@@ -31,9 +31,11 @@ impl NamedCurve {
     pub const X25519: u16 = 0x1d;
     pub const X448: u16 = 0x1e;
     pub const X25519MLKEM768: u16 = 0x11ec;
-    pub const Secp256r1: u16 = 0x0017;
-    pub const Secp384r1: u16 = 0x0018;
-    pub const Secp521r1: u16 = 0x0019;
+    pub const SecP256r1MLKEM768: u16 = 0x11eb;
+    pub const SecP384r1MLKEM1024: u16 = 0x11ed;
+    pub const SecP256r1: u16 = 0x0017;
+    pub const SecP384r1: u16 = 0x0018;
+    pub const SecP521r1: u16 = 0x0019;
     pub const FFDHE2048: u16 = 0x0100;
     pub const FFDHE3072: u16 = 0x0101;
     pub const FFDHE4096: u16 = 0x0102;
@@ -41,18 +43,29 @@ impl NamedCurve {
     pub const FFDHE8192: u16 = 0x0104;
 
 
-    pub const ALL: [u16; 11] = [NamedCurve::X25519, NamedCurve::X448, NamedCurve::Secp256r1, NamedCurve::Secp384r1,
-        NamedCurve::Secp521r1, NamedCurve::X25519MLKEM768, NamedCurve::FFDHE2048, NamedCurve::FFDHE3072,
-        NamedCurve::FFDHE4096, NamedCurve::FFDHE6144, NamedCurve::FFDHE8192];
+    pub const ALL: [u16; 13] = [
+        NamedCurve::X25519,
+        NamedCurve::X448,
+        NamedCurve::SecP256r1,
+        NamedCurve::SecP384r1,
+        NamedCurve::SecP521r1,
+        NamedCurve::X25519MLKEM768,
+        NamedCurve::SecP256r1MLKEM768,
+        NamedCurve::SecP384r1MLKEM1024,
+        NamedCurve::FFDHE2048,
+        NamedCurve::FFDHE3072,
+        NamedCurve::FFDHE4096,
+        NamedCurve::FFDHE6144,
+        NamedCurve::FFDHE8192];
 
     fn spec(&self) -> &str {
         match self.0 {
             NamedCurve::X25519 => "X25519",
             NamedCurve::X448 => "X448",
             NamedCurve::X25519MLKEM768 => "X25519MLKEM768",
-            NamedCurve::Secp256r1 => "Secp256r1",
-            NamedCurve::Secp384r1 => "Secp384r1",
-            NamedCurve::Secp521r1 => "Secp521r1",
+            NamedCurve::SecP256r1 => "Secp256r1",
+            NamedCurve::SecP384r1 => "Secp384r1",
+            NamedCurve::SecP521r1 => "Secp521r1",
             NamedCurve::FFDHE2048 => "FFDHE2048",
             NamedCurve::FFDHE3072 => "FFDHE3072",
             NamedCurve::FFDHE4096 => "FFDHE4096",
@@ -115,7 +128,7 @@ impl<'a> ServerHellmanParam<'a> {
     pub fn new() -> ServerHellmanParam<'a> {
         ServerHellmanParam {
             curve_type: CurveType::NamedCurve,
-            named_curve: NamedCurve::Secp384r1.into(),
+            named_curve: NamedCurve::SecP384r1.into(),
             pub_key_len: 0,
             pub_key: Buf::Ref(&[]),
             signature_algorithm: SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),

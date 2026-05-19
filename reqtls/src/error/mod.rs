@@ -16,7 +16,7 @@ use std::string::FromUtf8Error;
 use std::sync::PoisonError;
 use std::time::SystemTimeError;
 pub use handshake::HandShakeError;
-use crate::boring::{EvpError, MlKemError};
+use crate::boring::{EcError, EvpError, MLKEMError};
 use crate::dns::DNSError;
 use crate::hash::HashError;
 
@@ -37,11 +37,6 @@ pub enum RlsError {
     CipherEncryptError,
     CipherDecryptError,
     CipherMacError,
-    InitEcKeyError,
-    GenEcKeyError,
-    InitEcPointError,
-    OCT2PointError,
-    ComputeKeyError,
     InitEvpCtxError,
     DigestSignError,
     DigestVerifyError,
@@ -93,7 +88,8 @@ pub enum RlsError {
     HasherError(HashError),
     DNSError(DNSError),
     EvpError(EvpError),
-    MlKemError(MlKemError),
+    EcError(EcError),
+    MlKemError(MLKEMError),
 }
 
 impl Display for RlsError {
@@ -114,11 +110,6 @@ impl Display for RlsError {
             RlsError::CipherEncryptError => f.write_str("Cipher encrypt error"),
             RlsError::CipherDecryptError => f.write_str("Cipher decrypt error"),
             RlsError::CipherMacError => f.write_str("Cipher mac error"),
-            RlsError::InitEcKeyError => f.write_str("Init EC key error"),
-            RlsError::GenEcKeyError => f.write_str("Gen EC key error"),
-            RlsError::InitEcPointError => f.write_str("Init EC point error"),
-            RlsError::OCT2PointError => f.write_str("OCT2 EC point error"),
-            RlsError::ComputeKeyError => f.write_str("Compute key error"),
             RlsError::InitEvpCtxError => f.write_str("Init Evp ctx error"),
             RlsError::DigestSignError => f.write_str("Digest sign error"),
             RlsError::DigestVerifyError => f.write_str("Digest verify error"),
@@ -170,6 +161,7 @@ impl Display for RlsError {
             RlsError::HasherError(e) => write!(f, "Hasher({})", e),
             RlsError::DNSError(e) => write!(f, "DNSError({:?})", e),
             RlsError::EvpError(e) => write!(f, "EvpError({:?})", e),
+            RlsError::EcError(e) => write!(f, "EcError({:?})", e),
             RlsError::MlKemError(e) => write!(f, "MlKemError({:?})", e),
         }
     }
@@ -304,9 +296,14 @@ impl From<EvpError> for RlsError {
     }
 }
 
+impl From<EcError> for RlsError {
+    fn from(value: EcError) -> Self {
+        RlsError::EcError(value)
+    }
+}
 
-impl From<MlKemError> for RlsError {
-    fn from(value: MlKemError) -> Self {
+impl From<MLKEMError> for RlsError {
+    fn from(value: MLKEMError) -> Self {
         RlsError::MlKemError(value)
     }
 }

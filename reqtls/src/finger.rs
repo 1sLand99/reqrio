@@ -89,9 +89,9 @@ impl Extension {
                 for group in shares {
                     match group.as_u16() {
                         NamedCurve::X25519 => key_share.add_entry(*group, Buf::Ref(&[0])),
-                        NamedCurve::Secp256r1 => key_share.add_entry(*group, Buf::Ref(&[0])),
-                        NamedCurve::Secp384r1 => key_share.add_entry(*group, Buf::Ref(&[0])),
-                        NamedCurve::Secp521r1 => key_share.add_entry(*group, Buf::Ref(&[0])),
+                        NamedCurve::SecP256r1 => key_share.add_entry(*group, Buf::Ref(&[0])),
+                        NamedCurve::SecP384r1 => key_share.add_entry(*group, Buf::Ref(&[0])),
+                        NamedCurve::SecP521r1 => key_share.add_entry(*group, Buf::Ref(&[0])),
                         NamedCurve::X25519MLKEM768 => key_share.add_entry(*group, Buf::Ref(&[0])),
                         _ => if group.is_reserved() { key_share.add_entry(*group, Buf::Ref(&[0])) },
                     }
@@ -223,7 +223,7 @@ impl TlsFinger {
             if suites.iter().any(|x| x == suite) { continue; }
             suites.push(suite.into());
         }
-        let mut groups: Vec<NamedCurve> = vec![NamedCurve::X25519.into(), NamedCurve::Secp256r1.into()];
+        let mut groups: Vec<NamedCurve> = vec![NamedCurve::X25519.into(), NamedCurve::SecP256r1.into()];
         while groups.len() < 5 {
             let group = NamedCurve::ALL[rand::random::<usize>() % 11];
             if groups.iter().any(|x| x == group) { continue; }

@@ -3,10 +3,10 @@ mod derived;
 
 pub use block::Key;
 pub use derived::DerivedKey;
-use crate::boring::{EcCurve, EvpCurve};
+use crate::boring::{EcCurve, EvpCurve, Hybrid};
 use crate::bytes::Bytes;
 use crate::error::RlsResult;
-use crate::{rand, NamedCurve, RlsError, X25519MlKem768};
+use crate::{rand, NamedCurve, RlsError};
 use crate::buffer::Buf;
 
 pub struct TrafficSecret {
@@ -40,7 +40,7 @@ pub enum SecretKey {
     Evp(EvpCurve),
     Ec(EcCurve),
     PreMasterSecret(Bytes),
-    Hybrid(Box<X25519MlKem768>),
+    Hybrid(Hybrid),
 }
 
 impl SecretKey {
@@ -53,20 +53,21 @@ impl SecretKey {
     pub fn new(name_cure: &NamedCurve) -> RlsResult<SecretKey> {
         match name_cure.as_u16() {
             NamedCurve::X25519 => Ok(SecretKey::Evp(EvpCurve::new_x25519()?)),
-            NamedCurve::Secp256r1 => Ok(SecretKey::Ec(EcCurve::new_p256()?)),
-            NamedCurve::Secp384r1 => Ok(SecretKey::Ec(EcCurve::new_p384()?)),
-            NamedCurve::Secp521r1 => Ok(SecretKey::Ec(EcCurve::new_p521()?)),
-            NamedCurve::X25519MLKEM768 => Ok(SecretKey::Hybrid(Box::from(X25519MlKem768::new_client()?))),
+            NamedCurve::SecP256r1 => Ok(SecretKey::Ec(EcCurve::new_p256()?)),
+            NamedCurve::SecP384r1 => Ok(SecretKey::Ec(EcCurve::new_p384()?)),
+            NamedCurve::SecP521r1 => Ok(SecretKey::Ec(EcCurve::new_p521()?)),
+            NamedCurve::X25519MLKEM768 => Ok(SecretKey::Hybrid(Hybrid::new_x25519_768()?)),
+            NamedCurve::SecP256r1MLKEM768 => Ok(SecretKey::Hybrid(Hybrid::new_p256r1_768()?)),
             _ => Err(format!("Unsupported name curve-{:?}", name_cure).into()),
         }
     }
     pub fn diffie_hellman(&mut self, pub_key: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
         match self {
             SecretKey::Evp(v) => Ok(v.diffie_hellman(pub_key)?),
-            SecretKey::Ec(v) => v.diffie_hellman(pub_key),
+            SecretKey::Ec(v) => Ok(v.diffie_hellman(pub_key)?),
             SecretKey::None => Err(RlsError::Currently("PriKey mut init before".to_string())),
             SecretKey::PreMasterSecret(bytes) => Ok(bytes.as_bytes()),
-            SecretKey::Hybrid(key) => Ok(key.diffie_hellman(false, pub_key.as_ref())?)
+            SecretKey::Hybrid(key) => Ok(key.diffie_hellman(false, pub_key.as_ref())?),
         }
     }
 
@@ -76,7 +77,7 @@ impl SecretKey {
             SecretKey::Ec(v) => Ok(Buf::Ptr(v.pub_key()?)),
             SecretKey::None => Ok(Buf::Ref(&[])),
             SecretKey::PreMasterSecret(bytes) => Ok(Buf::Ref(bytes.as_ref())),
-            SecretKey::Hybrid(key) => Ok(Buf::Ref(key.pub_key())),
+            SecretKey::Hybrid(key) => Ok(Buf::Ref(key.pubkey())),
         }
     }
 }

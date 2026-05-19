@@ -55,11 +55,12 @@
 //!
 //! ### Password Curve
 //!
-//! * Secp256R1
-//! * Secp385R1
-//! * Secp521R1
+//! * SecP256r1
+//! * SecP385r1
+//! * SecP521r1
 //! * X25519
 //! * X25519MLKEM768
+//! * SecP256r1MLKEM768
 //!
 //! ### Basic usage
 //!
@@ -277,7 +278,7 @@ pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, 
                  certificate::CertStore, certificate::CertType, certificate::Certificate, certificate::DnType,
                  certificate::KeyIdentifier, certificate::KeyUsage, certificate::SubjectAltName, cipher, hash,
                  hmac, AlgorithmSigner, Cipher, CipherType, Padding, RsaCipher, RsaKey, RsaPadding,
-                 SignatureAlgorithm, X25519MlKem768};
+                 SignatureAlgorithm};
 pub use buffer::{BufferError, ReadExt, Reader, WriteExt, u24};
 pub use connection::Connection;
 pub use error::{RlsError, HandShakeError};
@@ -286,8 +287,8 @@ pub use extend::{formats::EcPointFormat, CompressionMethod, ExtensionType, Suppo
 pub use hash::{HashType, Hasher, Hmac};
 pub use hex;
 pub use message::{Certificates, ClientHello, ClientKeyExchange, ServerKeyExchange, ServerHello,
-                  ServerHelloDone, SessionTicket, TlsSessionTicket, NamedCurve};
-pub use message::{Alert, CertificateRequest, CertificateVerify, Message};
+                  ServerHelloDone, SessionTicket, TlsSessionTicket, NamedCurve, Alert,
+                  CertificateRequest, CertificateVerify, Message};
 pub use record::{RecordLayer, RecordType};
 pub use suite::CipherSuite;
 pub use url::{Addr, Param, Scheme, Uri, Url, UrlError};

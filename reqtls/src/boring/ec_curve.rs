@@ -1,37 +1,54 @@
 use super::bindings::*;
 use super::*;
 use crate::buffer::BufPtr;
-use crate::error::RlsResult;
 use crate::ffi::CPointer;
-use crate::RlsError;
+use crate::BufferError;
 use std::ffi::c_void;
 use std::ptr::null_mut;
 
+#[derive(Debug)]
+pub enum EcError {
+    InitEcKey,
+    GenEcKey,
+    InitEcPoint,
+    ComputeKey,
+    OCT2Point,
+    Buffer(BufferError),
+}
+
+impl From<BufferError> for EcError {
+    fn from(e: BufferError) -> Self {
+        EcError::Buffer(e)
+    }
+}
+
 pub struct EcCurve {
     ec_key: CPointer<EC_KEY>,
+    share_size: usize,
 }
 
 impl EcCurve {
-    pub fn new_p256() -> RlsResult<EcCurve> {
-        EcCurve::new(NID_X9_62_prime256v1)
+    pub fn new_p256() -> Result<EcCurve, EcError> {
+        EcCurve::new(NID_X9_62_prime256v1, 32)
     }
 
-    pub fn new_p384() -> RlsResult<EcCurve> {
-        EcCurve::new(NID_secp384r1)
+    pub fn new_p384() -> Result<EcCurve, EcError> {
+        EcCurve::new(NID_secp384r1, 48)
     }
 
-    pub fn new_p521() -> RlsResult<EcCurve> {
-        EcCurve::new(NID_secp521r1)
+    pub fn new_p521() -> Result<EcCurve, EcError> {
+        EcCurve::new(NID_secp521r1, 66)
     }
-    fn new(nid: i32) -> RlsResult<EcCurve> {
-        let ec_key = CPointer::new_checked(unsafe { EC_KEY_new_by_curve_name(nid) }, RlsError::InitEcKeyError)?;
-        unsafe { EC_KEY_generate_key(ec_key.as_mut_ptr()) }.ok(RlsError::GenEcKeyError)?;
+    fn new(nid: i32, share_size: usize) -> Result<EcCurve, EcError> {
+        let ec_key = CPointer::new_checked(unsafe { EC_KEY_new_by_curve_name(nid) }, EcError::InitEcKey)?;
+        unsafe { EC_KEY_generate_key(ec_key.as_mut_ptr()) }.ok(EcError::GenEcKey)?;
         Ok(EcCurve {
             ec_key,
+            share_size,
         })
     }
 
-    pub fn pub_key(&self) -> RlsResult<BufPtr> {
+    pub fn pub_key(&self) -> Result<BufPtr, EcError> {
         let pub_key = unsafe { EC_KEY_get0_public_key(self.ec_key.as_ptr()) };
         let group = unsafe { EC_KEY_get0_group(self.ec_key.as_ptr()) };
         let mut buf = BufPtr::nullptr();
@@ -48,32 +65,36 @@ impl EcCurve {
         Ok(buf)
     }
 
-    pub fn diffie_hellman(&self, pub_key: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
+    pub fn diffie_hellman_extract(&self, pubkey: impl AsRef<[u8]>, out: &mut [u8]) -> Result<(), EcError> {
         let group = unsafe { EC_KEY_get0_group(self.ec_key.as_ptr()) };
-        let server_point = CPointer::new_checked(unsafe { EC_POINT_new(group) }, RlsError::InitEcPointError)?;
+        let server_point = CPointer::new_checked(unsafe { EC_POINT_new(group) }, EcError::InitEcPoint)?;
         unsafe {
             EC_POINT_oct2point(
                 group,
                 server_point.as_mut_ptr(),
-                pub_key.as_ref().as_ptr(),
-                pub_key.as_ref().len(),
+                pubkey.as_ref().as_ptr(),
+                pubkey.as_ref().len(),
                 null_mut(),
             )
-        }.ok(RlsError::OCT2PointError)?;
-        let secret_len = unsafe { EC_GROUP_get_degree(group) }.div_ceil(8);
-        let mut secret = vec![0u8; secret_len as usize];
+        }.ok(EcError::OCT2Point)?;
         let ret = unsafe {
             ECDH_compute_key(
-                secret.as_mut_ptr() as *mut c_void,
-                secret_len as usize,
+                out.as_mut_ptr() as *mut c_void,
+                out.len(),
                 server_point.as_ptr(),
                 self.ec_key.as_ptr(),
                 None,
             )
         };
         if ret <= 0 {
-            return Err(RlsError::ComputeKeyError);
+            return Err(EcError::ComputeKey);
         }
+        Ok(())
+    }
+
+    pub fn diffie_hellman(&self, pub_key: impl AsRef<[u8]>) -> Result<Vec<u8>, EcError> {
+        let mut secret = vec![0u8; self.share_size];
+        self.diffie_hellman_extract(pub_key, &mut secret)?;
         Ok(secret)
     }
 }

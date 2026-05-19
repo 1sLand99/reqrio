@@ -62,11 +62,12 @@ network tools, and custom TLS client/proxy development.
 
 ### Password Curve
 
-* Secp256R1
-* Secp385R1
-* Secp521R1
+* SecP256r1
+* SecP385r1
+* SecP521r1
 * X25519
 * X25519MLKEM768
+* SecP256r1MLKEM768
 
 ### Basic usage
 
