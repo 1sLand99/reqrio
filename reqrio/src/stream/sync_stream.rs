@@ -231,9 +231,9 @@ impl<S: Write> Write for SyncStream<S> {
         let mut sent = 0;
         for chunk in buf.chunks(16384) {
             self.write_buffer.reset();
+            let record_len = self.conn.make_message(RecordType::ApplicationData, self.write_buffer.unfilled_mut(), chunk)?;
+            self.write_buffer.set_len(record_len);
             loop {
-                let record_len = self.conn.make_message(RecordType::ApplicationData, &mut self.write_buffer[..], chunk)?;
-                self.write_buffer.set_len(record_len);
                 let len = self.stream.write(self.write_buffer.filled())?;
                 if self.write_buffer.used_empty(len) { break; }
             }
