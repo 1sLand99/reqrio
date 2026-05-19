@@ -148,7 +148,8 @@ class Session:
             url: str,
             body: c_void_p,
             params: dict = None,
-            auto_redirect: bool = True
+            auto_redirect: bool = True,
+            sni: str = None
     ) -> Response:
         """
         :param method: 请求方法
@@ -156,6 +157,7 @@ class Session:
         :param body: 请求体
         :param params: 请求参数
         :param auto_redirect: 是否对重定向链接进行自动跳转，默认是
+        :param sni: 域名，使用ip url时设置
         :return:
         """
         try:
@@ -165,6 +167,9 @@ class Session:
             err = c_char_p()
             url = self.dll.Url_new(url.encode('utf-8'), byref(err))
             err, msg = util.check_char_err(err)
+            if sni is not None:
+                err, msg = util.check_char_err(self.dll.Url_set_sni(url, sni.encode("utf-8")))
+                if err: raise Exception(msg)
             if err: raise Exception(msg)
             if params is not None:
                 for name in params.keys():

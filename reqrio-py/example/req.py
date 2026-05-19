@@ -32,7 +32,7 @@ def get():
     print('code: ', resp.statue_code())
     print('body: ', len(resp.bytes()))
     #
-    resp = reqrio.get("https://www.baidu.com", headers)
+    resp = reqrio.get("https://183.2.172.177", headers, sni="www.baidu.com")
     print('code: ', resp.statue_code())
     print('body: ', len(resp.bytes()))
 

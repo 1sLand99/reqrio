@@ -36,6 +36,9 @@ DLL.Url_new.restype = c_void_p
 DLL.Url_add_param.argtypes = [c_void_p, c_char_p, c_char_p]
 DLL.Url_add_param.restype = c_void_p
 
+DLL.Url_set_sni.argtypes = [c_void_p, c_char_p]
+DLL.Url_set_sni.restype = c_void_p
+
 DLL.Url_drop.argtypes = [c_void_p]
 
 # ===========================>Body<===================================

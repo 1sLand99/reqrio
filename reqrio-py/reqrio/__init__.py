@@ -44,10 +44,12 @@ def send(
         random_tls: bool = False,
         custom_tls: dict = None,
         token: str = "",
+        sni: str = None
 
 ):
     req = Session(headers, alpn, verify, proxy, key_log, ja3, ja4, client_hello, random_tls, custom_tls, token)
-    resp = req.pre_send(method, url, params, data, json, bytes, text, files, content_type, auto_redirect=auto_redirect)
+    resp = req.pre_send(method, url, params, data, json, bytes, text, files, content_type, auto_redirect=auto_redirect,
+                        sni=sni)
     req.close()
     return resp
 
