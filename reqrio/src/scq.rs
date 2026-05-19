@@ -240,7 +240,6 @@ impl ScReq {
     }
 
     pub fn set_fingerprint(&mut self, fingerprint: Fingerprint) {
-        println!("{:#?}", fingerprint);
         self.fingerprint = fingerprint;
     }
 
