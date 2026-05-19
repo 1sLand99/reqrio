@@ -109,12 +109,12 @@ impl Connection {
         self.derived.set_server_random(server_hello.random.as_ref().try_into()?);
         self.derived.set_ems(server_hello.use_ems());
         if Version::TLS_1_3 == self.version {
-            let key_entry = server_hello.key_share_extend().unwrap().key_entry();
+            let key_entry = server_hello.key_share_extend().ok_or(RlsError::MissingKeyEntry)?.key_entry();
             let mut secret_key = self.secret_keys.remove(key_entry.name_curve()).ok_or("secret not inited")?;
             let share_secret = secret_key.diffie_hellman(key_entry.exchange_key().as_ref())?;
             self.derived.make_handshake_traffic_secret(share_secret, self.cipher_suite.current_session_hash()?)?;
-            let aead = self.cipher_suite.aead().unwrap();
-            let hasher = self.cipher_suite.mac_hash().unwrap();
+            let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
+            let hasher = self.cipher_suite.mac_hash().ok_or(HashError::HasherNone)?;
             let key = self.derived.make_tls13_cipher_key()?;
             if let Key::TLS13 {
                 send_key,
@@ -335,6 +335,7 @@ impl Connection {
 
     pub fn make_message(&mut self, cty: RecordType, buffer: &mut [u8], payload: &[u8]) -> RlsResult<usize> {
         let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
+        if buffer.len() < 5 + payload.len() { return Err(BufferError::CapacityTooSmall { needed: 5 + payload.len(), current: buffer.len() }.into()); }
         let buffer = RecordEncodeBuffer::new(cty, &self.version, buffer, payload, aead);
         self.write.encrypt(buffer)
     }

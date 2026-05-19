@@ -80,27 +80,11 @@ impl<'a> RecordEncodeBuffer<'a> {
         self.payload.add_explicit_iv(self.aead, self.version, iv)
     }
 
-    // pub fn origin_payload(&self) -> &[u8] {
-    //     self.payload[self.]
-    // }
-
     pub fn set_encrypted_len(&mut self, len: usize) {
         let len = self.aead.explicit_len(self.version) + len;
         self.record_len = len + 5;
         self.head[3..5].copy_from_slice(&(len as u16).to_be_bytes());
     }
-
-    // pub fn encrypted_buffer(&mut self) -> &mut [u8] {
-    //     match self.aead {
-    //         Aead::AES_128_GCM | Aead::AES_256_GCM => match *self.version {
-    //             Version::TLS_1_3 => self.payload.encoded,
-    //             _ => &mut self.payload.encoded[8..]
-    //         },
-    //         Aead::ChaCha20_POLY1305 => self.payload.encoded,
-    //         Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => &mut self.payload.encoded[16..],
-    //         _ => self.payload.encoded
-    //     }
-    // }
 
     pub fn head(&self) -> &[u8] { self.head }
 
