@@ -23,7 +23,8 @@ async fn main() {
         .with_key_log("2.log")
         .with_auto_redirect(false)
         // .with_mtls(certs, key)
-        // .with_proxy(Proxy::try_from("http://127.0.0.1:10240").unwrap())
+        // .with_proxy(Proxy::new_socks5("192.111.130.2",4145))
+        .with_proxy(Proxy::new_http_plain("127.0.0.1",10279))
         .connect("https://104.18.34.137".sni("whatnot.com")).await.unwrap()
         ;
     let headers = json::object! {

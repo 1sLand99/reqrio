@@ -165,6 +165,7 @@ impl ProxyStream<std::net::TcpStream> {
             if finish { break; }
         }
         buffer.reset();
+        // buffer.sync_read(&mut stream)?;
         Ok(ProxyStream {
             stream,
             handle_proxy: matches!(proxy,Proxy::Null),
@@ -208,7 +209,7 @@ impl std::io::Read for ProxyStream<std::net::TcpStream> {
                 self.buffer.used_empty(10);
             }
             if self.buffer.is_empty() {
-                self.stream.read(buf)
+                Ok(0)
             } else {
                 buf[..self.buffer.len()].copy_from_slice(self.buffer.filled());
                 Ok(self.buffer.len())
@@ -221,6 +222,7 @@ impl std::io::Read for ProxyStream<std::net::TcpStream> {
 
 impl std::io::Write for ProxyStream<std::net::TcpStream> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        if !self.handle_proxy { std::io::Read::read(self, &mut [])?; }
         std::io::Write::write(&mut self.stream, buf)
     }
 
@@ -277,6 +279,7 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
                 let status = stream.resp.header().status();
                 if status.code() != 200 { return Poll::Ready(Err(std::io::Error::other(format!("connect http proxy fail-{}", status.code())))); }
             } else {
+                println!("3434");
                 loop {
                     let mut pb = ReadBuf::new(stream.buffer.unfilled_mut());
                     match Pin::new(&mut stream.stream).poll_read(cx, &mut pb) {
@@ -305,7 +308,7 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
             }
             stream.handle_proxy = true;
             if stream.buffer.is_empty() {
-                Pin::new(&mut stream.stream).poll_read(cx, buf)
+                Poll::Ready(Ok(()))
             } else {
                 buf.put_slice(stream.buffer.filled());
                 Poll::Ready(Ok(()))
@@ -319,6 +322,13 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
 #[cfg(feature = "aync")]
 impl tokio::io::AsyncWrite for ProxyStream<tokio::net::TcpStream> {
     fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize, std::io::Error>> {
+        if !self.handle_proxy {
+            match tokio::io::AsyncRead::poll_read(Pin::new(&mut self), cx, &mut ReadBuf::new(&mut [])) {
+                Poll::Ready(Ok(_)) => {}
+                Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+                Poll::Pending => return Poll::Pending,
+            };
+        }
         Pin::new(&mut self.stream).poll_write(cx, buf)
     }
 
