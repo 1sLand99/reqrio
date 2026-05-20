@@ -6,8 +6,8 @@ members = [
 
 [workspace.dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
-reqrio-json = { path = "json", version = "0.1.11" }
-reqtls = { path = "reqtls", version = "0.3.0-alpha2" }
+reqrio-json = { path = "json", version = "0.1.12" }
+reqtls = { path = "reqtls", version = "0.3.0-alpha3" }
 
 [profile.release]
 opt-level = 3
