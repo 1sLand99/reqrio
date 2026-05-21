@@ -296,3 +296,5 @@ pub use version::Version;
 pub use key::SecretKey;
 pub use bytes::Bytes;
 pub use finger::*;
+#[cfg(feature = "log")]
+pub use log::*;

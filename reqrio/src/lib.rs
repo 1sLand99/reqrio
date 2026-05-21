@@ -61,6 +61,65 @@
 //!
 //! ## Quick start
 //!
+//! * Sample GET
+//! ```rust
+//! # use reqrio::*;
+//!
+//! # fn ff() {
+//! let params=json::object! {
+//!     "p1":1,
+//!     "p2":"??34//11<<><"
+//! };
+//! //get
+//! let mut res = reqrio::get("https://www.baidu.com".params(params), None).unwrap();
+//! //Get response headers
+//! let header = res.header();
+//! //Get the response body; the body here has already been decoded.
+//! let body = res.decode_body().unwrap();
+//! //Try decoding to JSON
+//! let json = res.json().unwrap();
+//! # }
+//! ```
+//!
+//! * Post with form data
+//! ```rust
+//! # use reqrio::*;
+//! # fn ff() {
+//! let url="https://www.baidu.com/api";
+//! let data=json::object! {
+//!     "field1":"value1",
+//!     "field2":"value2"
+//! };
+//! let resp=reqrio::post(url,data.form()).unwrap();
+//! # }
+//! ```
+//! * Post with json data
+//! ```rust
+//! # use reqrio::*;
+//! # fn ff() {
+//! let url="https://www.baidu.com/api";
+//! let data=json::object! {
+//!     "field1":"value1",
+//!     "field2":"value2"
+//! };
+//! let resp=reqrio::post(url,data).unwrap();
+//! # }
+//! ```
+//! Post with form/json data, which struct impl `Serialize`
+//! ```rust
+//! # use reqrio::*;
+//! # use serde::Serialize;
+//! # fn ff() {
+//!     # let mut req = ScReq::new();
+//! #[derive(Serialize)]
+//! struct Data{
+//!     field1:String,
+//!     field2:bool
+//! }
+//! let url="https://www.baidu.com/api";
+//! let resp=reqrio::post(url,Body::json(&Data{field1:"value".to_string(),field2:false}).unwrap()).unwrap();
+//! # }
+//! ```
 //! * Init Req
 //! ```rust
 //! # use reqrio::*;
@@ -90,68 +149,6 @@
 //!         .with_header_json(headers).unwrap()
 //!         //Set request timeout and number of attempts to request
 //!         .with_timeout(Timeout::new_same(3000,3));
-//! # }
-//! ```
-//! * Sample GET
-//! ```rust
-//! # use reqrio::*;
-//!
-//! # fn ff() {
-//!     # let mut req = ScReq::new();
-//! let params=json::object! {
-//!     "p1":1,
-//!     "p2":"斯"
-//! };
-//! //get
-//! let mut res = req.get("https://www.baidu.com".params(params), None).unwrap();
-//! //Get response headers
-//! let header = res.header();
-//! //Get the response body; the body here has already been decoded.
-//! let body = res.decode_body().unwrap();
-//! //Try decoding to JSON
-//! let json = res.json().unwrap();
-//! # }
-//! ```
-//!
-//! * Post with form data
-//! ```rust
-//! # use reqrio::*;
-//! # fn ff() {
-//!     # let mut req = ScReq::new();
-//! let url="https://www.baidu.com/api";
-//! let data=json::object! {
-//!     "field1":"value1",
-//!     "field2":"value2"
-//! };
-//! let resp=req.post(url,data.form()).unwrap();
-//! # }
-//! ```
-//! * Post with json data
-//! ```rust
-//! # use reqrio::*;
-//! # fn ff() {
-//!     # let mut req = ScReq::new();
-//! let url="https://www.baidu.com/api";
-//! let data=json::object! {
-//!     "field1":"value1",
-//!     "field2":"value2"
-//! };
-//! let resp=req.post(url,data).unwrap();
-//! # }
-//! ```
-//! Post with form/json data, which struct impl `Serialize`
-//! ```rust
-//! # use reqrio::*;
-//! # use serde::Serialize;
-//! # fn ff() {
-//!     # let mut req = ScReq::new();
-//! #[derive(Serialize)]
-//! struct Data{
-//!     field1:String,
-//!     field2:bool
-//! }
-//! let url="https://www.baidu.com/api";
-//! let resp=req.post(url,Body::json(&Data{field1:"value".to_string(),field2:false}).unwrap()).unwrap();
 //! # }
 //! ```
 //! ```rust
@@ -200,6 +197,8 @@ mod reader;
 mod request;
 mod cookie;
 mod time;
+#[cfg(feature = "log")]
+mod logger;
 
 pub type ReqCallback = Box<dyn FnMut(&[u8]) -> HlsResult<()>>;
 pub const HTTP_GAP: &[u8; 4] = b"\r\n\r\n";
@@ -226,5 +225,34 @@ pub use stream::{ClientConfig, Proxy, ProxyStream, ServerConfig, SyncStream, Web
 pub use time::{Time, TimeError, Timeout};
 #[cfg(feature = "tokio")]
 pub use tokio;
+#[cfg(debug_assertions)]
+pub use logger::Logger;
 
 
+fn build_session() -> HlsResult<ScReq> {
+    let mut req = ScReq::new();
+    req.insert_header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0")?;
+    Ok(req)
+}
+
+pub fn get<'a, E>(url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
+where
+    HlsError: From<E>,
+{
+    let mut session = build_session()?;
+    session.get(url, body)
+}
+
+pub fn post<'a, E>(url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
+where
+    HlsError: From<E>,
+{
+    build_session()?.post(url, body)
+}
+
+pub fn put<'a, E>(url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
+where
+    HlsError: From<E>,
+{
+    build_session()?.put(url, body)
+}

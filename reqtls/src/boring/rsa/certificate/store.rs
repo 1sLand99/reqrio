@@ -6,6 +6,7 @@ use std::ffi::CStr;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::sync::LazyLock;
+use log::{debug, error};
 use crate::ffi::CPointer;
 
 pub static ROOT_STORES: LazyLock<CertStore> = LazyLock::new(|| {
@@ -46,6 +47,8 @@ impl CertStore {
     pub fn pointer(&self) -> &CPointer<X509_STORE> { &self.store_ptr }
 
     pub fn verify_cert(&self, certs: &mut Vec<Certificate>, ext_cas: &[Certificate], sni: &str) -> RlsResult<()> {
+        #[cfg(feature = "log")]
+        debug!("[Verify] chain_certs={}; ext_cas={}; sni={}", certs.len(), ext_cas.len(), sni);
         let stack = CPointer::new_checked(unsafe { sk_new_null() }, RlsError::SkNewError)?;
         for ext_ca in ext_cas {
             self.add_cert(ext_ca)?;
@@ -76,6 +79,8 @@ impl CertStore {
                 return self.verify_cert(certs, ext_cas, sni);
             }
             let msg_prt = unsafe { X509_verify_cert_error_string(err as _) };
+            #[cfg(feature = "log")]
+            error!("[Verify] Verify failed: {}",unsafe{CStr::from_ptr(msg_prt).to_str()?});
             return Err(RlsError::from(unsafe { CStr::from_ptr(msg_prt) }.to_bytes()));
         };
         certs[0].verify_sni(sni)

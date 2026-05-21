@@ -22,5 +22,6 @@ pin-project-lite = { version = "0.2", optional = true }
 aync = ["tokio", "pin-project-lite"]
 export = ["reqtls/export"]
 dylib = ["reqtls/dylib"]
+log = ["reqtls/log"]
 
 

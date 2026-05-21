@@ -5,6 +5,8 @@ use std::ops::Range;
 use std::os::raw::c_char;
 use std::slice;
 use std::str::Utf8Error;
+use log::warn;
+
 #[allow(non_camel_case_types)]
 pub type u24 = u32;
 
@@ -96,6 +98,9 @@ pub trait WriteExt {
     fn check_subscription(&self, token: impl AsRef<str>) -> RlsResult<i32> {
         let is_subscribed = unsafe { is_subscription(CString::new(token.as_ref())?.as_ptr()) };
         if !is_subscribed {
+            #[cfg(feature = "log")]
+            warn!("[Fingerprint] You have not subscribed yet, so this call will be ignored.");
+            #[cfg(not(feature = "log"))]
             println!("\x1b[01;33m[Fingerprint] WARN \x1b[0m You have not subscribed yet, so this call will be ignored.");
         }
         Ok(if is_subscribed { 0 } else { -2 })
@@ -135,8 +140,7 @@ pub trait ReadExt<'a> {
     #[inline]
     fn current(&self) -> u8 {
         let pos = self.check(1).unwrap();
-        let res = unsafe { self.as_ptr().add(pos).read_unaligned() }.to_be();
-        res
+        unsafe { self.as_ptr().add(pos).read_unaligned() }.to_be()
     }
     fn read_u8(&mut self) -> Result<u8, BufferError> {
         let pos = self.check(1)?;

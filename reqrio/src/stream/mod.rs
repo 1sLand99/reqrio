@@ -201,6 +201,7 @@ pub trait TlsStreamHandle {
     fn handle_server_hello((conn, buffer): (&mut Connection, &mut Buffer), server_hello: ServerHello) -> Result<(), RlsError> {
         let hello_retry = conn.set_by_server_hello(&server_hello)?;
         if hello_retry {
+            debug!("[ParsingServerHello] hello_retry=true; retry_share={:?}",server_hello.key_share_extend().map(|x|x.key_entry().name_curve()));
             let mut reader = Reader::from_slice(conn.session_bytes());
             reader.read_u8()?;
             let mut client = ClientHello::from_bytes(&mut reader)?;
@@ -320,6 +321,8 @@ pub trait TlsStreamHandle {
                 _ => {
                     let len = u32::from_be_bytes([0, w_buf[index + 1], w_buf[index + 2], w_buf[index + 3]]) as usize + 4;
                     let message = Message::from_bytes(&w_buf[index..index + len], &record_type, None, Version::TLS_1_3)?;
+                    #[cfg(feature = "log")]
+                    trace!("[TLS1.3 Handshake] message: {:?}]", message);
                     let finish = Self::handle_message(message, config, conn)?;
                     if finish {
                         w_buf.reset();

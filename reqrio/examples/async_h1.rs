@@ -1,7 +1,17 @@
 use reqrio::*;
 
+
+
+fn test_log() {
+    set_logger(&Logger).unwrap();
+    set_max_level(LevelFilter::Trace);
+}
+
+
 #[tokio::main]
 async fn main() {
+    test_log();
+    // return;
     let fingerprint = Fingerprint::from_ja3("771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-17513-21,29-23-24,0", "2f-o7ffnfc-j2f7q7n-k7ffnfc-m423p26-k").unwrap();
 
     let mut timeout = Timeout::longer();
@@ -24,8 +34,8 @@ async fn main() {
         .with_auto_redirect(false)
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::new_socks5("192.111.130.2",4145))
-        .with_proxy(Proxy::new_http_plain("127.0.0.1",10279))
-        .connect("https://104.18.34.137".sni("whatnot.com")).await.unwrap()
+        // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10279))
+        // .connect("https://104.18.34.137".sni("whatnot.com")).await.unwrap()
         ;
     let headers = json::object! {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
@@ -109,7 +119,8 @@ async fn main() {
     // let res = req.get("https://www.bing.com".params(json::object! {}), vec![0u8; 0].ty(Application::Json)).await.unwrap();
     // let res = req.get("https://117.89.181.21".sni("m.sogou.com"), None).await.unwrap();
     // let res=req.get("https://oauth.hubei.gov.cn:8443/",None).await.unwrap();
-    let res = req.get("https://104.18.34.137".sni("whatnot.com"), None).await.unwrap();
+    // let res = req.get("https://104.18.34.137".sni("whatnot.com"), None).await.unwrap();
+    let res = req.get("https://m.baidu.com", None).await.unwrap();
     println!("{}", res.header());
     // println!("{}", res.json().unwrap().pretty())
     // println!("{:#?}", req.header().cookies());

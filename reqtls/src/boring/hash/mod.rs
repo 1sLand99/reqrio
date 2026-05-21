@@ -10,7 +10,7 @@ pub use hmac::Hmac;
 use std::ptr::null_mut;
 
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "export", repr(C))]
 pub enum HashType {
     MD5 = 0,
@@ -51,7 +51,7 @@ impl HashType {
         match self {
             HashType::Sha256 => Ok(&HashType::SHA256_SECRET),
             HashType::Sha384 => Ok(&HashType::SHA384_SECRET),
-            _=>Err(HashError::HasherNoSecret)
+            _ => Err(HashError::HasherNoSecret)
         }
     }
 }

@@ -13,6 +13,8 @@ use crate::*;
 use std::mem;
 use std::path::PathBuf;
 use crate::message::{CompressedCertificate, EncryptedExtension, HandshakeType};
+#[cfg(feature = "log")]
+use log::debug;
 
 pub struct Connection {
     read: TlsCipher,
@@ -105,11 +107,15 @@ impl Connection {
         self.cipher_suite.update(&self.session_bytes)?;
         let hasher = self.cipher_suite.hasher().as_ref().ok_or(HashError::HasherNone)?;
         let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
+        #[cfg(feature = "log")]
+        info!("[ParsedServerHello] Version: {:?} | CipherSuite: {} | Hasher: {:?} | AEAD: {:?}",self.version, self.cipher_suite.spec(), hasher.hash_type(), aead);
         self.derived.init(aead, hasher, &self.version);
         self.derived.set_server_random(server_hello.random.as_ref().try_into()?);
         self.derived.set_ems(server_hello.use_ems());
         if Version::TLS_1_3 == self.version {
             let key_entry = server_hello.key_share_extend().ok_or(RlsError::MissingKeyEntry)?.key_entry();
+            #[cfg(feature = "log")]
+            info!("[ParsedServerHello] KeyShare={:?}; pubkey={}",key_entry.name_curve(), key_entry.exchange_key().len());
             let mut secret_key = self.secret_keys.remove(key_entry.name_curve()).ok_or("secret not inited")?;
             let share_secret = secret_key.diffie_hellman(key_entry.exchange_key().as_ref())?;
             self.derived.make_handshake_traffic_secret(share_secret, self.cipher_suite.current_session_hash()?)?;
@@ -144,6 +150,8 @@ impl Connection {
     }
 
     pub fn set_by_compressed_certificate(&mut self, cc: CompressedCertificate<'_>, ext_cas: &[Certificate], sni: &str) -> RlsResult<()> {
+        #[cfg(feature = "log")]
+        debug!("[ParsedCompCert] method={}; size={}",cc.algorithm(), cc.compressed_data().len());
         match cc.algorithm() {
             CompressionMethod::BROTLI => {
                 let data = coder::br_decompress(cc.compressed_data())?;
@@ -168,6 +176,8 @@ impl Connection {
     }
 
     pub fn verify_cert(&mut self, verify: CertificateVerify<'_>, server: bool) -> RlsResult<()> {
+        #[cfg(feature = "log")]
+        info!("[CertVerify] verify={}; server={}; algorithm={}", self.verify, server, verify.hash().spec());
         if !self.verify { return Ok(()); }
         let mut sign_data = Vec::with_capacity(256);
         sign_data.extend([0x20; 64]);
@@ -206,6 +216,8 @@ impl Connection {
     }
 
     pub fn set_by_server_exchange_key(&mut self, server_key: ServerKeyExchange) -> RlsResult<()> {
+        #[cfg(feature = "log")]
+        info!("[ExchangeKey] algorithm={}; curve={:?}; verify={}",server_key.hellman_param().signature_algorithm().spec(),server_key.hellman_param().named_curve(),self.verify);
         if self.verify {
             let sign_data = self.gen_key_sign_data(&server_key);
             let signature = AlgorithmSigner::new_verify(self.certificates[0].pub_key()?, *server_key.hellman_param().signature_algorithm())?;

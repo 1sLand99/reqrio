@@ -283,6 +283,7 @@ dependencies = [
  "flate2",
  "getrandom",
  "hex",
+ "log",
  "urlencoding",
 ]
 

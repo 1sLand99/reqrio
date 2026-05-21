@@ -106,7 +106,7 @@ impl Proxy {
 impl Display for Proxy {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Proxy::Null => f.write_str(""),
+            Proxy::Null => f.write_str("Null"),
             Proxy::HttpPlain(addr) => f.write_str(&format!("http://{}", addr)),
             Proxy::Socks5(addr) => f.write_str(&format!("socks5://{}", addr)),
         }
@@ -154,6 +154,8 @@ impl ProxyStream<std::net::TcpStream> {
         Ok(stream)
     }
     pub fn sync_connect(proxy: &Proxy, peer_addr: &Addr, timeout: &Timeout) -> HlsResult<ProxyStream<std::net::TcpStream>> {
+        #[cfg(feature = "log")]
+        debug!("[ProxyStream] Proxy: {} | PeerAddr: {}",proxy,peer_addr);
         let addr = proxy.socket_addr(peer_addr)?;
         let mut stream = ProxyStream::create_sync(&addr, timeout)?;
         let mut buffer = Buffer::with_capacity(1024);
@@ -234,6 +236,8 @@ impl std::io::Write for ProxyStream<std::net::TcpStream> {
 #[cfg(feature = "aync")]
 impl ProxyStream<tokio::net::TcpStream> {
     pub async fn async_connect(proxy: &Proxy, peer_addr: &Addr) -> HlsResult<ProxyStream<tokio::net::TcpStream>> {
+        #[cfg(feature = "log")]
+        debug!("[ProxyStream] Proxy: {} | PeerAddr: {}",proxy,peer_addr);
         let st = Time::now_mills().unwrap();
         let addr = proxy.socket_addr(peer_addr)?;
         println!("DNS TIME: {}", Time::now_mills().unwrap() - st);
