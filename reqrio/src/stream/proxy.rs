@@ -1,10 +1,11 @@
 use crate::error::{HlsError, HlsResult};
 use crate::*;
 use std::fmt::{Display, Formatter};
-use std::net::Shutdown;
+use std::net::{IpAddr, Shutdown};
 use std::net::SocketAddr;
 #[cfg(feature = "aync")]
 use std::pin::Pin;
+use std::str::FromStr;
 #[cfg(feature = "aync")]
 use std::task::{Context, Poll};
 #[cfg(feature = "aync")]
@@ -79,9 +80,18 @@ impl Proxy {
                     }
                 }
                 if index == 2 {
-                    writer.write_slice(&[5, 1, 0, 3])?;
-                    writer.write_u8(peer_addr.host().len() as u8)?;
-                    writer.write_slice(peer_addr.host().as_bytes())?;
+                    writer.write_slice(&[5, 1, 0])?;
+                    if let Ok(addr) = IpAddr::from_str(peer_addr.host()) {
+                        writer.write_u8(1)?;
+                        match addr {
+                            IpAddr::V4(v4) => writer.write_slice(&v4.octets())?,
+                            IpAddr::V6(v6) => writer.write_slice(&v6.octets())?,
+                        }
+                    } else {
+                        writer.write_u8(3)?;
+                        writer.write_u8(peer_addr.host().len() as u8)?;
+                        writer.write_slice(peer_addr.host().as_bytes())?;
+                    }
                     writer.write_u16(peer_addr.port())?;
                     return Ok(true);
                 }
@@ -107,8 +117,8 @@ impl Display for Proxy {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Proxy::Null => f.write_str("Null"),
-            Proxy::HttpPlain(addr) => f.write_str(&format!("http://{}", addr)),
-            Proxy::Socks5(addr) => f.write_str(&format!("socks5://{}", addr)),
+            Proxy::HttpPlain(url) => write!(f, "HttpPlain({})", url),
+            Proxy::Socks5(url) => write!(f, "Socks5({})", url),
         }
     }
 }
@@ -274,6 +284,7 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
                         Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
                         Poll::Ready(Ok(())) => {
                             let rl = pb.filled().len();
+                            if rl == 0 { return Poll::Ready(Err(HlsError::PeerClosedConnection.into())); }
                             stream.buffer.set_len(stream.buffer.len() + rl);
                             let finished = stream.resp.extend_buffer(&mut stream.buffer)?;
                             if finished { break; }
@@ -283,7 +294,6 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
                 let status = stream.resp.header().status();
                 if status.code() != 200 { return Poll::Ready(Err(std::io::Error::other(format!("connect http proxy fail-{}", status.code())))); }
             } else {
-                println!("3434");
                 loop {
                     let mut pb = ReadBuf::new(stream.buffer.unfilled_mut());
                     match Pin::new(&mut stream.stream).poll_read(cx, &mut pb) {
