@@ -11,13 +11,14 @@ pub use cipher::Cipher;
 pub use curve::EvpCurve;
 
 use crate::boring::CryptEncodeParam;
+use crate::cipher::CipherError;
 use crate::extend::Aead;
 use crate::hash::Hmac;
-use crate::RlsError;
 pub use error::EvpError;
 
 #[cfg_attr(feature = "export", repr(C))]
 #[allow(non_camel_case_types)]
+#[derive(Debug)]
 pub enum CipherType {
     AES_128_CBC = 0,
     AES_192_CBC = 1,
@@ -67,7 +68,6 @@ impl CipherType {
 
 pub struct CipherCrypto {
     mac_key: Vec<u8>,
-    key: Vec<u8>,
     cipher: Cipher,
     hash: HashType,
 }
@@ -78,11 +78,10 @@ impl CipherCrypto {
             Aead::AES_128_CBC_SHA => Cipher::aes_128_cbc(),
             Aead::AES_256_CBC_SHA => Cipher::aes_256_cbc(),
             _ => return Err("not suite, but in suite".into())
-        };
+        }.with_secret_key(key, None);
         Ok(CipherCrypto {
             mac_key: mac,
             cipher,
-            key,
             hash,
         })
     }
@@ -93,7 +92,7 @@ impl CipherCrypto {
     /// ciphertext = AES_CBC(key, iv, plaintext || mac || padding) //pcsk7
     ///```
     pub fn encrypt(&self, param: CryptEncodeParam) -> RlsResult<()> {
-        self.cipher.init_encrypt(self.key.as_ptr(), param.iv.as_ptr())?;
+        self.cipher.init_cipher(param.iv.as_ptr(), 1)?;
         let mut hmac = Hmac::new(&self.mac_key, self.hash)?;
         hmac.update(param.seq.to_be_bytes())?;
         hmac.update(&param.buffer.head()[..3])?;
@@ -103,27 +102,27 @@ impl CipherCrypto {
         let mac = hmac.finalize()?;
         let context = payload.origin_payload().as_ptr();
         let out = payload.encoded_payload().as_mut_ptr();
-        let plain_len = self.cipher.encrypt_update(context, payload.origin_payload().len(), out)?;
+        let plain_len = self.cipher.update(context, payload.origin_payload().len(), out)?;
         let out = unsafe { out.add(plain_len) };
-        let mac_len = self.cipher.encrypt_update(mac.as_ptr(), mac.len(), out)?;
+        let mac_len = self.cipher.update(mac.as_ptr(), mac.len(), out)?;
         let padding_len = 16 - (payload.origin_payload().len() + mac.len() + 1) % 16;
         let padding = vec![padding_len as u8; padding_len + 1];
         let out = unsafe { out.add(mac_len) };
-        let padding_len = self.cipher.encrypt_update(padding.as_ptr(), padding.len(), out)?;
+        let padding_len = self.cipher.update(padding.as_ptr(), padding.len(), out)?;
         let out = unsafe { out.add(padding_len) };
-        let final_len = self.cipher.encrypt_finalize(out)?;
+        let final_len = self.cipher.finalize(out)?;
         let len = plain_len + mac_len + padding_len + final_len;
         param.buffer.set_encrypted_len(len);
         Ok(())
     }
 
     pub fn decrypt(&self, param: CryptDecodeParam) -> RlsResult<usize> {
-        self.cipher.init_decrypt(self.key.as_ptr(), param.iv.as_ptr())?;
+        self.cipher.init_cipher(param.iv.as_ptr(), 0)?;
         let context = param.buffer.encrypted_payload().as_ptr();
         let out = param.buffer.decrypted_buffer().as_mut_ptr();
-        let out_len = self.cipher.decrypt_update(context, param.buffer.encrypted_payload().len(), out)?;
+        let out_len = self.cipher.update(context, param.buffer.encrypted_payload().len(), out)?;
         let out = unsafe { out.add(out_len) };
-        let final_len = self.cipher.decrypt_finalize(out)?;
+        let final_len = self.cipher.finalize(out)?;
         let len = out_len + final_len;
         let padding_len = param.buffer.decrypted_buffer()[len - 1] as usize;
         let len = len - padding_len - 1;
@@ -135,7 +134,7 @@ impl CipherCrypto {
         let cmac = hmac.finalize()?;
         let mac = &param.buffer.decrypted_buffer()[len - 20..len - 1];
         let res = unsafe { CRYPTO_memcmp(cmac.as_ptr() as *const _, mac.as_ptr() as *const _, mac.len()) };
-        if res != 0 { return Err(RlsError::CipherMacError); }
+        if res != 0 { return Err(CipherError::InvalidMac.into()); }
         Ok(len - 20)
     }
 }

@@ -1,3 +1,4 @@
+use std::fs;
 use reqrio::{AcReq, Fingerprint, HttpStatus, ReqExt};
 use reqtls::{CipherSuite, CompressionMethod, EcPointFormat, Extension, ExtensionType, ExtensionValue, NamedCurve, PskMode, SignatureAlgorithm, TlsFinger, Version, ALPN};
 
@@ -80,7 +81,7 @@ fn build_finger(suites: Vec<CipherSuite>, groups: Vec<NamedCurve>) -> Fingerprin
             ]))
         ],
     };
-    Fingerprint::new_tls(tls, "2f-o7ffnfc-j2f7q7n-k7ffnfc-m423p26-k").unwrap()
+    Fingerprint::new_tls(tls, fs::read_to_string("TOKEN").unwrap_or("".to_string())).unwrap()
 }
 
 ///ECDHE_RSA

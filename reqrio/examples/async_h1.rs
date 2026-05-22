@@ -10,6 +10,19 @@ fn test_log() {
 
 #[tokio::main]
 async fn main() {
+    // let cipher = boring::symm::Cipher::rc4();
+    // let key = "7d1a840419e1648c4e247b70f4a1e472".as_bytes();
+    // println!("key: {:?}", key);
+    // let data = base64::b64decode("IyM0vnZ9QKM8WdzDk1rkFQ==").unwrap();
+    // println!("data:{:?}", data);
+    // println!("{:?}", boring::symm::decrypt(cipher, key, None, &data).unwrap());
+
+
+    let cipher = Cipher::rc4().with_secret_key("7d1a840419e1648c4e247b70f4a1e472".as_bytes(), None);
+    // println!("{}", base64::b64encode(cipher.encrypt("pkiIOzHlETLPdEUq").unwrap()).unwrap());
+
+    println!("{:?}", cipher.decrypt(base64::b64decode("IyM0vnZ9QKM8WdzDk1rkFQ==").unwrap()).unwrap());
+    return;
     #[cfg(feature = "log")]
     test_log();
     let fingerprint = Fingerprint::from_ja3("771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-17513-21,29-23-24,0", fs::read_to_string("TOKEN").unwrap()).unwrap();
@@ -18,7 +31,7 @@ async fn main() {
     // let res = reqrio::get("http://capi.51daili.com/traffic/getip?linePoolIndex=1&packid=12&time=11&qty=1&port=1&format=txt&providerIds=1,5&usertype=17&uid=69969", None).unwrap();
     // let proxy = Proxy::try_from(format!("http://{}", res.text().unwrap().trim())).unwrap();
     let res = AcReq::new().get("http://capi.51daili.com/traffic/getip?linePoolIndex=1&packid=12&time=11&qty=1&port=2&format=txt&providerIds=1,5&usertype=17&uid=69969", None).await.unwrap();
-    let proxy=Proxy::try_from(format!("socks5://{}",res.text().unwrap().trim())).unwrap();
+    let proxy = Proxy::try_from(format!("socks5://{}", res.text().unwrap().trim())).unwrap();
     // return;
     let mut timeout = Timeout::longer();
     timeout.set_handle_times(1);

@@ -17,6 +17,7 @@ use std::sync::PoisonError;
 use std::time::SystemTimeError;
 pub use handshake::HandShakeError;
 use crate::boring::{EcError, EvpError, MLKEMError};
+use crate::cipher::CipherError;
 use crate::dns::DNSError;
 use crate::hash::HashError;
 
@@ -33,10 +34,6 @@ pub enum RlsError {
     AeadCryptError,
     AeadEncryptError,
     AeadDecryptError,
-    CipherCryptError,
-    CipherEncryptError,
-    CipherDecryptError,
-    CipherMacError,
     InitEvpCtxError,
     DigestSignError,
     DigestVerifyError,
@@ -91,6 +88,7 @@ pub enum RlsError {
     EvpError(EvpError),
     EcError(EcError),
     MlKemError(MLKEMError),
+    Cipher(CipherError),
 }
 
 impl Display for RlsError {
@@ -107,10 +105,6 @@ impl Display for RlsError {
             RlsError::AeadCryptError => f.write_str("Init aead crypto error"),
             RlsError::AeadEncryptError => f.write_str("Aead encrypt error"),
             RlsError::AeadDecryptError => f.write_str("Aead decrypt error"),
-            RlsError::CipherCryptError => f.write_str("Cipher crypto error"),
-            RlsError::CipherEncryptError => f.write_str("Cipher encrypt error"),
-            RlsError::CipherDecryptError => f.write_str("Cipher decrypt error"),
-            RlsError::CipherMacError => f.write_str("Cipher mac error"),
             RlsError::InitEvpCtxError => f.write_str("Init Evp ctx error"),
             RlsError::DigestSignError => f.write_str("Digest sign error"),
             RlsError::DigestVerifyError => f.write_str("Digest verify error"),
@@ -165,6 +159,7 @@ impl Display for RlsError {
             RlsError::EvpError(e) => write!(f, "EvpError({:?})", e),
             RlsError::EcError(e) => write!(f, "EcError({:?})", e),
             RlsError::MlKemError(e) => write!(f, "MlKemError({:?})", e),
+            RlsError::Cipher(e) => write!(f, "Cipher({:?})", e),
         }
     }
 }
@@ -309,6 +304,13 @@ impl From<MLKEMError> for RlsError {
         RlsError::MlKemError(value)
     }
 }
+
+impl From<CipherError> for RlsError {
+    fn from(value: CipherError) -> Self {
+        RlsError::Cipher(value)
+    }
+}
+
 impl Error for RlsError {}
 
 

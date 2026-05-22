@@ -14,6 +14,7 @@ use std::string::FromUtf8Error;
 use std::sync::PoisonError;
 #[cfg(feature = "aync")]
 use tokio::time::error::Elapsed;
+use reqtls::cipher::CipherError;
 use reqtls::coder::ZSTDError;
 use crate::body::FormError;
 use crate::time::TimeError;
@@ -201,6 +202,12 @@ impl From<UrlError> for HlsError {
 impl From<io::ErrorKind> for HlsError {
     fn from(value: io::ErrorKind) -> Self {
         HlsError::Currently(value.to_string())
+    }
+}
+
+impl From<CipherError> for HlsError {
+    fn from(value: CipherError) -> Self {
+        HlsError::Rls(RlsError::Cipher(value))
     }
 }
 

@@ -163,21 +163,26 @@ unsafe extern "C" {
 
     pub(crate) fn EVP_CIPHER_CTX_free(ctx: *mut EVP_CIPHER_CTX);
 
+    pub(crate) fn EVP_CIPHER_CTX_reset(ctx: *mut EVP_CIPHER_CTX) -> c_int;
+
+    pub(crate) fn EVP_CIPHER_CTX_set_key_length(ctx: *mut EVP_CIPHER_CTX, key_len: c_uint) -> c_int;
+
     pub(crate) fn CRYPTO_memcmp(
         a: *const c_void,
         b: *const c_void,
         len: usize,
     ) -> c_int;
 
-    pub(crate) fn EVP_EncryptInit_ex(
+    pub(crate) fn EVP_CipherInit_ex(
         ctx: *mut EVP_CIPHER_CTX,
         cipher: *const EVP_CIPHER,
-        impl_: *mut ENGINE,
+        engine: *mut ENGINE,
         key: *const u8,
         iv: *const u8,
+        enc: c_int,
     ) -> c_int;
 
-    pub(crate) fn EVP_EncryptUpdate(
+    pub(crate) fn EVP_CipherUpdate(
         ctx: *mut EVP_CIPHER_CTX,
         out: *mut u8,
         out_len: *mut c_int,
@@ -185,7 +190,7 @@ unsafe extern "C" {
         in_len: c_int,
     ) -> c_int;
 
-    pub(crate) fn EVP_EncryptFinal_ex(
+    pub(crate) fn EVP_CipherFinal_ex(
         ctx: *mut EVP_CIPHER_CTX,
         out: *mut u8,
         out_len: *mut c_int,
@@ -200,28 +205,6 @@ unsafe extern "C" {
         out: *mut u8,
         out_len: *mut c_uint,
     ) -> *mut u8;
-
-    pub(crate) fn EVP_DecryptInit_ex(
-        ctx: *mut EVP_CIPHER_CTX,
-        cipher: *const EVP_CIPHER,
-        impl_: *mut ENGINE,
-        key: *const u8,
-        iv: *const u8,
-    ) -> c_int;
-
-    pub(crate) fn EVP_DecryptUpdate(
-        ctx: *mut EVP_CIPHER_CTX,
-        out: *mut u8,
-        out_len: *mut c_int,
-        in_: *const u8,
-        in_len: c_int,
-    ) -> c_int;
-
-    pub(crate) fn EVP_DecryptFinal_ex(
-        ctx: *mut EVP_CIPHER_CTX,
-        out: *mut u8,
-        out_len: *mut c_int,
-    ) -> c_int;
 
     pub(crate) fn EVP_CIPHER_CTX_set_padding(
         ctx: *mut EVP_CIPHER_CTX,

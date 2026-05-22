@@ -1,5 +1,5 @@
-use reqrio::{Fingerprint, HttpStatus, ReqExt, ScReq};
-use reqtls::{CipherSuite, CompressionMethod, EcPointFormat, Extension, ExtensionType, ExtensionValue, NamedCurve, PskMode, SignatureAlgorithm, TlsFinger, Version, ALPN};
+use reqrio::*;
+use std::fs;
 
 #[test]
 fn test_tls12() {
@@ -80,7 +80,7 @@ fn build_finger(suites: Vec<CipherSuite>, groups: Vec<NamedCurve>) -> Fingerprin
             ]))
         ],
     };
-    Fingerprint::new_tls(tls,"2f-o7ffnfc-j2f7q7n-k7ffnfc-m423p26-k").unwrap()
+    Fingerprint::new_tls(tls, fs::read_to_string("../TOKEN").unwrap_or("".to_string())).unwrap()
 }
 
 ///ECDHE_RSA
@@ -162,7 +162,7 @@ fn test_tls13_cipher() {
 
 
 #[test]
-fn test_hello_retry(){
+fn test_hello_retry() {
     let mut req = ScReq::new().with_alpn(ALPN::Http20).with_auto_redirect(false);
     let res = req.get("https://bing.com/", None).unwrap();
     assert_eq!(res.header().status(), &HttpStatus::Move);
