@@ -192,7 +192,6 @@ mod scq;
 mod stream;
 mod body;
 mod fingerprint;
-// mod huffman;
 mod reader;
 mod request;
 mod cookie;
@@ -225,7 +224,7 @@ pub use stream::{ClientConfig, Proxy, ProxyStream, ServerConfig, SyncStream, Web
 pub use time::{Time, TimeError, Timeout};
 #[cfg(feature = "tokio")]
 pub use tokio;
-#[cfg(debug_assertions)]
+#[cfg(all(feature = "log", debug_assertions))]
 pub use logger::Logger;
 
 

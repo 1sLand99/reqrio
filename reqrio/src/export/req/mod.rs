@@ -5,12 +5,27 @@ mod body;
 
 use crate::export::{check_run, handle_err1, handle_err2};
 use crate::time::Timeout;
-use crate::{json, Body, Cookie, HlsError, Method, Proxy, ReqExt, ReqGenExt, Response, ScReq, ALPN};
+use crate::{json, Body, Cookie, HlsError, Method, Proxy, ReqExt, ReqGenExt, Response, ScReq, ALPN, Url};
 use crate::Fingerprint;
-use reqtls::Url;
 use std::ffi::{c_char, CStr, CString};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr::null_mut;
+#[cfg(feature = "log")]
+use crate::{logger::Logger, set_logger, set_max_level, LevelFilter};
+
+#[unsafe(no_mangle)]
+#[cfg(feature = "log")]
+pub extern "system" fn init_log(level: LevelFilter) {
+    let _ = set_logger(&Logger);
+    set_max_level(level);
+}
+
+#[unsafe(no_mangle)]
+#[cfg(feature = "log")]
+pub extern "system" fn set_max_log_level(level: LevelFilter) {
+    set_max_level(level);
+}
+
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]

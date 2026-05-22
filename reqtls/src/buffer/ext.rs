@@ -5,6 +5,7 @@ use std::ops::Range;
 use std::os::raw::c_char;
 use std::slice;
 use std::str::Utf8Error;
+#[cfg(feature = "log")]
 use log::warn;
 
 #[allow(non_camel_case_types)]

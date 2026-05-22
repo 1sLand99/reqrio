@@ -6,6 +6,7 @@ use std::ffi::CStr;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::sync::LazyLock;
+#[cfg(feature = "log")]
 use log::{debug, error};
 use crate::ffi::CPointer;
 
@@ -112,5 +113,5 @@ pub fn download_cert(url: impl AsRef<str>) -> RlsResult<Certificate> {
             }
         } else if res.len() >= context_len { break; }
     }
-    Ok(Certificate::from_der(&res)?)
+    Certificate::from_der(&res)
 }
