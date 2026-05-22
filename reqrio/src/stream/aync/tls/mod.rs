@@ -133,6 +133,7 @@ impl<S: AsyncRead + Unpin> TlsStream<S> {
                     Poll::Pending => return Poll::Pending,
                     Poll::Ready(_) => {
                         let len = buf.filled().len();
+                        if len == 0 { return Poll::Ready(Err(HlsError::PeerClosedConnection)); }
                         self.read_buffer.add_len(len);
                         if self.read_buffer.len() > 5 { break; }
                     }
