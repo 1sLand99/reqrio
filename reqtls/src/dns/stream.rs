@@ -9,6 +9,7 @@ use std::net::{IpAddr, SocketAddr, UdpSocket};
 #[cfg(target_os = "windows")]
 use std::ptr::null_mut;
 use std::str::FromStr;
+use std::time::Duration;
 use crate::buffer::WriteBuffer;
 
 
@@ -147,7 +148,7 @@ impl DNSStream {
             match self.conn.recv(&mut self.read_buf) {
                 Ok(len) => return Ok(len),
                 Err(e) => if e.kind() == ErrorKind::WouldBlock {
-                    println!("{:?}", e);
+                    self.conn.send_to(self.write_buf.filled(), self.dns_addr).map_err(DNSError::DnsIoError)?;
                     continue;
                 } else { return Err(DNSError::DnsIoError(e)) }
             }
@@ -162,8 +163,11 @@ impl DNSStream {
         let mut dns = DNS::new_query_https(domain);
         dns.add_additional(add);
         dns.write_to(&mut self.write_buf)?;
+        self.conn.set_read_timeout(Some(Duration::from_millis(100))).unwrap();
         self.conn.send_to(self.write_buf.filled(), self.dns_addr).map_err(DNSError::DnsIoError)?;
-        let len = self.read()?;
+        let len = if let Ok(len) = self.read() {
+            len
+        }else { return Ok(DNSCache::new_addrs(vec![])) };
         let dns = DNS::from_bytes(&self.read_buf[..len])?;
         let answer = dns.answers().iter().find(|x| x.type_() == DnsType::HTTPS);
         let (alpn, addrs, echo) = if let Some(answer) = answer && let DNSValue::Https { params, .. } = answer.data() {
