@@ -216,6 +216,7 @@ impl ScReq {
                 key: &self.key,
                 ca_cert: &self.ca_certs,
                 key_log: &self.key_log,
+                ech: false,
             };
             match self.stream.sync_conn(param) {
                 Ok(alpn) => {

@@ -58,14 +58,17 @@ impl Addr {
         self.host = host.to_string();
     }
 
-    fn get_dns(&self) -> RlsResult<Arc<DNSCache>> {
+    fn get_dns(&self, ech: bool) -> RlsResult<Arc<DNSCache>> {
         let mut cache = match IpAddr::from_str(&self.host) {
             Ok(addr) => DNSCache::new_addrs(vec![addr]),
             Err(_) => {
-                let mut stream = DNSStream::new()?;
-                let mut cache = stream.get_dns_https(&self.host)?;
+                let mut cache = if ech {
+                    let mut stream = DNSStream::new()?;
+                    let cache = stream.get_dns_https(&self.host)?;
+                    cache
+                } else { DNSCache::new_addrs(vec![]) };
                 if cache.addrs().is_empty() {
-                    let addrs=format!("{}:{}",self.host,self.port).to_socket_addrs()?.map(|x|x.ip()).collect();
+                    let addrs = format!("{}:{}", self.host, self.port).to_socket_addrs()?.map(|x| x.ip()).collect();
                     cache.set_addrs(addrs);
                 }
                 cache
@@ -79,18 +82,18 @@ impl Addr {
         dns_write.insert(self.host.clone(), cache.clone());
         Ok(cache)
     }
-    pub fn get_dns_cache(&self) -> RlsResult<Arc<DNSCache>> {
+    pub fn get_dns_cache(&self, ech: bool) -> RlsResult<Arc<DNSCache>> {
         let dns_read = DNS.read()?;
         match dns_read.get(&self.host) {
             None => {
                 drop(dns_read);
-                self.get_dns()
+                self.get_dns(ech)
             }
             Some(dns) => {
                 let t = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_secs();
                 if t - dns.time() > 30 * 60 {
                     drop(dns_read);
-                    self.get_dns()
+                    self.get_dns(ech)
                 } else {
                     Ok(dns.clone())
                 }
@@ -98,8 +101,8 @@ impl Addr {
         }
     }
 
-    pub fn socket_addr(&self) -> RlsResult<SocketAddr> {
-        let dns = self.get_dns_cache()?;
+    pub fn socket_addr(&self, ech: bool) -> RlsResult<SocketAddr> {
+        let dns = self.get_dns_cache(ech)?;
         let addr = dns.addrs().iter().next().ok_or("missing dns address")?;
         Ok(SocketAddr::new(*addr, self.port))
     }
@@ -161,6 +164,6 @@ mod tests {
     #[test]
     fn test_addr() {
         let addr = Addr::new_addr("127.0.0.1", 1234);
-        println!("{}", addr.socket_addr().unwrap());
+        println!("{}", addr.socket_addr(false).unwrap());
     }
 }

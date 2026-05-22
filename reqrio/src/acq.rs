@@ -220,6 +220,7 @@ impl AcReq {
                 key: &mut self.key,
                 ca_cert: &self.ca_certs,
                 key_log: &self.key_log,
+                ech: false,
             };
             let res = tokio::time::timeout(self.timeout.connect(), self.stream.async_conn(param)).await;
             match res {

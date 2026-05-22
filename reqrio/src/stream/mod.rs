@@ -32,6 +32,7 @@ pub struct ConnParam<'a> {
     pub key: &'a RsaKey,
     pub ca_cert: &'a Vec<Certificate>,
     pub key_log: &'a Option<PathBuf>,
+    pub ech: bool,
 }
 
 pub enum Stream {
@@ -65,7 +66,8 @@ impl Stream {
     pub async fn async_conn(&mut self, param: ConnParam<'_>) -> HlsResult<ALPN> {
         let _ = self.async_shutdown().await;
         let st = Time::now_mills().unwrap();
-        let stream = tokio::time::timeout(param.timeout.connect(), ProxyStream::async_connect(param.proxy, param.url.addr())).await??;
+        let connect = ProxyStream::async_connect(param.proxy, param.url.addr(), param.ech);
+        let stream = tokio::time::timeout(param.timeout.connect(), connect).await??;
         println!("TCP TIME: {}", Time::now_mills().unwrap() - st);
         match param.url.scheme() {
             Scheme::Http | Scheme::Ws => {
@@ -113,7 +115,7 @@ impl Stream {
 impl Stream {
     pub fn sync_conn(&mut self, param: ConnParam) -> HlsResult<ALPN> {
         let _ = self.sync_shutdown();
-        let stream = ProxyStream::sync_connect(param.proxy, param.url.addr(), param.timeout)?;
+        let stream = ProxyStream::sync_connect(param.proxy, param.url.addr(), param.timeout, param.ech)?;
         match param.url.scheme() {
             Scheme::Http | Scheme::Ws => {
                 *self = Stream::SyncHttp(stream);
@@ -201,6 +203,7 @@ pub trait TlsStreamHandle {
     fn handle_server_hello((conn, buffer): (&mut Connection, &mut Buffer), server_hello: ServerHello) -> Result<(), RlsError> {
         let hello_retry = conn.set_by_server_hello(&server_hello)?;
         if hello_retry {
+            #[cfg(feature = "log")]
             debug!("[ParsingServerHello] hello_retry=true; retry_share={:?}",server_hello.key_share_extend().map(|x|x.key_entry().name_curve()));
             let mut reader = Reader::from_slice(conn.session_bytes());
             reader.read_u8()?;

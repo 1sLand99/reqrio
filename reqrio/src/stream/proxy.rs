@@ -104,11 +104,11 @@ impl Proxy {
         matches!(self, Proxy::Null)
     }
 
-    pub fn socket_addr(&self, peer_addr: &Addr) -> HlsResult<SocketAddr> {
+    pub fn socket_addr(&self, peer_addr: &Addr, ech: bool) -> HlsResult<SocketAddr> {
         match self {
-            Proxy::Null => Ok(peer_addr.socket_addr()?),
-            Proxy::HttpPlain(url) => Ok(url.addr().socket_addr()?),
-            Proxy::Socks5(url) => Ok(url.addr().socket_addr()?),
+            Proxy::Null => Ok(peer_addr.socket_addr(ech)?),
+            Proxy::HttpPlain(url) => Ok(url.addr().socket_addr(ech)?),
+            Proxy::Socks5(url) => Ok(url.addr().socket_addr(ech)?),
         }
     }
 }
@@ -163,10 +163,10 @@ impl ProxyStream<std::net::TcpStream> {
         stream.set_write_timeout(Some(timeout.write()))?;
         Ok(stream)
     }
-    pub fn sync_connect(proxy: &Proxy, peer_addr: &Addr, timeout: &Timeout) -> HlsResult<ProxyStream<std::net::TcpStream>> {
+    pub fn sync_connect(proxy: &Proxy, peer_addr: &Addr, timeout: &Timeout, ech: bool) -> HlsResult<ProxyStream<std::net::TcpStream>> {
         #[cfg(feature = "log")]
         debug!("[ProxyStream] Proxy: {} | PeerAddr: {}",proxy,peer_addr);
-        let addr = proxy.socket_addr(peer_addr)?;
+        let addr = proxy.socket_addr(peer_addr, ech)?;
         let mut stream = ProxyStream::create_sync(&addr, timeout)?;
         let mut buffer = Buffer::with_capacity(1024);
         for i in 0..4 {
@@ -245,11 +245,11 @@ impl std::io::Write for ProxyStream<std::net::TcpStream> {
 
 #[cfg(feature = "aync")]
 impl ProxyStream<tokio::net::TcpStream> {
-    pub async fn async_connect(proxy: &Proxy, peer_addr: &Addr) -> HlsResult<ProxyStream<tokio::net::TcpStream>> {
+    pub async fn async_connect(proxy: &Proxy, peer_addr: &Addr, ech: bool) -> HlsResult<ProxyStream<tokio::net::TcpStream>> {
         #[cfg(feature = "log")]
         debug!("[ProxyStream] Proxy: {} | PeerAddr: {}",proxy,peer_addr);
         let st = Time::now_mills().unwrap();
-        let addr = proxy.socket_addr(peer_addr)?;
+        let addr = proxy.socket_addr(peer_addr, ech)?;
         println!("DNS TIME: {}", Time::now_mills().unwrap() - st);
         let mut stream = tokio::net::TcpStream::connect(addr).await?;
         let mut buffer = Buffer::with_capacity(1024);
