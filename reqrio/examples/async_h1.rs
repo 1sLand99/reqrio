@@ -1,6 +1,7 @@
 use std::fs;
 use reqrio::*;
 
+#[cfg(feature = "log")]
 const LOGER: Logger = Logger {
     module: &[],
     debug_file: None,
