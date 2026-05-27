@@ -6,6 +6,7 @@ pub use param::Param;
 pub use scheme::Scheme;
 use std::fmt::Display;
 pub use uri::Uri;
+use std::borrow::Cow;
 
 mod addr;
 mod param;
@@ -116,6 +117,14 @@ impl Url {
 
     pub fn set_password(&mut self, password: String) {
         self.password = password;
+    }
+
+    pub fn insert_param<'a>(&mut self, name: impl ToString, value: impl Into<Cow<'a, str>>) {
+        self.uri.insert_param(name, value);
+    }
+
+    pub fn join(&mut self, path: impl AsRef<str>) {
+        self.uri.join(path)
     }
 }
 

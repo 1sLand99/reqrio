@@ -63,6 +63,11 @@ impl Uri {
     pub fn clear_params(&mut self) {
         self.params.clear();
     }
+
+    pub fn join(&mut self, path: impl AsRef<str>) {
+        if !self.path.ends_with("/") { self.path += "/"; }
+        self.path += path.as_ref();
+    }
 }
 
 impl Display for Uri {
