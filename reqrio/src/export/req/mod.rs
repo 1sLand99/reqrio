@@ -5,15 +5,16 @@ mod body;
 
 use crate::export::{check_run, handle_err1, handle_err2};
 use crate::time::Timeout;
-use crate::{json, Body, Cookie, HlsError, Method, Proxy, ReqExt, ReqGenExt, Response, ScReq, ALPN, Url, Level};
+use crate::{json, Body, Cookie, HlsError, Method, Proxy, ReqExt, ReqGenExt, Response, ScReq, ALPN, Url};
 use crate::Fingerprint;
 use std::ffi::{c_char, CStr, CString};
 use std::ops::{Deref, DerefMut};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr::null_mut;
 #[cfg(feature = "log")]
-use crate::{logger::Logger, set_logger, set_max_level, LevelFilter};
+use crate::{logger::Logger, set_logger, set_max_level, LevelFilter, Level};
 
+#[cfg(feature = "log")]
 const LOGER: Logger = Logger {
     module: &[],
     debug_file: None,
