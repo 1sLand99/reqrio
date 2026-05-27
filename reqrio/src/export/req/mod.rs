@@ -5,18 +5,28 @@ mod body;
 
 use crate::export::{check_run, handle_err1, handle_err2};
 use crate::time::Timeout;
-use crate::{json, Body, Cookie, HlsError, Method, Proxy, ReqExt, ReqGenExt, Response, ScReq, ALPN, Url};
+use crate::{json, Body, Cookie, HlsError, Method, Proxy, ReqExt, ReqGenExt, Response, ScReq, ALPN, Url, Level};
 use crate::Fingerprint;
 use std::ffi::{c_char, CStr, CString};
+use std::ops::{Deref, DerefMut};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr::null_mut;
 #[cfg(feature = "log")]
 use crate::{logger::Logger, set_logger, set_max_level, LevelFilter};
 
+const LOGER: Logger = Logger {
+    module: &[],
+    debug_file: None,
+    info_file: None,
+    warn_file: None,
+    error_file: None,
+    out_file: None,
+};
+
 #[unsafe(no_mangle)]
 #[cfg(feature = "log")]
 pub extern "system" fn init_log(level: LevelFilter) {
-    let _ = set_logger(&Logger);
+    let _ = set_logger(&LOGER);
     set_max_level(level);
 }
 
@@ -186,9 +196,9 @@ pub unsafe extern "C" fn ScReq_stream_io(
         check_run(move || {
             let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
             req.header_mut().set_method(method);
-            let url = unsafe { Box::from_raw(url) };
+            let mut url = unsafe { Box::from_raw(url) };
             let body = unsafe { Box::from_raw(body) };
-            let resp = req.stream_io(*url, *body)?;
+            let resp = req.stream_io(url.deref_mut(), body.deref())?;
             Ok(Box::into_raw(Box::new(resp)))
         }, |e| handle_err1(e, err, null_mut()))
     })).unwrap_or_else(|_| handle_err1("程序panic", err, null_mut()))

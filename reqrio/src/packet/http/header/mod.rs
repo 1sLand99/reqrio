@@ -106,7 +106,6 @@ impl Header {
             HeaderKey::new_reserved("Accept-Language", HeaderValue::String("zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6".to_string())),
             HeaderKey::new_reserved("Cookie", HeaderValue::Cookies(CookieManager::new(vec![]))),
             HeaderKey::new_reserved("Origin", HeaderValue::String("".to_string())),
-
         ];
         res
     }
@@ -142,6 +141,11 @@ impl Header {
     pub fn get(&self, name: impl AsRef<str>) -> Option<&HeaderValue> {
         let header = self.keys.iter().find(|x| x.name().eq_ignore_ascii_case(name.as_ref()))?;
         Some(header.value())
+    }
+
+    pub fn get_str(&self, name: impl AsRef<str>) -> Option<&str> {
+        let header = self.keys.iter().find(|x| x.name().eq_ignore_ascii_case(name.as_ref()))?;
+        header.value().as_string()
     }
 
     pub fn get_mut(&mut self, name: impl AsRef<str>) -> Option<&mut HeaderValue> {

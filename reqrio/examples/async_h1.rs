@@ -1,9 +1,18 @@
 use std::fs;
 use reqrio::*;
 
+const LOGER: Logger = Logger {
+    module: &[],
+    debug_file: None,
+    info_file: None,
+    warn_file: None,
+    error_file: None,
+    out_file: None,
+};
+
 #[cfg(feature = "log")]
 fn test_log() {
-    set_logger(&Logger).unwrap();
+    set_logger(&LOGER).unwrap();
     set_max_level(LevelFilter::Debug);
 }
 
@@ -17,12 +26,6 @@ async fn main() {
     // println!("data:{:?}", data);
     // println!("{:?}", boring::symm::decrypt(cipher, key, None, &data).unwrap());
 
-
-    let cipher = Cipher::rc4().with_secret_key("7d1a840419e1648c4e247b70f4a1e472".as_bytes(), None);
-    // println!("{}", base64::b64encode(cipher.encrypt("pkiIOzHlETLPdEUq").unwrap()).unwrap());
-
-    println!("{:?}", cipher.decrypt(base64::b64decode("IyM0vnZ9QKM8WdzDk1rkFQ==").unwrap()).unwrap());
-    return;
     #[cfg(feature = "log")]
     test_log();
     let fingerprint = Fingerprint::from_ja3("771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-17513-21,29-23-24,0", fs::read_to_string("TOKEN").unwrap()).unwrap();
@@ -30,8 +33,8 @@ async fn main() {
     // let res = reqrio::get("http://capi.51daili.com/traffic/getip?linePoolIndex=1&packid=12&time=11&qty=1&port=1&format=txt&providerIds=3,4&usertype=17&uid=69969", None).unwrap();
     // let res = reqrio::get("http://capi.51daili.com/traffic/getip?linePoolIndex=1&packid=12&time=11&qty=1&port=1&format=txt&providerIds=1,5&usertype=17&uid=69969", None).unwrap();
     // let proxy = Proxy::try_from(format!("http://{}", res.text().unwrap().trim())).unwrap();
-    let res = AcReq::new().get("http://capi.51daili.com/traffic/getip?linePoolIndex=1&packid=12&time=11&qty=1&port=2&format=txt&providerIds=1,5&usertype=17&uid=69969", None).await.unwrap();
-    let proxy = Proxy::try_from(format!("socks5://{}", res.text().unwrap().trim())).unwrap();
+    // let res = AcReq::new().get("http://capi.51daili.com/traffic/getip?linePoolIndex=1&packid=12&time=11&qty=1&port=2&format=txt&providerIds=1,5&usertype=17&uid=69969", None).await.unwrap();
+    // let proxy = Proxy::try_from(format!("socks5://{}", res.text().unwrap().trim())).unwrap();
     // return;
     let mut timeout = Timeout::longer();
     timeout.set_handle_times(1);
@@ -54,6 +57,7 @@ async fn main() {
         // .with_proxy(proxy)
         .with_fingerprint(fingerprint)
         .with_verify(false)
+        .with_proxy(Proxy::try_from("http://60.215.152.144:20262").unwrap())
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::new_socks5("192.111.130.2",4145))
         // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10279))
@@ -142,10 +146,15 @@ async fn main() {
     // let res = req.get("https://117.89.181.21".sni("m.sogou.com"), None).await.unwrap();
     // let res=req.get("https://oauth.hubei.gov.cn:8443/",None).await.unwrap();
     // let res = req.get("https://104.18.34.137".sni("whatnot.com"), None).await.unwrap();
-    let res = req.get("https://150.139.229.223".sni("h5.moutai519.com.cn"), None).await.unwrap();
+    // let res = req.get("https://150.139.229.223".sni("h5.moutai519.com.cn"), None).await.unwrap();
+    loop {
+        let res = req.get("https://aswbe.ana.co.jp/webapps/reservation/flight-search", None).await.unwrap();
+        println!("{}", res.header().status());
+
+    }
+
     // let res=req.get("https://h5.moutai519.com.cn",None).await.unwrap();
     // let res = req.get("https://m.baidu.com", None).await.unwrap();
-    println!("{}", res.header());
     // println!("{}", res.json().unwrap().pretty())
     // println!("{:#?}", req.header().cookies());
     // println!("{}",res.text().unwrap());

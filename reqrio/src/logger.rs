@@ -1,6 +1,15 @@
+use std::fs::OpenOptions;
+use std::io::Write;
 use crate::{Level, Log, Metadata, Record, Time};
 
-pub struct Logger;
+pub struct Logger {
+    pub module: &'static [(&'static str, Level)],
+    pub debug_file: Option<&'static str>,
+    pub info_file: Option<&'static str>,
+    pub warn_file: Option<&'static str>,
+    pub error_file: Option<&'static str>,
+    pub out_file: Option<&'static str>,
+}
 
 impl Logger {
     pub fn color(&self, level: Level) -> &str {
@@ -12,31 +21,51 @@ impl Logger {
             Level::Trace => "\x1b[01;36m"
         }
     }
-
-    pub fn get_file(&self, file: Option<&str>) -> String {
-        let file = file.unwrap_or("???").replace("\\", "/");
-        if !file.starts_with("/") && file.find(":") != Some(1) {
-            let mut items = file.split("/");
-            let module = items.next().unwrap_or("??");
-            let file = items.last().unwrap_or("??");
-            format!("{}-{}", module, file)
-        } else { file }
-    }
 }
 impl Log for Logger {
     fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() <= Level::Error
+        for (m, l) in self.module {
+            if metadata.target().starts_with(m) {
+                return &metadata.level() <= l;
+            }
+        }
+        metadata.level() <= reqtls::max_level()
     }
 
     fn log(&self, record: &Record) {
+        if !self.enabled(record.metadata()) { return; }
+        let module = record.module_path().map(|x| {
+            let mut items = x.split("::").collect::<Vec<_>>();
+            while items.len() > 2 {
+                items.remove(1);
+            }
+            items.join("-")
+        }).unwrap_or("??".to_string());
         println!("{}{} [{:5}] {:20}:{:4}\x1b[0m - {}",
                  self.color(record.metadata().level()),
-                 Time::now().unwrap().rfc3339(),
+                 Time::now().unwrap().as_rfc3339(),
                  record.level(),
-                 self.get_file(record.file()),
+                 module,
                  record.line().unwrap_or(0),
                  record.args(),
         );
+        let f = match record.level() {
+            Level::Error => self.error_file.or(self.out_file),
+            Level::Warn => self.warn_file.or(self.out_file),
+            Level::Info => self.info_file.or(self.out_file),
+            Level::Debug => self.debug_file.or(self.out_file),
+            Level::Trace => self.out_file,
+        };
+        if let Some(f) = f {
+            let mut f = OpenOptions::new().create(true).append(true).open(f).unwrap();
+            f.write_all(format!(
+                "{} [{:5}] {:20}:{:4} - {}\n",
+                Time::now().unwrap().as_rfc3339(),
+                record.level(),
+                module,
+                record.line().unwrap_or(0),
+                record.args()).as_bytes()).unwrap();
+        }
     }
 
     fn flush(&self) {}
