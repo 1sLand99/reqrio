@@ -29,6 +29,7 @@ pub enum HlsError {
     EncrypterNone,
     WsFrameTypeNone,
     DataTooShort,
+    RstStream,
     UnsupportedAlpn(ALPN),
     Body(FormError),
     Rls(RlsError),
@@ -80,6 +81,7 @@ impl Display for HlsError {
             HlsError::Time(e) => write!(f, "Time({:?})", e),
             HlsError::UnsupportedAlpn(alpn) => write!(f, "UnsupportedAlpn({})", alpn),
             HlsError::Zstd(e) => write!(f, "Zstd({})", e),
+            HlsError::RstStream=> f.write_str("RstStream"),
         }
     }
 }
