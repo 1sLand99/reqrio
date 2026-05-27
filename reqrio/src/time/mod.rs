@@ -1,9 +1,11 @@
 mod timeout;
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 pub use timeout::Timeout;
 use std::fmt::{Display, Formatter};
 use std::error::Error;
+use std::ops::Add;
+use crate::HlsError;
 
 #[derive(Debug)]
 pub enum TimeError {
@@ -49,8 +51,8 @@ pub struct Time {
 
 impl Time {
     const SECS_PER_DAY: u128 = 86_400_000;
-    const WEEKDAY: [&'static str; 7] = ["Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"];
-    const MONTH: [&'static str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    pub const WEEKDAY: [&'static str; 7] = ["Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"];
+    pub const MONTH: [&'static str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
     pub fn now() -> Result<Time, TimeError> {
         let dt = SystemTime::now().duration_since(UNIX_EPOCH).or(Err(TimeError::GetTimeNowError))?;
@@ -59,7 +61,7 @@ impl Time {
 
     pub fn now_utc8() -> Result<Time, TimeError> {
         let dt = SystemTime::now().duration_since(UNIX_EPOCH).or(Err(TimeError::GetTimeNowError))?;
-        Ok(Time::from_msecs(dt.as_millis()))
+        Ok(Time::from_msecs(dt.add(Duration::from_hours(8)).as_millis()))
     }
 
     pub fn now_secs() -> Result<u64, TimeError> {
@@ -135,7 +137,13 @@ impl Time {
         }
     }
 
-    pub fn rfc1123(&self) -> String {
+    ///Sat, 04 Apr 2026 13:42:35 GMT
+    pub fn rfc1123_utc8() -> Result<String, TimeError> {
+        Ok(Time::now_utc8()?.as_rfc1123())
+    }
+
+    ///Sat, 04 Apr 2026 13:42:35 GMT
+    pub fn as_rfc1123(&self) -> String {
         let mut res = String::with_capacity(32);
         res.push_str(Time::WEEKDAY[self.weekday as usize]);
         res.push_str(", ");
@@ -154,7 +162,13 @@ impl Time {
         res
     }
 
-    pub fn rfc3339(&self) -> String {
+    ///2026-03-26T10:02:19.911Z
+    pub fn rfc3339_utc8(&self) -> Result<String, TimeError> {
+        Ok(Time::now_utc8()?.as_rfc3339())
+    }
+
+    ///2026-03-26T10:02:19.911Z
+    pub fn as_rfc3339(&self) -> String {
         let mut res = String::with_capacity(32);
         self.push_num(&mut res, self.year, 4);
         res.push('-');
@@ -173,7 +187,12 @@ impl Time {
         res
     }
 
-    pub fn common(&self) -> String {
+    pub fn common_utc8(&self) -> Result<String, TimeError> {
+        Ok(Time::now_utc8()?.as_common())
+    }
+
+    ///2026-03-26 10:02:19
+    pub fn as_common(&self) -> String {
         let mut res = String::with_capacity(32);
         self.push_num(&mut res, self.year, 4);
         res.push('-');
@@ -303,6 +322,7 @@ impl Time {
         })
     }
 
+    ///2026-03-26 10:02:19
     pub fn from_common(s: impl AsRef<[u8]>) -> Result<Time, TimeError> {
         let b = s.as_ref();
 
@@ -363,6 +383,47 @@ impl Time {
         let d = (s[3] as char).to_digit(10)? as u128;
         Some(a * 1000 + b * 100 + c * 10 + d)
     }
+
+    pub fn time_uuid() -> Result<String, HlsError> {
+        let mut data = reqtls::hash::md5_hex(Time::now_nanos()?.to_be_bytes())?;
+        data.insert(8, '-');
+        data.insert(13, '-');
+        data.insert(18, '-');
+        data.insert(23, '-');
+        Ok(data)
+    }
+
+    pub fn year(&self) -> u128 {
+        self.year
+    }
+
+    pub fn month(&self) -> u128 {
+        self.month
+    }
+
+    pub fn day(&self) -> u128 {
+        self.day
+    }
+
+    pub fn hour(&self) -> u128 {
+        self.hour
+    }
+
+    pub fn minute(&self) -> u128 {
+        self.minute
+    }
+
+    pub fn secs(&self) -> u128 {
+        self.secs
+    }
+
+    pub fn msec(&self) -> u128 {
+        self.msec
+    }
+
+    pub fn weekday(&self) -> u128 {
+        self.weekday
+    }
 }
 
 
@@ -371,12 +432,13 @@ mod tests {
     use crate::time::Time;
     #[test]
     fn test_time() {
+        println!("{:#?}", Time::now().unwrap());
         let ts = Time::now_mills().unwrap();
         let date = Time::from_msecs(ts);
         assert_eq!(ts, date.as_mills());
-        println!("{}", date.common());
-        println!("{}", date.rfc1123());
-        println!("{}", date.rfc3339());
+        println!("{}", date.as_common());
+        println!("{}", date.as_rfc1123());
+        println!("{}", date.as_rfc3339());
         assert_eq!(Time::from_rfc1123("Thu, 26 Mar 2026 10:02:19 GMT").unwrap().as_secs(), 1774519339);
         assert_eq!(Time::from_rfc3339("2026-03-26T10:02:19.911Z").unwrap().as_mills(), 1774519339911);
         assert_eq!(Time::from_common("2026-03-26 10:02:19").unwrap().as_secs(), 1774519339);
