@@ -65,7 +65,7 @@ impl AcReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::GET);
-        self.stream_io(&mut url.try_into()?, body.into()).await
+        self.stream_io(&mut url.try_into()?, &body.into()).await
     }
 
     pub async fn post<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
@@ -73,7 +73,7 @@ impl AcReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::POST);
-        self.stream_io(&mut url.try_into()?, body.into()).await
+        self.stream_io(&mut url.try_into()?, &body.into()).await
     }
 
     pub async fn put<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
@@ -81,7 +81,7 @@ impl AcReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::PUT);
-        self.stream_io(&mut url.try_into()?, body.into()).await
+        self.stream_io(&mut url.try_into()?, &body.into()).await
     }
 
     pub async fn options<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
@@ -89,7 +89,7 @@ impl AcReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::OPTIONS);
-        self.stream_io(&mut url.try_into()?, body.into()).await
+        self.stream_io(&mut url.try_into()?, &body.into()).await
     }
 
     pub async fn delete<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
@@ -97,7 +97,7 @@ impl AcReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::DELETE);
-        self.stream_io(&mut url.try_into()?, body.into()).await
+        self.stream_io(&mut url.try_into()?, &body.into()).await
     }
 
     pub async fn head<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
@@ -105,7 +105,7 @@ impl AcReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::HEAD);
-        self.stream_io(&mut url.try_into()?, body.into()).await
+        self.stream_io(&mut url.try_into()?, &body.into()).await
     }
 
     pub async fn trace<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
@@ -113,7 +113,7 @@ impl AcReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::TRACE);
-        self.stream_io(&mut url.try_into()?, body.into()).await
+        self.stream_io(&mut url.try_into()?, &body.into()).await
     }
 
     pub async fn patch<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
@@ -121,7 +121,7 @@ impl AcReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::PATCH);
-        self.stream_io(&mut url.try_into()?, body.into()).await
+        self.stream_io(&mut url.try_into()?, &body.into()).await
     }
 
     pub async fn h1_io(&mut self) -> HlsResult<Response> {
@@ -165,8 +165,7 @@ impl AcReq {
         Ok(response)
     }
 
-    pub async fn stream_io(&mut self, url: &mut Url, body: Body<'_>) -> HlsResult<Response>
-    {
+    pub async fn stream_io(&mut self, url: &mut Url, body: &Body<'_>) -> HlsResult<Response> {
         self.set_url(url).await?;
         for i in 1..=self.timeout.handle_times() {
             let res = tokio::time::timeout(self.timeout.handle(), self.handle_io(url, &body)).await;
@@ -187,7 +186,7 @@ impl AcReq {
                             false => url.set_uri(location)?,
                         }
                         self.header.set_method(Method::GET);
-                        Box::pin(self.stream_io(url, Body::none())).await
+                        Box::pin(self.stream_io(url, &Body::none())).await
                     } else {
                         Ok(resp)
                     };
@@ -227,6 +226,8 @@ impl AcReq {
                 Err(_) => if i >= self.timeout.handle_times() { return Err(HlsError::Time(TimeError::ConnectTimeout)) }
                 Ok(Err(e)) => if i >= self.timeout.handle_times() { return Err(e) }
                 Ok(Ok(alpn)) => {
+                    #[cfg(feature = "log")]
+                    debug!("[AcReq] Connected | ALPN: {} | RemoteAddr: {}", alpn, url.unwrap_or(&self.url).addr());
                     self.header.init_by_alpn(alpn);
                     if self.header.alpn() == &ALPN::Http20 { self.handle_h2_setting().await?; }
                     if let Some(url) = url {
@@ -253,7 +254,7 @@ impl AcReq {
     {
         self.header.set_method(method);
         let mut url = url.try_into()?;
-        let response = self.stream_io(&mut url, body.into()).await?;
+        let response = self.stream_io(&mut url, &body.into()).await?;
         self.check_status(&url, &response)?;
         Ok(response)
     }

@@ -7,7 +7,6 @@ use crate::request::RequestBuffer;
 use crate::stream::{ConnParam, Stream};
 use crate::*;
 use json::JsonValue;
-use std::convert::Infallible;
 use std::path::{Path, PathBuf};
 
 pub struct ScReq {
@@ -64,7 +63,7 @@ impl ScReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::GET);
-        self.stream_io(url, body.into())
+        self.stream_io(&mut url.try_into()?, &body.into())
     }
 
     pub fn post<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
@@ -72,7 +71,7 @@ impl ScReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::POST);
-        self.stream_io(url, body.into())
+        self.stream_io(&mut url.try_into()?, &body.into())
     }
 
     pub fn put<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
@@ -80,7 +79,7 @@ impl ScReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::PUT);
-        self.stream_io(url, body.into())
+        self.stream_io(&mut url.try_into()?, &body.into())
     }
 
     pub fn options<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
@@ -88,7 +87,7 @@ impl ScReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::OPTIONS);
-        self.stream_io(url, body.into())
+        self.stream_io(&mut url.try_into()?, &body.into())
     }
 
     pub fn delete<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
@@ -96,7 +95,7 @@ impl ScReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::DELETE);
-        self.stream_io(url, body.into())
+        self.stream_io(&mut url.try_into()?, &body.into())
     }
 
     pub fn head<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
@@ -104,7 +103,7 @@ impl ScReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::HEAD);
-        self.stream_io(url, body.into())
+        self.stream_io(&mut url.try_into()?, &body.into())
     }
 
     pub fn trace<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
@@ -112,7 +111,7 @@ impl ScReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::TRACE);
-        self.stream_io(url, body.into())
+        self.stream_io(&mut url.try_into()?, &body.into())
     }
 
     pub fn patch<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
@@ -120,7 +119,7 @@ impl ScReq {
         HlsError: From<E>,
     {
         self.header.set_method(Method::PATCH);
-        self.stream_io(url, body.into())
+        self.stream_io(&mut url.try_into()?, &body.into())
     }
 
     pub fn h1_io(&mut self) -> HlsResult<Response> {
@@ -159,14 +158,11 @@ impl ScReq {
         Ok(response)
     }
 
-    pub fn stream_io<E>(&mut self, url: impl TryInto<Url, Error=E>, body: Body) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
+    pub fn stream_io(&mut self, url: &mut Url, body: &Body) -> HlsResult<Response>
     {
-        let mut url = url.try_into()?;
-        self.set_url(&url)?;
+        self.set_url(url)?;
         for i in 1..=self.timeout.handle_times() {
-            let res = self.handle_io(&url, &body);
+            let res = self.handle_io(url, body);
             self.buffer.reset();
             match res {
                 Ok(res) => {
@@ -174,11 +170,11 @@ impl ScReq {
                     return if self.auto_redirect && (300..400).contains(&code) {
                         let location = res.header().location().ok_or("missing location")?;
                         match location.starts_with("http") {
-                            true => url = Url::try_from(location)?,
+                            true => *url = Url::try_from(location)?,
                             false => url.set_uri(location)?
                         };
                         self.header.set_method(Method::GET);
-                        self.stream_io::<Infallible>(url, Body::none())
+                        self.stream_io(url, &Body::none())
                     } else {
                         Ok(res)
                     };
@@ -220,6 +216,8 @@ impl ScReq {
             };
             match self.stream.sync_conn(param) {
                 Ok(alpn) => {
+                    #[cfg(feature = "log")]
+                    debug!("[AcReq] Connected | ALPN: {} | RemoteAddr: {}", alpn, url.unwrap_or(&self.url).addr());
                     self.header.init_by_alpn(alpn);
                     if self.header.alpn() == &ALPN::Http20 { self.handle_h2_setting()?; }
                     if let Some(url) = url {
@@ -257,8 +255,8 @@ impl ScReq {
         HlsError: From<E>,
     {
         self.header.set_method(method);
-        let url = url.try_into()?;
-        let response = self.stream_io::<Infallible>(url.clone(), body.into())?;
+        let mut url = url.try_into()?;
+        let response = self.stream_io(&mut url, &body.into())?;
         self.check_status(&url, &response)?;
         Ok(response)
     }
