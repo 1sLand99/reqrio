@@ -38,6 +38,8 @@ pub enum CipherType {
     DES_CBC = 15,
     DES_ECB = 16,
     RC4 = 17,
+    SM4_ECB = 18,
+    SM4_CBC = 19,
 }
 
 impl CipherType {
@@ -61,6 +63,8 @@ impl CipherType {
             CipherType::DES_CBC => unsafe { EVP_des_cbc() }
             CipherType::DES_ECB => unsafe { EVP_des_ecb() }
             CipherType::RC4 => unsafe { EVP_rc4() }
+            CipherType::SM4_ECB => unsafe { EVP_sm4_ecb() }
+            CipherType::SM4_CBC => unsafe { EVP_sm4_cbc() }
         }
     }
 }

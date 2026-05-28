@@ -19,7 +19,7 @@ pub enum HashType {
     Sha256 = 3,
     Sha384 = 4,
     Sha512 = 5,
-
+    Sm3 = 6,
 }
 
 impl HashType {
@@ -33,17 +33,19 @@ impl HashType {
             HashType::Sha256 => unsafe { EVP_sha256() },
             HashType::Sha384 => unsafe { EVP_sha384() },
             HashType::Sha512 => unsafe { EVP_sha512() },
+            HashType::Sm3 => unsafe { EVP_sm3() }
         }
     }
 
     pub(crate) fn hash_size(&self) -> usize {
         match self {
-            HashType::MD5 => 32,
+            HashType::MD5 => 16,
             HashType::Sha1 => 20,
             HashType::Sha224 => 28,
             HashType::Sha256 => 32,
             HashType::Sha384 => 48,
-            HashType::Sha512 => 64
+            HashType::Sha512 => 64,
+            HashType::Sm3 => 32
         }
     }
 
@@ -130,4 +132,31 @@ pub fn sha512(context: impl AsRef<[u8]>) -> RlsResult<[u8; 64]> {
 
 pub fn sha512_hex(context: impl AsRef<[u8]>) -> RlsResult<String> {
     Ok(hex::encode(sha512(context)?))
+}
+
+
+pub fn sm3(context: impl AsRef<[u8]>) -> RlsResult<[u8; 32]> {
+    let mut out = [0u8; 32];
+    digest(context.as_ref(), out.as_mut_ptr(), HashType::Sm3)?;
+    Ok(out)
+}
+
+pub fn sm3_hex(context: impl AsRef<[u8]>) -> RlsResult<String> {
+    Ok(hex::encode(sm3(context)?))
+}
+
+
+#[cfg(test)]
+mod hash_tests {
+    use crate::{HashType, Hasher};
+
+    #[test]
+    fn hasher_test() {
+        let sm3 = [98, 38, 193, 189, 121, 90, 222, 162, 61, 189, 218, 164, 65, 12, 83, 86, 123, 93, 171, 159, 114, 237, 116, 186, 164, 239, 210, 172, 218, 122, 42, 183];
+        let mut hasher = Hasher::new(HashType::Sm3).unwrap();
+        hasher.update("4546").unwrap();
+        hasher.update("12345").unwrap();
+        assert_eq!(hasher.finalize().unwrap(), sm3);
+        assert_eq!(super::sm3("454612345").unwrap(), sm3);
+    }
 }

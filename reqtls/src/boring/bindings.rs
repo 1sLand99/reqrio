@@ -159,6 +159,10 @@ unsafe extern "C" {
 
     pub(crate) fn EVP_rc4() -> *const EVP_CIPHER;
 
+    pub(crate) fn EVP_sm4_ecb() -> *const EVP_CIPHER;
+
+    pub(crate) fn EVP_sm4_cbc() -> *const EVP_CIPHER;
+
     pub(crate) fn EVP_CIPHER_CTX_new() -> *mut EVP_CIPHER_CTX;
 
     pub(crate) fn EVP_CIPHER_CTX_free(ctx: *mut EVP_CIPHER_CTX);
@@ -498,6 +502,8 @@ unsafe extern "C" {
     pub(crate) fn EVP_sha384() -> *const EVP_MD;
 
     pub(crate) fn EVP_sha512() -> *const EVP_MD;
+
+    pub(crate) fn EVP_sm3() -> *const EVP_MD;
 
     pub(crate) fn HMAC_CTX_new() -> *mut HMAC_CTX;
 

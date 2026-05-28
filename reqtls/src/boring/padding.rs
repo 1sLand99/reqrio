@@ -49,9 +49,8 @@ impl Padding {
             Padding::PKCS7Padding => {
                 let end_bit = data[data.len() - 1];
                 if end_bit <= 16 {
-                    while data.ends_with(&[end_bit]) {
-                        data.remove(data.len() - 1);
-                    }
+                    let len = end_bit;
+                    data.truncate(data.len() - len as usize);
                 }
             }
             Padding::NoPadding => {}
