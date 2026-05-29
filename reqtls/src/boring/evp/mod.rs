@@ -40,6 +40,10 @@ pub enum CipherType {
     RC4 = 17,
     SM4_ECB = 18,
     SM4_CBC = 19,
+    SM4_CTR = 20,
+    SM4_CTR_32 = 21,
+    SM4_OFB = 22,
+    SM4_CFB = 23,
 }
 
 impl CipherType {
@@ -65,6 +69,10 @@ impl CipherType {
             CipherType::RC4 => unsafe { EVP_rc4() }
             CipherType::SM4_ECB => unsafe { EVP_sm4_ecb() }
             CipherType::SM4_CBC => unsafe { EVP_sm4_cbc() }
+            CipherType::SM4_CTR => unsafe { EVP_sm4_ctr() }
+            CipherType::SM4_CTR_32 => unsafe { EVP_sm4_ctr_32() }
+            CipherType::SM4_OFB => unsafe { EVP_sm4_ofb() }
+            CipherType::SM4_CFB => unsafe { EVP_sm4_cfb() }
         }
     }
 }
@@ -160,6 +168,14 @@ mod tests {
 
         let res = cipher.decrypt(res).unwrap();
         println!("{}", String::from_utf8(res).unwrap());
+
+
+        let mut cipher = Cipher::aes_128_gcm();
+        cipher.set_secret_key("1234567812345678", Some("1234567812345678"));
+        let res = cipher.encrypt(b"foobar").unwrap();
+        println!("{}", base64::b64encode(&res).unwrap());
+
+
     }
 
     #[test]

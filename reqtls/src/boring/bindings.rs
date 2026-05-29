@@ -162,6 +162,10 @@ unsafe extern "C" {
     pub(crate) fn EVP_sm4_ecb() -> *const EVP_CIPHER;
 
     pub(crate) fn EVP_sm4_cbc() -> *const EVP_CIPHER;
+    pub(crate) fn EVP_sm4_ctr() -> *const EVP_CIPHER;
+    pub(crate) fn EVP_sm4_ctr_32() -> *const EVP_CIPHER;
+    pub(crate) fn EVP_sm4_ofb() -> *const EVP_CIPHER;
+    pub(crate) fn EVP_sm4_cfb() -> *const EVP_CIPHER;
 
     pub(crate) fn EVP_CIPHER_CTX_new() -> *mut EVP_CIPHER_CTX;
 

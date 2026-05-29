@@ -112,6 +112,12 @@ impl Cipher {
 
     pub fn sm4_cbc() -> Cipher { Cipher::new(CipherType::SM4_CBC) }
 
+    pub fn sm4_ctr() -> Cipher { Cipher::new(CipherType::SM4_CTR) }
+
+    pub fn sm4_ofb() -> Cipher { Cipher::new(CipherType::SM4_OFB) }
+
+    pub fn sm4_cfb() -> Cipher { Cipher::new(CipherType::SM4_CFB) }
+
     pub fn with_secret_key<T: Into<Vec<u8>>>(mut self, key: T, iv: Option<T>) -> Self {
         self.set_secret_key(key, iv);
         self
@@ -250,5 +256,10 @@ mod tests {
         assert_eq!(en, [38, 119, 244, 107, 9, 193, 34, 204, 151, 85, 51, 16, 91, 212, 162, 42, 59, 136, 14, 104, 103, 119, 37, 34, 174, 85, 210, 240, 174, 116, 120, 174]);
         let de = cipher.decrypt(en).unwrap();
         assert_eq!(de, data);
+
+
+        let cipher = Cipher::sm4_ofb().with_secret_key(&key, Some(&key));
+        let res = cipher.encrypt(b"foobar").unwrap();
+        println!("{:?}", res);
     }
 }

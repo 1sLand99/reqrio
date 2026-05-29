@@ -43,7 +43,7 @@ impl Log for Logger {
         }).unwrap_or("??".to_string());
         println!("{}{} [{:5}] {:20}:{:4}\x1b[0m - {}",
                  self.color(record.metadata().level()),
-                 Time::now().unwrap().as_rfc3339(),
+                 Time::now_utc8().unwrap().as_rfc3339(),
                  record.level(),
                  module,
                  record.line().unwrap_or(0),
