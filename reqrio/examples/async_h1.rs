@@ -135,16 +135,16 @@ async fn main() {
     // let res=req.get("https://www.link114.cn/",None).await.unwrap();
     // let res = req.get("https://www.bing.com".params(json::object! {}), vec![0u8; 0].ty(Application::Json)).await.unwrap();
     // let res = req.get("https://117.89.181.21".sni("m.sogou.com"), None).await.unwrap();
-    // let res = req.get("https://oauth.hubei.gov.cn:8443/", None).await.unwrap();
+    let res = req.get("https://oauth.hubei.gov.cn:8443/", None).await.unwrap();
     // let session=req.stream_mut().tls_session().cloned();
     // req.set_tls_session(session);
-    let res = req.get("https://150.139.229.223".sni("h5.moutai519.com.cn"), None).await.unwrap();
+    // let res = req.get("https://150.139.229.223".sni("h5.moutai519.com.cn"), None).await.unwrap();
     // let res = req.get("https://aswbe.ana.co.jp/webapps/reservation/flight-search", None).await.unwrap();
     req.re_conn(None).await.unwrap();
     // let res = req.get("https://aswbe.ana.co.jp/webapps/reservation/flight-search", None).await.unwrap();
-    // let res = req.get("https://oauth.hubei.gov.cn:8443/", None).await.unwrap();
+    let res = req.get("https://oauth.hubei.gov.cn:8443/", None).await.unwrap();
     // let res = req.get("https://104.18.34.137".sni("whatnot.com"), None).await.unwrap();
-    let res = req.get("https://150.139.229.223".sni("h5.moutai519.com.cn"), None).await.unwrap();
+    // let res = req.get("https://150.139.229.223".sni("h5.moutai519.com.cn"), None).await.unwrap();
     // loop {
 
     //     println!("{}", res.header().status());

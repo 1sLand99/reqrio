@@ -4,6 +4,8 @@ use crate::stream::TlsStreamHandle;
 use crate::*;
 use std::io;
 use std::io::{Read, Write};
+#[cfg(feature = "log")]
+use crate::trace;
 
 pub struct SyncStream<S> {
     conn: Connection,
@@ -47,7 +49,7 @@ impl<S: Read + Write> SyncStream<S> {
 
     fn handle_message(&mut self, mut config: Option<&mut Config>) -> HlsResult<bool> {
         let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), Some(self.conn.cipher_suite()), self.conn.version())?;
-        // println!("{:?}", record);
+        trace!("{:?}", record);
         match record.context_type {
             RecordType::CipherSpec => {
                 self.handshake_finished = true;
@@ -62,7 +64,7 @@ impl<S: Read + Write> SyncStream<S> {
             RecordType::HandShake => {
                 if self.handshake_finished && config.is_some() {
                     let record_len = record.len as usize + 5;
-                    let out=self.write_buffer.unfilled_mut();
+                    let out = self.write_buffer.unfilled_mut();
                     let len = self.conn.read_message(&self.read_buffer.filled()[..record_len], out)?;
                     self.conn.verify_finish(&out[..len], true)?;
                     if self.write_buffer.is_empty() {

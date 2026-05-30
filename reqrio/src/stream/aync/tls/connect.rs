@@ -2,12 +2,14 @@ use super::TlsStream;
 use crate::error::HlsResult;
 use crate::stream::config::Config;
 use crate::stream::TlsStreamHandle;
-use crate::{trace, HlsError};
+use crate::HlsError;
 use reqtls::{rand, HandShakeError, Message, RecordLayer, RecordType, RlsError, SessionTicket, Version, WriteExt};
 use std::mem;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite};
+#[cfg(feature = "log")]
+use crate::trace;
 
 pub(super) enum Handshake<S> {
     Handshaking(Box<TlsStream<S>>),
@@ -24,6 +26,7 @@ pub struct Connecting<'a, S> {
 impl<'a, S: AsyncRead + AsyncWrite + Unpin> Connecting<'a, S> {
     fn handle_message(tls_stream: &mut TlsStream<S>, config: &mut Config<'_>, cx: &mut Context<'_>) -> Poll<HlsResult<bool>> {
         let record = RecordLayer::from_bytes(tls_stream.read_buffer.filled(), Some(tls_stream.conn.cipher_suite()), tls_stream.conn.version())?;
+        #[cfg(feature = "log")]
         trace!("[Connecting] HandleMessage: {:?}",record);
         match record.context_type {
             RecordType::CipherSpec => {
