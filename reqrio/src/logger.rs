@@ -41,9 +41,10 @@ impl Log for Logger {
             }
             items.join("-")
         }).unwrap_or("??".to_string());
+        let t=Time::now_utc8().unwrap();
         println!("{}{} [{:5}] {:20}:{:4}\x1b[0m - {}",
                  self.color(record.metadata().level()),
-                 Time::now_utc8().unwrap().as_rfc3339(),
+                 t.as_rfc3339(),
                  record.level(),
                  module,
                  record.line().unwrap_or(0),
@@ -60,7 +61,7 @@ impl Log for Logger {
             let mut f = OpenOptions::new().create(true).append(true).open(f).unwrap();
             f.write_all(format!(
                 "{} [{:5}] {:20}:{:4} - {}\n",
-                Time::now().unwrap().as_rfc3339(),
+                t.as_rfc3339(),
                 record.level(),
                 module,
                 record.line().unwrap_or(0),

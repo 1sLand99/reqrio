@@ -293,7 +293,7 @@ pub use record::{RecordLayer, RecordType};
 pub use suite::CipherSuite;
 pub use url::{Addr, Param, Scheme, Uri, Url, UrlError};
 pub use version::Version;
-pub use key::SecretKey;
+pub use key::{SecretKey, TlsSession};
 pub use bytes::Bytes;
 pub use finger::*;
 #[cfg(feature = "log")]

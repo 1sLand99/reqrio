@@ -2,8 +2,8 @@ use super::TlsStream;
 use crate::error::HlsResult;
 use crate::stream::config::Config;
 use crate::stream::TlsStreamHandle;
-use crate::HlsError;
-use reqtls::{rand, HandShakeError, Message, RecordLayer, RecordType, RlsError, SessionTicket, WriteExt};
+use crate::{trace, HlsError};
+use reqtls::{rand, HandShakeError, Message, RecordLayer, RecordType, RlsError, SessionTicket, Version, WriteExt};
 use std::mem;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -23,14 +23,35 @@ pub struct Connecting<'a, S> {
 
 impl<'a, S: AsyncRead + AsyncWrite + Unpin> Connecting<'a, S> {
     fn handle_message(tls_stream: &mut TlsStream<S>, config: &mut Config<'_>, cx: &mut Context<'_>) -> Poll<HlsResult<bool>> {
-        let record = RecordLayer::from_bytes(tls_stream.read_buffer.filled(), Some(tls_stream.conn.cipher_suite()))?;
+        let record = RecordLayer::from_bytes(tls_stream.read_buffer.filled(), Some(tls_stream.conn.cipher_suite()), tls_stream.conn.version())?;
+        trace!("[Connecting] HandleMessage: {:?}",record);
         match record.context_type {
-            RecordType::CipherSpec => tls_stream.handshake_finished = true,
+            RecordType::CipherSpec => {
+                tls_stream.handshake_finished = true;
+                if tls_stream.conn.version() == &Version::TLS_1_2 {
+                    tls_stream.conn.make_cipher(false, true)?;
+                }
+            }
             RecordType::Alert => {
                 let record_len = record.len as usize + 5;
                 return Poll::Ready(Err(tls_stream.handle_by_alert(tls_stream.handshake_finished, record_len)?.into()));
             }
             RecordType::HandShake => {
+                if tls_stream.handshake_finished {
+                    let record_len = record.len as usize + 5;
+                    let out = tls_stream.write_buffer.unfilled_mut();
+                    let len = tls_stream.conn.read_message(&tls_stream.read_buffer.filled()[..record_len], out).unwrap();
+                    tls_stream.conn.verify_finish(&out[..len], true)?;
+                    if tls_stream.write_buffer.is_empty() {
+                        tls_stream.write_buffer.write_slice(&TlsStream::<S>::CHANGE_CIPHER_SPEC)?;
+                        let len = tls_stream.conn.make_finish_message(tls_stream.write_buffer.unfilled_mut(), false)?;
+                        tls_stream.write_buffer.add_len(len);
+                    }
+                    return match tls_stream.write_buffer(cx)? {
+                        Poll::Ready(_) => Poll::Ready(Ok(true)),
+                        Poll::Pending => Poll::Pending,
+                    };
+                }
                 for message in record.messages {
                     match message {
                         Message::ServerHello(v) => {
@@ -81,7 +102,7 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> Connecting<'a, S> {
                         }
                         Message::ClientKeyExchange(v) => {
                             tls_stream.conn.set_by_client_exchange_key(v);
-                            tls_stream.conn.make_cipher(true)?;
+                            tls_stream.conn.make_cipher(true, false)?;
                         }
                         Message::Payload(_) => {
                             if tls_stream.write_buffer.is_empty() {
@@ -154,7 +175,7 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> Future for Connecting<'a, S> {
                 Poll::Ready(len) => len,
                 Poll::Pending => return Poll::Pending,
             };
-            if stream.read_buffer.filled()[0] == 22 {
+            if stream.read_buffer.filled()[0] == 22 && !stream.handshake_finished {
                 stream.conn.update_session(&stream.read_buffer.filled()[5..record_len])?;
             }
             let hello_done = match Connecting::handle_message(stream, &mut connector.config, cx)? {

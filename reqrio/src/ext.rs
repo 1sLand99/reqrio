@@ -78,6 +78,14 @@ pub trait ReqExt: ReqPriExt + Sized {
         self
     }
 
+    ///用户恢复tls会话的数据
+    fn set_tls_session(&mut self, tls_session: Option<TlsSession>);
+    fn with_tls_session(mut self, tls_session: Option<TlsSession>) -> Self {
+        self.set_tls_session(tls_session);
+        self
+    }
+    fn tls_session(&self) -> &Option<TlsSession>;
+
     fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + 'static);
     fn set_fingerprint(&mut self, fingerprint: Fingerprint);
     fn with_fingerprint(mut self, fingerprint: Fingerprint) -> Self {
@@ -157,7 +165,7 @@ pub(crate) trait ReqPriExt {
 
     fn handle_h2_res(&mut self, frame_type: FrameType, response: &mut Response) -> HlsResult<bool> {
         if frame_type == FrameType::Goaway { return Err(HlsError::PeerClosedConnection); }
-        if frame_type==FrameType::RstStream { return Err(HlsError::RstStream) }
+        if frame_type == FrameType::RstStream { return Err(HlsError::RstStream); }
         let param = self.req_param();
         let frame = H2FrameRBuf::from_bytes(param.buffer.filled(), frame_type)?;
         let res = match param.callback {
@@ -187,10 +195,10 @@ pub(crate) trait ReqPriExt {
         }
     }
 
-    fn check_status(&self,uri:&Url, response: &Response) -> HlsResult<()> {
+    fn check_status(&self, uri: &Url, response: &Response) -> HlsResult<()> {
         let status = response.header().status();
         match status.code() {
-            400..600 => Err(format!("网络请求错误-{}({})", status,uri).into()),
+            400..600 => Err(format!("网络请求错误-{}({})", status, uri).into()),
             _ => Ok(())
         }
     }

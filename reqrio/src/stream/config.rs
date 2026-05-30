@@ -1,8 +1,7 @@
+use crate::stream::ConnParam;
+use reqtls::{Certificate, RsaKey, TlsFinger, TlsSession, ALPN};
 use std::env;
 use std::path::{Path, PathBuf};
-use reqtls::{Certificate, RsaKey, ALPN};
-use crate::Fingerprint;
-use crate::stream::ConnParam;
 
 pub(crate) enum Config<'a> {
     Server(ServerConfig<'a>),
@@ -27,14 +26,24 @@ impl<'a> Config<'a> {
 
 
 pub struct ClientConfig<'a> {
+    ///域名，ServerName
     pub sni: &'a str,
+    ///设置应用层使用哪个协议，这里一般设置最高那个
     pub alpn: &'a ALPN,
-    pub fingerprint: &'a mut Fingerprint,
+    ///Tls指纹信息，
+    pub fingerprint: &'a mut TlsFinger,
+    ///证书，mTls设置客户端证书
     pub client_cert: &'a mut Vec<Certificate>,
+    ///证书私钥，mTls设置客户端证书私钥
     pub cert_key: &'a RsaKey,
+    ///是否对服务器证书链签名进行校验
     pub verify: bool,
+    ///额外的ca证书，用于自签证书
     pub ca_certs: &'a [Certificate],
+    ///tls密钥导出路径，None不导出
     pub key_log: Option<PathBuf>,
+    ///使用tls会话数据恢复会话
+    pub session: &'a Option<TlsSession>,
 }
 
 impl<'a> From<ConnParam<'a>> for ClientConfig<'a> {
@@ -42,7 +51,7 @@ impl<'a> From<ConnParam<'a>> for ClientConfig<'a> {
         ClientConfig {
             sni: param.url.sni(),
             alpn: param.alpn,
-            fingerprint: param.fingerprint,
+            fingerprint: param.fingerprint.tls_mut(),
             client_cert: param.cert,
             cert_key: param.key,
             verify: param.verify,
@@ -51,6 +60,7 @@ impl<'a> From<ConnParam<'a>> for ClientConfig<'a> {
                 Ok(key_log) => Some(Path::new(&key_log).to_path_buf()),
                 Err(_) => None
             }),
+            session: param.session,
         }
     }
 }

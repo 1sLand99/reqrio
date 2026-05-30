@@ -12,7 +12,7 @@ use std::ops::{Deref, DerefMut};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr::null_mut;
 #[cfg(feature = "log")]
-use crate::{logger::Logger, set_logger, set_max_level, LevelFilter, Level};
+use crate::{logger::Logger, set_logger, set_max_level, LevelFilter};
 
 #[cfg(feature = "log")]
 const LOGER: Logger = Logger {

@@ -33,6 +33,7 @@ pub struct ConnParam<'a> {
     pub ca_cert: &'a Vec<Certificate>,
     pub key_log: &'a Option<PathBuf>,
     pub ech: bool,
+    pub session: &'a Option<TlsSession>,
 }
 
 pub enum Stream {
@@ -57,6 +58,15 @@ impl Stream {
             Stream::AsyncHttp(_) => Some(Scheme::Http),
             #[cfg(feature = "aync")]
             Stream::AsyncHttps(_) => Some(Scheme::Https),
+        }
+    }
+
+    pub fn tls_session(&self) -> Option<&TlsSession> {
+        match self {
+            Stream::SyncHttps(s) => Some(s.connection().session()),
+            #[cfg(feature = "aync")]
+            Stream::AsyncHttps(s) => Some(s.get_ref().connection().session()),
+            _ => None
         }
     }
 }
@@ -169,11 +179,18 @@ pub trait TlsStreamHandle {
 
     fn handle_client_hello(&mut self, config: &mut ClientConfig) -> HlsResult<()> {
         let (conn, _, buffer) = self.conn_buf();
-        let session_id = rand::random::<[u8; 32]>();
-        let mut client_hello = config.fingerprint.tls().build_client_hello(config.alpn)?;
+        let mut client_hello = config.fingerprint.build_client_hello(config.alpn)?;
         client_hello.set_random(conn.client_random());
         client_hello.set_server_name(config.sni);
-        client_hello.set_session_id(&session_id);
+        client_hello.set_session_id(conn.session().session_id());
+        let ticket = conn.session().ticket();
+        client_hello.set_session_ticket(ticket);
+        let padding = client_hello.padding();
+        if padding > ticket.len() {
+            client_hello.set_padding(padding - ticket.len());
+        } else {
+            client_hello.remove_padding();
+        };
         let mut secrets = HashMap::new();
         match client_hello.key_share_mut() {
             None => client_hello.remove_tls13(),
@@ -192,6 +209,7 @@ pub trait TlsStreamHandle {
         }
         let mut record = RecordLayer::handshake();
         record.messages = vec![Message::ClientHello(client_hello)];
+        record.version = Version::TLS_1_0;
 
         let len = record.write_to(buffer, 1)?;
         buffer.set_len(len);
@@ -259,7 +277,7 @@ pub trait TlsStreamHandle {
         let len = record.write_to(buffer, key_size)?;
         buffer.set_len(offset + len);
         conn.update_session(&buffer[offset + 5..offset + len])?;
-        conn.make_cipher(false)?;
+        conn.make_cipher(false, false)?;
         //certificate verify
         if conn.mtls() && !config.client_cert.is_empty() {
             let offset = buffer.len();
@@ -323,7 +341,7 @@ pub trait TlsStreamHandle {
                 }
                 _ => {
                     let len = u32::from_be_bytes([0, w_buf[index + 1], w_buf[index + 2], w_buf[index + 3]]) as usize + 4;
-                    let message = Message::from_bytes(&w_buf[index..index + len], &record_type, None, Version::TLS_1_3)?;
+                    let message = Message::from_bytes(&w_buf[index..index + len], &record_type, None, conn.version())?;
                     #[cfg(feature = "log")]
                     trace!("[TLS1.3 Handshake] message: {:?}]", message);
                     let finish = Self::handle_message(message, config, conn)?;
@@ -332,7 +350,7 @@ pub trait TlsStreamHandle {
                         w_buf.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
                         let len = conn.make_finish_message(w_buf.unfilled_mut(), false)?;
                         w_buf.add_len(len);
-                        conn.make_cipher(false)?;
+                        conn.make_cipher(false, false)?;
                         return Ok(true);
                     }
 

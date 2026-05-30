@@ -15,7 +15,7 @@ pub struct ServerHello<'a> {
     version: Version,
     pub(crate) random: Buf<'a>,
     session_id_len: u8,
-    session_id: Buf<'a>,
+    pub(crate) session_id: Buf<'a>,
     pub cipher_suite: CipherSuite,
     compress_method: u8,
     extend_len: u16,

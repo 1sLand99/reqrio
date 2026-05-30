@@ -37,7 +37,8 @@ impl<S: Read + Write> SyncStream<S> {
         Ok(stream)
     }
     pub fn connect(config: ClientConfig, stream: S) -> HlsResult<SyncStream<S>> {
-        SyncStream::new(stream, Connection::from_client(rand::random(), config.key_log.clone()).with_verify(config.verify), Config::Client(config), Buffer::default())
+        let session = config.session.as_ref().cloned().unwrap_or_else(|| Default::default());
+        SyncStream::new(stream, Connection::from_client(rand::random(), session, config.key_log.clone()).with_verify(config.verify), Config::Client(config), Buffer::default())
     }
 
     pub fn accept(stream: S, config: ServerConfig<'_>) -> HlsResult<SyncStream<S>> {
@@ -45,15 +46,34 @@ impl<S: Read + Write> SyncStream<S> {
     }
 
     fn handle_message(&mut self, mut config: Option<&mut Config>) -> HlsResult<bool> {
-        let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), Some(self.conn.cipher_suite()))?;
+        let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), Some(self.conn.cipher_suite()), self.conn.version())?;
         // println!("{:?}", record);
         match record.context_type {
-            RecordType::CipherSpec => self.handshake_finished = true,
+            RecordType::CipherSpec => {
+                self.handshake_finished = true;
+                if config.is_some() && self.conn.version() == &Version::TLS_1_2 {
+                    self.conn.make_cipher(false, true)?;
+                }
+            }
             RecordType::Alert => {
                 let record_len = record.len as usize + 5;
                 return Err(self.handle_by_alert(self.handshake_finished, record_len)?.into());
             }
             RecordType::HandShake => {
+                if self.handshake_finished && config.is_some() {
+                    let record_len = record.len as usize + 5;
+                    let out=self.write_buffer.unfilled_mut();
+                    let len = self.conn.read_message(&self.read_buffer.filled()[..record_len], out)?;
+                    self.conn.verify_finish(&out[..len], true)?;
+                    if self.write_buffer.is_empty() {
+                        self.write_buffer.write_slice(&SyncStream::<S>::CHANGE_CIPHER_SPEC)?;
+                        let len = self.conn.make_finish_message(self.write_buffer.unfilled_mut(), false)?;
+                        self.write_buffer.add_len(len);
+                    }
+                    self.stream.write_all(self.write_buffer.filled())?;
+                    self.write_buffer.reset();
+                    return Ok(true);
+                }
                 for message in record.messages {
                     match message {
                         Message::ServerHello(v) => {
@@ -92,7 +112,7 @@ impl<S: Read + Write> SyncStream<S> {
                         }
                         Message::ClientKeyExchange(v) => {
                             self.conn.set_by_client_exchange_key(v);
-                            self.conn.make_cipher(true)?;
+                            self.conn.make_cipher(true, false)?;
                         }
                         Message::Payload(_) => {
                             let record_len = record.len as usize + 5;
@@ -119,6 +139,7 @@ impl<S: Read + Write> SyncStream<S> {
                             let config = config.client_mut().ok_or("missing config")?;
                             self.conn.set_by_cert_req(v, config.client_cert.first_mut())?;
                         }
+                        Message::NewSessionTicket(ticket) => self.conn.set_by_session_ticket(ticket),
                         _ => {}
                     }
                 }
@@ -146,6 +167,10 @@ impl<S: Read + Write> SyncStream<S> {
 
     pub fn alpn(&self) -> Option<&str> {
         Some(self.conn.alpn()?.value())
+    }
+
+    pub fn connection(&self) -> &Connection {
+        &self.conn
     }
 }
 
@@ -186,7 +211,7 @@ impl<S: Read> SyncStream<S> {
         } else {
             self.read_zero()?
         };
-        if self.read_buffer[0] == 22 { self.conn.update_session(&self.read_buffer.filled()[5..record_len])?; }
+        if self.read_buffer[0] == 22 && !self.handshake_finished { self.conn.update_session(&self.read_buffer.filled()[5..record_len])?; }
         Ok(record_len)
     }
 }

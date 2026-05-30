@@ -491,6 +491,8 @@ impl<'a> Extension<'a> {
     }
 
     pub fn value(&self) -> &ExtensionValue<'_> { &self.value }
+    
+    pub fn value_mut(&mut self) -> &mut ExtensionValue<'a> { &mut self.value }
 
     pub fn into_value(self) -> ExtensionValue<'a> { self.value }
 }

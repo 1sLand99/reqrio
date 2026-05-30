@@ -7,7 +7,7 @@ use super::suite::TlsCipher;
 use super::version::Version;
 use crate::boring::{certificate, AlgorithmSigner, HashError};
 use crate::buffer::{Buf, RecordDecodeBuffer, RecordEncodeBuffer};
-use crate::key::{DerivedKey, Key, SecretKey};
+use crate::key::{DerivedKey, Key, SecretKey, TlsSession};
 use crate::error::{HandShakeError, RlsResult};
 use crate::*;
 use std::mem;
@@ -35,14 +35,14 @@ pub struct Connection {
 }
 impl Default for Connection {
     fn default() -> Self {
-        Connection::new([0; 32], [0; 32], None)
+        Connection::new([0; 32], [0; 32], TlsSession::default(), None)
     }
 }
 
 impl Connection {
     const HRR_MAGIC: [u8; 32] = [207, 33, 173, 116, 229, 154, 97, 17, 190, 29, 140, 2, 30, 101, 184, 145, 194, 162, 17, 22, 122, 187, 140, 94, 7, 158, 9, 226, 200, 168, 51, 156];
 
-    pub fn new(client_random: [u8; 32], server_random: [u8; 32], key_log: Option<PathBuf>) -> Connection {
+    pub fn new(client_random: [u8; 32], server_random: [u8; 32], session: TlsSession, key_log: Option<PathBuf>) -> Connection {
         Connection {
             read: TlsCipher::none(),
             write: TlsCipher::none(),
@@ -51,7 +51,7 @@ impl Connection {
             alpn: None,
             cipher_suite: CipherSuite::new(0),
             session_bytes: Vec::with_capacity(4096),
-            derived: DerivedKey::new(client_random, server_random, key_log),
+            derived: DerivedKey::new(client_random, server_random, session, key_log),
             certificates: vec![],
             verify: false,
             root_stores: &certificate::ROOT_STORES,
@@ -62,11 +62,11 @@ impl Connection {
         }
     }
 
-    pub fn from_client(random: [u8; 32], key_log: Option<PathBuf>) -> Connection {
-        Connection::new(random, [0; 32], key_log)
+    pub fn from_client(random: [u8; 32], session: TlsSession, key_log: Option<PathBuf>) -> Connection {
+        Connection::new(random, [0; 32], session, key_log)
     }
 
-    pub fn client_random(&mut self) -> &[u8] {
+    pub fn client_random(&self) -> &[u8] {
         self.derived.client_random()
     }
 
@@ -98,6 +98,7 @@ impl Connection {
 
     pub fn set_by_server_hello(&mut self, server_hello: &ServerHello) -> RlsResult<bool> {
         self.alpn = server_hello.alpn();
+        self.derived.session_mut().set_session_id(server_hello.session_id.as_ref());
         self.cipher_suite = server_hello.cipher_suite.as_u16().into();
         self.cipher_suite.init_aead_hasher()?;
         if let Some(version) = server_hello.supported_version() {
@@ -156,7 +157,7 @@ impl Connection {
             CompressionMethod::BROTLI => {
                 let data = coder::br_decompress(cc.compressed_data())?;
                 let mut reader = Reader::from_slice(&data);
-                let certs = Certificates::from_reader(Version::TLS_1_3, &mut reader, true)?;
+                let certs = Certificates::from_reader(&self.version, &mut reader, true)?;
                 self.set_by_certificate(certs, ext_cas, sni)?;
                 Ok(())
             }
@@ -231,6 +232,10 @@ impl Connection {
         Ok(())
     }
 
+    pub fn set_by_session_ticket(&mut self, ticket: SessionTicket) {
+        self.derived.session_mut().set_ticket(ticket.tls_ticket().ticket().to_vec());
+    }
+
     pub fn set_by_client_exchange_key(&mut self, client_key: ClientKeyExchange) {
         self.exchange_pub_key = Bytes::new(client_key.hellman_param().pub_key().to_vec());
     }
@@ -248,15 +253,15 @@ impl Connection {
         }
     }
 
-    pub fn make_cipher(&mut self, server: bool) -> RlsResult<()> {
-        if let Version::TLS_1_2 = self.version {
+    pub fn make_cipher(&mut self, server: bool, recover: bool) -> RlsResult<()> {
+        if let Version::TLS_1_2 = self.version && !recover {
             let secret_key = self.secret_key.as_mut().ok_or("Invalid secret key")?;
             let share_secret = secret_key.diffie_hellman(self.exchange_pub_key.as_ref())?;
             self.derived.make_master(Version::TLS_1_2, share_secret, self.cipher_suite.current_session_hash()?)?;
         }
+        let key = self.derived.make_cipher_key(&self.version, server)?;
 
         let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
-        let key = self.derived.make_cipher_key(&self.version, server)?;
         let hasher = self.cipher_suite.mac_hash().ok_or(HashError::HasherNone)?;
         match key {
             Key::TLS12 {
@@ -378,6 +383,7 @@ impl Connection {
 
     pub fn cipher_suite(&self) -> &CipherSuite { &self.cipher_suite }
 
+    pub fn session(&self) -> &TlsSession { self.derived.session() }
     pub fn mtls(&self) -> bool { self.mtls_hash.as_u16() != 0 }
     pub fn handle_mtls_client<W: WriteExt>(&mut self, writer: &mut W, key: &RsaKey) -> RlsResult<usize> {
         let mut cert_verify = CertificateVerify::default();

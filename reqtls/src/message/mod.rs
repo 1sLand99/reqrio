@@ -41,13 +41,13 @@ pub enum Message<'a> {
 }
 
 impl<'a> Message<'a> {
-    pub fn from_bytes(bytes: &'a [u8], record_type: &RecordType, suite: Option<&CipherSuite>, version: Version) -> RlsResult<Message<'a>> {
+    pub fn from_bytes(bytes: &'a [u8], record_type: &RecordType, suite: Option<&CipherSuite>, version: &Version) -> RlsResult<Message<'a>> {
         let mut reader = Reader::from_slice(bytes);
         Message::from_reader(&mut reader, record_type, suite, version)
     }
 
-    fn from_reader_handshake(reader: &mut Reader<'a>, suite: Option<&CipherSuite>, version: Version) -> RlsResult<Message<'a>> {
-        let handshake_type = HandshakeType::from_byte(reader.read_u8()?).unwrap();
+    fn from_reader_handshake(reader: &mut Reader<'a>, suite: Option<&CipherSuite>, version: &Version) -> RlsResult<Message<'a>> {
+        let handshake_type = HandshakeType::from_byte(reader.read_u8()?)?;
         match handshake_type {
             HandshakeType::ClientHello => Ok(Message::ClientHello(ClientHello::from_bytes(reader)?)),
             HandshakeType::ServerHello => Ok(Message::ServerHello(ServerHello::from_reader(handshake_type, reader)?)),
@@ -70,7 +70,7 @@ impl<'a> Message<'a> {
         }
     }
 
-    pub fn from_reader(reader: &mut Reader<'a>, record_type: &RecordType, suite: Option<&CipherSuite>, version: Version) -> RlsResult<Message<'a>> {
+    pub fn from_reader(reader: &mut Reader<'a>, record_type: &RecordType, suite: Option<&CipherSuite>, version: &Version) -> RlsResult<Message<'a>> {
         match record_type {
             RecordType::CipherSpec => {
                 reader.read_u8()?;
@@ -214,22 +214,22 @@ pub enum HandshakeType {
 }
 
 impl HandshakeType {
-    pub fn from_byte(byte: u8) -> Option<HandshakeType> {
+    pub fn from_byte(byte: u8) -> Result<HandshakeType, HandShakeError> {
         match byte {
-            1 => Some(HandshakeType::ClientHello),
-            2 => Some(HandshakeType::ServerHello),
-            4 => Some(HandshakeType::NewSessionTicket),
-            8 => Some(HandshakeType::EncryptedExtensions),
-            11 => Some(HandshakeType::Certificate),
-            12 => Some(HandshakeType::ServerKeyExchange),
-            13 => Some(HandshakeType::CertificateRequest),
-            14 => Some(HandshakeType::ServerHelloDone),
-            15 => Some(HandshakeType::CertificateVerify),
-            16 => Some(HandshakeType::ClientKeyExchange),
-            20 => Some(HandshakeType::Finish),
-            22 => Some(HandshakeType::CertificateStatus),
-            25 => Some(HandshakeType::CompressedCertificate),
-            _ => None
+            1 => Ok(HandshakeType::ClientHello),
+            2 => Ok(HandshakeType::ServerHello),
+            4 => Ok(HandshakeType::NewSessionTicket),
+            8 => Ok(HandshakeType::EncryptedExtensions),
+            11 => Ok(HandshakeType::Certificate),
+            12 => Ok(HandshakeType::ServerKeyExchange),
+            13 => Ok(HandshakeType::CertificateRequest),
+            14 => Ok(HandshakeType::ServerHelloDone),
+            15 => Ok(HandshakeType::CertificateVerify),
+            16 => Ok(HandshakeType::ClientKeyExchange),
+            20 => Ok(HandshakeType::Finish),
+            22 => Ok(HandshakeType::CertificateStatus),
+            25 => Ok(HandshakeType::CompressedCertificate),
+            _ => Err(HandShakeError::UnknownRecord(byte))
         }
     }
 

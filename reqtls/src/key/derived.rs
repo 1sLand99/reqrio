@@ -1,7 +1,7 @@
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::PathBuf;
-use super::block::KeyBlock;
+use super::block::{KeyBlock, TlsSession};
 use super::{Key, TrafficSecret};
 use crate::extend::Aead;
 use crate::{HandShakeError, HashType, Hasher, Hmac, Version};
@@ -9,25 +9,26 @@ use crate::error::RlsResult;
 use crate::hkdf::Hkdf;
 use crate::prf::Prf;
 
-pub struct DerivedKey {
+pub(crate) struct DerivedKey {
     prf: Prf,
     hash: HashType,
-    master_secret: [u8; 48],
+    // master_secret: [u8; 48],
     client_random: [u8; 32],
     server_random: [u8; 32],
     use_ems: bool,
     traffic_secret: TrafficSecret,
     key_block: KeyBlock,
     prk: Vec<u8>,
+    session: TlsSession,
     key_log: Option<PathBuf>,
 }
 
 impl DerivedKey {
-    pub fn new(client_random: [u8; 32], server_random: [u8; 32], key_log: Option<PathBuf>) -> Self {
+    pub fn new(client_random: [u8; 32], server_random: [u8; 32], session: TlsSession, key_log: Option<PathBuf>) -> Self {
         DerivedKey {
             prf: Prf::default(),
             hash: HashType::Sha256,
-            master_secret: [0; 48],
+            // master_secret: [0; 48],
             client_random,
             server_random,
             use_ems: false,
@@ -38,6 +39,7 @@ impl DerivedKey {
             },
             key_block: KeyBlock::default(),
             prk: vec![],
+            session,
             key_log,
         }
     }
@@ -56,8 +58,8 @@ impl DerivedKey {
             true => ("extended master secret", session_hash.to_vec()),
             false => ("master secret", [self.client_random, self.server_random].concat())
         };
-        self.prf.prf(&share_secret, label, &seed, &mut self.master_secret)?;
-        self.export_key("CLIENT_RANDOM", hex::encode(self.master_secret))?;
+        self.prf.prf(&share_secret, label, &seed, self.session.master_secret_mut())?;
+        self.export_key("CLIENT_RANDOM", hex::encode(self.session.master_secret()))?;
         Ok(())
     }
 
@@ -70,7 +72,7 @@ impl DerivedKey {
     }
 
     pub fn make_handshake_traffic_secret(&mut self, share_secret: Vec<u8>, session_hash: &[u8]) -> RlsResult<()> {
-        let mut derived_hkdf = Hkdf::new(&[], &self.master_secret[..self.hash.hash_size()], self.hash)?;
+        let mut derived_hkdf = Hkdf::new(&[], &self.session.master_secret()[..self.hash.hash_size()], self.hash)?;
         let mut derived = vec![0; self.hash.hash_size()];
         derived_hkdf.hkdf("tls13 derived", self.hash.tls13_secret()?, &mut derived)?;
         //client handshake traffic
@@ -88,7 +90,7 @@ impl DerivedKey {
         let mut hkdf = Hkdf::from_prk(&self.prk, self.hash);
         let mut salt = vec![0; self.hash.hash_size()];
         hkdf.hkdf("tls13 derived", self.hash.tls13_secret()?, &mut salt)?;
-        let mut hkdf = Hkdf::new(&salt, &self.master_secret[..self.hash.hash_size()], self.hash)?;
+        let mut hkdf = Hkdf::new(&salt, &self.session.master_secret()[..self.hash.hash_size()], self.hash)?;
         hkdf.hkdf("tls13 c ap traffic", session_hash, self.traffic_secret.client_traffic_mut())?;
         self.export_key("CLIENT_TRAFFIC_SECRET_0", hex::encode(self.traffic_secret.client_traffic()))?;
         hkdf.hkdf("tls13 s ap traffic", session_hash, self.traffic_secret.server_traffic_mut())?;
@@ -118,7 +120,7 @@ impl DerivedKey {
         let mut finish = vec![0; 16];
         finish[0..4].copy_from_slice(&[0x14, 0x00, 0x0, 0xc]);
         let label = if !server { "client finished" } else { "server finished" };
-        self.prf.prf(&self.master_secret, label, session_hash, &mut finish[4..16])?;
+        self.prf.prf(self.session.master_secret(), label, session_hash, &mut finish[4..16])?;
         Ok(finish)
     }
 
@@ -132,7 +134,7 @@ impl DerivedKey {
 
     fn make_tls12_cipher_key(&mut self) -> RlsResult<&KeyBlock> {
         let seed = [self.server_random, self.client_random].concat();
-        self.prf.prfs(&self.master_secret, "key expansion", &seed, self.key_block.bufs())?;
+        self.prf.prfs(self.session.master_secret(), "key expansion", &seed, self.key_block.bufs())?;
         Ok(&self.key_block)
     }
 
@@ -185,4 +187,8 @@ impl DerivedKey {
     pub fn set_ems(&mut self, ems: bool) {
         self.use_ems = ems
     }
+
+    pub fn session(&self) -> &TlsSession { &self.session }
+
+    pub fn session_mut(&mut self) -> &mut TlsSession { &mut self.session }
 }

@@ -6,7 +6,7 @@ use crate::stream::config::Config;
 use crate::stream::{ConnParam, TlsStreamHandle};
 use crate::{Buffer, ClientConfig, HlsError, ProxyStream, ServerConfig};
 use connect::{Connecting, Handshake};
-use reqtls::{rand, Alert, Connection, HandShakeError, RecordType, Version, WriteExt, ALPN};
+use reqtls::{rand, Alert, Connection, HandShakeError, Message, RecordType, Version, WriteExt, ALPN};
 use std::io::Error;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -27,6 +27,7 @@ pub struct TlsStream<S> {
     pending: Vec<usize>,
     client_hello: Vec<u8>,
 }
+
 
 impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
     fn _connect(stream: S, conn: Connection, config: Config<'_>, buffer: Buffer) -> Connecting<'_, S> {
@@ -49,10 +50,11 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
     }
     #[inline]
     pub fn connect(stream: S, mut config: ClientConfig<'_>) -> Connecting<'_, S> {
+        let session = config.session.as_ref().cloned().unwrap_or_else(|| Default::default());
         Connecting {
             handshake: Handshake::Handshaking(Box::new(TlsStream {
                 stream,
-                conn: Connection::from_client(rand::random(), mem::take(&mut config.key_log)).with_verify(config.verify),
+                conn: Connection::from_client(rand::random(), session, mem::take(&mut config.key_log)).with_verify(config.verify),
                 handshake_finished: false,
                 read_buffer: Buffer::default(),
                 write_buffer: Buffer::default(),
@@ -101,6 +103,10 @@ impl<S> TlsStream<S> {
                     self.conn.verify_finish(&buf.initialized()[..len], true)?;
                 } else {
                     self.conn.update_session(&self.read_buffer[5..record_len])?;
+                    let msg = Message::from_bytes(&self.read_buffer[5..record_len], &record_type, None, self.conn.version())?;
+                    if let Message::NewSessionTicket(ticket) = msg {
+                        self.conn.set_by_session_ticket(ticket);
+                    }
                 }
                 self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
             }
@@ -120,6 +126,10 @@ impl<S> TlsStream<S> {
             }
         }
         Ok(0)
+    }
+
+    pub fn connection(&self) -> &Connection {
+        &self.conn
     }
 }
 
@@ -261,6 +271,8 @@ impl TlsStreamA {
     pub fn alpn(&self) -> Option<&ALPN> {
         self.stream.alpn()
     }
+
+    pub fn get_ref(&self) -> &TlsStream<ProxyStream<TcpStream>> { &self.stream }
 }
 
 impl TimeoutRW<TlsStream<ProxyStream<TcpStream>>> for TlsStreamA {

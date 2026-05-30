@@ -47,7 +47,10 @@ pub struct Fingerprint {
 impl Fingerprint {
     pub fn new_custom(token: impl AsRef<str>) -> Fingerprint {
         Fingerprint {
-            tls: TlsFinger::Custom { suites: vec![], extensions: vec![] },
+            tls: TlsFinger::Custom {
+                suites: vec![],
+                extensions: vec![],
+            },
             h2: H2Finger {
                 setting: vec![],
                 window_size: 0,

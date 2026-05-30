@@ -251,6 +251,34 @@ impl<'a> ClientHello<'a> {
         }
     }
 
+    pub fn set_session_ticket(&mut self, ticket: &'a [u8]) {
+        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::SessionTicket);
+        if let Some(extend) = extend && let ExtensionValue::SessionTicket(value) = extend.value_mut() {
+            *value = Buf::Ref(ticket);
+        }
+    }
+
+    pub fn padding(&self) -> usize {
+        let extend = self.extensions.iter().find(|x| x.extension_type() == &ExtensionType::Padding);
+        if let Some(extend) = extend && let ExtensionValue::Padding(value) = extend.value() {
+            *value
+        } else { 0 }
+    }
+
+    pub fn set_padding(&mut self, padding: usize) {
+        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::Padding);
+        if let Some(extend) = extend && let ExtensionValue::Padding(value) = extend.value_mut() {
+            *value = padding;
+        }
+    }
+    
+    pub fn remove_padding(&mut self) {
+        let extend = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::Padding);
+        if let Some(index) = extend {
+            self.extensions.remove(index);
+        }
+    }
+
     pub fn key_share_mut(&mut self) -> Option<&mut KeyShare<'a>> {
         let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::KeyShare);
         extend.map(|x| x.key_share_mut()).unwrap_or(None)

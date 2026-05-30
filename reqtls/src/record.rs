@@ -2,6 +2,7 @@ use super::message::Message;
 use super::version::Version;
 use crate::error::RlsResult;
 use crate::{BufferError, CipherSuite, ReadExt, Reader, WriteExt, ALPN};
+use crate::buffer::Buf;
 
 #[derive(Debug, Copy, Clone)]
 pub enum RecordType {
@@ -51,7 +52,7 @@ impl<'a> RecordLayer<'a> {
         RecordLayer::new(RecordType::HandShake)
     }
 
-    pub fn from_bytes(bytes: &'a [u8], suite: Option<&CipherSuite>) -> RlsResult<RecordLayer<'a>> {
+    pub fn from_bytes(bytes: &'a [u8], suite: Option<&CipherSuite>, version: &Version) -> RlsResult<RecordLayer<'a>> {
         if bytes.len() < 5 { return Err(BufferError::Insufficient.into()); }
         let mut reader = Reader::from_slice(bytes);
         let mut res = RecordLayer::new(RecordType::from_byte(reader.read_u8()?).ok_or("LayerType Unknown")?);
@@ -60,8 +61,13 @@ impl<'a> RecordLayer<'a> {
         if reader.unread_len() < res.len as usize { return Err(BufferError::Insufficient.into()); }
         let mut reader = reader.read_reader(res.len as usize)?;
         while reader.unread_len() > 0 {
-            let message = Message::from_reader(&mut reader, &res.context_type, suite, Version::TLS_1_2)?;
-            res.messages.push(message);
+            match Message::from_reader(&mut reader, &res.context_type, suite, version) {
+                Ok(message) => res.messages.push(message),
+                Err(_) => {
+                    res.messages.push(Message::Payload(Buf::Ref(reader.into_inner())));
+                    break;
+                }
+            }
         }
         Ok(res)
     }

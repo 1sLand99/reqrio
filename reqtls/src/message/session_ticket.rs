@@ -24,9 +24,9 @@ impl<'a> Default for TlsSessionTicket<'a> {
 }
 
 impl<'a> TlsSessionTicket<'a> {
-    pub fn from_reader(reader: &mut Reader<'a>, version: Version) -> RlsResult<TlsSessionTicket<'a>> {
+    pub fn from_reader(reader: &mut Reader<'a>, version: &Version) -> RlsResult<TlsSessionTicket<'a>> {
         let lifetime = reader.read_u32()?;
-        let (age_add, nonce) = match version {
+        let (age_add, nonce) = match *version {
             Version::TLS_1_3 => {
                 let age_add = reader.read_u32()?;
                 let nonce_len = reader.read_u8()? as usize;
@@ -59,6 +59,10 @@ impl<'a> TlsSessionTicket<'a> {
     pub fn set_value(&mut self, value: &'a [u8]) {
         self.ticket = Buf::Ref(value);
     }
+
+    pub fn ticket(&self) -> &Buf<'a> {
+        &self.ticket
+    }
 }
 
 #[derive(Debug)]
@@ -77,7 +81,7 @@ impl<'a> Default for SessionTicket<'a> {
 }
 
 impl<'a> SessionTicket<'a> {
-    pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>, version: Version) -> RlsResult<SessionTicket<'a>> {
+    pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>, version: &Version) -> RlsResult<SessionTicket<'a>> {
         reader.read_u24()?;
         Ok(SessionTicket {
             handshake_type: ht,
@@ -99,5 +103,9 @@ impl<'a> SessionTicket<'a> {
 
     pub fn tls_ticket_mut(&mut self) -> &mut TlsSessionTicket<'a> {
         &mut self.tls_ticket
+    }
+
+    pub fn tls_ticket(&self) -> &TlsSessionTicket<'a> {
+        &self.tls_ticket
     }
 }

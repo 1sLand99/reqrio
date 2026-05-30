@@ -20,9 +20,9 @@ impl<'a> Default for Certificates<'a> {
 }
 
 impl<'a> Certificates<'a> {
-    pub fn from_reader(version: Version, reader: &mut Reader<'a>, compressed: bool) -> RlsResult<Certificates<'a>> {
+    pub fn from_reader(version: &Version, reader: &mut Reader<'a>, compressed: bool) -> RlsResult<Certificates<'a>> {
         if !compressed { reader.read_u24()?; }
-        if let Version::TLS_1_3 = version {
+        if let &Version::TLS_1_3 = version {
             reader.read_u8()?; //req ctx len
         }
         let len = reader.read_u24()?;
@@ -31,7 +31,7 @@ impl<'a> Certificates<'a> {
         while reader.unread_len() > 0 {
             let len = reader.read_u24()? as usize;
             certificates.push(Buf::Ref(reader.read_slice(len)?));
-            if let Version::TLS_1_3 = version {
+            if let &Version::TLS_1_3 = version {
                 let ext_len = reader.read_u16()?; //ext len
                 if ext_len > 0 {
                     let _exts = reader.read_slice(ext_len as usize)?;

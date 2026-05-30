@@ -1,4 +1,3 @@
-use std::fs;
 use reqrio::*;
 
 #[cfg(feature = "log")]
@@ -14,9 +13,8 @@ const LOGER: Logger = Logger {
 #[cfg(feature = "log")]
 fn test_log() {
     set_logger(&LOGER).unwrap();
-    set_max_level(LevelFilter::Debug);
+    set_max_level(LevelFilter::Trace);
 }
-
 
 #[tokio::main]
 async fn main() {
@@ -29,14 +27,6 @@ async fn main() {
 
     #[cfg(feature = "log")]
     test_log();
-    let fingerprint = Fingerprint::from_ja3("771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-17513-21,29-23-24,0", fs::read_to_string("TOKEN").unwrap()).unwrap();
-    // socks5://219.136.245.164:38287
-    // let res = reqrio::get("http://capi.51daili.com/traffic/getip?linePoolIndex=1&packid=12&time=11&qty=1&port=1&format=txt&providerIds=3,4&usertype=17&uid=69969", None).unwrap();
-    // let res = reqrio::get("http://capi.51daili.com/traffic/getip?linePoolIndex=1&packid=12&time=11&qty=1&port=1&format=txt&providerIds=1,5&usertype=17&uid=69969", None).unwrap();
-    // let proxy = Proxy::try_from(format!("http://{}", res.text().unwrap().trim())).unwrap();
-    // let res = AcReq::new().get("http://capi.51daili.com/traffic/getip?linePoolIndex=1&packid=12&time=11&qty=1&port=2&format=txt&providerIds=1,5&usertype=17&uid=69969", None).await.unwrap();
-    // let proxy = Proxy::try_from(format!("socks5://{}", res.text().unwrap().trim())).unwrap();
-    // return;
     let mut timeout = Timeout::longer();
     timeout.set_handle_times(1);
 
@@ -49,6 +39,7 @@ async fn main() {
     // let fingerprint = Fingerprint::random("516k711n1c-j592g6.1k711n1c-j5d6a561k").unwrap();
     // let certs = Certificate::from_pem_file("/home/xl/1/client.crt").unwrap();
     // let key = RsaKey::from_pri_pem_file("/home/xl/1/client.key").unwrap();
+
     let mut req = AcReq::new()
         // .with_fingerprint(fingerprint)
         .with_timeout(timeout)
@@ -56,9 +47,8 @@ async fn main() {
         .with_key_log("2.log")
         .with_auto_redirect(false)
         // .with_proxy(proxy)
-        .with_fingerprint(fingerprint)
         .with_verify(false)
-        .with_proxy(Proxy::try_from("http://60.215.152.144:20262").unwrap())
+        // .with_proxy(Proxy::try_from("http://60.215.152.144:20262").unwrap())
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::new_socks5("192.111.130.2",4145))
         // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10279))
@@ -145,14 +135,21 @@ async fn main() {
     // let res=req.get("https://www.link114.cn/",None).await.unwrap();
     // let res = req.get("https://www.bing.com".params(json::object! {}), vec![0u8; 0].ty(Application::Json)).await.unwrap();
     // let res = req.get("https://117.89.181.21".sni("m.sogou.com"), None).await.unwrap();
-    // let res=req.get("https://oauth.hubei.gov.cn:8443/",None).await.unwrap();
+    // let res = req.get("https://oauth.hubei.gov.cn:8443/", None).await.unwrap();
+    // let session=req.stream_mut().tls_session().cloned();
+    // req.set_tls_session(session);
+    let res = req.get("https://150.139.229.223".sni("h5.moutai519.com.cn"), None).await.unwrap();
+    // let res = req.get("https://aswbe.ana.co.jp/webapps/reservation/flight-search", None).await.unwrap();
+    req.re_conn(None).await.unwrap();
+    // let res = req.get("https://aswbe.ana.co.jp/webapps/reservation/flight-search", None).await.unwrap();
+    // let res = req.get("https://oauth.hubei.gov.cn:8443/", None).await.unwrap();
     // let res = req.get("https://104.18.34.137".sni("whatnot.com"), None).await.unwrap();
-    // let res = req.get("https://150.139.229.223".sni("h5.moutai519.com.cn"), None).await.unwrap();
-    loop {
-        let res = req.get("https://aswbe.ana.co.jp/webapps/reservation/flight-search", None).await.unwrap();
-        println!("{}", res.header().status());
+    let res = req.get("https://150.139.229.223".sni("h5.moutai519.com.cn"), None).await.unwrap();
+    // loop {
 
-    }
+    //     println!("{}", res.header().status());
+    //
+    // }
 
     // let res=req.get("https://h5.moutai519.com.cn",None).await.unwrap();
     // let res = req.get("https://m.baidu.com", None).await.unwrap();

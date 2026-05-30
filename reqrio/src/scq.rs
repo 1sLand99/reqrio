@@ -27,6 +27,7 @@ pub struct ScReq {
     alpn: ALPN,
     key_log: Option<PathBuf>,
     url: Url,
+    tls_session: Option<TlsSession>,
 }
 
 impl Default for ScReq {
@@ -49,6 +50,7 @@ impl Default for ScReq {
             alpn: ALPN::Http20,
             key_log: None,
             url: Url::default(),
+            tls_session: None,
         }
     }
 }
@@ -155,6 +157,7 @@ impl ScReq {
         self.update_cookie(&response);
         self.callback = None;
         if let ALPN::Http20 = self.header.alpn() { self.stream_id += 2; }
+        if self.tls_session.is_none() { self.tls_session = self.stream.tls_session().cloned(); }
         Ok(response)
     }
 
@@ -213,11 +216,13 @@ impl ScReq {
                 ca_cert: &self.ca_certs,
                 key_log: &self.key_log,
                 ech: false,
+                session: &self.tls_session,
             };
             match self.stream.sync_conn(param) {
                 Ok(alpn) => {
                     #[cfg(feature = "log")]
                     debug!("[AcReq] Connected | ALPN: {} | RemoteAddr: {}", alpn, url.unwrap_or(&self.url).addr());
+                    self.tls_session = None;
                     self.header.init_by_alpn(alpn);
                     if self.header.alpn() == &ALPN::Http20 { self.handle_h2_setting()?; }
                     if let Some(url) = url {
@@ -386,6 +391,14 @@ impl ReqExt for ScReq {
 
     fn set_fingerprint(&mut self, fingerprint: Fingerprint) {
         self.fingerprint = fingerprint;
+    }
+
+    fn set_tls_session(&mut self, tls_session: Option<TlsSession>) {
+        self.tls_session = tls_session;
+    }
+
+    fn tls_session(&self) -> &Option<TlsSession> {
+        &self.tls_session
     }
 }
 

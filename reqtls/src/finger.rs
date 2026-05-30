@@ -134,6 +134,7 @@ impl Extension {
                 }
                 E::new(self.type_, EV::ApplicationSettingOld(value))
             }
+            (ExtensionType::SessionTicket, ExtensionValue::Bytes(bs)) => E::new(self.type_, EV::SessionTicket(Buf::Ref(bs.as_ref()))),
             (_, ExtensionValue::Bytes(bs)) => E::new(self.type_, EV::Unknown(Buf::Ref(bs.as_ref()))),
             (_, _) => E::from_type(self.type_)
         }
