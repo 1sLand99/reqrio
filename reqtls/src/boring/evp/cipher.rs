@@ -6,7 +6,8 @@ use crate::error::RlsResult;
 use crate::ffi::CPointer;
 use crate::base64;
 use std::ptr::{null, null_mut};
-
+use std::error::Error;
+use std::fmt::Display;
 
 #[derive(Debug)]
 pub enum CipherError {
@@ -19,6 +20,14 @@ pub enum CipherError {
     CipherFinalize,
     InvalidMac,
 }
+
+impl Display for CipherError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl Error for CipherError {}
 
 pub struct Cipher {
     ctx: CPointer<EVP_CIPHER_CTX>,

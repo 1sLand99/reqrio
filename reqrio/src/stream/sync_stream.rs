@@ -49,6 +49,7 @@ impl<S: Read + Write> SyncStream<S> {
 
     fn handle_message(&mut self, mut config: Option<&mut Config>) -> HlsResult<bool> {
         let record = RecordLayer::from_bytes(self.read_buffer.filled_mut(), Some(self.conn.cipher_suite()), self.conn.version())?;
+        #[cfg(feature = "log")]
         trace!("{:?}", record);
         match record.context_type {
             RecordType::CipherSpec => {
