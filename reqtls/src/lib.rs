@@ -288,7 +288,7 @@ pub use hash::{HashType, Hasher, Hmac};
 pub use hex;
 pub use message::{Certificates, ClientHello, ClientKeyExchange, ServerKeyExchange, ServerHello,
                   ServerHelloDone, SessionTicket, TlsSessionTicket, NamedCurve, Alert,
-                  CertificateRequest, CertificateVerify, Message};
+                  CertificateRequest, CertificateVerify, MessageParsed, Message};
 pub use record::{RecordLayer, RecordType};
 pub use suite::CipherSuite;
 pub use url::{Addr, Param, Scheme, Uri, Url, UrlError};

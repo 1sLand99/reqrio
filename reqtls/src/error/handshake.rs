@@ -11,6 +11,7 @@ pub enum HandShakeError {
     PollWhileFinish,
     RetryNoKeyShare,
     UnknownRecord(u8),
+    UnknownHandShake(u8),
     UnsupportedMessage(HandshakeType),
 }
 

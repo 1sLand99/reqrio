@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use super::bytes::Bytes;
 use super::record::{RecordLayer, RecordType};
 use super::suite::iv::Iv;
@@ -7,14 +6,15 @@ use super::suite::TlsCipher;
 use super::version::Version;
 use crate::boring::{certificate, AlgorithmSigner, HashError};
 use crate::buffer::{Buf, RecordDecodeBuffer, RecordEncodeBuffer};
-use crate::key::{DerivedKey, Key, SecretKey, TlsSession};
 use crate::error::{HandShakeError, RlsResult};
-use crate::*;
-use std::mem;
-use std::path::PathBuf;
+use crate::key::{DerivedKey, Key, SecretKey, TlsSession};
 use crate::message::{CompressedCertificate, EncryptedExtension, HandshakeType};
+use crate::*;
 #[cfg(feature = "log")]
 use log::debug;
+use std::collections::HashMap;
+use std::mem;
+use std::path::PathBuf;
 
 pub struct Connection {
     read: TlsCipher,
@@ -296,7 +296,7 @@ impl Connection {
     pub fn gen_server_hello<'a>(&mut self, client_hello: &'a mut ClientHello<'a>, certificate: &'a mut [Certificate], pri_key: &RsaKey, random: &'a [u8]) -> RlsResult<RecordLayer<'a>> {
         self.derived.set_client_random(client_hello.client_random().as_ref().try_into()?);
         let mut record = RecordLayer {
-            context_type: RecordType::HandShake,
+            content_type: RecordType::HandShake,
             version: Version::TLS_1_2,
             len: 0,
             messages: vec![],
@@ -305,13 +305,13 @@ impl Connection {
         let mut server_hello = ServerHello::from_client_hello(client_hello)?;
         server_hello.set_random(random);
         self.set_by_server_hello(&server_hello)?;
-        record.messages.push(Message::ServerHello(server_hello));
+        record.messages.push(Message::new_parsed(MessageParsed::ServerHello(server_hello)));
         //certificate
         let mut certificates = Certificates::default();
         for certificate in certificate.iter_mut() {
             certificates.add_certificate(certificate.as_der()?.as_slice());
         }
-        record.messages.push(Message::Certificate(certificates));
+        record.messages.push(Message::new_parsed(MessageParsed::Certificate(certificates)));
         //server_key_exchange
         let mut server_key_exchange = ServerKeyExchange::default();
         let key = SecretKey::new(server_key_exchange.hellman_param().named_curve())?;
@@ -322,9 +322,9 @@ impl Connection {
         server_key_exchange.hellman_param_mut().set_signature(Buf::Vec(signer.sign(&sign_data)?));
         self.exchange_pub_key = Bytes::new(server_key_exchange.hellman_param().pub_key().to_vec());
         self.named_curve = *server_key_exchange.hellman_param().named_curve();
-        record.messages.push(Message::ServerKeyExchange(server_key_exchange));
+        record.messages.push(Message::new_parsed(MessageParsed::ServerKeyExchange(server_key_exchange)));
         //server_hello_done
-        record.messages.push(Message::ServerHelloDone(ServerHelloDone::new()));
+        record.messages.push(Message::new_parsed(MessageParsed::ServerHelloDone(ServerHelloDone::new())));
         Ok(record)
     }
 
@@ -392,12 +392,16 @@ impl Connection {
         let sign = signer.sign(mem::take(&mut self.session_bytes))?;
         cert_verify.set_sign(&sign);
         let mut record = RecordLayer::handshake();
-        record.messages.push(Message::CertificateVerify(cert_verify));
+        record.messages.push(Message::new_parsed(MessageParsed::CertificateVerify(cert_verify)));
         record.write_to(writer, 1)
     }
 
     pub fn set_secret_keys(&mut self, keys: HashMap<NamedCurve, SecretKey>) {
         self.secret_keys = keys;
+    }
+
+    pub fn secret_key(&self) -> &Option<SecretKey> {
+        &self.secret_key
     }
 
     pub fn version(&self) -> &Version { &self.version }

@@ -1,7 +1,6 @@
-use super::message::Message;
 use super::version::Version;
 use crate::error::RlsResult;
-use crate::{BufferError, CipherSuite, ReadExt, Reader, WriteExt, ALPN};
+use crate::{CipherSuite, HandShakeError, Message, MessageParsed, ReadExt, Reader, WriteExt, ALPN};
 use crate::buffer::Buf;
 
 #[derive(Debug, Copy, Clone)]
@@ -14,13 +13,13 @@ pub enum RecordType {
 }
 
 impl RecordType {
-    pub fn from_byte(byte: u8) -> Option<RecordType> {
+    pub fn from_byte(byte: u8) -> Result<RecordType, HandShakeError> {
         match byte {
-            0x14 => Some(RecordType::CipherSpec),
-            0x15 => Some(RecordType::Alert),
-            0x16 => Some(RecordType::HandShake),
-            0x17 => Some(RecordType::ApplicationData),
-            _ => None
+            0x14 => Ok(RecordType::CipherSpec),
+            0x15 => Ok(RecordType::Alert),
+            0x16 => Ok(RecordType::HandShake),
+            0x17 => Ok(RecordType::ApplicationData),
+            _ => Err(HandShakeError::UnknownRecord(byte))
         }
     }
 
@@ -32,7 +31,7 @@ impl RecordType {
 
 #[derive(Debug)]
 pub struct RecordLayer<'a> {
-    pub context_type: RecordType,
+    pub content_type: RecordType,
     pub version: Version,
     pub len: u16,
     pub messages: Vec<Message<'a>>,
@@ -41,7 +40,7 @@ pub struct RecordLayer<'a> {
 impl<'a> RecordLayer<'a> {
     pub fn new(rt: RecordType) -> RecordLayer<'a> {
         RecordLayer {
-            context_type: rt,
+            content_type: rt,
             version: Version::TLS_1_2,
             len: 0,
             messages: vec![],
@@ -52,36 +51,41 @@ impl<'a> RecordLayer<'a> {
         RecordLayer::new(RecordType::HandShake)
     }
 
-    pub fn from_bytes(bytes: &'a [u8], suite: Option<&CipherSuite>, version: &Version) -> RlsResult<RecordLayer<'a>> {
-        if bytes.len() < 5 { return Err(BufferError::Insufficient.into()); }
+    pub fn from_bytes(bytes: &'a [u8], suite: Option<&CipherSuite>, encrypted: bool) -> RlsResult<RecordLayer<'a>> {
         let mut reader = Reader::from_slice(bytes);
-        let mut res = RecordLayer::new(RecordType::from_byte(reader.read_u8()?).ok_or("LayerType Unknown")?);
-        res.version = Version::new(reader.read_u16()?);
-        res.len = reader.read_u16()?;
-        if reader.unread_len() < res.len as usize { return Err(BufferError::Insufficient.into()); }
-        let mut reader = reader.read_reader(res.len as usize)?;
-        while reader.unread_len() > 0 {
-            match Message::from_reader(&mut reader, &res.context_type, suite, version) {
-                Ok(message) => res.messages.push(message),
-                Err(_) => {
-                    res.messages.push(Message::Payload(Buf::Ref(reader.into_inner())));
-                    break;
-                }
-            }
+        let content_type = RecordType::from_byte(reader.read_u8()?)?;
+        let version = Version::new(reader.read_u16()?);
+        let len = reader.read_u16()?;
+        let mut msg_readers = reader.read_reader(len as usize)?;
+        let mut messages = vec![];
+        while msg_readers.unread_len() > 0 {
+            let message = match encrypted {
+                true => Message {
+                    encoded: Buf::Ref(msg_readers.read_slice(msg_readers.unread_len())?),
+                    parsed: MessageParsed::Payload(Buf::Ref(&[])),
+                },
+                false => Message::from_reader(&mut msg_readers, &content_type, suite, &version)?
+            };
+            messages.push(message);
         }
-        Ok(res)
+        Ok(RecordLayer {
+            content_type,
+            version,
+            len,
+            messages,
+        })
     }
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) -> RlsResult<usize> {
         let offset = writer.offset().end;
-        let sni = self.messages[0].client().map(|x| x.server_name().unwrap_or("")).unwrap_or("").to_string();
-        let h2 = self.messages[0].client().map(|x| x.alps().map(|x| x.values().iter().any(|x| x == &ALPN::Http20)).unwrap_or(false)).unwrap_or(false);
-        writer.write_u8(self.context_type as u8)?;
+        let sni = self.messages[0].parsed.client().map(|x| x.server_name().unwrap_or("")).unwrap_or("").to_string();
+        let h2 = self.messages[0].parsed.client().map(|x| x.alps().map(|x| x.values().iter().any(|x| x == &ALPN::Http20)).unwrap_or(false)).unwrap_or(false);
+        writer.write_u8(self.content_type as u8)?;
         writer.write_u16(self.version.into_inner())?;
-        let len = self.messages.iter().map(|x| x.len(key_size)).sum::<usize>();
+        let len = self.messages.iter().map(|x| x.parsed.len(key_size)).sum::<usize>();
         writer.write_u16(len as u16)?;
         for message in self.messages {
-            message.write_to(writer, key_size)?;
+            message.parsed.write_to(writer, key_size)?;
         }
         writer.flush(offset, sni, h2)
     }

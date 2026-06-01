@@ -3,10 +3,10 @@ mod connect;
 use super::ext::TimeoutRW;
 use crate::error::HlsResult;
 use crate::stream::config::Config;
-use crate::stream::{ConnParam, TlsStreamHandle};
+use crate::stream::{ConnParam, StreamParam, TlsStreamHandle};
 use crate::{Buffer, ClientConfig, HlsError, ProxyStream, ServerConfig};
 use connect::{Connecting, Handshake};
-use reqtls::{rand, Alert, Connection, HandShakeError, Message, RecordType, Version, WriteExt, ALPN};
+use reqtls::{rand, Alert, Connection, RecordType, WriteExt, ALPN};
 use std::io::Error;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -19,6 +19,7 @@ use tokio::net::TcpStream;
 pub struct TlsStream<S> {
     conn: Connection,
     stream: S,
+    encrypted_channel: bool,
     handshake_finished: bool,
     read_buffer: Buffer,
     write_buffer: Buffer,
@@ -34,6 +35,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
         let stream = TlsStream {
             stream,
             conn,
+            encrypted_channel: false,
             handshake_finished: false,
             read_buffer: Buffer::default(),
             write_buffer: buffer,
@@ -50,7 +52,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
     }
     #[inline]
     pub fn connect(stream: S, mut config: ClientConfig<'_>) -> Connecting<'_, S> {
-        let session = config.session.as_ref().cloned().unwrap_or_else(|| Default::default());
+        let session = config.session.as_ref().cloned().unwrap_or_else(Default::default);
         Connecting {
             handshake: Handshake::Handshaking(Box::new(TlsStream {
                 stream,
@@ -62,6 +64,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                 wrote_len: 0,
                 pending: vec![],
                 client_hello: vec![],
+                encrypted_channel: false,
             })),
             sent_client_hello: false,
             config: Config::Client(config),
@@ -82,51 +85,56 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
 
 impl<S> TlsStreamHandle for TlsStream<S> {
     #[inline]
-    fn conn_buf(&mut self) -> (&mut Connection, &mut Buffer, &mut Buffer) {
-        (&mut self.conn, &mut self.read_buffer, &mut self.write_buffer)
+    fn stream_param(&mut self) -> (&mut Buffer, StreamParam<'_>) {
+        (&mut self.read_buffer, StreamParam {
+            handshake_finish: &mut self.handshake_finished,
+            encrypted_channel: &mut self.encrypted_channel,
+            write_buffer: &mut self.write_buffer,
+            conn: &mut self.conn,
+        })
     }
 }
 
 impl<S> TlsStream<S> {
-    fn read_message(&mut self, buf: &mut ReadBuf<'_>, record_len: usize) -> io::Result<usize> {
-        let record_type = RecordType::from_byte(self.read_buffer.filled()[0])
-            .ok_or(HandShakeError::UnknownRecord(self.read_buffer.filled()[0]))?;
-        match record_type {
-            RecordType::CipherSpec => {
-                self.handshake_finished = true;
-                self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
-            }
-            RecordType::Alert => return Err(self.handle_by_alert(self.handshake_finished, record_len)?.into()),
-            RecordType::HandShake => {
-                if self.handshake_finished {
-                    let len = self.conn.read_message(&self.read_buffer[..record_len], buf.initialized_mut())?;
-                    self.conn.verify_finish(&buf.initialized()[..len], true)?;
-                } else {
-                    self.conn.update_session(&self.read_buffer[5..record_len])?;
-                    let msg = Message::from_bytes(&self.read_buffer[5..record_len], &record_type, None, self.conn.version())?;
-                    if let Message::NewSessionTicket(ticket) = msg {
-                        self.conn.set_by_session_ticket(ticket);
-                    }
-                }
-                self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
-            }
-            RecordType::ApplicationData => {
-                let len = self.conn.read_message(&self.read_buffer[..record_len], buf.initialized_mut())?;
-                match *self.conn.version() {
-                    Version::TLS_1_3 => if buf.initialized_mut()[len - 1] == 23 {
-                        buf.set_filled(len - 1)
-                    } else {
-                        self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
-                        return Ok(0);
-                    }
-                    _ => buf.set_filled(len),
-                }
-                self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
-                return Ok(len);
-            }
-        }
-        Ok(0)
-    }
+    // fn read_message(&mut self, buf: &mut ReadBuf<'_>, record_len: usize) -> io::Result<usize> {
+    //     let record_type = RecordType::from_byte(self.read_buffer.filled()[0])
+    //         .ok_or(HandShakeError::UnknownRecord(self.read_buffer.filled()[0]))?;
+    //     match record_type {
+    //         RecordType::CipherSpec => {
+    //             self.handshake_finished = true;
+    //             self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
+    //         }
+    //         RecordType::Alert => return Err(self.handle_by_alert(self.handshake_finished, record_len)?.into()),
+    //         RecordType::HandShake => {
+    //             if self.handshake_finished {
+    //                 let len = self.conn.read_message(&self.read_buffer[..record_len], buf.initialized_mut())?;
+    //                 self.conn.verify_finish(&buf.initialized()[..len], true)?;
+    //             } else {
+    //                 self.conn.update_session(&self.read_buffer[5..record_len])?;
+    //                 let msg = MessageParsed::from_bytes(&self.read_buffer[5..record_len], &record_type, None, self.conn.version())?;
+    //                 if let MessageParsed::NewSessionTicket(ticket) = msg {
+    //                     self.conn.set_by_session_ticket(ticket);
+    //                 }
+    //             }
+    //             self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
+    //         }
+    //         RecordType::ApplicationData => {
+    //             let len = self.conn.read_message(&self.read_buffer[..record_len], buf.initialized_mut())?;
+    //             match *self.conn.version() {
+    //                 Version::TLS_1_3 => if buf.initialized_mut()[len - 1] == 23 {
+    //                     buf.set_filled(len - 1)
+    //                 } else {
+    //                     self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
+    //                     return Ok(0);
+    //                 }
+    //                 _ => buf.set_filled(len),
+    //             }
+    //             self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
+    //             return Ok(len);
+    //         }
+    //     }
+    //     Ok(0)
+    // }
 
     pub fn connection(&self) -> &Connection {
         &self.conn
@@ -134,34 +142,33 @@ impl<S> TlsStream<S> {
 }
 
 impl<S: AsyncRead + Unpin> TlsStream<S> {
-    fn read_next_record(&mut self, cx: &mut Context<'_>) -> Poll<HlsResult<usize>> {
-        if self.read_buffer.len() < 5 {
-            loop {
-                let stream = Pin::new(&mut self.stream);
-                let mut buf = ReadBuf::new(self.read_buffer.unfilled_mut());
-                match stream.poll_read(cx, &mut buf)? {
-                    Poll::Pending => return Poll::Pending,
-                    Poll::Ready(_) => {
-                        let len = buf.filled().len();
-                        if len == 0 { return Poll::Ready(Err(HlsError::PeerClosedConnection)); }
-                        self.read_buffer.add_len(len);
-                        if self.read_buffer.len() > 5 { break; }
-                    }
-                }
+    fn read_size(&mut self, max_size: usize, cx: &mut Context<'_>) -> Poll<HlsResult<()>> {
+        loop {
+            if self.read_buffer.len() >= max_size { return Poll::Ready(Ok(())); }
+            if self.read_buffer.len() < 4096 && self.read_buffer.offset().start != 0 {
+                self.read_buffer.move_to(self.read_buffer.offset(), 0);
             }
-        }
-        let filled = self.read_buffer.filled();
-        let record_len = u16::from_be_bytes([filled[3], filled[4]]) as usize + 5;
-        while self.read_buffer.len() < record_len {
             let stream = Pin::new(&mut self.stream);
             let mut buf = ReadBuf::new(self.read_buffer.unfilled_mut());
             match stream.poll_read(cx, &mut buf)? {
+                Poll::Pending => return Poll::Pending,
                 Poll::Ready(_) => {
                     let len = buf.filled().len();
+                    if len == 0 { return Poll::Ready(Err(HlsError::PeerClosedConnection)); }
                     self.read_buffer.add_len(len);
                 }
-                Poll::Pending => return Poll::Pending,
             }
+        }
+    }
+
+    fn read_next_record(&mut self, cx: &mut Context<'_>) -> Poll<HlsResult<usize>> {
+        if self.read_buffer.len() < 5 && let Poll::Pending = self.read_size(5, cx) {
+            return Poll::Pending;
+        }
+        let filled = self.read_buffer.filled();
+        let record_len = u16::from_be_bytes([filled[3], filled[4]]) as usize + 5;
+        if self.read_size(record_len, cx)?.is_pending() {
+            return Poll::Pending;
         }
         Poll::Ready(Ok(record_len))
     }
@@ -194,10 +201,10 @@ impl<S: AsyncRead + Unpin> AsyncRead for TlsStream<S> {
                 Poll::Ready(len) => len,
                 Poll::Pending => return Poll::Pending,
             };
-            match stream.read_message(buf, record_len) {
-                Ok(len) => if len > 0 { return Poll::Ready(Ok(())); } else { continue; }
-                Err(e) => return Poll::Ready(Err(e)),
-            }
+            let len = stream.handle_record(record_len, None, buf.initialized_mut())?;
+            if len == 0 { continue; }
+            buf.set_filled(len);
+            return Poll::Ready(Ok(()));
         }
     }
 }

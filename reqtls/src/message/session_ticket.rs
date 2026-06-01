@@ -2,6 +2,7 @@ use super::super::message::HandshakeType;
 use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::{u24, BufferError, ReadExt, Reader, Version, WriteExt};
+use crate::extend::Extension;
 
 #[derive(Debug)]
 #[allow(unused)]
@@ -10,6 +11,7 @@ pub struct TlsSessionTicket<'a> {
     age_add: u32,
     nonce: Buf<'a>,
     ticket: Buf<'a>,
+    extensions: Vec<Extension<'a>>,
 }
 
 impl<'a> Default for TlsSessionTicket<'a> {
@@ -19,12 +21,14 @@ impl<'a> Default for TlsSessionTicket<'a> {
             age_add: 0,
             nonce: Buf::Ref(&[]),
             ticket: Buf::Ref(&[]),
+            extensions: vec![],
         }
     }
 }
 
 impl<'a> TlsSessionTicket<'a> {
     pub fn from_reader(reader: &mut Reader<'a>, version: &Version) -> RlsResult<TlsSessionTicket<'a>> {
+        println!("{:?}", version);
         let lifetime = reader.read_u32()?;
         let (age_add, nonce) = match *version {
             Version::TLS_1_3 => {
@@ -36,11 +40,16 @@ impl<'a> TlsSessionTicket<'a> {
             _ => (0, Buf::Ref(&[]))
         };
         let len = reader.read_u16()? as usize;
+        let ticket = Buf::Ref(reader.read_slice(len)?);
+        let ext_len = reader.read_u16()?;
+        let extensions = Extension::from_reader(reader.read_reader(ext_len as usize)?, true)?;
+        println!("{}", len);
         Ok(TlsSessionTicket {
             lifetime,
             age_add,
             nonce,
-            ticket: Buf::Ref(reader.read_slice(len)?),
+            ticket,
+            extensions,
         })
     }
 

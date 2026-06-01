@@ -1,6 +1,6 @@
 use crate::error::RlsResult;
 use crate::extend::Aead;
-use crate::Version;
+use crate::{BufferError, Version};
 
 pub struct PayloadDecodeBuffer<'a> {
     origin: &'a [u8],
@@ -17,6 +17,12 @@ pub struct RecordDecodeBuffer<'a> {
 
 impl<'a> RecordDecodeBuffer<'a> {
     pub fn from_buffer(origin: &'a [u8], decoded: &'a mut [u8], aead: &'a Aead, version: &'a Version) -> RlsResult<Self> {
+        if decoded.len() < origin.len() - 5 {
+            return Err(BufferError::CapacityTooSmall {
+                current: decoded.len(),
+                needed: origin.len(),
+            }.into());
+        }
         let (head, origin) = origin.split_at(5);
         Ok(RecordDecodeBuffer {
             aead,
