@@ -298,8 +298,6 @@ pub trait TlsStreamHandle {
             param.conn.update_session(&param.write_buffer[offset + 5..offset + len])?;
         }
         param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
-
-
         let record_len = param.conn.make_finish_message(param.write_buffer.unfilled_mut(), false)?;
         param.write_buffer.add_len(record_len);
         Ok(())
@@ -415,6 +413,7 @@ pub trait TlsStreamHandle {
                     param.conn.update_session(message.encoded.as_ref())?;
                 }
                 _ => {
+                    #[cfg(feature = "log")]
                     warn!("unhandled message: {:?}", message);
                 }
             }
@@ -442,6 +441,7 @@ pub trait TlsStreamHandle {
                     let len = param.conn.read_message(&read_buffer.filled()[..record_len], out)?;
                     param.conn.verify_finish(&out[..len], true)?;
                     if param.conn.secret_key().is_none() && param.conn.version() == &Version::TLS_1_2 {
+                        #[cfg(feature = "log")]
                         debug!("[HandleRecord] Recover TLS_1.2");
                         param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
                         let len = param.conn.make_finish_message(param.write_buffer.unfilled_mut(), false)?;
@@ -470,9 +470,9 @@ pub trait TlsStreamHandle {
                         let mut messages = vec![];
                         let mut msg_readers = Reader::from_slice(&app_buf[..len - 1]);
                         while msg_readers.unread_len() > 0 {
-                            messages.push(Message::from_reader(&mut msg_readers, &record_type, Some(param.conn.cipher_suite()), param.conn.version()).unwrap());
+                            messages.push(Message::from_reader(&mut msg_readers, &record_type, Some(param.conn.cipher_suite()), param.conn.version())?);
                         }
-                        Self::handle_handshake(&mut param, config, messages).unwrap();
+                        Self::handle_handshake(&mut param, config, messages)?;
                         0
                     }
                     RecordType::CipherSpec => {
