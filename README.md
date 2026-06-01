@@ -1,3 +1,7 @@
+# 📦 reqrio
+
+### Browser-grade TLS Fingerprinting & High Performance HTTP Client
+
 [![Github](https://github.com/xllgl2017/reqrio/actions/workflows/main.yml/badge.svg)](https://github.com/xllgl2017/reqrio/actions/workflows/main.yml)
 [![Apache](https://img.shields.io/badge/license-Apache2.0-blue.svg?logo=apache)](https://github.com/xllgl2017/reqrio/blob/main/LICENSE-APACHE)
 [![Crates](https://img.shields.io/crates/v/reqrio.svg?logo=rust&label=rust)](https://crates.io/crates/reqrio)
@@ -9,36 +13,127 @@
 [![Rustdocs](https://docs.rs/reqrio/badge.svg)](https://docs.rs/reqrio)
 [![Javadocs](https://javadoc.io/badge/io.github.xllgl2017/reqrio/latest.svg)](https://javadoc.io/doc/io.github.xllgl2017/reqrio/latest)
 
-# reqrio
+## Overview
 
-## Introduction
+&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;`reqrio` is an HTTP request library designed for **protocol research, TLS
+fingerprinting control, high-concurrency data collection, and complex network environment simulation**. It is primarily
+used in scenarios requiring precise control over network behavior, such as protocol research, fingerprint analysis,
+high-concurrency data collection, and request construction in complex anti-scraping environments.
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`reqrio` is a library designed for making HTTP requests quickly, easily, and conveniently.
-Its goal is to enable fast,
-simple, and convenient use of HTTP requests.
+&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;`reqrio` provides browser-level TLS fingerprinting capabilities, including JA3,
+JA4, and custom ClientHello functionality.
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`reqrio` is an HTTP request library that supports multiple protocols and language
-bindings,
-providing high-performance
-HTTP client capabilities.
+&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;It also supports synchronous and asynchronous interfaces, multi-language binding,
+streaming upload and download, and a low-memory design.
 
-## Features
+&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;`reqrio` is an HTTP client request library written in Rust and bound to multiple
+languages via ffi. Supports HTTP/1.1 and HTTP/2.0; TLS supports TLS 1.2 and TLS 1.3.
 
-- HTTP protocol support
-- Support for HTTP/1.1 and HTTP/2 (H2) protocols
-- Synchronous and asynchronous request modes
-- Request/Response Handling
-- Cookie Automatic Inheritance Management
-- Request Header Order Control. [SortTable](https://github.com/xllgl2017/reqrio/tree/master/reqrio#request-header-order-table)
-- Data stream processing
+## reqrio focuses on another type of issue:
 
-## Low-Copy
+- Is the TLS ClientHello consistent with the browser?
 
-`reqrio` is a low copy request sending engine used to efficiently encrypt user or file data over TLS and send it to TCP.
-`reqrio`
-Convert user input data such as form data, json, bytes, text, etc. into bytes for storage, and only copy once during TLS
-encryption, while only the data is processed in other stages
-Borrow (borrowing). File uploads are read through into_deader to reduce memory overhead
+- Is the header order controllable?
+
+- Is HTTP/2 behavior controllable?
+
+- Can the fingerprint be reproduced?
+
+- Is memory sufficient for high-concurrency scenarios? Is low-performance sufficient?
+
+- Does it support both synchronous and asynchronous requests?
+
+## 🔐 TLS Stack and Fingerprint System
+
+`reqrio`'s TLS capabilities are supported by **reqtls**, which is the core module of the entire project.
+
+### 🧩 `reqtls` — TLS core engine
+
+`reqtls` Responsible for building and controlling the behavior of TLS handshake:
+
+- TLS 1.2 / TLS 1.3 handshake construction
+- Fully orchestratable ClientHello generation
+- Cipher suites order and policy control
+- TLS extensions management
+- ALPN / SNI control
+- Session Ticket / Resumption support
+- JA3 / JA4 fingerprint generation foundation
+
+> ⚠️ reqtls is not a system TLS wrapper, but rather an orchestratable TLS handshake constructor.
+
+---
+
+## ✅ Capability Comparison (HTTP Client Libraries)
+
+| Abilities/Characteristics      | reqrio     | reqwest | requests (py) | uTLS (Go)                | curl-ffi (py) | blockreq |
+|--------------------------------|------------|---------|---------------|--------------------------|---------------|----------|
+| HTTP req                       | ✅          | ✅       | ✅             | ⚠️（Requires combination） | ✅             | ✅        |
+| HTTPS / TLS                    | ✅          | ✅       | ✅             | ⚠️                       | ✅             | ⚠️       |
+| Cookie auto management         | ✅          | ✅       | ✅             | ❌                        | ⚠️            | ⚠️       |
+| Agent support                  | ✅          | ✅       | ✅             | ⚠️                       | ✅             | ⚠️       |
+| Redirection control            | ✅          | ✅       | ✅             | ❌                        | ⚠️            | ⚠️       |
+| Header Custom                  | ✅          | ✅       | ✅             | ❌                        | ⚠️            | ⚠️       |
+| Header Sequence Control        | ✅          | ❌       | ❌             | ❌                        | ⚠️            | ⚠️       |
+| Connection reuse (Keep-Alive)  | ✅          | ✅       | ⚠️（limited）   | ⚠️                       | ⚠️            | ⚠️       |
+| HTTP/2 support                 | ✅          | ✅       | ❌             | ⚠️                       | ⚠️            | ⚠️       |
+| HTTP/3 / QUIC                  | ⚠️（future） | ⚠️      | ❌             | ❌                        | ⚠️            | ❌        |
+| Streaming requests/responses   | ✅          | ✅       | ⚠️（weak）      | ⚠️                       | ⚠️            | ⚠️       |
+| Ultra-low latency optimization | ✅          | ❌       | ❌             | ❌                        | ⚠️            | ⚠️       |
+| High concurrency support       | ✅          | ⚠️      | ❌             | ⚠️                       | ⚠️            | ⚠️       |
+
+---
+
+## 🔐 TLS / fingerprint capability
+
+| Abilities/Characteristics             | reqrio | reqwest | requests (py) | uTLS (Go)          | curl-ffi (py) | blockreq |
+|---------------------------------------|--------|---------|---------------|--------------------|---------------|----------|
+| JA3                                   | ✅      | ❌       | ❌             | ⚠️（模拟）             | ⚠️（依赖libcurl） | ⚠️       |
+| JA4                                   | ✅      | ❌       | ❌             | ❌                  | ❌             | ⚠️       |
+| ClientHello                           | ✅      | ❌       | ❌             | ⚠️（模板化）            | ❌             | ⚠️       |
+| Random TLS                            | ✅      | ❌       | ❌             | ❌                  | ❌             | ⚠️       |
+| Custom TLS fingerprint                | ✅      | ❌       | ❌             | ⚠️                 | ❌             | ⚠️       |
+| Browser-level TLS                     | ✅      | ❌       | ❌             | ⚠️（Chrome profile） | ❌             | ⚠️       |
+| Fine-grained control of TLS 1.2 / 1.3 | ✅      | ⚠️      | ❌             | ⚠️                 | ⚠️            | ⚠️       |
+| Session Ticket Control                | ✅      | ❌       | ❌             | ❌                  | ❌             | ⚠️       |
+| TLS session recovery                  | ✅      | ⚠️      | ⚠️            | ⚠️                 | ⚠️            | ⚠️       |
+
+---
+
+## 🧠 Scalability (Advanced Features)
+
+| Abilities/Characteristics       | reqrio | reqwest | requests (py) | uTLS (Go) | curl-ffi (py) | blockreq |
+|---------------------------------|--------|---------|---------------|-----------|---------------|----------|
+| fingerprint consistency control | ✅      | ❌       | ❌             | ⚠️        | ⚠️            | ⚠️       |
+| Switching  TLS                  | ✅      | ❌       | ❌             | ⚠️        | ⚠️            | ⚠️       |
+| Browser behavior simulation     | ✅      | ❌       | ❌             | ⚠️        | ⚠️            | ⚠️       |
+| HTTP Header Spoofing Strategies | ✅      | ❌       | ❌             | ⚠️        | ⚠️            | ⚠️       |
+| UA / ClientHello integration    | ✅      | ❌       | ❌             | ⚠️        | ⚠️            | ⚠️       |
+| Anti-detection strategy support | ✅      | ❌       | ❌             | ⚠️        | ⚠️            | ⚠️       |
+| Low-level socket control        | ✅      | ❌       | ❌             | ⚠️        | ⚠️            | ⚠️       |
+
+---
+
+### 🔐 TLS fingerprinting capability
+
+| Capabilities / Features               | Support Status             |
+|---------------------------------------|----------------------------|
+| JA3 Fingerprint                       | ✅                          |
+| JA4 Fingerprint                       | ✅                          |
+| Controllable ClientHello              | ✅                          |
+| TLS Fingerprint Randomization         | ✅                          |
+| Custom TLS Fingerprint                | ✅                          |
+| Browser-Level TLS Behavior Simulation | ⚠️(Planning)               |
+| TLS 1.2 / 1.3 Control                 | ⚠️(Fingerprint Dependency) |
+| Session Ticket Recovery               | ⚠️(TLS 1.2)                |
+
+---
+
+### 🌊 Low copy
+
+`reqrio` It is a low-copy request sending engine used to efficiently send user data or file data to TCP after encryption
+via TLS.`reqrio`.User-input form-data, JSON, bytes, and text data are converted to bytes for storage. A copy is only
+performed once during the TLS encryption phase; data is borrowed in other phases. File uploads are read using
+`into_reader` to reduce memory overhead.
 
 ```text
 
@@ -51,234 +146,73 @@ Borrow (borrowing). File uploads are read through into_deader to reduce memory o
               └────────┘              └──────────┘             └──────────┘
 ```
 
-## TLS Security Features
+## 🧱 Architecture Design
 
-- TLS 1.2 Support
-- Supports JA3/JA4 TLS fingerprinting
-- Custom fingerprint support
-- Support for multiple [cipher suites](https://github.com/xllgl2017/reqrio/tree/master/reqtls#tls-record-layer-tls12)
-
-## TLS Fingerprint
-
-`reqrio` has a built-in real TLS fingerprint and also supports using custom TLS fingerprints,
-like this:
-
-* update by custom tls
-  ```text
-  fingerprint = {
-      "sec_ch_ua": "\"Microsoft Edge\";v=\"131\", \"Chromium\";v=\"131\", \"Not_A Brand\";v=\"24\"",
-      "sec_ch_ua_mobile": "?0",
-      "sec_ch_ua_platform": "\"Linux\"",
-      "tls_finger": "hex(client_hello+client_exchanged_key+change_cipher_spec)",
-      "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0"
-  }
-  req.set_fingerprint(fingerprint["tls_finger"], "<token>")
-  fingerprint.remove("tls_finger")
-  headers.update(fingerprint)
-  req.set_headers(headers)
-  ```
-
-* update by ja3
+reqrio adopts a layered network stack design:
 
 ```text
-req.set_ja3("<ja3>", "<token>");
+┌────────────────────────────┐
+│ HTTP Layer                 │
+│ req / res / cookie / etc   │
+└────────────┬───────────────┘
+             │
+┌────────────▼───────────────┐
+│ Request Engine Layer       │
+│ header ordering / stream   │
+└────────────┬───────────────┘
+             │
+┌────────────▼───────────────┐
+│ TLS Layer (reqtls)         │
+│ handshake / cipher / ALPN  │
+│ ClientHello builder        │
+└────────────┬───────────────┘
+             │
+┌────────────▼───────────────┐
+│ Transport Layer            │
+│ TCP / proxy / socket       │
+└────────────────────────────┘
 ```
 
-* update by ja4
+## Multilingual binding
 
-```text
-req.set_ja4("<ja4>", "<token>");
-```
+| Language | Type   | Status | Doc                                                                                                  |
+|----------|--------|--------|------------------------------------------------------------------------------------------------------|
+| Rust     | Native | ✅      | [docs.rs](https://docs.rs/reqrio/latest/reqrio/)                                                     |
+| Python   | FFI    | ✅      | [pypi](https://pypi.org/project/reqrio/)                                                             |
+| Java     | JNI    | ✅      | [Maven](https://javadoc.io/doc/io.github.xllgl2017/reqrio/latest/org/xllgl2017/package-summary.html) |
+| Node.js  | FFI    | ✅      | [Node.js](https://www.npmjs.com/package/reqrio)                                                      |
+| Go       | CGO    | ✅      |                                                                                                      |
+| Qt/C++   | FFI    | ✅      |                                                                                                      |
 
-* use random tls
+## Roadmap
 
-```text
-//rust
-let finger=Fingerprint::random("<token>");
-//other
-session=Session(rand_tls=True, token="<token>")
-```
+### v0.4
 
-## Proxy Support
+- [ ] TLS 1.3 Fingerprint
+- [ ] HTTP/3
+- [ ] QUIC
 
-- HTTP Proxy
-- SOCKS5 Proxy
+---
 
-## Data Processing
+### v1.0
 
-- JSON support
-- Multiple data formats (forms, JSON, text, binary)
-- Compression support (Gzip, Deflate, Brotli, Zstd)
-- Encoding Support (Base64, Hex, URL Encoding)
+- [ ] API Stable
 
-## Language Bindings
+- [ ] Documentation Site
 
-- [Rust (Native)](https://docs.rs/reqrio/latest/reqrio/)
-- [Python (FFI)](https://pypi.org/project/reqrio/)
-- [Java (JNA)](https://javadoc.io/doc/io.github.xllgl2017/reqrio/latest/org/xllgl2017/package-summary.html)
-- [Node.js (FFI)](https://www.npmjs.com/package/reqrio)
-- Qt/C++ (FFI)
-- Go (CGO)
+- [ ] Long Term Support Version
 
-## Usage
-
-### Rust
-
-* dependency
-    ```yaml
-    [dependencies]
-    reqrio = "0.1.1"
-    ```
-
-* Example
-    ```rust
-    use reqrio::ScReq;
-    
-    fn main() -> Result<(), Box<dyn std::error::Error>> {
-        let resp = ScReq::new()
-            .with_url("https://httpbin.org/get")?
-            .send_check(reqrio::Method::Get)?;
-        println!("Status: {}", resp.header().status().code());
-        println!("Body: {}", resp.text()?);
-        Ok(())
-    }
-    ```
-
-### Python
-
-* Install
-    ```bash
-    pip install reqrio
-    ```
-* Example
-    ```python
-  from reqrio import Session, ALPN
-  
-  session = Session(ALPN.HTTP11)
-  resp = session.get("https://httpbin.org/get")
-  print(resp.text())
-  
-    ```
-
-### Java/Maven
-
-* dependency
-    ```xml
-    <dependency>
-        <groupId>io.github.xllgl2017</groupId>
-        <artifactId>reqrio</artifactId>
-        <version>0.1.3</version>
-    </dependency>
-    ```
-
-* Example
-
-  ```java
-  import org.xllgl2017.Session;
-  import org.xllgl2017.Response;
-  
-  Session session = new Session();
-  session.setUrl("https://httpbin.org/get");
-  Response resp = session.get();
-  System.out.println(resp.toString());
-  
-  ```
-
-### Node.js
-
-* Install
-
-  ```bach
-  npm install reqrio
-  ```
-
-* Example
-  ```javascript
-  
-  const {Session, ALPN} = require('reqrio');
-  
-  async function main() {
-    const session = new Session(ALPN.HTTP11);
-    const resp = session.get("https://httpbin.org/get");
-    console.log(resp.text());
-  }
-  ```
-
-### Go
-
-* Example
-  ```go
-  import("github.com/xllgl2017/reqrio/reqrio-go/reqrio")
-  
-  session := reqrio.NewSession()
-  err := session.SetUrl("https://m.so.com")
-  if err != nil {
-    return
-  }
-  resp, err := session.Get()
-  if err != nil {
-    return
-  }
-  println(resp.Text())
-  
-  ```
-
-## WebSocket Support
-
-```text
-let mut ws = WebSocket::open("wss://echo.websocket.org") ?;
-ws.write_frame(WsFrame::new_text(true, "Hello")) ?;
-let frame = ws.read_frame() ?;
-println!("Received: {:?}", frame);
-```
-
-# reqtls
-
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`reqtls` is a high-performance TLS and cryptographic foundation library built for the
-reqrio ecosystem, providing complete
-encryption, signing, certificate handling, and encoding capabilities. It focuses on security, scalability, and
-cross-platform support, making it suitable for building HTTPS clients, proxy services, certificate issuance systems, and
-custom secure communication protocols.
-
-## Encryption support
-
-- Cipher Encryption/Decryption: AES (CBC, ECB, CTR, GCM, OFB), DES
-- RSA Encryption/Decryption: Supports PKCS1 and PSS padding
-- AEAD Encryption: Supports various AEAD algorithms
-
-## Hash support
-
-- MD5, SHA1, SHA224, SHA256, SHA384, SHA512
-- HMAC
-
-## Signature Algorithm
-
-- RSA Signature (PKCS1, PSS)
-- ECDSA Signature (Multiple Curves)
-
-## Certificate Processing
-
-- X.509 Certificate Reading and Verification
-- Certificate chain verification
-- Custom Certificate Store
-- CA, Server, and Client certificate generation
-
-## Encoding Support
-
-- Base64 Encoding/Decoding
-- URL Encoding/Decoding
-- Compression (Gzip, Deflate, Brotli, Zstd)
+## 🚀 Quick Satrt
 
 ## License
 
-This project is open source under the Apache 2.0 License.
+This project is an open-source project under the Apache 2.0 license.
 
-## Contributing
+## Contribute
 
-Welcome to submit Issues and Pull Requests.
+You are welcome to submit issues and pull requests.
 
-## Contact
+## Contact information
 
-* Tg: https://t.me/+VVfbAeug-ohhZjU1
-* QQ: 1083315546
-
+* Tg：https://t.me/+VVfbAeug-ohhZjU1
+* QQ：1083315546
