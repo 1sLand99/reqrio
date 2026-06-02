@@ -272,6 +272,7 @@ mod dns;
 mod hkdf;
 mod key;
 mod finger;
+mod ext;
 
 pub use alpn::ALPN;
 pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner,
@@ -279,7 +280,7 @@ pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, 
                  certificate::KeyIdentifier, certificate::KeyUsage, certificate::SubjectAltName, cipher, hash,
                  hmac, AlgorithmSigner, Cipher, CipherType, Padding, RsaCipher, RsaKey, RsaPadding,
                  SignatureAlgorithm};
-pub use buffer::{BufferError, ReadExt, Reader, WriteExt, u24};
+pub use buffer::{BufferError, ReadExt, Reader, WriteExt, u24, Buffer};
 pub use connection::Connection;
 pub use error::{RlsError, HandShakeError};
 pub use extend::{formats::EcPointFormat, CompressionMethod, ExtensionType, SupportVersions,

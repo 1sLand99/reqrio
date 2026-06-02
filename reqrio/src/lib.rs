@@ -181,7 +181,6 @@
 
 #[cfg(feature = "aync")]
 mod acq;
-mod buffer;
 pub mod hpack;
 mod error;
 #[cfg(feature = "export")]
@@ -207,7 +206,6 @@ use crate::error::HlsResult;
 #[cfg(feature = "aync")]
 pub use acq::AcReq;
 pub use body::{Body, FileForm, HttpFile, BodyData, BodyExt};
-pub use buffer::Buffer;
 pub use error::HlsError;
 pub use ext::{ReqExt, ReqGenExt, UrlExt};
 pub use fingerprint::{Fingerprint, H2Finger};
