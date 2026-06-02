@@ -247,8 +247,7 @@ impl ScReq {
         self.fingerprint = fingerprint;
     }
 
-    pub(crate) fn set_url(&mut self, url: &Url) -> HlsResult<()>
-    {
+    pub(crate) fn set_url(&mut self, url: &Url) -> HlsResult<()> {
         if self.url.addr().host() != url.addr().host() || self.stream.scheme() != Some(*url.scheme()) {
             self.re_conn(Some(url))?;
         }
