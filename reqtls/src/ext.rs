@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+#[cfg(feature = "log")]
 use log::{debug, trace, warn};
 use crate::*;
 use crate::config::{ClientConfig, Config};
