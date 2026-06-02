@@ -1,4 +1,3 @@
-mod url;
 mod finger;
 mod response;
 mod body;
