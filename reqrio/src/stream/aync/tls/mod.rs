@@ -2,11 +2,10 @@ mod connect;
 
 use super::ext::TimeoutRW;
 use crate::error::HlsResult;
-use crate::stream::config::Config;
-use crate::stream::{ConnParam, StreamParam, TlsStreamHandle};
+use crate::stream::{ConnParam, StreamParam};
 use crate::{Buffer, ClientConfig, HlsError, ProxyStream, ServerConfig};
 use connect::{Connecting, Handshake};
-use reqtls::{rand, Alert, Connection, RecordType, WriteExt, ALPN};
+use reqtls::{rand, Alert, Config, Connection, RecordType, StreamHandle, WriteExt, ALPN};
 use std::io::Error;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -83,7 +82,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
     pub fn client_hello(&self) -> &[u8] { &self.client_hello }
 }
 
-impl<S> TlsStreamHandle for TlsStream<S> {
+impl<S> StreamHandle for TlsStream<S> {
     #[inline]
     fn stream_param(&mut self) -> (&mut Buffer, StreamParam<'_>) {
         (&mut self.read_buffer, StreamParam {
@@ -96,46 +95,6 @@ impl<S> TlsStreamHandle for TlsStream<S> {
 }
 
 impl<S> TlsStream<S> {
-    // fn read_message(&mut self, buf: &mut ReadBuf<'_>, record_len: usize) -> io::Result<usize> {
-    //     let record_type = RecordType::from_byte(self.read_buffer.filled()[0])
-    //         .ok_or(HandShakeError::UnknownRecord(self.read_buffer.filled()[0]))?;
-    //     match record_type {
-    //         RecordType::CipherSpec => {
-    //             self.handshake_finished = true;
-    //             self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
-    //         }
-    //         RecordType::Alert => return Err(self.handle_by_alert(self.handshake_finished, record_len)?.into()),
-    //         RecordType::HandShake => {
-    //             if self.handshake_finished {
-    //                 let len = self.conn.read_message(&self.read_buffer[..record_len], buf.initialized_mut())?;
-    //                 self.conn.verify_finish(&buf.initialized()[..len], true)?;
-    //             } else {
-    //                 self.conn.update_session(&self.read_buffer[5..record_len])?;
-    //                 let msg = MessageParsed::from_bytes(&self.read_buffer[5..record_len], &record_type, None, self.conn.version())?;
-    //                 if let MessageParsed::NewSessionTicket(ticket) = msg {
-    //                     self.conn.set_by_session_ticket(ticket);
-    //                 }
-    //             }
-    //             self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
-    //         }
-    //         RecordType::ApplicationData => {
-    //             let len = self.conn.read_message(&self.read_buffer[..record_len], buf.initialized_mut())?;
-    //             match *self.conn.version() {
-    //                 Version::TLS_1_3 => if buf.initialized_mut()[len - 1] == 23 {
-    //                     buf.set_filled(len - 1)
-    //                 } else {
-    //                     self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
-    //                     return Ok(0);
-    //                 }
-    //                 _ => buf.set_filled(len),
-    //             }
-    //             self.read_buffer.move_to(record_len..self.read_buffer.len(), 0);
-    //             return Ok(len);
-    //         }
-    //     }
-    //     Ok(0)
-    // }
-
     pub fn connection(&self) -> &Connection {
         &self.conn
     }

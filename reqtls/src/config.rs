@@ -1,9 +1,7 @@
-use crate::stream::ConnParam;
-use reqtls::{Certificate, RsaKey, TlsFinger, TlsSession, ALPN};
-use std::env;
-use std::path::{Path, PathBuf};
+use crate::{Certificate, RsaKey, TlsFinger, TlsSession, ALPN};
+use std::path::PathBuf;
 
-pub(crate) enum Config<'a> {
+pub enum Config<'a> {
     Server(ServerConfig<'a>),
     Client(ClientConfig<'a>),
 }
@@ -46,24 +44,6 @@ pub struct ClientConfig<'a> {
     pub session: &'a Option<TlsSession>,
 }
 
-impl<'a> From<ConnParam<'a>> for ClientConfig<'a> {
-    fn from(param: ConnParam<'a>) -> Self {
-        ClientConfig {
-            sni: param.url.sni(),
-            alpn: param.alpn,
-            fingerprint: param.fingerprint.tls_mut(),
-            client_cert: param.cert,
-            cert_key: param.key,
-            verify: param.verify,
-            ca_certs: param.ca_cert,
-            key_log: param.key_log.clone().or_else(|| match env::var("SSLKEYLOGFILE") {
-                Ok(key_log) => Some(Path::new(&key_log).to_path_buf()),
-                Err(_) => None
-            }),
-            session: param.session,
-        }
-    }
-}
 
 pub struct ServerConfig<'a> {
     pub alpn: &'a ALPN,

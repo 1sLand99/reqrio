@@ -264,7 +264,7 @@ mod ffi;
 pub mod coder;
 mod alpn;
 mod url;
-
+mod config;
 #[cfg(feature = "export")]
 mod export;
 mod buffer;
@@ -299,3 +299,5 @@ pub use bytes::Bytes;
 pub use finger::*;
 #[cfg(feature = "log")]
 pub use log::*;
+pub use config::{ClientConfig, ServerConfig, Config};
+pub use ext::{StreamHandle, StreamParam};

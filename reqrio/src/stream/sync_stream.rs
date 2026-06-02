@@ -1,6 +1,5 @@
 use crate::error::HlsResult;
-use crate::stream::config::Config;
-use crate::stream::{StreamParam, TlsStreamHandle};
+use crate::stream::StreamParam;
 use crate::*;
 use std::io;
 use std::io::{Read, Write};
@@ -69,7 +68,7 @@ impl<S: Read + Write> SyncStream<S> {
     }
 }
 
-impl<S: Read + Write> TlsStreamHandle for SyncStream<S> {
+impl<S: Read + Write> StreamHandle for SyncStream<S> {
     fn stream_param(&mut self) -> (&mut Buffer, StreamParam<'_>) {
         (&mut self.read_buffer, StreamParam {
             handshake_finish: &mut self.handshake_finished,
