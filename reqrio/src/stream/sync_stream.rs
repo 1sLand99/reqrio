@@ -31,7 +31,7 @@ impl<S: Read + Write> SyncStream<S> {
             stream.stream.write_all(stream.write_buffer.filled())?;
             stream.write_buffer.reset();
         }
-        let mut app_buffer =Buffer::with_capacity(16438);
+        let mut app_buffer = Buffer::with_capacity(16438);
         loop {
             let record_len = stream.read_next_packet()?;
             stream.handle_record(record_len, Some(&mut config), app_buffer.unfilled_mut())?;
@@ -54,8 +54,9 @@ impl<S: Read + Write> SyncStream<S> {
 
     pub fn shutdown(&mut self) -> HlsResult<()> {
         self.write_buffer.reset();
-        let record_len = self.conn.make_message(RecordType::Alert, &mut self.write_buffer[..], &[1, 0])?;
-        self.stream.write_all(&self.write_buffer[..record_len])?;
+        let out = self.write_buffer.unfilled_mut();
+        let record_len = self.conn.make_message(RecordType::Alert, out, &[1, 0])?;
+        self.stream.write_all(&out[..record_len])?;
         Ok(())
     }
 

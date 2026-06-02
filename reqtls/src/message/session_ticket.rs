@@ -28,7 +28,6 @@ impl<'a> Default for TlsSessionTicket<'a> {
 
 impl<'a> TlsSessionTicket<'a> {
     pub fn from_reader(reader: &mut Reader<'a>, version: &Version) -> RlsResult<TlsSessionTicket<'a>> {
-        println!("{:?}", version);
         let lifetime = reader.read_u32()?;
         let (age_add, nonce) = match *version {
             Version::TLS_1_3 => {
@@ -41,9 +40,11 @@ impl<'a> TlsSessionTicket<'a> {
         };
         let len = reader.read_u16()? as usize;
         let ticket = Buf::Ref(reader.read_slice(len)?);
-        let ext_len = reader.read_u16()?;
-        let extensions = Extension::from_reader(reader.read_reader(ext_len as usize)?, true)?;
-        println!("{}", len);
+        let extensions = if version == &Version::TLS_1_3 {
+            let ext_len = reader.read_u16()?;
+            Extension::from_reader(reader.read_reader(ext_len as usize)?, true)?
+        } else { vec![] };
+
         Ok(TlsSessionTicket {
             lifetime,
             age_add,

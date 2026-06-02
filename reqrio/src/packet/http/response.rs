@@ -161,7 +161,7 @@ impl Response {
             true => {
                 let pos = buffer.filled().windows(HTTP_GAP.len()).position(|w| w == HTTP_GAP);
                 if let Some(pos) = pos {
-                    let hdr_str = String::from_utf8_lossy(&buffer[..pos]);
+                    let hdr_str = String::from_utf8_lossy(&buffer.filled()[..pos]);
                     self.header = Header::try_from(hdr_str.as_ref())?;
                     buffer.move_to(pos + 4..buffer.len(), 0);
                     self.extend_body(buffer)

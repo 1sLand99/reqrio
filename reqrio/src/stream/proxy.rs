@@ -211,7 +211,7 @@ impl std::io::Read for ProxyStream<std::net::TcpStream> {
                     if self.buffer.len() == 2 {
                         self.buffer.sync_read(&mut self.stream)?;
                     }
-                    if self.buffer[3] != 0 { return Err(std::io::Error::other("socks5 auth fail")); }
+                    if self.buffer.filled()[3] != 0 { return Err(std::io::Error::other("socks5 auth fail")); }
                     self.buffer.used_empty(2);
                 }
                 self.buffer.used_empty(2);
@@ -304,9 +304,9 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
                             if rl == 0 { return Poll::Ready(Err(std::io::Error::other(HlsError::PeerClosedConnection))); }
                             stream.buffer.set_len(stream.buffer.len() + rl);
                             if stream.buffer.len() < 2 { continue; }
-                            if stream.buffer[1] == 2 {
+                            if stream.buffer.filled()[1] == 2 {
                                 if stream.buffer.len() < 4 { continue; }
-                                if stream.buffer[3] == 0 {
+                                if stream.buffer.filled()[3] == 0 {
                                     if stream.buffer.len() >= 14 {
                                         stream.buffer.used_empty(14);
                                         break;

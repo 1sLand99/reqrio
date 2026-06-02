@@ -276,7 +276,7 @@ pub trait TlsStreamHandle {
             record.messages.push(certificate.into());
             let len = record.write_to(param.write_buffer, 1)?;
             param.write_buffer.set_len(offset + len);
-            param.conn.update_session(&param.write_buffer[offset + 5..offset + len])?;
+            param.conn.update_session(&param.write_buffer.filled()[offset + 5..offset + len])?;
         }
         let offset = param.write_buffer.len();
         //client key exchange
@@ -288,14 +288,14 @@ pub trait TlsStreamHandle {
         record.messages.push(client_key_exchange.into());
         let len = record.write_to(param.write_buffer, key_size)?;
         param.write_buffer.set_len(offset + len);
-        param.conn.update_session(&param.write_buffer[offset + 5..offset + len])?;
+        param.conn.update_session(&param.write_buffer.filled()[offset + 5..offset + len])?;
         param.conn.make_cipher(false, false)?;
         //certificate verify
         if param.conn.mtls() && !config.client_cert.is_empty() {
             let offset = param.write_buffer.len();
             let len = param.conn.handle_mtls_client(param.write_buffer, config.cert_key)?;
             param.write_buffer.set_len(offset + len);
-            param.conn.update_session(&param.write_buffer[offset + 5..offset + len])?;
+            param.conn.update_session(&param.write_buffer.filled()[offset + 5..offset + len])?;
         }
         param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
         let record_len = param.conn.make_finish_message(param.write_buffer.unfilled_mut(), false)?;

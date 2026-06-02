@@ -120,8 +120,8 @@ impl WsFrame {
     pub fn from_buffer(buffer: &mut Buffer) -> HlsResult<WsFrame> {
         if buffer.len() < 2 { return Err(HlsError::InvalidHeadSize); }
         let mut res = WsFrame::default();
-        res.typ = WsFrameType::from_u8(buffer[0])?;
-        res.masker = Marker::from_u8(buffer[1]);
+        res.typ = WsFrameType::from_u8(buffer.filled()[0])?;
+        res.masker = Marker::from_u8(buffer.filled()[1]);
         res.payload = WsPayload::from_bytes(&res.masker, &buffer.filled()[2..])?;
         buffer.copy_within(res.len()..buffer.len(), 0);
         buffer.set_len(buffer.len() - res.len());

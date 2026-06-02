@@ -1,7 +1,7 @@
 use crate::error::{HlsError, HlsResult};
 use reqtls::WriteExt;
 use std::io::Read;
-use std::ops::{Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo};
+use std::ops::{Range, RangeTo};
 use std::ptr;
 #[cfg(feature = "tokio")]
 use tokio::io::AsyncReadExt;
@@ -129,65 +129,6 @@ impl Buffer {
         self.copy_within(range.end..self.offset.end, 0);
         self.offset.end -= range.end;
         res
-    }
-}
-
-impl Index<RangeTo<usize>> for Buffer {
-    type Output = [u8];
-    fn index(&self, i: RangeTo<usize>) -> &[u8] {
-        &self.buffer[..i.end]
-    }
-}
-
-impl Index<RangeFrom<usize>> for Buffer {
-    type Output = [u8];
-    fn index(&self, i: RangeFrom<usize>) -> &[u8] {
-        &self.buffer[i.start..self.offset.len()]
-    }
-}
-
-impl Index<Range<usize>> for Buffer {
-    type Output = [u8];
-    fn index(&self, i: Range<usize>) -> &[u8] {
-        &self.buffer[i]
-    }
-}
-
-impl IndexMut<RangeTo<usize>> for Buffer {
-    fn index_mut(&mut self, i: RangeTo<usize>) -> &mut [u8] {
-        &mut self.buffer[i]
-    }
-}
-
-impl IndexMut<RangeFrom<usize>> for Buffer {
-    fn index_mut(&mut self, i: RangeFrom<usize>) -> &mut [u8] {
-        &mut self.buffer[i]
-    }
-}
-
-impl IndexMut<Range<usize>> for Buffer {
-    fn index_mut(&mut self, i: Range<usize>) -> &mut [u8] {
-        &mut self.buffer[i]
-    }
-}
-
-impl Index<usize> for Buffer {
-    type Output = u8;
-    fn index(&self, i: usize) -> &u8 {
-        &self.buffer[i]
-    }
-}
-
-impl Index<RangeFull> for Buffer {
-    type Output = [u8];
-    fn index(&self, i: RangeFull) -> &[u8] {
-        &self.buffer[i]
-    }
-}
-
-impl IndexMut<RangeFull> for Buffer {
-    fn index_mut(&mut self, i: RangeFull) -> &mut [u8] {
-        &mut self.buffer[i]
     }
 }
 

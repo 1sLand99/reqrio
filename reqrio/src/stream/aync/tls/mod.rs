@@ -220,8 +220,8 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for TlsStream<S> {
         loop {
             if stream.pending.is_empty() { break; }
             if stream.write_buffer.is_empty() {
-                let record_len = stream.conn.make_message(RecordType::ApplicationData, &mut stream.write_buffer[..], chucks[stream.pending[0]])?;
-                stream.write_buffer.set_len(record_len);
+                let record_len = stream.conn.make_message(RecordType::ApplicationData, stream.write_buffer.unfilled_mut(), chucks[stream.pending[0]])?;
+                stream.write_buffer.add_len(record_len);
                 stream.wrote_len += chucks[stream.pending[0]].len();
             }
             match stream.write_buffer(cx)? {
@@ -240,8 +240,8 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for TlsStream<S> {
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Error>> {
         let stream = self.get_mut();
         if stream.write_buffer.is_empty() {
-            let len = stream.conn.make_message(RecordType::Alert, &mut stream.write_buffer[..], &Alert::close_notify().to_bytes())?;
-            stream.write_buffer.set_len(len);
+            let len = stream.conn.make_message(RecordType::Alert, &mut stream.write_buffer.unfilled_mut(), &Alert::close_notify().to_bytes())?;
+            stream.write_buffer.add_len(len);
         }
         match stream.shutdown_wrote {
             true => Pin::new(&mut stream.stream).poll_shutdown(cx),
