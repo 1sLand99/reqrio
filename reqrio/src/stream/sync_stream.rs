@@ -81,39 +81,22 @@ impl<S: Read + Write> TlsStreamHandle for SyncStream<S> {
 }
 
 impl<S: Read> SyncStream<S> {
-    fn read_size(&mut self, size: usize) -> HlsResult<()> {
-        let start = self.read_buffer.len();
-        while self.read_buffer.len() - start < size {
+    fn read_size(&mut self, max_size: usize) -> HlsResult<()> {
+        while self.read_buffer.len() < max_size {
             if self.read_buffer.unfilled_mut().len() < 4096 && self.read_buffer.offset().start != 0 {
                 self.read_buffer.move_to(self.read_buffer.offset(), 0);
             }
-            self.read_buffer.sync_read(&mut self.stream)?;
+            let len = self.stream.read(self.read_buffer.unfilled_mut())?;
+            if len == 0 { return Err(HlsError::PeerClosedConnection); }
+            self.read_buffer.add_len(len);
         }
         Ok(())
     }
 
-    fn check_and_read(&mut self) -> HlsResult<usize> {
-        if self.read_buffer.len() < 5 { return Err("tls head len < 5".into()); }
-        let len = u16::from_be_bytes([self.read_buffer.filled()[3], self.read_buffer.filled()[4]]) as usize;
-        if self.read_buffer.len() >= len + 5 {
-            Ok(len + 5)
-        } else {
-            self.read_size(len + 5 - self.read_buffer.len())?;
-            Ok(len + 5)
-        }
-    }
-
-    fn read_zero(&mut self) -> HlsResult<usize> {
-        self.read_buffer.sync_read(&mut self.stream)?;
-        self.check_and_read()
-    }
-
     fn read_next_packet(&mut self) -> HlsResult<usize> {
-        let record_len = if self.read_buffer.len() >= 5 {
-            self.check_and_read()?
-        } else {
-            self.read_zero()?
-        };
+        if self.read_buffer.len() < 5 { self.read_size(5)?; }
+        let record_len = u16::from_be_bytes([self.read_buffer.filled()[3], self.read_buffer.filled()[4]]) as usize + 5;
+        self.read_size(record_len)?;
         Ok(record_len)
     }
 }

@@ -1,6 +1,7 @@
 use crate::error::{HlsError, HlsResult};
 use crate::*;
 use std::fmt::{Display, Formatter};
+use std::io;
 use std::net::{IpAddr, Shutdown};
 use std::net::SocketAddr;
 #[cfg(feature = "aync")]
@@ -200,23 +201,31 @@ impl std::io::Read for ProxyStream<std::net::TcpStream> {
             self.buffer.reset();
             if self.http_proxy {
                 loop {
-                    self.buffer.sync_read(&mut self.stream)?;
+                    let len = self.stream.read(self.buffer.unfilled_mut())?;
+                    if len == 0 { return Err(io::Error::other(HlsError::PeerClosedConnection)); }
+                    self.buffer.add_len(len);
                     if self.resp.extend_buffer(&mut self.buffer)? { break; }
                 }
                 let status = self.resp.header().status().code();
                 if status != 200 { return Err(std::io::Error::other(format!("connect http proxy error-{}", status))); }
             } else {
-                self.buffer.sync_read(&mut self.stream)?;
+                let len = self.stream.read(self.buffer.unfilled_mut())?;
+                if len == 0 { return Err(io::Error::other(HlsError::PeerClosedConnection)); }
+                self.buffer.add_len(len);
                 if self.buffer.filled().starts_with(&[5, 2]) {
                     if self.buffer.len() == 2 {
-                        self.buffer.sync_read(&mut self.stream)?;
+                        let len = self.stream.read(self.buffer.unfilled_mut())?;
+                        if len == 0 { return Err(io::Error::other(HlsError::PeerClosedConnection)); }
+                        self.buffer.add_len(len);
                     }
                     if self.buffer.filled()[3] != 0 { return Err(std::io::Error::other("socks5 auth fail")); }
                     self.buffer.used_empty(2);
                 }
                 self.buffer.used_empty(2);
                 if self.buffer.is_empty() {
-                    self.buffer.sync_read(&mut self.stream)?;
+                    let len = self.stream.read(self.buffer.unfilled_mut())?;
+                    if len == 0 { return Err(io::Error::other(HlsError::PeerClosedConnection)); }
+                    self.buffer.add_len(len);
                 }
                 self.buffer.used_empty(10);
             }

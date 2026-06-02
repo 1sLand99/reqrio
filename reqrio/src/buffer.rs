@@ -1,10 +1,6 @@
-use crate::error::{HlsError, HlsResult};
 use reqtls::WriteExt;
-use std::io::Read;
 use std::ops::{Range, RangeTo};
 use std::ptr;
-#[cfg(feature = "tokio")]
-use tokio::io::AsyncReadExt;
 
 pub struct Buffer {
     buffer: Vec<u8>,
@@ -28,30 +24,6 @@ impl Buffer {
             offset: 0..bytes.len(),
             buffer: bytes,
         }
-    }
-
-    #[cfg(feature = "tokio")]
-    pub async fn async_read<S: AsyncReadExt + Unpin>(&mut self, stream: &mut S) -> HlsResult<()> {
-        self.async_read_limit(stream, self.buffer.capacity() - self.offset.end).await
-    }
-
-    #[cfg(feature = "tokio")]
-    pub async fn async_read_limit<S: AsyncReadExt + Unpin>(&mut self, stream: &mut S, limit: usize) -> HlsResult<()> {
-        let len = stream.read(&mut self.buffer[self.offset.end..self.offset.end + limit]).await?;
-        if len == 0 { return Err(HlsError::PeerClosedConnection); }
-        self.offset.end += len;
-        Ok(())
-    }
-
-    pub fn sync_read<S: Read>(&mut self, stream: &mut S) -> HlsResult<()> {
-        self.sync_read_limit(stream, self.buffer.capacity() - self.offset.end)
-    }
-
-    pub fn sync_read_limit<S: Read>(&mut self, stream: &mut S, limit: usize) -> HlsResult<()> {
-        let len = stream.read(&mut self.buffer[self.offset.end..self.offset.end + limit])?;
-        if len == 0 { return Err(HlsError::PeerClosedConnection); }
-        self.offset.end += len;
-        Ok(())
     }
 
     pub fn reset(&mut self) {

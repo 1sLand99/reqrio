@@ -8,6 +8,7 @@ pub use config::{ClientConfig, ServerConfig};
 pub use proxy::Proxy;
 pub use proxy::ProxyStream;
 use std::collections::HashMap;
+use std::io;
 use std::io::Write;
 use std::path::PathBuf;
 pub use sync_stream::SyncStream;
@@ -157,8 +158,18 @@ impl Stream {
 
     pub fn sync_read(&mut self, buffer: &mut Buffer) -> HlsResult<()> {
         match self {
-            Stream::SyncHttp(s) => buffer.sync_read(s),
-            Stream::SyncHttps(s) => buffer.sync_read(s),
+            Stream::SyncHttp(stream) => {
+                let len = io::Read::read(stream, buffer.unfilled_mut())?;
+                if len == 0 { return Err(HlsError::PeerClosedConnection); }
+                buffer.add_len(len);
+                Ok(())
+            }
+            Stream::SyncHttps(stream) => {
+                let len = io::Read::read(stream, buffer.unfilled_mut())?;
+                if len == 0 { return Err(HlsError::PeerClosedConnection); }
+                buffer.add_len(len);
+                Ok(())
+            },
             _ => Err("Unsupported async read".into()),
         }
     }
