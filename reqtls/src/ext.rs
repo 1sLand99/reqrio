@@ -8,6 +8,7 @@ use crate::error::RlsResult;
 pub struct StreamParam<'a> {
     pub handshake_finish: &'a mut bool,
     pub encrypted_channel: &'a mut bool,
+    pub hello_retrying: &'a mut bool,
     pub write_buffer: &'a mut Buffer,
     pub conn: &'a mut Connection,
 }
@@ -90,8 +91,10 @@ pub trait StreamHandle {
             param.write_buffer.set_len(record_len);
             param.conn.hello_retry(&param.write_buffer.filled()[5..])?;
             param.conn.set_secret_keys(secrets);
+            *param.hello_retrying = true;
             return Ok(true);
         }
+        *param.hello_retrying = false;
         Ok(false)
     }
 
@@ -258,10 +261,10 @@ pub trait StreamHandle {
         let (read_buffer, mut param) = self.stream_param();
         let record = RecordLayer::from_bytes(read_buffer.filled(), None, *param.encrypted_channel)?;
         #[cfg(feature = "log")]
-        if param.conn.version() != &Version::TLS_1_3 && record.content_type.as_u8() != RecordType::HandShake.as_u8() { trace!("[HandleRecord] {:?}", record); }
+        trace!("[HandleRecord] {:?}", record);
         match record.content_type {
             RecordType::CipherSpec => {
-                *param.encrypted_channel = true;
+                *param.encrypted_channel = !*param.hello_retrying;
                 if param.conn.secret_key().is_none() && param.conn.version() == &Version::TLS_1_2 {
                     param.conn.make_cipher(false, true)?;
                 }

@@ -20,6 +20,7 @@ pub struct TlsStream<S> {
     stream: S,
     encrypted_channel: bool,
     handshake_finished: bool,
+    hello_retrying: bool,
     read_buffer: Buffer,
     write_buffer: Buffer,
     shutdown_wrote: bool,
@@ -36,6 +37,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
             conn,
             encrypted_channel: false,
             handshake_finished: false,
+            hello_retrying: false,
             read_buffer: Buffer::default(),
             write_buffer: buffer,
             shutdown_wrote: false,
@@ -57,6 +59,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
                 stream,
                 conn: Connection::from_client(rand::random(), session, mem::take(&mut config.key_log)).with_verify(config.verify),
                 handshake_finished: false,
+                hello_retrying: false,
                 read_buffer: Buffer::default(),
                 write_buffer: Buffer::default(),
                 shutdown_wrote: false,
@@ -88,6 +91,7 @@ impl<S> StreamHandle for TlsStream<S> {
         (&mut self.read_buffer, StreamParam {
             handshake_finish: &mut self.handshake_finished,
             encrypted_channel: &mut self.encrypted_channel,
+            hello_retrying: &mut self.hello_retrying,
             write_buffer: &mut self.write_buffer,
             conn: &mut self.conn,
         })

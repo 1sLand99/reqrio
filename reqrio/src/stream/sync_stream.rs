@@ -11,6 +11,8 @@ pub struct SyncStream<S> {
     handshake_finished: bool,
     /// 是否已进入加密通信
     encrypted_channel: bool,
+    ///是否在进行retry中
+    hello_retrying: bool,
     read_buffer: Buffer,
     write_buffer: Buffer,
 }
@@ -22,6 +24,7 @@ impl<S: Read + Write> SyncStream<S> {
             conn,
             handshake_finished: false,
             encrypted_channel: false,
+            hello_retrying: false,
             read_buffer: Buffer::with_capacity(16438),
             write_buffer: buffer,
         };
@@ -73,6 +76,7 @@ impl<S: Read + Write> StreamHandle for SyncStream<S> {
         (&mut self.read_buffer, StreamParam {
             handshake_finish: &mut self.handshake_finished,
             encrypted_channel: &mut self.encrypted_channel,
+            hello_retrying: &mut self.hello_retrying,
             write_buffer: &mut self.write_buffer,
             conn: &mut self.conn,
         })

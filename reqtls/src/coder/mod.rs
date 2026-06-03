@@ -56,7 +56,7 @@ pub fn br_compress(brd: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
 
 
 pub fn chunk_decode(mut raw: Vec<u8>) -> RlsResult<Vec<u8>> {
-    let mut res = vec![];
+    let mut res = Vec::with_capacity(raw.len());
     while let Some(pos) = raw.windows(2).position(|w| w == b"\r\n") {
         let len_bs = raw.drain(..pos).collect();
         let len_str = String::from_utf8(len_bs)?;

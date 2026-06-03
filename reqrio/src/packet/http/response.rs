@@ -42,8 +42,8 @@ impl Body {
 
     pub fn as_json(&mut self) -> HlsResult<&JsonValue> {
         match self {
-            Body::Decoded(decoded) => *self = Body::Json(crate::json::from_bytes(decoded).or(Err("decode to json error"))?),
-            Body::String(string) => *self = Body::Json(crate::json::parse(string).or(Err("parse json error"))?),
+            Body::Decoded(decoded) => *self = Body::Json(json::from_bytes(decoded).or(Err("decode to json error"))?),
+            Body::String(string) => *self = Body::Json(json::parse(string).or(Err("parse json error"))?),
             _ => {}
         };
         if let Body::Json(value) = self {
@@ -74,8 +74,8 @@ impl Body {
     fn into_json(self) -> HlsResult<JsonValue> {
         match self {
             Body::Raw(_) => Err("not decode".into()),
-            Body::Decoded(decoded) => Ok(crate::json::from_bytes(&decoded).or(Err("decode to json error"))?),
-            Body::String(value) => Ok(crate::json::parse(value).or(Err("parse json error"))?),
+            Body::Decoded(decoded) => Ok(json::from_bytes(&decoded).or(Err("decode to json error"))?),
+            Body::String(value) => Ok(json::parse(value).or(Err("parse json error"))?),
             Body::Json(value) => Ok(value)
         }
     }
