@@ -258,7 +258,7 @@ pub trait StreamHandle {
         let (read_buffer, mut param) = self.stream_param();
         let record = RecordLayer::from_bytes(read_buffer.filled(), None, *param.encrypted_channel)?;
         #[cfg(feature = "log")]
-        trace!("[HandleRecord] {:?}", record);
+        if param.conn.version() != &Version::TLS_1_3 && record.content_type.as_u8() != RecordType::HandShake.as_u8() { trace!("[HandleRecord] {:?}", record); }
         match record.content_type {
             RecordType::CipherSpec => {
                 *param.encrypted_channel = true;

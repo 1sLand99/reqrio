@@ -50,7 +50,7 @@
 //! # fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! let mut res = reqrio::get("https://api.example.com/users", None)?;
 //! let body = res.decode_body()?;
-//! println!("{}", String::from_utf8(body)?);
+//! println!("{}", body.as_string()?);
 //! # Ok(())
 //! # }
 //! ```
