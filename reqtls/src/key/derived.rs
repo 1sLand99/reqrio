@@ -12,7 +12,6 @@ use crate::prf::Prf;
 pub(crate) struct DerivedKey {
     prf: Prf,
     hash: HashType,
-    // master_secret: [u8; 48],
     client_random: [u8; 32],
     server_random: [u8; 32],
     use_ems: bool,
@@ -24,11 +23,11 @@ pub(crate) struct DerivedKey {
 }
 
 impl DerivedKey {
+    const ZERO: [u8; 64] = [0; 64];
     pub fn new(client_random: [u8; 32], server_random: [u8; 32], session: TlsSession, key_log: Option<PathBuf>) -> Self {
         DerivedKey {
             prf: Prf::default(),
             hash: HashType::Sha256,
-            // master_secret: [0; 48],
             client_random,
             server_random,
             use_ems: false,
@@ -72,7 +71,7 @@ impl DerivedKey {
     }
 
     pub fn make_handshake_traffic_secret(&mut self, share_secret: Vec<u8>, session_hash: &[u8]) -> RlsResult<()> {
-        let mut derived_hkdf = Hkdf::new(&[], &self.session.master_secret()[..self.hash.hash_size()], self.hash)?;
+        let mut derived_hkdf = Hkdf::new(&[], &Self::ZERO[..self.hash.hash_size()], self.hash)?;
         let mut derived = vec![0; self.hash.hash_size()];
         derived_hkdf.hkdf("tls13 derived", self.hash.tls13_secret()?, &mut derived)?;
         //client handshake traffic
@@ -90,7 +89,7 @@ impl DerivedKey {
         let mut hkdf = Hkdf::from_prk(&self.prk, self.hash);
         let mut salt = vec![0; self.hash.hash_size()];
         hkdf.hkdf("tls13 derived", self.hash.tls13_secret()?, &mut salt)?;
-        let mut hkdf = Hkdf::new(&salt, &self.session.master_secret()[..self.hash.hash_size()], self.hash)?;
+        let mut hkdf = Hkdf::new(&salt, &Self::ZERO[..self.hash.hash_size()], self.hash)?;
         hkdf.hkdf("tls13 c ap traffic", session_hash, self.traffic_secret.client_traffic_mut())?;
         self.export_key("CLIENT_TRAFFIC_SECRET_0", hex::encode(self.traffic_secret.client_traffic()))?;
         hkdf.hkdf("tls13 s ap traffic", session_hash, self.traffic_secret.server_traffic_mut())?;
