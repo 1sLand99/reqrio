@@ -42,7 +42,7 @@ async fn main() {
         .with_auto_redirect(false)
         // .with_proxy(proxy)
         .with_verify(false)
-        .with_proxy(Proxy::try_from("http://222.186.129.68:15265").unwrap())
+        // .with_proxy(Proxy::try_from("http://222.186.129.68:15265").unwrap())
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::new_socks5("192.111.130.2",4145))
         // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10279))
@@ -129,15 +129,22 @@ async fn main() {
     // let res=req.get("https://www.link114.cn/",None).await.unwrap();
     // let res = req.get("https://www.bing.com".params(json::object! {}), vec![0u8; 0].ty(Application::Json)).await.unwrap();
     // let res = req.get("https://117.89.181.21".sni("m.sogou.com"), None).await.unwrap();
-    let res = req.get("https://oauth.hubei.gov.cn:8443/", None).await.unwrap();
+    let url = Url::try_from("https://oauth.hubei.gov.cn:8443/").unwrap();
+    let body: Body = None.into();
+    req.re_conn(Some(&url)).await.unwrap();
+    req.send(&url, &body).await.unwrap();
+    req.send(&url, &body).await.unwrap();
+    let res1 = req.recv().await.unwrap();
+    let res2 = req.recv().await.unwrap();
+    println!("{} {}", res1.header(), res2.header());
     // let res = req.get("https://m.sogou.com", None).await.unwrap();
     // let session=req.stream_mut().tls_session().cloned();
     // req.set_tls_session(session);
     // let res = req.get("https://150.139.229.223".sni("h5.moutai519.com.cn"), None).await.unwrap();
     // let res = req.get("https://aswbe.ana.co.jp/webapps/reservation/flight-search", None).await.unwrap();
-    req.re_conn(None).await.unwrap();
+    // req.re_conn(None).await.unwrap();
     // let res = req.get("https://aswbe.ana.co.jp/webapps/reservation/flight-search", None).await.unwrap();
-    let res = req.get("https://oauth.hubei.gov.cn:8443/", None).await.unwrap();
+    // let res = req.send("https://oauth.hubei.gov.cn:8443/", None).await.unwrap();
     // let res = req.get("https://104.18.34.137".sni("whatnot.com"), None).await.unwrap();
     // let res = req.get("https://150.139.229.223".sni("h5.moutai519.com.cn"), None).await.unwrap();
     // loop {

@@ -155,8 +155,7 @@ impl AcReq {
         Ok(())
     }
 
-    pub(crate) async fn handle_io(&mut self, url: &Url, body: &Body<'_>) -> HlsResult<Response> {
-        self.send(url, body).await?;
+    pub async fn recv(&mut self) -> HlsResult<Response> {
         let response = match self.header.alpn() {
             ALPN::Http20 => self.h2c_io().await,
             _ => self.h1_io().await
@@ -166,6 +165,11 @@ impl AcReq {
         if let ALPN::Http20 = self.header.alpn() { self.stream_id += 2; }
         if self.tls_session.is_none() { self.tls_session = self.stream.tls_session().cloned(); }
         Ok(response)
+    }
+
+    pub(crate) async fn handle_io(&mut self, url: &Url, body: &Body<'_>) -> HlsResult<Response> {
+        self.send(url, body).await?;
+        self.recv().await
     }
 
     pub async fn stream_io(&mut self, url: &mut Url, body: &Body<'_>) -> HlsResult<Response> {
@@ -391,6 +395,8 @@ impl ReqExt for AcReq {
     fn tls_session(&self) -> &Option<TlsSession> {
         &self.tls_session
     }
+
+    fn proxy(&self) -> &Proxy { &self.proxy }
 }
 
 unsafe impl Send for AcReq {}

@@ -133,8 +133,9 @@ impl ScReq {
         }
         Ok(response)
     }
-
-    pub(crate) fn handle_io(&mut self, url: &Url, body: &Body) -> HlsResult<Response> {
+    
+    /// 发送一个请求，发送前务必确保链接已建立
+    pub fn send(&mut self, url: &Url, body: &Body) -> HlsResult<()> {
         let mut request = RequestBuffer::new(&mut self.header, body, HeaderParam {
             url,
             stream_identifier: &self.stream_id,
@@ -150,6 +151,10 @@ impl ScReq {
             if len == 0 { break; }
             self.stream.sync_write(render.filled())?;
         }
+        Ok(())
+    }
+
+    pub fn recv(&mut self) -> HlsResult<Response> {
         let response = match self.header.alpn() {
             ALPN::Http20 => self.h2c_io(),
             _ => self.h1_io()
@@ -159,6 +164,11 @@ impl ScReq {
         if let ALPN::Http20 = self.header.alpn() { self.stream_id += 2; }
         if self.tls_session.is_none() { self.tls_session = self.stream.tls_session().cloned(); }
         Ok(response)
+    }
+
+    pub(crate) fn handle_io(&mut self, url: &Url, body: &Body) -> HlsResult<Response> {
+        self.send(url, body)?;
+        self.recv()
     }
 
     pub fn stream_io(&mut self, url: &mut Url, body: &Body) -> HlsResult<Response>
@@ -365,6 +375,8 @@ impl ReqExt for ScReq {
     fn set_verify(&mut self, verify: bool) {
         self.verify = verify;
     }
+
+    fn proxy(&self) -> &Proxy { &self.proxy }
 
     fn set_auto_redirect(&mut self, auto_redirect: bool) {
         self.auto_redirect = auto_redirect;

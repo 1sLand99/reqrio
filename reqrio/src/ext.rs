@@ -39,6 +39,7 @@ pub trait ReqExt: ReqPriExt + Sized {
         self.set_verify(verify);
         self
     }
+    fn proxy(&self)->&Proxy;
 
     ///是否自动进行跳转
     fn set_auto_redirect(&mut self, auto_redirect: bool);
