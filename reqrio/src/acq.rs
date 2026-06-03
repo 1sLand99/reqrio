@@ -169,7 +169,6 @@ impl AcReq {
     }
 
     pub async fn stream_io(&mut self, url: &mut Url, body: &Body<'_>) -> HlsResult<Response> {
-        println!("{}", url);
         self.set_url(url).await?;
         for i in 1..=self.timeout.handle_times() {
             let res = tokio::time::timeout(self.timeout.handle(), self.handle_io(url, &body)).await;

@@ -41,7 +41,7 @@ impl ExtensionType {
     pub fn into_inner(self) -> u16 { self.0 }
 
     pub fn is_reserved(&self) -> bool {
-        !ExtensionType::EXTENSIONS.contains(&self.0)
+        crate::REVERSED.contains(&self.0)
     }
 
     pub fn as_u16(&self) -> u16 { self.0 }

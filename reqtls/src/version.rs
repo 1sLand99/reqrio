@@ -34,7 +34,7 @@ impl Version {
     }
 
     pub(crate) fn is_reverse(&self) -> bool {
-        !matches!(self.0, 0x301..=0x304)
+        crate::REVERSED.contains(&self.0)
     }
 }
 

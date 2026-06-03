@@ -149,129 +149,133 @@ pub trait StreamHandle {
         }
     }
 
-    fn handle_handshake(param: &mut StreamParam<'_>, mut config: Option<&mut Config<'_>>, messages: Vec<Message<'_>>) -> Result<(), RlsError> {
-        for message in messages {
-            #[cfg(feature = "log")]
-            trace!("[HandleHandshake] message: {:?}]", message);
-            match message.parsed {
-                MessageParsed::ServerHello(server_hello) => {
-                    param.conn.update_session(message.encoded.as_ref())?;
-                    let hello_retry = Self::handle_server_hello(param, server_hello)?;
-                    if hello_retry { return Ok(()); }
-                }
-                MessageParsed::Certificate(v) => {
-                    param.conn.update_session(message.encoded.as_ref())?;
-                    let config = config.as_mut().ok_or("conn param can't be null")?;
-                    let config = config.client_mut().ok_or("missing config")?;
-                    param.conn.set_by_certificate(v, config.ca_certs, config.sni)?;
-                }
-                MessageParsed::CertificateStatus(_) => param.conn.update_session(message.encoded.as_ref())?,
-                MessageParsed::ServerKeyExchange(v) => {
-                    param.conn.update_session(message.encoded.as_ref())?;
-                    param.conn.set_by_server_exchange_key(v)?
-                }
-                MessageParsed::ServerHelloDone(_) => {
-                    param.conn.update_session(message.encoded)?;
-                    let config = config.as_mut().ok_or("conn param can't be null")?;
-                    Self::handle_server_hello_done(param, config)?;
-                    *param.handshake_finish = true;
-                    return Ok(());
-                }
-                MessageParsed::ClientHello(mut v) => {
-                    param.conn.update_session(&param.write_buffer.filled()[5..])?;
-                    let config = config.as_mut().ok_or("config can't be null")?;
-                    let random = rand::random::<[u8; 32]>();
-                    let server = config.server_mut().ok_or("missing config")?;
-                    let mut record = param.conn.gen_server_hello(&mut v, server.server_cert, server.cert_key, &random)?;
-                    let session_id = rand::random::<[u8; 32]>();
-                    record.messages[0].parsed.server_mut().ok_or(RlsError::NullPtr)?.set_session_id(&session_id);
+    fn handle_handshake(param: &mut StreamParam<'_>, mut config: Option<&mut Config<'_>>, message: Message<'_>) -> Result<(), RlsError> {
+        #[cfg(feature = "log")]
+        trace!("[HandleHandshake] message: {:?}]", message);
+        match message.parsed {
+            MessageParsed::ServerHello(server_hello) => {
+                param.conn.update_session(message.encoded.as_ref())?;
+                let hello_retry = Self::handle_server_hello(param, server_hello)?;
+                if hello_retry { return Ok(()); }
+            }
+            MessageParsed::Certificate(v) => {
+                param.conn.update_session(message.encoded.as_ref())?;
+                let config = config.as_mut().ok_or("conn param can't be null")?;
+                let config = config.client_mut().ok_or("missing config")?;
+                param.conn.set_by_certificate(v, config.ca_certs, config.sni)?;
+            }
+            MessageParsed::CertificateStatus(_) => param.conn.update_session(message.encoded.as_ref())?,
+            MessageParsed::ServerKeyExchange(v) => {
+                param.conn.update_session(message.encoded.as_ref())?;
+                param.conn.set_by_server_exchange_key(v)?
+            }
+            MessageParsed::ServerHelloDone(_) => {
+                param.conn.update_session(message.encoded)?;
+                let config = config.as_mut().ok_or("conn param can't be null")?;
+                Self::handle_server_hello_done(param, config)?;
+                *param.handshake_finish = true;
+                return Ok(());
+            }
+            MessageParsed::ClientHello(mut v) => {
+                param.conn.update_session(&param.write_buffer.filled()[5..])?;
+                let config = config.as_mut().ok_or("config can't be null")?;
+                let random = rand::random::<[u8; 32]>();
+                let server = config.server_mut().ok_or("missing config")?;
+                let mut record = param.conn.gen_server_hello(&mut v, server.server_cert, server.cert_key, &random)?;
+                let session_id = rand::random::<[u8; 32]>();
+                record.messages[0].parsed.server_mut().ok_or(RlsError::NullPtr)?.set_session_id(&session_id);
 
-                    let len = record.write_to(param.write_buffer, 1)?;
-                    param.write_buffer.add_len(len);
-                    return Ok(());
-                }
-                MessageParsed::ClientKeyExchange(v) => {
-                    param.conn.update_session(message.encoded.as_ref())?;
-                    param.conn.set_by_client_exchange_key(v);
-                    param.conn.make_cipher(true, false)?;
-                }
-                // MessageParsed::Payload(_) => {
-                //     let record_len = record.len as usize + 5;
-                //     let mut out = vec![0; record_len];
-                //     let len = self.conn.read_message(&self.read_buffer[..record_len], &mut out)?;
-                //     self.conn.verify_finish(&out[..len], false)?;
-                //
-                //     let mut ticket = SessionTicket::default();
-                //     let tbs = rand::random::<[u8; 276]>();
-                //     ticket.tls_ticket_mut().set_value(&tbs);
-                //     self.write_buffer.write_slice(&[22, 3, 3])?;
-                //     self.write_buffer.write_u16(ticket.len() as u16)?;
-                //     ticket.write_to(&mut self.write_buffer)?;
-                //     self.conn.update_session(&self.write_buffer.filled()[5..])?;
-                //     self.write_buffer.write_slice(&[20, 3, 3, 0, 1, 1])?;
-                //     let record_len = self.conn.make_finish_message(self.write_buffer.unfilled_mut(), true)?;
-                //     self.write_buffer.add_len(record_len);
-                //     self.stream.write_all(self.write_buffer.filled())?;
-                //     self.write_buffer.reset();
-                //     return Ok(true);
-                // }
-                MessageParsed::CertificateRequest(v) => {
-                    param.conn.update_session(message.encoded.as_ref())?;
-                    let config = config.as_mut().ok_or("config can't be null")?;
-                    let config = config.client_mut().ok_or("missing config")?;
-                    param.conn.set_by_cert_req(v, config.client_cert.first_mut())?;
-                }
-                MessageParsed::NewSessionTicket(ticket) => {
-                    param.conn.update_session(message.encoded.as_ref())?;
-                    param.conn.set_by_session_ticket(ticket)
-                }
-                MessageParsed::Finished(_) => {
-                    param.conn.verify_finish(message.encoded.as_ref(), true)?;
-                    param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
-                    let len = param.conn.make_finish_message(param.write_buffer.unfilled_mut(), false)?;
-                    param.write_buffer.add_len(len);
-                    param.conn.make_cipher(false, false)?;
-                    *param.handshake_finish = true;
-                }
-                MessageParsed::EncryptedExtension(ee) => {
-                    param.conn.set_by_encrypted_extension(&ee);
-                    param.conn.update_session(message.encoded.as_ref())?;
-                }
-                MessageParsed::CompressedCertificate(cc) => {
-                    let config = config.as_mut().ok_or("config can't be null")?;
-                    let config = config.client_mut().ok_or("missing config")?;
-                    param.conn.set_by_compressed_certificate(cc, config.ca_certs, config.sni)?;
-                    param.conn.update_session(message.encoded.as_ref())?;
-                }
-                MessageParsed::CertificateVerify(verify) => {
-                    param.conn.verify_cert(verify, true)?;
-                    param.conn.update_session(message.encoded.as_ref())?;
-                }
-                _ => {
-                    #[cfg(feature = "log")]
-                    warn!("unhandled message: {:?}", message);
-                }
+                let len = record.write_to(param.write_buffer, 1)?;
+                param.write_buffer.add_len(len);
+                return Ok(());
+            }
+            MessageParsed::ClientKeyExchange(v) => {
+                param.conn.update_session(message.encoded.as_ref())?;
+                param.conn.set_by_client_exchange_key(v);
+                param.conn.make_cipher(true, false)?;
+            }
+            // MessageParsed::Payload(_) => {
+            //     let record_len = record.len as usize + 5;
+            //     let mut out = vec![0; record_len];
+            //     let len = self.conn.read_message(&self.read_buffer[..record_len], &mut out)?;
+            //     self.conn.verify_finish(&out[..len], false)?;
+            //
+            //     let mut ticket = SessionTicket::default();
+            //     let tbs = rand::random::<[u8; 276]>();
+            //     ticket.tls_ticket_mut().set_value(&tbs);
+            //     self.write_buffer.write_slice(&[22, 3, 3])?;
+            //     self.write_buffer.write_u16(ticket.len() as u16)?;
+            //     ticket.write_to(&mut self.write_buffer)?;
+            //     self.conn.update_session(&self.write_buffer.filled()[5..])?;
+            //     self.write_buffer.write_slice(&[20, 3, 3, 0, 1, 1])?;
+            //     let record_len = self.conn.make_finish_message(self.write_buffer.unfilled_mut(), true)?;
+            //     self.write_buffer.add_len(record_len);
+            //     self.stream.write_all(self.write_buffer.filled())?;
+            //     self.write_buffer.reset();
+            //     return Ok(true);
+            // }
+            MessageParsed::CertificateRequest(v) => {
+                param.conn.update_session(message.encoded.as_ref())?;
+                let config = config.as_mut().ok_or("config can't be null")?;
+                let config = config.client_mut().ok_or("missing config")?;
+                param.conn.set_by_cert_req(v, config.client_cert.first_mut())?;
+            }
+            MessageParsed::NewSessionTicket(ticket) => {
+                param.conn.update_session(message.encoded.as_ref())?;
+                param.conn.set_by_session_ticket(ticket)
+            }
+            MessageParsed::Finished(_) => {
+                param.conn.verify_finish(message.encoded.as_ref(), true)?;
+                param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
+                let len = param.conn.make_finish_message(param.write_buffer.unfilled_mut(), false)?;
+                param.write_buffer.add_len(len);
+                param.conn.make_cipher(false, false)?;
+                *param.handshake_finish = true;
+            }
+            MessageParsed::EncryptedExtension(ee) => {
+                param.conn.set_by_encrypted_extension(&ee);
+                param.conn.update_session(message.encoded.as_ref())?;
+            }
+            MessageParsed::CompressedCertificate(cc) => {
+                let config = config.as_mut().ok_or("config can't be null")?;
+                let config = config.client_mut().ok_or("missing config")?;
+                param.conn.set_by_compressed_certificate(cc, config.ca_certs, config.sni)?;
+                param.conn.update_session(message.encoded.as_ref())?;
+            }
+            MessageParsed::CertificateVerify(verify) => {
+                param.conn.verify_cert(verify, true)?;
+                param.conn.update_session(message.encoded.as_ref())?;
+            }
+            _ => {
+                #[cfg(feature = "log")]
+                warn!("unhandled message: {:?}", message);
             }
         }
         Ok(())
     }
 
 
-    fn handle_record(&mut self, record_len: usize, config: Option<&mut Config<'_>>, app_buf: &mut [u8]) -> Result<usize, RlsError> {
+    fn handle_record(&mut self, record_len: usize, mut config: Option<&mut Config<'_>>, app_buf: &mut [u8]) -> Result<usize, RlsError> {
         let (read_buffer, mut param) = self.stream_param();
         let record = RecordLayer::from_bytes(read_buffer.filled(), None, *param.encrypted_channel)?;
-        #[cfg(feature = "log")]
-        trace!("[HandleRecord] {:?}", record);
         match record.content_type {
             RecordType::CipherSpec => {
+                #[cfg(feature = "log")]
+                trace!("[HandleRecord] {:?}", record);
                 *param.encrypted_channel = !*param.hello_retrying;
                 if param.conn.secret_key().is_none() && param.conn.version() == &Version::TLS_1_2 {
                     param.conn.make_cipher(false, true)?;
                 }
             }
-            RecordType::Alert => return Err(RlsError::Alert(self.handle_by_alert()?)),
+            RecordType::Alert => {
+                #[cfg(feature = "log")]
+                trace!("[HandleRecord] {:?}", record);
+                return Err(RlsError::Alert(self.handle_by_alert()?));
+            }
             RecordType::HandShake => match *param.encrypted_channel {
                 true => {
+                    #[cfg(feature = "log")]
+                    trace!("[HandleRecord] {:?}", record);
                     let out = param.write_buffer.unfilled_mut();
                     let len = param.conn.read_message(&read_buffer.filled()[..record_len], out)?;
                     param.conn.verify_finish(&out[..len], true)?;
@@ -284,16 +288,22 @@ pub trait StreamHandle {
                         *param.handshake_finish = true;
                     }
                 }
-                false => Self::handle_handshake(&mut param, config, record.messages)?
+                false => for message in record.messages {
+                    Self::handle_handshake(&mut param, config.as_deref_mut(), message)?
+                }
             }
-            RecordType::ApplicationData => return self.handle_by_application(record_len, config, app_buf),
+            RecordType::ApplicationData => {
+                #[cfg(feature = "log")]
+                trace!("[HandleRecord] {:?}", record);
+                return self.handle_by_application(record_len, config, app_buf);
+            }
         }
         read_buffer.used_empty(record_len);
         Ok(0)
     }
 
 
-    fn handle_by_application(&mut self, record_len: usize, config: Option<&mut Config>, app_buf: &mut [u8]) -> Result<usize, RlsError> {
+    fn handle_by_application(&mut self, record_len: usize, mut config: Option<&mut Config>, app_buf: &mut [u8]) -> Result<usize, RlsError> {
         let (read_buffer, mut param) = self.stream_param();
         let len = match *param.conn.version() {
             Version::TLS_1_3 => {
@@ -302,12 +312,11 @@ pub trait StreamHandle {
                 match record_type {
                     RecordType::Alert => return Err(RlsError::Alert(Alert::from_bytes(&app_buf[..len - 1])?)),
                     RecordType::HandShake => {
-                        let mut messages = vec![];
                         let mut msg_readers = Reader::from_slice(&app_buf[..len - 1]);
                         while msg_readers.unread_len() > 0 {
-                            messages.push(Message::from_reader(&mut msg_readers, &record_type, Some(param.conn.cipher_suite()), param.conn.version())?);
+                            let message = Message::from_reader(&mut msg_readers, &record_type, Some(param.conn.cipher_suite()), param.conn.version())?;
+                            Self::handle_handshake(&mut param, config.as_deref_mut(), message)?;
                         }
-                        Self::handle_handshake(&mut param, config, messages)?;
                         0
                     }
                     RecordType::CipherSpec => {

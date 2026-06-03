@@ -86,7 +86,7 @@ impl NamedCurve {
     }
 
     pub fn is_reserved(&self) -> bool {
-        !NamedCurve::ALL.contains(&self.0)
+        crate::REVERSED.contains(&self.0)
     }
 }
 

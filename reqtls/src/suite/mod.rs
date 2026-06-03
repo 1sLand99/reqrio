@@ -267,7 +267,7 @@ impl CipherSuite {
     }
 
     pub fn is_reserved(&self) -> bool {
-        !CipherSuite::ALL.contains(&self.value)
+        crate::REVERSED.contains(&self.value)
     }
 
     pub fn into_inner(self) -> u16 { self.value }

@@ -1,6 +1,8 @@
 # 📦 reqrio — Lightweight, high-performance, fingerprint-oriented HTTP request library
 
-`reqrio` is an HTTP request library designed for protocol research, TLS fingerprint control, high-concurrency data collection, and complex network environment simulation. It supports HTTP/1.1 and HTTP/2, and uses `reqtls` to provide programmable TLS handshake construction for browser-level network behavior simulation.
+`reqrio` is an HTTP request library designed for protocol research, TLS fingerprint control, high-concurrency data
+collection, and complex network environment simulation. It supports HTTP/1.1 and HTTP/2, and uses `reqtls` to provide
+programmable TLS handshake construction for browser-level network behavior simulation.
 
 Unlike HTTP clients that prioritize ease of use, `reqrio` focuses on:
 
@@ -16,18 +18,18 @@ Unlike HTTP clients that prioritize ease of use, `reqrio` focuses on:
 
 ## ✨ Key Features
 
-| Category | Capability |
-|---|---|
-| **Protocol Support** | HTTP/1.1, HTTP/2 |
-| **TLS Support** | TLS 1.2 / TLS 1.3, browser-level TLS construction |
-| **TLS Fingerprinting** | JA3, JA4, ClientHello, randomized TLS fingerprints |
-| **Request Modes** | synchronous & asynchronous |
-| **Header Control** | ordered headers, browser-like header sequencing |
-| **Streaming** | low-copy data pipeline, large file upload and streaming response support |
-| **Proxy Support** | HTTP proxy, SOCKS5 proxy |
-| **Cookie Management** | automatic inheritance and session persistence |
-| **Compression** | Gzip, Deflate, Brotli, Zstd |
-| **Multi-language Bindings** | Rust, Python, Java, Node.js, Go, Qt/C++ |
+| Category                    | Capability                                                               |
+|-----------------------------|--------------------------------------------------------------------------|
+| **Protocol Support**        | HTTP/1.1, HTTP/2                                                         |
+| **TLS Support**             | TLS 1.2 / TLS 1.3, browser-level TLS construction                        |
+| **TLS Fingerprinting**      | JA3, JA4, ClientHello, randomized TLS fingerprints                       |
+| **Request Modes**           | synchronous & asynchronous                                               |
+| **Header Control**          | ordered headers, browser-like header sequencing                          |
+| **Streaming**               | low-copy data pipeline, large file upload and streaming response support |
+| **Proxy Support**           | HTTP proxy, SOCKS5 proxy                                                 |
+| **Cookie Management**       | automatic inheritance and session persistence                            |
+| **Compression**             | Gzip, Deflate, Brotli, Zstd                                              |
+| **Multi-language Bindings** | Rust, Python, Java, Node.js, Go, Qt/C++                                  |
 
 ---
 
@@ -35,26 +37,36 @@ Unlike HTTP clients that prioritize ease of use, `reqrio` focuses on:
 
 `reqrio` adopts a low-copy design to minimize memory overhead while simulating complex network behaviors.
 
-- Sending: form-data, JSON, text, and other input data are converted to bytes first. A copy only occurs once during TLS encryption, while other stages borrow the data.
+- Sending: form-data, JSON, text, and other input data are converted to bytes first. A copy only occurs once during TLS
+  encryption, while other stages borrow the data.
 - File upload: files are read through `into_reader`, avoiding loading the entire file into memory.
 - Receiving: TLS-decrypted data is written directly into an internal buffer and then parsed by the engine layer.
 
 ```text
+┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ Write ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐
+│        Form  ┌─────────┐           ┌───────────────┐           ┌─────────────┐           ┌──────┐ │
+│ User ───────►│  Req    │  Body     │ RequestBuf    │  Buffer   │             │ Encrypted │      │ │
+│        Json  │ Engine  ├─ Cow<T> ──┤ Header + Body │──────────►│  TlsStream  │──────────►│ TCP  │ │
+│        Files │ (Sync)  │ Lifetime  │    Readers    │           │   Encrypt   │           │ Send │ │
+│ User ───────►│ (Async) │           │ (borrowed)    │           │             │           │      │ │
+│              └─────────┘           └───────────────┘           └─────────────┘           └──────┘ │    
+└ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
+┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  Read ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  ─ ─ ─ ─ ┐
+│                 ┌──────────┐            ┌────────┐                 │
+│ ┌───────┐ read  │   TLS    │ decrypt to │ ScReq  │  return         │
+│ │  TCP  │──────►│ Fragment │───────────►│ AcReq  │─────────► User  │
+│ └───────┘       │ Decrypt  │            │(Engine)│ Response        │
+│                 └──────────┘            └────────┘                 │
+└ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┘
 
-        Form  ┌────────┐encode->bytes ┌──────────┐             ┌──────────┐
- User ───────►│        │─────────────►│          │             │          │
-        Json  │ ScReq  │  into_bytes  │  Request │ copy slice  │ fragment │ write ┌───────┐
-              │ AcReq  │              │  borrow  │────────────►│  TLS     │──────►│  TCP  │
-       Files  │(Engine)│ into_reader  │  reader  │             │ Encrypt  │       └───────┘
- User ───────►│        │─────────────►│          │             │          │
-              └────────┘              └──────────┘             └──────────┘
 ```
 
 ---
 
 ## 🔐 TLS and Fingerprinting
 
-`reqrio`'s TLS capabilities are provided by `reqtls`. `reqtls` is not a system TLS wrapper; it is a programmable TLS handshake constructor designed for browser-level ClientHello and TLS behavior building.
+`reqrio`'s TLS capabilities are provided by `reqtls`. `reqtls` is not a system TLS wrapper; it is a programmable TLS
+handshake constructor designed for browser-level ClientHello and TLS behavior building.
 
 ### Supported Capabilities
 
@@ -77,8 +89,8 @@ req.set_ja4("<ja4>", "<token>");
 ### Custom ClientHello
 
 ```rust
-let client_hello = hex_decode(fingerprint["tls_finger"].to_string())?;
-req.set_fingerprint(Fingerprint::from_client_hello(client_hello, "<token>"))?;
+let client_hello = hex_decode(fingerprint["tls_finger"].to_string()) ?;
+req.set_fingerprint(Fingerprint::from_client_hello(client_hello, "<token>")) ?;
 ```
 
 ---
