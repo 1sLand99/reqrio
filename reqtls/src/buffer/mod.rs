@@ -112,6 +112,19 @@ impl Buffer {
         self.offset.end -= range.end;
         res
     }
+
+    pub fn check_move(&mut self, size: usize, need: usize) -> Result<(), BufferError> {
+        if self.unfilled_mut().len() < size && self.offset().start != 0 {
+            self.move_to(self.offset(), 0);
+        }
+        if self.unfilled_mut().is_empty() {
+            return Err(BufferError::CapacityTooSmall {
+                needed: need,
+                current: self.capacity(),
+            });
+        }
+        Ok(())
+    }
 }
 
 impl WriteExt for Buffer {

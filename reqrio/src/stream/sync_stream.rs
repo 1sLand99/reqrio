@@ -82,9 +82,7 @@ impl<S: Read + Write> StreamHandle for SyncStream<S> {
 impl<S: Read> SyncStream<S> {
     fn read_size(&mut self, max_size: usize) -> HlsResult<()> {
         while self.read_buffer.len() < max_size {
-            if self.read_buffer.unfilled_mut().len() < 4096 && self.read_buffer.offset().start != 0 {
-                self.read_buffer.move_to(self.read_buffer.offset(), 0);
-            }
+            self.read_buffer.check_move(4096, max_size)?;
             let len = self.stream.read(self.read_buffer.unfilled_mut())?;
             if len == 0 { return Err(HlsError::PeerClosedConnection); }
             self.read_buffer.add_len(len);
