@@ -20,6 +20,11 @@ fn test_log() {
 async fn main() {
     #[cfg(feature = "log")]
     test_log();
+
+    let mut req = AcReq::new().with_alpn(ALPN::Http20).with_timeout(Timeout::new_same(1000, 1))
+        .with_key_log("2.log");
+    req.get("https://m.so.com", None).await.unwrap();
+    return;
     let mut timeout = Timeout::longer();
     timeout.set_handle_times(1);
 
