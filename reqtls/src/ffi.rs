@@ -62,7 +62,7 @@ macro_rules! c_pointer_free {
     };
 }
 
-// pub(crate) use c_pointer_free;
+pub(crate) use c_pointer_free;
 
 c_pointer_free!(EC_KEY, EC_KEY_free);
 c_pointer_free!(u8, OPENSSL_free);

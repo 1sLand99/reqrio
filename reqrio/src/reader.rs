@@ -109,7 +109,7 @@ impl<R: AsRef<[u8]>> ReadExt for RefReader<R> {
                 continue;
             }
             loop {
-                if buf.is_empty() {
+                if buf.unfilled().is_empty() {
                     return Ok(buf.offset().end - start);
                 }
                 let len = reader.read(buf.unfilled())?;

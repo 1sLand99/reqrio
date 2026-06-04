@@ -1,12 +1,12 @@
+use crate::buffer::*;
 use crate::error::RlsResult;
 use crate::{Buffer, BufferError, Reader, RlsError};
+#[cfg(feature = "log")]
+use log::warn;
 use std::ffi::CString;
 use std::ops::Range;
 use std::slice;
 use std::str::Utf8Error;
-#[cfg(feature = "log")]
-use log::warn;
-use crate::buffer::*;
 
 #[allow(non_camel_case_types)]
 pub type u24 = u32;
@@ -16,7 +16,7 @@ pub trait WriteExt {
     fn buffer_mut(&mut self) -> &mut Buffer;
 
     fn capacity(&self) -> usize {
-        unsafe { Buffer_capacity(self.buffer()) }
+        unsafe { Buffer_capacity(self.buffer().0.as_ptr()) }
     }
     fn check_write(&self, res: i32, size: usize) -> Result<(), BufferError> {
         if res == 1 { return Ok(()); };
@@ -27,11 +27,11 @@ pub trait WriteExt {
     }
 
     fn write_u8(&mut self, v: u8) -> Result<(), BufferError> {
-        let res = unsafe { Buffer_write_u8(self.buffer_mut(), &v) };
+        let res = unsafe { Buffer_write_u8(self.buffer_mut().0.as_mut_ptr(), &v) };
         self.check_write(res, 1)
     }
     fn write_u16_be(&mut self, v: u16) -> Result<(), BufferError> {
-        let res = unsafe { Buffer_write_u16(self.buffer_mut(), &v) };
+        let res = unsafe { Buffer_write_u16(self.buffer_mut().0.as_mut_ptr(), &v) };
         self.check_write(res, 2)
     }
 
@@ -41,7 +41,7 @@ pub trait WriteExt {
     }
 
     fn write_u24_be(&mut self, v: u24) -> Result<(), BufferError> {
-        let res = unsafe { Buffer_write_u24(self.buffer_mut(), &v) };
+        let res = unsafe { Buffer_write_u24(self.buffer_mut().0.as_mut_ptr(), &v) };
         self.check_write(res, 3)
     }
 
@@ -51,13 +51,13 @@ pub trait WriteExt {
     }
 
     fn write_u24_in(&mut self, place: usize, v: u24) -> Result<usize, BufferError> {
-        let res = unsafe { Buffer_write_u24_in(self.buffer_mut(), place, &v) };
+        let res = unsafe { Buffer_write_u24_in(self.buffer_mut().0.as_mut_ptr(), place, &v) };
         self.check_write(res, 3)?;
         Ok(3)
     }
 
     fn write_u32_be(&mut self, v: u32) -> Result<(), BufferError> {
-        let res = unsafe { Buffer_write_u32(self.buffer_mut(), &v) };
+        let res = unsafe { Buffer_write_u32(self.buffer_mut().0.as_mut_ptr(), &v) };
         self.check_write(res, 4)
     }
 
@@ -72,13 +72,13 @@ pub trait WriteExt {
     }
 
     fn write_slice(&mut self, v: &[u8]) -> Result<(), BufferError> {
-        let res = unsafe { Buffer_write_slice(self.buffer_mut(), v.as_ptr(), v.len()) };
+        let res = unsafe { Buffer_write_slice(self.buffer_mut().0.as_mut_ptr(), v.as_ptr(), v.len()) };
         self.check_write(res, v.len())
     }
 
     ///不更新长度，需要更新使用write_slice
     fn write_slice_in(&mut self, place: usize, v: &[u8]) -> Result<usize, BufferError> {
-        let res = unsafe { Buffer_write_slice_in(self.buffer_mut(), place, v.as_ptr(), v.len()) };
+        let res = unsafe { Buffer_write_slice_in(self.buffer_mut().0.as_mut_ptr(), place, v.as_ptr(), v.len()) };
         self.check_write(res, v.len())?;
         Ok(v.len())
     }
@@ -87,7 +87,7 @@ pub trait WriteExt {
     fn flush(&mut self, offset: usize, sni: String, h2: bool) -> RlsResult<()> {
         let sl = sni.len();
         let csni = CString::new(sni)?;
-        let res = unsafe { Buffer_flush(self.buffer_mut(), self.offset().end - offset, csni.as_ptr(), sl, h2) };
+        let res = unsafe { Buffer_flush(self.buffer_mut().0.as_mut_ptr(), self.offset().end - offset, csni.as_ptr(), sl, h2) };
         if res != 1 { return Err(RlsError::Currently("buffer flush error".to_string())); }
         Ok(())
     }
@@ -104,33 +104,34 @@ pub trait WriteExt {
     }
 
     fn unfilled_len(&self) -> usize {
-        let end = unsafe { Buffer_end(self.buffer()) };
-        let capacity = unsafe { Buffer_capacity(self.buffer()) };
+        let end = unsafe { Buffer_end(self.buffer().0.as_ptr()) };
+        let capacity = unsafe { Buffer_capacity(self.buffer().0.as_ptr()) };
         capacity - end
     }
 
     fn unfilled(&mut self) -> &mut [u8] {
-        unsafe { slice::from_raw_parts_mut(self.as_mut_ptr(), self.unfilled_len()) }
+        let end = unsafe { Buffer_end(self.buffer().0.as_ptr()) };
+        unsafe { slice::from_raw_parts_mut(self.as_mut_ptr().add(end), self.unfilled_len()) }
     }
 
     fn as_ptr(&self) -> *const u8 {
-        unsafe { Buffer_pointer(self.buffer()) }
+        unsafe { Buffer_pointer(self.buffer().0.as_ptr()) }
     }
     fn as_mut_ptr(&mut self) -> *mut u8 {
-        unsafe { Buffer_pointer_mut(self.buffer_mut()) }
+        unsafe { Buffer_pointer_mut(self.buffer_mut().0.as_mut_ptr()) }
     }
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
     fn len(&self) -> usize {
-        unsafe { Buffer_len(self.buffer()) }
+        unsafe { Buffer_len(self.buffer().0.as_ptr()) }
     }
     fn add_len(&mut self, len: usize) {
-        unsafe { Buffer_add_len(self.buffer_mut(), len) }
+        unsafe { Buffer_add_len(self.buffer_mut().0.as_mut_ptr(), len) }
     }
     fn offset(&self) -> Range<usize> {
-        let start = unsafe { Buffer_start(self.buffer()) };
-        let end = unsafe { Buffer_end(self.buffer()) };
+        let start = unsafe { Buffer_start(self.buffer().0.as_ptr()) };
+        let end = unsafe { Buffer_end(self.buffer().0.as_ptr()) };
         start..end
     }
 }
