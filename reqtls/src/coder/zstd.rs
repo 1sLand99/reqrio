@@ -1,8 +1,13 @@
 use super::bindings::*;
-use crate::ffi::CPointer;
 use std::error::Error;
 use std::fmt::Display;
 use std::os::raw::c_void;
+use crate::ffi::{self, CPointer};
+
+#[cfg(feature = "zstd")]
+ffi::c_pointer_free!(ZSTD_DStream, ZSTD_freeDStream);
+#[cfg(feature = "zstd")]
+ffi::c_pointer_free!(ZSTD_CStream, ZSTD_freeCStream);
 
 #[derive(Debug)]
 pub enum ZSTDError {

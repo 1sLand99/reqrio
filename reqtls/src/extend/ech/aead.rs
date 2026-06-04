@@ -2,14 +2,15 @@ use crate::Version;
 
 #[derive(Debug, Clone, Copy)]
 #[allow(non_camel_case_types)]
+#[repr(C)]
 pub enum Aead {
     AES_128_GCM = 0x1,
     AES_256_GCM = 0x2,
     ChaCha20_POLY1305 = 0x3,
     AES_128_CCM = 0x4,
     AES_128_CCM_8 = 0x5,
-    AES_128_CBC_SHA,
-    AES_256_CBC_SHA,
+    AES_128_CBC_SHA = 0xFF,
+    AES_256_CBC_SHA = 0xFE,
 }
 
 impl Aead {
