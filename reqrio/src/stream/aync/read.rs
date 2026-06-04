@@ -3,6 +3,7 @@ use std::task::{Context, Poll};
 use pin_project_lite::pin_project;
 use tokio::io::{AsyncRead, ReadBuf};
 use tokio::time::Sleep;
+use reqtls::WriteExt;
 use crate::error::HlsResult;
 use crate::{Buffer, TimeError};
 use super::poll_sleep;
@@ -21,7 +22,7 @@ impl<'a, S: AsyncRead + Unpin> Future for ReadTimeout<'a, S> {
     type Output = HlsResult<()>;
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let read = self.project();
-        let mut reader = ReadBuf::new(read.buf.unfilled_mut());
+        let mut reader = ReadBuf::new(read.buf.unfilled());
         if read.stream.poll_read(cx, &mut reader)?.is_ready() {
             let len = reader.filled().len();
             read.buf.add_len(len);

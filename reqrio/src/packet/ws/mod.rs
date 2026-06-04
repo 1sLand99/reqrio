@@ -123,8 +123,7 @@ impl WsFrame {
         res.typ = WsFrameType::from_u8(buffer.filled()[0])?;
         res.masker = Marker::from_u8(buffer.filled()[1]);
         res.payload = WsPayload::from_bytes(&res.masker, &buffer.filled()[2..])?;
-        buffer.copy_within(res.len()..buffer.len(), 0);
-        buffer.set_len(buffer.len() - res.len());
+        buffer.move_to(res.len()..buffer.len(), 0)?;
         Ok(res)
     }
 

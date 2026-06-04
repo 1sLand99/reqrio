@@ -1,9 +1,9 @@
 use crate::body::{Body, BodyReader, H2BodyReader};
 use crate::error::HlsResult;
 use crate::packet::{HeaderParam, HeaderReader};
-use crate::reader::{ReadExt, Writer};
+use crate::reader::ReadExt;
 use crate::Header;
-use reqtls::{WriteExt, ALPN};
+use reqtls::{Buffer, WriteExt, ALPN};
 
 pub struct RequestBuffer<'a> {
     hdr_reader: HeaderReader<'a>,
@@ -36,7 +36,7 @@ impl<'a> ReadExt for RequestBuffer<'a> {
         self.hdr_reader.len() + self.body_reader.len()
     }
 
-    fn read(&mut self, buf: &mut Writer) -> HlsResult<usize> {
+    fn read(&mut self, buf: &mut Buffer) -> HlsResult<usize> {
         let start = buf.offset().end;
         if !self.header_wrote {
             self.hdr_reader.read(buf)?;

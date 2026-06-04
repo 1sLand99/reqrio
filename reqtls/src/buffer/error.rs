@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use std::ops::Range;
 
 #[derive(Debug)]
 pub enum BufferError {
@@ -8,6 +9,7 @@ pub enum BufferError {
     CapacityTooSmall { needed: usize, current: usize },
     Overflow { capacity: usize, len: usize, need: usize },
     IndexOutBound { size: usize, index: usize },
+    RangeEdgeError(Range<usize>),
     Nullptr,
 }
 
@@ -18,6 +20,7 @@ impl Display for BufferError {
             BufferError::CapacityTooSmall { needed, current } => write!(f, "The required capacity is {}, but the actual capacity is {}.", needed, current),
             BufferError::Overflow { capacity, len, need } => write!(f, "The buffer capacity is {}, but write {} out of it.", capacity, len + need),
             BufferError::IndexOutBound { size, index } => write!(f, "The index {} out of bounds {} ", index, size),
+            BufferError::RangeEdgeError(range) => write!(f, "The range is {:?} of Buffer is fail", range),
             BufferError::Nullptr => write!(f, "Nullptr"),
         }
     }

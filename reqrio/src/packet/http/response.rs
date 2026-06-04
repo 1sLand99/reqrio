@@ -149,7 +149,7 @@ impl Response {
             ptr::copy_nonoverlapping(buffer.filled().as_ptr(), dst, copy_len);
             self.raw.set_len(self.raw.len() + copy_len);
         }
-        buffer.move_to(copy_len..buffer.len(), 0);
+        buffer.move_to(copy_len..buffer.len(), 0)?;
         Ok(self.check_status().unwrap_or(false))
     }
 
@@ -160,7 +160,7 @@ impl Response {
                 if let Some(pos) = pos {
                     let hdr_str = String::from_utf8_lossy(&buffer.filled()[..pos]);
                     self.header = Header::try_from(hdr_str.as_ref())?;
-                    buffer.move_to(pos + 4..buffer.len(), 0);
+                    buffer.move_to(pos + 4..buffer.len(), 0)?;
                     self.extend_body(buffer)
                 } else { Ok(false) }
             }
@@ -195,9 +195,12 @@ impl Response {
     pub fn raw_body(&self) -> &[u8] { &self.raw }
 
     pub fn raw_string(&self) -> String {
-        let header = self.header.to_string();
+        let mut header = self.header.to_string();
         let body = String::from_utf8_lossy(&self.raw);
-        header + "\r\n\r\n" + body.as_ref()
+        if self.header.alpn() != &ALPN::Http11 {
+            header += "\r\n\r\n";
+        }
+        header + body.as_ref()
     }
 
     pub fn clear_raw(&mut self) { self.raw.clear() }

@@ -174,13 +174,13 @@ impl Stream {
     pub fn sync_read(&mut self, buffer: &mut Buffer) -> HlsResult<()> {
         match self {
             Stream::SyncHttp(stream) => {
-                let len = io::Read::read(stream, buffer.unfilled_mut())?;
+                let len = io::Read::read(stream, buffer.unfilled())?;
                 if len == 0 { return Err(HlsError::PeerClosedConnection); }
                 buffer.add_len(len);
                 Ok(())
             }
             Stream::SyncHttps(stream) => {
-                let len = io::Read::read(stream, buffer.unfilled_mut())?;
+                let len = io::Read::read(stream, buffer.unfilled())?;
                 if len == 0 { return Err(HlsError::PeerClosedConnection); }
                 buffer.add_len(len);
                 Ok(())

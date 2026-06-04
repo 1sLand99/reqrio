@@ -1,12 +1,12 @@
-use std::path::Path;
 use crate::body::H2FrameRBuf;
 use crate::error::HlsResult;
 use crate::hpack::HPackCoding;
 use crate::packet::*;
-use crate::reader::{ReadExt, Writer};
+use crate::reader::ReadExt;
 use crate::stream::Stream;
 use crate::*;
 use json::JsonValue;
+use std::path::Path;
 
 pub(crate) struct ReqParam<'a> {
     pub(crate) header: &'a mut Header,
@@ -39,7 +39,7 @@ pub trait ReqExt: ReqPriExt + Sized {
         self.set_verify(verify);
         self
     }
-    fn proxy(&self)->&Proxy;
+    fn proxy(&self) -> &Proxy;
 
     ///是否自动进行跳转
     fn set_auto_redirect(&mut self, auto_redirect: bool);
@@ -124,16 +124,14 @@ pub(crate) trait ReqPriExt {
     fn req_param(&mut self) -> ReqParam<'_>;
 
     fn read_to_vec<T: ReadExt>(mut reader: T) -> HlsResult<Vec<u8>> {
-        let mut res = vec![0; 1024];
-        let mut filled = 0;
+        let mut res = vec![0; reader.len()];
+        let mut buffer = Buffer::from_ptr(&mut res);
         loop {
-            let mut buf_reader = Writer::new(&mut res[filled..]);
-            let len = reader.read(&mut buf_reader)?;
-            filled += len;
+            reader.read(&mut buffer)?;
             if reader.wrote() { break; }
             res.resize(res.capacity() + 1024, 0);
         }
-        res.truncate(filled);
+        assert_eq!(res.len(), buffer.len());
         Ok(res)
     }
 
@@ -185,7 +183,7 @@ pub(crate) trait ReqPriExt {
         if let Some(max_size) = response.header().max_table_size() {
             param.hpack_coder.encoder().update_table_size(max_size);
         }
-        param.buffer.move_to(frame.frame_len()..param.buffer.len(), 0);
+        param.buffer.move_to(frame.frame_len()..param.buffer.len(), 0)?;
         res
     }
 
