@@ -13,7 +13,7 @@ mod ml_kem;
 
 pub use padding::Padding;
 
-pub use evp::{cipher, Cipher, CipherType, EvpError};
+pub use evp::{cipher, Cipher, CipherType, EvpError, PKeyError};
 pub use evp::{AeadCrypto, CipherCrypto, EvpCurve};
 
 pub use ec_curve::*;

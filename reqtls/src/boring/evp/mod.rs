@@ -3,6 +3,8 @@ mod curve;
 pub mod cipher;
 mod aead;
 mod error;
+mod pkey;
+mod pkey_ctx;
 
 use crate::boring::bindings::*;
 use crate::error::RlsResult;
@@ -15,6 +17,9 @@ use crate::cipher::CipherError;
 use crate::extend::Aead;
 use crate::hash::Hmac;
 pub use error::EvpError;
+use pkey::{PKey, PKEY};
+use pkey_ctx::PKeyCtx;
+pub use pkey_ctx::PKeyError;
 
 #[cfg_attr(feature = "export", repr(C))]
 #[allow(non_camel_case_types)]
@@ -38,12 +43,12 @@ pub enum CipherType {
     DES_CBC = 15,
     DES_ECB = 16,
     RC4 = 17,
-    SM4_ECB = 18,
-    SM4_CBC = 19,
-    SM4_CTR = 20,
-    SM4_CTR_32 = 21,
-    SM4_OFB = 22,
-    SM4_CFB = 23,
+    // SM4_ECB = 18,
+    // SM4_CBC = 19,
+    // SM4_CTR = 20,
+    // SM4_CTR_32 = 21,
+    // SM4_OFB = 22,
+    // SM4_CFB = 23,
 }
 
 impl CipherType {
@@ -67,12 +72,12 @@ impl CipherType {
             CipherType::DES_CBC => unsafe { EVP_des_cbc() }
             CipherType::DES_ECB => unsafe { EVP_des_ecb() }
             CipherType::RC4 => unsafe { EVP_rc4() }
-            CipherType::SM4_ECB => unsafe { EVP_sm4_ecb() }
-            CipherType::SM4_CBC => unsafe { EVP_sm4_cbc() }
-            CipherType::SM4_CTR => unsafe { EVP_sm4_ctr() }
-            CipherType::SM4_CTR_32 => unsafe { EVP_sm4_ctr_32() }
-            CipherType::SM4_OFB => unsafe { EVP_sm4_ofb() }
-            CipherType::SM4_CFB => unsafe { EVP_sm4_cfb() }
+            // CipherType::SM4_ECB => unsafe { EVP_sm4_ecb() }
+            // CipherType::SM4_CBC => unsafe { EVP_sm4_cbc() }
+            // CipherType::SM4_CTR => unsafe { EVP_sm4_ctr() }
+            // CipherType::SM4_CTR_32 => unsafe { EVP_sm4_ctr_32() }
+            // CipherType::SM4_OFB => unsafe { EVP_sm4_ofb() }
+            // CipherType::SM4_CFB => unsafe { EVP_sm4_cfb() }
         }
     }
 }
@@ -174,8 +179,6 @@ mod tests {
         cipher.set_secret_key("1234567812345678", Some("1234567812345678"));
         let res = cipher.encrypt(b"foobar").unwrap();
         println!("{}", base64::b64encode(&res).unwrap());
-
-
     }
 
     #[test]

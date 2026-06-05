@@ -1,5 +1,5 @@
 use crate::boring::bindings::*;
-use crate::boring::evp::EvpError;
+use crate::boring::evp::{EvpError, PKeyError};
 use crate::boring::{BoringResExt, EcCurve, EcError, EvpCurve};
 use std::mem::MaybeUninit;
 use std::ptr::null_mut;
@@ -15,6 +15,7 @@ pub enum MLKEMError {
     Ec(EcError),
     Hmac(HashError),
     UnSupported(NamedCurve),
+    Pkey(PKeyError),
 }
 
 impl From<EvpError> for MLKEMError {
@@ -32,6 +33,12 @@ impl From<EcError> for MLKEMError {
 impl From<HashError> for MLKEMError {
     fn from(e: HashError) -> Self {
         MLKEMError::Hmac(e)
+    }
+}
+
+impl From<PKeyError> for MLKEMError {
+    fn from(value: PKeyError) -> Self {
+        MLKEMError::Pkey(value)
     }
 }
 

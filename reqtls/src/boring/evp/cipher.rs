@@ -117,15 +117,15 @@ impl Cipher {
 
     pub fn rc4() -> Cipher { Cipher::new(CipherType::RC4) }
 
-    pub fn sm4_ecb() -> Cipher { Cipher::new(CipherType::SM4_ECB) }
-
-    pub fn sm4_cbc() -> Cipher { Cipher::new(CipherType::SM4_CBC) }
-
-    pub fn sm4_ctr() -> Cipher { Cipher::new(CipherType::SM4_CTR) }
-
-    pub fn sm4_ofb() -> Cipher { Cipher::new(CipherType::SM4_OFB) }
-
-    pub fn sm4_cfb() -> Cipher { Cipher::new(CipherType::SM4_CFB) }
+    // pub fn sm4_ecb() -> Cipher { Cipher::new(CipherType::SM4_ECB) }
+    //
+    // pub fn sm4_cbc() -> Cipher { Cipher::new(CipherType::SM4_CBC) }
+    //
+    // pub fn sm4_ctr() -> Cipher { Cipher::new(CipherType::SM4_CTR) }
+    //
+    // pub fn sm4_ofb() -> Cipher { Cipher::new(CipherType::SM4_OFB) }
+    //
+    // pub fn sm4_cfb() -> Cipher { Cipher::new(CipherType::SM4_CFB) }
 
     pub fn with_secret_key<T: Into<Vec<u8>>>(mut self, key: T, iv: Option<T>) -> Self {
         self.set_secret_key(key, iv);
@@ -252,23 +252,23 @@ mod tests {
         let res = cipher.decrypt([35, 35, 52, 190, 118, 125, 64, 163, 60, 89, 220, 195, 147, 90, 228, 21]).unwrap();
         assert_eq!(res, [112, 107, 105, 73, 79, 122, 72, 108, 69, 84, 76, 80, 100, 69, 85, 113]);
 
-        let key = [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10];
-        let cipher = Cipher::sm4_ecb().with_secret_key(&key, None);
-        let data = [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10];
-        let en = cipher.encrypt(data).unwrap();
-        assert_eq!(&en[..16], [104, 30, 223, 52, 210, 6, 150, 94, 134, 179, 233, 79, 83, 110, 66, 70]);
-        let de = cipher.decrypt(en).unwrap();
-        assert_eq!(de, data);
-
-        let cipher = Cipher::sm4_cbc().with_secret_key(&key, Some(&key));
-        let en = cipher.encrypt(data).unwrap();
-        assert_eq!(en, [38, 119, 244, 107, 9, 193, 34, 204, 151, 85, 51, 16, 91, 212, 162, 42, 59, 136, 14, 104, 103, 119, 37, 34, 174, 85, 210, 240, 174, 116, 120, 174]);
-        let de = cipher.decrypt(en).unwrap();
-        assert_eq!(de, data);
-
-
-        let cipher = Cipher::sm4_ofb().with_secret_key(&key, Some(&key));
-        let res = cipher.encrypt(b"foobar").unwrap();
-        println!("{:?}", res);
+        // let key = [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10];
+        // let cipher = Cipher::sm4_ecb().with_secret_key(&key, None);
+        // let data = [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10];
+        // let en = cipher.encrypt(data).unwrap();
+        // assert_eq!(&en[..16], [104, 30, 223, 52, 210, 6, 150, 94, 134, 179, 233, 79, 83, 110, 66, 70]);
+        // let de = cipher.decrypt(en).unwrap();
+        // assert_eq!(de, data);
+        //
+        // let cipher = Cipher::sm4_cbc().with_secret_key(&key, Some(&key));
+        // let en = cipher.encrypt(data).unwrap();
+        // assert_eq!(en, [38, 119, 244, 107, 9, 193, 34, 204, 151, 85, 51, 16, 91, 212, 162, 42, 59, 136, 14, 104, 103, 119, 37, 34, 174, 85, 210, 240, 174, 116, 120, 174]);
+        // let de = cipher.decrypt(en).unwrap();
+        // assert_eq!(de, data);
+        //
+        //
+        // let cipher = Cipher::sm4_ofb().with_secret_key(&key, Some(&key));
+        // let res = cipher.encrypt(b"foobar").unwrap();
+        // println!("{:?}", res);
     }
 }
