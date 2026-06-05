@@ -21,9 +21,9 @@ use pkey::{PKey, PKEY};
 use pkey_ctx::PKeyCtx;
 pub use pkey_ctx::PKeyError;
 
-#[cfg_attr(feature = "export", repr(C))]
+#[repr(C)]
 #[allow(non_camel_case_types)]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum CipherType {
     AES_128_CBC = 0,
     AES_192_CBC = 1,
@@ -43,44 +43,44 @@ pub enum CipherType {
     DES_CBC = 15,
     DES_ECB = 16,
     RC4 = 17,
-    // SM4_ECB = 18,
-    // SM4_CBC = 19,
-    // SM4_CTR = 20,
-    // SM4_CTR_32 = 21,
-    // SM4_OFB = 22,
-    // SM4_CFB = 23,
+    SM4_ECB = 18,
+    SM4_CBC = 19,
+    SM4_CTR = 20,
+    SM4_CTR_32 = 21,
+    SM4_OFB = 22,
+    SM4_CFB = 23,
 }
 
-impl CipherType {
-    pub(crate) fn as_boring(&self) -> *const EVP_CIPHER {
-        match self {
-            CipherType::AES_128_CBC => unsafe { EVP_aes_128_cbc() }
-            CipherType::AES_192_CBC => unsafe { EVP_aes_192_cbc() }
-            CipherType::AES_256_CBC => unsafe { EVP_aes_256_cbc() }
-            CipherType::AES_128_ECB => unsafe { EVP_aes_128_ecb() }
-            CipherType::AES_192_ECB => unsafe { EVP_aes_192_ecb() }
-            CipherType::AES_256_ECB => unsafe { EVP_aes_256_ecb() }
-            CipherType::AES_128_CTR => unsafe { EVP_aes_128_ctr() }
-            CipherType::AES_192_CTR => unsafe { EVP_aes_192_ctr() }
-            CipherType::AES_256_CTR => unsafe { EVP_aes_256_ctr() }
-            CipherType::AES_128_GCM => unsafe { EVP_aes_128_gcm() }
-            CipherType::AES_192_GCM => unsafe { EVP_aes_192_gcm() }
-            CipherType::AES_256_GCM => unsafe { EVP_aes_256_gcm() }
-            CipherType::AES_128_OFB => unsafe { EVP_aes_128_ofb() }
-            CipherType::AES_192_OFB => unsafe { EVP_aes_192_ofb() }
-            CipherType::AES_256_OFB => unsafe { EVP_aes_256_ofb() }
-            CipherType::DES_CBC => unsafe { EVP_des_cbc() }
-            CipherType::DES_ECB => unsafe { EVP_des_ecb() }
-            CipherType::RC4 => unsafe { EVP_rc4() }
-            // CipherType::SM4_ECB => unsafe { EVP_sm4_ecb() }
-            // CipherType::SM4_CBC => unsafe { EVP_sm4_cbc() }
-            // CipherType::SM4_CTR => unsafe { EVP_sm4_ctr() }
-            // CipherType::SM4_CTR_32 => unsafe { EVP_sm4_ctr_32() }
-            // CipherType::SM4_OFB => unsafe { EVP_sm4_ofb() }
-            // CipherType::SM4_CFB => unsafe { EVP_sm4_cfb() }
-        }
-    }
-}
+// impl CipherType {
+//     // pub(crate) fn as_boring(&self) -> *const EVP_CIPHER {
+//     //     match self {
+//     //         CipherType::AES_128_CBC => unsafe { EVP_aes_128_cbc() }
+//     //         CipherType::AES_192_CBC => unsafe { EVP_aes_192_cbc() }
+//     //         CipherType::AES_256_CBC => unsafe { EVP_aes_256_cbc() }
+//     //         CipherType::AES_128_ECB => unsafe { EVP_aes_128_ecb() }
+//     //         CipherType::AES_192_ECB => unsafe { EVP_aes_192_ecb() }
+//     //         CipherType::AES_256_ECB => unsafe { EVP_aes_256_ecb() }
+//     //         CipherType::AES_128_CTR => unsafe { EVP_aes_128_ctr() }
+//     //         CipherType::AES_192_CTR => unsafe { EVP_aes_192_ctr() }
+//     //         CipherType::AES_256_CTR => unsafe { EVP_aes_256_ctr() }
+//     //         CipherType::AES_128_GCM => unsafe { EVP_aes_128_gcm() }
+//     //         CipherType::AES_192_GCM => unsafe { EVP_aes_192_gcm() }
+//     //         CipherType::AES_256_GCM => unsafe { EVP_aes_256_gcm() }
+//     //         CipherType::AES_128_OFB => unsafe { EVP_aes_128_ofb() }
+//     //         CipherType::AES_192_OFB => unsafe { EVP_aes_192_ofb() }
+//     //         CipherType::AES_256_OFB => unsafe { EVP_aes_256_ofb() }
+//     //         CipherType::DES_CBC => unsafe { EVP_des_cbc() }
+//     //         CipherType::DES_ECB => unsafe { EVP_des_ecb() }
+//     //         CipherType::RC4 => unsafe { EVP_rc4() }
+//     //         // CipherType::SM4_ECB => unsafe { EVP_sm4_ecb() }
+//     //         // CipherType::SM4_CBC => unsafe { EVP_sm4_cbc() }
+//     //         // CipherType::SM4_CTR => unsafe { EVP_sm4_ctr() }
+//     //         // CipherType::SM4_CTR_32 => unsafe { EVP_sm4_ctr_32() }
+//     //         // CipherType::SM4_OFB => unsafe { EVP_sm4_ofb() }
+//     //         // CipherType::SM4_CFB => unsafe { EVP_sm4_cfb() }
+//     //     }
+//     // }
+// }
 
 
 pub struct CipherCrypto {
@@ -109,7 +109,7 @@ impl CipherCrypto {
     /// ciphertext = AES_CBC(key, iv, plaintext || mac || padding) //pcsk7
     ///```
     pub fn encrypt(&self, param: CryptEncodeParam) -> RlsResult<()> {
-        self.cipher.init_cipher(param.iv.as_ptr(), 1)?;
+        self.cipher.init_cipher(param.iv, 1)?;
         let mut hmac = Hmac::new(&self.mac_key, self.hash)?;
         hmac.update(param.seq.to_be_bytes())?;
         hmac.update(&param.buffer.head()[..3])?;
@@ -134,7 +134,7 @@ impl CipherCrypto {
     }
 
     pub fn decrypt(&self, param: CryptDecodeParam) -> RlsResult<usize> {
-        self.cipher.init_cipher(param.iv.as_ptr(), 0)?;
+        self.cipher.init_cipher(param.iv, 0)?;
         let context = param.buffer.encrypted_payload().as_ptr();
         let out = param.buffer.decrypted_buffer().as_mut_ptr();
         let out_len = self.cipher.update(context, param.buffer.encrypted_payload().len(), out)?;

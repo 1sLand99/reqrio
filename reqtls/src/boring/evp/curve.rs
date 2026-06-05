@@ -17,7 +17,6 @@ impl EvpCurve {
     }
 
     fn new(nid: i32, pub_len: usize, secret_len: usize) -> Result<EvpCurve, PKeyError> {
-        PKeyCtx::new_nid(nid).unwrap().generate_key()?;
         Ok(EvpCurve {
             evp_key: PKeyCtx::new_nid(nid)?.generate_key()?,
             pub_key_len: pub_len,
@@ -56,11 +55,11 @@ mod tests {
     fn test_evp_curve() {
         let mut x25519_1 = EvpCurve::new_x25519().unwrap();
         let pub_key1 = x25519_1.pub_key().unwrap();
-        assert_eq!(x25519_1.pub_key().unwrap().len(), 32);
+        assert_eq!(pub_key1.len(), 32);
 
         let mut x25519_2 = EvpCurve::new_x25519().unwrap();
         let pub_key2 = x25519_2.pub_key().unwrap();
-        assert_eq!(x25519_2.pub_key().unwrap().len(), 32);
+        assert_eq!(pub_key2.len(), 32);
         let s1 = x25519_1.diffie_hellman(x25519_2.pub_key().unwrap().as_ref()).unwrap();
         let s2 = x25519_2.diffie_hellman(x25519_1.pub_key().unwrap().as_ref()).unwrap();
         assert_eq!(s1, s2);

@@ -1,13 +1,14 @@
 use super::super::Padding;
 use super::CipherType;
-use crate::boring::bindings::*;
 use crate::boring::BoringResExt;
 use crate::error::RlsResult;
 use crate::ffi::CPointer;
-use crate::base64;
-use std::ptr::{null, null_mut};
+use crate::{base64, ffi};
 use std::error::Error;
 use std::fmt::Display;
+use std::ops::{Deref, DerefMut};
+use std::os::raw::c_int;
+use std::ptr::null;
 
 #[derive(Debug)]
 pub enum CipherError {
@@ -29,8 +30,59 @@ impl Display for CipherError {
 
 impl Error for CipherError {}
 
+#[repr(C)]
+#[allow(clippy::upper_case_acronyms)]
+#[allow(non_camel_case_types)]
+pub struct CIPHER_CTX {
+    _unused: [u8; 0],
+}
+ffi::c_pointer_free!(CIPHER_CTX, CIPHER_CTX_free);
+
+unsafe extern "C" {
+    fn CIPHER_CTX_new(cipher: CipherType) -> *mut CIPHER_CTX;
+    fn CIPHER_CTX_free(ctx: *mut CIPHER_CTX);
+    fn CIPHER_CTX_init(
+        ctx: *const CIPHER_CTX,
+        key: *const u8,
+        key_len: usize,
+        iv: *const u8,
+        padding: c_int,
+        enc: c_int,
+    ) -> c_int;
+    fn CIPHER_update(ctx: *const CIPHER_CTX, out: *mut u8, out_len: *mut c_int, in_: *const u8, in_len: c_int) -> c_int;
+    fn CIPHER_final(ctx: *const CIPHER_CTX, out: *mut u8, out_len: *mut c_int) -> c_int;
+}
+
+struct CipherCtx(CPointer<CIPHER_CTX>);
+
+impl CipherCtx {
+    pub fn new(cipher: CipherType) -> CipherCtx {
+        let ptr = unsafe { CIPHER_CTX_new(cipher) };
+        CipherCtx(CPointer::new(ptr))
+    }
+
+    pub fn init(&self, key: &[u8], iv: &[u8], padding: i32, enc: i32) -> Result<(), CipherError> {
+        let iv = if !iv.is_empty() { iv.as_ptr() } else { null() };
+        unsafe { CIPHER_CTX_init(self.as_ptr(), key.as_ptr(), key.len(), iv, padding, enc) }.ok(CipherError::CipherInit)
+    }
+}
+
+impl Deref for CipherCtx {
+    type Target = CPointer<CIPHER_CTX>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for CipherCtx {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 pub struct Cipher {
-    ctx: CPointer<EVP_CIPHER_CTX>,
+    ctx: CipherCtx,
     evp_cipher: CipherType,
     padding: Padding,
     key: Vec<u8>,
@@ -39,9 +91,8 @@ pub struct Cipher {
 
 impl Cipher {
     pub(crate) fn new(cipher: CipherType) -> Cipher {
-        let ctx = CPointer::new(unsafe { EVP_CIPHER_CTX_new() });
         Cipher {
-            ctx,
+            ctx: CipherCtx::new(cipher),
             evp_cipher: cipher,
             padding: Padding::PKCS7Padding,
             key: vec![],
@@ -117,15 +168,15 @@ impl Cipher {
 
     pub fn rc4() -> Cipher { Cipher::new(CipherType::RC4) }
 
-    // pub fn sm4_ecb() -> Cipher { Cipher::new(CipherType::SM4_ECB) }
-    //
-    // pub fn sm4_cbc() -> Cipher { Cipher::new(CipherType::SM4_CBC) }
-    //
-    // pub fn sm4_ctr() -> Cipher { Cipher::new(CipherType::SM4_CTR) }
-    //
-    // pub fn sm4_ofb() -> Cipher { Cipher::new(CipherType::SM4_OFB) }
-    //
-    // pub fn sm4_cfb() -> Cipher { Cipher::new(CipherType::SM4_CFB) }
+    pub fn sm4_ecb() -> Cipher { Cipher::new(CipherType::SM4_ECB) }
+
+    pub fn sm4_cbc() -> Cipher { Cipher::new(CipherType::SM4_CBC) }
+
+    pub fn sm4_ctr() -> Cipher { Cipher::new(CipherType::SM4_CTR) }
+
+    pub fn sm4_ofb() -> Cipher { Cipher::new(CipherType::SM4_OFB) }
+
+    pub fn sm4_cfb() -> Cipher { Cipher::new(CipherType::SM4_CFB) }
 
     pub fn with_secret_key<T: Into<Vec<u8>>>(mut self, key: T, iv: Option<T>) -> Self {
         self.set_secret_key(key, iv);
@@ -138,11 +189,13 @@ impl Cipher {
     }
 
     pub fn encrypt(&self, context: impl AsRef<[u8]>) -> Result<Vec<u8>, CipherError> {
-        if self.ctx.is_null() { return Err(CipherError::NewCipherCtx); }
+        self.init_cipher(&self.iv, 1)?;
+        // if self.ctx.is_null() { return Err(CipherError::NewCipherCtx); }
         let mut out = vec![0; context.as_ref().len() + 16];
         let padding = if !matches!(self.evp_cipher, CipherType::RC4) { self.padding.add_padding(context.as_ref()) } else { vec![] };
-        let iv = if self.iv.is_empty() { null() } else { self.iv.as_ptr() };
-        self.init_cipher(iv, 1)?;
+        // self.ctx.init(&self.key, &self.iv, 0, 1)?;
+        // let iv = if self.iv.is_empty() { null() } else { self.iv.as_ptr() };
+        // self.init_cipher(iv, 1)?;
         let ptr = context.as_ref().as_ptr();
         let out_ptr = out.as_mut_ptr();
         let block_len = self.update(ptr, context.as_ref().len(), out_ptr)?;
@@ -155,9 +208,9 @@ impl Cipher {
     }
 
     pub fn decrypt(&self, context: impl Into<Vec<u8>>) -> Result<Vec<u8>, CipherError> {
-        if self.ctx.is_null() { return Err(CipherError::NewCipherCtx); }
-        let iv = if self.iv.is_empty() { null() } else { self.iv.as_ptr() };
-        self.init_cipher(iv, 0)?;
+        self.init_cipher(&self.iv, 0)?;
+        // let iv = if self.iv.is_empty() { null() } else { self.iv.as_ptr() };
+        // self.init_cipher(iv, 0)?;
         let mut context = context.into();
         let ptr = context.as_ptr();
         let out = context.as_mut_ptr();
@@ -169,19 +222,21 @@ impl Cipher {
         Ok(context)
     }
 
-    pub(crate) fn init_cipher(&self, iv: *const u8, enc: i32) -> Result<(), CipherError> {
-        unsafe { EVP_CIPHER_CTX_reset(self.ctx.as_mut_ptr()) }.ok(CipherError::CipherReset)?;
-        unsafe { EVP_CipherInit_ex(self.ctx.as_mut_ptr(), self.evp_cipher.as_boring(), null_mut(), null_mut(), null_mut(), enc) }.ok(CipherError::CipherInit)?;
-        unsafe { EVP_CIPHER_CTX_set_key_length(self.ctx.as_mut_ptr(), self.key.len() as u32) }.ok(CipherError::SetKeyLen)?;
-        let key = self.key.as_ptr();
-        unsafe { EVP_CipherInit_ex(self.ctx.as_mut_ptr(), null_mut(), null_mut(), key, iv, enc) }.ok(CipherError::CipherInit)?;
-        unsafe { EVP_CIPHER_CTX_set_padding(self.ctx.as_mut_ptr(), 0) }.ok(CipherError::SetPadding)
+    pub(crate) fn init_cipher(&self, iv: &[u8], enc: i32) -> Result<(), CipherError> {
+        if self.ctx.is_null() { return Err(CipherError::NewCipherCtx); }
+        self.ctx.init(&self.key, iv, 0, enc)
+        // unsafe { EVP_CIPHER_CTX_reset(self.ctx.as_mut_ptr()) }.ok(CipherError::CipherReset)?;
+        // unsafe { EVP_CipherInit_ex(self.ctx.as_mut_ptr(), self.evp_cipher.as_boring(), null_mut(), null_mut(), null_mut(), enc) }.ok(CipherError::CipherInit)?;
+        // unsafe { EVP_CIPHER_CTX_set_key_length(self.ctx.as_mut_ptr(), self.key.len() as u32) }.ok(CipherError::SetKeyLen)?;
+        // let key = self.key.as_ptr();
+        // unsafe { EVP_CipherInit_ex(self.ctx.as_mut_ptr(), null_mut(), null_mut(), key, iv, enc) }.ok(CipherError::CipherInit)?;
+        // unsafe { EVP_CIPHER_CTX_set_padding(self.ctx.as_mut_ptr(), 0) }.ok(CipherError::SetPadding)
     }
 
     pub(crate) fn update(&self, context: *const u8, len: usize, out: *mut u8) -> Result<usize, CipherError> {
         let mut out_len = 0;
         unsafe {
-            EVP_CipherUpdate(
+            CIPHER_update(
                 self.ctx.as_mut_ptr(),
                 out,
                 &mut out_len,
@@ -194,7 +249,7 @@ impl Cipher {
 
     pub(crate) fn finalize(&self, out: *mut u8) -> Result<usize, CipherError> {
         let mut final_len = 0;
-        unsafe { EVP_CipherFinal_ex(self.ctx.as_mut_ptr(), out, &mut final_len) }.ok(CipherError::CipherFinalize)?;
+        unsafe { CIPHER_final(self.ctx.as_mut_ptr(), out, &mut final_len) }.ok(CipherError::CipherFinalize)?;
         Ok(final_len as usize)
     }
 }
@@ -252,23 +307,23 @@ mod tests {
         let res = cipher.decrypt([35, 35, 52, 190, 118, 125, 64, 163, 60, 89, 220, 195, 147, 90, 228, 21]).unwrap();
         assert_eq!(res, [112, 107, 105, 73, 79, 122, 72, 108, 69, 84, 76, 80, 100, 69, 85, 113]);
 
-        // let key = [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10];
-        // let cipher = Cipher::sm4_ecb().with_secret_key(&key, None);
-        // let data = [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10];
-        // let en = cipher.encrypt(data).unwrap();
-        // assert_eq!(&en[..16], [104, 30, 223, 52, 210, 6, 150, 94, 134, 179, 233, 79, 83, 110, 66, 70]);
-        // let de = cipher.decrypt(en).unwrap();
-        // assert_eq!(de, data);
-        //
-        // let cipher = Cipher::sm4_cbc().with_secret_key(&key, Some(&key));
-        // let en = cipher.encrypt(data).unwrap();
-        // assert_eq!(en, [38, 119, 244, 107, 9, 193, 34, 204, 151, 85, 51, 16, 91, 212, 162, 42, 59, 136, 14, 104, 103, 119, 37, 34, 174, 85, 210, 240, 174, 116, 120, 174]);
-        // let de = cipher.decrypt(en).unwrap();
-        // assert_eq!(de, data);
-        //
-        //
-        // let cipher = Cipher::sm4_ofb().with_secret_key(&key, Some(&key));
-        // let res = cipher.encrypt(b"foobar").unwrap();
-        // println!("{:?}", res);
+        let key = [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10];
+        let cipher = Cipher::sm4_ecb().with_secret_key(&key, None);
+        let data = [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10];
+        let en = cipher.encrypt(data).unwrap();
+        assert_eq!(&en[..16], [104, 30, 223, 52, 210, 6, 150, 94, 134, 179, 233, 79, 83, 110, 66, 70]);
+        let de = cipher.decrypt(en).unwrap();
+        assert_eq!(de, data);
+
+        let cipher = Cipher::sm4_cbc().with_secret_key(&key, Some(&key));
+        let en = cipher.encrypt(data).unwrap();
+        assert_eq!(en, [38, 119, 244, 107, 9, 193, 34, 204, 151, 85, 51, 16, 91, 212, 162, 42, 59, 136, 14, 104, 103, 119, 37, 34, 174, 85, 210, 240, 174, 116, 120, 174]);
+        let de = cipher.decrypt(en).unwrap();
+        assert_eq!(de, data);
+
+
+        let cipher = Cipher::sm4_ofb().with_secret_key(&key, Some(&key));
+        let res = cipher.encrypt(b"foobar").unwrap();
+        println!("{:?}", res);
     }
 }
