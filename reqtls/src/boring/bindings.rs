@@ -3,106 +3,18 @@ use std::os::raw::{c_char, c_int, c_uint, c_void};
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]
-pub(crate) struct EVP_AEAD {
-    _unused: [u8; 0],
-}
-
-#[repr(C)]
-#[derive(Copy, Clone)]
-#[allow(non_camel_case_types)]
-pub(crate) union evp_aead_ctx_st_state {
-    pub(crate) opaque: [u8; 564usize],
-    pub(crate) alignment: u64,
-}
-
-#[repr(C)]
-#[derive(Copy, Clone)]
-#[allow(non_camel_case_types)]
-pub(crate) struct EVP_AEAD_CTX {
-    pub(crate) aead: *const EVP_AEAD,
-    pub(crate) state: evp_aead_ctx_st_state,
-    pub(crate) tag_len: u8,
-}
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-#[allow(non_camel_case_types)]
 pub(crate) struct ENGINE {
     _unused: [u8; 0],
 }
 
 pub(crate) const EVP_AEAD_DEFAULT_TAG_LENGTH: i32 = 0;
 
-unsafe extern "C" {
-    pub(crate) fn EVP_aead_aes_128_gcm() -> *const EVP_AEAD;
-
-    pub(crate) fn EVP_aead_aes_256_gcm() -> *const EVP_AEAD;
-
-    pub(crate) fn EVP_aead_chacha20_poly1305() -> *const EVP_AEAD;
-
-    pub(crate) fn EVP_AEAD_CTX_cleanup(ctx: *mut EVP_AEAD_CTX);
-
-    pub(crate) fn EVP_AEAD_CTX_init(
-        ctx: *mut EVP_AEAD_CTX,
-        aead: *const EVP_AEAD,
-        key: *const u8,
-        key_len: usize,
-        tag_len: usize,
-        impl_: *mut ENGINE,
-    ) -> c_int;
-
-    pub(crate) fn EVP_AEAD_CTX_seal(
-        ctx: *const EVP_AEAD_CTX,
-        out: *mut u8,
-        out_len: *mut usize,
-        max_out_len: usize,
-        nonce: *const u8,
-        nonce_len: usize,
-        in_: *const u8,
-        in_len: usize,
-        ad: *const u8,
-        ad_len: usize,
-    ) -> c_int;
-
-    pub(crate) fn EVP_AEAD_CTX_open(
-        ctx: *const EVP_AEAD_CTX,
-        out: *mut u8,
-        out_len: *mut usize,
-        max_out_len: usize,
-        nonce: *const u8,
-        nonce_len: usize,
-        in_: *const u8,
-        in_len: usize,
-        ad: *const u8,
-        ad_len: usize,
-    ) -> c_int;
-}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub(crate) struct EVP_CIPHER {
     _unused: [u8; 0],
 }
-
-// #[repr(C)]
-// #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-// #[allow(non_camel_case_types)]
-// pub(crate) struct EVP_CIPHER_CTX {
-//     pub(crate) cipher: *const EVP_CIPHER,
-//     pub(crate) app_data: *mut c_void,
-//     pub(crate) cipher_data: *mut c_void,
-//     pub(crate) key_len: c_uint,
-//     pub(crate) encrypt: c_int,
-//     pub(crate) flags: u32,
-//     pub(crate) oiv: [u8; 16usize],
-//     pub(crate) iv: [u8; 16usize],
-//     pub(crate) buf: [u8; 32usize],
-//     pub(crate) buf_len: c_int,
-//     pub(crate) num: c_uint,
-//     pub(crate) final_used: c_int,
-//     pub(crate) final_: [u8; 32usize],
-//     pub(crate) poisoned: c_int,
-// }
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -123,86 +35,11 @@ pub(crate) struct EVP_ENCODE_CTX {
 
 
 unsafe extern "C" {
-    // pub(crate) fn EVP_aes_128_cbc() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_aes_192_cbc() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_aes_256_cbc() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_aes_128_ecb() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_aes_192_ecb() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_aes_256_ecb() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_aes_128_gcm() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_aes_192_gcm() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_aes_256_gcm() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_aes_128_ofb() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_aes_192_ofb() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_aes_256_ofb() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_aes_128_ctr() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_aes_192_ctr() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_aes_256_ctr() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_des_ecb() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_des_cbc() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_rc4() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_sm4_ecb() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_sm4_cbc() -> *const EVP_CIPHER;
-    // pub(crate) fn EVP_sm4_ctr() -> *const EVP_CIPHER;
-    // pub(crate) fn EVP_sm4_ctr_32() -> *const EVP_CIPHER;
-    // pub(crate) fn EVP_sm4_ofb() -> *const EVP_CIPHER;
-    // pub(crate) fn EVP_sm4_cfb() -> *const EVP_CIPHER;
-    //
-    // pub(crate) fn EVP_CIPHER_CTX_new() -> *mut EVP_CIPHER_CTX;
-    //
-    // pub(crate) fn EVP_CIPHER_CTX_free(ctx: *mut EVP_CIPHER_CTX);
-    //
-    // pub(crate) fn EVP_CIPHER_CTX_reset(ctx: *mut EVP_CIPHER_CTX) -> c_int;
-    //
-    // pub(crate) fn EVP_CIPHER_CTX_set_key_length(ctx: *mut EVP_CIPHER_CTX, key_len: c_uint) -> c_int;
-
     pub(crate) fn CRYPTO_memcmp(
         a: *const c_void,
         b: *const c_void,
         len: usize,
     ) -> c_int;
-
-    // pub(crate) fn EVP_CipherInit_ex(
-    //     ctx: *mut EVP_CIPHER_CTX,
-    //     cipher: *const EVP_CIPHER,
-    //     engine: *mut ENGINE,
-    //     key: *const u8,
-    //     iv: *const u8,
-    //     enc: c_int,
-    // ) -> c_int;
-    //
-    // pub(crate) fn EVP_CipherUpdate(
-    //     ctx: *mut EVP_CIPHER_CTX,
-    //     out: *mut u8,
-    //     out_len: *mut c_int,
-    //     in_: *const u8,
-    //     in_len: c_int,
-    // ) -> c_int;
-    //
-    // pub(crate) fn EVP_CipherFinal_ex(
-    //     ctx: *mut EVP_CIPHER_CTX,
-    //     out: *mut u8,
-    //     out_len: *mut c_int,
-    // ) -> c_int;
 
     pub(crate) fn HMAC(
         evp_md: *const EVP_MD,
@@ -214,10 +51,6 @@ unsafe extern "C" {
         out_len: *mut c_uint,
     ) -> *mut u8;
 
-    // pub(crate) fn EVP_CIPHER_CTX_set_padding(
-    //     ctx: *mut EVP_CIPHER_CTX,
-    //     pad: c_int,
-    // ) -> c_int;
 
     pub(crate) fn EVP_ENCODE_CTX_new() -> *mut EVP_ENCODE_CTX;
 
@@ -421,9 +254,6 @@ pub(crate) const EVP_PKEY_X25519: i32 = 948;
 
 unsafe extern "C" {
     pub(crate) fn EVP_PKEY_new() -> *mut EVP_PKEY;
-    // pub(crate) fn EVP_PKEY_CTX_new_id(id: c_int, e: *mut ENGINE) -> *mut EVP_PKEY_CTX;
-    //
-    // pub(crate) fn EVP_PKEY_keygen_init(ctx: *mut EVP_PKEY_CTX) -> c_int;
 
     pub(crate) fn EVP_PKEY_CTX_free(ctx: *mut EVP_PKEY_CTX);
 
@@ -431,36 +261,6 @@ unsafe extern "C" {
 
     pub(crate) fn EVP_PKEY_free(pkey: *mut EVP_PKEY);
 
-    // pub(crate) fn EVP_PKEY_derive_init(ctx: *mut EVP_PKEY_CTX) -> c_int;
-    //
-    // pub(crate) fn EVP_PKEY_keygen(
-    //     ctx: *mut EVP_PKEY_CTX,
-    //     out_pkey: *mut *mut EVP_PKEY,
-    // ) -> c_int;
-    //
-    // pub(crate) fn EVP_PKEY_derive_set_peer(
-    //     ctx: *mut EVP_PKEY_CTX,
-    //     peer: *mut EVP_PKEY,
-    // ) -> c_int;
-    //
-    // pub(crate) fn EVP_PKEY_get_raw_public_key(
-    //     pkey: *const EVP_PKEY,
-    //     out: *mut u8,
-    //     out_len: *mut usize,
-    // ) -> c_int;
-    //
-    // pub(crate) fn EVP_PKEY_derive(
-    //     ctx: *mut EVP_PKEY_CTX,
-    //     key: *mut u8,
-    //     out_key_len: *mut usize,
-    // ) -> c_int;
-    //
-    // pub(crate) fn EVP_PKEY_new_raw_public_key(
-    //     type_: c_int,
-    //     unused: *mut ENGINE,
-    //     in_: *const u8,
-    //     len: usize,
-    // ) -> *mut EVP_PKEY;
 }
 
 #[repr(C)]

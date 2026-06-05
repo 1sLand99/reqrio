@@ -1,9 +1,9 @@
-use std::ops::{Deref, DerefMut};
-use std::os::raw::c_int;
-use crate::boring::BoringResExt;
 use crate::boring::evp::pkey_ctx::PKeyError;
+use crate::boring::BoringResExt;
 use crate::ffi;
 use crate::ffi::CPointer;
+use std::ops::{Deref, DerefMut};
+use std::os::raw::c_int;
 
 #[repr(C)]
 #[allow(clippy::upper_case_acronyms)]
@@ -89,7 +89,6 @@ impl DerefMut for PKey {
 mod pkey_tests {
     use crate::boring::bindings::EVP_PKEY_X25519;
     use crate::boring::evp::pkey::PKey;
-    use crate::boring::evp::pkey_ctx::PKeyCtx;
 
     #[test]
     fn pkey_test() {
