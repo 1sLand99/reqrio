@@ -131,7 +131,7 @@ mod tests {
     use crate::boring::{CryptDecodeParam, CryptEncodeParam, HashType};
     use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
     use crate::extend::Aead;
-    use crate::{base64, rand, Cipher, RecordType, Version};
+    use crate::{base64, Cipher, RecordType, Version};
 
     #[test]
     fn test_cipher() {
@@ -150,19 +150,13 @@ mod tests {
         println!("{}", base64::b64encode(&res).unwrap());
     }
 
-    #[test]
-    fn test_cipher_cryptor() {
-        let aead = Aead::AES_128_CBC_SHA;
-        let key = rand::random::<[u8; 16]>().to_vec();
-        let iv = rand::random::<[u8; 16]>();
-        println!("{:?}", iv);
-        let mut buffer = [0; 1024];
-        // payload.extend(&[0; 20]);
+    fn test_cipher_tls(aead: Aead, key: Vec<u8>, en: &[u8]) {
+        let iv = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];
         let payload = [1, 2, 3, 4, 5, 61, 2, 3, 4, 5, 6, 7, 8, 9, 23, 23];
         let mac_key = [12; 20];
+        let mut buffer = [0; 1024];
         let mut record_buffer = RecordEncodeBuffer::new(RecordType::HandShake, &Version::TLS_1_2, &mut buffer, &payload, &aead);
         record_buffer.add_explicit_iv(&iv);
-
         let crypto = CipherCrypto::new(&aead, key, mac_key.to_vec(), HashType::Sha1).unwrap();
         crypto.encrypt(CryptEncodeParam {
             nonce: &[0; 12],
@@ -172,9 +166,9 @@ mod tests {
             buffer: &mut record_buffer,
         }).unwrap();
         let len = record_buffer.record_len();
-        println!("{}", len);
-        println!("{:?}", &buffer[..len + 10]);
-        println!("-----------------encrypted---------------------");
+        assert_eq!(len, 69);
+        assert_eq!(&buffer[..len], en);
+
         let mut decoded_buffer = vec![0; 1024];
         let mut record_buffer = RecordDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, &aead, &Version::TLS_1_2).unwrap();
         let len = crypto.decrypt(CryptDecodeParam {
@@ -184,6 +178,14 @@ mod tests {
             seq: &0,
             buffer: &mut record_buffer,
         }).unwrap();
-        println!("{:?}", &decoded_buffer[..len]);
+        assert_eq!(decoded_buffer[..len], payload);
+    }
+
+    #[test]
+    fn test_cipher_cryptor() {
+        let key = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8].to_vec();
+        test_cipher_tls(Aead::AES_128_CBC_SHA, key, &[22, 3, 3, 0, 64, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 225, 181, 85, 149, 189, 100, 192, 39, 33, 30, 205, 22, 123, 49, 172, 97, 106, 123, 166, 131, 129, 167, 149, 187, 174, 174, 240, 122, 9, 87, 56, 140, 117, 152, 228, 72, 33, 112, 254, 70, 101, 122, 70, 56, 86, 138, 18, 134]);
+        let key = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8].to_vec();
+        test_cipher_tls(Aead::AES_256_CBC_SHA, key, &[22, 3, 3, 0, 64, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 14, 154, 194, 131, 254, 83, 135, 224, 182, 116, 28, 102, 151, 64, 116, 65, 233, 40, 102, 87, 64, 5, 139, 184, 61, 216, 62, 94, 54, 212, 193, 146, 8, 193, 18, 124, 254, 208, 135, 126, 57, 190, 219, 84, 217, 103, 135, 96]);
     }
 }
