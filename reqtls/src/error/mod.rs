@@ -16,7 +16,7 @@ use std::string::FromUtf8Error;
 use std::sync::PoisonError;
 use std::time::SystemTimeError;
 pub use handshake::HandShakeError;
-use crate::boring::{EcError, EvpError, MLKEMError};
+use crate::boring::{EcError, EvpError, MLKEMError, PKeyError};
 use crate::cipher::CipherError;
 use crate::dns::DNSError;
 use crate::hash::HashError;
@@ -89,6 +89,7 @@ pub enum RlsError {
     EcError(EcError),
     MlKemError(MLKEMError),
     Cipher(CipherError),
+    Pkey(PKeyError),
 }
 
 impl Display for RlsError {
@@ -160,6 +161,7 @@ impl Display for RlsError {
             RlsError::EcError(e) => write!(f, "EcError({:?})", e),
             RlsError::MlKemError(e) => write!(f, "MlKemError({:?})", e),
             RlsError::Cipher(e) => write!(f, "Cipher({:?})", e),
+            RlsError::Pkey(e) => write!(f, "Pkey({:?})", e),
         }
     }
 }
@@ -308,6 +310,12 @@ impl From<MLKEMError> for RlsError {
 impl From<CipherError> for RlsError {
     fn from(value: CipherError) -> Self {
         RlsError::Cipher(value)
+    }
+}
+
+impl From<PKeyError> for RlsError {
+    fn from(value: PKeyError) -> Self {
+        RlsError::Pkey(value)
     }
 }
 

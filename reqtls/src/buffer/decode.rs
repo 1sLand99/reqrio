@@ -62,7 +62,7 @@ impl<'a> RecordDecodeBuffer<'a> {
 
     pub fn encrypted_payload(&self) -> &[u8] {
         match self.aead {
-            Aead::AES_128_GCM | Aead::AES_256_GCM => match *self.version {
+            Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::SM4_GCM => match *self.version {
                 Version::TLS_1_3 => &self.payload.origin[0..],
                 _ => &self.payload.origin[8..],
             },
@@ -74,7 +74,7 @@ impl<'a> RecordDecodeBuffer<'a> {
 
     pub fn explicit_iv(&self) -> &[u8] {
         match self.aead {
-            Aead::AES_128_GCM | Aead::AES_256_GCM => &self.payload.origin[..8],
+            Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::SM4_GCM => &self.payload.origin[..8],
             Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => &self.payload.origin[..16],
             _ => &self.payload.origin[..0]
         }

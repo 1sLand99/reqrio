@@ -3,10 +3,12 @@ mod curve;
 pub mod cipher;
 mod aead;
 mod error;
+mod pkey;
+mod pkey_ctx;
 
 use crate::boring::bindings::*;
 use crate::error::RlsResult;
-pub use aead::AeadCrypto;
+pub use aead::AeadCtx;
 pub use cipher::Cipher;
 pub use curve::EvpCurve;
 
@@ -15,10 +17,14 @@ use crate::cipher::CipherError;
 use crate::extend::Aead;
 use crate::hash::Hmac;
 pub use error::EvpError;
+use pkey::PKEY;
+pub use pkey::PKey;
+pub use pkey_ctx::PKeyCtx;
+pub use pkey_ctx::PKeyError;
 
-#[cfg_attr(feature = "export", repr(C))]
+#[repr(C)]
 #[allow(non_camel_case_types)]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum CipherType {
     AES_128_CBC = 0,
     AES_192_CBC = 1,
@@ -44,37 +50,6 @@ pub enum CipherType {
     SM4_CTR_32 = 21,
     SM4_OFB = 22,
     SM4_CFB = 23,
-}
-
-impl CipherType {
-    pub(crate) fn as_boring(&self) -> *const EVP_CIPHER {
-        match self {
-            CipherType::AES_128_CBC => unsafe { EVP_aes_128_cbc() }
-            CipherType::AES_192_CBC => unsafe { EVP_aes_192_cbc() }
-            CipherType::AES_256_CBC => unsafe { EVP_aes_256_cbc() }
-            CipherType::AES_128_ECB => unsafe { EVP_aes_128_ecb() }
-            CipherType::AES_192_ECB => unsafe { EVP_aes_192_ecb() }
-            CipherType::AES_256_ECB => unsafe { EVP_aes_256_ecb() }
-            CipherType::AES_128_CTR => unsafe { EVP_aes_128_ctr() }
-            CipherType::AES_192_CTR => unsafe { EVP_aes_192_ctr() }
-            CipherType::AES_256_CTR => unsafe { EVP_aes_256_ctr() }
-            CipherType::AES_128_GCM => unsafe { EVP_aes_128_gcm() }
-            CipherType::AES_192_GCM => unsafe { EVP_aes_192_gcm() }
-            CipherType::AES_256_GCM => unsafe { EVP_aes_256_gcm() }
-            CipherType::AES_128_OFB => unsafe { EVP_aes_128_ofb() }
-            CipherType::AES_192_OFB => unsafe { EVP_aes_192_ofb() }
-            CipherType::AES_256_OFB => unsafe { EVP_aes_256_ofb() }
-            CipherType::DES_CBC => unsafe { EVP_des_cbc() }
-            CipherType::DES_ECB => unsafe { EVP_des_ecb() }
-            CipherType::RC4 => unsafe { EVP_rc4() }
-            CipherType::SM4_ECB => unsafe { EVP_sm4_ecb() }
-            CipherType::SM4_CBC => unsafe { EVP_sm4_cbc() }
-            CipherType::SM4_CTR => unsafe { EVP_sm4_ctr() }
-            CipherType::SM4_CTR_32 => unsafe { EVP_sm4_ctr_32() }
-            CipherType::SM4_OFB => unsafe { EVP_sm4_ofb() }
-            CipherType::SM4_CFB => unsafe { EVP_sm4_cfb() }
-        }
-    }
 }
 
 
@@ -104,7 +79,7 @@ impl CipherCrypto {
     /// ciphertext = AES_CBC(key, iv, plaintext || mac || padding) //pcsk7
     ///```
     pub fn encrypt(&self, param: CryptEncodeParam) -> RlsResult<()> {
-        self.cipher.init_cipher(param.iv.as_ptr(), 1)?;
+        self.cipher.init_cipher(param.iv, 1)?;
         let mut hmac = Hmac::new(&self.mac_key, self.hash)?;
         hmac.update(param.seq.to_be_bytes())?;
         hmac.update(&param.buffer.head()[..3])?;
@@ -129,7 +104,7 @@ impl CipherCrypto {
     }
 
     pub fn decrypt(&self, param: CryptDecodeParam) -> RlsResult<usize> {
-        self.cipher.init_cipher(param.iv.as_ptr(), 0)?;
+        self.cipher.init_cipher(param.iv, 0)?;
         let context = param.buffer.encrypted_payload().as_ptr();
         let out = param.buffer.decrypted_buffer().as_mut_ptr();
         let out_len = self.cipher.update(context, param.buffer.encrypted_payload().len(), out)?;
@@ -157,7 +132,7 @@ mod tests {
     use crate::boring::{CryptDecodeParam, CryptEncodeParam, HashType};
     use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
     use crate::extend::Aead;
-    use crate::{base64, rand, Cipher, RecordType, Version};
+    use crate::{base64, Cipher, RecordType, Version};
 
     #[test]
     fn test_cipher() {
@@ -174,23 +149,15 @@ mod tests {
         cipher.set_secret_key("1234567812345678", Some("1234567812345678"));
         let res = cipher.encrypt(b"foobar").unwrap();
         println!("{}", base64::b64encode(&res).unwrap());
-
-
     }
 
-    #[test]
-    fn test_cipher_cryptor() {
-        let aead = Aead::AES_128_CBC_SHA;
-        let key = rand::random::<[u8; 16]>().to_vec();
-        let iv = rand::random::<[u8; 16]>();
-        println!("{:?}", iv);
-        let mut buffer = [0; 1024];
-        // payload.extend(&[0; 20]);
+    fn test_cipher_tls(aead: Aead, key: Vec<u8>, en: &[u8]) {
+        let iv = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];
         let payload = [1, 2, 3, 4, 5, 61, 2, 3, 4, 5, 6, 7, 8, 9, 23, 23];
         let mac_key = [12; 20];
+        let mut buffer = [0; 1024];
         let mut record_buffer = RecordEncodeBuffer::new(RecordType::HandShake, &Version::TLS_1_2, &mut buffer, &payload, &aead);
         record_buffer.add_explicit_iv(&iv);
-
         let crypto = CipherCrypto::new(&aead, key, mac_key.to_vec(), HashType::Sha1).unwrap();
         crypto.encrypt(CryptEncodeParam {
             nonce: &[0; 12],
@@ -200,9 +167,9 @@ mod tests {
             buffer: &mut record_buffer,
         }).unwrap();
         let len = record_buffer.record_len();
-        println!("{}", len);
-        println!("{:?}", &buffer[..len + 10]);
-        println!("-----------------encrypted---------------------");
+        assert_eq!(len, 69);
+        assert_eq!(&buffer[..len], en);
+
         let mut decoded_buffer = vec![0; 1024];
         let mut record_buffer = RecordDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, &aead, &Version::TLS_1_2).unwrap();
         let len = crypto.decrypt(CryptDecodeParam {
@@ -212,6 +179,14 @@ mod tests {
             seq: &0,
             buffer: &mut record_buffer,
         }).unwrap();
-        println!("{:?}", &decoded_buffer[..len]);
+        assert_eq!(decoded_buffer[..len], payload);
+    }
+
+    #[test]
+    fn test_cipher_cryptor() {
+        let key = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8].to_vec();
+        test_cipher_tls(Aead::AES_128_CBC_SHA, key, &[22, 3, 3, 0, 64, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 225, 181, 85, 149, 189, 100, 192, 39, 33, 30, 205, 22, 123, 49, 172, 97, 106, 123, 166, 131, 129, 167, 149, 187, 174, 174, 240, 122, 9, 87, 56, 140, 117, 152, 228, 72, 33, 112, 254, 70, 101, 122, 70, 56, 86, 138, 18, 134]);
+        let key = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8].to_vec();
+        test_cipher_tls(Aead::AES_256_CBC_SHA, key, &[22, 3, 3, 0, 64, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 14, 154, 194, 131, 254, 83, 135, 224, 182, 116, 28, 102, 151, 64, 116, 65, 233, 40, 102, 87, 64, 5, 139, 184, 61, 216, 62, 94, 54, 212, 193, 146, 8, 193, 18, 124, 254, 208, 135, 126, 57, 190, 219, 84, 217, 103, 135, 96]);
     }
 }
