@@ -190,12 +190,8 @@ impl Cipher {
 
     pub fn encrypt(&self, context: impl AsRef<[u8]>) -> Result<Vec<u8>, CipherError> {
         self.init_cipher(&self.iv, 1)?;
-        // if self.ctx.is_null() { return Err(CipherError::NewCipherCtx); }
         let mut out = vec![0; context.as_ref().len() + 16];
         let padding = if !matches!(self.evp_cipher, CipherType::RC4) { self.padding.add_padding(context.as_ref()) } else { vec![] };
-        // self.ctx.init(&self.key, &self.iv, 0, 1)?;
-        // let iv = if self.iv.is_empty() { null() } else { self.iv.as_ptr() };
-        // self.init_cipher(iv, 1)?;
         let ptr = context.as_ref().as_ptr();
         let out_ptr = out.as_mut_ptr();
         let block_len = self.update(ptr, context.as_ref().len(), out_ptr)?;
@@ -209,8 +205,6 @@ impl Cipher {
 
     pub fn decrypt(&self, context: impl Into<Vec<u8>>) -> Result<Vec<u8>, CipherError> {
         self.init_cipher(&self.iv, 0)?;
-        // let iv = if self.iv.is_empty() { null() } else { self.iv.as_ptr() };
-        // self.init_cipher(iv, 0)?;
         let mut context = context.into();
         let ptr = context.as_ptr();
         let out = context.as_mut_ptr();
@@ -225,12 +219,6 @@ impl Cipher {
     pub(crate) fn init_cipher(&self, iv: &[u8], enc: i32) -> Result<(), CipherError> {
         if self.ctx.is_null() { return Err(CipherError::NewCipherCtx); }
         self.ctx.init(&self.key, iv, 0, enc)
-        // unsafe { EVP_CIPHER_CTX_reset(self.ctx.as_mut_ptr()) }.ok(CipherError::CipherReset)?;
-        // unsafe { EVP_CipherInit_ex(self.ctx.as_mut_ptr(), self.evp_cipher.as_boring(), null_mut(), null_mut(), null_mut(), enc) }.ok(CipherError::CipherInit)?;
-        // unsafe { EVP_CIPHER_CTX_set_key_length(self.ctx.as_mut_ptr(), self.key.len() as u32) }.ok(CipherError::SetKeyLen)?;
-        // let key = self.key.as_ptr();
-        // unsafe { EVP_CipherInit_ex(self.ctx.as_mut_ptr(), null_mut(), null_mut(), key, iv, enc) }.ok(CipherError::CipherInit)?;
-        // unsafe { EVP_CIPHER_CTX_set_padding(self.ctx.as_mut_ptr(), 0) }.ok(CipherError::SetPadding)
     }
 
     pub(crate) fn update(&self, context: *const u8, len: usize, out: *mut u8) -> Result<usize, CipherError> {

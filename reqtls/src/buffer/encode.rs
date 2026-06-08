@@ -26,7 +26,7 @@ impl<'a> PayloadEncodeBuffer<'a> {
 
     fn add_explicit_iv(&mut self, aead: &Aead, version: &Version, iv: &[u8]) {
         match aead {
-            Aead::AES_128_GCM | Aead::AES_256_GCM => match *version {
+            Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::SM4_GCM => match *version {
                 Version::TLS_1_3 => {}
                 _ => self.payload[..8].copy_from_slice(&iv[4..])
             },

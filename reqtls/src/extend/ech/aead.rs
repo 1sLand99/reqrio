@@ -11,6 +11,7 @@ pub enum Aead {
     AES_128_CCM_8 = 0x5,
     AES_128_CBC_SHA = 0xFF,
     AES_256_CBC_SHA = 0xFE,
+    SM4_GCM = 0xFD,
 }
 
 impl Aead {
@@ -52,7 +53,7 @@ impl Aead {
 
     pub fn key_len(&self) -> usize {
         match self {
-            Aead::AES_128_GCM => 16,
+            Aead::AES_128_GCM | Aead::SM4_GCM => 16,
             Aead::AES_256_GCM => 32,
             Aead::ChaCha20_POLY1305 => 32,
             Aead::AES_128_CBC_SHA => 16,
@@ -63,7 +64,7 @@ impl Aead {
 
     pub fn fix_iv_len(&self, version: &Version) -> usize {
         match self {
-            Aead::AES_128_GCM | Aead::AES_256_GCM => match *version {
+            Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::SM4_GCM => match *version {
                 Version::TLS_1_3 => 12,
                 _ => 4
             },
@@ -75,7 +76,7 @@ impl Aead {
 
     pub fn tls13_iv_len(&self) -> usize {
         match self {
-            Aead::AES_128_GCM | Aead::AES_256_GCM => 12,
+            Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::SM4_GCM => 12,
             Aead::ChaCha20_POLY1305 => 12,
             Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => 16,
             _ => 0
@@ -84,7 +85,7 @@ impl Aead {
 
     pub fn explicit_len(&self, version: &Version) -> usize {
         match self {
-            Aead::AES_128_GCM | Aead::AES_256_GCM => match *version {
+            Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::SM4_GCM => match *version {
                 Version::TLS_1_3 => 0,
                 _ => 8,
             },
