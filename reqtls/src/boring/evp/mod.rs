@@ -17,8 +17,9 @@ use crate::cipher::CipherError;
 use crate::extend::Aead;
 use crate::hash::Hmac;
 pub use error::EvpError;
-use pkey::{PKey, PKEY};
-use pkey_ctx::PKeyCtx;
+use pkey::PKEY;
+pub use pkey::PKey;
+pub use pkey_ctx::PKeyCtx;
 pub use pkey_ctx::PKeyError;
 
 #[repr(C)]

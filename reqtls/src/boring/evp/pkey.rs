@@ -16,7 +16,7 @@ unsafe extern "C" {
     fn PKEY_free(key: *mut PKEY);
     fn PKEY_get_public_key(key: *const PKEY, out: *mut u8, out_len: *mut usize) -> c_int;
     fn PKEY_get_private_key(key: *const PKEY, out: *mut u8, out_len: *mut usize) -> c_int;
-    fn PKEY_from_publib_key(nid: c_int, pub_key: *const u8, pub_key_len: usize) -> *mut PKEY;
+    // fn PKEY_from_publib_key(nid: c_int, pub_key: *const u8, pub_key_len: usize) -> *mut PKEY;
     fn PKEY_from_private_key(nid: c_int, pri_key: *const u8, pri_key_len: usize) -> *mut PKEY;
     fn PKEY_diffie_hellman(
         nid: c_int,

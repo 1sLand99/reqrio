@@ -1,5 +1,5 @@
 // #[test]
-#[cfg(fgh)]
+#[cfg(reqwest)]
 fn compare_reqwest_multiple_requests() {
     let url = "https://cn.bing.com";
     let request_count = 5;
