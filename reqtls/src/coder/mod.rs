@@ -1,17 +1,19 @@
-use std::borrow::Cow;
-use std::io::BufReader;
-use std::io::Read;
-use flate2::Compression;
-use flate2::read::{DeflateDecoder, DeflateEncoder, GzDecoder, GzEncoder};
-use crate::error::RlsResult;
-#[cfg(feature = "zstd")]
-pub use zstd::{ZSTDDecode, ZSTDEncode, ZSTDError};
-use crate::UrlError;
-
 #[cfg(feature = "zstd")]
 mod zstd;
+mod brotli;
 #[cfg(feature = "zstd")]
 pub(crate) mod bindings;
+
+use crate::error::RlsResult;
+use crate::{BufferError, UrlError};
+use flate2::read::{DeflateDecoder, DeflateEncoder, GzDecoder, GzEncoder};
+use flate2::Compression;
+use std::borrow::Cow;
+use std::io::Read;
+#[cfg(feature = "zstd")]
+pub use zstd::{ZSTDDecode, ZSTDEncode, ZSTDError};
+pub use brotli::{BrotliEncoder, BrotliDecoder, BrotliError};
+
 
 #[cfg(feature = "zstd")]
 pub fn zstd_compress(data: impl AsRef<[u8]>) -> Result<Vec<u8>, ZSTDError> {
@@ -39,18 +41,30 @@ pub fn url_decode<'a>(url: impl Into<Cow<'a, str>>) -> Result<Cow<'a, str>, UrlE
     }
 }
 
-pub fn br_decompress(brd: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
-    let mut buffer = BufReader::new(brd.as_ref());
-    let mut out = vec![];
-    brotli::BrotliDecompress(&mut buffer, &mut out)?;
+pub fn br_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, BrotliError> {
+    let buf = buf.as_ref();
+    let mut out = vec![0; buf.len() * 2];
+    let mut decoder = BrotliDecoder::new()?;
+    let len = loop {
+        match decoder.decompress(buf, &mut out) {
+            Ok(len) => break len,
+            Err(BrotliError::Buffer(BufferError::CapacityTooSmall { .. })) => {
+                out.resize(out.len() + 1024, 0);
+            }
+            Err(e) => return Err(e)
+        };
+    };
+    out.truncate(len);
     Ok(out)
 }
 
-pub fn br_compress(brd: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
-    let params = brotli::enc::BrotliEncoderParams::default();
-    let mut bufread = BufReader::new(brd.as_ref());
-    let mut out = vec![];
-    brotli::BrotliCompress(&mut bufread, &mut out, &params)?;
+pub fn br_compress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, BrotliError> {
+    let buf = buf.as_ref();
+    let mut out = vec![0; buf.len()];
+    let mut encoder = BrotliEncoder::new()?;
+    let len1 = encoder.compress(buf, &mut out)?;
+    let len2 = encoder.flush(&mut out[len1..])?;
+    out.truncate(len1 + len2);
     Ok(out)
 }
 

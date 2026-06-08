@@ -18,6 +18,7 @@ use std::time::SystemTimeError;
 pub use handshake::HandShakeError;
 use crate::boring::{EcError, EvpError, MLKEMError, PKeyError};
 use crate::cipher::CipherError;
+use crate::coder::BrotliError;
 use crate::dns::DNSError;
 use crate::hash::HashError;
 
@@ -90,6 +91,7 @@ pub enum RlsError {
     MlKemError(MLKEMError),
     Cipher(CipherError),
     Pkey(PKeyError),
+    Brotli(BrotliError),
 }
 
 impl Display for RlsError {
@@ -162,6 +164,7 @@ impl Display for RlsError {
             RlsError::MlKemError(e) => write!(f, "MlKemError({:?})", e),
             RlsError::Cipher(e) => write!(f, "Cipher({:?})", e),
             RlsError::Pkey(e) => write!(f, "Pkey({:?})", e),
+            RlsError::Brotli(e) => write!(f, "Brotli({:?})", e)
         }
     }
 }
@@ -316,6 +319,12 @@ impl From<CipherError> for RlsError {
 impl From<PKeyError> for RlsError {
     fn from(value: PKeyError) -> Self {
         RlsError::Pkey(value)
+    }
+}
+
+impl From<BrotliError> for RlsError {
+    fn from(value: BrotliError) -> Self {
+        RlsError::Brotli(value)
     }
 }
 
