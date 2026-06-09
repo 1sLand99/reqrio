@@ -8,7 +8,7 @@ mod deflate;
 use crate::error::RlsResult;
 use crate::{BufferError, UrlError};
 pub use brotli::{BrotliDecoder, BrotliEncoder, BrotliError};
-pub use deflate::{DeflateError, DeflateStream};
+pub use deflate::{DeflateError, DeflateStream, DeflateState};
 use std::borrow::Cow;
 #[cfg(feature = "zstd")]
 pub use zstd::{ZSTDDecode, ZSTDEncode, ZSTDError};
@@ -97,7 +97,7 @@ pub fn deflate_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, DeflateError
     let buf = buf.as_ref();
     let stream = DeflateStream::new_decompress(DeflateStream::DEFLATE)?;
     let mut out = vec![0; buf.len() * 2];
-    let len = stream.decompress(buf, &mut out)?;
+    let len = stream.decompress_once(buf, &mut out)?;
     out.truncate(len);
     Ok(out)
 }
@@ -112,12 +112,12 @@ pub fn gzip_compress(buf: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
     Ok(out)
 }
 
-pub fn gzip_decompress(buf: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
+pub fn gzip_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, DeflateError> {
     let buf = buf.as_ref();
     if buf.is_empty() { return Ok(vec![]); }
     let stream = DeflateStream::new_decompress(DeflateStream::GZIP)?;
     let mut out = vec![0; buf.len() * 2];
-    let len = stream.decompress(buf, &mut out)?;
+    let len = stream.decompress_once(buf, &mut out)?;
     out.truncate(len);
     Ok(out)
 }

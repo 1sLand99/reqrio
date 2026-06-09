@@ -1,9 +1,7 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use std::os::raw::c_int;
 use crate::ffi;
 use crate::ffi::CPointer;
-use crate::boring::BoringResExt;
 
 #[repr(C)]
 #[allow(non_camel_case_types)]
@@ -21,15 +19,15 @@ unsafe extern "C" {
         data_len: usize,
         out: *mut u8,
         out_len: *mut usize,
-    ) -> c_int;
+    ) -> DeflateState;
     fn DEFLATE_STREAM_compress(
         decoder: *mut DEFLATE_STREAM,
         data: *const u8,
         data_len: usize,
         out: *mut u8,
         out_len: *mut usize,
-    ) -> c_int;
-    fn DEFLATE_STREAM_flush(decoder: *mut DEFLATE_STREAM, out: *mut u8, out_len: *mut usize) -> c_int;
+    ) -> DeflateState;
+    fn DEFLATE_STREAM_flush(decoder: *mut DEFLATE_STREAM, out: *mut u8, out_len: *mut usize) -> DeflateState;
 }
 #[derive(Debug)]
 pub enum DeflateError {
@@ -37,6 +35,7 @@ pub enum DeflateError {
     DeflateDecompressFailed,
     DeflateCompressFailed,
     DeflateFlushFailed,
+    Error(DeflateState),
 }
 
 impl Display for DeflateError {
@@ -46,6 +45,22 @@ impl Display for DeflateError {
 }
 
 impl Error for DeflateError {}
+
+
+#[repr(C)]
+#[derive(Debug)]
+#[allow(non_camel_case_types)]
+pub enum DeflateState {
+    OK = 0,
+    STREAM_END = 1,
+    NEED_DICT = 2,
+    Errno = -1,
+    STREAM_ERROR = -2,
+    DATA_ERROR = -3,
+    MEM_ERROR = -4,
+    BUF_ERROR = -5,
+    VERSION_ERROR = -6,
+}
 
 pub struct DeflateStream {
     stream: CPointer<DEFLATE_STREAM>,
@@ -73,7 +88,7 @@ impl DeflateStream {
 
     pub fn decompress(&self, data: &[u8], out: &mut [u8]) -> Result<usize, DeflateError> {
         let mut out_len = out.len();
-        unsafe {
+        let state = unsafe {
             DEFLATE_STREAM_decompress(
                 self.stream.as_mut_ptr(),
                 data.as_ptr(),
@@ -81,13 +96,28 @@ impl DeflateStream {
                 out.as_mut_ptr(),
                 &mut out_len,
             )
-        }.ok(DeflateError::DeflateDecompressFailed)?;
+        };
+        if !matches!(state, DeflateState::OK|DeflateState::STREAM_END) {
+            return Err(DeflateError::Error(state));
+        }
         Ok(out_len)
+    }
+
+    pub fn decompress_once(&self, data: &[u8], out: &mut Vec<u8>) -> Result<usize, DeflateError> {
+        loop {
+            match self.decompress(data, out) {
+                Ok(len) => return Ok(len),
+                Err(DeflateError::Error(DeflateState::BUF_ERROR)) => {
+                    out.resize(out.len() + 1024, 0);
+                }
+                Err(e) => return Err(e),
+            }
+        }
     }
 
     pub fn compress(&self, data: &[u8], out: &mut [u8]) -> Result<usize, DeflateError> {
         let mut out_len = out.len();
-        unsafe {
+        let state = unsafe {
             DEFLATE_STREAM_compress(
                 self.stream.as_mut_ptr(),
                 data.as_ptr(),
@@ -95,13 +125,19 @@ impl DeflateStream {
                 out.as_mut_ptr(),
                 &mut out_len,
             )
-        }.ok(DeflateError::DeflateCompressFailed)?;
+        };
+        if !matches!(state, DeflateState::OK|DeflateState::STREAM_END) {
+            return Err(DeflateError::Error(state));
+        }
         Ok(out_len)
     }
 
     pub fn flush(&self, out: &mut [u8]) -> Result<usize, DeflateError> {
         let mut out_len = out.len();
-        unsafe { DEFLATE_STREAM_flush(self.stream.as_mut_ptr(), out.as_mut_ptr(), &mut out_len) }.ok(DeflateError::DeflateFlushFailed)?;
+        let state = unsafe { DEFLATE_STREAM_flush(self.stream.as_mut_ptr(), out.as_mut_ptr(), &mut out_len) };
+        if !matches!(state, DeflateState::OK|DeflateState::STREAM_END) {
+            return Err(DeflateError::Error(state));
+        }
         Ok(out_len)
     }
 }
