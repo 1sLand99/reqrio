@@ -159,11 +159,13 @@ impl From<SocketAddr> for Addr {
 
 #[cfg(test)]
 mod tests {
+    use std::net::{IpAddr, SocketAddr};
+    use std::str::FromStr;
     use crate::Addr;
 
     #[test]
     fn test_addr() {
         let addr = Addr::new_addr("127.0.0.1", 1234);
-        println!("{}", addr.socket_addr(false).unwrap());
+        assert_eq!(addr.socket_addr(false).unwrap(), SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), 1234));
     }
 }

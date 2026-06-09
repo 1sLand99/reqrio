@@ -432,13 +432,9 @@ mod tests {
     use crate::time::Time;
     #[test]
     fn test_time() {
-        println!("{:#?}", Time::now().unwrap());
         let ts = Time::now_mills().unwrap();
         let date = Time::from_msecs(ts);
         assert_eq!(ts, date.as_mills());
-        println!("{}", date.as_common());
-        println!("{}", date.as_rfc1123());
-        println!("{}", date.as_rfc3339());
         assert_eq!(Time::from_rfc1123("Thu, 26 Mar 2026 10:02:19 GMT").unwrap().as_secs(), 1774519339);
         assert_eq!(Time::from_rfc3339("2026-03-26T10:02:19.911Z").unwrap().as_mills(), 1774519339911);
         assert_eq!(Time::from_common("2026-03-26 10:02:19").unwrap().as_secs(), 1774519339);
