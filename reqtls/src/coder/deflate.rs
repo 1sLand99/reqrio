@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use crate::coder::ext::{StreamDecode, StreamEncode};
 use crate::ffi;
 use crate::ffi::CPointer;
 
@@ -86,7 +87,24 @@ impl DeflateStream {
         DeflateStream::new(0, 0, wbits)
     }
 
-    pub fn decompress(&self, data: &[u8], out: &mut [u8]) -> Result<usize, DeflateError> {
+
+    pub fn decompress_once(&mut self, data: &[u8], out: &mut Vec<u8>) -> Result<usize, DeflateError> {
+        loop {
+            match self.decompress(data, out) {
+                Ok(len) => return Ok(len),
+                Err(DeflateError::Error(DeflateState::BUF_ERROR)) => {
+                    out.resize(out.len() + 1024, 0);
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
+
+
+}
+
+impl StreamDecode<DeflateError> for DeflateStream {
+    fn decompress(&mut self, data: &[u8], out: &mut [u8]) -> Result<usize, DeflateError> {
         let mut out_len = out.len();
         let state = unsafe {
             DEFLATE_STREAM_decompress(
@@ -102,20 +120,10 @@ impl DeflateStream {
         }
         Ok(out_len)
     }
+}
 
-    pub fn decompress_once(&self, data: &[u8], out: &mut Vec<u8>) -> Result<usize, DeflateError> {
-        loop {
-            match self.decompress(data, out) {
-                Ok(len) => return Ok(len),
-                Err(DeflateError::Error(DeflateState::BUF_ERROR)) => {
-                    out.resize(out.len() + 1024, 0);
-                }
-                Err(e) => return Err(e),
-            }
-        }
-    }
-
-    pub fn compress(&self, data: &[u8], out: &mut [u8]) -> Result<usize, DeflateError> {
+impl StreamEncode<DeflateError> for DeflateStream {
+    fn compress(&mut self, data: &[u8], out: &mut [u8]) -> Result<usize, DeflateError> {
         let mut out_len = out.len();
         let state = unsafe {
             DEFLATE_STREAM_compress(
@@ -132,7 +140,7 @@ impl DeflateStream {
         Ok(out_len)
     }
 
-    pub fn flush(&self, out: &mut [u8]) -> Result<usize, DeflateError> {
+    fn flush(&mut self, out: &mut [u8]) -> Result<usize, DeflateError> {
         let mut out_len = out.len();
         let state = unsafe { DEFLATE_STREAM_flush(self.stream.as_mut_ptr(), out.as_mut_ptr(), &mut out_len) };
         if !matches!(state, DeflateState::OK|DeflateState::STREAM_END) {
@@ -147,18 +155,19 @@ impl DeflateStream {
 mod zlib_ng_tests {
     use crate::coder;
     use crate::coder::deflate::DeflateStream;
+    use crate::coder::ext::{StreamDecode, StreamEncode};
 
     #[test]
     fn test_deflate() {
         let compressed = [109, 137, 177, 13, 0, 32, 12, 195, 206, 226, 161, 16, 85, 45, 19, 129, 129, 239, 169, 212, 181, 150, 23, 203, 2, 5, 198, 106, 112, 213, 51, 33, 104, 21, 233, 59, 227, 186, 246, 252];
-        let decoder = DeflateStream::new_decompress(DeflateStream::DEFLATE).unwrap();
+        let mut decoder = DeflateStream::new_decompress(DeflateStream::DEFLATE).unwrap();
         let mut out = [0; 1024];
         let len1 = decoder.decompress(&compressed[..20], &mut out).unwrap();
         let len2 = decoder.decompress(&compressed[20..], &mut out[len1..]).unwrap();
         assert_eq!(&out[..len1 + len2], b"sdfsdfklllllllllllllllllllljsdfsdfkhsdkfhsdfsdfsdfyt7ujsre");
 
 
-        let encoder = DeflateStream::new_compress(DeflateStream::DEFLATE).unwrap();
+        let mut encoder = DeflateStream::new_compress(DeflateStream::DEFLATE).unwrap();
         let mut out = [0; 1024];
         let len1 = encoder.compress(b"sdfsdfklllllllllllllllllllljsdfsdfkhsdkfhsdfsdfsdfyt7ujsre", &mut out).unwrap();
         let len2 = encoder.flush(&mut out[len1..]).unwrap();
@@ -170,13 +179,13 @@ mod zlib_ng_tests {
     #[test]
     fn test_gzip() {
         let compressed = [31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 109, 137, 177, 13, 0, 32, 12, 195, 206, 226, 161, 16, 85, 45, 19, 129, 129, 239, 169, 212, 181, 150, 23, 203, 2, 5, 198, 106, 112, 213, 51, 33, 104, 21, 233, 59, 227, 186, 246, 252, 93, 161, 13, 5, 58, 0, 0, 0];
-        let decoder = DeflateStream::new_decompress(DeflateStream::GZIP).unwrap();
+        let mut decoder = DeflateStream::new_decompress(DeflateStream::GZIP).unwrap();
         let mut out = [0; 1024];
         let len = decoder.decompress(&compressed, &mut out).unwrap();
         assert_eq!(&out[..len], b"sdfsdfklllllllllllllllllllljsdfsdfkhsdkfhsdfsdfsdfyt7ujsre");
 
 
-        let encoder = DeflateStream::new_compress(DeflateStream::GZIP).unwrap();
+        let mut encoder = DeflateStream::new_compress(DeflateStream::GZIP).unwrap();
         let mut out = [0; 1024];
         let len1 = encoder.compress(b"sdfsdfklllllllllllllllllllljsdfsdfkhsdkfhsdfsdfsdfyt7ujsre", &mut out).unwrap();
         let len2 = encoder.flush(&mut out[len1..]).unwrap();

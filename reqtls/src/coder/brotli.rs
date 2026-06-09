@@ -3,6 +3,7 @@ use std::ffi::c_int;
 use std::fmt::{Display, Formatter};
 use crate::ffi::CPointer;
 use crate::{ffi, BufferError};
+use crate::coder::ext::{StreamDecode, StreamEncode};
 
 #[repr(C)]
 #[allow(non_camel_case_types)]
@@ -94,8 +95,10 @@ impl BrotliDecoder {
             total_len: 0,
         })
     }
+}
 
-    pub fn decompress(&mut self, buf: &[u8], out: &mut [u8]) -> Result<usize, BrotliError> {
+impl StreamDecode<BrotliError> for BrotliDecoder {
+    fn decompress(&mut self, buf: &[u8], out: &mut [u8]) -> Result<usize, BrotliError> {
         if out.is_empty() {
             return Err(BufferError::CapacityTooSmall {
                 needed: buf.len(),
@@ -144,8 +147,11 @@ impl BrotliEncoder {
             total_len: 0,
         })
     }
+}
 
-    pub fn compress(&mut self, buf: &[u8], out: &mut [u8]) -> Result<usize, BrotliError> {
+
+impl StreamEncode<BrotliError> for BrotliEncoder {
+    fn compress(&mut self, buf: &[u8], out: &mut [u8]) -> Result<usize, BrotliError> {
         let mut remain_in_size = buf.len();
         let mut remain_buffer_size = out.len();
         let ret = unsafe {
@@ -163,7 +169,7 @@ impl BrotliEncoder {
         Ok(out.len() - remain_buffer_size)
     }
 
-    pub fn flush(&mut self, out: &mut [u8]) -> Result<usize, BrotliError> {
+    fn flush(&mut self, out: &mut [u8]) -> Result<usize, BrotliError> {
         let mut remain_buffer_size = out.len();
         let ret = unsafe {
             BROTLI_ENCODER_flush(
@@ -178,11 +184,11 @@ impl BrotliEncoder {
     }
 }
 
-
 #[cfg(test)]
 mod brotli_test {
     use crate::coder;
     use crate::coder::brotli::{BrotliDecoder, BrotliEncoder};
+    use crate::coder::ext::{StreamDecode, StreamEncode};
 
     #[test]
     fn test_brotli_decoder() {
