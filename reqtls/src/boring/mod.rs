@@ -27,7 +27,7 @@ use std::ffi::c_int;
 pub use ml_kem::{MLKEMError, Hybrid};
 use crate::boring::bindings::EVP_AEAD_DEFAULT_TAG_LENGTH;
 
-trait BoringResExt {
+pub trait BoringResExt {
     fn ok<E>(self, error: E) -> Result<(), E>;
 }
 
