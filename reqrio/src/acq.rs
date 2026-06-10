@@ -5,7 +5,7 @@ use crate::ext::{ReqGenExt, ReqPriExt};
 use crate::hpack::HPackCoding;
 use crate::json::JsonValue;
 use crate::packet::{FrameFlag, FrameType, H2Frame, HeaderParam};
-use crate::reader::{ReadExt, Writer};
+use crate::reader::ReadExt;
 use crate::request::RequestBuffer;
 use crate::stream::{ConnParam, Proxy, Stream};
 use crate::*;
@@ -145,12 +145,11 @@ impl AcReq {
             priority: &self.fingerprint.h2().priority,
             weight: &self.fingerprint.h2().weight,
         })?;
-        self.buffer.reset();
         loop {
-            let mut writer = Writer::new(self.buffer.unfilled_mut());
-            let len = request.read(&mut writer)?;
+            self.buffer.reset();
+            let len = request.read(&mut self.buffer)?;
             if len == 0 { break; }
-            self.stream.async_write(writer.filled()).await?;
+            self.stream.async_write(self.buffer.filled()).await?;
         }
         Ok(())
     }
@@ -302,7 +301,7 @@ impl AcReq {
                     end_frame.set_frame_type(FrameType::Settings);
                     end_frame.set_flag(FrameFlag::EndStream);
                     self.stream.async_write(end_frame.to_bytes().as_ref()).await?;
-                    self.buffer.move_to(frame_len..self.buffer.len(), 0);
+                    self.buffer.move_to(frame_len..self.buffer.len(), 0)?;
                     continue;
                 }
                 if self.handle_h2_res(frame_type, &mut response)? { return Ok(response); }

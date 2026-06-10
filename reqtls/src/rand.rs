@@ -220,13 +220,16 @@ mod tests {
 
     #[test]
     fn test_random() {
-        println!("{:?}", random::<[u8; 32]>());
-        println!("{:?}", random::<[u8; 32]>());
-        println!("{:?}", random::<[u8; 32]>());
-        println!("{:?}", random::<[u8; 32]>());
-        println!("{:?}", random::<[u8; 32]>());
-        println!("{:?}", random::<[u8; 32]>());
-        println!("{:?}", random::<[u8; 32]>());
-        println!("{:?}", random::<[u8; 32]>());
+        let r1 = random::<[u8; 32]>();
+        let r2 = random::<[u8; 32]>();
+        let r3 = random::<[u8; 32]>();
+        let r4 = random::<[u8; 32]>();
+        assert_ne!(r1, r2);
+        assert_ne!(r1, r3);
+        assert_ne!(r1, r4);
+        assert_ne!(r2, r3);
+        assert_ne!(r2, r4);
+        assert_ne!(r3, r4);
+
     }
 }

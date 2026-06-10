@@ -57,7 +57,7 @@ impl Fingerprint {
                 weight: 0,
                 priority: false,
             },
-            legal_subscript: Buffer::new_bytes(vec![]).check_subscription(token).unwrap_or(-2),
+            legal_subscript: Buffer::with_capacity(1).check_subscription(token).unwrap_or(-2),
         }
     }
 

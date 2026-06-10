@@ -2,7 +2,7 @@ use crate::body::{Body, H2FrameRBuf};
 use crate::ext::{ReqParam, ReqPriExt};
 use crate::hpack::HPackCoding;
 use crate::packet::{FrameFlag, HeaderParam};
-use crate::reader::{ReadExt, Writer};
+use crate::reader::ReadExt;
 use crate::request::RequestBuffer;
 use crate::stream::{ConnParam, Stream};
 use crate::*;
@@ -144,12 +144,11 @@ impl ScReq {
             weight: &self.fingerprint.h2().weight,
             priority: &self.fingerprint.h2().priority,
         })?;
-        self.buffer.reset();
         loop {
-            let mut render = Writer::new(self.buffer.unfilled_mut());
-            let len = request.read(&mut render)?;
+            self.buffer.reset();
+            let len = request.read(&mut self.buffer)?;
             if len == 0 { break; }
-            self.stream.sync_write(render.filled())?;
+            self.stream.sync_write(self.buffer.filled())?;
         }
         Ok(())
     }
@@ -315,7 +314,7 @@ impl ScReq {
                     end_frame.set_frame_type(FrameType::Settings);
                     end_frame.set_flag(FrameFlag::EndStream);
                     self.stream.sync_write(end_frame.to_bytes().as_ref())?;
-                    self.buffer.move_to(frame_len..self.buffer.len(), 0);
+                    self.buffer.move_to(frame_len..self.buffer.len(), 0)?;
                     continue;
                 }
                 if self.handle_h2_res(frame_type, &mut response)? { return Ok(response); }

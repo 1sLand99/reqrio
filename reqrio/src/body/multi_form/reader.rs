@@ -1,8 +1,8 @@
+use crate::error::HlsResult;
+use crate::reader::{ReadExt, RefReader};
+use reqtls::{Buffer, WriteExt};
 use std::fs::File;
 use std::io::{Cursor, Read};
-use crate::error::HlsResult;
-use crate::reader::{ReadExt, Writer, RefReader};
-use reqtls::WriteExt;
 
 pub struct HttpFileReader<'a> {
     pub(crate) data_readers: Vec<RefReader<&'a [u8]>>,
@@ -26,7 +26,7 @@ impl<'a> ReadExt for HttpFileReader<'a> {
         data_len + file_len + suffix_len
     }
 
-    fn read(&mut self, buf: &mut Writer) -> HlsResult<usize> {
+    fn read(&mut self, buf: &mut Buffer) -> HlsResult<usize> {
         let start = buf.offset().end;
         if self.row == 0 {
             for (index, data_reader) in self.data_readers.iter_mut().enumerate() {
@@ -83,7 +83,7 @@ impl<'a> ReadExt for FileDataRender<'a> {
         }
     }
 
-    fn read(&mut self, buf: &mut Writer) -> HlsResult<usize> {
+    fn read(&mut self, buf: &mut Buffer) -> HlsResult<usize> {
         match self {
             FileDataRender::File((wrote, _, f)) => {
                 let len = f.read(buf.unfilled())?;
@@ -116,7 +116,7 @@ impl<'a> ReadExt for FileFormReader<'a> {
         self.prefix_reader.len() + self.file_reader.len() + self.suffix_reader.len()
     }
 
-    fn read(&mut self, buf: &mut Writer) -> HlsResult<usize> {
+    fn read(&mut self, buf: &mut Buffer) -> HlsResult<usize> {
         let start = buf.offset().end;
         if self.pos == 0 {
             self.prefix_reader.read(buf)?;
@@ -145,9 +145,10 @@ impl<'a> ReadExt for FileFormReader<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use crate::reader::ReadExt;
     use crate::{json, HttpFile};
-    use crate::reader::{ReadExt, Writer};
+    use std::sync::Arc;
+    use reqtls::Buffer;
 
     #[test]
     fn test_files_reader() {
@@ -155,7 +156,8 @@ mod tests {
             .with_boundary(Arc::new("----WebKitFormBoundary1234567812345678".to_string()));
         let mut reader = file.as_reader().unwrap();
         let mut res = [0; 1024];
-        let len = reader.read(&mut Writer::new(&mut res)).unwrap();
+        let mut writer =Buffer::from_ptr(res.as_mut());
+        let len = reader.read(&mut writer).unwrap();
         let raw = vec![
             "------WebKitFormBoundary1234567812345678",
             "Content-Disposition: form-data; name=\"test filed\"",

@@ -36,7 +36,7 @@ impl<S: Read + Write> SyncStream<S> {
         let mut app_buffer = Buffer::with_capacity(16438);
         loop {
             let record_len = stream.read_next_packet()?;
-            stream.handle_record(record_len, Some(&mut config), app_buffer.unfilled_mut())?;
+            stream.handle_record(record_len, Some(&mut config), app_buffer.unfilled())?;
             if !stream.write_buffer.is_empty() {
                 stream.stream.write_all(stream.write_buffer.filled())?;
                 stream.write_buffer.reset();
@@ -56,7 +56,7 @@ impl<S: Read + Write> SyncStream<S> {
 
     pub fn shutdown(&mut self) -> HlsResult<()> {
         self.write_buffer.reset();
-        let out = self.write_buffer.unfilled_mut();
+        let out = self.write_buffer.unfilled();
         let record_len = self.conn.make_message(RecordType::Alert, out, &[1, 0])?;
         self.stream.write_all(&out[..record_len])?;
         Ok(())
@@ -87,7 +87,7 @@ impl<S: Read> SyncStream<S> {
     fn read_size(&mut self, max_size: usize) -> HlsResult<()> {
         while self.read_buffer.len() < max_size {
             self.read_buffer.check_move(4096, max_size)?;
-            let len = self.stream.read(self.read_buffer.unfilled_mut())?;
+            let len = self.stream.read(self.read_buffer.unfilled())?;
             if len == 0 { return Err(HlsError::PeerClosedConnection); }
             self.read_buffer.add_len(len);
         }
@@ -118,8 +118,8 @@ impl<S: Write> Write for SyncStream<S> {
         let mut sent = 0;
         for chunk in buf.chunks(16384) {
             self.write_buffer.reset();
-            let record_len = self.conn.make_message(RecordType::ApplicationData, self.write_buffer.unfilled_mut(), chunk)?;
-            self.write_buffer.set_len(record_len);
+            let record_len = self.conn.make_message(RecordType::ApplicationData, self.write_buffer.unfilled(), chunk)?;
+            self.write_buffer.add_len(record_len);
             loop {
                 let len = self.stream.write(self.write_buffer.filled())?;
                 if self.write_buffer.used_empty(len) { break; }

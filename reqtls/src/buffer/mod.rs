@@ -9,115 +9,100 @@ pub use encode::RecordEncodeBuffer;
 pub use error::BufferError;
 pub use ext::{u24, ReadExt, WriteExt};
 use std::fmt::{Debug, Formatter};
-use std::ops::{Range, RangeTo};
-use std::{ptr, slice};
+use std::ops::Range;
+use std::os::raw::c_char;
+use std::slice;
+use crate::ffi;
 
-pub struct Buffer {
-    buffer: Vec<u8>,
-    offset: Range<usize>,
+#[repr(C)]
+#[allow(clippy::upper_case_acronyms)]
+struct BUFFER {
+    _unused: [u8; 0],
 }
+ffi::c_pointer_free!(BUFFER, Buffer_free);
+
+unsafe extern "C" {
+    fn Buffer_new(capacity: usize) -> *mut BUFFER;
+    fn Buffer_from_ptr(ptr: *mut u8, capacity: usize) -> *mut BUFFER;
+    fn Buffer_free(buffer: *mut BUFFER);
+    fn Buffer_len(buffer: *const BUFFER) -> usize;
+    fn Buffer_capacity(buffer: *const BUFFER) -> usize;
+    fn Buffer_start(buffer: *const BUFFER) -> usize;
+    fn Buffer_end(buffer: *const BUFFER) -> usize;
+    fn Buffer_add_len(buffer: *mut BUFFER, len: usize);
+    fn Buffer_reset(buffer: *mut BUFFER);
+    fn Buffer_used_empty(buffer: *mut BUFFER, size: usize) -> bool;
+    fn Buffer_pointer(buffer: *const BUFFER) -> *const u8;
+    fn Buffer_pointer_mut(buffer: *mut BUFFER) -> *mut u8;
+    fn Buffer_write_u8(buffer: *mut BUFFER, val: &u8) -> i32;
+    fn Buffer_write_u16(buffer: *mut BUFFER, val: &u16) -> i32;
+    fn Buffer_write_u24(buffer: *mut BUFFER, val: &u24) -> i32;
+    fn Buffer_write_u24_in(buffer: *mut BUFFER, place: usize, val: &u24) -> i32;
+    fn Buffer_write_u32(buffer: *mut BUFFER, val: &u32) -> i32;
+    fn Buffer_write_slice(buffer: *mut BUFFER, ptr: *const u8, len: usize) -> i32;
+    fn Buffer_write_slice_in(buffer: *mut BUFFER, place: usize, ptr: *const u8, len: usize) -> i32;
+    fn Buffer_flush(buffer: *mut BUFFER, len: usize, sni: *const c_char, sl: usize, h2: bool) -> i32;
+    fn Buffer_move_to(buffer: *mut BUFFER, from: usize, to: usize, pos: usize);
+    pub fn is_subscription(token: *const c_char) -> bool;
+}
+
+
+pub struct Buffer(CPointer<BUFFER>);
 
 impl Default for Buffer {
     fn default() -> Self {
-        Buffer::with_capacity(16437)
+        Buffer::with_capacity(16438)
     }
 }
 
 impl Buffer {
-    pub fn with_capacity(capacity: usize) -> Buffer {
-        let buffer = vec![0u8; capacity];
-        Buffer { buffer, offset: 0..0 }
+    pub fn with_capacity(capacity: usize) -> Self {
+        let buffer = unsafe { Buffer_new(capacity) };
+        if buffer.is_null() { panic!("failed to create buffer") };
+        Buffer(CPointer::new(buffer))
     }
 
-    pub fn new_bytes(bytes: Vec<u8>) -> Self {
-        Buffer {
-            offset: 0..bytes.len(),
-            buffer: bytes,
-        }
+    pub fn from_ptr(buf: &mut [u8]) -> Self {
+        let buffer = unsafe { Buffer_from_ptr(buf.as_mut_ptr(), buf.len()) };
+        Buffer(CPointer::new(buffer))
+    }
+
+    fn filled_ptr(&self) -> *const u8 {
+        let ptr = unsafe { Buffer_pointer(self.0.as_ptr()) };
+        unsafe { ptr.add(self.start()) }
+    }
+
+
+    pub fn filled(&self) -> &[u8] {
+        let offset = self.offset();
+        unsafe { slice::from_raw_parts(self.filled_ptr(), offset.len()) }
     }
 
     pub fn reset(&mut self) {
-        self.offset = 0..0;
+        unsafe { Buffer_reset(self.0.as_mut_ptr()) }
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.offset.is_empty()
+    pub fn slice_at(&self, place: usize) -> &[u8] {
+        let ptr = unsafe { Buffer_pointer(self.0.as_ptr()) };
+        let len = unsafe { Buffer_end(self.0.as_ptr()) } - place;
+        unsafe { slice::from_raw_parts(ptr.add(place), len) }
     }
 
-    ///使用used字节后是否为空
-    pub fn used_empty(&mut self, used: usize) -> bool {
-        self.offset.start += used;
-        self.is_empty()
+    pub fn used_empty(&mut self, size: usize) -> bool {
+        unsafe { Buffer_used_empty(self.0.as_mut_ptr(), size) }
     }
 
-    pub fn len_ptr(&mut self) -> *mut usize {
-        &mut self.offset.end
-    }
-
-    pub fn set_len(&mut self, len: usize) {
-        self.offset.end = self.offset.start + len;
-    }
-
-    pub fn add_len(&mut self, len: usize) {
-        self.offset.end += len;
-    }
-
-    pub fn starts_with(&self, bs: &[u8]) -> bool {
-        self.buffer.starts_with(bs)
-    }
-
-    pub fn to_vec(&self) -> Vec<u8> {
-        self.buffer[self.offset.clone()].to_vec()
-    }
-
-    pub fn capacity(&self) -> usize {
-        self.buffer.capacity()
-    }
-
-    ///必须手动管理len, 返回已push的长度
-    #[must_use]
-    pub fn push_slice_in(&mut self, place: usize, slice: &[u8]) -> usize {
-        unsafe {
-            let dst = self.buffer.as_mut_ptr().add(place);
-            ptr::copy_nonoverlapping(slice.as_ref().as_ptr(), dst, slice.len());
-        }
-        slice.len()
-    }
-
-    pub fn filled(&self) -> &[u8] {
-        &self.buffer[self.offset.clone()]
-    }
-
-    pub fn filled_mut(&mut self) -> &mut [u8] {
-        &mut self.buffer[self.offset.clone()]
-    }
-
-    pub fn unfilled_mut(&mut self) -> &mut [u8] {
-        &mut self.buffer[self.offset.end..]
-    }
-
-    pub fn copy_within(&mut self, r: Range<usize>, pos: usize) {
-        self.buffer.copy_within(r, pos);
-    }
-
-    pub fn move_to(&mut self, r: Range<usize>, pos: usize) {
-        self.offset = pos..pos;
-        self.offset.end += r.len();
-        self.copy_within(r, pos);
-    }
-
-    pub fn drain(&mut self, range: RangeTo<usize>) -> Vec<u8> {
-        let res = self.buffer[range].to_vec();
-        self.copy_within(range.end..self.offset.end, 0);
-        self.offset.end -= range.end;
-        res
+    pub fn move_to(&mut self, r: Range<usize>, pos: usize) -> Result<(), BufferError> {
+        if r.end < r.start { return Err(BufferError::RangeEdgeError(r)); };
+        unsafe { Buffer_move_to(self.0.as_mut_ptr(), r.start, r.end, pos) };
+        Ok(())
     }
 
     pub fn check_move(&mut self, size: usize, need: usize) -> Result<(), BufferError> {
-        if self.unfilled_mut().len() < size && self.offset().start != 0 {
-            self.move_to(self.offset(), 0);
+        if self.unfilled_len() < size && self.offset().start != 0 {
+            self.move_to(self.offset(), 0)?;
         }
-        if self.unfilled_mut().is_empty() {
+        if self.unfilled().is_empty() {
             return Err(BufferError::CapacityTooSmall {
                 needed: need,
                 current: self.capacity(),
@@ -128,24 +113,12 @@ impl Buffer {
 }
 
 impl WriteExt for Buffer {
-    fn as_ptr(&self) -> *const u8 {
-        self.buffer.as_ptr()
+    fn buffer(&self) -> &Buffer {
+        self
     }
 
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self.buffer.as_mut_ptr()
-    }
-
-    fn add_len(&mut self, len: usize) {
-        self.offset.end += len;
-    }
-
-    fn offset(&self) -> Range<usize> {
-        self.offset.start..self.offset.end
-    }
-
-    fn capacity(&self) -> usize {
-        self.buffer.capacity()
+    fn buffer_mut(&mut self) -> &mut Buffer {
+        self
     }
 }
 
@@ -229,49 +202,6 @@ impl Debug for BufPtr {
     }
 }
 
-
-pub struct WriteBuffer {
-    buf: Vec<u8>,
-    len: usize,
-}
-
-impl WriteBuffer {
-    pub(crate) fn new(capacity: usize) -> WriteBuffer {
-        WriteBuffer {
-            buf: vec![0; capacity],
-            len: 0,
-        }
-    }
-
-    pub fn filled(&self) -> &[u8] {
-        &self.buf[..self.len]
-    }
-
-    pub fn reset(&mut self) { self.len = 0; }
-}
-
-impl WriteExt for WriteBuffer {
-    fn as_ptr(&self) -> *const u8 {
-        self.buf.as_ptr()
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self.buf.as_mut_ptr()
-    }
-
-    fn add_len(&mut self, len: usize) {
-        self.len += len;
-    }
-
-    fn offset(&self) -> Range<usize> {
-        0..self.len
-    }
-
-    fn capacity(&self) -> usize {
-        self.buf.capacity()
-    }
-}
-
 pub struct Reader<'a> {
     buf: &'a [u8],
     pos: usize,
@@ -324,7 +254,28 @@ impl<'a> ReadExt<'a> for Reader<'a> {
         self.pos += len;
     }
 
-    fn as_ptr(&self) -> *const u8 {
-        self.buf.as_ptr()
+    fn unread_ptr(&self) -> *const u8 {
+        unsafe{self.buf.as_ptr().add(self.pos)}
+    }
+}
+
+
+#[cfg(test)]
+mod test_buffer {
+    use crate::{Buffer, WriteExt};
+
+    #[test]
+    fn buffer_test() {
+        let mut buffer = Buffer::with_capacity(1024);
+        buffer.write_slice(&[1, 2, 3, 4, 5]).unwrap();
+        assert_eq!(buffer.filled(), [1, 2, 3, 4, 5]);
+        buffer.used_empty(1);
+        assert_eq!(buffer.filled(), [2, 3, 4, 5]);
+        assert_eq!(buffer.unfilled().len(), 1019);
+
+        let mut data = vec![0u8; 1024];
+        let mut buffer = Buffer::from_ptr(data.as_mut_slice());
+        buffer.write_slice(&[1, 2, 3, 4, 5]).unwrap();
+        assert_eq!(buffer.filled(), [1, 2, 3, 4, 5]);
     }
 }

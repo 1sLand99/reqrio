@@ -76,7 +76,7 @@ impl<'a> RecordLayer<'a> {
         })
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) -> RlsResult<usize> {
+    pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) -> RlsResult<()> {
         let offset = writer.offset().end;
         let sni = self.messages[0].parsed.client().map(|x| x.server_name().unwrap_or("")).unwrap_or("").to_string();
         let h2 = self.messages[0].parsed.client().map(|x| x.alps().map(|x| x.values().iter().any(|x| x == &ALPN::Http20)).unwrap_or(false)).unwrap_or(false);

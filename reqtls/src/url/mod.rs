@@ -243,13 +243,12 @@ mod tests {
         let url9 = "wss://poe.game.qq.com/";
         let mut uri = Url::try_from(url9).unwrap();
         uri.set_uri("wss://poe.game.qq.com/api/trade2/live/poe2/%E7%93%A6%E5%B0%94%E7%9A%84%E5%AE%BF%E5%91%BD/32Y6Wjkc5").unwrap();
-        println!("{}", uri);
         let url10 = "wss://poe.game.qq.com/wss://poe.game.qq.com/api/trade2/live/poe2/%E7%93%A6%E5%B0%94%E7%9A%84%E5%AE%BF%E5%91%BD/32Y6Wjkc5";
+        assert_eq!(uri.to_string(), url10);
         let url = Url::try_from(url10).unwrap();
         assert_eq!(url.to_string(), url10);
         let url6 = "socks5://username:passwrod@127.0.0.1:1023/";
         let url = Url::try_from(url6).unwrap();
-        println!("{}", url);
         assert_eq!(url.to_string(), url6);
         let url11 = "https://login.gjzwfw.gov.cn/tacs-uc/sso/loginTrust?backUrl=https://oauth.hubei.gov.cn:8443/uias/mainChain.do?appCode=hbzwfw&checkUser=1";
         let url = Url::try_from(url11).unwrap();

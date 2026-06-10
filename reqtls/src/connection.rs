@@ -385,7 +385,7 @@ impl Connection {
 
     pub fn session(&self) -> &TlsSession { self.derived.session() }
     pub fn mtls(&self) -> bool { self.mtls_hash.as_u16() != 0 }
-    pub fn handle_mtls_client<W: WriteExt>(&mut self, writer: &mut W, key: &RsaKey) -> RlsResult<usize> {
+    pub fn handle_mtls_client<W: WriteExt>(&mut self, writer: &mut W, key: &RsaKey) -> RlsResult<()> {
         let mut cert_verify = CertificateVerify::default();
         cert_verify.set_hash(self.mtls_hash.as_u16().into());
         let signer = AlgorithmSigner::new_sign(key.pkey(), &self.mtls_hash)?;

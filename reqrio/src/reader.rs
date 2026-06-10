@@ -1,56 +1,56 @@
 use crate::error::HlsResult;
-use reqtls::WriteExt;
+use reqtls::{Buffer, WriteExt};
 use std::fmt::{Debug, Formatter};
 use std::io::{Cursor, Read};
-use std::ops::{Deref, Range};
+use std::ops::Deref;
 
-pub struct Writer<'a> {
-    buffer: &'a mut [u8],
-    pos: usize,
-}
-impl<'a> Writer<'a> {
-    pub fn new(buffer: &'a mut [u8]) -> Self {
-        Self { buffer, pos: 0 }
-    }
-
-    pub fn filled(&self) -> &[u8] {
-        &self.buffer[..self.pos]
-    }
-
-    pub fn unfilled_len(&self) -> usize {
-        self.buffer.len() - self.pos
-    }
-
-    pub fn unfilled(&mut self) -> &mut [u8] {
-        &mut self.buffer[self.pos..]
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.pos >= self.buffer.len()
-    }
-}
-
-impl<'a> WriteExt for Writer<'a> {
-    fn as_ptr(&self) -> *const u8 {
-        self.buffer.as_ptr()
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self.buffer.as_mut_ptr()
-    }
-
-    fn add_len(&mut self, len: usize) {
-        self.pos += len
-    }
-
-    fn offset(&self) -> Range<usize> {
-        0..self.pos
-    }
-
-    fn capacity(&self) -> usize {
-        self.buffer.len()
-    }
-}
+// pub struct Writer<'a> {
+//     buffer: &'a mut [u8],
+//     pos: usize,
+// }
+// impl<'a> Writer<'a> {
+//     pub fn new(buffer: &'a mut [u8]) -> Self {
+//         Self { buffer, pos: 0 }
+//     }
+// 
+//     pub fn filled(&self) -> &[u8] {
+//         &self.buffer[..self.pos]
+//     }
+// 
+//     pub fn unfilled_len(&self) -> usize {
+//         self.buffer.len() - self.pos
+//     }
+// 
+//     pub fn unfilled(&mut self) -> &mut [u8] {
+//         &mut self.buffer[self.pos..]
+//     }
+// 
+//     pub fn is_empty(&self) -> bool {
+//         self.pos >= self.buffer.len()
+//     }
+// }
+// 
+// impl<'a> WriteExt for Writer<'a> {
+//     fn as_ptr(&self) -> *const u8 {
+//         self.buffer.as_ptr()
+//     }
+// 
+//     fn as_mut_ptr(&mut self) -> *mut u8 {
+//         self.buffer.as_mut_ptr()
+//     }
+// 
+//     fn add_len(&mut self, len: usize) {
+//         self.pos += len
+//     }
+// 
+//     fn offset(&self) -> Range<usize> {
+//         0..self.pos
+//     }
+// 
+//     fn capacity(&self) -> usize {
+//         self.buffer.len()
+//     }
+// }
 
 pub struct RefReader<R> {
     bufs: Vec<Cursor<R>>,
@@ -102,14 +102,14 @@ impl<R: AsRef<[u8]>> ReadExt for RefReader<R> {
     fn len(&self) -> usize {
         self.bufs.iter().map(|x| x.get_ref().as_ref().len()).sum()
     }
-    fn read(&mut self, buf: &mut Writer) -> HlsResult<usize> {
+    fn read(&mut self, buf: &mut Buffer) -> HlsResult<usize> {
         let start = buf.offset().end;
         for (index, reader) in self.bufs.iter_mut().enumerate() {
             if index < self.pos {
                 continue;
             }
             loop {
-                if buf.is_empty() {
+                if buf.unfilled().is_empty() {
                     return Ok(buf.offset().end - start);
                 }
                 let len = reader.read(buf.unfilled())?;
@@ -128,7 +128,7 @@ impl<R: AsRef<[u8]>> ReadExt for RefReader<R> {
 pub trait ReadExt {
     fn wrote(&self) -> bool;
     fn len(&self) -> usize;
-    fn read(&mut self, buf: &mut Writer) -> HlsResult<usize>;
+    fn read(&mut self, buf: &mut Buffer) -> HlsResult<usize>;
 }
 
 pub enum StrCow<'a> {

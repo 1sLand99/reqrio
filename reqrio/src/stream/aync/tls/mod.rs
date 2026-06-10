@@ -109,7 +109,7 @@ impl<S: AsyncRead + Unpin> TlsStream<S> {
         while self.read_buffer.len() < max_size {
             self.read_buffer.check_move(4096, max_size)?;
             let stream = Pin::new(&mut self.stream);
-            let mut buf = ReadBuf::new(self.read_buffer.unfilled_mut());
+            let mut buf = ReadBuf::new(self.read_buffer.unfilled());
             match stream.poll_read(cx, &mut buf)? {
                 Poll::Pending => return Poll::Pending,
                 Poll::Ready(_) => {
@@ -181,7 +181,7 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for TlsStream<S> {
         loop {
             if stream.pending.is_empty() { break; }
             if stream.write_buffer.is_empty() {
-                let record_len = stream.conn.make_message(RecordType::ApplicationData, stream.write_buffer.unfilled_mut(), chucks[stream.pending[0]])?;
+                let record_len = stream.conn.make_message(RecordType::ApplicationData, stream.write_buffer.unfilled(), chucks[stream.pending[0]])?;
                 stream.write_buffer.add_len(record_len);
                 stream.wrote_len += chucks[stream.pending[0]].len();
             }
@@ -201,7 +201,7 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for TlsStream<S> {
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Error>> {
         let stream = self.get_mut();
         if stream.write_buffer.is_empty() {
-            let len = stream.conn.make_message(RecordType::Alert, &mut stream.write_buffer.unfilled_mut(), &Alert::close_notify().to_bytes())?;
+            let len = stream.conn.make_message(RecordType::Alert, &mut stream.write_buffer.unfilled(), &Alert::close_notify().to_bytes())?;
             stream.write_buffer.add_len(len);
         }
         match stream.shutdown_wrote {

@@ -13,8 +13,8 @@ mod ml_kem;
 
 pub use padding::Padding;
 
-pub use evp::{cipher, Cipher, CipherType, EvpError};
-pub use evp::{AeadCrypto, CipherCrypto, EvpCurve};
+pub use evp::{cipher, Cipher, CipherType, EvpError, PKeyError, PKey, PKeyCtx};
+pub use evp::{AeadCtx, CipherCrypto, EvpCurve};
 
 pub use ec_curve::*;
 pub use hash::*;
@@ -25,8 +25,9 @@ use crate::extend::Aead;
 pub use signature::{AlgorithmSigner, SignatureAlgorithm};
 use std::ffi::c_int;
 pub use ml_kem::{MLKEMError, Hybrid};
+use crate::boring::bindings::EVP_AEAD_DEFAULT_TAG_LENGTH;
 
-trait BoringResExt {
+pub trait BoringResExt {
     fn ok<E>(self, error: E) -> Result<(), E>;
 }
 
@@ -56,14 +57,14 @@ pub(crate) struct CryptDecodeParam<'a, 'b: 'a> {
 
 pub enum Crypto {
     None,
-    Aead(Box<AeadCrypto>),
+    Aead(AeadCtx),
     Cipher(CipherCrypto),
 }
 
 impl Crypto {
     pub fn from_aead(key: &[u8], mac_key: &[u8], aead: &Aead, hash: HashType) -> RlsResult<Crypto> {
         match aead {
-            Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::ChaCha20_POLY1305 => Ok(Crypto::Aead(Box::new(AeadCrypto::new(aead, key)?))),
+            Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::ChaCha20_POLY1305 => Ok(Crypto::Aead(AeadCtx::new(aead, key, EVP_AEAD_DEFAULT_TAG_LENGTH)?)),
             Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => Ok(Crypto::Cipher(CipherCrypto::new(aead, key.to_vec(), mac_key.to_vec(), hash)?)),
             _ => Err("unsupported cryptor".into()),
         }
@@ -71,7 +72,7 @@ impl Crypto {
 
     pub fn encrypt(&self, param: CryptEncodeParam) -> RlsResult<()> {
         match self {
-            Crypto::Aead(cryptor) => cryptor.encrypt(param),
+            Crypto::Aead(cryptor) => cryptor.seal(param),
             Crypto::Cipher(cipher) => cipher.encrypt(param),
             _ => Err("Cryptor not implemented".into()),
         }
@@ -79,7 +80,7 @@ impl Crypto {
 
     pub fn decrypt(&self, param: CryptDecodeParam) -> RlsResult<usize> {
         match self {
-            Crypto::Aead(crypto) => crypto.decrypt(param),
+            Crypto::Aead(crypto) => crypto.open(param),
             Crypto::Cipher(cipher) => cipher.decrypt(param),
             _ => Err("Cryptor not implemented".into()),
         }

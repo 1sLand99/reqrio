@@ -1,26 +1,52 @@
-use std::borrow::Cow;
-use std::io::BufReader;
-use std::io::Read;
-use flate2::Compression;
-use flate2::read::{DeflateDecoder, DeflateEncoder, GzDecoder, GzEncoder};
-use crate::error::RlsResult;
-#[cfg(feature = "zstd")]
-pub use zstd::{ZSTDDecode, ZSTDEncode, ZSTDError};
-use crate::UrlError;
-
 #[cfg(feature = "zstd")]
 mod zstd;
+mod brotli;
+mod deflate;
+mod ext;
+mod chunk;
+
+use crate::error::RlsResult;
+use crate::*;
+pub use brotli::{BrotliDecoder, BrotliEncoder, BrotliError};
+pub use deflate::{DeflateError, DeflateStream, DeflateState};
+use std::borrow::Cow;
 #[cfg(feature = "zstd")]
-pub(crate) mod bindings;
+pub use zstd::{ZstdDecoder, ZstdEncoder, ZSTDError};
+pub use chunk::ChunkDecoder;
+pub use ext::{StreamDecode, StreamEncode};
 
 #[cfg(feature = "zstd")]
 pub fn zstd_compress(data: impl AsRef<[u8]>) -> Result<Vec<u8>, ZSTDError> {
-    zstd::compress(data)
+    let data = data.as_ref();
+    let mut out = vec![0; data.len()];
+    let mut encoder = ZstdEncoder::new()?;
+    let len1 = encoder.compress(data, &mut out)?;
+    let len2 = encoder.finalize(&mut out[len1..])?;
+    out.truncate(len1 + len2);
+    Ok(out)
 }
 
 #[cfg(feature = "zstd")]
 pub fn zstd_decompress(data: impl AsRef<[u8]>) -> Result<Vec<u8>, ZSTDError> {
-    zstd::decompress(data)
+    let mut reader = Reader::from_slice(data.as_ref());
+    let mut out = vec![0; reader.size() * 2];
+    let mut decoder = ZstdDecoder::new()?;
+    let mut wrote = 0;
+    loop {
+        let mut writer = Buffer::from_ptr(out.as_mut());
+        writer.add_len(wrote);
+        let res = decoder.decompress(&mut reader, &mut writer);
+        wrote = writer.filled().len();
+        match res {
+            Ok(_) => break,
+            Err(ZSTDError::Buffer(BufferError::CapacityTooSmall { .. })) => {
+                out.resize(out.len() + 1024, 0);
+            }
+            Err(e) => return Err(e)
+        }
+    }
+    out.truncate(wrote);
+    Ok(out)
 }
 
 pub fn url_encode<'a>(url: impl Into<Cow<'a, str>>) -> Cow<'a, str> {
@@ -39,18 +65,31 @@ pub fn url_decode<'a>(url: impl Into<Cow<'a, str>>) -> Result<Cow<'a, str>, UrlE
     }
 }
 
-pub fn br_decompress(brd: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
-    let mut buffer = BufReader::new(brd.as_ref());
-    let mut out = vec![];
-    brotli::BrotliDecompress(&mut buffer, &mut out)?;
+pub fn br_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, BrotliError> {
+    let mut reader = Reader::from_slice(buf.as_ref());
+    let mut out = vec![0; reader.size() * 2];
+    let mut decoder = BrotliDecoder::new()?;
+    let len = loop {
+        let mut writer = Buffer::from_ptr(out.as_mut());
+        match decoder.decompress(&mut reader, &mut writer) {
+            Ok(_) => break writer.filled().len(),
+            Err(BrotliError::Buffer(BufferError::CapacityTooSmall { .. })) => {
+                out.resize(out.len() + 1024, 0);
+            }
+            Err(e) => return Err(e)
+        };
+    };
+    out.truncate(len);
     Ok(out)
 }
 
-pub fn br_compress(brd: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
-    let params = brotli::enc::BrotliEncoderParams::default();
-    let mut bufread = BufReader::new(brd.as_ref());
-    let mut out = vec![];
-    brotli::BrotliCompress(&mut bufread, &mut out, &params)?;
+pub fn br_compress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, BrotliError> {
+    let buf = buf.as_ref();
+    let mut out = vec![0; buf.len()];
+    let mut encoder = BrotliEncoder::new()?;
+    let len1 = encoder.compress(buf, &mut out)?;
+    let len2 = encoder.finalize(&mut out[len1..])?;
+    out.truncate(len1 + len2);
     Ok(out)
 }
 
@@ -70,31 +109,41 @@ pub fn chunk_decode(mut raw: Vec<u8>) -> RlsResult<Vec<u8>> {
     Ok(res)
 }
 
-pub fn deflate_compress(ded: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
-    let mut de = DeflateEncoder::new(ded.as_ref(), Compression::default());
-    let mut out = vec![];
-    de.read_to_end(&mut out)?;
+pub fn deflate_compress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, DeflateError> {
+    let mut stream = DeflateStream::new_compress(DeflateStream::DEFLATE)?;
+    let buf = buf.as_ref();
+    let mut out = vec![0; buf.len()];
+    let len1 = stream.compress(buf, &mut out)?;
+    let len2 = stream.finalize(&mut out[len1..])?;
+    out.truncate(len1 + len2);
     Ok(out)
 }
 
-pub fn deflate_decompress(ded: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
-    let mut de = DeflateDecoder::new(ded.as_ref());
-    let mut out = vec![];
-    de.read_to_end(&mut out)?;
+pub fn deflate_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, DeflateError> {
+    let mut reader = Reader::from_slice(buf.as_ref());
+    let mut out = vec![0; reader.size() * 2];
+    let mut decoder = DeflateStream::new_decompress(DeflateStream::DEFLATE)?;
+    let len = decoder.decompress_once(&mut reader, &mut out)?;
+    out.truncate(len);
     Ok(out)
 }
 
-pub fn gzip_compress(ded: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
-    let mut ge = GzEncoder::new(ded.as_ref(), Compression::default());
-    let mut out = vec![];
-    ge.read_to_end(&mut out)?;
+pub fn gzip_compress(buf: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
+    let mut stream = DeflateStream::new_compress(DeflateStream::GZIP)?;
+    let buf = buf.as_ref();
+    let mut out = vec![0; buf.len()];
+    let len1 = stream.compress(buf, &mut out)?;
+    let len2 = stream.finalize(&mut out[len1..])?;
+    out.truncate(len1 + len2);
     Ok(out)
 }
 
-pub fn gzip_decompress(ded: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
-    if ded.as_ref().is_empty() { return Ok(vec![]); }
-    let mut gd = GzDecoder::new(ded.as_ref());
-    let mut out = vec![];
-    gd.read_to_end(&mut out)?;
+pub fn gzip_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, DeflateError> {
+    let mut reader = Reader::from_slice(buf.as_ref());
+    if reader.unread_len() == 0 { return Ok(vec![]); }
+    let mut out = vec![0; reader.size() * 2];
+    let mut decoder = DeflateStream::new_decompress(DeflateStream::GZIP)?;
+    let len = decoder.decompress_once(&mut reader, &mut out)?;
+    out.truncate(len);
     Ok(out)
 }

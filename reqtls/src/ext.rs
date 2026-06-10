@@ -52,8 +52,7 @@ pub trait StreamHandle {
         record.messages = vec![client_hello.into()];
         record.version = Version::TLS_1_0;
 
-        let len = record.write_to(param.write_buffer, 1)?;
-        param.write_buffer.set_len(len);
+        record.write_to(param.write_buffer, 1)?;
         param.conn.set_secret_keys(secrets);
         param.conn.update_session(&param.write_buffer.filled()[5..])?;
         Ok(())
@@ -87,8 +86,7 @@ pub trait StreamHandle {
                 version: Version::TLS_1_2,
                 messages: vec![Message::new_parsed(MessageParsed::ClientHello(client))],
             };
-            let record_len = record.write_to(param.write_buffer, 1)?;
-            param.write_buffer.set_len(record_len);
+            record.write_to(param.write_buffer, 1)?;
             param.conn.hello_retry(&param.write_buffer.filled()[5..])?;
             param.conn.set_secret_keys(secrets);
             *param.hello_retrying = true;
@@ -100,7 +98,7 @@ pub trait StreamHandle {
 
     fn handle_server_hello_done(param: &mut StreamParam<'_>, config: &mut Config) -> Result<(), RlsError> {
         let config = config.client_mut().ok_or("missing config")?;
-        let offset = param.write_buffer.len();
+        let offset = param.write_buffer.offset().end;
         if param.conn.mtls() {
             //client certificate
             let mut certificate = Certificates::default();
@@ -109,11 +107,10 @@ pub trait StreamHandle {
             }
             let mut record = RecordLayer::handshake();
             record.messages.push(certificate.into());
-            let len = record.write_to(param.write_buffer, 1)?;
-            param.write_buffer.set_len(offset + len);
-            param.conn.update_session(&param.write_buffer.filled()[offset + 5..offset + len])?;
+            record.write_to(param.write_buffer, 1)?;
+            param.conn.update_session(&param.write_buffer.slice_at(offset + 5))?;
         }
-        let offset = param.write_buffer.len();
+        let offset = param.write_buffer.offset().end;
         //client key exchange
         let mut client_key_exchange = ClientKeyExchange::default();
         let key_size = param.conn.cipher_suite().key_size();
@@ -121,19 +118,17 @@ pub trait StreamHandle {
         client_key_exchange.set_pub_key(pub_key.as_ref());
         let mut record = RecordLayer::handshake();
         record.messages.push(client_key_exchange.into());
-        let len = record.write_to(param.write_buffer, key_size)?;
-        param.write_buffer.set_len(offset + len);
-        param.conn.update_session(&param.write_buffer.filled()[offset + 5..offset + len])?;
+        record.write_to(param.write_buffer, key_size)?;
+        param.conn.update_session(&param.write_buffer.slice_at(offset + 5))?;
         param.conn.make_cipher(false, false)?;
         //certificate verify
         if param.conn.mtls() && !config.client_cert.is_empty() {
             let offset = param.write_buffer.len();
-            let len = param.conn.handle_mtls_client(param.write_buffer, config.cert_key)?;
-            param.write_buffer.set_len(offset + len);
-            param.conn.update_session(&param.write_buffer.filled()[offset + 5..offset + len])?;
+            param.conn.handle_mtls_client(param.write_buffer, config.cert_key)?;
+            param.conn.update_session(&param.write_buffer.slice_at(offset + 5))?;
         }
         param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
-        let record_len = param.conn.make_finish_message(param.write_buffer.unfilled_mut(), false)?;
+        let record_len = param.conn.make_finish_message(param.write_buffer.unfilled(), false)?;
         param.write_buffer.add_len(record_len);
         Ok(())
     }
@@ -142,8 +137,8 @@ pub trait StreamHandle {
         let (read_buffer, param) = self.stream_param();
         match param.encrypted_channel {
             true => {
-                let len = param.conn.read_message(read_buffer.filled(), param.write_buffer.unfilled_mut())?;
-                Ok(Alert::from_bytes(&param.write_buffer.unfilled_mut()[..len])?)
+                let len = param.conn.read_message(read_buffer.filled(), param.write_buffer.unfilled())?;
+                Ok(Alert::from_bytes(&param.write_buffer.unfilled()[..len])?)
             }
             false => Ok(Alert::from_bytes(&read_buffer.filled()[5..7])?)
         }
@@ -185,8 +180,7 @@ pub trait StreamHandle {
                 let session_id = rand::random::<[u8; 32]>();
                 record.messages[0].parsed.server_mut().ok_or(RlsError::NullPtr)?.set_session_id(&session_id);
 
-                let len = record.write_to(param.write_buffer, 1)?;
-                param.write_buffer.add_len(len);
+                record.write_to(param.write_buffer, 1)?;
                 return Ok(());
             }
             MessageParsed::ClientKeyExchange(v) => {
@@ -227,7 +221,7 @@ pub trait StreamHandle {
             MessageParsed::Finished(_) => {
                 param.conn.verify_finish(message.encoded.as_ref(), true)?;
                 param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
-                let len = param.conn.make_finish_message(param.write_buffer.unfilled_mut(), false)?;
+                let len = param.conn.make_finish_message(param.write_buffer.unfilled(), false)?;
                 param.write_buffer.add_len(len);
                 param.conn.make_cipher(false, false)?;
                 *param.handshake_finish = true;
@@ -276,14 +270,14 @@ pub trait StreamHandle {
                 true => {
                     #[cfg(feature = "log")]
                     trace!("[HandleRecord] {:?}", record);
-                    let out = param.write_buffer.unfilled_mut();
+                    let out = param.write_buffer.unfilled();
                     let len = param.conn.read_message(&read_buffer.filled()[..record_len], out)?;
                     param.conn.verify_finish(&out[..len], true)?;
                     if param.conn.secret_key().is_none() && param.conn.version() == &Version::TLS_1_2 {
                         #[cfg(feature = "log")]
                         debug!("[HandleRecord] Recover TLS_1.2");
                         param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
-                        let len = param.conn.make_finish_message(param.write_buffer.unfilled_mut(), false)?;
+                        let len = param.conn.make_finish_message(param.write_buffer.unfilled(), false)?;
                         param.write_buffer.add_len(len);
                         *param.handshake_finish = true;
                     }

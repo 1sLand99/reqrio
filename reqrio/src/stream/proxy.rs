@@ -201,7 +201,7 @@ impl std::io::Read for ProxyStream<std::net::TcpStream> {
             self.buffer.reset();
             if self.http_proxy {
                 loop {
-                    let len = self.stream.read(self.buffer.unfilled_mut())?;
+                    let len = self.stream.read(self.buffer.unfilled())?;
                     if len == 0 { return Err(io::Error::other(HlsError::PeerClosedConnection)); }
                     self.buffer.add_len(len);
                     if self.resp.extend_buffer(&mut self.buffer)? { break; }
@@ -209,12 +209,12 @@ impl std::io::Read for ProxyStream<std::net::TcpStream> {
                 let status = self.resp.header().status().code();
                 if status != 200 { return Err(std::io::Error::other(format!("connect http proxy error-{}", status))); }
             } else {
-                let len = self.stream.read(self.buffer.unfilled_mut())?;
+                let len = self.stream.read(self.buffer.unfilled())?;
                 if len == 0 { return Err(io::Error::other(HlsError::PeerClosedConnection)); }
                 self.buffer.add_len(len);
                 if self.buffer.filled().starts_with(&[5, 2]) {
                     if self.buffer.len() == 2 {
-                        let len = self.stream.read(self.buffer.unfilled_mut())?;
+                        let len = self.stream.read(self.buffer.unfilled())?;
                         if len == 0 { return Err(io::Error::other(HlsError::PeerClosedConnection)); }
                         self.buffer.add_len(len);
                     }
@@ -223,7 +223,7 @@ impl std::io::Read for ProxyStream<std::net::TcpStream> {
                 }
                 self.buffer.used_empty(2);
                 if self.buffer.is_empty() {
-                    let len = self.stream.read(self.buffer.unfilled_mut())?;
+                    let len = self.stream.read(self.buffer.unfilled())?;
                     if len == 0 { return Err(io::Error::other(HlsError::PeerClosedConnection)); }
                     self.buffer.add_len(len);
                 }
@@ -287,14 +287,14 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
             let stream = self.get_mut();
             if stream.http_proxy {
                 loop {
-                    let mut pb = ReadBuf::new(stream.buffer.unfilled_mut());
+                    let mut pb = ReadBuf::new(stream.buffer.unfilled());
                     match Pin::new(&mut stream.stream).poll_read(cx, &mut pb) {
                         Poll::Pending => return Poll::Pending,
                         Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
                         Poll::Ready(Ok(())) => {
                             let rl = pb.filled().len();
                             if rl == 0 { return Poll::Ready(Err(HlsError::PeerClosedConnection.into())); }
-                            stream.buffer.set_len(stream.buffer.len() + rl);
+                            stream.buffer.add_len(rl);
                             let finished = stream.resp.extend_buffer(&mut stream.buffer)?;
                             if finished { break; }
                         }
@@ -304,14 +304,14 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
                 if status.code() != 200 { return Poll::Ready(Err(std::io::Error::other(format!("connect http proxy fail-{}", status.code())))); }
             } else {
                 loop {
-                    let mut pb = ReadBuf::new(stream.buffer.unfilled_mut());
+                    let mut pb = ReadBuf::new(stream.buffer.unfilled());
                     match Pin::new(&mut stream.stream).poll_read(cx, &mut pb) {
                         Poll::Pending => return Poll::Pending,
                         Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
                         Poll::Ready(Ok(())) => {
                             let rl = pb.filled().len();
                             if rl == 0 { return Poll::Ready(Err(std::io::Error::other(HlsError::PeerClosedConnection))); }
-                            stream.buffer.set_len(stream.buffer.len() + rl);
+                            stream.buffer.add_len(rl);
                             if stream.buffer.len() < 2 { continue; }
                             if stream.buffer.filled()[1] == 2 {
                                 if stream.buffer.len() < 4 { continue; }

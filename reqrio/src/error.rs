@@ -15,7 +15,7 @@ use std::sync::PoisonError;
 #[cfg(feature = "aync")]
 use tokio::time::error::Elapsed;
 use reqtls::cipher::CipherError;
-use reqtls::coder::ZSTDError;
+use reqtls::coder::{BrotliError, DeflateError, ZSTDError};
 use crate::body::FormError;
 use crate::time::TimeError;
 
@@ -81,7 +81,7 @@ impl Display for HlsError {
             HlsError::Time(e) => write!(f, "Time({:?})", e),
             HlsError::UnsupportedAlpn(alpn) => write!(f, "UnsupportedAlpn({})", alpn),
             HlsError::Zstd(e) => write!(f, "Zstd({})", e),
-            HlsError::RstStream=> f.write_str("RstStream"),
+            HlsError::RstStream => f.write_str("RstStream"),
         }
     }
 }
@@ -210,6 +210,18 @@ impl From<io::ErrorKind> for HlsError {
 impl From<CipherError> for HlsError {
     fn from(value: CipherError) -> Self {
         HlsError::Rls(RlsError::Cipher(value))
+    }
+}
+
+impl From<BrotliError> for HlsError {
+    fn from(value: BrotliError) -> Self {
+        HlsError::Rls(RlsError::Brotli(value))
+    }
+}
+
+impl From<DeflateError> for HlsError {
+    fn from(value: DeflateError) -> Self {
+        HlsError::Rls(RlsError::Deflate(value))
     }
 }
 

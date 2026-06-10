@@ -1,7 +1,5 @@
 use crate::boring::bindings::*;
 use crate::boring::rsa::bindings::*;
-#[cfg(feature = "zstd")]
-use crate::coder::bindings::{ZSTD_CStream, ZSTD_DStream, ZSTD_freeCStream, ZSTD_freeDStream};
 use std::ptr::null_mut;
 
 pub struct CPointer<T: CFree<T>> {
@@ -62,14 +60,14 @@ macro_rules! c_pointer_free {
     };
 }
 
-// pub(crate) use c_pointer_free;
+pub(crate) use c_pointer_free;
 
 c_pointer_free!(EC_KEY, EC_KEY_free);
 c_pointer_free!(u8, OPENSSL_free);
 c_pointer_free!(EC_POINT, EC_POINT_free);
 c_pointer_free!(EVP_PKEY, EVP_PKEY_free);
 c_pointer_free!(EVP_PKEY_CTX, EVP_PKEY_CTX_free);
-c_pointer_free!(EVP_CIPHER_CTX, EVP_CIPHER_CTX_free);
+// c_pointer_free!(EVP_CIPHER_CTX, EVP_CIPHER_CTX_free);
 c_pointer_free!(EVP_ENCODE_CTX,EVP_ENCODE_CTX_free);
 c_pointer_free!(EVP_MD_CTX, EVP_MD_CTX_free);
 c_pointer_free!(HMAC_CTX, HMAC_CTX_free);
@@ -80,10 +78,6 @@ c_pointer_free!(X509, X509_free);
 c_pointer_free!(OPENSSL_STACK, sk_free);
 c_pointer_free!(X509_STORE, X509_STORE_free);
 c_pointer_free!(X509_STORE_CTX, X509_STORE_CTX_free);
-#[cfg(feature = "zstd")]
-c_pointer_free!(ZSTD_DStream, ZSTD_freeDStream);
-#[cfg(feature = "zstd")]
-c_pointer_free!(ZSTD_CStream, ZSTD_freeCStream);
 c_pointer_free!(ASN1_INTEGER, ASN1_INTEGER_free);
 c_pointer_free!(X509_NAME, X509_NAME_free);
 c_pointer_free!(X509_EXTENSION, X509_EXTENSION_free);

@@ -46,11 +46,11 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> Future for Connecting<'a, S> {
                 Poll::Ready(len) => len,
                 Poll::Pending => return Poll::Pending,
             };
-            stream.handle_record(record_len, Some(&mut connector.config), buffer.unfilled_mut())?;
+            stream.handle_record(record_len, Some(&mut connector.config), buffer.unfilled())?;
         };
         match stream {
             Handshake::Handshaking(mut stream) => {
-                stream.read_buffer.move_to(stream.read_buffer.offset(), 0);
+                stream.read_buffer.move_to(stream.read_buffer.offset(), 0)?;
                 stream.write_buffer.reset();
                 Poll::Ready(Ok(*stream))
             }
