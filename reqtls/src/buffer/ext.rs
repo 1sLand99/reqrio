@@ -107,23 +107,39 @@ pub trait WriteExt {
         Ok(if is_subscribed { 0 } else { -2 })
     }
 
+    #[inline]
     fn unfilled_len(&self) -> usize {
-        let end = unsafe { Buffer_end(self.buffer().0.as_ptr()) };
         let capacity = unsafe { Buffer_capacity(self.buffer().0.as_ptr()) };
-        capacity - end
+        capacity - self.end()
+    }
+
+    #[inline]
+    fn start(&self) -> usize {
+        unsafe { Buffer_start(self.buffer().0.as_ptr()) }
+    }
+
+    #[inline]
+    fn end(&self) -> usize {
+        unsafe { Buffer_end(self.buffer().0.as_ptr()) }
+    }
+
+    #[inline]
+    fn unfilled_ptr(&mut self) -> *mut u8 {
+        let ptr = unsafe { Buffer_pointer_mut(self.buffer_mut().0.as_mut_ptr()) };
+        unsafe { ptr.add(self.end()) }
     }
 
     fn unfilled(&mut self) -> &mut [u8] {
-        let end = unsafe { Buffer_end(self.buffer().0.as_ptr()) };
-        unsafe { slice::from_raw_parts_mut(self.as_mut_ptr().add(end), self.unfilled_len()) }
+        let ptr = self.unfilled_ptr();
+        unsafe { slice::from_raw_parts_mut(ptr, self.unfilled_len()) }
     }
 
-    fn as_ptr(&self) -> *const u8 {
-        unsafe { Buffer_pointer(self.buffer().0.as_ptr()) }
-    }
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        unsafe { Buffer_pointer_mut(self.buffer_mut().0.as_mut_ptr()) }
-    }
+    // fn as_ptr(&self) -> *const u8 {
+    //     unsafe { Buffer_pointer(self.buffer().0.as_ptr()) }
+    // }
+    // fn as_mut_ptr(&mut self) -> *mut u8 {
+    //     unsafe { Buffer_pointer_mut(self.buffer_mut().0.as_mut_ptr()) }
+    // }
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -134,9 +150,7 @@ pub trait WriteExt {
         unsafe { Buffer_add_len(self.buffer_mut().0.as_mut_ptr(), len) }
     }
     fn offset(&self) -> Range<usize> {
-        let start = unsafe { Buffer_start(self.buffer().0.as_ptr()) };
-        let end = unsafe { Buffer_end(self.buffer().0.as_ptr()) };
-        start..end
+        self.start()..self.end()
     }
 }
 
@@ -207,5 +221,20 @@ pub trait ReadExt<'a> {
     fn read_reader(&mut self, len: usize) -> Result<Reader<'a>, BufferError> {
         let res = self.read_slice(len)?;
         Ok(Reader::from_slice(res))
+    }
+
+    fn read_to(&mut self, end: &[u8]) -> Result<&'a [u8], BufferError> {
+        let pos = self.position();
+        let len = self.size();
+        let filled = unsafe { slice::from_raw_parts(self.as_ptr().add(pos), len - pos) };
+        let pos = filled.windows(end.len()).position(|window| window == end);
+        match pos {
+            None => Err(BufferError::Insufficient),
+            Some(pos) => {
+                let res = &filled[..pos];
+                self.add_len(pos);
+                Ok(res)
+            }
+        }
     }
 }

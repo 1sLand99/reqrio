@@ -67,10 +67,15 @@ impl Buffer {
         Buffer(CPointer::new(buffer))
     }
 
+    fn filled_ptr(&self) -> *const u8 {
+        let ptr = unsafe { Buffer_pointer(self.0.as_ptr()) };
+        unsafe { ptr.add(self.start()) }
+    }
+
 
     pub fn filled(&self) -> &[u8] {
         let offset = self.offset();
-        unsafe { slice::from_raw_parts(self.as_ptr().add(offset.start), offset.len()) }
+        unsafe { slice::from_raw_parts(self.filled_ptr(), offset.len()) }
     }
 
     pub fn reset(&mut self) {
@@ -78,8 +83,9 @@ impl Buffer {
     }
 
     pub fn slice_at(&self, place: usize) -> &[u8] {
+        let ptr = unsafe { Buffer_pointer(self.0.as_ptr()) };
         let len = unsafe { Buffer_end(self.0.as_ptr()) } - place;
-        unsafe { slice::from_raw_parts(self.as_ptr().add(place), len) }
+        unsafe { slice::from_raw_parts(ptr.add(place), len) }
     }
 
     pub fn used_empty(&mut self, size: usize) -> bool {

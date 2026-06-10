@@ -3,14 +3,16 @@ mod zstd;
 mod brotli;
 mod deflate;
 mod ext;
+mod chunk;
 
 use crate::error::RlsResult;
-use crate::{BufferError, UrlError};
+use crate::*;
 pub use brotli::{BrotliDecoder, BrotliEncoder, BrotliError};
 pub use deflate::{DeflateError, DeflateStream, DeflateState};
 use std::borrow::Cow;
 #[cfg(feature = "zstd")]
 pub use zstd::{ZstdDecoder, ZstdEncoder, ZSTDError};
+pub use chunk::ChunkDecoder;
 pub use ext::{StreamDecode, StreamEncode};
 
 #[cfg(feature = "zstd")]
@@ -26,11 +28,12 @@ pub fn zstd_compress(data: impl AsRef<[u8]>) -> Result<Vec<u8>, ZSTDError> {
 
 #[cfg(feature = "zstd")]
 pub fn zstd_decompress(data: impl AsRef<[u8]>) -> Result<Vec<u8>, ZSTDError> {
-    let data = data.as_ref();
-    let mut out = vec![0; data.len()];
+    let reader = Reader::from_slice(data.as_ref());
+    let mut out = vec![0; reader.size() * 2];
+    let mut writer = Buffer::from_ptr(out.as_mut());
     let mut decoder = ZstdDecoder::new()?;
-    let len = decoder.decompress(data, &mut out)?;
-    out.truncate(len);
+    decoder.decompress(reader, &mut writer)?;
+    out.truncate(writer.len());
     Ok(out)
 }
 
@@ -53,10 +56,11 @@ pub fn url_decode<'a>(url: impl Into<Cow<'a, str>>) -> Result<Cow<'a, str>, UrlE
 pub fn br_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, BrotliError> {
     let buf = buf.as_ref();
     let mut out = vec![0; buf.len() * 2];
-    let mut decoder = BrotliDecoder::new()?;
     let len = loop {
-        match decoder.decompress(buf, &mut out) {
-            Ok(len) => break len,
+        let mut decoder = BrotliDecoder::new()?;
+        let mut writer = Buffer::from_ptr(out.as_mut());
+        match decoder.decompress(Reader::from_slice(buf), &mut writer) {
+            Ok(_) => break writer.filled().len(),
             Err(BrotliError::Buffer(BufferError::CapacityTooSmall { .. })) => {
                 out.resize(out.len() + 1024, 0);
             }

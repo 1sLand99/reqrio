@@ -2,7 +2,7 @@ use std::error::Error;
 use std::ffi::c_int;
 use std::fmt::{Display, Formatter};
 use crate::ffi::CPointer;
-use crate::{ffi, BufferError};
+use crate::{ffi, BufferError, Reader, WriteExt};
 use crate::coder::ext::{StreamDecode, StreamEncode};
 
 #[repr(C)]
@@ -97,39 +97,36 @@ impl BrotliDecoder {
     }
 }
 
-impl StreamDecode<BrotliError> for BrotliDecoder {
-    fn decompress(&mut self, buf: &[u8], out: &mut [u8]) -> Result<usize, BrotliError> {
-        if out.is_empty() {
-            return Err(BufferError::CapacityTooSmall {
-                needed: buf.len(),
-                current: out.len(),
-            }.into());
-        }
+impl<W: WriteExt> StreamDecode<W> for BrotliDecoder {
+    type Error = BrotliError;
+    fn decompress(&mut self, reader: Reader<'_>, out: &mut W) -> Result<usize, BrotliError> {
+        let buf = reader.into_inner();
         let mut remain_in_size = buf.len();
-        let mut remain_buffer_size = out.len();
+        let mut remain_buffer_size = out.unfilled_len();
         while remain_in_size > 0 {
             let res = unsafe {
                 BROTLI_DECODER_decompress(
                     self.ptr.as_ptr(),
                     buf.as_ptr(),
                     &mut remain_in_size,
-                    out.as_mut_ptr(),
+                    out.unfilled_ptr(),
                     &mut remain_buffer_size,
                     &mut self.total_len,
                 )
             };
             match res {
                 BrotliState::Error => return Err(BrotliError::DecompressFail),
-                BrotliState::Finish => return Ok(out.len() - remain_buffer_size),
+                BrotliState::Finish => { break; }
                 BrotliState::Continue => continue,
                 BrotliState::BufferTooSmall => return Err(BufferError::CapacityTooSmall {
-                    needed: buf.len(),
+                    needed: out.len() + remain_in_size,
                     current: out.len(),
                 }.into())
             }
         }
         assert_eq!(remain_in_size, 0);
-        Ok(out.len() - remain_buffer_size)
+        out.add_len(out.unfilled_len() - remain_buffer_size);
+        Ok(0)
     }
 }
 
@@ -150,7 +147,8 @@ impl BrotliEncoder {
 }
 
 
-impl StreamEncode<BrotliError> for BrotliEncoder {
+impl StreamEncode for BrotliEncoder {
+    type Error = BrotliError;
     fn compress(&mut self, buf: &[u8], out: &mut [u8]) -> Result<usize, BrotliError> {
         let mut remain_in_size = buf.len();
         let mut remain_buffer_size = out.len();
@@ -186,18 +184,19 @@ impl StreamEncode<BrotliError> for BrotliEncoder {
 
 #[cfg(test)]
 mod brotli_test {
-    use crate::coder;
+    use crate::{coder, Buffer, ReadExt, Reader};
     use crate::coder::brotli::{BrotliDecoder, BrotliEncoder};
     use crate::coder::ext::{StreamDecode, StreamEncode};
 
     #[test]
     fn test_brotli_decoder() {
         let mut decode = BrotliDecoder::new().unwrap();
-        let mut decompressed = vec![0; 1024];
+        let mut decompressed = Buffer::with_capacity(1024);
         let compressed = [27, 59, 0, 248, 197, 109, 108, 188, 35, 42, 217, 147, 70, 37, 10, 74, 145, 67, 2, 167, 136, 88, 56, 154, 148, 111, 44, 175, 176, 152, 63, 84, 220, 226, 158, 42, 46, 44, 40, 152, 60, 14];
-        let len1 = decode.decompress(&compressed[..20], &mut decompressed).unwrap();
-        let len2 = decode.decompress(&compressed[20..], &mut decompressed[len1..]).unwrap();
-        assert_eq!(&decompressed[..len1 + len2], b"dfjsdkgfsdhkgjksfyhdlfusdhgfkyudsgflsduyfgsdukfsdfgdhfgjhjhk");
+        let mut reader = Reader::from_slice(&compressed);
+        decode.decompress(reader.read_reader(20).unwrap(), &mut decompressed).unwrap();
+        decode.decompress(reader.read_reader(reader.unread_len()).unwrap(), &mut decompressed).unwrap();
+        assert_eq!(&decompressed.filled(), b"dfjsdkgfsdhkgjksfyhdlfusdhgfkyudsgflsduyfgsdukfsdfgdhfgjhjhk");
         let de = coder::br_decompress(compressed).unwrap();
         assert_eq!(de, b"dfjsdkgfsdhkgjksfyhdlfusdhgfkyudsgflsduyfgsdukfsdfgdhfgjhjhk");
     }
@@ -214,9 +213,10 @@ mod brotli_test {
         assert_eq!(coder::br_compress(text).unwrap(), [27, 59, 0, 248, 197, 109, 108, 188, 35, 42, 217, 147, 70, 37, 10, 74, 145, 67, 2, 167, 136, 88, 56, 154, 148, 111, 44, 175, 176, 152, 63, 84, 220, 226, 158, 42, 46, 44, 40, 152, 60, 14]);
 
 
-        let mut decompressed = vec![0; 1024];
+        let mut decompressed = Buffer::with_capacity(1024);
         let mut decode = BrotliDecoder::new().unwrap();
-        let len = decode.decompress(&compressed[..len1 + len2], decompressed.as_mut()).unwrap();
-        assert_eq!(&decompressed[..len], b"dfjsdkgfsdhkgjksfyhdlfusdhgfkyudsgflsduyfgsdukfsdfgdhfgjhjhk");
+        let reader = Reader::from_slice(&compressed[..len1 + len2]);
+        decode.decompress(reader, &mut decompressed).unwrap();
+        assert_eq!(decompressed.filled(), b"dfjsdkgfsdhkgjksfyhdlfusdhgfkyudsgflsduyfgsdukfsdfgdhfgjhjhk");
     }
 }
