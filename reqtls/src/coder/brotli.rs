@@ -124,6 +124,7 @@ impl<W: WriteExt> StreamDecode<W> for BrotliDecoder {
                 }.into())
             }
         }
+        println!("{}", remain_in_size);
         assert_eq!(remain_in_size, 0);
         out.add_len(out.unfilled_len() - remain_buffer_size);
         Ok(0)

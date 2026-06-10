@@ -109,9 +109,8 @@ pub fn deflate_compress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, DeflateError> 
 
 pub fn deflate_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, DeflateError> {
     let buf = buf.as_ref();
-    let mut stream = DeflateStream::new_decompress(DeflateStream::DEFLATE)?;
     let mut out = vec![0; buf.len() * 2];
-    let len = stream.decompress_once(buf, &mut out)?;
+    let len = DeflateStream::decompress_once(buf, &mut out, DeflateStream::DEFLATE)?;
     out.truncate(len);
     Ok(out)
 }
@@ -129,9 +128,8 @@ pub fn gzip_compress(buf: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
 pub fn gzip_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, DeflateError> {
     let buf = buf.as_ref();
     if buf.is_empty() { return Ok(vec![]); }
-    let mut stream = DeflateStream::new_decompress(DeflateStream::GZIP)?;
     let mut out = vec![0; buf.len() * 2];
-    let len = stream.decompress_once(buf, &mut out)?;
+    let len = DeflateStream::decompress_once(buf, &mut out, DeflateStream::GZIP)?;
     out.truncate(len);
     Ok(out)
 }

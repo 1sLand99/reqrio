@@ -2,6 +2,7 @@ use crate::{BufferError, Reader, WriteExt};
 
 pub trait StreamDecode<W: WriteExt> {
     type Error;
+    ///解压函数，返回未读取长度。
     fn decompress(&mut self, reader: Reader<'_>, out: &mut W) -> Result<usize, Self::Error>;
 }
 

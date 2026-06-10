@@ -88,11 +88,12 @@ impl DeflateStream {
     }
 
 
-    pub fn decompress_once(&mut self, data: &[u8], out: &mut Vec<u8>) -> Result<usize, DeflateError> {
+    pub fn decompress_once(data: &[u8], out: &mut Vec<u8>, wbits: i32) -> Result<usize, DeflateError> {
         loop {
-            let reader = Reader::from_slice(data);
             let mut writer = Buffer::from_ptr(out);
-            match self.decompress(reader, &mut writer) {
+            let reader = Reader::from_slice(data);
+            let mut decoder = DeflateStream::new_decompress(wbits)?;
+            match decoder.decompress(reader, &mut writer) {
                 Ok(_) => return Ok(writer.filled().len()),
                 Err(DeflateError::Error(DeflateState::BUF_ERROR)) => {
                     out.resize(out.len() + 1024, 0);
@@ -119,6 +120,7 @@ impl<W: WriteExt> StreamDecode<W> for DeflateStream {
         if !matches!(state, DeflateState::OK|DeflateState::STREAM_END) {
             return Err(DeflateError::Error(state));
         }
+        println!("{}", out_len);
         out.add_len(out_len);
         Ok(0)
     }

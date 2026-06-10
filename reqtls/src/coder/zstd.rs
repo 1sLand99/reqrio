@@ -144,7 +144,9 @@ mod zstd_tests {
         let mut out = Buffer::with_capacity(1024);
         let mut reader = Reader::from_slice(&compressed);
         let len1 = decoder.decompress(reader.read_reader(20).unwrap(), &mut out).unwrap();
+        assert_eq!(len1, 0);
         let len2 = decoder.decompress(reader.read_reader(reader.unread_len()).unwrap(), &mut out).unwrap();
+        assert_eq!(len2, 0);
         assert_eq!(out.filled(), b"sdfhsdfsdggjyuterdftthfgbhjhhgsdfgdgf");
 
 
