@@ -160,44 +160,47 @@ pub trait ReadExt<'a> {
     fn position(&self) -> usize;
     fn set_position(&mut self, pos: usize);
     fn add_len(&mut self, len: usize);
+    fn unread_ptr(&self) -> *const u8;
     fn check(&self, need: usize) -> Result<usize, BufferError> {
         let pos = self.position();
         let len = self.size();
         if pos + need > len { return Err(BufferError::IndexOutBound { size: len, index: pos + need }); }
         Ok(pos)
     }
-    fn as_ptr(&self) -> *const u8;
+
     #[inline]
     fn current(&self) -> u8 {
-        let pos = self.check(1).unwrap();
-        unsafe { self.as_ptr().add(pos).read_unaligned() }.to_be()
+        self.check(1).unwrap();
+        let ptr = self.unread_ptr();
+        unsafe { ptr.read_unaligned() }.to_be()
     }
     fn read_u8(&mut self) -> Result<u8, BufferError> {
-        let pos = self.check(1)?;
-        let res = unsafe { self.as_ptr().add(pos).read_unaligned() }.to_be();
+        self.check(1)?;
+        let ptr = self.unread_ptr();
+        let res = unsafe { ptr.read_unaligned() }.to_be();
         self.add_len(1);
         Ok(res)
     }
 
     fn read_u16(&mut self) -> Result<u16, BufferError> {
-        let pos = self.check(2)?;
-        let ptr = unsafe { self.as_ptr().add(pos) } as *const u16;
+        self.check(2)?;
+        let ptr = self.unread_ptr() as *const u16;
         let res = unsafe { ptr.read_unaligned() }.to_be();
         self.add_len(2);
         Ok(res)
     }
 
     fn read_u32(&mut self) -> Result<u32, BufferError> {
-        let pos = self.check(4)?;
-        let ptr = unsafe { self.as_ptr().add(pos) } as *const u32;
+        self.check(4)?;
+        let ptr = self.unread_ptr() as *const u32;
         let res = unsafe { ptr.read_unaligned() }.to_be();
         self.add_len(4);
         Ok(res)
     }
 
     fn read_u24(&mut self) -> Result<u24, BufferError> {
-        let pos = self.check(3)?;
-        let ptr = unsafe { self.as_ptr().add(pos) } as *const u24;
+        self.check(3)?;
+        let ptr = self.unread_ptr() as *const u24;
         let res = unsafe { ptr.read_unaligned() << 8 }.to_be();
         self.add_len(3);
         Ok(res)
@@ -205,9 +208,10 @@ pub trait ReadExt<'a> {
 
 
     fn read_slice(&mut self, len: usize) -> Result<&'a [u8], BufferError> {
-        let pos = self.check(len)?;
+        self.check(len)?;
+        let ptr=self.unread_ptr();
         self.add_len(len);
-        Ok(unsafe { slice::from_raw_parts(self.as_ptr().add(pos), len) })
+        Ok(unsafe { slice::from_raw_parts(ptr, len) })
     }
 
     fn read_str<E>(&mut self, len: usize) -> Result<&'a str, E>
@@ -226,7 +230,8 @@ pub trait ReadExt<'a> {
     fn read_to(&mut self, end: &[u8]) -> Result<&'a [u8], BufferError> {
         let pos = self.position();
         let len = self.size();
-        let filled = unsafe { slice::from_raw_parts(self.as_ptr().add(pos), len - pos) };
+        let ptr=self.unread_ptr();
+        let filled = unsafe { slice::from_raw_parts(ptr, len - pos) };
         let pos = filled.windows(end.len()).position(|window| window == end);
         match pos {
             None => Err(BufferError::Insufficient),

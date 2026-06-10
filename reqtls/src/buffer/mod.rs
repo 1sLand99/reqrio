@@ -254,8 +254,8 @@ impl<'a> ReadExt<'a> for Reader<'a> {
         self.pos += len;
     }
 
-    fn as_ptr(&self) -> *const u8 {
-        self.buf.as_ptr()
+    fn unread_ptr(&self) -> *const u8 {
+        unsafe{self.buf.as_ptr().add(self.pos)}
     }
 }
 

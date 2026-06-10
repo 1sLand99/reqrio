@@ -1,6 +1,6 @@
-use std::cmp::min;
 use crate::coder::StreamDecode;
 use crate::{ReadExt, Reader, RlsError, WriteExt};
+use std::cmp::min;
 use std::marker::PhantomData;
 
 pub struct ChunkDecoder<W: WriteExt, C: StreamDecode<W>> {
@@ -29,7 +29,7 @@ impl<W: WriteExt, C: StreamDecode<W>> ChunkDecoder<W, C> {
 
     pub fn finish(&self) -> bool { self.finish }
 
-    fn handle_chunk<'a>(&mut self, reader: &mut Reader<'a>, out: &mut W) -> Result<usize, RlsError>
+    fn handle_chunk<'a>(&mut self, reader: &mut Reader<'a>, out: &mut W) -> Result<(), RlsError>
     where
         RlsError: From<C::Error>,
     {
@@ -37,7 +37,7 @@ impl<W: WriteExt, C: StreamDecode<W>> ChunkDecoder<W, C> {
             if len == [48] {
                 reader.add_len(4);
                 self.finish = true;
-                return Ok(reader.unread_len());
+                return Ok(());
             }
             let len = usize::from_str_radix(std::str::from_utf8(len)?, 16)?;
             self.want_size = len;
@@ -45,7 +45,7 @@ impl<W: WriteExt, C: StreamDecode<W>> ChunkDecoder<W, C> {
             self.trim_end = false;
             reader.add_len(2);
             if reader.unread_len() >= len {
-                self.coder.decompress(reader.read_reader(len)?, out)?;
+                self.coder.decompress(&mut reader.read_reader(len)?, out)?;
                 self.read_size = len;
                 if reader.unread_len() > 2 {
                     reader.add_len(2);
@@ -53,10 +53,10 @@ impl<W: WriteExt, C: StreamDecode<W>> ChunkDecoder<W, C> {
                 }
             } else {
                 self.read_size = reader.unread_len();
-                self.coder.decompress(reader.read_reader(reader.unread_len())?, out)?;
+                self.coder.decompress(&mut reader.read_reader(reader.unread_len())?, out)?;
             }
         }
-        Ok(reader.unread_len())
+        Ok(())
     }
 }
 
@@ -66,22 +66,22 @@ where
 {
     type Error = RlsError;
 
-    fn decompress(&mut self, mut reader: Reader<'_>, out: &mut W) -> Result<usize, Self::Error> {
+    fn decompress(&mut self, mut reader: &mut Reader<'_>, out: &mut W) -> Result<(), Self::Error> {
         if self.want_size == self.read_size {
             self.handle_chunk(&mut reader, out)
         } else {
             let need = self.want_size - self.read_size;
             if reader.unread_len() <= need + 2 {
                 let read = min(reader.unread_len(), need);
-                self.coder.decompress(reader.read_reader(read).unwrap(), out)?;
+                self.coder.decompress(&mut reader.read_reader(read)?, out)?;
                 self.read_size += read;
                 if reader.unread_len() >= 2 {
                     reader.add_len(2);
                     self.trim_end = true;
                 }
-                Ok(0)
+                Ok(())
             } else {
-                self.coder.decompress(reader.read_reader(need).unwrap(), out)?;
+                self.coder.decompress(&mut reader.read_reader(need)?, out)?;
                 self.read_size += need;
                 reader.read_slice(2)?;
                 self.trim_end = true;
@@ -93,40 +93,19 @@ where
 
 #[cfg(test)]
 mod chunk_tests {
-    use std::fs;
     use crate::coder::chunk::ChunkDecoder;
     use crate::coder::{DeflateStream, StreamDecode};
-    use crate::{Buffer, ReadExt, Reader};
+    use crate::{Buffer, Reader};
+    use std::fs;
 
     #[test]
     fn test_chunk_decode() {
         let mut decoder = ChunkDecoder::new(());
         let context = b"10\r\nfjksdfhjdsfjdskj\r\n0\r\n\r\n";
         let mut out = Buffer::with_capacity(1024);
-        let unread = decoder.decompress(Reader::from_slice(context), &mut out).unwrap();
+        decoder.decompress(&mut Reader::from_slice(context), &mut out).unwrap();
         assert_eq!(out.filled(), b"fjksdfhjdsfjdskj");
         assert!(decoder.finish);
-        assert_eq!(unread, 0);
-
-        let mut decoder = ChunkDecoder::new(());
-        out.reset();
-        let mut reader = Reader::from_slice(context);
-        let unread = decoder.decompress(reader.read_reader(4).unwrap(), &mut out).unwrap();
-        assert_eq!(unread, 0);
-        let unread = decoder.decompress(reader.read_reader(3).unwrap(), &mut out).unwrap();
-        assert_eq!(unread, 0);
-        let unread = decoder.decompress(reader.read_reader(3).unwrap(), &mut out).unwrap();
-        assert_eq!(unread, 0);
-        let unread = decoder.decompress(reader.read_reader(3).unwrap(), &mut out).unwrap();
-        assert_eq!(unread, 0);
-        let unread = decoder.decompress(reader.read_reader(3).unwrap(), &mut out).unwrap();
-        assert_eq!(unread, 0);
-        let unread = decoder.decompress(reader.read_reader(3).unwrap(), &mut out).unwrap();
-        assert_eq!(unread, 0);
-        let unread = decoder.decompress(reader.read_reader(3).unwrap(), &mut out).unwrap();
-        assert_eq!(unread, 0);
-        let unread = decoder.decompress(reader.read_reader(3).unwrap(), &mut out).unwrap();
-        assert_eq!(unread, 0);
     }
 
     #[test]
@@ -134,8 +113,7 @@ mod chunk_tests {
         let data = fs::read("../data/coder/chunk_gzip.bin").unwrap();
         let mut decompressed = Buffer::with_capacity(data.len() * 10);
         let mut decoder = ChunkDecoder::new(DeflateStream::new_decompress(DeflateStream::GZIP).unwrap());
-        let len = decoder.decompress(Reader::from_slice(&data), &mut decompressed).unwrap();
-        assert_eq!(len, 0);
+        decoder.decompress(&mut Reader::from_slice(&data), &mut decompressed).unwrap();
         assert!(std::str::from_utf8(decompressed.filled()).is_ok())
     }
 }

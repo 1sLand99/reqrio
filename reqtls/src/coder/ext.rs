@@ -1,23 +1,22 @@
-use crate::{BufferError, Reader, WriteExt};
+use crate::{BufferError, ReadExt, Reader, WriteExt};
 
 pub trait StreamDecode<W: WriteExt> {
     type Error;
-    ///解压函数，返回未读取长度。
-    fn decompress(&mut self, reader: Reader<'_>, out: &mut W) -> Result<usize, Self::Error>;
+    fn decompress(&mut self, reader: &mut Reader<'_>, out: &mut W) -> Result<(), Self::Error>;
 }
 
 pub trait StreamEncode {
     type Error;
     fn compress(&mut self, data: &[u8], out: &mut [u8]) -> Result<usize, Self::Error>;
-    fn flush(&mut self, out: &mut [u8]) -> Result<usize, Self::Error>;
+    fn finalize(&mut self, out: &mut [u8]) -> Result<usize, Self::Error>;
 }
 
 impl<W: WriteExt> StreamDecode<W> for () {
     type Error = BufferError;
 
-    fn decompress(&mut self, reader: Reader<'_>, out: &mut W) -> Result<usize, BufferError> {
-        out.write_slice(reader.into_inner())?;
-        Ok(0)
+    fn decompress(&mut self, reader: &mut Reader<'_>, out: &mut W) -> Result<(), BufferError> {
+        out.write_slice(reader.read_slice(reader.unread_len())?)?;
+        Ok(())
     }
 }
 
@@ -34,7 +33,7 @@ impl StreamEncode for () {
         Ok(data.len())
     }
 
-    fn flush(&mut self, _: &mut [u8]) -> Result<usize, BufferError> {
+    fn finalize(&mut self, _: &mut [u8]) -> Result<usize, BufferError> {
         Ok(0)
     }
 }

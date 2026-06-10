@@ -1,10 +1,10 @@
 use crate::boring::BoringResExt;
 use crate::coder::ext::{StreamDecode, StreamEncode};
 use crate::ffi::{self, CPointer};
+use crate::{BufferError, ReadExt, Reader, WriteExt};
 use std::error::Error;
 use std::fmt::Display;
 use std::os::raw::c_int;
-use crate::{ReadExt, Reader, WriteExt};
 
 #[derive(Debug)]
 pub enum ZSTDError {
@@ -15,6 +15,7 @@ pub enum ZSTDError {
     InitEncoderStreamFail,
     EncodeError,
     FlushError,
+    Buffer(BufferError),
 }
 
 impl Display for ZSTDError {
@@ -74,21 +75,26 @@ impl ZstdDecoder {
 
 impl<W: WriteExt> StreamDecode<W> for ZstdDecoder {
     type Error = ZSTDError;
-    fn decompress(&mut self, reader: Reader<'_>, out: &mut W) -> Result<usize, ZSTDError> {
-        println!("{}", reader.size());
+    fn decompress(&mut self, reader: &mut Reader<'_>, out: &mut W) -> Result<(), ZSTDError> {
         let mut out_len = out.unfilled_len();
         unsafe {
             ZSTD_DECODER_decompress(
                 self.0.as_ptr(),
-                reader.as_ptr(),
-                reader.size(),
+                reader.unread_ptr(),
+                reader.unread_len(),
                 out.unfilled_ptr(),
                 &mut out_len,
             )
         }.ok(ZSTDError::DecodeError)?;
-        println!("{}", out_len);
+        reader.add_len(reader.unread_len());
         out.add_len(out_len);
-        Ok(0)
+        if out.unfilled_len() == 0 {
+            return Err(ZSTDError::Buffer(BufferError::CapacityTooSmall {
+                current: out.capacity(),
+                needed: out.capacity() + 1024,
+            }));
+        }
+        Ok(())
     }
 }
 
@@ -118,7 +124,7 @@ impl StreamEncode for ZstdEncoder {
         Ok(out_len)
     }
 
-    fn flush(&mut self, out: &mut [u8]) -> Result<usize, ZSTDError> {
+    fn finalize(&mut self, out: &mut [u8]) -> Result<usize, ZSTDError> {
         let mut out_len = out.len();
         unsafe {
             ZSTD_ENCODER_flush(
@@ -133,27 +139,32 @@ impl StreamEncode for ZstdEncoder {
 
 #[cfg(test)]
 mod zstd_tests {
-    use crate::{coder, Buffer, ReadExt, Reader};
     use crate::coder::ext::{StreamDecode, StreamEncode};
     use crate::coder::zstd::{ZstdDecoder, ZstdEncoder};
+    use crate::{coder, Buffer, Reader, WriteExt};
 
     #[test]
     fn test_zstd() {
         let compressed = [40, 181, 47, 253, 32, 37, 41, 1, 0, 115, 100, 102, 104, 115, 100, 102, 115, 100, 103, 103, 106, 121, 117, 116, 101, 114, 100, 102, 116, 116, 104, 102, 103, 98, 104, 106, 104, 104, 103, 115, 100, 102, 103, 100, 103, 102];
         let mut decoder = ZstdDecoder::new().unwrap();
-        let mut out = Buffer::with_capacity(1024);
+        let mut out = vec![0; 1];
+        let mut writer = Buffer::from_ptr(out.as_mut());
         let mut reader = Reader::from_slice(&compressed);
-        let len1 = decoder.decompress(reader.read_reader(20).unwrap(), &mut out).unwrap();
-        assert_eq!(len1, 0);
-        let len2 = decoder.decompress(reader.read_reader(reader.unread_len()).unwrap(), &mut out).unwrap();
-        assert_eq!(len2, 0);
-        assert_eq!(out.filled(), b"sdfhsdfsdggjyuterdftthfgbhjhhgsdfgdgf");
+        let res = decoder.decompress(&mut reader, &mut writer);
+        assert!(res.is_err());
+
+        out.resize(1024, 0);
+        let wrote = writer.filled().len();
+        let mut writer = Buffer::from_ptr(out.as_mut());
+        writer.add_len(wrote);
+        decoder.decompress(&mut reader, &mut writer).unwrap();
+        assert_eq!(writer.filled(), b"sdfhsdfsdggjyuterdftthfgbhjhhgsdfgdgf");
 
 
         let mut encoder = ZstdEncoder::new().unwrap();
         let mut out = [0; 1024];
         let len1 = encoder.compress(b"sdfhsdfsdggjyuterdftthfgbhjhhgsdfgdgf", &mut out).unwrap();
-        let len2 = encoder.flush(&mut out[len1..]).unwrap();
+        let len2 = encoder.finalize(&mut out[len1..]).unwrap();
         assert_eq!(coder::zstd_decompress(&out[..len1 + len2]).unwrap(), b"sdfhsdfsdggjyuterdftthfgbhjhhgsdfgdgf");
     }
 }
