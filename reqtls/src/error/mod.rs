@@ -1,7 +1,13 @@
 mod handshake;
 
+use crate::boring::{EcError, EvpError, MLKEMError, PKeyError};
+use crate::cipher::CipherError;
+use crate::coder::CodingError;
+use crate::dns::DNSError;
+use crate::hash::HashError;
 use crate::url::UrlError;
 use crate::{Alert, BufferError};
+pub use handshake::HandShakeError;
 use hex::FromHexError;
 use std::array::TryFromSliceError;
 use std::convert::Infallible;
@@ -15,12 +21,6 @@ use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 use std::sync::PoisonError;
 use std::time::SystemTimeError;
-pub use handshake::HandShakeError;
-use crate::boring::{EcError, EvpError, MLKEMError, PKeyError};
-use crate::cipher::CipherError;
-use crate::coder::{BrotliError, DeflateError};
-use crate::dns::DNSError;
-use crate::hash::HashError;
 
 #[derive(Debug)]
 pub enum RlsError {
@@ -91,8 +91,7 @@ pub enum RlsError {
     MlKemError(MLKEMError),
     Cipher(CipherError),
     Pkey(PKeyError),
-    Brotli(BrotliError),
-    Deflate(DeflateError),
+    Coding(CodingError),
 }
 
 impl Display for RlsError {
@@ -165,8 +164,7 @@ impl Display for RlsError {
             RlsError::MlKemError(e) => write!(f, "MlKemError({:?})", e),
             RlsError::Cipher(e) => write!(f, "Cipher({:?})", e),
             RlsError::Pkey(e) => write!(f, "Pkey({:?})", e),
-            RlsError::Brotli(e) => write!(f, "Brotli({:?})", e),
-            RlsError::Deflate(e) => write!(f, "Deflate({:?})", e)
+            RlsError::Coding(e) => write!(f, "Coding({:?})", e),
         }
     }
 }
@@ -324,15 +322,9 @@ impl From<PKeyError> for RlsError {
     }
 }
 
-impl From<BrotliError> for RlsError {
-    fn from(value: BrotliError) -> Self {
-        RlsError::Brotli(value)
-    }
-}
-
-impl From<DeflateError> for RlsError {
-    fn from(value: DeflateError) -> Self {
-        RlsError::Deflate(value)
+impl From<CodingError> for RlsError {
+    fn from(value: CodingError) -> Self {
+        RlsError::Coding(value)
     }
 }
 

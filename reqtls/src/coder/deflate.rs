@@ -1,8 +1,7 @@
 use crate::coder::ext::{StreamDecode, StreamEncode};
+use crate::coder::CodingError;
 use crate::ffi::CPointer;
 use crate::{ffi, Buffer, ReadExt, Reader, WriteExt};
-use std::error::Error;
-use std::fmt::{Display, Formatter};
 
 #[repr(C)]
 #[allow(non_camel_case_types)]
@@ -30,22 +29,6 @@ unsafe extern "C" {
     ) -> DeflateState;
     fn DEFLATE_STREAM_flush(decoder: *mut DEFLATE_STREAM, out: *mut u8, out_len: *mut usize) -> DeflateState;
 }
-#[derive(Debug)]
-pub enum DeflateError {
-    NewDeflateDecoder,
-    DeflateDecompressFailed,
-    DeflateCompressFailed,
-    DeflateFlushFailed,
-    Error(DeflateState),
-}
-
-impl Display for DeflateError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl Error for DeflateError {}
 
 
 #[repr(C)]
@@ -71,24 +54,24 @@ impl DeflateStream {
     pub const DEFLATE: i32 = -15;
     pub const ZLIB: i32 = 15;
     pub const GZIP: i32 = 31;
-    pub fn new(enc: i32, level: i32, wbits: i32) -> Result<DeflateStream, DeflateError> {
+    pub fn new(enc: i32, level: i32, wbits: i32) -> Result<DeflateStream, CodingError> {
         let ptr = unsafe { DEFLATE_STREAM_new(enc, level, wbits) };
-        let ptr = CPointer::new_checked(ptr, DeflateError::NewDeflateDecoder)?;
+        let ptr = CPointer::new_checked(ptr, CodingError::NewDeflateDecoder)?;
         Ok(DeflateStream {
             stream: ptr
         })
     }
 
-    pub fn new_compress(wbits: i32) -> Result<DeflateStream, DeflateError> {
+    pub fn new_compress(wbits: i32) -> Result<DeflateStream, CodingError> {
         DeflateStream::new(1, -1, wbits)
     }
 
-    pub fn new_decompress(wbits: i32) -> Result<DeflateStream, DeflateError> {
+    pub fn new_decompress(wbits: i32) -> Result<DeflateStream, CodingError> {
         DeflateStream::new(0, 0, wbits)
     }
 
 
-    pub fn decompress_once<'a>(&mut self, reader: &mut Reader<'a>, out: &mut Vec<u8>) -> Result<usize, DeflateError> {
+    pub fn decompress_once<'a>(&mut self, reader: &mut Reader<'a>, out: &mut Vec<u8>) -> Result<usize, CodingError> {
         let mut wrote = 0;
         loop {
             let mut writer = Buffer::from_ptr(out);
@@ -99,7 +82,7 @@ impl DeflateStream {
             wrote = writer.filled().len();
             match res {
                 Ok(_) => return Ok(writer.filled().len()),
-                Err(DeflateError::Error(DeflateState::BUF_ERROR)) => {
+                Err(CodingError::DeflateError(DeflateState::BUF_ERROR)) => {
                     out.resize(out.len() + 1024, 0);
                 }
                 Err(e) => return Err(e),
@@ -107,11 +90,11 @@ impl DeflateStream {
         }
     }
 
-    fn flush<W: WriteExt>(&mut self, out: &mut W) -> Result<(), DeflateError> {
+    fn flush<W: WriteExt>(&mut self, out: &mut W) -> Result<(), CodingError> {
         let mut out_len = out.unfilled_len();
         let state = unsafe { DEFLATE_STREAM_flush(self.stream.as_mut_ptr(), out.unfilled_ptr(), &mut out_len) };
         if !matches!(state, DeflateState::OK|DeflateState::STREAM_END) {
-            return Err(DeflateError::Error(state));
+            return Err(CodingError::DeflateError(state));
         }
         out.add_len(out_len);
         Ok(())
@@ -119,8 +102,7 @@ impl DeflateStream {
 }
 
 impl<W: WriteExt> StreamDecode<W> for DeflateStream {
-    type Error = DeflateError;
-    fn decompress(&mut self, reader: &mut Reader<'_>, out: &mut W) -> Result<(), DeflateError> {
+    fn decompress(&mut self, reader: &mut Reader<'_>, out: &mut W) -> Result<(), CodingError> {
         let mut out_len = out.unfilled_len();
         let state = unsafe {
             DEFLATE_STREAM_decompress(
@@ -134,15 +116,14 @@ impl<W: WriteExt> StreamDecode<W> for DeflateStream {
         reader.add_len(reader.unread_len());
         out.add_len(out_len);
         if !matches!(state, DeflateState::OK|DeflateState::STREAM_END) {
-            return Err(DeflateError::Error(state));
+            return Err(CodingError::DeflateError(state));
         }
         Ok(())
     }
 }
 
 impl StreamEncode for DeflateStream {
-    type Error = DeflateError;
-    fn compress(&mut self, data: &[u8], out: &mut [u8]) -> Result<usize, DeflateError> {
+    fn compress(&mut self, data: &[u8], out: &mut [u8]) -> Result<usize, CodingError> {
         let mut out_len = out.len();
         let state = unsafe {
             DEFLATE_STREAM_compress(
@@ -154,12 +135,12 @@ impl StreamEncode for DeflateStream {
             )
         };
         if !matches!(state, DeflateState::OK|DeflateState::STREAM_END) {
-            return Err(DeflateError::Error(state));
+            return Err(CodingError::DeflateError(state));
         }
         Ok(out_len)
     }
 
-    fn finalize(&mut self, out: &mut [u8]) -> Result<usize, DeflateError> {
+    fn finalize(&mut self, out: &mut [u8]) -> Result<usize, CodingError> {
         let mut writer = Buffer::from_ptr(out.as_mut());
         self.flush(&mut writer)?;
         Ok(writer.len())

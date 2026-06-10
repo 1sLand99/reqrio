@@ -1,30 +1,9 @@
 use crate::boring::BoringResExt;
 use crate::coder::ext::{StreamDecode, StreamEncode};
+use crate::coder::CodingError;
 use crate::ffi::{self, CPointer};
 use crate::{BufferError, ReadExt, Reader, WriteExt};
-use std::error::Error;
-use std::fmt::Display;
 use std::os::raw::c_int;
-
-#[derive(Debug)]
-pub enum ZSTDError {
-    NewDecoderFail,
-    InitDecodeStreamFail,
-    DecodeError,
-    NewEncoderFail,
-    InitEncoderStreamFail,
-    EncodeError,
-    FlushError,
-    Buffer(BufferError),
-}
-
-impl Display for ZSTDError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl Error for ZSTDError {}
 
 #[repr(C)]
 #[allow(non_camel_case_types)]
@@ -66,16 +45,15 @@ unsafe extern "C" {
 pub struct ZstdDecoder(CPointer<ZSTD_DECODER>);
 
 impl ZstdDecoder {
-    pub fn new() -> Result<ZstdDecoder, ZSTDError> {
+    pub fn new() -> Result<ZstdDecoder, CodingError> {
         let ptr = unsafe { ZSTD_DECODER_new() };
-        let ptr = CPointer::new_checked(ptr, ZSTDError::NewDecoderFail)?;
+        let ptr = CPointer::new_checked(ptr, CodingError::NewZstdDecoderFail)?;
         Ok(ZstdDecoder(ptr))
     }
 }
 
 impl<W: WriteExt> StreamDecode<W> for ZstdDecoder {
-    type Error = ZSTDError;
-    fn decompress(&mut self, reader: &mut Reader<'_>, out: &mut W) -> Result<(), ZSTDError> {
+    fn decompress(&mut self, reader: &mut Reader<'_>, out: &mut W) -> Result<(), CodingError> {
         let mut out_len = out.unfilled_len();
         unsafe {
             ZSTD_DECODER_decompress(
@@ -85,11 +63,11 @@ impl<W: WriteExt> StreamDecode<W> for ZstdDecoder {
                 out.unfilled_ptr(),
                 &mut out_len,
             )
-        }.ok(ZSTDError::DecodeError)?;
+        }.ok(CodingError::ZstdDecodeError)?;
         reader.add_len(reader.unread_len());
         out.add_len(out_len);
         if out.unfilled_len() == 0 {
-            return Err(ZSTDError::Buffer(BufferError::CapacityTooSmall {
+            return Err(CodingError::Buffer(BufferError::CapacityTooSmall {
                 current: out.capacity(),
                 needed: out.capacity() + 1024,
             }));
@@ -101,16 +79,15 @@ impl<W: WriteExt> StreamDecode<W> for ZstdDecoder {
 pub struct ZstdEncoder(CPointer<ZSTD_ENCODER>);
 
 impl ZstdEncoder {
-    pub fn new() -> Result<ZstdEncoder, ZSTDError> {
+    pub fn new() -> Result<ZstdEncoder, CodingError> {
         let ptr = unsafe { ZSTD_ENCODER_new(3) };
-        let ptr = CPointer::new_checked(ptr, ZSTDError::NewEncoderFail)?;
+        let ptr = CPointer::new_checked(ptr, CodingError::NewZstdEncoderFail)?;
         Ok(ZstdEncoder(ptr))
     }
 }
 
 impl StreamEncode for ZstdEncoder {
-    type Error = ZSTDError;
-    fn compress(&mut self, data: &[u8], out: &mut [u8]) -> Result<usize, ZSTDError> {
+    fn compress(&mut self, data: &[u8], out: &mut [u8]) -> Result<usize, CodingError> {
         let mut out_len = out.len();
         unsafe {
             ZSTD_ENCODER_compress(
@@ -120,11 +97,11 @@ impl StreamEncode for ZstdEncoder {
                 out.as_mut_ptr(),
                 &mut out_len,
             )
-        }.ok(ZSTDError::EncodeError)?;
+        }.ok(CodingError::ZstdEncodeError)?;
         Ok(out_len)
     }
 
-    fn finalize(&mut self, out: &mut [u8]) -> Result<usize, ZSTDError> {
+    fn finalize(&mut self, out: &mut [u8]) -> Result<usize, CodingError> {
         let mut out_len = out.len();
         unsafe {
             ZSTD_ENCODER_flush(
@@ -132,7 +109,7 @@ impl StreamEncode for ZstdEncoder {
                 out.as_mut_ptr(),
                 &mut out_len,
             )
-        }.ok(ZSTDError::FlushError)?;
+        }.ok(CodingError::ZstdFlushError)?;
         Ok(out_len)
     }
 }

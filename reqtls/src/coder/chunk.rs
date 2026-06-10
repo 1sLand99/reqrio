@@ -1,5 +1,5 @@
-use crate::coder::StreamDecode;
-use crate::{ReadExt, Reader, RlsError, WriteExt};
+use crate::coder::{CodingError, StreamDecode};
+use crate::{ReadExt, Reader, WriteExt};
 use std::cmp::min;
 use std::marker::PhantomData;
 
@@ -29,10 +29,7 @@ impl<W: WriteExt, C: StreamDecode<W>> ChunkDecoder<W, C> {
 
     pub fn finish(&self) -> bool { self.finish }
 
-    fn handle_chunk<'a>(&mut self, reader: &mut Reader<'a>, out: &mut W) -> Result<(), RlsError>
-    where
-        RlsError: From<C::Error>,
-    {
+    fn handle_chunk<'a>(&mut self, reader: &mut Reader<'a>, out: &mut W) -> Result<(), CodingError> {
         while let Ok(len) = reader.read_to(b"\r\n") {
             if len == [48] {
                 reader.add_len(4);
@@ -60,13 +57,8 @@ impl<W: WriteExt, C: StreamDecode<W>> ChunkDecoder<W, C> {
     }
 }
 
-impl<W: WriteExt, C: StreamDecode<W>> StreamDecode<W> for ChunkDecoder<W, C>
-where
-    RlsError: From<C::Error>,
-{
-    type Error = RlsError;
-
-    fn decompress(&mut self, mut reader: &mut Reader<'_>, out: &mut W) -> Result<(), Self::Error> {
+impl<W: WriteExt, C: StreamDecode<W>> StreamDecode<W> for ChunkDecoder<W, C> {
+    fn decompress(&mut self, mut reader: &mut Reader<'_>, out: &mut W) -> Result<(), CodingError> {
         if self.want_size == self.read_size {
             self.handle_chunk(&mut reader, out)
         } else {

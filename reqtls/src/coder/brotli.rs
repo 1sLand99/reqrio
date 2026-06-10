@@ -1,9 +1,8 @@
 use crate::coder::ext::{StreamDecode, StreamEncode};
+use crate::coder::CodingError;
 use crate::ffi::CPointer;
 use crate::{ffi, BufferError, ReadExt, Reader, WriteExt};
-use std::error::Error;
 use std::ffi::c_int;
-use std::fmt::{Display, Formatter};
 
 #[repr(C)]
 #[allow(non_camel_case_types)]
@@ -58,28 +57,6 @@ enum BrotliState {
     BufferTooSmall = 3,
 }
 
-#[derive(Debug)]
-pub enum BrotliError {
-    NewDecoderError,
-    DecompressFail,
-    CompressFail,
-    FlushFail,
-    Buffer(BufferError),
-}
-
-impl Display for BrotliError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-impl Error for BrotliError {}
-
-impl From<BufferError> for BrotliError {
-    fn from(value: BufferError) -> Self {
-        BrotliError::Buffer(value)
-    }
-}
-
 
 pub struct BrotliDecoder {
     ptr: CPointer<BROTLI_DECODER>,
@@ -88,9 +65,9 @@ pub struct BrotliDecoder {
 }
 
 impl BrotliDecoder {
-    pub fn new() -> Result<BrotliDecoder, BrotliError> {
+    pub fn new() -> Result<BrotliDecoder, CodingError> {
         let ptr = unsafe { BROTLI_DECODER_new() };
-        let ptr = CPointer::new_checked(ptr, BrotliError::NewDecoderError)?;
+        let ptr = CPointer::new_checked(ptr, CodingError::NewBrDecoderError)?;
         Ok(BrotliDecoder {
             ptr,
             total_len: 0,
@@ -100,8 +77,7 @@ impl BrotliDecoder {
 }
 
 impl<W: WriteExt> StreamDecode<W> for BrotliDecoder {
-    type Error = BrotliError;
-    fn decompress(&mut self, reader: &mut Reader<'_>, out: &mut W) -> Result<(), BrotliError> {
+    fn decompress(&mut self, reader: &mut Reader<'_>, out: &mut W) -> Result<(), CodingError> {
         let mut remain_in_size = reader.unread_len();
         let mut remain_buffer_size = out.unfilled_len();
         while self.need_buffer || remain_in_size > 0 {
@@ -120,7 +96,7 @@ impl<W: WriteExt> StreamDecode<W> for BrotliDecoder {
             out.add_len(out.unfilled_len() - remain_buffer_size);
             assert_eq!(out.unfilled_len(), remain_buffer_size);
             match res {
-                BrotliState::Error => return Err(BrotliError::DecompressFail),
+                BrotliState::Error => return Err(CodingError::BrDecompressFail),
                 BrotliState::Finish => break,
                 BrotliState::Continue => continue,
                 BrotliState::BufferTooSmall => {
@@ -144,9 +120,9 @@ pub struct BrotliEncoder {
 }
 
 impl BrotliEncoder {
-    pub fn new() -> Result<BrotliEncoder, BrotliError> {
+    pub fn new() -> Result<BrotliEncoder, CodingError> {
         let ptr = unsafe { BROTLI_ENCODER_new(11, 22) };
-        let ptr = CPointer::new_checked(ptr, BrotliError::NewDecoderError)?;
+        let ptr = CPointer::new_checked(ptr, CodingError::NewBrEncoderError)?;
         Ok(BrotliEncoder {
             ptr,
             total_len: 0,
@@ -156,8 +132,7 @@ impl BrotliEncoder {
 
 
 impl StreamEncode for BrotliEncoder {
-    type Error = BrotliError;
-    fn compress(&mut self, buf: &[u8], out: &mut [u8]) -> Result<usize, BrotliError> {
+    fn compress(&mut self, buf: &[u8], out: &mut [u8]) -> Result<usize, CodingError> {
         let mut remain_in_size = buf.len();
         let mut remain_buffer_size = out.len();
         let ret = unsafe {
@@ -170,12 +145,12 @@ impl StreamEncode for BrotliEncoder {
                 &mut self.total_len,
             )
         };
-        if ret != 1 { return Err(BrotliError::CompressFail); }
+        if ret != 1 { return Err(CodingError::BrCompressFail); }
         assert_eq!(remain_in_size, 0);
         Ok(out.len() - remain_buffer_size)
     }
 
-    fn finalize(&mut self, out: &mut [u8]) -> Result<usize, BrotliError> {
+    fn finalize(&mut self, out: &mut [u8]) -> Result<usize, CodingError> {
         let mut remain_buffer_size = out.len();
         let ret = unsafe {
             BROTLI_ENCODER_flush(
@@ -185,7 +160,7 @@ impl StreamEncode for BrotliEncoder {
                 &mut self.total_len,
             )
         };
-        if ret != 1 { return Err(BrotliError::FlushFail); }
+        if ret != 1 { return Err(CodingError::BrFlushFail); }
         Ok(out.len() - remain_buffer_size)
     }
 }

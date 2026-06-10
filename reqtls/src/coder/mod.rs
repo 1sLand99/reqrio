@@ -7,16 +7,68 @@ mod chunk;
 
 use crate::error::RlsResult;
 use crate::*;
-pub use brotli::{BrotliDecoder, BrotliEncoder, BrotliError};
-pub use deflate::{DeflateError, DeflateStream, DeflateState};
-use std::borrow::Cow;
-#[cfg(feature = "zstd")]
-pub use zstd::{ZstdDecoder, ZstdEncoder, ZSTDError};
+pub use brotli::{BrotliDecoder, BrotliEncoder};
 pub use chunk::ChunkDecoder;
+pub use deflate::{DeflateState, DeflateStream};
 pub use ext::{StreamDecode, StreamEncode};
+use std::borrow::Cow;
+use std::error::Error;
+use std::fmt::Display;
+use std::num::ParseIntError;
+use std::str::Utf8Error;
+#[cfg(feature = "zstd")]
+pub use zstd::{ZstdDecoder, ZstdEncoder};
+
+#[derive(Debug)]
+pub enum CodingError {
+    NewDeflateDecoder,
+    DeflateDecompressFailed,
+    DeflateCompressFailed,
+    DeflateFlushFailed,
+    DeflateError(DeflateState),
+    NewZstdDecoderFail,
+    ZstdDecodeError,
+    NewZstdEncoderFail,
+    ZstdEncodeError,
+    ZstdFlushError,
+    Buffer(BufferError),
+    NewBrDecoderError,
+    BrDecompressFail,
+    NewBrEncoderError,
+    BrCompressFail,
+    BrFlushFail,
+    Utf8(Utf8Error),
+    ParseInt(ParseIntError),
+}
+
+impl Display for CodingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl Error for CodingError {}
+
+impl From<BufferError> for CodingError {
+    fn from(value: BufferError) -> Self {
+        CodingError::Buffer(value)
+    }
+}
+
+impl From<Utf8Error> for CodingError {
+    fn from(value: Utf8Error) -> Self {
+        CodingError::Utf8(value)
+    }
+}
+
+impl From<ParseIntError> for CodingError{
+    fn from(value: ParseIntError) -> Self {
+        CodingError::ParseInt(value)
+    }
+}
 
 #[cfg(feature = "zstd")]
-pub fn zstd_compress(data: impl AsRef<[u8]>) -> Result<Vec<u8>, ZSTDError> {
+pub fn zstd_compress(data: impl AsRef<[u8]>) -> Result<Vec<u8>, CodingError> {
     let data = data.as_ref();
     let mut out = vec![0; data.len()];
     let mut encoder = ZstdEncoder::new()?;
@@ -27,7 +79,7 @@ pub fn zstd_compress(data: impl AsRef<[u8]>) -> Result<Vec<u8>, ZSTDError> {
 }
 
 #[cfg(feature = "zstd")]
-pub fn zstd_decompress(data: impl AsRef<[u8]>) -> Result<Vec<u8>, ZSTDError> {
+pub fn zstd_decompress(data: impl AsRef<[u8]>) -> Result<Vec<u8>, CodingError> {
     let mut reader = Reader::from_slice(data.as_ref());
     let mut out = vec![0; reader.size() * 2];
     let mut decoder = ZstdDecoder::new()?;
@@ -39,7 +91,7 @@ pub fn zstd_decompress(data: impl AsRef<[u8]>) -> Result<Vec<u8>, ZSTDError> {
         wrote = writer.filled().len();
         match res {
             Ok(_) => break,
-            Err(ZSTDError::Buffer(BufferError::CapacityTooSmall { .. })) => {
+            Err(CodingError::Buffer(BufferError::CapacityTooSmall { .. })) => {
                 out.resize(out.len() + 1024, 0);
             }
             Err(e) => return Err(e)
@@ -65,7 +117,7 @@ pub fn url_decode<'a>(url: impl Into<Cow<'a, str>>) -> Result<Cow<'a, str>, UrlE
     }
 }
 
-pub fn br_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, BrotliError> {
+pub fn br_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, CodingError> {
     let mut reader = Reader::from_slice(buf.as_ref());
     let mut out = vec![0; reader.size() * 2];
     let mut decoder = BrotliDecoder::new()?;
@@ -73,7 +125,7 @@ pub fn br_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, BrotliError> {
         let mut writer = Buffer::from_ptr(out.as_mut());
         match decoder.decompress(&mut reader, &mut writer) {
             Ok(_) => break writer.filled().len(),
-            Err(BrotliError::Buffer(BufferError::CapacityTooSmall { .. })) => {
+            Err(CodingError::Buffer(BufferError::CapacityTooSmall { .. })) => {
                 out.resize(out.len() + 1024, 0);
             }
             Err(e) => return Err(e)
@@ -83,7 +135,7 @@ pub fn br_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, BrotliError> {
     Ok(out)
 }
 
-pub fn br_compress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, BrotliError> {
+pub fn br_compress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, CodingError> {
     let buf = buf.as_ref();
     let mut out = vec![0; buf.len()];
     let mut encoder = BrotliEncoder::new()?;
@@ -109,7 +161,7 @@ pub fn chunk_decode(mut raw: Vec<u8>) -> RlsResult<Vec<u8>> {
     Ok(res)
 }
 
-pub fn deflate_compress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, DeflateError> {
+pub fn deflate_compress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, CodingError> {
     let mut stream = DeflateStream::new_compress(DeflateStream::DEFLATE)?;
     let buf = buf.as_ref();
     let mut out = vec![0; buf.len()];
@@ -119,7 +171,7 @@ pub fn deflate_compress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, DeflateError> 
     Ok(out)
 }
 
-pub fn deflate_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, DeflateError> {
+pub fn deflate_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, CodingError> {
     let mut reader = Reader::from_slice(buf.as_ref());
     let mut out = vec![0; reader.size() * 2];
     let mut decoder = DeflateStream::new_decompress(DeflateStream::DEFLATE)?;
@@ -128,7 +180,7 @@ pub fn deflate_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, DeflateError
     Ok(out)
 }
 
-pub fn gzip_compress(buf: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
+pub fn gzip_compress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, CodingError> {
     let mut stream = DeflateStream::new_compress(DeflateStream::GZIP)?;
     let buf = buf.as_ref();
     let mut out = vec![0; buf.len()];
@@ -138,7 +190,7 @@ pub fn gzip_compress(buf: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
     Ok(out)
 }
 
-pub fn gzip_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, DeflateError> {
+pub fn gzip_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, CodingError> {
     let mut reader = Reader::from_slice(buf.as_ref());
     if reader.unread_len() == 0 { return Ok(vec![]); }
     let mut out = vec![0; reader.size() * 2];
