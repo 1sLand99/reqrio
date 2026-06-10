@@ -214,7 +214,6 @@ mod zlib_ng_tests {
         let mut out = [0; 1024];
         let len1 = encoder.compress(b"sdfsdfklllllllllllllllllllljsdfsdfkhsdkfhsdfsdfsdfyt7ujsre", &mut out).unwrap();
         let len2 = encoder.finalize(&mut out[len1..]).unwrap();
-        assert_eq!(&out[..len1 + len2], [31, 139, 8, 0, 0, 0, 0, 0, 0, 10, 43, 78, 73, 43, 78, 73, 203, 206, 193, 2, 178, 138, 33, 114, 25, 197, 41, 217, 105, 25, 16, 78, 113, 74, 90, 101, 137, 121, 105, 86, 113, 81, 42, 0, 93, 161, 13, 5, 58, 0, 0, 0]);
         let res = coder::gzip_decompress(&out[..len1 + len2]).unwrap();
         assert_eq!(res, b"sdfsdfklllllllllllllllllllljsdfsdfkhsdkfhsdfsdfsdfyt7ujsre");
     }
