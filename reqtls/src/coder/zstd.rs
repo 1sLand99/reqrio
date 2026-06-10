@@ -74,6 +74,10 @@ impl<W: WriteExt> StreamDecode<W> for ZstdDecoder {
         }
         Ok(())
     }
+
+    fn flush(&mut self, out: &mut W) -> Result<(), CodingError> {
+        self.decompress(&mut Reader::from_slice(&[]), out)
+    }
 }
 
 pub struct ZstdEncoder(CPointer<ZSTD_ENCODER>);
@@ -134,7 +138,7 @@ mod zstd_tests {
         let wrote = writer.filled().len();
         let mut writer = Buffer::from_ptr(out.as_mut());
         writer.add_len(wrote);
-        decoder.decompress(&mut reader, &mut writer).unwrap();
+        decoder.flush(&mut writer).unwrap();
         assert_eq!(writer.filled(), b"sdfhsdfsdggjyuterdftthfgbhjhhgsdfgdgf");
 
 

@@ -81,6 +81,8 @@ impl<W: WriteExt, C: StreamDecode<W>> StreamDecode<W> for ChunkDecoder<W, C> {
             }
         }
     }
+
+    fn flush(&mut self, _: &mut W) -> Result<(), CodingError> { Ok(()) }
 }
 
 #[cfg(test)]

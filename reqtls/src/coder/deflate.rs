@@ -89,16 +89,6 @@ impl DeflateStream {
             }
         }
     }
-
-    fn flush<W: WriteExt>(&mut self, out: &mut W) -> Result<(), CodingError> {
-        let mut out_len = out.unfilled_len();
-        let state = unsafe { DEFLATE_STREAM_flush(self.stream.as_mut_ptr(), out.unfilled_ptr(), &mut out_len) };
-        if !matches!(state, DeflateState::OK|DeflateState::STREAM_END) {
-            return Err(CodingError::DeflateError(state));
-        }
-        out.add_len(out_len);
-        Ok(())
-    }
 }
 
 impl<W: WriteExt> StreamDecode<W> for DeflateStream {
@@ -118,6 +108,16 @@ impl<W: WriteExt> StreamDecode<W> for DeflateStream {
         if !matches!(state, DeflateState::OK|DeflateState::STREAM_END) {
             return Err(CodingError::DeflateError(state));
         }
+        Ok(())
+    }
+
+    fn flush(&mut self, out: &mut W) -> Result<(), CodingError> {
+        let mut out_len = out.unfilled_len();
+        let state = unsafe { DEFLATE_STREAM_flush(self.stream.as_mut_ptr(), out.unfilled_ptr(), &mut out_len) };
+        if !matches!(state, DeflateState::OK|DeflateState::STREAM_END) {
+            return Err(CodingError::DeflateError(state));
+        }
+        out.add_len(out_len);
         Ok(())
     }
 }

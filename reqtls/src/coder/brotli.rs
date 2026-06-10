@@ -112,6 +112,10 @@ impl<W: WriteExt> StreamDecode<W> for BrotliDecoder {
         out.add_len(out.unfilled_len() - remain_buffer_size);
         Ok(())
     }
+
+    fn flush(&mut self, out: &mut W) -> Result<(), CodingError> {
+        self.decompress(&mut Reader::from_slice(&[]), out)
+    }
 }
 
 pub struct BrotliEncoder {
@@ -184,7 +188,8 @@ mod brotli_test {
         let wrote = decompressed.filled().len();
         let mut decompressed = Buffer::from_ptr(out.as_mut());
         decompressed.add_len(wrote);
-        decode.decompress(&mut reader, &mut decompressed).unwrap();
+        decode.flush(&mut decompressed).unwrap();
+        // decode.decompress(&mut reader, &mut decompressed).unwrap();
         assert_eq!(&decompressed.filled(), b"dfjsdkgfsdhkgjksfyhdlfusdhgfkyudsgflsduyfgsdukfsdfgdhfgjhjhk");
         let de = coder::br_decompress(compressed).unwrap();
         assert_eq!(de, b"dfjsdkgfsdhkgjksfyhdlfusdhgfkyudsgflsduyfgsdukfsdfgdhfgjhjhk");
