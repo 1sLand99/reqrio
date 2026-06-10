@@ -120,6 +120,10 @@ impl<W: WriteExt> StreamDecode<W> for DeflateStream {
         out.add_len(out_len);
         Ok(())
     }
+
+    fn finish(&self) -> bool {
+        false
+    }
 }
 
 impl StreamEncode for DeflateStream {

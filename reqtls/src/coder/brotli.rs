@@ -116,6 +116,10 @@ impl<W: WriteExt> StreamDecode<W> for BrotliDecoder {
     fn flush(&mut self, out: &mut W) -> Result<(), CodingError> {
         self.decompress(&mut Reader::from_slice(&[]), out)
     }
+
+    fn finish(&self) -> bool {
+        false
+    }
 }
 
 pub struct BrotliEncoder {

@@ -2,6 +2,8 @@ use crate::error::HlsResult;
 use crate::hpack::HPackDecode;
 use crate::*;
 use std::{mem, ptr};
+use std::any::Any;
+use reqtls::coder::{BrotliDecoder, ChunkDecoder, DeflateStream, StreamDecode, ZstdDecoder};
 use crate::json::JsonValue;
 use crate::body::H2FrameRBuf;
 
@@ -103,6 +105,9 @@ pub struct Response {
     header: Header,
     body: Body,
     raw: Vec<u8>,
+    raw_usage: usize,
+    coder: Option<Box<dyn StreamDecode<Buffer>>>,
+    read_size: usize,
 }
 
 impl Default for Response {
@@ -110,7 +115,10 @@ impl Default for Response {
         Response {
             header: Header::new_res(),
             body: Body::Raw(Vec::new()),
-            raw: Vec::new(),
+            raw: vec![0; 4096],
+            raw_usage: 0,
+            coder: None,
+            read_size: 0,
         }
     }
 }
@@ -153,14 +161,45 @@ impl Response {
         Ok(self.check_status().unwrap_or(false))
     }
 
+    fn make_coding(&mut self) -> HlsResult<()> {
+        let chunked = self.header.get_str("transfer-encoding").unwrap_or("").trim();
+        let encoding = self.header.content_encoding().unwrap_or("").trim();
+        match (chunked, encoding) {
+            ("chunked", "gzip") => {
+                let coding = ChunkDecoder::new(DeflateStream::new_decompress(DeflateStream::GZIP)?);
+                self.coder = Some(Box::new(coding))
+            }
+            ("chunked", "deflate") => {
+                let coding = ChunkDecoder::new(DeflateStream::new_decompress(DeflateStream::DEFLATE)?);
+                self.coder = Some(Box::new(coding))
+            }
+            ("chunked", "br") => {
+                let coding = ChunkDecoder::new(BrotliDecoder::new()?);
+                self.coder = Some(Box::new(coding))
+            }
+            ("chunked", "zstd") => {
+                let coding = ChunkDecoder::new(ZstdDecoder::new()?);
+                self.coder = Some(Box::new(coding))
+            }
+            ("chunked", "") => self.coder = Some(Box::new(ChunkDecoder::new(()))),
+            (_, "gzip") => self.coder = Some(Box::new(DeflateStream::new_decompress(DeflateStream::GZIP)?)),
+            (_, "deflate") => self.coder = Some(Box::new(DeflateStream::new_decompress(DeflateStream::DEFLATE)?)),
+            (_, "br") => self.coder = Some(Box::new(BrotliDecoder::new()?)),
+            (_, "zstd") => self.coder = Some(Box::new(ZstdDecoder::new()?)),
+            (_, _) => {}
+        }
+        Ok(())
+    }
+
     pub fn extend_buffer(&mut self, buffer: &mut Buffer) -> HlsResult<bool> {
         match self.header.is_empty() {
             true => {
                 let pos = buffer.filled().windows(HTTP_GAP.len()).position(|w| w == HTTP_GAP);
                 if let Some(pos) = pos {
-                    let hdr_str = String::from_utf8_lossy(&buffer.filled()[..pos]);
-                    self.header = Header::try_from(hdr_str.as_ref())?;
-                    buffer.move_to(pos + 4..buffer.len(), 0)?;
+                    let hdr_str = std::str::from_utf8(&buffer.filled()[..pos])?;
+                    self.header = Header::try_from(hdr_str)?;
+                    buffer.used_empty(pos + 4);
+
                     self.extend_body(buffer)
                 } else { Ok(false) }
             }
