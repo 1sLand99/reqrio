@@ -130,7 +130,7 @@ impl AcReq {
         let mut response = Response::new();
         let mut read_len = 0;
         loop {
-            self.buffer.check_move(4096, 4096)?;
+            self.buffer.check_move(16384)?;//保证拥有一个record的大小
             self.stream.async_read(&mut self.buffer).await?;
             if self.handle_h1_res(&mut response, &mut read_len)? { break; }
         }
@@ -245,7 +245,6 @@ impl AcReq {
                     return Ok(());
                 }
             }
-            println!("454545");
             continue;
         }
         Err("[AcReq] connection error".into())

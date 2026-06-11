@@ -1,124 +1,26 @@
+use std::mem;
+use crate::body::H2FrameRBuf;
 use crate::error::HlsResult;
 use crate::hpack::HPackDecode;
-use crate::*;
-use std::{mem, ptr};
-use std::any::Any;
-use reqtls::coder::{BrotliDecoder, ChunkDecoder, DeflateStream, StreamDecode, ZstdDecoder};
 use crate::json::JsonValue;
-use crate::body::H2FrameRBuf;
-
-pub enum Body {
-    Raw(Vec<u8>),
-    Decoded(Vec<u8>),
-    String(String),
-    Json(JsonValue),
-}
-
-impl Body {
-    fn extend(&mut self, buf: Vec<u8>) {
-        match self {
-            Body::Raw(raw) => raw.extend(buf),
-            Body::Decoded(decoded) => decoded.extend(buf),
-            Body::String(_) => {}
-            Body::Json(_) => {}
-        }
-    }
-
-    fn decompress(&mut self, encoding: Option<&HeaderValue>) -> HlsResult<()> {
-        if let Body::Raw(raw) = self {
-            let decoded = if let Some(encoding) = encoding {
-                match encoding.as_string().unwrap_or("") {
-                    "gzip" => coder::gzip_decompress(mem::take(raw))?,
-                    "deflate" => coder::deflate_decompress(mem::take(raw))?,
-                    "br" => coder::br_decompress(mem::take(raw))?,
-                    "zstd" => coder::zstd_decompress(mem::take(raw))?,
-                    _ => mem::take(raw),
-                }
-            } else {
-                mem::take(raw)
-            };
-            *self = Body::Decoded(decoded);
-        }
-        Ok(())
-    }
-
-    pub fn as_json(&mut self) -> HlsResult<&JsonValue> {
-        match self {
-            Body::Decoded(decoded) => *self = Body::Json(json::from_bytes(decoded).or(Err("decode to json error"))?),
-            Body::String(string) => *self = Body::Json(json::parse(string).or(Err("parse json error"))?),
-            _ => {}
-        };
-        if let Body::Json(value) = self {
-            Ok(value)
-        } else { Err("not json body".into()) }
-    }
-
-    pub fn as_string(&mut self) -> HlsResult<&str> {
-        match self {
-            Body::Decoded(decoded) => *self = Body::String(String::from_utf8(mem::take(decoded)).or(Err("decode to string error"))?),
-            Body::Json(j) => *self = Body::String(j.dump()),
-            _ => {}
-        };
-        if let Body::String(value) = self {
-            Ok(value)
-        } else { Err("not json body".into()) }
-    }
-
-    fn into_string(self) -> HlsResult<String> {
-        match self {
-            Body::Raw(_) => Err("not decode".into()),
-            Body::Decoded(decoded) => Ok(String::from_utf8(decoded)?),
-            Body::String(value) => Ok(value),
-            Body::Json(value) => Ok(value.dump())
-        }
-    }
-
-    fn into_json(self) -> HlsResult<JsonValue> {
-        match self {
-            Body::Raw(_) => Err("not decode".into()),
-            Body::Decoded(decoded) => Ok(json::from_bytes(&decoded).or(Err("decode to json error"))?),
-            Body::String(value) => Ok(json::parse(value).or(Err("parse json error"))?),
-            Body::Json(value) => Ok(value)
-        }
-    }
-
-    fn is_raw(&self) -> bool {
-        matches!(self, Body::Raw(_))
-    }
-
-    pub fn as_bytes(&self) -> HlsResult<&Vec<u8>> {
-        match self {
-            Body::Decoded(decoded) => Ok(decoded),
-            _ => Err("not decode".into()),
-        }
-    }
-
-    pub fn into_bytes(self) -> HlsResult<Vec<u8>> {
-        match self {
-            Body::Decoded(decoded) => Ok(decoded),
-            _ => Err("not decode".into()),
-        }
-    }
-}
+use crate::*;
+use reqtls::coder::{BrotliDecoder, ChunkDecoder, CodingError, DeflateStream, StreamDecode, ZstdDecoder};
+use std::str::Utf8Error;
 
 pub struct Response {
     header: Header,
-    body: Body,
-    raw: Vec<u8>,
-    raw_usage: usize,
+    raw: Buffer,
     coder: Option<Box<dyn StreamDecode<Buffer>>>,
-    read_size: usize,
+    h2_buffer: Buffer,
 }
 
 impl Default for Response {
     fn default() -> Self {
         Response {
             header: Header::new_res(),
-            body: Body::Raw(Vec::new()),
-            raw: vec![0; 4096],
-            raw_usage: 0,
+            raw: Buffer::with_capacity(8192),
             coder: None,
-            read_size: 0,
+            h2_buffer: Buffer::with_capacity(8192),
         }
     }
 }
@@ -128,49 +30,51 @@ impl Response {
         Response::default()
     }
 
-    fn check_status(&self) -> Option<bool> {
-        let chucked = self.header.get("transfer-encoding");
-        if let Some(chucked) = chucked {
-            if chucked.as_string()?.trim() != "chunked" {
-                println!("have transfer-encoding, but unknow-{}", chucked.as_string()?);
-                return None;
-            }
-            if self.raw.ends_with(&[48, 13, 10, 13, 10]) { return Some(true); }
-            None
-        } else {
-            let len = self.header.content_length().unwrap_or(0);
-            if self.raw.len() >= len { Some(true) } else { None }
-        }
-    }
-
     fn extend_body(&mut self, buffer: &mut Buffer) -> HlsResult<bool> {
-        let copy_len = match self.header.content_length() {
+        match self.coder {
             None => {
-                let pos = buffer.filled().windows(CHUNK_END.len()).position(|w| w == CHUNK_END);
-                pos.map(|pos| pos + CHUNK_END.len()).unwrap_or(buffer.len())
+                let len = self.header.content_length().unwrap_or(0);
+                let read_len = if self.raw.len() + buffer.len() >= len { len - self.raw.len() } else { buffer.len() };
+                self.raw.write_slice(&buffer.filled()[..read_len])?;
+                buffer.used_empty(read_len);
+                Ok(self.raw.len() >= len)
             }
-            Some(len) => if buffer.len() < len - self.raw.len() { buffer.len() } else { len - self.raw.len() }
-        };
-        self.raw.reserve(copy_len);
-        unsafe {
-            let dst = self.raw.as_mut_ptr().add(self.raw.len());
-            ptr::copy_nonoverlapping(buffer.filled().as_ptr(), dst, copy_len);
-            self.raw.set_len(self.raw.len() + copy_len);
+            Some(ref mut coder) => {
+                let mut reader = Reader::from_slice(buffer.filled());
+                loop {
+                    let res = if reader.unread_len() == 0 && reader.position() != 0 {
+                        coder.flush(&mut self.raw)
+                    } else {
+                        coder.decompress(&mut reader, &mut self.raw)
+                    };
+                    match res {
+                        Ok(_) => break,
+                        Err(CodingError::Buffer(BufferError::CapacityTooSmall { .. })) => {
+                            self.raw.resize(self.raw.capacity() * 2)?;
+                        }
+                        Err(e) => return Err(e.into()),
+                    }
+                };
+                buffer.used_empty(reader.position());
+                Ok(coder.finish())
+            }
         }
-        buffer.move_to(copy_len..buffer.len(), 0)?;
-        Ok(self.check_status().unwrap_or(false))
     }
 
     fn make_coding(&mut self) -> HlsResult<()> {
         let chunked = self.header.get_str("transfer-encoding").unwrap_or("").trim();
         let encoding = self.header.content_encoding().unwrap_or("").trim();
+        #[cfg(feature = "log")]
+        debug!("[Response] make coding: chunk={}; encoding={}", chunked=="chunked", encoding);
         match (chunked, encoding) {
             ("chunked", "gzip") => {
-                let coding = ChunkDecoder::new(DeflateStream::new_decompress(DeflateStream::GZIP)?);
+                let gzip = DeflateStream::new_decompress(DeflateStream::GZIP)?;
+                let coding = ChunkDecoder::new(gzip);
                 self.coder = Some(Box::new(coding))
             }
             ("chunked", "deflate") => {
-                let coding = ChunkDecoder::new(DeflateStream::new_decompress(DeflateStream::DEFLATE)?);
+                let deflate = DeflateStream::new_decompress(DeflateStream::DEFLATE)?;
+                let coding = ChunkDecoder::new(deflate);
                 self.coder = Some(Box::new(coding))
             }
             ("chunked", "br") => {
@@ -195,13 +99,12 @@ impl Response {
         match self.header.is_empty() {
             true => {
                 let pos = buffer.filled().windows(HTTP_GAP.len()).position(|w| w == HTTP_GAP);
-                if let Some(pos) = pos {
-                    let hdr_str = std::str::from_utf8(&buffer.filled()[..pos])?;
-                    self.header = Header::try_from(hdr_str)?;
-                    buffer.used_empty(pos + 4);
-
-                    self.extend_body(buffer)
-                } else { Ok(false) }
+                let Some(pos) = pos else { return Ok(false) };
+                let hdr_str = std::str::from_utf8(&buffer.filled()[..pos])?;
+                self.header = Header::try_from(hdr_str)?;
+                buffer.used_empty(pos + HTTP_GAP.len());
+                self.make_coding()?;
+                self.extend_body(buffer)
             }
             false => self.extend_body(buffer)
         }
@@ -210,16 +113,28 @@ impl Response {
     pub fn extend_frame(&mut self, frame: &H2FrameRBuf, decoder: &mut HPackDecode) -> HlsResult<bool> {
         let ended = frame.is_end_frame();
         match frame.frame_type() {
-            FrameType::Data => self.raw.extend_from_slice(frame.payload()),
-            FrameType::Headers => decoder.decode_into(frame.payload(), &mut self.header)?,
+            FrameType::Data => {
+                let mut buffer = mem::replace(&mut self.h2_buffer, Buffer::with_capacity(0));
+                let ret = buffer.check_move(frame.payload().len());
+                if ret.is_err() || buffer.unfilled_len() < frame.payload().len() {
+                    buffer.resize(buffer.capacity() * 2 + frame.payload().len())?;
+                }
+                buffer.write_slice(frame.payload())?;
+                self.extend_body(&mut buffer)?;
+                drop(mem::replace(&mut self.h2_buffer, buffer));
+            }
+            FrameType::Headers => {
+                decoder.decode_into(frame.payload(), &mut self.header)?;
+                self.make_coding()?;
+            }
             _ => {}
         }
         Ok(ended)
     }
 
-    pub fn push_raw_slice(&mut self, raw: &[u8]) {
-        self.raw.extend_from_slice(raw)
-    }
+    // pub fn push_raw_slice(&mut self, raw: &[u8]) {
+    //     self.raw.extend_from_slice(raw)
+    // }
 
     pub fn header(&self) -> &Header {
         &self.header
@@ -231,44 +146,32 @@ impl Response {
         self.header = header
     }
 
-    pub fn raw_body(&self) -> &[u8] { &self.raw }
-
     pub fn raw_string(&self) -> String {
         let mut header = self.header.to_string();
-        let body = String::from_utf8_lossy(&self.raw);
+        let body = self.as_text().unwrap_or("(二进制数据)");
         if self.header.alpn() != &ALPN::Http11 {
             header += "\r\n\r\n";
         }
-        header + body.as_ref()
+        header + body
     }
 
-    pub fn clear_raw(&mut self) { self.raw.clear() }
-
-    pub fn decode_body(&mut self) -> HlsResult<&mut Body> {
-        if !self.body.is_raw() { return Ok(&mut self.body); }
-        let chucked = self.header.get("transfer-encoding");
-        if let Some(chucked) = chucked && chucked.as_string().unwrap_or("").trim() == "chunked" {
-            self.body.extend(coder::chunk_decode(mem::take(&mut self.raw))?);
-        } else {
-            self.body.extend(mem::take(&mut self.raw));
-        }
-        let encoding = self.header.get("content-encoding");
-        self.body.decompress(encoding)?;
-        Ok(&mut self.body)
+    pub fn json(self) -> HlsResult<JsonValue> {
+        Ok(json::from_bytes(self.raw.filled())?)
     }
 
-    pub fn json(mut self) -> HlsResult<JsonValue> {
-        self.decode_body()?;
-        self.body.into_json()
+    pub fn as_text(&self) -> Result<&str, Utf8Error> {
+        std::str::from_utf8(self.raw.filled())
     }
 
-    pub fn text(mut self) -> HlsResult<String> {
-        self.decode_body()?;
-        self.body.into_string()
+    pub fn text(self) -> Result<String, Utf8Error> {
+        Ok(self.as_text()?.to_owned())
     }
 
-    pub fn bytes(mut self) -> HlsResult<Vec<u8>> {
-        self.decode_body()?;
-        self.body.into_bytes()
+    pub fn as_bytes(&self) -> &[u8] {
+        self.raw.filled()
+    }
+
+    pub fn bytes(self) -> Vec<u8> {
+        self.raw.filled().to_vec()
     }
 }

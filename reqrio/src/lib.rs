@@ -49,8 +49,7 @@
 //! # use reqrio::*;
 //! # fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! let mut res = reqrio::get("https://api.example.com/users", None)?;
-//! let body = res.decode_body()?;
-//! println!("{}", body.as_string()?);
+//! println!("{}", res.as_text()?);
 //! # Ok(())
 //! # }
 //! ```
@@ -70,10 +69,7 @@
 //! 
 //! // Access response headers
 //! let header = res.header();
-//! 
-//! // Get decoded response body
-//! let body = res.decode_body().unwrap();
-//! 
+//!
 //! // Parse as JSON
 //! let json = res.json().unwrap();
 //! # }

@@ -17,7 +17,7 @@ fn compare_reqrio_multiple_requests() {
         let elapsed = start.elapsed();
 
         let status = res.header().status().code();
-        let bytes = res.bytes().expect("read body");
+        let bytes = res.as_bytes();
         body_length = bytes.len();
 
         total_elapsed += elapsed.as_millis();

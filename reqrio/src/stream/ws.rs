@@ -163,7 +163,7 @@ impl WebSocket {
 
     async fn connect_async(mut req: AcReq) -> HlsResult<Stream> {
         let resp = req.h1_io().await?;
-        println!("{}", resp.raw_string());
+        // println!("{}", resp.raw_string());
         let status = resp.header().status();
         if status != &HttpStatus::SwitchingProtocols { return Err(format!("Connect fail with code-{}", status).into()); }
         Ok(req.into_stream())
