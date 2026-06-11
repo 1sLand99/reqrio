@@ -471,7 +471,7 @@ impl Header {
         if !params.url.uri().params().is_empty() { reader.add_str("?") };
         for (i, param) in params.url.uri().params().iter().enumerate() {
             reader.add_str(param.name());
-            reader.add_str("=");
+            if param.equal_sign() { reader.add_str("="); }
             reader.add_str(param.value_raw());
             if i != params.url.uri().params().len() - 1 { reader.add_str("&") }
         }
