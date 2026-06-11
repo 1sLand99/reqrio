@@ -1,0 +1,263 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ----------------------------------------------------------------------------
+  # 发布前检查：Linux + Windows 上跑测试与 FFI 测试，任一失败则中止整个发布流程
+  # ----------------------------------------------------------------------------
+  prerelease-check:
+    name: prerelease-check (${{ matrix.os }})
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ ubuntu-latest, windows-latest ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: |
+            ${{ runner.os }}-cargo-${{ github.ref }}-${{ hashFiles('**/Cargo.lock') }}
+            ${{ runner.os }}-cargo-${{ github.ref }}-
+            ${{ runner.os }}-cargo-
+          cache-on-failure: true
+          prefix-key: |
+            ${{ runner.os }}-cargo-
+
+      - name: cargo test
+        run: |
+          cargo test --features aync,serde
+          cargo test --features aync,serde --release
+
+      - name: cargo build (export cdylib)
+        run: cargo build --package reqrio --release --features export
+
+      - name: Copy native lib (Linux)
+        if: runner.os == 'Linux'
+        run: cp target/release/libreqrio.so reqrio-py/reqrio/
+
+      - name: Copy native lib (Windows)
+        if: runner.os == 'Windows'
+        run: copy target\release\reqrio.dll reqrio-py\reqrio\
+
+      - name: Set PYTHONPATH (Linux)
+        if: runner.os == 'Linux'
+        run: echo "PYTHONPATH=${{ github.workspace }}/reqrio-py" >> $GITHUB_ENV
+
+      - name: Set PYTHONPATH (Windows)
+        if: runner.os == 'Windows'
+        run: echo "PYTHONPATH=${{ github.workspace }}\reqrio-py" >> $env:GITHUB_ENV
+
+      - name: Run Python FFI test
+        run: |
+          python reqrio-py/tests/test_session.py
+          python reqrio-py/tests/test_cipher.py
+
+  # ----------------------------------------------------------------------------
+  # 构建跨平台原生库（.so / .dll），上传为 artifact 供各语言发布任务复用
+  # ----------------------------------------------------------------------------
+  build-natives:
+    name: build-natives (${{ matrix.target.os }})
+    needs: prerelease-check
+    strategy:
+      matrix:
+        target:
+          - { os: ubuntu-latest,  artifact: linux,   file: libreqrio.so }
+          - { os: windows-latest, artifact: windows, file: reqrio.dll }
+    runs-on: ${{ matrix.target.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: |
+            ${{ runner.os }}-cargo-
+
+      - name: cargo build (export cdylib)
+        run: cargo build --package reqrio --release --features export
+
+      - name: Upload native lib
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.target.artifact }}
+          path: target/release/${{ matrix.target.file }}
+          if-no-files-found: error
+
+  # ----------------------------------------------------------------------------
+  # GitHub Release：聚合原生库并创建 Release
+  # ----------------------------------------------------------------------------
+  github-release:
+    name: github-release
+    needs: prerelease-check
+    runs-on: ubuntu-latest
+    # 预发行版本（alpha/beta/rc）不创建 GitHub Release，仅发布到各语言仓库
+    if: >-
+      startsWith(github.ref, 'refs/tags/v')
+      && !contains(github.ref_name, 'alpha')
+      && !contains(github.ref_name, 'beta')
+      && !contains(github.ref_name, 'rc')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract release notes from CHANGELOG.md
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v ver="reqrio-v${VERSION}" '
+            $0 == "# " ver { capture = 1; next }
+            capture && /^# reqrio-v/ { exit }
+            capture { print }
+          ' CHANGELOG.md > RELEASE_NOTES.txt
+          if [ ! -s RELEASE_NOTES.txt ]; then
+            echo "未在 CHANGELOG.md 中找到版本 ${VERSION} 的说明" >&2
+            exit 1
+          fi
+      - name: Package bindings into zips
+        run: |
+          mkdir -p dist
+          zip -r dist/py.zip   reqrio-py
+          zip -r dist/go.zip   reqrio-go
+          zip -r dist/js.zip   reqrio-js
+          zip -r dist/java.zip reqrio-java
+          zip -r dist/qt.zip   reqrio-qt
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: RELEASE_NOTES.txt
+          files: |
+            dist/py.zip
+            dist/go.zip
+            dist/js.zip
+            dist/java.zip
+            dist/qt.zip
+
+  # ----------------------------------------------------------------------------
+  # Rust → crates.io
+  # ----------------------------------------------------------------------------
+  publish-crate:
+    name: publish-crate (crates.io)
+    needs: prerelease-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish --package reqrio
+
+  # ----------------------------------------------------------------------------
+  # Python → PyPI（打包同时携带 .so 与 .dll）
+  # ----------------------------------------------------------------------------
+  publish-pypi:
+    name: publish-pypi (PyPI)
+    needs: build-natives
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download native libs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: natives
+          merge-multiple: true
+
+      - name: Place native libs into package
+        run: |
+          cp natives/libreqrio.so reqrio-py/reqrio/
+          cp natives/reqrio.dll   reqrio-py/reqrio/
+
+      - name: Build wheel & sdist
+        working-directory: reqrio-py
+        run: |
+          python -m pip install --upgrade build
+          python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: reqrio-py/dist
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+  # ----------------------------------------------------------------------------
+  # Java → Maven Central（central-publishing-maven-plugin + gpg）
+  # ----------------------------------------------------------------------------
+  publish-maven:
+    name: publish-maven (Maven Central)
+    needs: build-natives
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup JDK + Maven settings
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "11"
+          server-id: central
+          server-username: MAVEN_CENTRAL_USERNAME
+          server-password: MAVEN_CENTRAL_PASSWORD
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Download native libs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: natives
+          merge-multiple: true
+
+      - name: Place native libs into resources
+        run: |
+          cp natives/libreqrio.so reqrio-java/src/main/resources/
+          cp natives/reqrio.dll   reqrio-java/src/main/resources/
+
+      - name: Deploy to Maven Central
+        working-directory: reqrio-java
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+        run: mvn --batch-mode clean deploy
+
+  # ----------------------------------------------------------------------------
+  # Node.js → npm（打包同时携带 .so 与 .dll）
+  # ----------------------------------------------------------------------------
+  publish-npm:
+    name: publish-npm (npm)
+    needs: build-natives
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Download native libs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: natives
+          merge-multiple: true
+
+      - name: Place native libs into package
+        run: |
+          cp natives/libreqrio.so reqrio-js/
+          cp natives/reqrio.dll   reqrio-js/
+
+      - name: Publish to npm
+        working-directory: reqrio-js
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
