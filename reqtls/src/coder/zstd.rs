@@ -78,6 +78,10 @@ impl<W: WriteExt> StreamDecode<W> for ZstdDecoder {
     fn flush(&mut self, out: &mut W) -> Result<(), CodingError> {
         self.decompress(&mut Reader::from_slice(&[]), out)
     }
+
+    fn finish(&self) -> bool {
+        false
+    }
 }
 
 pub struct ZstdEncoder(CPointer<ZSTD_ENCODER>);

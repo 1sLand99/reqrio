@@ -3,8 +3,8 @@ use crate::coder::CodingError;
 
 pub trait StreamDecode<W: WriteExt> {
     fn decompress(&mut self, reader: &mut Reader<'_>, out: &mut W) -> Result<(), CodingError>;
-
     fn flush(&mut self, out: &mut W) -> Result<(), CodingError>;
+    fn finish(&self) -> bool;
 }
 
 pub trait StreamEncode {
@@ -19,6 +19,10 @@ impl<W: WriteExt> StreamDecode<W> for () {
     }
 
     fn flush(&mut self, _: &mut W) -> Result<(), CodingError> { Ok(()) }
+
+    fn finish(&self) -> bool {
+        false
+    }
 }
 
 impl StreamEncode for () {

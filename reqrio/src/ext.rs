@@ -143,9 +143,9 @@ pub(crate) trait ReqPriExt {
                 if response.header().is_empty() {
                     response.extend_buffer(param.buffer)?;
                     if !response.header().is_empty() {
-                        callback(response.raw_body())?;
-                        *rd += response.raw_body().len();
-                        response.clear_raw();
+                        // callback(response.raw_body())?;
+                        // *rd += response.raw_body().len();
+                        // response.clear_raw();
                     }
                 } else {
                     callback(param.buffer.filled())?;

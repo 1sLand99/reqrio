@@ -18,7 +18,7 @@ pub extern "C" fn Response_status_code(resp: *const Response, err: *mut *mut c_c
 pub extern "C" fn Response_bytes(resp: *mut Response, len: &mut usize, err: *mut *mut c_char) -> *const u8 {
     check_run(move || {
         let resp = unsafe { resp.as_mut() }.ok_or(HlsError::NullPointer)?;
-        let res = resp.decode_body()?.as_bytes()?;
+        let res = resp.as_bytes();
         *len = res.len();
         Ok(res.as_ptr())
     }, |e| handle_err1(e, err, null()))

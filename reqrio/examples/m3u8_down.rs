@@ -45,7 +45,7 @@ impl M3u8DownEngine {
         let mut file = File::create("4.mp4")?;
         for (index, ts_url) in self.ts_urls.iter().enumerate() {
             println!("Downloading: {:3}/{}; url:{}", index, self.ts_urls.len(), ts_url);
-            let body = self.req.get(ts_url, None)?.bytes()?;
+            let body = self.req.get(ts_url, None)?.bytes();
             file.write_all(&if self.key_url.is_empty() { body } else { self.cipher.decrypt(body)? })?;
         }
         Ok(())

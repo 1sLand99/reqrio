@@ -121,9 +121,9 @@ fn main() {
     };
     let mut req = ScReq::new();
     let res = req.get("https://www.lthttp.com/app-api/whiteList/add?accountName=lthttp471411&ip=183.42.162.91", None).unwrap();
-    println!("{}", res.text().unwrap());
+    println!("{}", res.as_text().unwrap());
     let res = req.get("https://www.lthttp.com/iplist?key=b6e820e3092142e6&count=1&protocol=0&type=1&isp=0&distinct=0&os=1&cs=0&is=0&es=0&textSep=0&isAuth=false&province=&city=", None).unwrap();
-    println!("{}", res.text().unwrap());
+    println!("{}", res.as_text().unwrap());
     return;
 
     let mut req = ScReq::new()

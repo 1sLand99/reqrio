@@ -42,6 +42,7 @@ async fn main() {
         .with_auto_redirect(false)
         // .with_proxy(proxy)
         .with_verify(false)
+        .with_alpn(ALPN::Http20)
         // .with_proxy(Proxy::try_from("http://222.186.129.68:15265").unwrap())
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::new_socks5("192.111.130.2",4145))
@@ -130,17 +131,23 @@ async fn main() {
     // let res = req.get("https://www.bing.com".params(json::object! {}), vec![0u8; 0].ty(Application::Json)).await.unwrap();
     // let res = req.get("https://117.89.181.21".sni("m.sogou.com"), None).await.unwrap();
     // let url = Url::try_from("https://cn.bing.com/").unwrap();
-    let url = "https://183.60.159.115/xhr/front/trade/priority/rushPurchase/hot/branch/one".sni("h5.moutai519.com.cn").unwrap();
-    let body: Body = rand::random::<[u8; 432]>().to_vec().into();
+    // let url = "https://183.60.159.115".sni("h5.moutai519.com.cn").unwrap();///xhr/front/trade/priority/rushPurchase/hot/branch/one
+    // let url = "https://www.baidu.com".try_into().unwrap();
+    let url="https://m.so.com/".try_into().unwrap();
     req.re_conn(Some(&url)).await.unwrap();
     req.header_mut().set_method(Method::POST);
-    for _ in 0..1 {
-        req.send(&url, &body).await.unwrap();
-    }
-    for _ in 0..1 {
-        let res1 = req.recv().await.unwrap();
-        println!("{:?}", res1.raw_string());
-    }
+    let resp = req.get(url, None).await.unwrap();
+    println!("{}", resp.header());
+    println!("{}", resp.as_text().unwrap());
+
+    // println!("{}", resp.raw_string());
+    // for _ in 0..1 {
+    //     req.send(&url, &body).await.unwrap();
+    // }
+    // for _ in 0..1 {
+    //     let res1 = req.recv().await.unwrap();
+    //     // println!("{:?}", res1.raw_string());
+    // }
 
     // println!("{} {}", res1.header(), res2.header());
     // let res = req.get("https://m.sogou.com", None).await.unwrap();

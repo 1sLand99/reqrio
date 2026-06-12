@@ -3,6 +3,7 @@ mod decode;
 mod ext;
 mod error;
 
+use crate::ffi;
 use crate::ffi::CPointer;
 pub use decode::RecordDecodeBuffer;
 pub use encode::RecordEncodeBuffer;
@@ -10,9 +11,8 @@ pub use error::BufferError;
 pub use ext::{u24, ReadExt, WriteExt};
 use std::fmt::{Debug, Formatter};
 use std::ops::Range;
-use std::os::raw::c_char;
+use std::os::raw::{c_char, c_int};
 use std::slice;
-use crate::ffi;
 
 #[repr(C)]
 #[allow(clippy::upper_case_acronyms)]
@@ -23,6 +23,7 @@ ffi::c_pointer_free!(BUFFER, Buffer_free);
 
 unsafe extern "C" {
     fn Buffer_new(capacity: usize) -> *mut BUFFER;
+    fn Buffer_resize(buffer: *mut BUFFER, capacity: usize) -> c_int;
     fn Buffer_from_ptr(ptr: *mut u8, capacity: usize) -> *mut BUFFER;
     fn Buffer_free(buffer: *mut BUFFER);
     fn Buffer_len(buffer: *const BUFFER) -> usize;
@@ -62,6 +63,17 @@ impl Buffer {
         Buffer(CPointer::new(buffer))
     }
 
+    pub fn resize(&mut self, capacity: usize) -> Result<(), BufferError> {
+        let ret = unsafe { Buffer_resize(self.0.as_mut_ptr(), capacity) };
+        if ret != 1 {
+            return Err(BufferError::ResizeFail {
+                current: self.capacity(),
+                new: capacity,
+            });
+        }
+        Ok(())
+    }
+
     pub fn from_ptr(buf: &mut [u8]) -> Self {
         let buffer = unsafe { Buffer_from_ptr(buf.as_mut_ptr(), buf.len()) };
         Buffer(CPointer::new(buffer))
@@ -98,8 +110,8 @@ impl Buffer {
         Ok(())
     }
 
-    pub fn check_move(&mut self, size: usize, need: usize) -> Result<(), BufferError> {
-        if self.unfilled_len() < size && self.offset().start != 0 {
+    pub fn check_move(&mut self, need: usize) -> Result<(), BufferError> {
+        if self.unfilled_len() < need && self.offset().start != 0 {
             self.move_to(self.offset(), 0)?;
         }
         if self.unfilled().is_empty() {
@@ -255,7 +267,7 @@ impl<'a> ReadExt<'a> for Reader<'a> {
     }
 
     fn unread_ptr(&self) -> *const u8 {
-        unsafe{self.buf.as_ptr().add(self.pos)}
+        unsafe { self.buf.as_ptr().add(self.pos) }
     }
 }
 
@@ -272,6 +284,10 @@ mod test_buffer {
         buffer.used_empty(1);
         assert_eq!(buffer.filled(), [2, 3, 4, 5]);
         assert_eq!(buffer.unfilled().len(), 1019);
+
+        buffer.resize(2048).unwrap();
+        assert_eq!(buffer.capacity(), 2048);
+
 
         let mut data = vec![0u8; 1024];
         let mut buffer = Buffer::from_ptr(data.as_mut_slice());

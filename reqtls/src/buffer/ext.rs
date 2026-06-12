@@ -133,13 +133,6 @@ pub trait WriteExt {
         let ptr = self.unfilled_ptr();
         unsafe { slice::from_raw_parts_mut(ptr, self.unfilled_len()) }
     }
-
-    // fn as_ptr(&self) -> *const u8 {
-    //     unsafe { Buffer_pointer(self.buffer().0.as_ptr()) }
-    // }
-    // fn as_mut_ptr(&mut self) -> *mut u8 {
-    //     unsafe { Buffer_pointer_mut(self.buffer_mut().0.as_mut_ptr()) }
-    // }
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -209,7 +202,7 @@ pub trait ReadExt<'a> {
 
     fn read_slice(&mut self, len: usize) -> Result<&'a [u8], BufferError> {
         self.check(len)?;
-        let ptr=self.unread_ptr();
+        let ptr = self.unread_ptr();
         self.add_len(len);
         Ok(unsafe { slice::from_raw_parts(ptr, len) })
     }
@@ -230,7 +223,7 @@ pub trait ReadExt<'a> {
     fn read_to(&mut self, end: &[u8]) -> Result<&'a [u8], BufferError> {
         let pos = self.position();
         let len = self.size();
-        let ptr=self.unread_ptr();
+        let ptr = self.unread_ptr();
         let filled = unsafe { slice::from_raw_parts(ptr, len - pos) };
         let pos = filled.windows(end.len()).position(|window| window == end);
         match pos {

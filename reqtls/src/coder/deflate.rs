@@ -1,7 +1,9 @@
 use crate::coder::ext::{StreamDecode, StreamEncode};
 use crate::coder::CodingError;
 use crate::ffi::CPointer;
-use crate::{ffi, Buffer, ReadExt, Reader, WriteExt};
+use crate::{ffi, Buffer, BufferError, ReadExt, Reader, WriteExt};
+#[cfg(feature = "log")]
+use log::trace;
 
 #[repr(C)]
 #[allow(non_camel_case_types)]
@@ -16,14 +18,14 @@ unsafe extern "C" {
     fn DEFLATE_STREAM_decompress(
         decoder: *mut DEFLATE_STREAM,
         data: *const u8,
-        data_len: usize,
+        unread_len: *mut usize,
         out: *mut u8,
         out_len: *mut usize,
     ) -> DeflateState;
     fn DEFLATE_STREAM_compress(
         decoder: *mut DEFLATE_STREAM,
         data: *const u8,
-        data_len: usize,
+        unread_len: *mut usize,
         out: *mut u8,
         out_len: *mut usize,
     ) -> DeflateState;
@@ -48,6 +50,7 @@ pub enum DeflateState {
 
 pub struct DeflateStream {
     stream: CPointer<DEFLATE_STREAM>,
+    finish: bool,
 }
 
 impl DeflateStream {
@@ -58,7 +61,8 @@ impl DeflateStream {
         let ptr = unsafe { DEFLATE_STREAM_new(enc, level, wbits) };
         let ptr = CPointer::new_checked(ptr, CodingError::NewDeflateDecoder)?;
         Ok(DeflateStream {
-            stream: ptr
+            stream: ptr,
+            finish: false,
         })
     }
 
@@ -82,7 +86,7 @@ impl DeflateStream {
             wrote = writer.filled().len();
             match res {
                 Ok(_) => return Ok(writer.filled().len()),
-                Err(CodingError::DeflateError(DeflateState::BUF_ERROR)) => {
+                Err(CodingError::Buffer(BufferError::CapacityTooSmall { .. })) => {
                     out.resize(out.len() + 1024, 0);
                 }
                 Err(e) => return Err(e),
@@ -93,25 +97,37 @@ impl DeflateStream {
 
 impl<W: WriteExt> StreamDecode<W> for DeflateStream {
     fn decompress(&mut self, reader: &mut Reader<'_>, out: &mut W) -> Result<(), CodingError> {
+        #[cfg(feature = "log")]
+        trace!("gzip: {:?}", &reader.inner()[reader.position()..]);
+        let mut unread_len = reader.unread_len();
         let mut out_len = out.unfilled_len();
         let state = unsafe {
             DEFLATE_STREAM_decompress(
                 self.stream.as_mut_ptr(),
                 reader.unread_ptr(),
-                reader.unread_len(),
+                &mut unread_len,
                 out.unfilled_ptr(),
                 &mut out_len,
             )
         };
-        reader.add_len(reader.unread_len());
+        reader.add_len(reader.unread_len() - unread_len);
         out.add_len(out_len);
-        if !matches!(state, DeflateState::OK|DeflateState::STREAM_END) {
+        #[cfg(feature = "log")]
+        trace!("gzip: read={}; remain={}; size={}", reader.position(), reader.unread_len(), reader.size());
+        self.finish = matches!(state, DeflateState::STREAM_END);
+        if matches!(state,DeflateState::BUF_ERROR) {
+            return Err(CodingError::Buffer(BufferError::CapacityTooSmall {
+                current: out.capacity(),
+                needed: out.capacity() + reader.size() * 2,
+            }));
+        } else if !matches!(state, DeflateState::OK|DeflateState::STREAM_END) {
             return Err(CodingError::DeflateError(state));
         }
         Ok(())
     }
 
     fn flush(&mut self, out: &mut W) -> Result<(), CodingError> {
+        println!("33333333333333333");
         let mut out_len = out.unfilled_len();
         let state = unsafe { DEFLATE_STREAM_flush(self.stream.as_mut_ptr(), out.unfilled_ptr(), &mut out_len) };
         if !matches!(state, DeflateState::OK|DeflateState::STREAM_END) {
@@ -120,16 +136,21 @@ impl<W: WriteExt> StreamDecode<W> for DeflateStream {
         out.add_len(out_len);
         Ok(())
     }
+
+    fn finish(&self) -> bool {
+        self.finish
+    }
 }
 
 impl StreamEncode for DeflateStream {
     fn compress(&mut self, data: &[u8], out: &mut [u8]) -> Result<usize, CodingError> {
+        let mut unread_len = data.len();
         let mut out_len = out.len();
         let state = unsafe {
             DEFLATE_STREAM_compress(
                 self.stream.as_mut_ptr(),
                 data.as_ptr(),
-                data.len(),
+                &mut unread_len,
                 out.as_mut_ptr(),
                 &mut out_len,
             )
@@ -141,7 +162,7 @@ impl StreamEncode for DeflateStream {
     }
 
     fn finalize(&mut self, out: &mut [u8]) -> Result<usize, CodingError> {
-        let mut writer = Buffer::from_ptr(out.as_mut());
+        let mut writer = Buffer::from_ptr(out);
         self.flush(&mut writer)?;
         Ok(writer.len())
     }

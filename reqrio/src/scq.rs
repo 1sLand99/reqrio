@@ -128,12 +128,13 @@ impl ScReq {
         let mut response = Response::new();
         let mut read_len = 0;
         loop {
+            self.buffer.check_move(16384)?;//保证拥有一个record的大小
             self.stream.sync_read(&mut self.buffer)?;
             if self.handle_h1_res(&mut response, &mut read_len)? { break; }
         }
         Ok(response)
     }
-    
+
     /// 发送一个请求，发送前务必确保链接已建立
     pub fn send(&mut self, url: &Url, body: &Body) -> HlsResult<()> {
         let mut request = RequestBuffer::new(&mut self.header, body, HeaderParam {

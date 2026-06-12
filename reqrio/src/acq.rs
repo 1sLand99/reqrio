@@ -130,6 +130,7 @@ impl AcReq {
         let mut response = Response::new();
         let mut read_len = 0;
         loop {
+            self.buffer.check_move(16384)?;//保证拥有一个record的大小
             self.stream.async_read(&mut self.buffer).await?;
             if self.handle_h1_res(&mut response, &mut read_len)? { break; }
         }
@@ -174,7 +175,7 @@ impl AcReq {
     pub async fn stream_io(&mut self, url: &mut Url, body: &Body<'_>) -> HlsResult<Response> {
         self.set_url(url).await?;
         for i in 1..=self.timeout.handle_times() {
-            let res = tokio::time::timeout(self.timeout.handle(), self.handle_io(url, &body)).await;
+            let res = tokio::time::timeout(self.timeout.handle(), self.handle_io(url, body)).await;
             self.buffer.reset();
             match res {
                 Err(_) => if i >= self.timeout.handle_times() { return Err(HlsError::Time(TimeError::HandleTimeout)) }
@@ -244,7 +245,6 @@ impl AcReq {
                     return Ok(());
                 }
             }
-            println!("454545");
             continue;
         }
         Err("[AcReq] connection error".into())

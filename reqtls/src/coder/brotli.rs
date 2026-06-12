@@ -62,6 +62,7 @@ pub struct BrotliDecoder {
     ptr: CPointer<BROTLI_DECODER>,
     total_len: usize,
     need_buffer: bool,
+    finish: bool,
 }
 
 impl BrotliDecoder {
@@ -72,29 +73,31 @@ impl BrotliDecoder {
             ptr,
             total_len: 0,
             need_buffer: false,
+            finish: false,
         })
     }
 }
 
 impl<W: WriteExt> StreamDecode<W> for BrotliDecoder {
     fn decompress(&mut self, reader: &mut Reader<'_>, out: &mut W) -> Result<(), CodingError> {
-        let mut remain_in_size = reader.unread_len();
+        let mut unread_len = reader.unread_len();
         let mut remain_buffer_size = out.unfilled_len();
-        while self.need_buffer || remain_in_size > 0 {
+        while self.need_buffer || unread_len > 0 {
             self.need_buffer = false;
             let res = unsafe {
                 BROTLI_DECODER_decompress(
                     self.ptr.as_ptr(),
                     reader.unread_ptr(),
-                    &mut remain_in_size,
+                    &mut unread_len,
                     out.unfilled_ptr(),
                     &mut remain_buffer_size,
                     &mut self.total_len,
                 )
             };
-            reader.add_len(reader.unread_len() - remain_in_size);
+            reader.add_len(reader.unread_len() - unread_len);
             out.add_len(out.unfilled_len() - remain_buffer_size);
             assert_eq!(out.unfilled_len(), remain_buffer_size);
+            self.finish = matches!(res, BrotliState::Finish);
             match res {
                 BrotliState::Error => return Err(CodingError::BrDecompressFail),
                 BrotliState::Finish => break,
@@ -102,19 +105,23 @@ impl<W: WriteExt> StreamDecode<W> for BrotliDecoder {
                 BrotliState::BufferTooSmall => {
                     self.need_buffer = true;
                     return Err(BufferError::CapacityTooSmall {
-                        needed: out.len() + remain_in_size,
+                        needed: out.len() + unread_len,
                         current: out.len(),
                     }.into());
                 }
             }
         }
-        assert_eq!(remain_in_size, 0);
+        assert_eq!(unread_len, 0);
         out.add_len(out.unfilled_len() - remain_buffer_size);
         Ok(())
     }
 
     fn flush(&mut self, out: &mut W) -> Result<(), CodingError> {
         self.decompress(&mut Reader::from_slice(&[]), out)
+    }
+
+    fn finish(&self) -> bool {
+        self.finish
     }
 }
 
