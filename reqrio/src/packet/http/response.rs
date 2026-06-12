@@ -11,6 +11,7 @@ pub struct Response {
     header: Header,
     raw: Buffer,
     coder: Option<Box<dyn StreamDecode<Buffer>>>,
+    read_size: usize,
     h2_buffer: Buffer,
 }
 
@@ -20,6 +21,7 @@ impl Default for Response {
             header: Header::new_res(),
             raw: Buffer::with_capacity(8192),
             coder: None,
+            read_size: 0,
             h2_buffer: Buffer::with_capacity(8192),
         }
     }
@@ -55,8 +57,10 @@ impl Response {
                         Err(e) => return Err(e.into()),
                     }
                 };
+                self.read_size += reader.position();
                 buffer.used_empty(reader.position());
-                Ok(coder.finish())
+                let len = self.header.content_length().unwrap_or(0);
+                Ok(coder.finish() || (len != 0 && self.read_size >= len))
             }
         }
     }
