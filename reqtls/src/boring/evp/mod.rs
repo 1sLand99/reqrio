@@ -50,6 +50,8 @@ pub enum CipherType {
     SM4_CTR_32 = 21,
     SM4_OFB = 22,
     SM4_CFB = 23,
+    DES_DED3_CBC = 24,
+    DES_DED3_ECB = 25,
 }
 
 

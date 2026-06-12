@@ -178,6 +178,11 @@ impl Cipher {
 
     pub fn sm4_cfb() -> Cipher { Cipher::new(CipherType::SM4_CFB) }
 
+    /// 3DES-CBC
+    pub fn des_ded3_cbc() -> Cipher { Cipher::new(CipherType::DES_DED3_CBC) }
+
+    pub fn des_ded3_ecb() -> Cipher { Cipher::new(CipherType::DES_DED3_ECB) }
+
     pub fn with_secret_key<T: Into<Vec<u8>>>(mut self, key: T, iv: Option<T>) -> Self {
         self.set_secret_key(key, iv);
         self
@@ -269,27 +274,29 @@ pub fn de_hex<T: Into<Vec<u8>>>(typ: CipherType, key: T, iv: Option<T>, data: im
 
 #[cfg(test)]
 mod tests {
-    use crate::Cipher;
+    use crate::{Cipher, CipherType};
+
+    fn test_one_cipher<T: Into<Vec<u8>>>(typ: CipherType, key: T, iv: Option<T>, data: &[u8], en: &[u8]) {
+        let cipher = Cipher::new(typ).with_secret_key(key, iv);
+        let en_bs = cipher.encrypt(data).unwrap();
+        assert_eq!(en_bs, en);
+
+        let de_bs = cipher.decrypt(en_bs).unwrap();
+        assert_eq!(de_bs, data)
+    }
 
     #[test]
     fn test_cipher() {
-        let cipher = Cipher::aes_128_cbc().with_secret_key("1234567812345678", Some("1234567812345678"));
-        let en = cipher.encrypt(b"hello world").unwrap();
-        assert_eq!(en, [107, 100, 169, 51, 126, 231, 189, 86, 45, 6, 117, 71, 162, 117, 252, 235]);
-        let de = cipher.decrypt(en).unwrap();
-        assert_eq!(de, b"hello world");
+        let k16 = "1234567812345678";
+        let k24 = "123456781234567812345678";
+        let k32 = "12345678123456781234567812345678";
 
-        let cipher = Cipher::aes_192_cbc().with_secret_key("123456781234567812345678", Some("1234567812345678"));
-        let en = cipher.encrypt(b"hello world").unwrap();
-        assert_eq!(en, [112, 230, 39, 80, 184, 157, 131, 154, 85, 102, 84, 183, 111, 20, 203, 165]);
-        let de = cipher.decrypt(en).unwrap();
-        assert_eq!(de, b"hello world");
+        let iv8 = "12345678";
+        let iv16 = "1234567812345678";
+        test_one_cipher(CipherType::AES_128_CBC, k16, Some(iv16), b"hello world", &[107, 100, 169, 51, 126, 231, 189, 86, 45, 6, 117, 71, 162, 117, 252, 235]);
+        test_one_cipher(CipherType::AES_192_CBC, k24, Some(iv16), b"hello world", &[112, 230, 39, 80, 184, 157, 131, 154, 85, 102, 84, 183, 111, 20, 203, 165]);
+        test_one_cipher(CipherType::AES_256_CBC, k32, Some(iv16), b"hello world", &[110, 146, 35, 67, 140, 149, 192, 43, 116, 68, 194, 52, 36, 51, 159, 76]);
 
-        let cipher = Cipher::aes_256_cbc().with_secret_key("12345678123456781234567812345678", Some("1234567812345678"));
-        let en = cipher.encrypt(b"hello world").unwrap();
-        assert_eq!(en, [110, 146, 35, 67, 140, 149, 192, 43, 116, 68, 194, 52, 36, 51, 159, 76]);
-        let de = cipher.decrypt(en).unwrap();
-        assert_eq!(de, b"hello world");
 
         let cipher = Cipher::rc4().with_secret_key("7d1a840419e1648c4e247b70f4a1e472", None);
         let res = cipher.decrypt([35, 35, 52, 190, 118, 125, 64, 163, 60, 89, 220, 195, 147, 90, 228, 21]).unwrap();
@@ -310,8 +317,8 @@ mod tests {
         assert_eq!(de, data);
 
 
-        let cipher = Cipher::sm4_ofb().with_secret_key(&key, Some(&key));
-        let res = cipher.encrypt(b"foobar").unwrap();
-        println!("{:?}", res);
+        test_one_cipher(CipherType::SM4_OFB, &key, Some(&key), b"foobar", &[14, 113, 176, 86, 179, 116, 156, 84, 140, 185, 227, 69, 89, 100, 72, 76]);
+        test_one_cipher(CipherType::DES_DED3_ECB, k24, None, b"123456", &[174, 178, 153, 127, 23, 12, 103, 74, 131, 158, 104, 246, 82, 9, 158, 46]);
+        test_one_cipher(CipherType::DES_DED3_CBC, k24, Some(iv8), b"123456", &[58, 76, 232, 32, 246, 19, 229, 87, 101, 150, 190, 118, 110, 62, 110, 218]);
     }
 }
