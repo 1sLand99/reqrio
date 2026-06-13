@@ -62,6 +62,6 @@ mod tests {
         let cookie = Cookie::from_res(cookie).unwrap();
         let manager = CookieManager(vec![cookie]);
         let res = manager.as_req("cn.bing.com", "/api/get");
-        println!("{:#?}", res);
+        assert_eq!(res.len(), 1)
     }
 }

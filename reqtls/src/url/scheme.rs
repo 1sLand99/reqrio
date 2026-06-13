@@ -1,7 +1,6 @@
-use super::error::UrlError;
 use std::fmt::Display;
 
-#[derive(Eq, PartialEq, Debug, Clone, Copy)]
+#[derive(Eq, PartialEq, Debug, Clone)]
 pub enum Scheme {
     Http,
     Https,
@@ -9,6 +8,7 @@ pub enum Scheme {
     Wss,
     Socks5,
     Trojan,
+    Custom(String),
 }
 
 impl Scheme {
@@ -19,7 +19,8 @@ impl Scheme {
             Scheme::Ws => 80,
             Scheme::Wss => 443,
             Scheme::Socks5 => 8888,
-            Scheme::Trojan => 8888
+            Scheme::Trojan => 8888,
+            Scheme::Custom(_) => 0
         }
     }
 
@@ -30,7 +31,8 @@ impl Scheme {
             Scheme::Ws => "ws",
             Scheme::Wss => "wss",
             Scheme::Socks5 => "socks5",
-            Scheme::Trojan => "trojan"
+            Scheme::Trojan => "trojan",
+            Scheme::Custom(s) => s
         }
     }
 }
@@ -42,17 +44,32 @@ impl Display for Scheme {
     }
 }
 
-impl TryFrom<&str> for Scheme {
-    type Error = UrlError;
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+
+impl PartialEq<Option<Scheme>> for Scheme {
+    fn eq(&self, other: &Option<Scheme>) -> bool {
+        if let Some(other) = other {
+            self == other
+        } else { false }
+    }
+}
+
+impl PartialEq<Option<Scheme>> for &Scheme {
+    fn eq(&self, other: &Option<Scheme>) -> bool {
+        if let Some(other) = other {
+            self == &other
+        } else { false }
+    }
+}
+impl From<&str> for Scheme {
+    fn from(value: &str) -> Self {
         match value {
-            "http" => Ok(Scheme::Http),
-            "https" => Ok(Scheme::Https),
-            "ws" => Ok(Scheme::Ws),
-            "wss" => Ok(Scheme::Wss),
-            "socks5" => Ok(Scheme::Socks5),
-            "trojan" => Ok(Scheme::Trojan),
-            _ => Err(UrlError::InvalidScheme(value.to_string())),
+            "http" => Scheme::Http,
+            "https" => Scheme::Https,
+            "ws" => Scheme::Ws,
+            "wss" => Scheme::Wss,
+            "socks5" => Scheme::Socks5,
+            "trojan" => Scheme::Trojan,
+            _ => Scheme::Custom(value.to_string()),
         }
     }
 }

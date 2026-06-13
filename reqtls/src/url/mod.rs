@@ -155,7 +155,7 @@ impl TryFrom<&str> for Url {
 
     fn try_from(mut url: &str) -> Result<Self, Self::Error> {
         let scheme_pos = url.find("://").ok_or(UrlError::MissingScheme)?;
-        let scheme = Scheme::try_from(&url[..scheme_pos])?;
+        let scheme = Scheme::from(&url[..scheme_pos]);
         url = &url[scheme_pos + 3..];
         let mut addr_pos = url.find("/").unwrap_or(url.len());
         let addr = &url[..addr_pos];

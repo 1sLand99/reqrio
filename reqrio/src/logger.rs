@@ -41,7 +41,7 @@ impl Log for Logger {
             }
             items.join("-")
         }).unwrap_or("??".to_string());
-        let t=Time::now_utc8().unwrap();
+        let t=Time::now_utc8();
         println!("{}{} [{:5}] {:20}:{:4}\x1b[0m - {}",
                  self.color(record.metadata().level()),
                  t.as_rfc3339(),

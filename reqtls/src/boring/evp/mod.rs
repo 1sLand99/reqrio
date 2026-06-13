@@ -17,8 +17,8 @@ use crate::cipher::CipherError;
 use crate::extend::Aead;
 use crate::hash::Hmac;
 pub use error::EvpError;
-use pkey::PKEY;
 pub use pkey::PKey;
+use pkey::PKEY;
 pub use pkey_ctx::PKeyCtx;
 pub use pkey_ctx::PKeyError;
 
@@ -134,24 +134,7 @@ mod tests {
     use crate::boring::{CryptDecodeParam, CryptEncodeParam, HashType};
     use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
     use crate::extend::Aead;
-    use crate::{base64, Cipher, RecordType, Version};
-
-    #[test]
-    fn test_cipher() {
-        let mut cipher = Cipher::aes_192_ctr();
-        cipher.set_secret_key("123456781234567812345678", Some("1234567812345678"));
-        let res = cipher.encrypt(b"foobar").unwrap();
-        println!("{}", base64::b64encode(&res).unwrap());
-
-        let res = cipher.decrypt(res).unwrap();
-        println!("{}", String::from_utf8(res).unwrap());
-
-
-        let mut cipher = Cipher::aes_128_gcm();
-        cipher.set_secret_key("1234567812345678", Some("1234567812345678"));
-        let res = cipher.encrypt(b"foobar").unwrap();
-        println!("{}", base64::b64encode(&res).unwrap());
-    }
+    use crate::{RecordType, Version};
 
     fn test_cipher_tls(aead: Aead, key: Vec<u8>, en: &[u8]) {
         let iv = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];

@@ -91,19 +91,19 @@ impl Stream {
 impl Stream {
     pub async fn async_conn(&mut self, param: ConnParam<'_>) -> HlsResult<ALPN> {
         let _ = self.async_shutdown().await;
-        let st = Time::now_mills().unwrap();
+        let st = Time::now_mills();
         let connect = ProxyStream::async_connect(param.proxy, param.url.addr(), param.ech);
         let stream = tokio::time::timeout(param.timeout.connect(), connect).await??;
-        println!("TCP TIME: {}", Time::now_mills().unwrap() - st);
+        println!("TCP TIME: {}", Time::now_mills() - st);
         match param.url.scheme() {
             Scheme::Http | Scheme::Ws => {
                 *self = Stream::AsyncHttp(TcpStreamA::from_proxy_stream(stream, param.timeout));
                 Ok(ALPN::Http11)
             }
             Scheme::Https | Scheme::Wss => {
-                let st = Time::now_mills().unwrap();
+                let st = Time::now_mills();
                 let tls_stream = TlsStreamA::connect_timeout(param, stream).await?;
-                println!("TLS TIME: {}", Time::now_mills().unwrap() - st);
+                println!("TLS TIME: {}", Time::now_mills() - st);
                 let alpn = tls_stream.alpn().cloned().unwrap_or(ALPN::Http11);
                 *self = Stream::AsyncHttps(tls_stream);
                 Ok(alpn)

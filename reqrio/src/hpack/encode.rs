@@ -130,7 +130,6 @@ mod tests {
         buffer.reset();
         encoder.encode_string("foo".as_bytes(), &mut buffer).unwrap();
         assert_eq!(buffer.filled(), [130, 148, 231]);
-        println!("{:?}", buffer.filled());
     }
 
     #[test]

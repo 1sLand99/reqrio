@@ -128,7 +128,7 @@ impl ScReq {
         let mut response = Response::new();
         let mut read_len = 0;
         loop {
-            self.buffer.check_move(16384)?;//保证拥有一个record的大小
+            self.buffer.check_move(16384)?; //保证拥有一个record的大小
             self.stream.sync_read(&mut self.buffer)?;
             if self.handle_h1_res(&mut response, &mut read_len)? { break; }
         }
@@ -258,7 +258,7 @@ impl ScReq {
     }
 
     pub(crate) fn set_url(&mut self, url: &Url) -> HlsResult<()> {
-        if self.url.addr().host() != url.addr().host() || self.stream.scheme() != Some(*url.scheme()) {
+        if self.url.addr().host() != url.addr().host() || url.scheme() != self.stream.scheme() {
             self.re_conn(Some(url))?;
         }
         Ok(())

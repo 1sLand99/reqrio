@@ -54,26 +54,31 @@ impl Time {
     pub const WEEKDAY: [&'static str; 7] = ["Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"];
     pub const MONTH: [&'static str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-    pub fn now() -> Result<Time, TimeError> {
-        let dt = SystemTime::now().duration_since(UNIX_EPOCH).or(Err(TimeError::GetTimeNowError))?;
-        Ok(Time::from_msecs(dt.as_millis()))
+    fn new_utc(offset: u64) -> Duration {
+        match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(time) => time.add(Duration::from_hours(offset)),
+            Err(_) => Duration::from_secs(0).add(Duration::from_hours(offset))
+        }
     }
 
-    pub fn now_utc8() -> Result<Time, TimeError> {
-        let dt = SystemTime::now().duration_since(UNIX_EPOCH).or(Err(TimeError::GetTimeNowError))?;
-        Ok(Time::from_msecs(dt.add(Duration::from_hours(8)).as_millis()))
+    pub fn now() -> Time {
+        Time::from_msecs(Self::new_utc(0).as_millis())
     }
 
-    pub fn now_secs() -> Result<u64, TimeError> {
-        Ok(SystemTime::now().duration_since(UNIX_EPOCH).or(Err(TimeError::GetTimeNowError))?.as_secs())
+    pub fn now_utc8() -> Time {
+        Time::from_msecs(Self::new_utc(8).as_millis())
     }
 
-    pub fn now_mills() -> Result<u128, TimeError> {
-        Ok(SystemTime::now().duration_since(UNIX_EPOCH).or(Err(TimeError::GetTimeNowError))?.as_millis())
+    pub fn now_secs() -> u64 {
+        Self::new_utc(0).as_secs()
     }
 
-    pub fn now_nanos() -> Result<u128, TimeError> {
-        Ok(SystemTime::now().duration_since(UNIX_EPOCH).or(Err(TimeError::GetTimeNowError))?.as_nanos())
+    pub fn now_mills() -> u128 {
+        Self::new_utc(0).as_millis()
+    }
+
+    pub fn now_nanos() -> u128 {
+        Self::new_utc(0).as_nanos()
     }
 
     pub fn from_secs(secs: u64) -> Time {
@@ -138,8 +143,8 @@ impl Time {
     }
 
     ///Sat, 04 Apr 2026 13:42:35 GMT
-    pub fn rfc1123_utc8() -> Result<String, TimeError> {
-        Ok(Time::now_utc8()?.as_rfc1123())
+    pub fn rfc1123_utc8() -> String {
+        Time::now_utc8().as_rfc1123()
     }
 
     ///Sat, 04 Apr 2026 13:42:35 GMT
@@ -163,8 +168,8 @@ impl Time {
     }
 
     ///2026-03-26T10:02:19.911Z
-    pub fn rfc3339_utc8(&self) -> Result<String, TimeError> {
-        Ok(Time::now_utc8()?.as_rfc3339())
+    pub fn rfc3339_utc8(&self) -> String {
+        Time::now_utc8().as_rfc3339()
     }
 
     ///2026-03-26T10:02:19.911Z
@@ -187,8 +192,8 @@ impl Time {
         res
     }
 
-    pub fn common_utc8(&self) -> Result<String, TimeError> {
-        Ok(Time::now_utc8()?.as_common())
+    pub fn common_utc8(&self) -> String {
+        Time::now_utc8().as_common()
     }
 
     ///2026-03-26 10:02:19
@@ -385,7 +390,7 @@ impl Time {
     }
 
     pub fn time_uuid() -> Result<String, HlsError> {
-        let mut data = reqtls::hash::md5_hex(Time::now_nanos()?.to_be_bytes())?;
+        let mut data = reqtls::hash::md5_hex(Time::now_nanos().to_be_bytes())?;
         data.insert(8, '-');
         data.insert(13, '-');
         data.insert(18, '-');
@@ -432,7 +437,7 @@ mod tests {
     use crate::time::Time;
     #[test]
     fn test_time() {
-        let ts = Time::now_mills().unwrap();
+        let ts = Time::now_mills();
         let date = Time::from_msecs(ts);
         assert_eq!(ts, date.as_mills());
         assert_eq!(Time::from_rfc1123("Thu, 26 Mar 2026 10:02:19 GMT").unwrap().as_secs(), 1774519339);
