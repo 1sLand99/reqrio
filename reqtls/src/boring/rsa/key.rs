@@ -89,6 +89,11 @@ impl RsaKey {
         RsaKey::from_pri_pem(pem)
     }
 
+    pub fn from_pub_pem_file(pem_file: impl AsRef<Path>) -> RlsResult<RsaKey> {
+        let pem = fs::read(pem_file)?;
+        RsaKey::from_pub_pem(pem)
+    }
+
     pub fn from_pub_pem(pem: impl AsRef<[u8]>) -> RlsResult<RsaKey> {
         let bio = CPointer::new(unsafe { BIO_new_mem_buf(pem.as_ref().as_ptr() as *const _, pem.as_ref().len() as isize) });
         if bio.is_null() { return Err(RlsError::BioNewError); }
