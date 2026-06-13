@@ -17,7 +17,7 @@ impl Padding {
                 padding
             }
             Padding::PKCS5Padding => {
-                let padding_size = data.len() % 8;
+                let padding_size = 8 - data.len() % 8;
                 vec![padding_size as u8; padding_size]
             }
             Padding::PKCS7Padding => vec![padding_size as u8; padding_size],
