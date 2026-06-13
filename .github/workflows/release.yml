@@ -34,7 +34,6 @@ jobs:
 
       - name: cargo test
         run: |
-          cargo test --features aync,serde
           cargo test --features aync,serde --release
 
       - name: cargo build (export cdylib)
@@ -151,7 +150,9 @@ jobs:
       - name: cargo publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo publish --package reqrio
+        run: |
+          cargo publish --package reqtls
+          cargo publish --package reqrio
 
   # ----------------------------------------------------------------------------
   # Python → PyPI（打包同时携带 .so 与 .dll）

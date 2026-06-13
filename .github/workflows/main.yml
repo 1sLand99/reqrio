@@ -27,7 +27,6 @@ jobs:
       - name: build and test
         run: |
           cargo test --features aync,serde
-          cargo test --features aync,serde --release
           cargo build --package reqrio --release --features export
       - name: Copy So
         run: |
@@ -62,7 +61,6 @@ jobs:
       - name: build-msvc
         run: |
           cargo test --features aync,serde
-          cargo test --features aync,serde --release
           cargo build --package reqrio --release --features export
       - name: Copy DLL
         run: |
