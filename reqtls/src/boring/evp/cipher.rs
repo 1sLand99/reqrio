@@ -193,6 +193,15 @@ impl Cipher {
         self.iv = iv.map(|iv| iv.into()).unwrap_or(vec![]);
     }
 
+    pub fn with_padding(mut self, padding: Padding) -> Self {
+        self.set_padding(padding);
+        self
+    }
+
+    pub fn set_padding(&mut self, padding: Padding) {
+        self.padding = padding;
+    }
+
     pub fn encrypt(&self, context: impl AsRef<[u8]>) -> Result<Vec<u8>, CipherError> {
         self.init_cipher(&self.iv, 1)?;
         let mut out = vec![0; context.as_ref().len() + 16];
