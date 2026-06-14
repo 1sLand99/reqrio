@@ -30,7 +30,7 @@ jobs:
           cargo build --package reqrio --features export
       - name: Copy So
         run: |
-          cp target/release/libreqrio.so reqrio-py/reqrio/
+          cp target/debug/libreqrio.so reqrio-py/reqrio/
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=${{ github.workspace }}/reqrio-py" >> $GITHUB_ENV
       - name: Run Python FFI Test
@@ -64,7 +64,7 @@ jobs:
           cargo build --package reqrio --features export
       - name: Copy DLL
         run: |
-          copy target\\release\\reqrio.dll reqrio-py\\reqrio\\
+          copy target\\debug\\reqrio.dll reqrio-py\\reqrio\\
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=${{ github.workspace }}\\reqrio-py" >> $env:GITHUB_ENV
       - name: Run Python FFI Test

@@ -4,11 +4,11 @@
 
 ## ✨ 新特性
 
-### 🔧 全新 HTTP API
+### 🔧 全新 HTTP API [#7](https://github.com/xllgl2017/reqrio/pull/7)
 
-* 重构请求接口，提升可读性与扩展性
-* 为复杂请求场景与后续功能扩展打下基础
-* 现在可以通过以下方式快速请求
+* [x] 重构 `ScReq` / `AcReq` 请求接口
+* [x] 简化快速请求 API
+
 ```text
 let mut req = ScReq::new();
 let url = "https://www.baidu.com/";
@@ -16,7 +16,10 @@ let resp = req.get(url, None).unwrap();
 println!("{}", resp.header());
 ```
 
-### 🌐 内置 ECH 查询支持
+* [x] 增强方法链式调用支持
+* [x] 优化代码示例与文档
+
+### 🌐 内置 ECH 查询支持`Reader` [#11](https://github.com/xllgl2017/reqrio/pull/11)
 
 * 支持查询域名的 ECH（Encrypted ClientHello）配置
 * 可基于查询结果构建 ECH 数据
@@ -24,11 +27,18 @@ println!("{}", resp.header());
 
 ### 🌊 流式响应解析
 
-* 提供轻量级二进制解析工具`Reader`
+#### 1、轻量流式解析器`Reader` [#12](https://github.com/xllgl2017/reqrio/pull/12)
+
 * 支持类型：
     * u8 / u16 / u24 / u32
     * &[u8] / str
 * 适用于 TLS / DNS / HTTP 等协议解析场景
+
+#### 2、流式解压`StreamDecode` [#15](https://github.com/xllgl2017/reqrio/pull/15)
+
+* 支持类型
+    * chunk-gzip / br / deflate / zstd
+    * gzip / br / deflate / zstd
 
 ## 🎯 指纹级网络行为控制
 
@@ -42,25 +52,37 @@ println!("{}", resp.header());
 * Supported Groups
 * Signature Algorithms
 * TLS Versions
-* Extensions 
+* Extensions
 * ...
 
 ```text
-let tls = TlsFinger::Custom {
-    suites: vec![CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256.into(), ],
-    groups: vec![NamedCurve::X25519.into()],
-    algorithms: vec![SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into()],
-    versions: vec![Version::TLS_1_3, Version::TLS_1_2],
-    ec_formats: vec![EcPointFormat::UNCOMPRESSED],
-    compress_methods: vec![],
-    extensions: vec![ExtensionType::StatusRequest],
-};
+let finger = TlsFinger::Custom {
+    suites: vec![
+        CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256.into(),
+        CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384.into(),
+        CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256.into(),
+        CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA.into(),
+        CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA.into(),
+        CipherSuite::TLS_AES_128_GCM_SHA256.into(),
+        CipherSuite::TLS_AES_256_GCM_SHA384.into(),
+        CipherSuite::TLS_CHACHA20_POLY1305_SHA256.into(),
+    ],
+    extensions: vec![
+        ExtensionType::StatusRequest.into(),
+        Extension::new(ExtensionType::SupportedGroup, ExtensionValue::Curves(vec![
+            NamedCurve::X25519.into(),
+            NamedCurve::SecP256r1.into(),
+            NamedCurve::SecP384r1.into(),
+            NamedCurve::SecP521r1.into(),
+        ]))
+    ]
+}
 ```
 
 👉 可用于：
 
-* TLS 指纹模拟（如 JA3/JA4）
-* 反爬对抗
+* 精准 TLS 指纹模拟，模拟浏览器 TLS 指纹行为
+* 爬虫检测与对抗
 * 协议研究
 
 ### ⚡ 自定义 HTTP/2 指纹
@@ -87,17 +109,32 @@ let h2 = H2Finger {
 * 模拟浏览器网络行为
 * 精细控制连接调度策略
 
-## 🔐 支持 TLS 1.3
+## 🔐 支持 TLS 1.3 [#9](https://github.com/xllgl2017/reqrio/pull/9)
 
 * 完整支持 TLS 1.3 握手流程
 * 支持与自定义 TLS 指纹联动
 * 为浏览器级 TLS 行为模拟提供基础
 
+## 📦 其他
+
+### 新增密码学算法
+
+* sm4-ecb
+* sm4-cbc
+* sm4-ofb
+* sm4-cfb
+* sm4-ctr
+* aead-sm4-gcm
+* sm3
+* 3des-cbc
+* 3des-ecb
+
+### 日志Longer
+
 ## Contact
 
 * Tg: https://t.me/+VVfbAeug-ohhZjU1
 * QQ: 1083315546
-
 
 # reqrio-v0.2.0
 
