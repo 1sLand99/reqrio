@@ -68,6 +68,10 @@ public:
 
     void setFingerprint(Fingerprint *fingerprint) const;
 
+    void reconnect() const;
+
+    void close_stream() const;
+
     // void setCallback(bindings::Callback callback) const;
 
     /// 发送HTTP请求
@@ -101,8 +105,6 @@ public:
     [[nodiscard]] Response trace(Url *, Body *) const;
 
     [[nodiscard]] Response patch(Url *, Body *) const;
-
-
 };
 
 

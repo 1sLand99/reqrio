@@ -136,10 +136,6 @@ namespace bindings {
 
     char *ScReq_set_fingerprint(ScReq *req, Fingerprint *fingerprint);
 
-    // int ScReq_set_ja3(ScReq *req, const char *ja3, const char *token);
-
-    // int ScReq_set_ja4(ScReq *req, const char *ja4, const char *token);
-
     char *ScReq_set_proxy(ScReq *req, const char *proxy);
 
     char *ScReq_set_timeout(ScReq *req, const char *timeout);

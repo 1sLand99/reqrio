@@ -65,6 +65,14 @@ void Session::setFingerprint(Fingerprint *fingerprint) const {
     delete fingerprint;
 }
 
+void Session::reconnect() const {
+    util::check_err(bindings::ScReq_reconnect(this->req));
+}
+
+void Session::close_stream() const {
+    util::check_err(bindings::ScReq_close_stream(this->req));
+}
+
 Response Session::send(const Method method, Url *url, Body *body) const {
     char *err = nullptr;
     const auto resp_ptr = bindings::ScReq_stream_io(this->req, method, url->take(), body->take(), &err);

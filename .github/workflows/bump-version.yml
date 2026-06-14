@@ -1,8 +1,8 @@
 name: bump-version
 
 # 手动触发：输入目标版本号，自动修改所有相关文件的版本号，
-# 提交一个 release commit 并打 tag，tag 推送后会触发 release.yml
-# 提交 release: bump version to X.Y.Z,打 tag vX.Y.Z,推送
+# 提交一个 release commit
+# 提交 release: bump version X.Y.Z,推送
 on:
   workflow_dispatch:
     inputs:
@@ -54,7 +54,7 @@ jobs:
       - name: Show diff
         run: git --no-pager diff
 
-      - name: Commit, tag and push
+      - name: Commit and push
         env:
           NEW: ${{ inputs.version }}
         run: |
@@ -64,7 +64,5 @@ jobs:
           git add reqrio/Cargo.toml reqtls/Cargo.toml Cargo.toml \
                   reqrio-py/pyproject.toml reqrio-py/setup.py \
                   reqrio-java/pom.xml reqrio-js/package.json
-          git commit -m "release: bump version to ${NEW}"
-          git tag "v${NEW}"
+          git commit -m "bump version ${NEW}"
           git push origin HEAD
-          git push origin "v${NEW}"

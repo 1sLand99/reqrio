@@ -35,13 +35,5 @@ namespace util {
         return res.toUtf8();
     }
 
-    static QString alpn_str(const ALPN alpn) {
-        switch (alpn) {
-            case HTTP20:
-                return "h2";
-            case HTTP11:
-                return "http/1.1";
-        }
-        return "";
-    }
+    QString alpn_str(ALPN alpn);
 }

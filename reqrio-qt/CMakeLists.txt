@@ -21,6 +21,7 @@ add_library(reqrio-qt STATIC bindings.h
         Url.cpp
         Url.h
         util.h
+        util.cpp
         Body.cpp
         Body.h
         Fingerprint.cpp
