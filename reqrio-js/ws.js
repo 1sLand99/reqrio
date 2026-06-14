@@ -1,6 +1,9 @@
-const {library, read_to_string} = require("./bindings");
+const {library} = require("./bindings");
+
 const registry = new FinalizationRegistry(ws => {
-    library.ws_close(ws)
+    if (ws && !ws.isNull()) {
+        library.ws_close(ws)
+    }
 })
 
 class Websocket {
@@ -11,45 +14,59 @@ class Websocket {
 
     add_header(name, value) {
         let ret = library.ws_add_header(this.build, name, value)
-        if (ret === -1) throw "add header error"
+        if (ret === -1) throw new Error("add header error")
     }
 
     set_proxy(proxy) {
         let ret = library.ws_set_proxy(this.build, proxy);
-        if (ret === -1) throw "set proxy error"
-    }
-
-    set_url(url) {
-        let ret = library.ws_set_url(this.build, url)
-        if (ret === -1) throw "set url error"
+        if (ret === -1) throw new Error("set proxy error")
     }
 
     set_uri(uri) {
         let ret = library.ws_set_uri(this.build, uri)
-        if (ret === -1) throw "set uri error"
+        if (ret === -1) throw new Error("set uri error")
     }
 
-    open(url) {
-        if (url) this.set_url(url)
-        this.ws = library.ws_open(this.build)
-        if (!this.ws || this.ws.length === 0) throw "connect error"
+    /**
+     * Open WebSocket connection with a Url object pointer
+     * @param {Buffer} urlPtr - pointer to Url object
+     */
+    open(urlPtr) {
+        this.ws = library.ws_open(this.build, urlPtr)
+        if (!this.ws || this.ws.isNull()) throw new Error("connect error")
+        registry.register(this, this.ws)
+    }
+
+    /**
+     * Open WebSocket connection directly with URL string
+     * @param {string} url - WebSocket URL
+     * @param {string} context - optional context string
+     */
+    open_raw(url, context = "") {
+        this.ws = library.ws_open_raw(url, context)
+        if (!this.ws || this.ws.isNull()) throw new Error("connect error")
         registry.register(this, this.ws)
     }
 
     read() {
-        let ptr = library.ws_read(this.ws)
-        let s = read_to_string(ptr)
-        library.char_free(ptr)
-        return JSON.parse(s)
+        const frameStr = library.ws_read(this.ws)
+        if (frameStr === null || frameStr === undefined) {
+            throw new Error("ws_read returned null");
+        }
+        return JSON.parse(frameStr)
     }
 
     write(opcode, mask, msg) {
         let ret = library.ws_write(this.ws, opcode, mask, msg)
-        if (ret === -1) throw "ws write error"
+        if (ret === -1) throw new Error("ws write error")
     }
 
     close() {
         registry.unregister(this);
+        if (this.ws && !this.ws.isNull()) {
+            library.ws_close(this.ws);
+            this.ws = null;
+        }
     }
 }
 

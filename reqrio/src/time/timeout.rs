@@ -11,7 +11,6 @@ pub struct Timeout {
     write: Duration,
     //处理超时，总超时
     handle: Duration,
-
     //连接尝试次数
     connect_times: i32,
     //处理次数
@@ -100,10 +99,10 @@ impl TryFrom<JsonValue> for Timeout {
     type Error = HlsError;
     fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
         Ok(Timeout {
-            connect: Duration::from_secs(value["connect"].as_u64()?),
-            read: Duration::from_secs(value["read"].as_u64()?),
-            write: Duration::from_secs(value["write"].as_u64()?),
-            handle: Duration::from_secs(value["handle"].as_u64()?),
+            connect: Duration::from_millis(value["connect"].as_u64()?),
+            read: Duration::from_millis(value["read"].as_u64()?),
+            write: Duration::from_millis(value["write"].as_u64()?),
+            handle: Duration::from_millis(value["handle"].as_u64()?),
             connect_times: value["connect_times"].as_i32()?,
             handle_times: value["handle_times"].as_i32()?,
         })

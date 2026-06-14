@@ -1,53 +1,78 @@
-class Header {
-    constructor(json) {
-        if (!json) return
-        this.uri = json.uri;
-        this.method = json.method;
-        this.status = json.status;
-        this.agreement = json.agreement;
-        this.keys = json.keys
-        this.cookies = []
-
-        if (this.keys["Set-Cookie"]) {
-            for (let i = 0; i < this.keys["Set-Cookie"].length; i++) {
-                this.cookies.push(this.keys["Set-Cookie"][i])
-            }
-            delete this.keys["Set-Cookie"]
-        }
-        if (this.keys["set-cookie"]) {
-            for (let i = 0; i < this.keys["set-cookie"].length; i++) {
-                this.cookies.push(this.keys["set-cookie"][i])
-            }
-            delete this.keys["set-cookie"]
-        }
+const {library, ref, check_error, ref_char_ptr, read_c_str} = require("./bindings");
 
 
-    }
-}
+const registry = new FinalizationRegistry(resp => {
+    console.log(3434);
+    library.Response_drop(resp);
+    resp = null;
+})
 
 
 class Response {
-    constructor(bytes) {
-        let resp_text = bytes.toString('utf8')
-        try {
-            let resp_json = JSON.parse(resp_text);
-            this.header = new Header(resp_json.header);
-            this.body = Buffer.from(resp_json.body, 'hex')
-        } catch (e) {
-            throw resp_text
-        }
+    constructor(respPtr) {
+        this.ptr = respPtr;
+        registry.register(this, this.ptr);
     }
 
     status_code() {
-        return this.header.status
+        const errPtr = ref_char_ptr();
+        const status_code = library.Response_status_code(this.ptr, errPtr);
+        check_error(errPtr.deref())
+        return status_code
     }
 
-    text() {
-        return this.body.toString('utf8')
+    /**获取响应头
+     * @param {string} name
+     **/
+    get_header(name) {
+        const errPtr = ref_char_ptr();
+        const ptr = library.Response_get_header(this.ptr, name, errPtr);
+        check_error(errPtr.deref())
+        let res = read_c_str(ptr);
+        library.char_free(ptr);
+        return res;
     }
+
+    cookies() {
+        const errPtr = ref_char_ptr();
+        const ptr = library.Response_cookies(this.ptr, errPtr);
+        check_error(errPtr.deref());
+        let res = read_c_str(ptr);
+        library.char_free(ptr);
+        return JSON.parse(res)
+    }
+
+    bytes() {
+        const errPtr = ref_char_ptr();
+        const lenPtr = Buffer.alloc(8);
+        const ptr = library.Response_bytes(this.ptr, lenPtr, errPtr);
+        check_error(errPtr.deref());
+        const len = Number(lenPtr.readBigUInt64LE(0));
+        return Buffer.from(ref.reinterpret(ptr, len))
+    }
+
+
+    text() {
+        return this.bytes().toString('utf8');
+    }
+
+    json() {
+        return JSON.parse(this.text())
+    }
+
+    /**
+     * Free the response resource
+     */
+    close() {
+        registry.unregister(this)
+        if (this.ptr == null) return;
+        library.Response_drop(this.ptr);
+        this.ptr = null;
+    }
+
 }
 
 
 module.exports = {
-    Response, Header
+    Response
 }

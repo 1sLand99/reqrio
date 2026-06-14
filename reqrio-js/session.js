@@ -1,5 +1,14 @@
-const {library, Method, make_ScReq_callback, read_to_string} = require("./bindings");
+const {
+    library,
+    Method,
+    ref,
+    make_ScReq_callback,
+    check_error, ref_char_ptr
+} = require("./bindings");
 const {Response} = require("./Response")
+const {Body} = require('./body')
+const {Url} = require('./Url')
+const {Fingerprint} = require("./fingerprint")
 
 const ALPN = Object.freeze({
     HTTP10: "http/1.0",
@@ -8,176 +17,274 @@ const ALPN = Object.freeze({
 })
 
 const registry = new FinalizationRegistry(req => {
-    library.ScReq_drop(req)
+    console.log(3434);
+    library.ScReq_drop(req);
+    req = null;
 })
 
+
+/**
+ * Helper to read error from char** output parameter
+ */
+function read_err_output(errPtr) {
+    if (!errPtr) return null;
+    const charBuffer = ref.readPointer(errPtr, 0);
+    if (!charBuffer || charBuffer.isNull()) return null;
+    const msg = ref.readCString(charBuffer, 0);
+    library.char_free(charBuffer);
+    return msg;
+}
+
+
 class Session {
-    constructor(alpn, rand_tls, token, verify = true) {
+    /**初始化Session
+     * @param {ALPN} alpn 设置请求的版本，实际使用需和服务器协商。设置了指纹将失效
+     * @param {object} headers
+     * @param {boolean} verify 是否对服务器的证书链进行验证
+     * @param {boolean} auto_redirect 是否对重定向链接进行自动跳转
+     * @param {string|null} key_log 导出tls密钥
+     * @param {boolean} rand_tls
+     * @param {string|null} token 认证token
+     **/
+    constructor(
+        alpn,
+        headers = {},
+        verify = true,
+        auto_redirect = true,
+        key_log = null,
+        rand_tls = false,
+        token = null,
+    ) {
         this.req = library.ScReq_new();
-        if (alpn) {
-            let ret = library.ScReq_set_alpn(this.req, alpn)
-            if (ret === -1) throw "set_alpn error"
-        }
-        if (rand_tls && token) {
-            let ret = library.ScReq_set_random_fingerprint(this.req, token);
-            if (ret === -2) console.log("free user, set_random_fingerprint can't be used")
-            if (ret === -1) throw "set_random_fingerprint error"
-        }
-        library.ScReq_set_verify(this.req, verify)
-        registry.register(this, this.req)
+        if (alpn) check_error(library.ScReq_set_alpn(this.req, alpn));
+        check_error(library.ScReq_set_verify(this.req, verify), this.close);
+        check_error(library.ScReq_set_redirect(this.req, auto_redirect), this.close);
+        if (key_log !== null) this.set_key_log(key_log, this.close)
+        if (rand_tls && token !== null) this.use_random_tls(token)
+        this.set_headers(headers)
+
+        registry.register(this, this.req);
     }
 
-    set_fingerprint(fingerprint, token) {
-        let ret = library.ScReq_set_fingerprint(this.req, fingerprint, token);
-        if (ret === -2) console.log("free user, set_fingerprint can't be used")
-        if (ret === -1) throw "set_fingerprint error"
+    set_key_log(key_log, func = null) {
+        check_error(library.ScReq_set_key_log(this.req, key_log), func)
     }
 
+    _set_fingerprint(finger) {
+        check_error(library.ScReq_set_fingerprint(this.req, finger))
+    }
+
+    /**使用随机指纹
+     * @param {Fingerprint} fingerprint
+     **/
+    set_fingerprint(fingerprint) {
+        check_error(library.ScReq_set_fingerprint(this.req, fingerprint.ptr));
+        fingerprint.ptr = null;
+    }
+
+    /**使用随机指纹
+     * @param {string} token 认证token
+     **/
+    use_random_tls(token) {
+        check_error(library.Fingerprint_random(this.req, token))
+    }
+
+    /**使用ja3设置指纹
+     * @param {string} ja3
+     * @param {string} token 认证token
+     **/
     set_ja3(ja3, token) {
-        let ret = library.ScReq_set_ja3(this.req, ja3, token);
-        if (ret === -2) console.log("free user, set_ja3 can't be used")
-        if (ret === -1) throw "set_ja3 error"
-
+        const errPtr = ref_char_ptr();
+        const finger = library.Fingerprint_from_ja3(ja3, token, errPtr);
+        check_error(errPtr.deref());
+        this._set_fingerprint(finger)
     }
 
+    /**使用ja4设置指纹
+     * @param {string} ja4
+     * @param {string} token 认证token
+     **/
     set_ja4(ja4, token) {
-        let ret = library.ScReq_set_ja4(this.req, ja4, token);
-        if (ret === -2) console.log("free user, set_ja4 can't be used")
-        if (ret === -1) throw "set_ja4 error"
-
+        const errPtr = ref_char_ptr();
+        const finger = library.Fingerprint_from_ja4(ja4, token, errPtr);
+        check_error(errPtr.deref());
+        this._set_fingerprint(finger)
     }
 
+    /**使用client hello设置指纹
+     * @param {Uint8Array} client_hello
+     * @param {string} token 认证token
+     **/
+    set_finger_by_client_hello(client_hello, token) {
+        const errPtr = ref_char_ptr();
+        const finger = library.Fingerprint_from_client_hello(client_hello, client_hello.length, token, errPtr);
+        check_error(errPtr.deref());
+        this._set_fingerprint(finger)
+    }
+
+
+    /**使用自定义指纹
+     * @param {object} custom
+     * @param {string} token 认证token
+     **/
+    set_finger_by_custom(custom, token) {
+        const errPtr = ref_char_ptr();
+        const finger = library.Fingerprint_custom(JSON.stringify(custom), token, errPtr);
+        check_error(errPtr.deref());
+        this._set_fingerprint(finger)
+    }
+
+
+    /**设置请求头
+     * @param {object} header
+     **/
     set_headers(header) {
         let header_str = JSON.stringify(header);
-        let ret = library.ScReq_set_header_json(this.req, header_str)
-        if (ret === -1) throw "set_header_json error"
+        check_error(library.ScReq_set_header_json(this.req, header_str));
     }
 
+    /**添加一个请求头
+     * @param {string} name
+     * @param {string} value
+     **/
     add_header(name, value) {
-        let ret = library.ScReq_add_header(name, value)
-        if (ret === -1) throw "add_header error"
+        check_error(library.ScReq_add_header(this.req, name, value))
     }
 
+    /**移除一个请求头
+     * @param {string} name
+     **/
+    remove_header(name) {
+        check_error(library.ScReq_remove_header(this.req, name))
+    }
+
+    /**设置代理
+     * @param {string} proxy 例如：http://127.0.0.1:8080,socks5://127.0.0.1:8080
+     **/
     set_proxy(proxy) {
-        let ret = library.ScReq_set_proxy(this.req, proxy);
-        if (ret === -1) throw "add_header error"
+        check_error(library.ScReq_set_proxy(this.req, proxy))
     }
 
-    add_param(name, value) {
-        let ret = library.ScReq_add_param(this.req, name, value);
-        if (ret === -1) throw "add_param error"
-    }
-
-    /*
-    Timeout{
-        connect:3000,
-        read:3000,
-        write:3000,
-        handle:30000,
-        connect_times:3,
-        handle_times:3
-    }
-     */
+    /**设置请求超时
+     * @param {object} timeout
+     **/
     set_timeout(timeout) {
         let timeout_str = JSON.stringify(timeout);
-        let ret = library.ScReq_set_timeout(this.req, timeout_str);
-        if (ret === -1) throw "set_timeout error"
+        check_error(library.ScReq_set_timeout(this.req, timeout_str))
     }
 
+    /**设置Cookie
+     * @param {string} cookie 例如：name1=a; name2=fdg
+     **/
     set_cookie(cookie) {
-        let ret = library.ScReq_set_cookie(this.req, cookie)
-        if (ret === -1) throw "set_cookie error"
+        check_error(library.ScReq_set_cookie(this.req, cookie))
     }
 
+    /**添加一个Cookie
+     * @param {string} name
+     * @param {string} value
+     **/
     add_cookie(name, value) {
-        let ret = library.ScReq_add_cookie(this.req, name, value)
-        if (ret === -1) throw "add_cookie error"
+        check_error(library.ScReq_add_cookie(this.req, name, value))
     }
 
     reconnect() {
-        let ret = library.ScReq_reconnect(this.req)
-        if (ret === -1) throw "reconnect error"
+        check_error(library.ScReq_reconnect(this.req));
+    }
+
+    /**连接到某个url，不会发包
+     * @param {string} url
+     **/
+    connect(url) {
+        check_error(library.ScReq_connect(this.req, url))
+    }
+
+
+    close_stream() {
+        check_error(library.ScReq_close_stream(this.req))
     }
 
     set_callback(func) {
-        let callback = make_ScReq_callback(func)
-        library.ScReq_set_callback(this.req, callback)
+        let callback = make_ScReq_callback(func);
+        check_error(library.ScReq_set_callback(this.req, callback))
     }
 
-    _format_body(data, json, bytes, ct) {
-        if (data !== null) {
-            let keys = Object.keys(data)
-            let res = "";
-            for (let i = 0; i < keys.length; i++) {
-                res += keys[i];
-                res += "="
-                res += encodeURIComponent(JSON.stringify(data[keys[i]]))
-                res += "&"
+    /** 发送一个请求
+     * @param {number} method  请求方法
+     * @param {string} url_str 请求地址
+     * @param {object} options 请求体
+     */
+    send(method, url_str, options = {}) {
+        const {data, json, files, bytes, ct, params, sni} = options;
+        const url = new Url(url_str, params, sni)
+
+
+        // Create Body
+        let body_ptr = null;
+        try {
+            if (bytes !== undefined && bytes !== null) {
+                body_ptr = Body.new(bytes, ct || "application/octet-stream");
+            } else if (json !== undefined && json !== null) {
+                body_ptr = Body.new_json(json, ct || "application/json")
+            } else if (data !== undefined && data !== null) {
+                body_ptr = Body.new_form(data, ct || "application/x-www-form-urlencoded");
+            } else if (files !== undefined && files !== null) {
+                body_ptr = Body.new_files(files, data)
+            } else {
+                body_ptr = Body.none();
             }
-            if (res.endsWith("&")) {
-                res = res.substring(0, res.length - 1)
-            }
-            if (ct === null)
-                return [new TextEncoder().encode(res), "application/x-www-form-urlencoded"]
-            else return [new TextEncoder().encode(res), ct]
+        } catch (e) {
+            url.close();
+            throw e;
         }
-        if (json !== null) {
-            let res = JSON.stringify(json);
-            if (ct === null)
-                return [new TextEncoder().encode(res), "application/json"]
-            else return [new TextEncoder().encode(res), ct]
-        }
-        if (bytes !== null)
-            if (ct === null)
-                return [bytes, "application/octet-stream"]
-            else return [bytes, ct]
-        return [new TextEncoder().encode(""), "application/octet-stream"]
+
+        // Send request
+        const errPtr = ref_char_ptr();
+        const respPtr = library.ScReq_stream_io(this.req, method, url.ptr, body_ptr, errPtr);
+        check_error(errPtr.deref())
+        return new Response(respPtr);
     }
 
-    send(method, url, data, json, bytes, ct) {
-        let body = this._format_body(data, json, bytes, ct)
-        let resp = library.ScReq_stream_io(this.req, method, url, body[0], body[0].length, body[1])
-        let buffer = Buffer.from(read_to_string(resp), "hex");
-        let response = new Response(buffer);
-        response.header.method = method;
-        library.char_free(resp)//；这里需要手动释放吗
-        return response;
+    get(url, options) {
+        return this.send(Method.GET, url, options);
     }
 
-    get(url, data, json, bytes, ct) {
-        return this.send(Method.GET, url, data, json, bytes, ct)
+    post(url, options) {
+        return this.send(Method.POST, url, options);
     }
 
-    post(url, data, json, bytes, ct) {
-        return this.send(Method.POST, url, data, json, bytes, ct)
+    put(url, options) {
+        return this.send(Method.PUT, url, options);
     }
 
-    options(url, data, json, bytes, ct) {
-        return this.send(Method.OPTIONS, url, data, json, bytes, ct)
+    head(url, options) {
+        return this.send(Method.HEAD, url, options);
     }
 
-    head(url, data, json, bytes, ct) {
-        return this.send(Method.HEAD, url, data, json, bytes, ct)
+    delete(url, options) {
+        return this.send(Method.DELETE, url, options);
     }
 
-    trace(url, data, json, bytes, ct) {
-        return this.send(Method.TRACE, url, data, json, bytes, ct)
+    options(url, options) {
+        return this.send(Method.OPTIONS, url, options);
     }
 
-    delete(url, data, json, bytes, ct) {
-        return this.send(Method.DELETE, url, data, json, bytes, ct)
+    trace(url, options) {
+        return this.send(Method.TRACE, url, options);
     }
 
-    patch(url, data, json, bytes, ct) {
-        return this.send(Method.PATCH, url, data, json, bytes, ct)
+    patch(url, options) {
+        return this.send(Method.PATCH, url, options);
     }
 
     close() {
         registry.unregister(this);
-        library.ScReq_drop(this.req)
+        if (this.req == null) return
+        library.ScReq_drop(this.req);
+        this.req = null;
     }
 }
 
 module.exports = {
-    Session, ALPN, Method, Response
+    Session, ALPN, Method
 }
