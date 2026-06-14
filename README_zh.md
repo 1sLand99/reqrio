@@ -165,14 +165,14 @@ reqrio 采用分层网络栈设计：
 
 ## 多语言绑定
 
-| Language | 类型  | Status | 文档                                                                                                   |
-|----------|-----|--------|------------------------------------------------------------------------------------------------------|
-| Rust     | 原生  | ✅      | [docs.rs](https://docs.rs/reqrio/latest/reqrio/)                                                     |
-| Python   | FFI | ✅      | [pypi](https://pypi.org/project/reqrio/)                                                             |
-| Java     | JNI | ✅      | [Maven](https://javadoc.io/doc/io.github.xllgl2017/reqrio/latest/org/xllgl2017/package-summary.html) |
-| Node.js  | FFI | ✅      | [Node.js](https://www.npmjs.com/package/reqrio)                                                      |
-| Go       | CGO | ✅      |                                                                                                      |
-| Qt/C++   | FFI | ✅      |                                                                                                      |
+| Language | 类型  | Status  | 文档                                                                                                   |
+|----------|-----|---------|------------------------------------------------------------------------------------------------------|
+| Rust     | 原生  | ✅       | [docs.rs](https://docs.rs/reqrio/latest/reqrio/)                                                     |
+| Python   | FFI | ✅       | [pypi](https://pypi.org/project/reqrio/)                                                             |
+| Java     | JNI | ✅       | [Maven](https://javadoc.io/doc/io.github.xllgl2017/reqrio/latest/org/xllgl2017/package-summary.html) |
+| Node.js  | FFI | ✅       | [Node.js](https://www.npmjs.com/package/reqrio)                                                      |
+| Go       | CGO | ⚠️(0.2) |                                                                                                      |
+| Qt/C++   | FFI | ✅       |                                                                                                      |
 
 ## Roadmap
 
@@ -191,7 +191,6 @@ reqrio 采用分层网络栈设计：
 - [ ] 长期支持版本
 
 ## 🚀 快速开始
-
 
 ## 许可证
 
