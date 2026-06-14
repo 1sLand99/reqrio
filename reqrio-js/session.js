@@ -1,5 +1,5 @@
 const {
-    library,
+    binding_library,
     Method,
     ref,
     make_ScReq_callback,
@@ -16,24 +16,11 @@ const ALPN = Object.freeze({
     HTTP20: "h2"
 })
 
-const registry = new FinalizationRegistry(req => {
-    console.log(3434);
-    library.ScReq_drop(req);
-    req = null;
-})
-
-
-/**
- * Helper to read error from char** output parameter
- */
-function read_err_output(errPtr) {
-    if (!errPtr) return null;
-    const charBuffer = ref.readPointer(errPtr, 0);
-    if (!charBuffer || charBuffer.isNull()) return null;
-    const msg = ref.readCString(charBuffer, 0);
-    library.char_free(charBuffer);
-    return msg;
-}
+// const registry = new FinalizationRegistry(req => {
+//     console.log(3434);
+//     library.ScReq_drop(req);
+//     req = null;
+// })
 
 
 class Session {
@@ -55,30 +42,33 @@ class Session {
         rand_tls = false,
         token = null,
     ) {
-        this.req = library.ScReq_new();
-        if (alpn) check_error(library.ScReq_set_alpn(this.req, alpn));
-        check_error(library.ScReq_set_verify(this.req, verify), this.close);
-        check_error(library.ScReq_set_redirect(this.req, auto_redirect), this.close);
+        this.library = binding_library();
+        this.req = this.library.ScReq_new();
+        console.log(111)
+
+        if (alpn) check_error(this.library, this.library.ScReq_set_alpn(this.req, alpn));
+        check_error(this.library, this.library.ScReq_set_verify(this.req, verify), this.close);
+        check_error(this.library, this.library.ScReq_set_redirect(this.req, auto_redirect), this.close);
         if (key_log !== null) this.set_key_log(key_log, this.close)
         if (rand_tls && token !== null) this.use_random_tls(token)
         this.set_headers(headers)
 
-        registry.register(this, this.req);
+        // registry.register(this, this.req);
     }
 
     set_key_log(key_log, func = null) {
-        check_error(library.ScReq_set_key_log(this.req, key_log), func)
+        check_error(this.library, this.library.ScReq_set_key_log(this.req, key_log), func)
     }
 
     _set_fingerprint(finger) {
-        check_error(library.ScReq_set_fingerprint(this.req, finger))
+        check_error(this.library, this.library.ScReq_set_fingerprint(this.req, finger))
     }
 
     /**使用随机指纹
      * @param {Fingerprint} fingerprint
      **/
     set_fingerprint(fingerprint) {
-        check_error(library.ScReq_set_fingerprint(this.req, fingerprint.ptr));
+        check_error(this.library, this.library.ScReq_set_fingerprint(this.req, fingerprint.ptr));
         fingerprint.ptr = null;
     }
 
@@ -86,7 +76,7 @@ class Session {
      * @param {string} token 认证token
      **/
     use_random_tls(token) {
-        check_error(library.Fingerprint_random(this.req, token))
+        check_error(this.library, this.library.Fingerprint_random(this.req, token))
     }
 
     /**使用ja3设置指纹
@@ -95,8 +85,8 @@ class Session {
      **/
     set_ja3(ja3, token) {
         const errPtr = ref_char_ptr();
-        const finger = library.Fingerprint_from_ja3(ja3, token, errPtr);
-        check_error(errPtr.deref());
+        const finger = this.library.Fingerprint_from_ja3(ja3, token, errPtr);
+        check_error(this.library, errPtr.deref());
         this._set_fingerprint(finger)
     }
 
@@ -106,8 +96,8 @@ class Session {
      **/
     set_ja4(ja4, token) {
         const errPtr = ref_char_ptr();
-        const finger = library.Fingerprint_from_ja4(ja4, token, errPtr);
-        check_error(errPtr.deref());
+        const finger = this.library.Fingerprint_from_ja4(ja4, token, errPtr);
+        check_error(this.library, errPtr.deref());
         this._set_fingerprint(finger)
     }
 
@@ -117,8 +107,8 @@ class Session {
      **/
     set_finger_by_client_hello(client_hello, token) {
         const errPtr = ref_char_ptr();
-        const finger = library.Fingerprint_from_client_hello(client_hello, client_hello.length, token, errPtr);
-        check_error(errPtr.deref());
+        const finger = this.library.Fingerprint_from_client_hello(client_hello, client_hello.length, token, errPtr);
+        check_error(this.library, errPtr.deref());
         this._set_fingerprint(finger)
     }
 
@@ -129,8 +119,8 @@ class Session {
      **/
     set_finger_by_custom(custom, token) {
         const errPtr = ref_char_ptr();
-        const finger = library.Fingerprint_custom(JSON.stringify(custom), token, errPtr);
-        check_error(errPtr.deref());
+        const finger = this.library.Fingerprint_custom(JSON.stringify(custom), token, errPtr);
+        check_error(this.library, errPtr.deref());
         this._set_fingerprint(finger)
     }
 
@@ -140,7 +130,7 @@ class Session {
      **/
     set_headers(header) {
         let header_str = JSON.stringify(header);
-        check_error(library.ScReq_set_header_json(this.req, header_str));
+        check_error(this.library, this.library.ScReq_set_header_json(this.req, header_str));
     }
 
     /**添加一个请求头
@@ -148,21 +138,21 @@ class Session {
      * @param {string} value
      **/
     add_header(name, value) {
-        check_error(library.ScReq_add_header(this.req, name, value))
+        check_error(this.library, this.library.ScReq_add_header(this.req, name, value))
     }
 
     /**移除一个请求头
      * @param {string} name
      **/
     remove_header(name) {
-        check_error(library.ScReq_remove_header(this.req, name))
+        check_error(this.library, library.ScReq_remove_header(this.req, name))
     }
 
     /**设置代理
      * @param {string} proxy 例如：http://127.0.0.1:8080,socks5://127.0.0.1:8080
      **/
     set_proxy(proxy) {
-        check_error(library.ScReq_set_proxy(this.req, proxy))
+        check_error(this.library, this.library.ScReq_set_proxy(this.req, proxy))
     }
 
     /**设置请求超时
@@ -170,14 +160,14 @@ class Session {
      **/
     set_timeout(timeout) {
         let timeout_str = JSON.stringify(timeout);
-        check_error(library.ScReq_set_timeout(this.req, timeout_str))
+        check_error(this.library, this.library.ScReq_set_timeout(this.req, timeout_str))
     }
 
     /**设置Cookie
      * @param {string} cookie 例如：name1=a; name2=fdg
      **/
     set_cookie(cookie) {
-        check_error(library.ScReq_set_cookie(this.req, cookie))
+        check_error(this.library, this.library.ScReq_set_cookie(this.req, cookie))
     }
 
     /**添加一个Cookie
@@ -185,28 +175,28 @@ class Session {
      * @param {string} value
      **/
     add_cookie(name, value) {
-        check_error(library.ScReq_add_cookie(this.req, name, value))
+        check_error(this.library, this.library.ScReq_add_cookie(this.req, name, value))
     }
 
     reconnect() {
-        check_error(library.ScReq_reconnect(this.req));
+        check_error(this.library, this.library.ScReq_reconnect(this.req));
     }
 
     /**连接到某个url，不会发包
      * @param {string} url
      **/
     connect(url) {
-        check_error(library.ScReq_connect(this.req, url))
+        check_error(this.library, this.library.ScReq_connect(this.req, url))
     }
 
 
     close_stream() {
-        check_error(library.ScReq_close_stream(this.req))
+        check_error(this.library, this.library.ScReq_close_stream(this.req))
     }
 
     set_callback(func) {
         let callback = make_ScReq_callback(func);
-        check_error(library.ScReq_set_callback(this.req, callback))
+        check_error(this.library, this.library.ScReq_set_callback(this.req, callback))
     }
 
     /** 发送一个请求
@@ -216,22 +206,22 @@ class Session {
      */
     send(method, url_str, options = {}) {
         const {data, json, files, bytes, ct, params, sni} = options;
-        const url = new Url(url_str, params, sni)
+        const url = new Url(this.library, url_str, params, sni)
 
 
         // Create Body
         let body_ptr = null;
         try {
             if (bytes !== undefined && bytes !== null) {
-                body_ptr = Body.new(bytes, ct || "application/octet-stream");
+                body_ptr = Body.new(this.library, bytes, ct || "application/octet-stream");
             } else if (json !== undefined && json !== null) {
-                body_ptr = Body.new_json(json, ct || "application/json")
+                body_ptr = Body.new_json(this.library, json, ct || "application/json")
             } else if (data !== undefined && data !== null) {
-                body_ptr = Body.new_form(data, ct || "application/x-www-form-urlencoded");
+                body_ptr = Body.new_form(this.library, data, ct || "application/x-www-form-urlencoded");
             } else if (files !== undefined && files !== null) {
                 body_ptr = Body.new_files(files, data)
             } else {
-                body_ptr = Body.none();
+                body_ptr = Body.none(this.library);
             }
         } catch (e) {
             url.close();
@@ -240,9 +230,11 @@ class Session {
 
         // Send request
         const errPtr = ref_char_ptr();
-        const respPtr = library.ScReq_stream_io(this.req, method, url.ptr, body_ptr, errPtr);
-        check_error(errPtr.deref())
-        return new Response(respPtr);
+        const respPtr = this.library.ScReq_stream_io(this.req, method, url.ptr, body_ptr, errPtr);
+        url.ptr = null;
+        body_ptr = null;
+        check_error(this.library, errPtr.deref())
+        return new Response(this.library, respPtr);
     }
 
     get(url, options) {
@@ -278,9 +270,9 @@ class Session {
     }
 
     close() {
-        registry.unregister(this);
+        // registry.unregister(this);
         if (this.req == null) return
-        library.ScReq_drop(this.req);
+        this.library.ScReq_drop(this.req);
         this.req = null;
     }
 }

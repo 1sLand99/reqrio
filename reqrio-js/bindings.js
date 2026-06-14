@@ -145,106 +145,109 @@ const H2Setting = {
     MaxFrameSize: 0x5,
     MaxHeaderListSize: 0x6,
 }
-let libname;
-if (process.platform === "win32") {
-    libname = "reqrio"
-} else if (process.platform === "linux") {
-    libname = "libreqrio"
-} else {
-    throw "unsupported system platform"
+
+function binding_library() {
+    let libname;
+    if (process.platform === "win32") {
+        libname = "reqrio"
+    } else if (process.platform === "linux") {
+        libname = "libreqrio"
+    } else {
+        throw "unsupported system platform"
+    }
+    let libpath = path.join(__dirname, libname)
+    return ffi.Library(libpath, {
+        // === ScReq ===
+        ScReq_new: [voidPtr, []],
+        ScReq_set_header_json: ['pointer', [voidPtr, 'string']],
+        ScReq_add_header: [charPtr, [voidPtr, 'string', 'string']],
+        ScReq_remove_header: [charPtr, [voidPtr, 'string']],
+        ScReq_set_alpn: [charPtr, [voidPtr, 'string']],
+        ScReq_set_verify: [charPtr, [voidPtr, 'bool']],
+        ScReq_set_redirect: [charPtr, [voidPtr, 'bool']],
+        ScReq_set_key_log: [charPtr, [voidPtr, 'string']],
+        ScReq_set_fingerprint: [charPtr, [voidPtr, voidPtr]],
+        ScReq_set_proxy: [charPtr, [voidPtr, 'string']],
+        ScReq_set_timeout: [charPtr, [voidPtr, 'string']],
+        ScReq_set_cookie: [charPtr, [voidPtr, 'string']],
+        ScReq_add_cookie: [charPtr, [voidPtr, 'string', 'string']],
+        ScReq_stream_io: [voidPtr, [voidPtr, 'int', voidPtr, voidPtr, charPtrPtr]],
+        ScReq_reconnect: [charPtr, [voidPtr]],
+        ScReq_connect: [charPtr, [voidPtr, 'string']],
+        ScReq_close_stream: [charPtr, [voidPtr]],
+        ScReq_set_callback: [charPtr, [voidPtr, 'pointer']],
+        ScReq_drop: ['void', [voidPtr]],
+
+        // === Fingerprint ===
+        // === Fingerprint ===
+        Fingerprint_new: [voidPtr, ['string']],
+        Fingerprint_add_cipher_suite: ['void', [voidPtr, 'uint16']],
+        Fingerprint_add_ext: ['void', [voidPtr, 'uint16']],
+        Fingerprint_add_ext_alps: ['void', [voidPtr, 'uint16', 'pointer', 'size_t']],
+        Fingerprint_add_ext_version: ['void', [voidPtr, 'uint16', 'pointer', 'size_t']],
+        Fingerprint_add_ext_curve: ['void', [voidPtr, 'uint16', 'pointer', 'size_t']],
+        Fingerprint_add_ext_compress: ['void', [voidPtr, 'uint16', 'pointer', 'size_t']],
+        Fingerprint_add_ext_psk_mode: ['void', [voidPtr, 'uint16', 'uint8']],
+        Fingerprint_add_ext_padding: ['void', [voidPtr, 'uint16', 'size_t']],
+        Fingerprint_add_ext_bytes: ['void', [voidPtr, 'uint16', 'pointer', 'size_t']],
+        Fingerprint_add_ext_algorithm: ['void', [voidPtr, 'uint16', 'pointer', 'size_t']],
+        Fingerprint_add_ext_ec_point: ['void', [voidPtr, 'uint16', 'pointer', 'size_t']],
+        Fingerprint_add_h2_setting: ['void', [voidPtr, 'uint16', 'uint32']],
+        Fingerprint_set_h2_window_size: ['void', [voidPtr, 'uint32']],
+        Fingerprint_set_h2_priority: ['void', [voidPtr, 'bool', 'uint8']],
+        Fingerprint_drop: ['void', [voidPtr]],
+        Fingerprint_from_ja3: [voidPtr, ['string', 'string', charPtrPtr]],
+        Fingerprint_from_ja4: [voidPtr, ['string', 'string', charPtrPtr]],
+        Fingerprint_from_client_hello: [voidPtr, [uint8Ptr, 'size_t', 'string', charPtrPtr]],
+        Fingerprint_random: [voidPtr, ['string', charPtrPtr]],
+        Fingerprint_custom: [voidPtr, ['string', 'string', charPtrPtr]],
+
+        // === Body ===
+        Body_new: [voidPtr, [uint8Ptr, 'size_t', 'string', charPtrPtr]],
+        Body_none: [voidPtr, []],
+        Body_new_files: [voidPtr, [voidPtr, 'string', charPtrPtr]],
+        Body_drop: ['void', [voidPtr]],
+
+        // === HttpFile ===
+        HttpFile_new: [voidPtr, []],
+        HttpFile_add_form: [charPtr, [voidPtr, voidPtr]],
+        HttpFile_drop: ['void', [voidPtr]],
+
+        // === FileForm ===
+        FileForm_new: [voidPtr, ['string', 'string', 'string', charPtrPtr]],
+
+        // === Response ===
+        Response_status_code: ['uint16', [voidPtr, charPtrPtr]],
+        Response_bytes: [uint8Ptr, [voidPtr, sizeTPtr, charPtrPtr]],
+        Response_get_header: [charPtr, [voidPtr, 'string', charPtrPtr]],
+        Response_cookies: [charPtr, [voidPtr, charPtrPtr]],
+        Response_drop: ['void', [voidPtr]],
+
+        // === Url ===
+        Url_new: [voidPtr, ['string', charPtrPtr]],
+        Url_add_param: [charPtr, [voidPtr, 'string', 'string']],
+        Url_remove_param: [charPtr, [voidPtr, 'string']],
+        Url_set_sni: [charPtr, [voidPtr, 'string']],
+        Url_drop: ['void', [voidPtr]],
+
+        // === WebSocket ===
+        ws_build: [voidPtr, []],
+        ws_add_header: ['int', [voidPtr, charPtr, charPtr]],
+        ws_set_proxy: ['int', [voidPtr, charPtr]],
+        ws_set_uri: ['int', [voidPtr, charPtr]],
+        ws_open: [voidPtr, [voidPtr, voidPtr]],
+        ws_open_raw: [voidPtr, [charPtr, charPtr]],
+        ws_read: [charPtr, [voidPtr]],
+        ws_write: ['int', [voidPtr, 'int', 'bool', charPtr]],
+        ws_close: ['void', [voidPtr]],
+
+        // === Utility ===
+        char_free: ['void', [charPtr]],
+        u8_free: ['void', ['pointer', sizeTPtr]]
+    });
 }
-let libpath = path.join(__dirname, libname)
-const library = ffi.Library(libpath, {
-    // === ScReq ===
-    ScReq_new: [voidPtr, []],
-    ScReq_set_header_json: ['pointer', [voidPtr, 'string']],
-    ScReq_add_header: [charPtr, [voidPtr, 'string', 'string']],
-    ScReq_remove_header: [charPtr, [voidPtr, 'string']],
-    ScReq_set_alpn: [charPtr, [voidPtr, 'string']],
-    ScReq_set_verify: [charPtr, [voidPtr, 'bool']],
-    ScReq_set_redirect: [charPtr, [voidPtr, 'bool']],
-    ScReq_set_key_log: [charPtr, [voidPtr, 'string']],
-    ScReq_set_fingerprint: [charPtr, [voidPtr, voidPtr]],
-    ScReq_set_proxy: [charPtr, [voidPtr, 'string']],
-    ScReq_set_timeout: [charPtr, [voidPtr, 'string']],
-    ScReq_set_cookie: [charPtr, [voidPtr, 'string']],
-    ScReq_add_cookie: [charPtr, [voidPtr, 'string', 'string']],
-    ScReq_stream_io: [voidPtr, [voidPtr, 'int', voidPtr, voidPtr, charPtrPtr]],
-    ScReq_reconnect: [charPtr, [voidPtr]],
-    ScReq_connect: [charPtr, [voidPtr, 'string']],
-    ScReq_close_stream: [charPtr, [voidPtr]],
-    ScReq_set_callback: [charPtr, [voidPtr, 'pointer']],
-    ScReq_drop: ['void', [voidPtr]],
 
-    // === Fingerprint ===
-    // === Fingerprint ===
-    Fingerprint_new: [voidPtr, ['string']],
-    Fingerprint_add_cipher_suite: ['void', [voidPtr, 'uint16']],
-    Fingerprint_add_ext: ['void', [voidPtr, 'uint16']],
-    Fingerprint_add_ext_alps: ['void', [voidPtr, 'uint16', 'pointer', 'size_t']],
-    Fingerprint_add_ext_version: ['void', [voidPtr, 'uint16', 'pointer', 'size_t']],
-    Fingerprint_add_ext_curve: ['void', [voidPtr, 'uint16', 'pointer', 'size_t']],
-    Fingerprint_add_ext_compress: ['void', [voidPtr, 'uint16', 'pointer', 'size_t']],
-    Fingerprint_add_ext_psk_mode: ['void', [voidPtr, 'uint16', 'uint8']],
-    Fingerprint_add_ext_padding: ['void', [voidPtr, 'uint16', 'size_t']],
-    Fingerprint_add_ext_bytes: ['void', [voidPtr, 'uint16', 'pointer', 'size_t']],
-    Fingerprint_add_ext_algorithm: ['void', [voidPtr, 'uint16', 'pointer', 'size_t']],
-    Fingerprint_add_ext_ec_point: ['void', [voidPtr, 'uint16', 'pointer', 'size_t']],
-    Fingerprint_add_h2_setting: ['void', [voidPtr, 'uint16', 'uint32']],
-    Fingerprint_set_h2_window_size: ['void', [voidPtr, 'uint32']],
-    Fingerprint_set_h2_priority: ['void', [voidPtr, 'bool', 'uint8']],
-    Fingerprint_drop: ['void', [voidPtr]],
-    Fingerprint_from_ja3: [voidPtr, ['string', 'string', charPtrPtr]],
-    Fingerprint_from_ja4: [voidPtr, ['string', 'string', charPtrPtr]],
-    Fingerprint_from_client_hello: [voidPtr, [uint8Ptr, 'size_t', 'string', charPtrPtr]],
-    Fingerprint_random: [voidPtr, ['string', charPtrPtr]],
-    Fingerprint_custom: [voidPtr, ['string', 'string', charPtrPtr]],
-
-    // === Body ===
-    Body_new: [voidPtr, [uint8Ptr, 'size_t', 'string', charPtrPtr]],
-    Body_none: [voidPtr, []],
-    Body_new_files: [voidPtr, [voidPtr, 'string', charPtrPtr]],
-    Body_drop: ['void', [voidPtr]],
-
-    // === HttpFile ===
-    HttpFile_new: [voidPtr, []],
-    HttpFile_add_form: [charPtr, [voidPtr, voidPtr]],
-    HttpFile_drop: ['void', [voidPtr]],
-
-    // === FileForm ===
-    FileForm_new: [voidPtr, ['string', 'string', 'string', charPtrPtr]],
-
-    // === Response ===
-    Response_status_code: ['uint16', [voidPtr, charPtrPtr]],
-    Response_bytes: [uint8Ptr, [voidPtr, sizeTPtr, charPtrPtr]],
-    Response_get_header: [charPtr, [voidPtr, 'string', charPtrPtr]],
-    Response_cookies: [charPtr, [voidPtr, charPtrPtr]],
-    Response_drop: ['void', [voidPtr]],
-
-    // === Url ===
-    Url_new: [voidPtr, ['string', charPtrPtr]],
-    Url_add_param: [charPtr, [voidPtr, 'string', 'string']],
-    Url_remove_param: [charPtr, [voidPtr, 'string']],
-    Url_set_sni: [charPtr, [voidPtr, 'string']],
-    Url_drop: ['void', [voidPtr]],
-
-    // === WebSocket ===
-    ws_build: [voidPtr, []],
-    ws_add_header: ['int', [voidPtr, charPtr, charPtr]],
-    ws_set_proxy: ['int', [voidPtr, charPtr]],
-    ws_set_uri: ['int', [voidPtr, charPtr]],
-    ws_open: [voidPtr, [voidPtr, voidPtr]],
-    ws_open_raw: [voidPtr, [charPtr, charPtr]],
-    ws_read: [charPtr, [voidPtr]],
-    ws_write: ['int', [voidPtr, 'int', 'bool', charPtr]],
-    ws_close: ['void', [voidPtr]],
-
-    // === Utility ===
-    char_free: ['void', [charPtr]],
-    u8_free: ['void', ['pointer', sizeTPtr]]
-})
-
-function read_c_str(ptr, free) {
+function read_c_str(library, ptr, free) {
     if (ptr === null) return;
     let c_str = ref.readCString(ptr, 0);
     if (free) library.char_free(ptr);
@@ -264,16 +267,16 @@ function make_ScReq_callback(func) {
 }
 
 
-function check_error(err, func = null) {
+function check_error(library, err, func = null) {
     if (ref.isNull(err)) return;
-    let msg = read_c_str(err, true);
+    let msg = read_c_str(library, err, true);
     if (func) func()
     throw new Error(msg)
 }
 
 
 module.exports = {
-    library,
+    binding_library,
     Method,
     ref,
     make_ScReq_callback,

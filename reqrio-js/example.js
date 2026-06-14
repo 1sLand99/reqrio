@@ -6,12 +6,27 @@ function get() {
     let resp = session.get("https://www.baidu.com", {
         params: {foo: "bar"},
     });
-
     console.log("Status:", resp.status_code());
-    console.log(resp.cookies().length)
-    console.log(resp.get_header("server"))
-    // resp.close()
-    // session.close();
+    let resp1 = session.get("https://www.baidu.com", {
+        params: {foo: "bar"},
+    });
+    console.log("Status:", resp1.status_code());
+    let resp2 = session.get("https://www.baidu.com", {
+        params: {foo: "bar"},
+    });
+    console.log("Status:", resp2.status_code());
+    let resp3 = session.get("https://www.baidu.com", {
+        params: {foo: "bar"},
+    });
+    console.log("Status:", resp3.status_code());
+    let resp4 = session.get("https://www.baidu.com", {
+        params: {foo: "bar"},
+    });
+    console.log("Status:", resp4.status_code());
+    console.log(resp4.cookies().length)
+    console.log(resp4.get_header("server"))
+    resp.close()
+    session.close();
 }
 
 function post_form() {
@@ -24,8 +39,8 @@ function post_form() {
     });
 
     console.log("Status:", resp.status_code());
-    // resp.close()
-    // session.close();
+    resp.close()
+    session.close();
 }
 
 function post_json() {
@@ -106,7 +121,8 @@ function client_hello() {
 }
 
 function custom_fingerprint() {
-    let fingerprint = new Fingerprint(read_token());
+    let session = new Session(ALPN.HTTP20);
+    let fingerprint = new Fingerprint(session.library, read_token());
     fingerprint.add_cipher_suite(CipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256);
     fingerprint.add_cipher_suite(CipherSuite.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384);
     fingerprint.add_cipher_suite(CipherSuite.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256);
@@ -170,14 +186,13 @@ function custom_fingerprint() {
     fingerprint.set_h2_window_size(2147418112);
     fingerprint.set_h2_priority(true, 147);
 
-    let session = new Session(ALPN.HTTP20);
     session.set_fingerprint(fingerprint);
     let resp = session.get("https://www.baidu.com");
     console.log("Custom FP Status:", resp.status_code());
     session.close();
 }
 
-module.exports={
+module.exports = {
     get,
     post_form,
     post_json,
