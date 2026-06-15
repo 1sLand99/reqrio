@@ -81,7 +81,7 @@ fn build_finger(suites: Vec<CipherSuite>, groups: Vec<NamedCurve>) -> Fingerprin
             ]))
         ],
     };
-    Fingerprint::new_tls(tls, fs::read_to_string("TOKEN").unwrap_or("".to_string())).unwrap()
+    Fingerprint::new_tls(tls, fs::read_to_string("../TOKEN").unwrap_or("".to_string())).unwrap()
 }
 
 ///ECDHE_RSA
