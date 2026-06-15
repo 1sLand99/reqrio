@@ -123,7 +123,7 @@ impl<S: AsyncRead + Unpin> TlsStream<S> {
     }
 
     fn read_next_record(&mut self, cx: &mut Context<'_>) -> Poll<HlsResult<usize>> {
-        if self.read_buffer.len() < 5 && let Poll::Pending = self.read_size(5, cx) {
+        if self.read_buffer.len() < 5 && let Poll::Pending = self.read_size(5, cx)? {
             return Poll::Pending;
         }
         let filled = self.read_buffer.filled();

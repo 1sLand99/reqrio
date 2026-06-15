@@ -1,4 +1,5 @@
 use std::fs;
+use tokio::net::TcpStream;
 use reqrio::*;
 
 #[cfg(feature = "log")]
@@ -21,6 +22,55 @@ fn test_log() {
 async fn main() {
     #[cfg(feature = "log")]
     test_log();
+    let stream = TcpStream::connect("47.122.78.151:9008").await.unwrap();
+    let mut cert = reqrio::Certificate::from_pem(include_bytes!("../../../outworks/hnzw/cert/client.crt")).unwrap();
+    let key = reqrio::RsaKey::from_pri_pem(include_bytes!("../../../outworks/hnzw/cert/client.key")).unwrap();
+    let ca = reqrio::Certificate::from_pem(include_bytes!("../../../outworks/hnzw/cert/ca.crt")).unwrap();
+    Buffer::with_capacity(1).check_subscription("6u247uunuc-mu.ug-22k7uunuc-m21ucu62k").unwrap();
+    let tls_stream = reqrio::TlsStream::connect(stream, reqrio::ClientConfig {
+        sni: "network.microsoft.com",
+        alpn: &ALPN::Http11,
+        fingerprint: &mut TlsFinger::Custom {
+            suites: vec![
+                CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256.into(),
+                CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256.into(),
+                CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384.into(),
+                CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384.into()
+            ],
+            extensions: vec![
+                Extension::new(ExtensionType::SupportedVersions, ExtensionValue::SupportedVersions(vec![
+                    Version::TLS_1_2
+                ])),
+                Extension::new_default(ExtensionType::RenegotiationInfo),
+                Extension::new_default(ExtensionType::ExtendMasterSecret),
+                Extension::new_default(ExtensionType::ServerName),
+                Extension::new_default(ExtensionType::SessionTicket),
+                Extension::new_default(ExtensionType::CompressionCertificate),
+                Extension::new(ExtensionType::SignatureAlgorithms,ExtensionValue::Algorithms(vec![
+                    SignatureAlgorithm::RSA_PKCS1_SHA1.into(),
+                    SignatureAlgorithm::RSA_PKCS1_SHA256.into(),
+                    SignatureAlgorithm::RSA_PKCS1_SHA384.into(),
+                    SignatureAlgorithm::RSA_PKCS1_SHA512.into(),
+                    SignatureAlgorithm::ECDSA_SECP256R1_SHA256.into(),
+                    SignatureAlgorithm::ECDSA_SECP384R1_SHA384.into(),
+                    SignatureAlgorithm::RSA_PSS_PSS_SHA256.into(),
+                    SignatureAlgorithm::RSA_PSS_PSS_SHA384.into(),
+                    SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),
+                    SignatureAlgorithm::RSA_PSS_RSAE_SHA384.into(),
+                ]))
+
+            ],
+        },
+        client_cert: &mut cert,
+        cert_key: &key,
+        verify: true,
+        ca_certs: &ca,
+        key_log: None,
+        session: &None,
+    }).await.unwrap();
+
+    return;
+
 
     let mut timeout = Timeout::longer();
     timeout.set_handle_times(1);
