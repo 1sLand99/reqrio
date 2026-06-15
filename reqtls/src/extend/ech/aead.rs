@@ -11,6 +11,8 @@ pub enum Aead {
     AES_128_CCM_8 = 0x5,
     AES_128_CBC_SHA = 0xFF,
     AES_256_CBC_SHA = 0xFE,
+    AES_128_CBC_SHA256 = 0xFC,
+    AES_256_CBC_SHA384 = 0xFB,
     SM4_GCM = 0xFD,
 }
 
@@ -34,6 +36,10 @@ impl Aead {
             Some(Aead::AES_256_GCM)
         } else if text.contains("chacha20_poly1305") {
             Some(Aead::ChaCha20_POLY1305)
+        } else if text.contains("aes_128_cbc_sha256") {
+            Some(Aead::AES_128_CBC_SHA256)
+        } else if text.contains("aes_256_cbc_sha384") {
+            Some(Aead::AES_256_CBC_SHA384)
         } else if text.contains("aes_128_cbc") {
             Some(Aead::AES_128_CBC_SHA)
         } else if text.contains("aes_256_cbc") {
@@ -47,6 +53,8 @@ impl Aead {
     pub fn mac_key_len(&self) -> usize {
         match self {
             Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => 20,
+            Aead::AES_128_CBC_SHA256 => 32,
+            Aead::AES_256_CBC_SHA384 => 48,
             _ => 0
         }
     }
@@ -56,8 +64,8 @@ impl Aead {
             Aead::AES_128_GCM | Aead::SM4_GCM => 16,
             Aead::AES_256_GCM => 32,
             Aead::ChaCha20_POLY1305 => 32,
-            Aead::AES_128_CBC_SHA => 16,
-            Aead::AES_256_CBC_SHA => 32,
+            Aead::AES_128_CBC_SHA | Aead::AES_128_CBC_SHA256 => 16,
+            Aead::AES_256_CBC_SHA | Aead::AES_256_CBC_SHA384 => 32,
             _ => 0
         }
     }
@@ -69,7 +77,7 @@ impl Aead {
                 _ => 4
             },
             Aead::ChaCha20_POLY1305 => 12,
-            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => 16,
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA | Aead::AES_128_CBC_SHA256 | Aead::AES_256_CBC_SHA384 => 16,
             _ => 0
         }
     }
@@ -78,7 +86,6 @@ impl Aead {
         match self {
             Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::SM4_GCM => 12,
             Aead::ChaCha20_POLY1305 => 12,
-            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => 16,
             _ => 0
         }
     }
@@ -90,7 +97,7 @@ impl Aead {
                 _ => 8,
             },
             Aead::ChaCha20_POLY1305 => 0,
-            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => 16,
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA | Aead::AES_128_CBC_SHA256 | Aead::AES_256_CBC_SHA384 => 16,
             _ => 0
         }
     }

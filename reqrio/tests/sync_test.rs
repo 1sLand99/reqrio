@@ -83,9 +83,7 @@ fn build_finger(suites: Vec<CipherSuite>, groups: Vec<NamedCurve>) -> Fingerprin
     Fingerprint::new_tls(tls, fs::read_to_string("../TOKEN").unwrap_or("".to_string())).unwrap()
 }
 
-///ECDHE_RSA
-// #[test]
-#[allow(dead_code)]
+#[test]
 fn test_ecdhe_rsa() {
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256.into()],
@@ -112,17 +110,17 @@ fn test_ecdhe_rsa() {
         vec![NamedCurve::X25519.into(), NamedCurve::SecP256r1.into()], );
     let mut req = ScReq::new().with_fingerprint(fingerprint);
     req.get("https://m.so.com", None).unwrap();
-    // let fingerprint = build_finger(
-    //     vec![CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256.into()],
-    //     vec![NamedCurve::X25519.into()], );
-    // let mut req = ScReq::new().with_fingerprint(fingerprint);
-    // req.get("https://m.so.com", None).unwrap();
+    let fingerprint = build_finger(
+        vec![CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256.into()],
+        vec![NamedCurve::X25519.into()], );
+    let mut req = ScReq::new().with_fingerprint(fingerprint);
+    req.get("https://m.so.com", None).unwrap();
 
-    // let fingerprint = build_finger(
-    //     vec![CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384.into()],
-    //     vec![NamedCurve::X25519.into()], );
-    // let mut req = ScReq::new().with_fingerprint(fingerprint);
-    // req.get("https://m.so.com", None).unwrap();
+    let fingerprint = build_finger(
+        vec![CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384.into()],
+        vec![NamedCurve::X25519.into()], );
+    let mut req = ScReq::new().with_fingerprint(fingerprint);
+    req.get("https://m.so.com", None).unwrap();
 }
 
 ///RSA
@@ -140,8 +138,7 @@ fn test_rsa() {
     req.get("https://m.baidu.com", None).unwrap();
 }
 
-// #[test]
-#[allow(dead_code)]
+#[test]
 fn test_tls13_cipher() {
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_AES_128_GCM_SHA256.into()],

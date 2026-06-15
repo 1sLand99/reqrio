@@ -68,6 +68,7 @@ impl<'a> RecordDecodeBuffer<'a> {
             },
             Aead::ChaCha20_POLY1305 => self.payload.origin,
             Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => &self.payload.origin[16..],
+            Aead::AES_128_CBC_SHA256 | Aead::AES_256_CBC_SHA384 => &self.payload.origin[16..],
             _ => self.payload.origin
         }
     }
@@ -76,6 +77,7 @@ impl<'a> RecordDecodeBuffer<'a> {
         match self.aead {
             Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::SM4_GCM => &self.payload.origin[..8],
             Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => &self.payload.origin[..16],
+            Aead::AES_128_CBC_SHA256 | Aead::AES_256_CBC_SHA384 => &self.payload.origin[..16],
             _ => &self.payload.origin[..0]
         }
     }

@@ -57,6 +57,7 @@ impl TlsCipher {
             },
             Aead::ChaCha20_POLY1305 => self.iv.as_array(self.seq),
             Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => self.iv.decrypting_iv(),
+            Aead::AES_128_CBC_SHA256 | Aead::AES_256_CBC_SHA384 => self.iv.decrypting_iv(),
             _ => return Err("gen nonce none".into())
         };
         let len = self.crypto.decrypt(CryptDecodeParam {

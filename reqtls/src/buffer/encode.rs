@@ -32,6 +32,7 @@ impl<'a> PayloadEncodeBuffer<'a> {
             },
             Aead::ChaCha20_POLY1305 => {}
             Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => self.payload[..16].copy_from_slice(&iv[..16]),
+            Aead::AES_128_CBC_SHA256 | Aead::AES_256_CBC_SHA384 => self.payload[..16].copy_from_slice(&iv[..16]),
             _ => panic!("unsupported suite specification"),
         };
     }

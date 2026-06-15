@@ -69,8 +69,8 @@ impl TlsSession {
 
 #[derive(Debug, Clone)]
 pub(crate) struct KeyBlock {
-    client_mac_key: [u8; 20],
-    server_mac_key: [u8; 20],
+    client_mac_key: [u8; 48],
+    server_mac_key: [u8; 48],
     mac_size: usize,
     client_key: [u8; 32],
     server_key: [u8; 32],
@@ -86,8 +86,8 @@ pub(crate) struct KeyBlock {
 impl Default for KeyBlock {
     fn default() -> Self {
         KeyBlock {
-            client_mac_key: [0; 20],
-            server_mac_key: [0; 20],
+            client_mac_key: [0; 48],
+            server_mac_key: [0; 48],
             mac_size: 20,
             client_key: [0; 32],
             server_key: [0; 32],
