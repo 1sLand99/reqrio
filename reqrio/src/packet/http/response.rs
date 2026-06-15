@@ -10,7 +10,7 @@ use std::str::Utf8Error;
 pub struct Response {
     header: Header,
     raw: Buffer,
-    coder: Option<Box<dyn StreamDecode<Buffer>>>,
+    coder: Option<Box<dyn StreamDecode<Buffer> + Send + Sync>>,
     read_size: usize,
     h2_buffer: Buffer,
 }
