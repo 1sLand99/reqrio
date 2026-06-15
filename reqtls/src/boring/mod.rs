@@ -65,7 +65,7 @@ impl Crypto {
     pub fn from_aead(key: &[u8], mac_key: &[u8], aead: &Aead, hash: HashType) -> RlsResult<Crypto> {
         match aead {
             Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::ChaCha20_POLY1305 => Ok(Crypto::Aead(AeadCtx::new(aead, key, EVP_AEAD_DEFAULT_TAG_LENGTH)?)),
-            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => Ok(Crypto::Cipher(CipherCrypto::new(aead, key.to_vec(), mac_key.to_vec(), hash)?)),
+            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA | Aead::AES_128_CBC_SHA256 | Aead::AES_256_CBC_SHA384 => Ok(Crypto::Cipher(CipherCrypto::new(aead, key.to_vec(), mac_key.to_vec(), hash)?)),
             _ => Err("unsupported cryptor".into()),
         }
     }

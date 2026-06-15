@@ -66,6 +66,8 @@ impl CipherCrypto {
         let cipher = match aead {
             Aead::AES_128_CBC_SHA => Cipher::aes_128_cbc(),
             Aead::AES_256_CBC_SHA => Cipher::aes_256_cbc(),
+            Aead::AES_128_CBC_SHA256 => Cipher::aes_128_cbc(),
+            Aead::AES_256_CBC_SHA384 => Cipher::aes_256_cbc(),
             _ => return Err("not suite, but in suite".into())
         }.with_secret_key(key, None);
         Ok(CipherCrypto {
@@ -118,13 +120,13 @@ impl CipherCrypto {
         let mut hmac = Hmac::new(&self.mac_key, self.hash)?;
         hmac.update(param.seq.to_be_bytes())?;
         hmac.update(&param.buffer.head()[..3])?;
-        hmac.update((len as u16 - 20).to_be_bytes())?;
-        hmac.update(&param.buffer.decrypted_buffer()[..len - 20])?;
+        hmac.update((len as u16 - self.hash.hash_size() as u16).to_be_bytes())?;
+        hmac.update(&param.buffer.decrypted_buffer()[..len - self.hash.hash_size()])?;
         let cmac = hmac.finalize()?;
-        let mac = &param.buffer.decrypted_buffer()[len - 20..len - 1];
+        let mac = &param.buffer.decrypted_buffer()[len - self.hash.hash_size()..len];
         let res = unsafe { CRYPTO_memcmp(cmac.as_ptr() as *const _, mac.as_ptr() as *const _, mac.len()) };
         if res != 0 { return Err(CipherError::InvalidMac.into()); }
-        Ok(len - 20)
+        Ok(len - self.hash.hash_size())
     }
 }
 
@@ -136,14 +138,14 @@ mod tests {
     use crate::extend::Aead;
     use crate::{RecordType, Version};
 
-    fn test_cipher_tls(aead: Aead, key: Vec<u8>, en: &[u8]) {
+    fn test_cipher_tls(aead: Aead, key: &[u8], hash: HashType, en: &[u8]) {
         let iv = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];
         let payload = [1, 2, 3, 4, 5, 61, 2, 3, 4, 5, 6, 7, 8, 9, 23, 23];
-        let mac_key = [12; 20];
+        let mac_key = vec![12; hash.hash_size()];
         let mut buffer = [0; 1024];
         let mut record_buffer = RecordEncodeBuffer::new(RecordType::HandShake, &Version::TLS_1_2, &mut buffer, &payload, &aead);
         record_buffer.add_explicit_iv(&iv);
-        let crypto = CipherCrypto::new(&aead, key, mac_key.to_vec(), HashType::Sha1).unwrap();
+        let crypto = CipherCrypto::new(&aead, key.to_vec(), mac_key.to_vec(), hash).unwrap();
         crypto.encrypt(CryptEncodeParam {
             nonce: &[0; 12],
             iv: &iv,
@@ -152,7 +154,6 @@ mod tests {
             buffer: &mut record_buffer,
         }).unwrap();
         let len = record_buffer.record_len();
-        assert_eq!(len, 69);
         assert_eq!(&buffer[..len], en);
 
         let mut decoded_buffer = vec![0; 1024];
@@ -170,8 +171,11 @@ mod tests {
     #[test]
     fn test_cipher_cryptor() {
         let key = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8].to_vec();
-        test_cipher_tls(Aead::AES_128_CBC_SHA, key, &[22, 3, 3, 0, 64, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 225, 181, 85, 149, 189, 100, 192, 39, 33, 30, 205, 22, 123, 49, 172, 97, 106, 123, 166, 131, 129, 167, 149, 187, 174, 174, 240, 122, 9, 87, 56, 140, 117, 152, 228, 72, 33, 112, 254, 70, 101, 122, 70, 56, 86, 138, 18, 134]);
+        test_cipher_tls(Aead::AES_128_CBC_SHA, &key, HashType::Sha1, &[22, 3, 3, 0, 64, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 225, 181, 85, 149, 189, 100, 192, 39, 33, 30, 205, 22, 123, 49, 172, 97, 106, 123, 166, 131, 129, 167, 149, 187, 174, 174, 240, 122, 9, 87, 56, 140, 117, 152, 228, 72, 33, 112, 254, 70, 101, 122, 70, 56, 86, 138, 18, 134]);
+        test_cipher_tls(Aead::AES_128_CBC_SHA256, &key, HashType::Sha256, &[22, 3, 3, 0, 80, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 225, 181, 85, 149, 189, 100, 192, 39, 33, 30, 205, 22, 123, 49, 172, 97, 150, 39, 188, 217, 227, 123, 176, 202, 171, 118, 173, 133, 177, 212, 23, 239, 79, 83, 238, 222, 83, 155, 116, 15, 213, 225, 52, 26, 134, 201, 207, 232, 194, 72, 163, 90, 108, 33, 90, 207, 135, 156, 79, 245, 245, 89, 69, 218]);
+
         let key = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8].to_vec();
-        test_cipher_tls(Aead::AES_256_CBC_SHA, key, &[22, 3, 3, 0, 64, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 14, 154, 194, 131, 254, 83, 135, 224, 182, 116, 28, 102, 151, 64, 116, 65, 233, 40, 102, 87, 64, 5, 139, 184, 61, 216, 62, 94, 54, 212, 193, 146, 8, 193, 18, 124, 254, 208, 135, 126, 57, 190, 219, 84, 217, 103, 135, 96]);
+        test_cipher_tls(Aead::AES_256_CBC_SHA, &key, HashType::Sha1, &[22, 3, 3, 0, 64, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 14, 154, 194, 131, 254, 83, 135, 224, 182, 116, 28, 102, 151, 64, 116, 65, 233, 40, 102, 87, 64, 5, 139, 184, 61, 216, 62, 94, 54, 212, 193, 146, 8, 193, 18, 124, 254, 208, 135, 126, 57, 190, 219, 84, 217, 103, 135, 96]);
+        test_cipher_tls(Aead::AES_256_CBC_SHA384, &key, HashType::Sha384, &[22, 3, 3, 0, 96, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 14, 154, 194, 131, 254, 83, 135, 224, 182, 116, 28, 102, 151, 64, 116, 65, 69, 90, 210, 242, 249, 68, 56, 215, 228, 165, 35, 39, 182, 148, 179, 128, 14, 191, 51, 49, 128, 170, 146, 205, 56, 8, 34, 192, 78, 178, 233, 122, 153, 25, 193, 53, 84, 243, 227, 111, 212, 236, 62, 214, 206, 240, 42, 232, 245, 246, 24, 145, 92, 181, 124, 12, 172, 150, 19, 195, 58, 123, 93, 40]);
     }
 }
