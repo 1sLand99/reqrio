@@ -117,7 +117,6 @@ async fn test_ecdhe_rsa() {
         vec![NamedCurve::X25519.into()]);
     let mut req = AcReq::new().with_fingerprint(fingerprint);
     req.get("https://m.so.com", None).await.unwrap();
-
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384.into()],
         vec![NamedCurve::X25519.into()]);
@@ -140,8 +139,7 @@ async fn test_rsa() {
     req.get("https://m.baidu.com", None).await.unwrap();
 }
 
-// #[tokio::test]
-#[allow(dead_code)]
+#[tokio::test]
 async fn test_tls13_cipher() {
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_AES_128_GCM_SHA256.into()],

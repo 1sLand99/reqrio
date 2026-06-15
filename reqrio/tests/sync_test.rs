@@ -113,7 +113,7 @@ fn test_ecdhe_rsa() {
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256.into()],
         vec![NamedCurve::X25519.into()], );
-    let mut req = ScReq::new().with_fingerprint(fingerprint).with_key_log("../2.log").with_timeout(Timeout::new_same(1000,1));
+    let mut req = ScReq::new().with_fingerprint(fingerprint);
     req.get("https://m.so.com", None).unwrap();
 
     let fingerprint = build_finger(
@@ -138,8 +138,7 @@ fn test_rsa() {
     req.get("https://m.baidu.com", None).unwrap();
 }
 
-// #[test]
-#[allow(dead_code)]
+#[test]
 fn test_tls13_cipher() {
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_AES_128_GCM_SHA256.into()],
