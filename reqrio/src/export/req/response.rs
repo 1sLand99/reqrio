@@ -15,9 +15,9 @@ pub extern "C" fn Response_status_code(resp: *const Response, err: *mut *mut c_c
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "C" fn Response_bytes(resp: *mut Response, len: &mut usize, err: *mut *mut c_char) -> *const u8 {
+pub extern "C" fn Response_bytes(resp: *const Response, len: &mut usize, err: *mut *mut c_char) -> *const u8 {
     check_run(move || {
-        let resp = unsafe { resp.as_mut() }.ok_or(HlsError::NullPointer)?;
+        let resp = unsafe { resp.as_ref() }.ok_or(HlsError::NullPointer)?;
         let res = resp.as_bytes();
         *len = res.len();
         Ok(res.as_ptr())

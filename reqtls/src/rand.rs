@@ -199,6 +199,15 @@ impl RandomValue for u32 {
     }
 }
 
+impl RandomValue for u64 {
+    #[inline(always)]
+    fn random(rng: &mut CryptRand) -> Self {
+        let mut res = 0;
+        rng.fill_bytes(bytemuck::bytes_of_mut(&mut res));
+        res
+    }
+}
+
 
 impl<T, const N: usize> RandomValue for [T; N]
 where

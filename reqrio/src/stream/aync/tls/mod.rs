@@ -110,6 +110,7 @@ impl<S: AsyncRead + Unpin> TlsStream<S> {
             self.read_buffer.check_move(max_size)?;
             let stream = Pin::new(&mut self.stream);
             let mut buf = ReadBuf::new(self.read_buffer.unfilled());
+
             match stream.poll_read(cx, &mut buf)? {
                 Poll::Pending => return Poll::Pending,
                 Poll::Ready(_) => {

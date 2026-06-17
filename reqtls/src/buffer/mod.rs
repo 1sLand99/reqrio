@@ -96,8 +96,6 @@ impl Buffer {
 
     pub fn slice_at(&self, place: usize) -> &[u8] {
         let ptr = unsafe { Buffer_pointer(self.0.as_ptr()) };
-        println!("{} {}", self.end(), place);
-
         let len = self.end() - place;
         unsafe { slice::from_raw_parts(ptr.add(place), len) }
     }
