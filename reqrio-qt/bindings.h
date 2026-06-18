@@ -89,13 +89,13 @@ namespace bindings {
 
     void Fingerprint_add_ext(Fingerprint *fingerprint, uint16_t ext_typ);
 
-    void Fingerprint_add_ext_alps(Fingerprint *fingerprint, uint16_t ext_typ, const char **alps, size_t len);
+    void Fingerprint_add_ext_alpn(Fingerprint *fingerprint, uint16_t ext_typ, const char *alpn);
 
-    void Fingerprint_add_ext_version(Fingerprint *fingerprint, uint16_t ext_typ, const uint16_t *version, size_t len);
+    void Fingerprint_add_ext_version(Fingerprint *fingerprint, uint16_t ext_typ, uint16_t version);
 
-    void Fingerprint_add_ext_curve(Fingerprint *fingerprint, uint16_t ext_typ, const uint16_t *curve, size_t len);
+    void Fingerprint_add_ext_curve(Fingerprint *fingerprint, uint16_t ext_typ, uint16_t curve);
 
-    void Fingerprint_add_ext_compress(Fingerprint *fingerprint, uint16_t ext_typ, const uint16_t *compress, size_t len);
+    void Fingerprint_add_ext_compress(Fingerprint *fingerprint, uint16_t ext_typ, uint16_t compress);
 
     void Fingerprint_add_ext_psk_mode(Fingerprint *fingerprint, uint16_t ext_typ, uint8_t mode);
 
@@ -103,9 +103,9 @@ namespace bindings {
 
     void Fingerprint_add_ext_bytes(Fingerprint *fingerprint, uint16_t ext_typ, const uint8_t *bytes, size_t len);
 
-    void Fingerprint_add_ext_algorithm(Fingerprint *fingerprint, uint16_t ext_typ, const uint16_t *algo, size_t len);
+    void Fingerprint_add_ext_algorithm(Fingerprint *fingerprint, uint16_t ext_typ, uint16_t algo);
 
-    void Fingerprint_add_ext_ec_point(Fingerprint *fingerprint, uint16_t ext_typ, const uint8_t *point, size_t len);
+    void Fingerprint_add_ext_ec_point(Fingerprint *fingerprint, uint16_t ext_typ, uint8_t point);
 
     void Fingerprint_add_h2_setting(Fingerprint *fingerprint, uint16_t flag, uint32_t value);
 

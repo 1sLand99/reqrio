@@ -353,4 +353,15 @@ impl TlsFinger {
             extensions.push(Extension::new(ext_typ, value))
         }
     }
+
+    pub fn find_mut(&mut self, typ: &ExtensionType) -> Option<&mut ExtensionValue> {
+        match self {
+            TlsFinger::Default => None,
+            TlsFinger::ClientHello(_) => None,
+            TlsFinger::Custom { extensions, .. } =>
+                extensions.iter_mut().find(|x| &x.type_ == typ).map(|x| &mut x.value)
+        }
+    }
+    
+    
 }

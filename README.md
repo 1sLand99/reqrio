@@ -175,14 +175,14 @@ reqrio adopts a layered network stack design:
 
 ## Multilingual binding
 
-| Language | Type   | Status  | Doc                                                                                                  |
-|----------|--------|---------|------------------------------------------------------------------------------------------------------|
-| Rust     | Native | ✅       | [docs.rs](https://docs.rs/reqrio/latest/reqrio/)                                                     |
-| Python   | FFI    | ✅       | [pypi](https://pypi.org/project/reqrio/)                                                             |
-| Java     | JNI    | ✅       | [Maven](https://javadoc.io/doc/io.github.xllgl2017/reqrio/latest/org/xllgl2017/package-summary.html) |
-| Node.js  | FFI    | ✅       | [Node.js](https://www.npmjs.com/package/reqrio)                                                      |
-| Go       | CGO    | ⚠️(0.2) |                                                                                                      |
-| Qt/C++   | FFI    | ✅       |                                                                                                      |
+| Language | Type   | Status | Doc                                                                                                  |
+|----------|--------|--------|------------------------------------------------------------------------------------------------------|
+| Rust     | Native | ✅      | [docs.rs](https://docs.rs/reqrio/latest/reqrio/)                                                     |
+| Python   | FFI    | ✅      | [pypi](https://pypi.org/project/reqrio/)                                                             |
+| Java     | JNI    | ✅      | [Maven](https://javadoc.io/doc/io.github.xllgl2017/reqrio/latest/org/xllgl2017/package-summary.html) |
+| Node.js  | FFI    | ✅      | [Node.js](https://www.npmjs.com/package/reqrio)                                                      |
+| Go       | CGO    | ✅      |                                                                                                      |
+| Qt/C++   | FFI    | ✅      |                                                                                                      |
 
 ## Roadmap
 

@@ -33,44 +33,58 @@ pub extern "system" fn Fingerprint_add_ext(fingerprint: *mut Fingerprint, ext_ty
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn Fingerprint_add_ext_alps(fingerprint: *mut Fingerprint, ext_typ: u16, alpn: *const *const c_char, len: usize) {
+pub extern "system" fn Fingerprint_add_ext_alpn(fingerprint: *mut Fingerprint, ext_typ: u16, alpn: *const c_char) {
+    let typ: ExtensionType = ext_typ.into();
     let fingerprint = unsafe { fingerprint.as_mut() };
-    let alps = unsafe { slice::from_raw_parts(alpn, len) }.iter().map(|&alpn| {
-        let alpn = unsafe { CStr::from_ptr(alpn) }.to_bytes();
-        ALPN::from_slice(alpn)
-    }).collect::<Vec<_>>();
     if let Some(fingerprint) = fingerprint {
-        fingerprint.tls_mut().add_extension(ext_typ.into(), ExtensionValue::Alps(alps));
+        let alpn = ALPN::from_slice(unsafe { CStr::from_ptr(alpn) }.to_bytes());
+        match fingerprint.tls_mut().find_mut(&typ) {
+            Some(ExtensionValue::Alps(values)) => values.push(alpn),
+            _ => fingerprint.tls_mut().add_extension(typ, ExtensionValue::Alps(vec![alpn])),
+        }
     }
 }
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn Fingerprint_add_ext_version(fingerprint: *mut Fingerprint, ext_typ: u16, version: *const u16, len: usize) {
+pub extern "system" fn Fingerprint_add_ext_version(fingerprint: *mut Fingerprint, ext_typ: u16, version: u16) {
     let fingerprint = unsafe { fingerprint.as_mut() };
-    let versions = unsafe { slice::from_raw_parts(version, len) }.iter().map(|&x| x.into()).collect::<Vec<_>>();
+    let version: Version = version.into();
+    let typ: ExtensionType = ext_typ.into();
     if let Some(fingerprint) = fingerprint {
-        fingerprint.tls_mut().add_extension(ext_typ.into(), ExtensionValue::SupportedVersions(versions));
+        match fingerprint.tls_mut().find_mut(&typ) {
+            Some(ExtensionValue::SupportedVersions(values)) => values.push(version),
+            _ => fingerprint.tls_mut().add_extension(typ, ExtensionValue::SupportedVersions(vec![version])),
+        }
+    }
+}
+
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn Fingerprint_add_ext_curve(fingerprint: *mut Fingerprint, ext_typ: u16, curve: u16) {
+    let fingerprint = unsafe { fingerprint.as_mut() };
+    let curve: NamedCurve = curve.into();
+    let typ: ExtensionType = ext_typ.into();
+    if let Some(fingerprint) = fingerprint {
+        match fingerprint.tls_mut().find_mut(&typ) {
+            Some(ExtensionValue::Curves(values)) => values.push(curve),
+            _ => fingerprint.tls_mut().add_extension(typ, ExtensionValue::Curves(vec![curve])),
+        }
     }
 }
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn Fingerprint_add_ext_curve(fingerprint: *mut Fingerprint, ext_typ: u16, curve: *const u16, len: usize) {
+pub extern "system" fn Fingerprint_add_ext_compress(fingerprint: *mut Fingerprint, ext_typ: u16, method: u16) {
     let fingerprint = unsafe { fingerprint.as_mut() };
-    let curves = unsafe { slice::from_raw_parts(curve, len) }.iter().map(|&x| x.into()).collect::<Vec<_>>();
+    let method: CompressionMethod = method.into();
+    let typ: ExtensionType = ext_typ.into();
     if let Some(fingerprint) = fingerprint {
-        fingerprint.tls_mut().add_extension(ext_typ.into(), ExtensionValue::Curves(curves));
-    }
-}
-
-#[unsafe(no_mangle)]
-#[allow(non_snake_case)]
-pub extern "system" fn Fingerprint_add_ext_compress(fingerprint: *mut Fingerprint, ext_typ: u16, method: *const u16, len: usize) {
-    let fingerprint = unsafe { fingerprint.as_mut() };
-    let methods = unsafe { slice::from_raw_parts(method, len) }.iter().map(|&x| x.into()).collect::<Vec<_>>();
-    if let Some(fingerprint) = fingerprint {
-        fingerprint.tls_mut().add_extension(ext_typ.into(), ExtensionValue::CompressionMethods(methods));
+        match fingerprint.tls_mut().find_mut(&typ) {
+            Some(ExtensionValue::CompressionMethods(values)) => values.push(method),
+            _ => fingerprint.tls_mut().add_extension(typ, ExtensionValue::CompressionMethods(vec![method])),
+        }
     }
 }
 
@@ -104,21 +118,29 @@ pub extern "system" fn Fingerprint_add_ext_bytes(fingerprint: *mut Fingerprint, 
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn Fingerprint_add_ext_algorithm(fingerprint: *mut Fingerprint, ext_typ: u16, algorithms: *const u16, len: usize) {
+pub extern "system" fn Fingerprint_add_ext_algorithm(fingerprint: *mut Fingerprint, ext_typ: u16, algorithm: u16) {
     let fingerprint = unsafe { fingerprint.as_mut() };
-    let algorithms = unsafe { slice::from_raw_parts(algorithms, len) }.iter().map(|&x| x.into()).collect::<Vec<_>>();
+    let typ: ExtensionType = ext_typ.into();
+    let algorithm: SignatureAlgorithm = algorithm.into();
     if let Some(fingerprint) = fingerprint {
-        fingerprint.tls_mut().add_extension(ext_typ.into(), ExtensionValue::Algorithms(algorithms));
+        match fingerprint.tls_mut().find_mut(&typ) {
+            Some(ExtensionValue::Algorithms(values)) => values.push(algorithm),
+            _ => fingerprint.tls_mut().add_extension(typ, ExtensionValue::Algorithms(vec![algorithm])),
+        }
     }
 }
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn Fingerprint_add_ext_ec_point(fingerprint: *mut Fingerprint, ext_typ: u16, ec_point: *const u8, len: usize) {
+pub extern "system" fn Fingerprint_add_ext_ec_point(fingerprint: *mut Fingerprint, ext_typ: u16, ec_point: u8) {
     let fingerprint = unsafe { fingerprint.as_mut() };
-    let points = unsafe { slice::from_raw_parts(ec_point, len) }.iter().map(|&x| x.into()).collect::<Vec<_>>();
+    let typ: ExtensionType = ext_typ.into();
+    let ec_point:EcPointFormat = ec_point.into();
     if let Some(fingerprint) = fingerprint {
-        fingerprint.tls_mut().add_extension(ext_typ.into(), ExtensionValue::EcPointFormats(points));
+        match fingerprint.tls_mut().find_mut(&typ) {
+            Some(ExtensionValue::EcPointFormats(values)) => values.push(ec_point),
+            _ => fingerprint.tls_mut().add_extension(typ, ExtensionValue::EcPointFormats(vec![ec_point])),
+        }
     }
 }
 

@@ -74,37 +74,34 @@ void Fingerprint::addExtension(const uint16_t typ) const {
 
 
 void Fingerprint::addExtensionALPN(const uint16_t typ, const QVector<QString> &alps) const {
-    QVector<QByteArray> alps_arrays;
     for (const auto &alpn: alps) {
-        alps_arrays.push_back(alpn.toUtf8());
+        bindings::Fingerprint_add_ext_alpn(this->raw_ptr, typ, alpn.toUtf8());
     }
-    std::vector<const char *> ptrs;
-    ptrs.reserve(alps.size());
-    for (const auto &alpn: alps_arrays) {
-        ptrs.push_back(alpn.constData());
-    }
-    bindings::Fingerprint_add_ext_alps(this->raw_ptr, typ, ptrs.data(), alps.length());
 }
 
 void Fingerprint::addExtensionGroup(const uint16_t typ, const QVector<uint16_t> &groups) const {
-    const auto raw = groups.constData();
-    bindings::Fingerprint_add_ext_curve(this->raw_ptr, typ, raw, groups.length());
+    for (const auto &group: groups) {
+        bindings::Fingerprint_add_ext_curve(this->raw_ptr, typ, group);
+    }
 }
 
 
 void Fingerprint::addExtensionCompress(const uint16_t typ, const QVector<uint16_t> &methods) const {
-    const auto raw = methods.constData();
-    bindings::Fingerprint_add_ext_compress(this->raw_ptr, typ, raw, methods.length());
+    for (const auto &method: methods) {
+        bindings::Fingerprint_add_ext_compress(this->raw_ptr, typ, method);
+    }
 }
 
 void Fingerprint::addExtensionEcPoint(const uint16_t typ, const QVector<uint8_t> &points) const {
-    const auto raw = points.constData();
-    bindings::Fingerprint_add_ext_ec_point(this->raw_ptr, typ, raw, points.length());
+    for (const auto &point: points) {
+        bindings::Fingerprint_add_ext_ec_point(this->raw_ptr, typ, point);
+    }
 }
 
 void Fingerprint::addExtensionAlgorithm(const uint16_t typ, const QVector<uint16_t> &algorithms) const {
-    const auto raw = algorithms.constData();
-    bindings::Fingerprint_add_ext_algorithm(this->raw_ptr, typ, raw, algorithms.length());
+    for (const auto &algorithm: algorithms) {
+        bindings::Fingerprint_add_ext_algorithm(this->raw_ptr, typ, algorithm);
+    }
 }
 
 void Fingerprint::addExtension(const uint16_t typ, const QByteArray &bytes) const {
@@ -130,8 +127,9 @@ void Fingerprint::setH2Priority(const bool priority, const uint8_t weight) const
 
 
 void Fingerprint::addExtensionVersion(const uint16_t typ, const QVector<uint16_t> &versions) const {
-    const auto raw = versions.constData();
-    bindings::Fingerprint_add_ext_version(this->raw_ptr, typ, raw, versions.length());
+    for (const auto &version: versions) {
+        bindings::Fingerprint_add_ext_version(this->raw_ptr, typ, version);
+    }
 }
 
 Fingerprint::~Fingerprint() {

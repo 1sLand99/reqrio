@@ -149,37 +149,15 @@ func (session *Session) SetKeyLog(keyLog string) error {
 	return nil
 }
 
-// // func (session *Session) SetRandomFingerprint(token string) error {
-// // 	ret := C.ScReq_set_random_fingerprint(session.req, C.CString(token))
-// // 	if ret == -1 {
-// // 		return errors.New("set random fingerprint error")
-// // 	}
-// // 	return nil
-// // }
-//
-//	func (session *Session) SetFingerprint(fingerprint string, token string) error {
-//		ret := C.ScReq_set_fingerprint(session.req, C.CString(fingerprint), C.CString(token))
-//		if ret == -1 {
-//			return errors.New("set fingerprint error")
-//		}
-//		return nil
-//	}
-//
-// // func (session *Session) SetJa3(ja3 string, token string) error {
-// // 	ret := C.ScReq_set_ja3(session.req, C.CString(ja3), C.CString(token))
-// // 	if ret == -1 {
-// // 		return errors.New("set ja3 error")
-// // 	}
-// // 	return nil
-// // }
-//
-// // func (session *Session) SetJa4(ja4 string, token string) error {
-// // 	ret := C.ScReq_set_ja4(session.req, C.CString(ja4), C.CString(token))
-// // 	if ret == -1 {
-// // 		return errors.New("set ja4 error")
-// // 	}
-// // 	return nil
-// // }
+func (session *Session) SetFingerprint(fingerprint Fingerprint) error {
+	err := C.ScReq_set_fingerprint(session.req, fingerprint.rawPtr)
+	if err != nil {
+		defer C.char_free(err)
+		return errors.New(C.GoString(err))
+	}
+	return nil
+}
+
 func (session *Session) SetProxy(proxy string) error {
 	cProxy := C.CString(proxy)
 	defer C.free(unsafe.Pointer(cProxy))

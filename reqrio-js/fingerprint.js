@@ -14,14 +14,14 @@ class Fingerprint {
         this.library.Fingerprint_add_ext(this.ptr, ext_type);
     }
 
-    add_extension_alps(ext_type, alpn_list) {
-        const buffers = alpn_list.map(s => Buffer.from(s + "\0"));
-        const pointerSize = ref.sizeof.pointer;
-        const ptrArray = Buffer.alloc(buffers.length * pointerSize);
-        for (let i = 0; i < buffers.length; i++) {
-            ptrArray.writePointer(buffers[i], i * pointerSize);
+    /**
+     * @param {number} ext_type
+     * @param {array} alps
+     */
+    add_extension_alps(ext_type, alps) {
+        for (const alpn of alps) {
+            this.library.Fingerprint_add_ext_alpn(this.ptr, ext_type, alpn)
         }
-        this.library.Fingerprint_add_ext_alps(this.ptr, ext_type, ptrArray, buffers.length);
     }
 
     /**
@@ -29,8 +29,9 @@ class Fingerprint {
      * @param {array} versions
      */
     add_extension_versions(ext_type, versions) {
-        const versions_u16 = Uint16Array.from(versions);
-        this.library.Fingerprint_add_ext_version(this.ptr, ext_type, versions_u16, versions_u16.length);
+        for (const version of versions) {
+            this.library.Fingerprint_add_ext_version(this.ptr, ext_type, version);
+        }
     }
 
     /**
@@ -38,8 +39,9 @@ class Fingerprint {
      * @param {array} curves
      */
     add_extension_curves(ext_type, curves) {
-        const curves_u16 = Uint16Array.from(curves);
-        this.library.Fingerprint_add_ext_curve(this.ptr, ext_type, curves_u16, curves_u16.length);
+        for (const curve of curves) {
+            this.library.Fingerprint_add_ext_curve(this.ptr, ext_type, curve);
+        }
     }
 
     /**
@@ -47,7 +49,9 @@ class Fingerprint {
      * @param {Uint16Array} methods
      */
     add_extension_compress(ext_type, methods) {
-        this.library.Fingerprint_add_ext_compress(this.ptr, ext_type, methods, methods.length);
+        for (const method of methods) {
+            this.library.Fingerprint_add_ext_compress(this.ptr, ext_type, method);
+        }
     }
 
     add_extension_psk_mode(ext_type, mode) {
@@ -76,8 +80,9 @@ class Fingerprint {
      * @param {array} algorithms
      */
     add_extension_algorithms(ext_type, algorithms) {
-        const algorithms_u16 = Uint16Array.from(algorithms);
-        this.library.Fingerprint_add_ext_algorithm(this.ptr, ext_type, algorithms_u16, algorithms_u16.length);
+        for (const algorithm of algorithms) {
+            this.library.Fingerprint_add_ext_algorithm(this.ptr, ext_type, algorithm);
+        }
     }
 
     /**
@@ -85,8 +90,9 @@ class Fingerprint {
      * @param {array} points
      */
     add_extension_ec_point(ext_type, points) {
-        const point_u8 = Uint8Array.from(points);
-        this.library.Fingerprint_add_ext_ec_point(this.ptr, ext_type, point_u8, point_u8.length);
+        for (const point of points) {
+            this.library.Fingerprint_add_ext_ec_point(this.ptr, ext_type, point);
+        }
     }
 
     add_h2_setting(flag, value) {
