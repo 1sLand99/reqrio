@@ -1,109 +1,211 @@
-### reqrio is an HTTP request library designed for fast, simple, and convenient HTTP request usage.
+﻿# reqrio-java
 
-* Features: Low copy, high concurrency, low overhead
+`reqrio-java` is the Java binding for `reqrio`, providing a native HTTP/HTTPS and WebSocket client with TLS fingerprint capabilities.
 
-* Supports TLS fingerprinting, which can be configured via hexadecimal, Ja3, or Ja4 TLS handshake settings (*
-  *subscription only**).
+## Features
 
-* Ensures **request header order** (see [Request Header Order Table](#request-header-order-table)), consistent with
-  browsers.
+- Native HTTP/HTTPS client using BoringSSL via JNA.
+- Supports HTTP/1.1 and HTTP/2.0 via `ALPN`.
+- Custom headers, cookies, proxy support, and timeout control.
+- Supports JSON, form data, text, binary bodies, and multipart file upload.
+- Supports TLS fingerprinting through JA3, JA4, ClientHello, and custom fingerprint definitions.
+- Includes WebSocket support.
 
-* Uses **BoringSSL** to implement TLS, consistent with browsers like Chrome and Edge.
+## Requirements
 
-### Low-Copy
+- Java 11 or newer
+- Maven for build and packaging
 
-`reqrio` is a low copy request sending engine used to efficiently encrypt user or file data over TLS and send it to TCP.
-`reqrio`
-Convert user input data such as form data, json, bytes, text, etc. into bytes for storage, and only copy once during TLS
-encryption, while only the data is processed in other stages
-Borrow (borrowing). File uploads are read through into_deader to reduce memory overhead
+## Maven Dependency
 
-```text
-
-        Form  ┌────────┐encode->bytes ┌──────────┐             ┌──────────┐
- User ───────►│        │─────────────►│          │             │          │
-        Json  │ ScReq  │  into_bytes  │  Request │ copy slice  │ fragment │ write ┌───────┐
-              │ AcReq  │              │  borrow  │────────────►│  TLS     │──────►│  TCP  │
-       Files  │(Engine)│ into_reader  │  reader  │             │ Encrypt  │       └───────┘
- User ───────►│        │─────────────►│          │             │          │
-              └────────┘              └──────────┘             └──────────┘
+```xml
+<dependency>
+  <groupId>io.github.xllgl2017</groupId>
+  <artifactId>reqrio</artifactId>
+  <version>0.3.0-beta1</version>
+</dependency>
 ```
 
-### Request Header Order Table
-
-| No. | HTTP/2.0                    | HTTP/1.1                  |
-|:----|:----------------------------|:--------------------------|
-| 1   | cache-control               | Host                      |
-| 2   | sec-ch-ua                   | Connection                |
-| 3   | sec-ch-ua-mobile            | Content-Length            |
-| 4   | sec-ch-ua-full-version      | Authorization             |
-| 5   | sec-ch-ua-arch              | Content-Type              |
-| 6   | sec-ch-ua-platform          | Cache-Control             |
-| 7   | sec-ch-ua-platform-version  | sec-ch-ua                 |
-| 8   | sec-ch-ua-model             | sec-ch-ua-mobile          |
-| 9   | sec-ch-ua-bitness           | sec-ch-ua-platform        |
-| 10  | sec-ch-ua-full-version-list | Upgrade-Insecure-Requests |
-| 11  | upgrade-insecure-requests   | User-Agent                |
-| 12  | user-agent                  | Accept                    |
-| 13  | accept                      | Sec-Fetch-Site            |
-| 14  | origin                      | Sec-Fetch-Mode            |
-| 15  | sec-fetch-site              | Sec-Fetch-User            |
-| 16  | sec-fetch-mode              | Sec-Fetch-Dest            |
-| 17  | sec-fetch-user              | Sec-Fetch-Storage-Access  |
-| 18  | sec-fetch-dest              | Referer                   |
-| 19  | sec-fetch-storage-access    | Accept-Encoding           |
-| 20  | referer                     | Accept-Language           |
-| 21  | accept-encoding             | Cookie                    |
-| 22  | accept-language             | Origin                    |
-| 23  | cookie                      |                           |
-| 24  | priority                    |                           |
-|     | //unknown                   |                           |
-| 25  | content-encoding            |                           |
-| 26  | content-type                |                           |
-| 27  | authorization               |                           |
-| 28  | content-type                |                           |
-
-### Usage examples:
-
-* Java example
+## Quick Start
 
 ```java
-import com.google.gson.Gson;
-import org.xllgl2017.*;
+import org.xllgl2017.ALPN;
+import org.xllgl2017.Body;
+import org.xllgl2017.Response;
+import org.xllgl2017.Session;
+import org.xllgl2017.Timeout;
+import org.xllgl2017.Url;
 
-void main() throws Exception {
-    //Initialization allows you to set the version.
-    Reqrio reqrio = new Reqrio(ALPN.HTTP11);
-    //Initialize header
-    Headers headers = new Headers();
-    headers.addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
-    headers.addHeader("Accept-Encoding", "gzip, deflate, br, zstd");
-    headers.addHeader("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6");
-    headers.addHeader("Cache-Control", "no-cache");
-    headers.addHeader("Connection", "keep-alive");
-    headers.addHeader("Host", "m.so.com");
-    headers.addHeader("Pragma", "no-cache");
-    headers.addHeader("Sec-Fetch-Dest", "document");
-    headers.addHeader("Sec-Fetch-Mode", "navigate");
-    headers.addHeader("Sec-Fetch-Site", "none");
-    headers.addHeader("Sec-Fetch-User", "?1");
-    headers.addHeader("Upgrade-Insecure-Requests", "1");
-    headers.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0");
-    headers.addHeader("sec-ch-ua", "\"Microsoft Edge\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"");
-    headers.addHeader("sec-ch-ua-mobile", "?0");
-    headers.addHeader("sec-ch-ua-platform", "\"Windows\"");
-    //You can also add cookies using reqrio.setCookie.
-    headers.setCookies("__guid=15015764.1071255116101212729.1764940193317.2156; env_webp=1; _S=pvc5q7leemba50e4kn4qis4b95; QiHooGUID=4C8051464B2D97668E3B21198B9CA207.1766289287750; count=1; so-like-red=2; webp=1; so_huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; __huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; gtHuid=1");
-    //Set header
-    reqrio.setHeaders(headers);
-    //Set timeout
-    Timeout timeout = new Timeout();
-    reqrio.setTimeout(timeout);
-    //ask
-    Response response = reqrio.get("https://m.so.com");
-    IO.println(response.length());
-    Headers resp_hdr = response.getHeader();
-    Gson gson = new Gson();
-    IO.println(gson.toJson(resp_hdr));
+public class Main {
+    public static void main(String[] args) throws Exception {
+        Session session = new Session(ALPN.HTTP20);
+        session.setVerify(true);
+        session.setAutoRedirect(true);
+
+        session.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+
+        Timeout timeout = new Timeout();
+        timeout.setConnect(3000);
+        timeout.setRead(3000);
+        timeout.setWrite(3000);
+        timeout.setHandle(30000);
+        session.setTimeout(timeout);
+
+        Response response = session.get("https://www.example.com");
+        System.out.println(response.statusCode());
+        System.out.println(response.text());
+
+        session.close();
+    }
 }
 ```
+
+## API Reference
+
+### `Session`
+
+Constructor:
+
+```java
+Session session = new Session(ALPN alpn);
+```
+
+Common methods:
+
+- `setVerify(boolean verify)`
+- `setAutoRedirect(boolean auto_redirect)`
+- `setKeyLog(String path)`
+- `setHeaders(String headerJson)`
+- `setHeaders(HashMap<String, String> headers)`
+- `setHeaders(Headers headers)`
+- `addHeader(String name, String value)`
+- `removeHeader(String name)`
+- `setProxy(String proxy)`
+- `setTimeout(Timeout timeout)`
+- `setCookie(String cookie)`
+- `addCookie(String name, String value)`
+- `closeStream()`
+- `reconnect()`
+- `connect(String host, int port)`
+- `connect(String host)`
+- `send(Method method, Url url, Body body)`
+- `get(String url)`
+- `get(String url, Body body)`
+- `post(String url, Body body)`
+- `put(String url, Body body)`
+- `options(String url, Body body)`
+- `head(String url, Body body)`
+- `delete(String url, Body body)`
+- `trace(String url, Body body)`
+- `patch(String url, Body body)`
+- `close()`
+
+### `Body`
+
+Construct request bodies using:
+
+- `new Body()` for empty body
+- `new Body(byte[] body, String contentType)` for raw bytes
+- `new Body(JsonElement json)` for JSON bodies
+- `new Body(HashMap<String, String> forms)` for URL-encoded form data
+- `new Body(String text)` for plain text
+- `new Body(HttpFile file)` and `new Body(HttpFile file, HashMap<String, String> data)` for multipart upload
+
+### `Url`
+
+Create request URLs with optional query parameters or SNI:
+
+- `new Url(String url)`
+- `new Url(String url, String sni)`
+- `new Url(String url, HashMap<String, String> params)`
+
+### `Response`
+
+Response methods:
+
+- `statusCode()`
+- `getHeader(String name)`
+- `location()`
+- `bytes()`
+- `text()`
+- `json()`
+- `getCookies()`
+
+## Example: POST JSON
+
+```java
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+import org.xllgl2017.Body;
+import org.xllgl2017.Response;
+import org.xllgl2017.Session;
+import org.xllgl2017.Url;
+
+Session session = new Session(ALPN.HTTP20);
+Body body = new Body(JsonParser.parseString("{\"name\":\"test\"}"));
+Response response = session.post("https://www.example.com/api", body);
+System.out.println(response.statusCode());
+System.out.println(response.text());
+session.close();
+```
+
+## TLS Fingerprinting
+
+`reqrio-java` supports fingerprint configuration via `Fingerprint`:
+
+```java
+import org.xllgl2017.Fingerprint;
+import org.xllgl2017.ALPN;
+import org.xllgl2017.Session;
+
+Session session = new Session(ALPN.HTTP20);
+Fingerprint fingerprint = Fingerprint.fromJa3("771,4865-...", token);
+session.setFingerprint(fingerprint);
+```
+
+Supported fingerprint creation methods:
+
+- `Fingerprint.random(String token)`
+- `Fingerprint.fromJa3(String ja3, String token)`
+- `Fingerprint.fromJa4(String ja4, String token)`
+- `Fingerprint.fromClientHello(byte[] clientHello, String token)`
+- `Fingerprint.fromCustom(CustomFingerprint custom, String token)`
+
+### Custom fingerprint
+
+Use `CustomFingerprint` to build fingerprint JSON data and pass it to `Fingerprint.fromCustom(...)`.
+
+## WebSocket Support
+
+```java
+import org.xllgl2017.WebSocket;
+
+WebSocket ws = new WebSocket("wss://example.com");
+ws.addHeader("User-Agent", "Mozilla/5.0...");
+ws.open();
+String frame = ws.read();
+System.out.println(frame);
+ws.close();
+```
+
+WebSocket methods:
+
+- `addHeader(String name, String value)`
+- `setProxy(String proxy)`
+- `set_url(String url)`
+- `set_uri(String uri)`
+- `open()`
+- `openRaw(String url, String raw)`
+- `read()`
+- `write(int opcode, boolean mask, String msg)`
+- `close()`
+
+## Notes
+
+- Call `session.close()` to release native resources.
+- Use `response.text()` or `response.json()` to read response content.
+- `Body`, `Url`, and `Response` implement cleanup patterns; manage them carefully in long-lived code.
+
+## License
+
+Apache-2.0

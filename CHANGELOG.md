@@ -1,13 +1,13 @@
 # reqrio-v0.3.0
 
-`v0.3.0`是一次重要的架构升级，标志着 reqrio 从基础 HTTP 客户端，演进为具备 TLS / 流式处理能力的可控网络栈。
+`v0.3.0` is a significant architectural upgrade, marking the evolution of reqrio from a basic HTTP client to a controllable network stack with TLS/streaming capabilities.
 
-## ✨ 新特性
+## ✨ New Features
 
-### 🔧 全新 HTTP API [#7](https://github.com/xllgl2017/reqrio/pull/7)
+### 🔧 New HTTP API [#7](https://github.com/xllgl2017/reqrio/pull/7)
 
-* [x] 重构 `ScReq` / `AcReq` 请求接口
-* [x] 简化快速请求 API
+* [x] Refactor the `ScReq` / `AcReq` request interfaces
+* [x] Simplify the Fast Request API
 
 ```text
 let mut req = ScReq::new();
@@ -16,37 +16,36 @@ let resp = req.get(url, None).unwrap();
 println!("{}", resp.header());
 ```
 
-* [x] 增强方法链式调用支持
-* [x] 优化代码示例与文档
+* [x] Enhanced support for method chaining
+* [x] Optimize code examples and documentation
 
-### 🌐 内置 ECH 查询支持`Reader` [#11](https://github.com/xllgl2017/reqrio/pull/11)
+### 🌐 Built-in ECH query [#11](https://github.com/xllgl2017/reqrio/pull/11)
 
-* 支持查询域名的 ECH（Encrypted ClientHello）配置
-* 可基于查询结果构建 ECH 数据
-* 为 TLS 指纹模拟与隐私增强连接提供基础能力
+* Supports ECH (Encrypted ClientHello) configuration for querying domains
+* Can construct ECH data based on query results
+* Provides foundational capabilities for TLS fingerprint emulation and privacy-enhancing connections
 
-### 🌊 流式响应解析
+### 🌊 Streaming response analysis
 
-#### 1、轻量流式解析器`Reader` [#12](https://github.com/xllgl2017/reqrio/pull/12)
+#### 1. Lightweight streaming parser `Reader` [#12](https://github.com/xllgl2017/reqrio/pull/12)
 
-* 支持类型：
+* supported types：
     * u8 / u16 / u24 / u32
     * &[u8] / str
-* 适用于 TLS / DNS / HTTP 等协议解析场景
+* suitable for scenarios involving the resolution of protocols such as TLS, DNS, and HTTP.
 
-#### 2、流式解压`StreamDecode` [#15](https://github.com/xllgl2017/reqrio/pull/15)
+#### 2. Stream Decompression `StreamDecode` [#15](https://github.com/xllgl2017/reqrio/pull/15)
 
-* 支持类型
+* supported types：
     * chunk-gzip / br / deflate / zstd
     * gzip / br / deflate / zstd
 
-## 🎯 指纹级网络行为控制
+## 🎯 Fingerprint-level network behavior control
 
-在 v0.3.0 中，`Fingerprint` 体系进行了重构，支持对 TLS 与 HTTP/2 行为的精细控制。
+In v0.3.0, the `Fingerprint` architecture was refactored to support fine-grained control over TLS and HTTP/2 behavior.
+### 🔐 Custom TLS fingerprint
 
-### 🔐 自定义 TLS 指纹
-
-支持自定义：
+Customization is supported:
 
 * Cipher Suites
 * Supported Groups
@@ -79,15 +78,15 @@ let finger = TlsFinger::Custom {
 }
 ```
 
-👉 可用于：
+👉 Can be used for:
 
-* 精准 TLS 指纹模拟，模拟浏览器 TLS 指纹行为
-* 爬虫检测与对抗
-* 协议研究
+* Precise TLS fingerprinting, simulating browser TLS fingerprinting behavior
+* Web crawler detection and countermeasures
+* Protocol research
 
-### ⚡ 自定义 HTTP/2 指纹
+### ⚡ Custom HTTP/2 fingerprint
 
-支持自定义 HTTP/2 设置帧与优先级参数：
+Supports custom HTTP/2 frame and priority parameters:
 
 ```text
 let h2 = H2Finger {
@@ -98,26 +97,26 @@ let h2 = H2Finger {
         H2Setting::MaxHeaderListSize(242144)
     ],
     window_size: 2147418112,
-    weight: 234, //优先权重
-    priority: true, //优先级
+    weight: 234, //priority weight
+    priority: true, //priority
 };
 ```
 
-👉 可用于：
+👉 Can be used for:
 
-* 构造 HTTP/2 指纹（Settings / Window / Priority）
-* 模拟浏览器网络行为
-* 精细控制连接调度策略
+* Constructing HTTP/2 fingerprints (Settings / Window / Priority)
+* Simulating browser network behavior
+* Fine-grained control over connection scheduling strategies
 
-## 🔐 支持 TLS 1.3 [#9](https://github.com/xllgl2017/reqrio/pull/9)
+## 🔐 Supports TLS 1.3 [#9](https://github.com/xllgl2017/reqrio/pull/9)
 
-* 完整支持 TLS 1.3 握手流程
-* 支持与自定义 TLS 指纹联动
-* 为浏览器级 TLS 行为模拟提供基础
+* Full support for the TLS 1.3 handshake process
+* Support for integration with custom TLS fingerprints
+* Provides a foundation for browser-level TLS behavior emulation
 
-## 📦 其他
+## 📦 Others
 
-### 新增密码学算法
+### New cryptographic algorithms
 
 * sm4-ecb
 * sm4-cbc
@@ -129,7 +128,7 @@ let h2 = H2Finger {
 * 3des-cbc
 * 3des-ecb
 
-### 日志Longer
+### Log Longer - Provide logging information for bindings
 
 ## Contact
 

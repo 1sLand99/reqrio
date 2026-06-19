@@ -161,6 +161,14 @@
 //! * DES_ECB
 //! * RC4
 //! * RSA
+//! * SM4-ECB
+//! * SM4-CBC
+//! * SM4-OFB
+//! * SM4-CFB
+//! * SM4-CTR
+//! * SM3
+//! * 3DES-CBC
+//! * 3DES-ECB
 //!
 //! - Cipher usage example
 //!

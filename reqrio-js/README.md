@@ -1,111 +1,226 @@
-### reqrio is an HTTP request library designed for fast, simple, and convenient HTTP request usage.
+﻿# reqrio-js
 
-* Features: Low copy, high concurrency, low overhead
+`reqrio-js` is the Node.js binding for `reqrio`, providing a lightweight, high-performance HTTP and WebSocket client.
 
-* Supports TLS fingerprinting, which can be configured via hexadecimal, Ja3, or Ja4 TLS handshake settings (*
-  *subscription only**).
+## Features
 
-* Ensures **request header order** (see [Request Header Order Table](#request-header-order-table)), consistent with
-  browsers.
+- Native HTTP/HTTPS request engine with low-copy semantics.
+- TLS support powered by BoringSSL.
+- Supports HTTP/1.0, HTTP/1.1, and HTTP/2.0 via `ALPN`.
+- Custom request headers, cookies, timeout settings, and proxy support.
+- Supports form data, JSON, text, bytes, and multipart file uploads.
+- Includes native WebSocket support.
+- Exposes TLS fingerprint options with `Fingerprint` and `Session` methods.
 
-* Uses **BoringSSL** to implement TLS, consistent with browsers like Chrome and Edge.
-### Low-Copy
+## Installation
 
-`reqrio` is a low copy request sending engine used to efficiently encrypt user or file data over TLS and send it to TCP. `reqrio`
-Convert user input data such as form data, json, bytes, text, etc. into bytes for storage, and only copy once during TLS encryption, while only the data is processed in other stages
-Borrow (borrowing). File uploads are read through into_deader to reduce memory overhead
-
-```text
-
-        Form  ┌────────┐encode->bytes ┌──────────┐             ┌──────────┐
- User ───────►│        │─────────────►│          │             │          │
-        Json  │ ScReq  │  into_bytes  │  Request │ copy slice  │ fragment │ write ┌───────┐
-              │ AcReq  │              │  borrow  │────────────►│  TLS     │──────►│  TCP  │
-       Files  │(Engine)│ into_reader  │  reader  │             │ Encrypt  │       └───────┘
- User ───────►│        │─────────────►│          │             │          │
-              └────────┘              └──────────┘             └──────────┘
+```bash
+npm install reqrio
 ```
-### Request Header Order Table
 
-| No. | HTTP/2.0                    | HTTP/1.1                  |
-|:----|:----------------------------|:--------------------------|
-| 1   | cache-control               | Host                      |
-| 2   | sec-ch-ua                   | Connection                |
-| 3   | sec-ch-ua-mobile            | Content-Length            |
-| 4   | sec-ch-ua-full-version      | Authorization             |
-| 5   | sec-ch-ua-arch              | Content-Type              |
-| 6   | sec-ch-ua-platform          | Cache-Control             |
-| 7   | sec-ch-ua-platform-version  | sec-ch-ua                 |
-| 8   | sec-ch-ua-model             | sec-ch-ua-mobile          |
-| 9   | sec-ch-ua-bitness           | sec-ch-ua-platform        |
-| 10  | sec-ch-ua-full-version-list | Upgrade-Insecure-Requests |
-| 11  | upgrade-insecure-requests   | User-Agent                |
-| 12  | user-agent                  | Accept                    |
-| 13  | accept                      | Sec-Fetch-Site            |
-| 14  | origin                      | Sec-Fetch-Mode            |
-| 15  | sec-fetch-site              | Sec-Fetch-User            |
-| 16  | sec-fetch-mode              | Sec-Fetch-Dest            |
-| 17  | sec-fetch-user              | Sec-Fetch-Storage-Access  |
-| 18  | sec-fetch-dest              | Referer                   |
-| 19  | sec-fetch-storage-access    | Accept-Encoding           |
-| 20  | referer                     | Accept-Language           |
-| 21  | accept-encoding             | Cookie                    |
-| 22  | accept-language             | Origin                    |
-| 23  | cookie                      |                           |
-| 24  | priority                    |                           |
-|     | //unknown                   |                           |
-| 25  | content-encoding            |                           |
-| 26  | content-type                |                           |
-| 27  | authorization               |                           |
-| 28  | content-type                |                           |
+> This package relies on native bindings and is intended to be used in Node.js.
 
-### Usage examples:
+## Usage
 
-* Http Example
+### HTTP Requests
 
 ```js
-const {Session, ALPN} = require("reqrio")
+const { Session, ALPN } = require('reqrio');
 
-let session = new Session(ALPN.HTTP11)
-session.set_headers({
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-    "Accept-Encoding": "gzip, deflate, br, zstd",
-    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-    "Cache-Control": "no-cache",
-    "Connection": "keep-alive",
-    "Cookie": "__guid=15015764.1071255116101212729.1764940193317.2156; env_webp=1; _S=pvc5q7leemba50e4kn4qis4b95; QiHooGUID=4C8051464B2D97668E3B21198B9CA207.1766289287750; count=1; so-like-red=2; webp=1; so_huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; __huid=114r0SZFiQcJKtA38GZgwZg%2Fdit1cjUGuRcsIL2jTn4%2FE%3D; gtHuid=1",
-    "Host": "m.so.com",
-    "Pragma": "no-cache",
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "none",
-    "Sec-Fetch-User": "?1",
-    "Upgrade-Insecure-Requests": 1,
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0",
-    "sec-ch-ua": '"Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"'
-})
-session.set_url('https://m.so.com')
-let resp = session.get()
-console.log(resp.status_code())
-session.close()
+const session = new Session(
+  ALPN.HTTP20,
+  {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  },
+  true,
+  true,
+);
 
+session.set_timeout({
+  connect: 3000,
+  read: 3000,
+  write: 3000,
+  handle: 30000,
+  connect_times: 3,
+  handle_times: 3,
+});
+
+const resp = session.get('https://www.example.com');
+console.log('Status:', resp.status_code());
+console.log('Body:', resp.text());
+
+session.close();
 ```
 
-* WebSocket Example
+### Request Options
+
+The `Session` request methods accept an options object with these fields:
+
+- `params`: query parameters object
+- `data`: form body object
+- `json`: JSON body object
+- `bytes`: raw bytes payload
+- `files`: array of multipart file objects
+- `ct`: content type string
+- `sni`: custom SNI host string
+
+### Expressing multipart file upload
 
 ```js
-const {Websocket} = require('index')
+const files = [
+  {
+    path: './example.txt',
+    field_name: 'file',
+    filetype: 'text/plain',
+  },
+];
 
-let ws = new Websocket();
-ws.set_url("wss://api.github.com")
-ws.add_header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0")
-ws.set_proxy("http://127.0.0.1:7878")
-ws.open()
-while (true) {
-    frame = ws.read()
-    console.log(frame)
-}
-
+const response = session.post('https://www.example.com/upload', {
+  data: { name: 'test' },
+  files,
+});
+console.log(response.status_code());
 ```
+
+## API Reference
+
+### `Session`
+
+Constructor:
+
+```js
+new Session(
+  alpn,
+  headers = {},
+  verify = true,
+  auto_redirect = true,
+  key_log = null,
+  rand_tls = false,
+  token = null,
+);
+```
+
+Common methods:
+
+- `session.set_headers(headers)`
+- `session.add_header(name, value)`
+- `session.remove_header(name)`
+- `session.set_proxy(proxy)`
+- `session.set_timeout(timeout)`
+- `session.set_cookie(cookie)`
+- `session.add_cookie(name, value)`
+- `session.reconnect()`
+- `session.connect(url)`
+- `session.close_stream()`
+- `session.set_callback(func)`
+- `session.send(method, url, options)`
+- `session.get(url, options)`
+- `session.post(url, options)`
+- `session.put(url, options)`
+- `session.head(url, options)`
+- `session.delete(url, options)`
+- `session.options(url, options)`
+- `session.trace(url, options)`
+- `session.patch(url, options)`
+- `session.close()`
+
+### `Method`
+
+HTTP method enum exported from `Session`.
+
+### `ALPN`
+
+Protocol enum values:
+
+- `ALPN.HTTP10`
+- `ALPN.HTTP11`
+- `ALPN.HTTP20`
+
+### `Response`
+
+Response methods:
+
+- `response.status_code()`
+- `response.get_header(name)`
+- `response.cookies()`
+- `response.bytes()`
+- `response.text()`
+- `response.json()`
+- `response.close()`
+
+## WebSocket Support
+
+```js
+const { Websocket } = require('reqrio');
+
+const ws = new Websocket();
+ws.set_uri('wss://example.com/api/ws');
+ws.add_header('User-Agent', 'Mozilla/5.0...');
+ws.set_proxy('http://127.0.0.1:1080');
+ws.open_raw('wss://example.com', '');
+
+const frame = ws.read();
+console.log(frame);
+ws.close();
+```
+
+### WebSocket methods
+
+- `ws.add_header(name, value)`
+- `ws.set_proxy(proxy)`
+- `ws.set_uri(uri)`
+- `ws.open(urlPtr)`
+- `ws.open_raw(url, context)`
+- `ws.read()`
+- `ws.write(opcode, mask, msg)`
+- `ws.close()`
+
+## TLS Fingerprinting
+
+`reqrio-js` exposes fingerprint support through `Session` and `Fingerprint`.
+
+### Session fingerprint helpers
+
+- `session.use_random_tls(token)`
+- `session.set_ja3(ja3, token)`
+- `session.set_ja4(ja4, token)`
+- `session.set_finger_by_client_hello(client_hello, token)`
+- `session.set_finger_by_custom(custom, token)`
+
+### `Fingerprint`
+
+Create and customize a fingerprint object:
+
+```js
+const { Session, Fingerprint } = require('reqrio');
+const session = new Session(ALPN.HTTP20);
+const fingerprint = new Fingerprint(session.library, token);
+
+fingerprint.add_cipher_suite(CipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256);
+fingerprint.add_extension(ExtensionType.StatusRequest);
+// ... more fingerprint customization ...
+
+session.set_fingerprint(fingerprint);
+```
+
+## Example helper script
+
+The repository includes `example.js` with sample usage for:
+
+- GET requests
+- POST form data
+- POST JSON
+- JA3 and JA4 fingerprint usage
+- ClientHello fingerprint usage
+- Custom fingerprint building
+
+## Notes
+
+- Remember to call `session.close()` to free native resources.
+- `response.close()` should also be called when the response object is no longer needed.
+- Proxy strings support standard HTTP/SOCKS formats like `http://127.0.0.1:1080`.
+
+## License
+
+Apache-2.0

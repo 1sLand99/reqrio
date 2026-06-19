@@ -89,7 +89,7 @@ Connection::read_message(int,out)
 
 具体可以参考
 
-* [async_stream](https://github.com/xllgl2017/reqrio/blob/master/reqrio/src/stream/async_stream.rs)
+* [async_stream](https://github.com/xllgl2017/reqrio/blob/master/reqrio/src/stream/aync/tls/mode)
 * [sync_stream](https://github.com/xllgl2017/reqrio/blob/master/reqrio/src/stream/sync_stream.rs)
 
 ## 证书相关支持
@@ -158,6 +158,15 @@ fn dd() {
 * DES_ECB
 * RC4
 * RSA
+* SM4-ECB
+* SM4-CBC
+* SM4-OFB
+* SM4-CFB
+* SM4-CTR
+* SM3
+* 3DES-CBC
+* 3DES-ECB
+
 
 - Cipher使用示例
 
