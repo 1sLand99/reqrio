@@ -57,7 +57,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
         Connecting {
             handshake: Handshake::Handshaking(Box::new(TlsStream {
                 stream,
-                conn: Connection::from_client(rand::random(), session, mem::take(&mut config.key_log)).with_verify(config.verify),
+                conn: Connection::from_client(rand::random(), session, mem::take(&mut config.key_log))
+                    .with_verify(config.verify).with_mtls(!config.client_cert.is_empty()),
                 handshake_finished: false,
                 hello_retrying: false,
                 read_buffer: Buffer::default(),

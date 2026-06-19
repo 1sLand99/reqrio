@@ -99,7 +99,7 @@ pub trait StreamHandle {
     fn handle_server_hello_done(param: &mut StreamParam<'_>, config: &mut Config) -> Result<(), RlsError> {
         let config = config.client_mut().ok_or("missing config")?;
         let offset = param.write_buffer.offset().end;
-        if param.conn.mtls() {
+        if !config.client_cert.is_empty() {
             //client certificate
             let mut certificate = Certificates::default();
             if let Some(cert) = config.client_cert.get_mut(0) {
@@ -123,12 +123,13 @@ pub trait StreamHandle {
         param.conn.update_session(param.write_buffer.slice_at(offset + 5))?;
         param.conn.make_cipher(false, false)?;
         //certificate verify
-        if param.conn.mtls() && !config.client_cert.is_empty() {
+        if !config.client_cert.is_empty() && !config.client_cert.is_empty() {
             let offset = param.write_buffer.len();
             param.conn.handle_mtls_client(param.write_buffer, config.cert_key)?;
             param.conn.update_session(param.write_buffer.slice_at(offset + 5))?;
         }
         param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
+        println!("11111111111");
         let record_len = param.conn.make_finish_message(param.write_buffer.unfilled(), false)?;
         param.write_buffer.add_len(record_len);
         Ok(())

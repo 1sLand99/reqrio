@@ -1,5 +1,7 @@
 use reqrio::*;
 use std::fs;
+use std::path::{Path, PathBuf};
+use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 
 #[cfg(feature = "log")]
@@ -23,53 +25,49 @@ async fn main() {
     #[cfg(feature = "log")]
     test_log();
     let stream = TcpStream::connect("47.122.78.151:9008").await.unwrap();
-    // let mut cert = reqrio::Certificate::from_pem(include_bytes!("../../../outworks/hnzw/cert/client.crt")).unwrap();
-    // let key = reqrio::RsaKey::from_pri_pem(include_bytes!("../../../outworks/hnzw/cert/client.key")).unwrap();
-    // let ca = reqrio::Certificate::from_pem(include_bytes!("../../../outworks/hnzw/cert/ca.crt")).unwrap();
-    // Buffer::with_capacity(1).check_subscription("-").unwrap();
-    // let tls_stream = reqrio::TlsStream::connect(stream, reqrio::ClientConfig {
-    //     sni: "network.microsoft.com",
-    //     alpn: &ALPN::Http11,
-    //     fingerprint: &mut TlsFinger::Custom {
-    //         suites: vec![
-    //             CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256.into(),
-    //             CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256.into(),
-    //             CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384.into(),
-    //             CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384.into()
-    //         ],
-    //         extensions: vec![
-    //             Extension::new(ExtensionType::SupportedVersions, ExtensionValue::SupportedVersions(vec![
-    //                 Version::TLS_1_2
-    //             ])),
-    //             Extension::new_default(ExtensionType::RenegotiationInfo),
-    //             Extension::new_default(ExtensionType::ExtendMasterSecret),
-    //             Extension::new_default(ExtensionType::ServerName),
-    //             Extension::new_default(ExtensionType::SessionTicket),
-    //             Extension::new_default(ExtensionType::CompressionCertificate),
-    //             Extension::new(ExtensionType::SignatureAlgorithms,ExtensionValue::Algorithms(vec![
-    //                 SignatureAlgorithm::RSA_PKCS1_SHA1.into(),
-    //                 SignatureAlgorithm::RSA_PKCS1_SHA256.into(),
-    //                 SignatureAlgorithm::RSA_PKCS1_SHA384.into(),
-    //                 SignatureAlgorithm::RSA_PKCS1_SHA512.into(),
-    //                 SignatureAlgorithm::ECDSA_SECP256R1_SHA256.into(),
-    //                 SignatureAlgorithm::ECDSA_SECP384R1_SHA384.into(),
-    //                 SignatureAlgorithm::RSA_PSS_PSS_SHA256.into(),
-    //                 SignatureAlgorithm::RSA_PSS_PSS_SHA384.into(),
-    //                 SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),
-    //                 SignatureAlgorithm::RSA_PSS_RSAE_SHA384.into(),
-    //             ]))
-    //
-    //         ],
-    //     },
-    //     client_cert: &mut cert,
-    //     cert_key: &key,
-    //     verify: true,
-    //     ca_certs: &ca,
-    //     key_log: None,
-    //     session: &None,
-    // }).await.unwrap();
-    //
-    // return;
+    let mut cert = reqrio::Certificate::from_pem(include_bytes!(r"D:\projects\rust\outworks\sdzw\cert\client.crt")).unwrap();
+    let key = reqrio::RsaKey::from_pri_pem(include_bytes!(r"D:\projects\rust\outworks\sdzw\cert\client.key")).unwrap();
+    let ca = reqrio::Certificate::from_pem(include_bytes!(r"D:\projects\rust\outworks\sdzw\cert\ca.crt")).unwrap();
+    Buffer::with_capacity(1).check_subscription(fs::read_to_string("TOKEN").unwrap_or("".to_string())).unwrap();
+    let finger = TlsFinger::from_ja3("771,4866-4867-4865-49196-49200-49195-49199-52393-52392-49188-49192-49187-49191-159-158-107-103-255,0-11-10-16-22-23-49-13-43-45-51-21,29-23-30-25-24-256-257-258-259-260,0-1-2").unwrap();
+    let mut tls_stream = reqrio::TlsStream::connect(stream, reqrio::ClientConfig {
+        sni: "network.microsoft.com",
+        alpn: &ALPN::Http11,
+        fingerprint: &mut TlsFinger::Custom {
+            suites: vec![CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256.into()],
+            extensions: vec![
+                Extension::new(ExtensionType::SupportedVersions, ExtensionValue::SupportedVersions(vec![
+                    Version::TLS_1_2
+                ])),
+                Extension::new_default(ExtensionType::StatusRequest),
+                Extension::new_default(ExtensionType::RenegotiationInfo),
+                Extension::new_default(ExtensionType::ExtendMasterSecret),
+                Extension::new_default(ExtensionType::ServerName),
+                Extension::new_default(ExtensionType::SessionTicket),
+                Extension::new_default(ExtensionType::CompressionCertificate),
+                Extension::new_default(ExtensionType::PskKeyExchangeMode),
+                Extension::new(ExtensionType::SignatureAlgorithms, ExtensionValue::Algorithms(vec![
+                    SignatureAlgorithm::RSA_PSS_RSAE_SHA384.into(),
+                ])),
+                Extension::new(ExtensionType::EcPointFormats, ExtensionValue::EcPointFormats(vec![EcPointFormat::UNCOMPRESSED])),
+                Extension::new(ExtensionType::KeyShare, ExtensionValue::Curves(vec![NamedCurve::X25519.into()])),
+                Extension::new(ExtensionType::SupportedGroup, ExtensionValue::Curves(vec![NamedCurve::X25519.into()])),
+            ],
+        },
+        client_cert: &mut cert,
+        cert_key: &key,
+        verify: true,
+        ca_certs: &ca,
+        key_log: Some(Path::new("2.log").to_path_buf()),
+        session: &None,
+    }).await.unwrap();
+    let mut buf=[0;1024];
+    loop {
+        let len=tls_stream.read(&mut buf).await.unwrap();
+        if len==0 { break; }
+    }
+
+    return;
 
 
     let mut timeout = Timeout::longer();
@@ -176,7 +174,7 @@ async fn main() {
     // let res = req.get("https://www.bing.com".params(json::object! {}), vec![0u8; 0].ty(Application::Json)).await.unwrap();
     // let res = req.get("https://117.89.181.21".sni("m.sogou.com"), None).await.unwrap();
     // let url = Url::try_from("https://cn.bing.com/").unwrap();
-    let url = "https://113.108.215.122/xhr/front/trade/priority/rushPurchase/hot/branch/one".sni("h5.moutai519.com.cn").unwrap();//
+    let url = "https://113.108.215.122/xhr/front/trade/priority/rushPurchase/hot/branch/one".sni("h5.moutai519.com.cn").unwrap(); //
     // let url = "https://www.baidu.com".try_into().unwrap();
     // let url = "https://m.so.com/".try_into().unwrap();
     let body: Body = None.into();

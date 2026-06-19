@@ -329,7 +329,7 @@ impl TlsFinger {
                 ExtensionType::SupportedGroup => Extension::new(typ, ExtensionValue::Curves(groups.clone())),
                 ExtensionType::KeyShare => Extension::new(typ, ExtensionValue::Curves(groups.clone())),
                 ExtensionType::SignatureAlgorithms => Extension::new(typ, ExtensionValue::Algorithms(algorithms.clone())),
-                ExtensionType::CompressionCertificate => Extension::new(typ, ExtensionValue::CompressionMethods(vec![CompressionMethod::NULL])),
+                ExtensionType::CompressionCertificate => Extension::new(typ, ExtensionValue::CompressionMethods(vec![CompressionMethod::BROTLI])),
                 ExtensionType::EcPointFormats => Extension::new(typ, ExtensionValue::EcPointFormats(TlsFinger::random_formats())),
                 _ => Extension::new_default(typ)
             });
@@ -362,6 +362,6 @@ impl TlsFinger {
                 extensions.iter_mut().find(|x| &x.type_ == typ).map(|x| &mut x.value)
         }
     }
-    
-    
+
+
 }

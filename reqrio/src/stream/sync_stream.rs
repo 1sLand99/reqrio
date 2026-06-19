@@ -46,8 +46,10 @@ impl<S: Read + Write> SyncStream<S> {
         Ok(stream)
     }
     pub fn connect(config: ClientConfig, stream: S) -> HlsResult<SyncStream<S>> {
-        let session = config.session.as_ref().cloned().unwrap_or_else(|| Default::default());
-        SyncStream::new(stream, Connection::from_client(rand::random(), session, config.key_log.clone()).with_verify(config.verify), Config::Client(config), Buffer::default())
+        let session = config.session.as_ref().cloned().unwrap_or_default();
+        let conn=Connection::from_client(rand::random(),session,config.key_log.clone())
+            .with_verify(config.verify).with_mtls(!config.client_cert.is_empty());
+        SyncStream::new(stream, conn, Config::Client(config), Buffer::default())
     }
 
     pub fn accept(stream: S, config: ServerConfig<'_>) -> HlsResult<SyncStream<S>> {

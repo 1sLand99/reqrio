@@ -67,11 +67,11 @@ impl SignatureAlgorithm {
     pub const RSA_PSS_RSAE_SHA256: u16 = 0x0804;
     pub const RSA_PSS_RSAE_SHA384: u16 = 0x0805;
     pub const RSA_PSS_RSAE_SHA512: u16 = 0x0806;
-    pub const RSA_PSS_PSS_SHA256: u16 = 0x0807;
-    pub const RSA_PSS_PSS_SHA384: u16 = 0x0808;
-    pub const RSA_PSS_PSS_SHA512: u16 = 0x0809;
-    pub const ED25519: u16 = 0x080A;
-    pub const ED448: u16 = 0x080B;
+    pub const RSA_PSS_PSS_SHA256: u16 = 0x0809;
+    pub const RSA_PSS_PSS_SHA384: u16 = 0x080a;
+    pub const RSA_PSS_PSS_SHA512: u16 = 0x080b;
+    pub const ED25519: u16 = 0x0807;
+    pub const ED448: u16 = 0x0808;
     pub const ECDSA_SHA1: u16 = 0x0203;
     pub const ECDSA_SECP256R1_SHA256: u16 = 0x0403;
     pub const ECDSA_SECP384R1_SHA384: u16 = 0x0503;

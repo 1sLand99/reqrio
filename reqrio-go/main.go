@@ -1,5 +1,8 @@
 package main
-
+/*
+git tag reqrio-go/v0.3.0-beta1
+git push origin reqrio-go/v0.3.0-beta1
+*/
 import (
 	"encoding/hex"
 	"fmt"
