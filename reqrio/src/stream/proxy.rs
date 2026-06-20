@@ -179,7 +179,6 @@ impl ProxyStream<std::net::TcpStream> {
             if finish { break; }
         }
         buffer.reset();
-        // buffer.sync_read(&mut stream)?;
         Ok(ProxyStream {
             stream,
             handle_proxy: matches!(proxy,Proxy::Null),

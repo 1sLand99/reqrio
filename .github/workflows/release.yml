@@ -1,9 +1,11 @@
 name: release
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_run:
+    workflows:
+      - bump-version
+    types:
+      - completed
   workflow_dispatch:
 
 env:
@@ -86,7 +88,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: native-${{ matrix.target.artifact }}
-          path: target/release/${{ matrix.target.file }}
+          path: |
+            target/release/${{ matrix.target.file }}
+            target/release/*.lib
           if-no-files-found: error
 
   # ----------------------------------------------------------------------------
@@ -94,14 +98,16 @@ jobs:
   # ----------------------------------------------------------------------------
   github-release:
     name: github-release
-    needs: prerelease-check
+    needs: build-natives
     runs-on: ubuntu-latest
     # 预发行版本（alpha/beta/rc）不创建 GitHub Release，仅发布到各语言仓库
     if: >-
-      startsWith(github.ref, 'refs/tags/v')
-      && !contains(github.ref_name, 'alpha')
-      && !contains(github.ref_name, 'beta')
-      && !contains(github.ref_name, 'rc')
+      github.event_name == 'workflow_run' 
+      && github.event.workflow_run.conclusion == 'success'
+      && contains(github.event.workflow_run.head_commit.message, 'bump version')
+      && !contains(github.event.workflow_run.head_commit.message, 'alpha')
+      && !contains(github.event.workflow_run.head_commit.message, 'beta')
+      && !contains(github.event.workflow_run.head_commit.message, 'rc')
     permissions:
       contents: write
     steps:
@@ -118,6 +124,34 @@ jobs:
             echo "未在 CHANGELOG.md 中找到版本 ${VERSION} 的说明" >&2
             exit 1
           fi
+      - name: Download native libs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: natives
+          merge-multiple: true
+
+      - name: Place native libs into packages
+        run: |
+          set -e
+          mkdir -p natives || true
+          if [ -f natives/libreqrio.so ]; then
+            cp natives/libreqrio.so reqrio-py/reqrio/ || true
+            cp natives/libreqrio.so reqrio-java/src/main/resources/ || true
+            cp natives/libreqrio.so reqrio-js/ || true
+            cp natives/libreqrio.so reqrio-qt/ || true
+            cp natives/libreqrio.so reqrio-go/ || true
+          fi
+          if [ -f natives/reqrio.dll ]; then
+            cp natives/reqrio.dll reqrio-py/reqrio/ || true
+            cp natives/reqrio.dll reqrio-java/src/main/resources/ || true
+            cp natives/reqrio.dll reqrio-js/ || true
+            cp natives/reqrio.dll reqrio-qt/ || true
+            cp natives/reqrio.dll reqrio-go/ || true
+          fi
+          if ls natives/*.lib 1> /dev/null 2>&1; then
+            cp natives/reqrio.dll.lib reqrio-qt/reqrio.lib || true
+          fi
       - name: Package bindings into zips
         run: |
           mkdir -p dist
@@ -126,9 +160,18 @@ jobs:
           zip -r dist/js.zip   reqrio-js
           zip -r dist/java.zip reqrio-java
           zip -r dist/qt.zip   reqrio-qt
+      - name: Determine version and create tag if not pre-release
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${VERSION}" -m "v${VERSION}" || true
+          git push origin "v${VERSION}"
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.VERSION }}
           body_path: RELEASE_NOTES.txt
           files: |
             dist/py.zip

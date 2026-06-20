@@ -129,7 +129,6 @@ pub trait StreamHandle {
             param.conn.update_session(param.write_buffer.slice_at(offset + 5))?;
         }
         param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
-        println!("11111111111");
         let record_len = param.conn.make_finish_message(param.write_buffer.unfilled(), false)?;
         param.write_buffer.add_len(record_len);
         Ok(())
