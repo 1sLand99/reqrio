@@ -98,7 +98,7 @@ impl<'a> ClientHello<'a> {
         Ok(())
     }
 
-    pub fn client_random(&mut self) -> &Buf<'a> { &self.random }
+    pub fn client_random(&self) -> &Buf<'a> { &self.random }
 
     ///### ja3计算方式为
     /// version+','+cipher_suite(u16)+','+extend_type(u16)+','+supported_groud值(u16)+','+ec_point_format(u8)
@@ -237,8 +237,12 @@ impl<'a> ClientHello<'a> {
         &self.cipher_suites
     }
 
-    pub fn take_extensions(&mut self) -> Vec<Extension<'_>> {
+    pub fn take_extensions(&mut self) -> Vec<Extension<'a>> {
         mem::take(&mut self.extensions)
+    }
+
+    pub fn extensions(&self) -> &[Extension<'a>] {
+        &self.extensions
     }
 
     pub fn extensions_mut(&mut self) -> &mut [Extension<'a>] { &mut self.extensions }

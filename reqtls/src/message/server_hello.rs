@@ -5,7 +5,7 @@ use super::super::version::Version;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::ExtensionValue;
-use crate::{u24, BufferError, ClientHello, ExtensionType, ReadExt, Reader, WriteExt, ALPN};
+use crate::{rand, u24, BufferError, ClientHello, ExtensionType, ReadExt, Reader, WriteExt, ALPN};
 use crate::buffer::Buf;
 
 #[derive(Debug)]
@@ -55,12 +55,14 @@ impl<'a> ServerHello<'a> {
         Ok(res)
     }
 
-    pub fn from_client_hello<'b: 'a>(client_hello: &'b mut ClientHello<'b>) -> RlsResult<ServerHello<'a>> {
-        let mut res = ServerHello::default();
-        res.version = Version::TLS_1_2;
-        // res.random = ByteRef::new(random);
-        // res.session_id = ByteRef::new(session_id);
-        res.cipher_suite = CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256.into();
+    pub fn from_client_hello<'b: 'a>(mut client_hello: ClientHello<'b>) -> RlsResult<ServerHello<'a>> {
+        let mut res = ServerHello {
+            version: Version::TLS_1_2,
+            cipher_suite: CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256.into(),
+            session_id_len: 32,
+            session_id: Buf::Vec(rand::random::<[u8; 32]>().to_vec()),
+            ..Default::default()
+        };
         for extension in client_hello.take_extensions() {
             match extension.extension_type().as_u16() {
                 ExtensionType::SignatureAlgorithms => {
@@ -93,7 +95,7 @@ impl<'a> ServerHello<'a> {
                 ExtensionType::RenegotiationInfo => res.extensions.push(extension),
                 ExtensionType::ServerName => {}
                 ExtensionType::StatusRequest => res.extensions.push(extension),
-                ExtensionType::SessionTicket => res.extensions.push(extension),
+                ExtensionType::SessionTicket => res.extensions.push(Extension::from_type(ExtensionType::SessionTicket.into())),
                 _ => {}
             }
         }

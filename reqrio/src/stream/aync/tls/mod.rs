@@ -47,8 +47,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
         };
         Connecting {
             handshake: Handshake::Handshaking(Box::new(stream)),
+            sent_client_hello: matches!(config, Config::Server(_)),
             config,
-            sent_client_hello: false,
         }
     }
     #[inline]

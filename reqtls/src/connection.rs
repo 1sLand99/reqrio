@@ -33,6 +33,7 @@ pub struct Connection {
     mtls_hash: SignatureAlgorithm,
     mtls_enable: bool,
     version: Version,
+    server: bool,
 }
 impl Default for Connection {
     fn default() -> Self {
@@ -61,6 +62,7 @@ impl Connection {
             version: Version::TLS_1_2,
             secret_keys: HashMap::new(),
             secret_key: None,
+            server: false,
         }
     }
 
@@ -260,13 +262,13 @@ impl Connection {
         }
     }
 
-    pub fn make_cipher(&mut self, server: bool, recover: bool) -> RlsResult<()> {
+    pub fn make_cipher(&mut self, recover: bool) -> RlsResult<()> {
         if let Version::TLS_1_2 = self.version && !recover {
             let secret_key = self.secret_key.as_mut().ok_or("Invalid secret key")?;
             let share_secret = secret_key.diffie_hellman(self.exchange_pub_key.as_ref())?;
             self.derived.make_master(Version::TLS_1_2, share_secret, self.cipher_suite.current_session_hash()?)?;
         }
-        let key = self.derived.make_cipher_key(&self.version, server)?;
+        let key = self.derived.make_cipher_key(&self.version, self.server)?;
 
         let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
         let hasher = self.cipher_suite.mac_hash().ok_or(HashError::HasherNone)?;
@@ -300,7 +302,7 @@ impl Connection {
         Ok(())
     }
 
-    pub fn gen_server_hello<'a>(&mut self, client_hello: &'a mut ClientHello<'a>, certificate: &'a mut [Certificate], pri_key: &RsaKey, random: &'a [u8]) -> RlsResult<RecordLayer<'a>> {
+    pub fn gen_server_hello<'a>(&mut self, client_hello: ClientHello<'a>, certificate: &'a mut [Certificate], pri_key: &RsaKey, random: &'a [u8]) -> RlsResult<RecordLayer<'a>> {
         self.derived.set_client_random(client_hello.client_random().as_ref().try_into()?);
         let mut record = RecordLayer {
             content_type: RecordType::HandShake,
@@ -332,6 +334,7 @@ impl Connection {
         record.messages.push(Message::new_parsed(MessageParsed::ServerKeyExchange(server_key_exchange)));
         //server_hello_done
         record.messages.push(Message::new_parsed(MessageParsed::ServerHelloDone(ServerHelloDone::new())));
+        self.server = true;
         Ok(record)
     }
 
@@ -375,6 +378,7 @@ impl Connection {
     }
 
     pub fn update_session(&mut self, data: impl AsRef<[u8]>) -> RlsResult<()> {
+        // println!("{} {:x?}", data.as_ref().len(), data.as_ref());
         if self.mtls_enable || self.cipher_suite.hasher().is_none() {
             self.session_bytes.extend_from_slice(data.as_ref());
         }
@@ -384,13 +388,10 @@ impl Connection {
         Ok(())
     }
 
-    pub fn session_bytes(&self) -> &[u8] {
-        &self.session_bytes
-    }
-
+    pub fn session_bytes(&self) -> &[u8] { &self.session_bytes }
     pub fn cipher_suite(&self) -> &CipherSuite { &self.cipher_suite }
-
     pub fn session(&self) -> &TlsSession { self.derived.session() }
+    pub fn server(&self) -> bool { self.server }
     pub fn handle_mtls_client<W: WriteExt>(&mut self, writer: &mut W, key: &RsaKey) -> RlsResult<()> {
         let mut cert_verify = CertificateVerify::default();
         cert_verify.set_hash(self.mtls_hash.as_u16().into());

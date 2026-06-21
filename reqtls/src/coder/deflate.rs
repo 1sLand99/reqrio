@@ -127,7 +127,6 @@ impl<W: WriteExt> StreamDecode<W> for DeflateStream {
     }
 
     fn flush(&mut self, out: &mut W) -> Result<(), CodingError> {
-        println!("33333333333333333");
         let mut out_len = out.unfilled_len();
         let state = unsafe { DEFLATE_STREAM_flush(self.stream.as_mut_ptr(), out.unfilled_ptr(), &mut out_len) };
         if !matches!(state, DeflateState::OK|DeflateState::STREAM_END) {

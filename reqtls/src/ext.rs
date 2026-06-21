@@ -121,7 +121,7 @@ pub trait StreamHandle {
         record.write_to(param.write_buffer, key_size)?;
 
         param.conn.update_session(param.write_buffer.slice_at(offset + 5))?;
-        param.conn.make_cipher(false, false)?;
+        param.conn.make_cipher(false)?;
         //certificate verify
         if !config.client_cert.is_empty() && !config.client_cert.is_empty() {
             let offset = param.write_buffer.len();
@@ -145,7 +145,29 @@ pub trait StreamHandle {
         }
     }
 
-    fn handle_handshake(param: &mut StreamParam<'_>, mut config: Option<&mut Config<'_>>, message: Message<'_>) -> Result<(), RlsError> {
+    fn handle_finish(param: &mut StreamParam<'_>) -> Result<(), RlsError> {
+        if param.conn.server() {
+            let offset = param.write_buffer.offset().end;
+            let mut ticket = SessionTicket::default();
+            let tbs = rand::random::<[u8; 276]>();
+            ticket.tls_ticket_mut().set_value(&tbs);
+            param.write_buffer.write_slice(&[22, 3, 3])?;
+            param.write_buffer.write_u16(ticket.len() as u16)?;
+            ticket.write_to(param.write_buffer)?;
+            param.conn.update_session(param.write_buffer.slice_at(offset + 5))?;
+        }
+        if (param.conn.secret_key().is_none() && param.conn.version() == &Version::TLS_1_2) || param.conn.server() {
+            #[cfg(feature = "log")]
+            debug!("[HandleRecord] Recover TLS_1.2");
+            param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
+            let len = param.conn.make_finish_message(param.write_buffer.unfilled(), param.conn.server())?;
+            param.write_buffer.add_len(len);
+            *param.handshake_finish = true;
+        }
+        Ok(())
+    }
+
+    fn handle_handshake(param: &mut StreamParam<'_>, mut config: Option<&mut Config<'_>>, message: Message<'_>) -> RlsResult<()> {
         #[cfg(feature = "log")]
         trace!("[HandleHandshake] message: {:?}]", message);
         match message.parsed {
@@ -172,43 +194,44 @@ pub trait StreamHandle {
                 *param.handshake_finish = true;
                 return Ok(());
             }
-            MessageParsed::ClientHello(mut v) => {
-                param.conn.update_session(&param.write_buffer.filled()[5..])?;
+            MessageParsed::ClientHello(v) => {
+                param.conn.update_session(message.encoded.as_ref())?;
                 let config = config.as_mut().ok_or("config can't be null")?;
                 let random = rand::random::<[u8; 32]>();
                 let server = config.server_mut().ok_or("missing config")?;
-                let mut record = param.conn.gen_server_hello(&mut v, server.server_cert, server.cert_key, &random)?;
-                let session_id = rand::random::<[u8; 32]>();
-                record.messages[0].parsed.server_mut().ok_or(RlsError::NullPtr)?.set_session_id(&session_id);
-
+                let record = param.conn.gen_server_hello(v, server.server_cert, server.cert_key, &random)?;
+                let offset = param.write_buffer.offset().end;
                 record.write_to(param.write_buffer, 1)?;
+                param.conn.update_session(param.write_buffer.slice_at(offset + 5))?;
+
                 return Ok(());
             }
             MessageParsed::ClientKeyExchange(v) => {
                 param.conn.update_session(message.encoded.as_ref())?;
                 param.conn.set_by_client_exchange_key(v);
-                param.conn.make_cipher(true, false)?;
+                param.conn.make_cipher(false)?;
             }
-            // MessageParsed::Payload(_) => {
-            //     let record_len = record.len as usize + 5;
-            //     let mut out = vec![0; record_len];
-            //     let len = self.conn.read_message(&self.read_buffer[..record_len], &mut out)?;
-            //     self.conn.verify_finish(&out[..len], false)?;
-            //
-            //     let mut ticket = SessionTicket::default();
-            //     let tbs = rand::random::<[u8; 276]>();
-            //     ticket.tls_ticket_mut().set_value(&tbs);
-            //     self.write_buffer.write_slice(&[22, 3, 3])?;
-            //     self.write_buffer.write_u16(ticket.len() as u16)?;
-            //     ticket.write_to(&mut self.write_buffer)?;
-            //     self.conn.update_session(&self.write_buffer.filled()[5..])?;
-            //     self.write_buffer.write_slice(&[20, 3, 3, 0, 1, 1])?;
-            //     let record_len = self.conn.make_finish_message(self.write_buffer.unfilled_mut(), true)?;
-            //     self.write_buffer.add_len(record_len);
-            //     self.stream.write_all(self.write_buffer.filled())?;
-            //     self.write_buffer.reset();
-            //     return Ok(true);
-            // }
+            MessageParsed::Payload(_) => {
+                println!("{}", 111);
+                // let record_len = record.len as usize + 5;
+                // let mut out = vec![0; record_len];
+                // let len = self.conn.read_message(&self.read_buffer[..record_len], &mut out)?;
+                // self.conn.verify_finish(&out[..len], false)?;
+                //
+                // let mut ticket = SessionTicket::default();
+                // let tbs = rand::random::<[u8; 276]>();
+                // ticket.tls_ticket_mut().set_value(&tbs);
+                // self.write_buffer.write_slice(&[22, 3, 3])?;
+                // self.write_buffer.write_u16(ticket.len() as u16)?;
+                // ticket.write_to(&mut self.write_buffer)?;
+                // self.conn.update_session(&self.write_buffer.filled()[5..])?;
+                // self.write_buffer.write_slice(&[20, 3, 3, 0, 1, 1])?;
+                // let record_len = self.conn.make_finish_message(self.write_buffer.unfilled_mut(), true)?;
+                // self.write_buffer.add_len(record_len);
+                // self.stream.write_all(self.write_buffer.filled())?;
+                // self.write_buffer.reset();
+                // return Ok(true);
+            }
             MessageParsed::CertificateRequest(v) => {
                 param.conn.update_session(message.encoded.as_ref())?;
                 let config = config.as_mut().ok_or("config can't be null")?;
@@ -224,7 +247,7 @@ pub trait StreamHandle {
                 param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
                 let len = param.conn.make_finish_message(param.write_buffer.unfilled(), false)?;
                 param.write_buffer.add_len(len);
-                param.conn.make_cipher(false, false)?;
+                param.conn.make_cipher(false)?;
                 *param.handshake_finish = true;
             }
             MessageParsed::EncryptedExtension(ee) => {
@@ -259,7 +282,7 @@ pub trait StreamHandle {
                 trace!("[HandleRecord] {:?}", record);
                 *param.encrypted_channel = !*param.hello_retrying;
                 if param.conn.secret_key().is_none() && param.conn.version() == &Version::TLS_1_2 {
-                    param.conn.make_cipher(false, true)?;
+                    param.conn.make_cipher(true)?;
                 }
             }
             RecordType::Alert => {
@@ -272,16 +295,9 @@ pub trait StreamHandle {
                     #[cfg(feature = "log")]
                     trace!("[HandleRecord] {:?}", record);
                     let out = param.write_buffer.unfilled();
-                    let len = param.conn.read_message(&read_buffer.filled()[..record_len], out)?;
-                    param.conn.verify_finish(&out[..len], true)?;
-                    if param.conn.secret_key().is_none() && param.conn.version() == &Version::TLS_1_2 {
-                        #[cfg(feature = "log")]
-                        debug!("[HandleRecord] Recover TLS_1.2");
-                        param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
-                        let len = param.conn.make_finish_message(param.write_buffer.unfilled(), false)?;
-                        param.write_buffer.add_len(len);
-                        *param.handshake_finish = true;
-                    }
+                    let len = param.conn.read_message(&read_buffer.filled()[..record_len], out).unwrap();
+                    param.conn.verify_finish(&out[..len], !param.conn.server()).unwrap();
+                    Self::handle_finish(&mut param)?;
                 }
                 false => for message in record.messages {
                     Self::handle_handshake(&mut param, config.as_deref_mut(), message)?
