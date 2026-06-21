@@ -66,64 +66,56 @@ impl AcReq {
     where
         HlsError: From<E>,
     {
-        self.header.set_method(Method::GET);
-        self.stream_io(&mut url.try_into()?, &body.into()).await
+        self.stream_io(Method::GET, &mut url.try_into()?, &body.into()).await
     }
 
     pub async fn post<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.header.set_method(Method::POST);
-        self.stream_io(&mut url.try_into()?, &body.into()).await
+        self.stream_io(Method::POST, &mut url.try_into()?, &body.into()).await
     }
 
     pub async fn put<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.header.set_method(Method::PUT);
-        self.stream_io(&mut url.try_into()?, &body.into()).await
+        self.stream_io(Method::PUT, &mut url.try_into()?, &body.into()).await
     }
 
     pub async fn options<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.header.set_method(Method::OPTIONS);
-        self.stream_io(&mut url.try_into()?, &body.into()).await
+        self.stream_io(Method::OPTIONS, &mut url.try_into()?, &body.into()).await
     }
 
     pub async fn delete<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.header.set_method(Method::DELETE);
-        self.stream_io(&mut url.try_into()?, &body.into()).await
+        self.stream_io(Method::DELETE, &mut url.try_into()?, &body.into()).await
     }
 
     pub async fn head<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.header.set_method(Method::HEAD);
-        self.stream_io(&mut url.try_into()?, &body.into()).await
+        self.stream_io(Method::HEAD, &mut url.try_into()?, &body.into()).await
     }
 
     pub async fn trace<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.header.set_method(Method::TRACE);
-        self.stream_io(&mut url.try_into()?, &body.into()).await
+        self.stream_io(Method::TRACE, &mut url.try_into()?, &body.into()).await
     }
 
     pub async fn patch<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.header.set_method(Method::PATCH);
-        self.stream_io(&mut url.try_into()?, &body.into()).await
+        self.stream_io(Method::PATCH, &mut url.try_into()?, &body.into()).await
     }
 
     pub async fn h1_io(&mut self) -> HlsResult<Response> {
@@ -137,7 +129,8 @@ impl AcReq {
         Ok(response)
     }
 
-    pub async fn send(&mut self, url: &Url, body: &Body<'_>) -> HlsResult<()> {
+    pub async fn send(&mut self, method: Method, url: &Url, body: &Body<'_>) -> HlsResult<u32> {
+        self.header.set_method(method);
         let mut request = RequestBuffer::new(&mut self.header, body, HeaderParam {
             url,
             encoder: self.hpack_coder.encoder(),
@@ -152,7 +145,9 @@ impl AcReq {
             if len == 0 { break; }
             self.stream.async_write(self.buffer.filled()).await?;
         }
-        Ok(())
+        let sid = self.stream_id;
+        if let ALPN::Http20 = self.header.alpn() { self.stream_id += 2; }
+        Ok(sid)
     }
 
     pub async fn recv(&mut self) -> HlsResult<Response> {
@@ -162,20 +157,20 @@ impl AcReq {
         }?;
         self.update_cookie(&response);
         self.callback = None;
-        if let ALPN::Http20 = self.header.alpn() { self.stream_id += 2; }
+
         if self.tls_session.is_none() { self.tls_session = self.stream.tls_session().cloned(); }
         Ok(response)
     }
 
-    pub(crate) async fn handle_io(&mut self, url: &Url, body: &Body<'_>) -> HlsResult<Response> {
-        self.send(url, body).await?;
+    pub(crate) async fn handle_io(&mut self, method: Method, url: &Url, body: &Body<'_>) -> HlsResult<Response> {
+        self.send(method, url, body).await?;
         self.recv().await
     }
 
-    pub async fn stream_io(&mut self, url: &mut Url, body: &Body<'_>) -> HlsResult<Response> {
+    pub async fn stream_io(&mut self, method: Method, url: &mut Url, body: &Body<'_>) -> HlsResult<Response> {
         self.set_url(url).await?;
         for i in 1..=self.timeout.handle_times() {
-            let res = tokio::time::timeout(self.timeout.handle(), self.handle_io(url, body)).await;
+            let res = tokio::time::timeout(self.timeout.handle(), self.handle_io(method, url, body)).await;
             self.buffer.reset();
             match res {
                 Err(_) => if i >= self.timeout.handle_times() { return Err(HlsError::Time(TimeError::HandleTimeout)) }
@@ -192,8 +187,7 @@ impl AcReq {
                             true => *url = Url::try_from(location)?,
                             false => url.set_uri(location)?,
                         }
-                        self.header.set_method(Method::GET);
-                        Box::pin(self.stream_io(url, &Body::none())).await
+                        Box::pin(self.stream_io(Method::GET, url, &Body::none())).await
                     } else {
                         Ok(resp)
                     };
@@ -261,9 +255,8 @@ impl AcReq {
     where
         HlsError: From<E>,
     {
-        self.header.set_method(method);
         let mut url = url.try_into()?;
-        let response = self.stream_io(&mut url, &body.into()).await?;
+        let response = self.stream_io(method, &mut url, &body.into()).await?;
         self.check_status(&url, &response)?;
         Ok(response)
     }
@@ -361,6 +354,8 @@ impl ReqExt for AcReq {
         self.verify = verify;
     }
 
+    fn proxy(&self) -> &Proxy { &self.proxy }
+
     fn set_auto_redirect(&mut self, auto_redirect: bool) {
         self.auto_redirect = auto_redirect;
     }
@@ -379,14 +374,6 @@ impl ReqExt for AcReq {
         self.ca_certs = ca.unwrap_or(vec![]);
     }
 
-    fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + 'static) {
-        self.callback = Some(Box::new(callback));
-    }
-
-    fn set_fingerprint(&mut self, fingerprint: Fingerprint) {
-        self.fingerprint = fingerprint;
-    }
-
     fn set_tls_session(&mut self, tls_session: Option<TlsSession>) {
         self.tls_session = tls_session;
     }
@@ -395,7 +382,13 @@ impl ReqExt for AcReq {
         &self.tls_session
     }
 
-    fn proxy(&self) -> &Proxy { &self.proxy }
+    fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + 'static) {
+        self.callback = Some(Box::new(callback));
+    }
+
+    fn set_fingerprint(&mut self, fingerprint: Fingerprint) {
+        self.fingerprint = fingerprint;
+    }
 }
 
 unsafe impl Send for AcReq {}

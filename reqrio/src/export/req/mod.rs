@@ -195,10 +195,9 @@ pub unsafe extern "C" fn ScReq_stream_io(
     catch_unwind(AssertUnwindSafe(|| {
         check_run(move || {
             let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
-            req.header_mut().set_method(method);
             let mut url = unsafe { Box::from_raw(url) };
             let body = unsafe { Box::from_raw(body) };
-            let resp = req.stream_io(url.deref_mut(), body.deref())?;
+            let resp = req.stream_io(method, url.deref_mut(), body.deref())?;
             Ok(Box::into_raw(Box::new(resp)))
         }, |e| handle_err1(e, err, null_mut()))
     })).unwrap_or_else(|_| handle_err1("程序panic", err, null_mut()))

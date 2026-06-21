@@ -64,64 +64,56 @@ impl ScReq {
     where
         HlsError: From<E>,
     {
-        self.header.set_method(Method::GET);
-        self.stream_io(&mut url.try_into()?, &body.into())
+        self.stream_io(Method::GET, &mut url.try_into()?, &body.into())
     }
 
     pub fn post<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.header.set_method(Method::POST);
-        self.stream_io(&mut url.try_into()?, &body.into())
+        self.stream_io(Method::POST, &mut url.try_into()?, &body.into())
     }
 
     pub fn put<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.header.set_method(Method::PUT);
-        self.stream_io(&mut url.try_into()?, &body.into())
+        self.stream_io(Method::PUT, &mut url.try_into()?, &body.into())
     }
 
     pub fn options<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.header.set_method(Method::OPTIONS);
-        self.stream_io(&mut url.try_into()?, &body.into())
+        self.stream_io(Method::OPTIONS, &mut url.try_into()?, &body.into())
     }
 
     pub fn delete<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.header.set_method(Method::DELETE);
-        self.stream_io(&mut url.try_into()?, &body.into())
+        self.stream_io(Method::DELETE, &mut url.try_into()?, &body.into())
     }
 
     pub fn head<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.header.set_method(Method::HEAD);
-        self.stream_io(&mut url.try_into()?, &body.into())
+        self.stream_io(Method::HEAD, &mut url.try_into()?, &body.into())
     }
 
     pub fn trace<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.header.set_method(Method::TRACE);
-        self.stream_io(&mut url.try_into()?, &body.into())
+        self.stream_io(Method::TRACE, &mut url.try_into()?, &body.into())
     }
 
     pub fn patch<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.header.set_method(Method::PATCH);
-        self.stream_io(&mut url.try_into()?, &body.into())
+        self.stream_io(Method::PATCH, &mut url.try_into()?, &body.into())
     }
 
     pub fn h1_io(&mut self) -> HlsResult<Response> {
@@ -136,7 +128,8 @@ impl ScReq {
     }
 
     /// 发送一个请求，发送前务必确保链接已建立
-    pub fn send(&mut self, url: &Url, body: &Body) -> HlsResult<()> {
+    pub fn send(&mut self, method: Method, url: &Url, body: &Body) -> HlsResult<u32> {
+        self.header.set_method(method);
         let mut request = RequestBuffer::new(&mut self.header, body, HeaderParam {
             url,
             stream_identifier: &self.stream_id,
@@ -151,7 +144,9 @@ impl ScReq {
             if len == 0 { break; }
             self.stream.sync_write(self.buffer.filled())?;
         }
-        Ok(())
+        let sid = self.stream_id;
+        if let ALPN::Http20 = self.header.alpn() { self.stream_id += 2; }
+        Ok(sid)
     }
 
     pub fn recv(&mut self) -> HlsResult<Response> {
@@ -161,21 +156,20 @@ impl ScReq {
         }?;
         self.update_cookie(&response);
         self.callback = None;
-        if let ALPN::Http20 = self.header.alpn() { self.stream_id += 2; }
         if self.tls_session.is_none() { self.tls_session = self.stream.tls_session().cloned(); }
         Ok(response)
     }
 
-    pub(crate) fn handle_io(&mut self, url: &Url, body: &Body) -> HlsResult<Response> {
-        self.send(url, body)?;
+    pub(crate) fn handle_io(&mut self, method: Method, url: &Url, body: &Body) -> HlsResult<Response> {
+        self.send(method, url, body)?;
         self.recv()
     }
 
-    pub fn stream_io(&mut self, url: &mut Url, body: &Body) -> HlsResult<Response>
+    pub fn stream_io(&mut self, method: Method, url: &mut Url, body: &Body) -> HlsResult<Response>
     {
         self.set_url(url)?;
         for i in 1..=self.timeout.handle_times() {
-            let res = self.handle_io(url, body);
+            let res = self.handle_io(method, url, body);
             self.buffer.reset();
             match res {
                 Ok(res) => {
@@ -186,8 +180,7 @@ impl ScReq {
                             true => *url = Url::try_from(location)?,
                             false => url.set_uri(location)?
                         };
-                        self.header.set_method(Method::GET);
-                        self.stream_io(url, &Body::none())
+                        self.stream_io(Method::GET, url, &Body::none())
                     } else {
                         Ok(res)
                     };
@@ -268,9 +261,8 @@ impl ScReq {
     where
         HlsError: From<E>,
     {
-        self.header.set_method(method);
         let mut url = url.try_into()?;
-        let response = self.stream_io(&mut url, &body.into())?;
+        let response = self.stream_io(method, &mut url, &body.into())?;
         self.check_status(&url, &response)?;
         Ok(response)
     }
