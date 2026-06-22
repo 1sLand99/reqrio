@@ -99,13 +99,29 @@ jobs:
   release-go:
     name: release-go (${{ matrix.target.os }})
     needs: build-natives
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: |
-            windows-latest-cargo-
+            windows-2022-cargo-
+      - name: Determine version
+        id: get_version
+        shell: bash
+        run: |
+          COMMIT_MSG="${{ github.event.workflow_run.head_commit.message || '' }}"
+          VER=$(echo "$COMMIT_MSG" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9.]+)?' || true)
+          if [ -n "$VER" ]; then
+            VER=${VER#v}
+          else
+            VER=$(grep -E '^version' Cargo.toml | head -n1 | sed -E 's/.*"(.+)".*/\1/')
+          fi
+          if [ -z "$VER" ]; then
+            echo "Failed to determine version" >&2
+            exit 1
+          fi
+          echo "VERSION=$VER" >> $GITHUB_ENV
       - name: build windows-gnu
         run: |
           cargo build --package reqrio --release --features export --target x86_64-pc-windows-gnu
@@ -117,13 +133,18 @@ jobs:
           path: natives
           merge-multiple: true
       - name: copy linux file and release
+        shell: bash
         run: |
-          cp natives/libreqrio.so reqrio-go/
+          cp natives/libreqrio.so reqrio-go/ || true
           cd reqrio-go
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag reqrio-go/v0.3.0-rc2
-          git push origin reqrio-go/v0.3.0-rc2
+          if [ -z "$VERSION" ]; then
+            echo "VERSION is empty; cannot tag" >&2
+            exit 1
+          fi
+          git tag "reqrio-go/v$VERSION"
+          git push origin "reqrio-go/v$VERSION"
 
   # ----------------------------------------------------------------------------
   # GitHub Release：聚合原生库并创建 Release
