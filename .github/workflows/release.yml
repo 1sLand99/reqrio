@@ -99,21 +99,17 @@ jobs:
   release-go:
     name: release-go (${{ matrix.target.os }})
     needs: build-natives
-    strategy:
-      matrix:
-        target:
-          - { os: windows-latest, artifact: windows, file: reqrio.dll }
-    runs-on: ${{ matrix.target.os }}
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: |
-            ${{ runner.os }}-cargo-
+            windows-latest-cargo-
       - name: build windows-gnu
         run: |
           cargo build --package reqrio --release --features export --target x86_64-pc-windows-gnu
-          cp target/x86_64-pc-windows-gnu/release/${{ matrix.target.file }} reqrio-go
+          cp target/x86_64-pc-windows-gnu/release/reqrio.dll reqrio-go
       - name: Download native libs
         uses: actions/download-artifact@v4
         with:
