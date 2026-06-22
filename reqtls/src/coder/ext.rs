@@ -1,3 +1,4 @@
+use std::slice;
 use crate::{BufferError, ReadExt, Reader, WriteExt};
 use crate::coder::CodingError;
 
@@ -14,7 +15,9 @@ pub trait StreamEncode {
 
 impl<W: WriteExt> StreamDecode<W> for () {
     fn decompress(&mut self, reader: &mut Reader<'_>, out: &mut W) -> Result<(), CodingError> {
-        out.write_slice(reader.read_slice(reader.unread_len())?)?;
+        let unread = unsafe { slice::from_raw_parts(reader.unread_ptr(), reader.unread_len()) };
+        out.write_slice(unread)?;
+        reader.add_len(reader.unread_len());
         Ok(())
     }
 
