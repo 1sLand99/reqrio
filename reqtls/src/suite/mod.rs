@@ -1,22 +1,49 @@
 use crate::error::RlsResult;
 use crate::extend::Aead;
 use crate::hash::{HashError, HashType};
-use crate::{Hasher, RlsError};
+use crate::{CipherType, Hasher, RlsError};
 pub use cipher::TlsCipher;
 use std::fmt::{Debug, Formatter};
 
 pub mod iv;
 mod cipher;
 
+#[derive(Debug)]
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+#[allow(clippy::upper_case_acronyms)]
+pub enum KeyExchangeAlg {
+    ECDHE_ECDSA,
+    DHE_DSS,
+    DHE_RSA,
+    DH_ANON,
+    DH_DSS,
+    DH_RSA,
+    RSA,
+}
+
+#[allow(dead_code)]
 pub struct CipherSuite {
     value: u16,
+    cipher: CipherType,
+    exchange: KeyExchangeAlg,
+    mac: HashType,
+    hash: HashType,
     hasher: Option<Hasher>,
     aead: Option<Aead>,
 }
 
 impl CipherSuite {
-    //ecdhe-ecdhe
-    pub const TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256: u16 = 0xc02b;
+    //ecdhe-ecdsa
+    pub const TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256: CipherSuite = CipherSuite {
+        value: 0xc02b,
+        cipher: CipherType::AES_128_GCM,
+        exchange: KeyExchangeAlg::ECDHE_ECDSA,
+        mac: HashType::Sha256,
+        hash: HashType::Sha256,
+        hasher: None,
+        aead: None,
+    };
     pub const TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384: u16 = 0xc02c;
     pub const TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256: u16 = 0xc023;
     pub const TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384: u16 = 0xc024;
@@ -59,7 +86,7 @@ impl CipherSuite {
     pub const TLS_EMPTY_RENEGOTIATION_INFO_SCSV: u16 = 0x00ff;
 
     pub const ALL: [u16; 31] = [
-        CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+        CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256.value,
         CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
         CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
         CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
@@ -103,7 +130,7 @@ impl CipherSuite {
 
     pub fn spec(&self) -> &str {
         match self.value {
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 => "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+            0xc02b => "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
             CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 => "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
             CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256 => "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256",
             CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384 => "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384",
@@ -153,7 +180,7 @@ impl CipherSuite {
     }
 
     pub fn is_aead(&self) -> bool {
-        matches!(self.value, CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 |
+        matches!(self.value, 0xc02b |
             CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 |
             CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 |
             CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 |
@@ -172,7 +199,7 @@ impl CipherSuite {
 
     pub fn mac_hash(&self) -> Option<HashType> {
         match self.value {
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 => Some(HashType::Sha256),
+            0xc02b => Some(HashType::Sha256),
             CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 => Some(HashType::Sha384),
             CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256 => Some(HashType::Sha256),
             CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384 => Some(HashType::Sha384),
@@ -252,6 +279,10 @@ impl CipherSuite {
     pub fn new(v: u16) -> CipherSuite {
         CipherSuite {
             value: v,
+            cipher: CipherType::AES_128_CBC,
+            exchange: KeyExchangeAlg::ECDHE_ECDSA,
+            mac: HashType::MD5,
+            hash: HashType::MD5,
             hasher: None,
             aead: None,
         }
