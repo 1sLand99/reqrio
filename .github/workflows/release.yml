@@ -94,6 +94,42 @@ jobs:
           if-no-files-found: error
 
   # ----------------------------------------------------------------------------
+  # go发布
+  # ----------------------------------------------------------------------------
+  release-go:
+    name: release-go (${{ matrix.target.os }})
+    needs: build-natives
+    strategy:
+      matrix:
+        target:
+          - { os: windows-latest, artifact: windows, file: reqrio.dll }
+    runs-on: ${{ matrix.target.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: |
+            ${{ runner.os }}-cargo-
+      - name: build windows-gnu
+        run: |
+          cargo build --package reqrio --release --features export --target x86_64-pc-windows-gnu
+          cp target/x86_64-pc-windows-gnu/release/${{ matrix.target.file }} reqrio-go
+      - name: Download native libs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: natives
+          merge-multiple: true
+      - name: copy linux file and release
+        run: |
+          cp natives/libreqrio.so reqrio-go/
+          cd reqrio-go
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag reqrio-go/v0.3.0-rc2
+          git push origin reqrio-go/v0.3.0-rc2
+
+  # ----------------------------------------------------------------------------
   # GitHub Release：聚合原生库并创建 Release
   # ----------------------------------------------------------------------------
   github-release:
