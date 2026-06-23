@@ -54,11 +54,7 @@ impl<'a> RecordLayer<'a> {
 
     pub fn from_bytes(bytes: &'a [u8], alg: KeyExchangeAlg, encrypted: bool) -> RlsResult<RecordLayer<'a>> {
         let mut reader = Reader::from_slice(bytes);
-        let content_type = RecordType::from_byte(reader.read_u8()?);
-        let Ok(content_type) = content_type else {
-            println!("{:?}", bytes);
-            return Err("unkwnown record type".into());
-        };
+        let content_type = RecordType::from_byte(reader.read_u8()?)?;
         let version = Version::new(reader.read_u16()?);
         let len = reader.read_u16()?;
         let mut msg_readers = reader.read_reader(len as usize)?;

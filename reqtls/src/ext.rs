@@ -298,12 +298,7 @@ pub trait StreamHandle {
         let len = match *param.conn.version() {
             Version::TLS_1_3 => {
                 let len = param.conn.read_message(&read_buffer.filled()[..record_len], app_buf)?;
-                // let record_type = RecordType::from_byte(app_buf[len - 1])?;
-                let content_type = RecordType::from_byte(app_buf[len - 1]);
-                let Ok(record_type) = content_type else {
-                    println!("325 {:?}", &app_buf[len - 1]);
-                    return Err("unkwnown record type".into());
-                };
+                let record_type = RecordType::from_byte(app_buf[len - 1])?;
                 match record_type {
                     RecordType::Alert => return Err(RlsError::Alert(Alert::from_bytes(&app_buf[..len - 1])?)),
                     RecordType::HandShake => {

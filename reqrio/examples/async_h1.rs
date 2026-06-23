@@ -26,6 +26,7 @@ async fn main() {
     // let fingerprint = Fingerprint::from_ja3("771,4866-4867-4865-49196-49200-49195-49199-52393-52392-49188-49192-49187-49191-159-158-107-103-255,0-11-10-16-22-23-49-13-43-45-51-21,29-23-30-25-24-256-257-258-259-260,0-1-2", fs::read_to_string("TOKEN").unwrap()).unwrap();
     // let fingerprint = Fingerprint::random("").unwrap();
     //
+    let res = reqrio::get("https://www.lthttp.com/iplist?key=b6e820e3092142e6&count=1&protocol=0&type=1&isp=0&distinct=0&os=1&cs=0&is=0&es=0&textSep=0&isAuth=false&province=&city=", None).unwrap();
 
     let mut req = AcReq::new()
         // .with_fingerprint(fingerprint)
@@ -33,12 +34,13 @@ async fn main() {
         .with_verify(true)
         .with_key_log("2.log")
         .with_auto_redirect(false)
-        // .with_proxy(proxy)
+        // .with_proxy(Proxy::Null)
         .with_verify(false)
         .with_alpn(ALPN::Http11)
+        .with_proxy(Proxy::try_from(format!("http://{}", res.text().unwrap().trim())).unwrap())
         // .with_proxy(Proxy::try_from("http://222.186.129.68:15265").unwrap())
         // .with_mtls(certs, key)
-        // .with_proxy(Proxy::new_socks5("192.111.130.2",4145))
+        // .with_proxy(Proxy::new_socks5("127.0.0.1",10279))
         // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10279))
         // .connect("https://104.18.34.137".sni("whatnot.com")).await.unwrap()
         ;
@@ -127,21 +129,13 @@ async fn main() {
     // let url = "https://113.108.215.122/xhr/front/trade/priority/rushPurchase/hot/branch/one".sni("h5.moutai519.com.cn").unwrap(); //
     // let url = "https://www.baidu.com".try_into().unwrap();
     let url = "https://m.so.com/api/dsf".try_into().unwrap();
-    let body: Body = None.into();
     req.re_conn(Some(&url)).await.unwrap();
-    // let resp = req.get(url, None).await.unwrap();
-    // println!("{}", resp.header());
+    let resp = req.get(url.clone(), None).await.unwrap();
+    println!("{}", resp.header());
+    req.re_conn(None).await.unwrap();
+    let resp = req.get(url, None).await.unwrap();
+    println!("{}", resp.header());
     // println!("{}", resp.as_text().unwrap());
-
-    // println!("{}", resp.raw_string());
-    for _ in 0..1 {
-        req.send(Method::POST, &url, &body).await.unwrap();
-    }
-    for _ in 0..1 {
-        let res1 = req.recv().await.unwrap();
-        println!("{}", res1.header());
-        println!("{:?} {}", res1.header().status(), res1.as_bytes().len());
-    }
 
     // println!("{} {}", res1.header(), res2.header());
     // let res = req.get("https://m.sogou.com", None).await.unwrap();
