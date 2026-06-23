@@ -270,9 +270,9 @@ impl ProxyStream<tokio::net::TcpStream> {
     pub async fn async_connect(proxy: &Proxy, peer_addr: &Addr, ech: bool) -> HlsResult<ProxyStream<tokio::net::TcpStream>> {
         #[cfg(feature = "log")]
         debug!("[ProxyStream] Proxy: {} | PeerAddr: {}",proxy,peer_addr);
-        let st = Time::now_mills();
+        // let st = Time::now_mills();
         let addr = proxy.socket_addr(peer_addr, ech)?;
-        println!("DNS TIME: {}", Time::now_mills() - st);
+        // println!("DNS TIME: {}", Time::now_mills() - st);
         let mut stream = tokio::net::TcpStream::connect(addr).await?;
         let mut buffer = Buffer::with_capacity(1024);
         for i in 0..4 {

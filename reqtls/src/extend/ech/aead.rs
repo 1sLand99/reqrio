@@ -1,5 +1,3 @@
-use crate::Version;
-
 #[derive(Debug, Clone, Copy)]
 #[allow(non_camel_case_types)]
 #[repr(C)]
@@ -44,61 +42,11 @@ impl Aead {
             Some(Aead::AES_128_CBC_SHA)
         } else if text.contains("aes_256_cbc") {
             Some(Aead::AES_256_CBC_SHA)
+        } else if text.contains("sm4_gcm") {
+            Some(Aead::SM4_GCM)
         } else {
             println!("{}", text);
             None
-        }
-    }
-
-    pub fn mac_key_len(&self) -> usize {
-        match self {
-            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => 20,
-            Aead::AES_128_CBC_SHA256 => 32,
-            Aead::AES_256_CBC_SHA384 => 48,
-            _ => 0
-        }
-    }
-
-    pub fn key_len(&self) -> usize {
-        match self {
-            Aead::AES_128_GCM | Aead::SM4_GCM => 16,
-            Aead::AES_256_GCM => 32,
-            Aead::ChaCha20_POLY1305 => 32,
-            Aead::AES_128_CBC_SHA | Aead::AES_128_CBC_SHA256 => 16,
-            Aead::AES_256_CBC_SHA | Aead::AES_256_CBC_SHA384 => 32,
-            _ => 0
-        }
-    }
-
-    pub fn fix_iv_len(&self, version: &Version) -> usize {
-        match self {
-            Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::SM4_GCM => match *version {
-                Version::TLS_1_3 => 12,
-                _ => 4
-            },
-            Aead::ChaCha20_POLY1305 => 12,
-            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA | Aead::AES_128_CBC_SHA256 | Aead::AES_256_CBC_SHA384 => 16,
-            _ => 0
-        }
-    }
-
-    pub fn tls13_iv_len(&self) -> usize {
-        match self {
-            Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::SM4_GCM => 12,
-            Aead::ChaCha20_POLY1305 => 12,
-            _ => 0
-        }
-    }
-
-    pub fn explicit_len(&self, version: &Version) -> usize {
-        match self {
-            Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::SM4_GCM => match *version {
-                Version::TLS_1_3 => 0,
-                _ => 8,
-            },
-            Aead::ChaCha20_POLY1305 => 0,
-            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA | Aead::AES_128_CBC_SHA256 | Aead::AES_256_CBC_SHA384 => 16,
-            _ => 0
         }
     }
 }

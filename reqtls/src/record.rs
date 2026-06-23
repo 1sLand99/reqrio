@@ -1,7 +1,8 @@
 use super::version::Version;
-use crate::error::RlsResult;
-use crate::{CipherSuite, HandShakeError, Message, MessageParsed, ReadExt, Reader, WriteExt, ALPN};
 use crate::buffer::Buf;
+use crate::error::RlsResult;
+use crate::suite::KeyExchangeAlg;
+use crate::{HandShakeError, Message, MessageParsed, ReadExt, Reader, WriteExt, ALPN};
 
 #[derive(Debug, Copy, Clone)]
 pub enum RecordType {
@@ -51,9 +52,13 @@ impl<'a> RecordLayer<'a> {
         RecordLayer::new(RecordType::HandShake)
     }
 
-    pub fn from_bytes(bytes: &'a [u8], suite: Option<&CipherSuite>, encrypted: bool) -> RlsResult<RecordLayer<'a>> {
+    pub fn from_bytes(bytes: &'a [u8], alg: KeyExchangeAlg, encrypted: bool) -> RlsResult<RecordLayer<'a>> {
         let mut reader = Reader::from_slice(bytes);
-        let content_type = RecordType::from_byte(reader.read_u8()?)?;
+        let content_type = RecordType::from_byte(reader.read_u8()?);
+        let Ok(content_type) = content_type else {
+            println!("{:?}", bytes);
+            return Err("unkwnown record type".into());
+        };
         let version = Version::new(reader.read_u16()?);
         let len = reader.read_u16()?;
         let mut msg_readers = reader.read_reader(len as usize)?;
@@ -64,7 +69,7 @@ impl<'a> RecordLayer<'a> {
                     encoded: Buf::Ref(msg_readers.read_slice(msg_readers.unread_len())?),
                     parsed: MessageParsed::Payload(Buf::Ref(&[])),
                 },
-                false => Message::from_reader(&mut msg_readers, &content_type, suite, &version)?
+                false => Message::from_reader(&mut msg_readers, &content_type, alg, &version)?
             };
             messages.push(message);
         }

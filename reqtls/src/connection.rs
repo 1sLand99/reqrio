@@ -4,7 +4,7 @@ use super::suite::iv::Iv;
 use super::suite::CipherSuite;
 use super::suite::TlsCipher;
 use super::version::Version;
-use crate::boring::{certificate, AlgorithmSigner, HashError};
+use crate::boring::{certificate, AlgorithmSigner};
 use crate::buffer::{Buf, RecordDecodeBuffer, RecordEncodeBuffer};
 use crate::error::{HandShakeError, RlsResult};
 use crate::key::{DerivedKey, Key, SecretKey, TlsSession};
@@ -22,7 +22,7 @@ pub struct Connection {
     named_curve: NamedCurve,
     exchange_pub_key: Bytes,
     alpn: Option<ALPN>,
-    cipher_suite: CipherSuite,
+    cipher_suite: &'static CipherSuite,
     session_bytes: Vec<u8>,
     derived: DerivedKey,
     certificates: Vec<Certificate>,
@@ -34,6 +34,7 @@ pub struct Connection {
     mtls_enable: bool,
     version: Version,
     server: bool,
+    hasher: Hasher,
 }
 impl Default for Connection {
     fn default() -> Self {
@@ -51,7 +52,7 @@ impl Connection {
             named_curve: NamedCurve::X25519.into(),
             exchange_pub_key: Bytes::none(),
             alpn: None,
-            cipher_suite: CipherSuite::new(0),
+            cipher_suite: &CipherSuite::UNKNOWN,
             session_bytes: Vec::with_capacity(4096),
             derived: DerivedKey::new(client_random, server_random, session, key_log),
             certificates: vec![],
@@ -63,6 +64,7 @@ impl Connection {
             secret_keys: HashMap::new(),
             secret_key: None,
             server: false,
+            hasher: Hasher::default(),
         }
     }
 
@@ -91,8 +93,8 @@ impl Connection {
 
     pub fn hello_retry(&mut self, client_hello: &[u8]) -> RlsResult<()> {
         let cl = u32::from_be_bytes([0, self.session_bytes[1], self.session_bytes[2], self.session_bytes[3]]) as usize + 4;
-        self.cipher_suite.update(&self.session_bytes[..cl])?;
-        let session_hash = self.cipher_suite.current_session_hash()?;
+        self.hasher.update(&self.session_bytes[..cl])?;
+        let session_hash = self.hasher.current_hash()?;
         self.session_bytes[0] = HandshakeType::MessageHash as u8;
         self.session_bytes[1] = 0;
         self.session_bytes[2] = 0;
@@ -101,25 +103,25 @@ impl Connection {
         let len = self.session_bytes.len();
         self.session_bytes.copy_within(cl..len, session_hash.len() + 4);
         unsafe { self.session_bytes.set_len(session_hash.len() + 4 + len - cl); }
-        self.cipher_suite = CipherSuite::new(0);
+        self.cipher_suite = &CipherSuite::UNKNOWN;
+        self.hasher = Hasher::default();
         self.update_session(client_hello)
     }
 
     pub fn set_by_server_hello(&mut self, server_hello: &ServerHello) -> RlsResult<bool> {
         self.alpn = server_hello.alpn();
         self.derived.session_mut().set_session_id(server_hello.session_id.as_ref());
-        self.cipher_suite = server_hello.cipher_suite.as_u16().into();
-        self.cipher_suite.init_aead_hasher()?;
+        self.cipher_suite = server_hello.cipher_suite;
+        self.hasher.init(self.cipher_suite.hash())?;
         if let Some(version) = server_hello.supported_version() {
             self.version = *version;
         }
         if server_hello.random().as_ref() == Self::HRR_MAGIC { return Ok(true); }
-        self.cipher_suite.update(&self.session_bytes)?;
-        let hasher = self.cipher_suite.hasher().as_ref().ok_or(HashError::HasherNone)?;
-        let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
+        self.hasher.update(&self.session_bytes)?;
         #[cfg(feature = "log")]
-        info!("[ParsedServerHello] Version: {:?} | CipherSuite: {} | Hasher: {:?} | AEAD: {:?}",self.version, self.cipher_suite.spec(), hasher.hash_type(), aead);
-        self.derived.init(aead, hasher, &self.version);
+        info!("[ParsedServerHello] Version: {:?} | CipherSuite: {} | Hasher: {:?} | AEAD: {:?}",
+            self.version, self.cipher_suite.spec(), self.cipher_suite.hash(), self.cipher_suite.aead());
+        self.derived.init(self.cipher_suite);
         self.derived.set_server_random(server_hello.random.as_ref().try_into()?);
         self.derived.set_ems(server_hello.use_ems());
         if Version::TLS_1_3 == self.version {
@@ -128,9 +130,9 @@ impl Connection {
             info!("[ParsedServerHello] KeyShare={:?}; pubkey={}",key_entry.name_curve(), key_entry.exchange_key().len());
             let mut secret_key = self.secret_keys.remove(key_entry.name_curve()).ok_or("secret not inited")?;
             let share_secret = secret_key.diffie_hellman(key_entry.exchange_key().as_ref())?;
-            self.derived.make_handshake_traffic_secret(share_secret, self.cipher_suite.current_session_hash()?)?;
+            self.derived.make_handshake_traffic_secret(share_secret, self.hasher.current_hash()?)?;
             let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
-            let hasher = self.cipher_suite.mac_hash().ok_or(HashError::HasherNone)?;
+            let mac_hash = self.cipher_suite.mac_hash();
             let key = self.derived.make_tls13_cipher_key()?;
             if let Key::TLS13 {
                 send_key,
@@ -138,9 +140,9 @@ impl Connection {
                 recv_key,
                 recv_iv
             } = key.get_side(&self.version, false) {
-                self.write.set_key(send_key, &[], aead, hasher)?;
+                self.write.set_key(send_key, &[], &aead, mac_hash)?;
                 self.write.set_iv(Iv::new(send_iv, vec![]));
-                self.read.set_key(recv_key, &[], aead, hasher)?;
+                self.read.set_key(recv_key, &[], &aead, mac_hash)?;
                 self.read.set_iv(Iv::new(recv_iv, vec![]));
             }
         }
@@ -196,7 +198,7 @@ impl Connection {
             false => sign_data.extend_from_slice(b"TLS 1.3, client CertificateVerify")
         }
         sign_data.push(0);
-        sign_data.extend_from_slice(self.cipher_suite.current_session_hash()?);
+        sign_data.extend_from_slice(self.hasher.current_hash()?);
         let cert = self.certificates.first_mut().ok_or("missing cert")?;
         let signer = AlgorithmSigner::new_verify(cert.pub_key()?, verify.hash())?;
         signer.verify(sign_data, verify.sign().as_ref())?;
@@ -266,12 +268,12 @@ impl Connection {
         if let Version::TLS_1_2 = self.version && !recover {
             let secret_key = self.secret_key.as_mut().ok_or("Invalid secret key")?;
             let share_secret = secret_key.diffie_hellman(self.exchange_pub_key.as_ref())?;
-            self.derived.make_master(Version::TLS_1_2, share_secret, self.cipher_suite.current_session_hash()?)?;
+            self.derived.make_master(Version::TLS_1_2, share_secret, self.hasher.current_hash()?)?;
         }
         let key = self.derived.make_cipher_key(&self.version, self.server)?;
 
         let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
-        let hasher = self.cipher_suite.mac_hash().ok_or(HashError::HasherNone)?;
+        let hasher = self.cipher_suite.mac_hash();
         match key {
             Key::TLS12 {
                 send_mac,
@@ -282,9 +284,9 @@ impl Connection {
                 recv_iv,
                 explicit
             } => {
-                self.write.set_key(send_key, send_mac, aead, hasher)?;
+                self.write.set_key(send_key, send_mac, &aead, hasher)?;
                 self.write.set_iv(Iv::new(send_iv, explicit.to_vec()));
-                self.read.set_key(recv_key, recv_mac, aead, hasher)?;
+                self.read.set_key(recv_key, recv_mac, &aead, hasher)?;
                 self.read.set_iv(Iv::new(recv_iv, vec![]));
             }
             Key::TLS13 {
@@ -293,9 +295,9 @@ impl Connection {
                 recv_key,
                 recv_iv
             } => {
-                self.write.set_key(send_key, &[], aead, hasher)?;
+                self.write.set_key(send_key, &[], &aead, hasher)?;
                 self.write.set_iv(Iv::new(send_iv, vec![]));
-                self.read.set_key(recv_key, &[], aead, hasher)?;
+                self.read.set_key(recv_key, &[], &aead, hasher)?;
                 self.read.set_iv(Iv::new(recv_iv, vec![]));
             }
         }
@@ -342,7 +344,7 @@ impl Connection {
     /// * aes-gcm: payload(8byte的explicit+16payload+16byte的tag)
     /// * chacha20_poly1305: payload(16payload+16byte tag)
     pub fn make_finish_message(&mut self, buffer: &mut [u8], server: bool) -> RlsResult<usize> {
-        let session_hash = self.cipher_suite.current_session_hash()?;
+        let session_hash = self.hasher.current_hash()?;
         let finish = self.derived.make_finish(self.version, server, session_hash)?;
         if self.version == Version::TLS_1_3 { self.derived.make_application_traffic_secret(session_hash)?; }
         self.update_session(&finish)?;
@@ -351,7 +353,7 @@ impl Connection {
 
     pub fn verify_finish(&mut self, data: &[u8], server: bool) -> RlsResult<()> {
         if self.verify {
-            let session_hash = self.cipher_suite.current_session_hash()?;
+            let session_hash = self.hasher.current_hash()?;
             let out = self.derived.make_finish(self.version, server, session_hash)?;
             if data != out { return Err(HandShakeError::VerifyFinishedFail.into()); }
         }
@@ -361,15 +363,13 @@ impl Connection {
 
 
     pub fn make_message(&mut self, cty: RecordType, buffer: &mut [u8], payload: &[u8]) -> RlsResult<usize> {
-        let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
         if buffer.len() < 5 + payload.len() { return Err(BufferError::CapacityTooSmall { needed: 5 + payload.len(), current: buffer.len() }.into()); }
-        let buffer = RecordEncodeBuffer::new(cty, &self.version, buffer, payload, aead);
+        let buffer = RecordEncodeBuffer::new(cty, buffer, payload, self.cipher_suite);
         self.write.encrypt(buffer)
     }
 
     pub fn read_message(&mut self, origin: &[u8], buffer: &mut [u8]) -> RlsResult<usize> {
-        let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
-        let buffer = RecordDecodeBuffer::from_buffer(origin, buffer, aead, &self.version)?;
+        let buffer = RecordDecodeBuffer::from_buffer(origin, buffer, self.cipher_suite)?;
         self.read.decrypt(buffer)
     }
 
@@ -379,11 +379,11 @@ impl Connection {
 
     pub fn update_session(&mut self, data: impl AsRef<[u8]>) -> RlsResult<()> {
         // println!("{} {:x?}", data.as_ref().len(), data.as_ref());
-        if self.mtls_enable || self.cipher_suite.hasher().is_none() {
+        if self.mtls_enable || !self.hasher.inited() {
             self.session_bytes.extend_from_slice(data.as_ref());
         }
-        if self.cipher_suite.hasher().is_some() {
-            self.cipher_suite.update(data)?;
+        if self.hasher.inited() {
+            self.hasher.update(data)?;
         }
         Ok(())
     }

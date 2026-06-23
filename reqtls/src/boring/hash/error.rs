@@ -3,6 +3,7 @@ use std::fmt::Display;
 
 #[derive(Debug)]
 pub enum HashError {
+    MustInitFirst,
     InitEvpCtxError,
     InitDigestError,
     DigestUpdateError,

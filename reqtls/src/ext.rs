@@ -1,9 +1,10 @@
-use std::collections::HashMap;
-#[cfg(feature = "log")]
-use log::{debug, trace, warn};
-use crate::*;
 use crate::config::{ClientConfig, Config};
 use crate::error::RlsResult;
+use crate::suite::KeyExchangeAlg;
+use crate::*;
+#[cfg(feature = "log")]
+use log::{debug, trace, warn};
+use std::collections::HashMap;
 
 pub struct StreamParam<'a> {
     pub handshake_finish: &'a mut bool,
@@ -113,7 +114,7 @@ pub trait StreamHandle {
         let offset = param.write_buffer.offset().end;
         //client key exchange
         let mut client_key_exchange = ClientKeyExchange::default();
-        let key_size = param.conn.cipher_suite().key_size();
+        let key_size = if matches!(param.conn.cipher_suite().exchange_alg(), KeyExchangeAlg::RSA) { 2 } else { 1 };
         let pub_key = param.conn.pub_share_key()?;
         client_key_exchange.set_pub_key(pub_key.as_ref());
         let mut record = RecordLayer::handshake();
@@ -203,34 +204,12 @@ pub trait StreamHandle {
                 let offset = param.write_buffer.offset().end;
                 record.write_to(param.write_buffer, 1)?;
                 param.conn.update_session(param.write_buffer.slice_at(offset + 5))?;
-
                 return Ok(());
             }
             MessageParsed::ClientKeyExchange(v) => {
                 param.conn.update_session(message.encoded.as_ref())?;
                 param.conn.set_by_client_exchange_key(v);
                 param.conn.make_cipher(false)?;
-            }
-            MessageParsed::Payload(_) => {
-                println!("{}", 111);
-                // let record_len = record.len as usize + 5;
-                // let mut out = vec![0; record_len];
-                // let len = self.conn.read_message(&self.read_buffer[..record_len], &mut out)?;
-                // self.conn.verify_finish(&out[..len], false)?;
-                //
-                // let mut ticket = SessionTicket::default();
-                // let tbs = rand::random::<[u8; 276]>();
-                // ticket.tls_ticket_mut().set_value(&tbs);
-                // self.write_buffer.write_slice(&[22, 3, 3])?;
-                // self.write_buffer.write_u16(ticket.len() as u16)?;
-                // ticket.write_to(&mut self.write_buffer)?;
-                // self.conn.update_session(&self.write_buffer.filled()[5..])?;
-                // self.write_buffer.write_slice(&[20, 3, 3, 0, 1, 1])?;
-                // let record_len = self.conn.make_finish_message(self.write_buffer.unfilled_mut(), true)?;
-                // self.write_buffer.add_len(record_len);
-                // self.stream.write_all(self.write_buffer.filled())?;
-                // self.write_buffer.reset();
-                // return Ok(true);
             }
             MessageParsed::CertificateRequest(v) => {
                 param.conn.update_session(message.encoded.as_ref())?;
@@ -275,7 +254,7 @@ pub trait StreamHandle {
 
     fn handle_record(&mut self, record_len: usize, mut config: Option<&mut Config<'_>>, app_buf: &mut [u8]) -> Result<usize, RlsError> {
         let (read_buffer, mut param) = self.stream_param();
-        let record = RecordLayer::from_bytes(read_buffer.filled(), None, *param.encrypted_channel)?;
+        let record = RecordLayer::from_bytes(read_buffer.filled(), param.conn.cipher_suite().exchange_alg(), *param.encrypted_channel)?;
         match record.content_type {
             RecordType::CipherSpec => {
                 #[cfg(feature = "log")]
@@ -295,8 +274,8 @@ pub trait StreamHandle {
                     #[cfg(feature = "log")]
                     trace!("[HandleRecord] {:?}", record);
                     let out = param.write_buffer.unfilled();
-                    let len = param.conn.read_message(&read_buffer.filled()[..record_len], out).unwrap();
-                    param.conn.verify_finish(&out[..len], !param.conn.server()).unwrap();
+                    let len = param.conn.read_message(&read_buffer.filled()[..record_len], out)?;
+                    param.conn.verify_finish(&out[..len], !param.conn.server())?;
                     Self::handle_finish(&mut param)?;
                 }
                 false => for message in record.messages {
@@ -319,13 +298,18 @@ pub trait StreamHandle {
         let len = match *param.conn.version() {
             Version::TLS_1_3 => {
                 let len = param.conn.read_message(&read_buffer.filled()[..record_len], app_buf)?;
-                let record_type = RecordType::from_byte(app_buf[len - 1])?;
+                // let record_type = RecordType::from_byte(app_buf[len - 1])?;
+                let content_type = RecordType::from_byte(app_buf[len - 1]);
+                let Ok(record_type) = content_type else {
+                    println!("325 {:?}", &app_buf[len - 1]);
+                    return Err("unkwnown record type".into());
+                };
                 match record_type {
                     RecordType::Alert => return Err(RlsError::Alert(Alert::from_bytes(&app_buf[..len - 1])?)),
                     RecordType::HandShake => {
                         let mut msg_readers = Reader::from_slice(&app_buf[..len - 1]);
                         while msg_readers.unread_len() > 0 {
-                            let message = Message::from_reader(&mut msg_readers, &record_type, Some(param.conn.cipher_suite()), param.conn.version())?;
+                            let message = Message::from_reader(&mut msg_readers, &record_type, param.conn.cipher_suite().exchange_alg(), param.conn.version())?;
                             Self::handle_handshake(&mut param, config.as_deref_mut(), message)?;
                         }
                         0

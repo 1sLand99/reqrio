@@ -1,5 +1,4 @@
-use crate::extend::Aead;
-use crate::{rand, Version};
+use crate::{rand, CipherSuite, Version};
 
 #[derive(Debug)]
 pub enum Key<'a> {
@@ -32,7 +31,7 @@ impl Default for TlsSession {
         TlsSession {
             ticket: vec![],
             session_id: rand::random::<[u8; 32]>(),
-            master_secret:[0u8; 48],
+            master_secret: [0u8; 48],
         }
     }
 }
@@ -42,7 +41,7 @@ impl TlsSession {
         TlsSession {
             ticket: vec![],
             session_id,
-            master_secret:[0u8; 48],
+            master_secret: [0u8; 48],
         }
     }
 
@@ -102,11 +101,11 @@ impl Default for KeyBlock {
 }
 
 impl KeyBlock {
-    pub fn init(&mut self, aead: &Aead, version: &Version) {
-        self.mac_size = aead.mac_key_len();
-        self.key_size = aead.key_len();
-        self.iv_size = aead.fix_iv_len(version);
-        self.explicit_len = aead.explicit_len(version)
+    pub fn init(&mut self, suite: &'static CipherSuite) {
+        self.mac_size = suite.mac_key_size;
+        self.key_size = suite.key_size;
+        self.iv_size = suite.fix_iv_size;
+        self.explicit_len = suite.explict_iv_size
     }
 
     pub fn client_mac_key(&self) -> &[u8] {

@@ -2,11 +2,11 @@ use super::super::extend::{Extension, KeyShare};
 use super::super::message::HandshakeType;
 use super::super::suite::CipherSuite;
 use super::super::version::Version;
+use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::extend::ExtensionValue;
-use crate::{rand, u24, BufferError, ClientHello, ExtensionType, ReadExt, Reader, WriteExt, ALPN};
-use crate::buffer::Buf;
+use crate::{rand, u24, BufferError, ClientHello, ExtensionType, HandShakeError, ReadExt, Reader, WriteExt, ALPN};
 
 #[derive(Debug)]
 pub struct ServerHello<'a> {
@@ -16,7 +16,7 @@ pub struct ServerHello<'a> {
     pub(crate) random: Buf<'a>,
     session_id_len: u8,
     pub(crate) session_id: Buf<'a>,
-    pub cipher_suite: CipherSuite,
+    pub cipher_suite: &'static CipherSuite,
     compress_method: u8,
     extend_len: u16,
     extensions: Vec<Extension<'a>>,
@@ -31,7 +31,7 @@ impl<'a> Default for ServerHello<'a> {
             random: Buf::Ref(&[]),
             session_id_len: 0,
             session_id: Buf::Ref(&[]),
-            cipher_suite: CipherSuite::new(0),
+            cipher_suite: &CipherSuite::UNKNOWN,
             compress_method: 0,
             extend_len: 0,
             extensions: vec![],
@@ -48,7 +48,8 @@ impl<'a> ServerHello<'a> {
         res.random = Buf::Ref(reader.read_slice(32)?);
         res.session_id_len = reader.read_u8()?;
         res.session_id = Buf::Ref(reader.read_slice(res.session_id_len as usize)?);
-        res.cipher_suite = CipherSuite::new(reader.read_u16()?);
+        let suite = reader.read_u16()?;
+        res.cipher_suite = CipherSuite::find(suite).ok_or(HandShakeError::UnknownCipherSuite(suite))?;
         res.compress_method = reader.read_u8()?;
         res.extend_len = reader.read_u16()?;
         res.extensions = Extension::from_reader(reader.read_reader(res.extend_len as usize)?, true)?;
@@ -58,7 +59,7 @@ impl<'a> ServerHello<'a> {
     pub fn from_client_hello<'b: 'a>(mut client_hello: ClientHello<'b>) -> RlsResult<ServerHello<'a>> {
         let mut res = ServerHello {
             version: Version::TLS_1_2,
-            cipher_suite: CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256.into(),
+            cipher_suite: &CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
             session_id_len: 32,
             session_id: Buf::Vec(rand::random::<[u8; 32]>().to_vec()),
             ..Default::default()
@@ -125,7 +126,7 @@ impl<'a> ServerHello<'a> {
         writer.write_slice(self.random.as_ref())?;
         writer.write_u8(self.session_id.len() as u8)?;
         writer.write_slice(self.session_id.as_ref())?;
-        writer.write_u16(self.cipher_suite.into_inner())?;
+        writer.write_u16(self.cipher_suite.value())?;
         writer.write_u8(self.compress_method)?;
         let len = self.extensions.iter().map(|x| x.len(true)).sum::<usize>();
         writer.write_u16(len as u16)?;

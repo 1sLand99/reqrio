@@ -8,7 +8,8 @@ mod encrypted_extension;
 
 use crate::buffer::Buf;
 use crate::error::RlsResult;
-use crate::{BufferError, CipherSuite, HandShakeError, ReadExt, Reader, RecordType, Version, WriteExt};
+use crate::suite::KeyExchangeAlg;
+use crate::{BufferError, HandShakeError, ReadExt, Reader, RecordType, Version, WriteExt};
 pub use alert::Alert;
 use certificate::CertificateStatus;
 pub use certificate::Certificates;
@@ -19,7 +20,6 @@ pub use key_exchange::{ClientKeyExchange, NamedCurve, ServerKeyExchange};
 pub use server_hello::{ServerHello, ServerHelloDone};
 pub use session_ticket::{SessionTicket, TlsSessionTicket};
 use std::fmt::{Debug, Formatter};
-
 
 pub struct Message<'a> {
     pub encoded: Buf<'a>,
@@ -47,9 +47,9 @@ impl<'a> Message<'a> {
         }
     }
 
-    pub fn from_reader(reader: &mut Reader<'a>, record_type: &RecordType, suite: Option<&CipherSuite>, version: &Version) -> RlsResult<Message<'a>> {
+    pub fn from_reader(reader: &mut Reader<'a>, record_type: &RecordType, alg: KeyExchangeAlg, version: &Version) -> RlsResult<Message<'a>> {
         let pos = reader.position();
-        let parsed = MessageParsed::from_reader(reader, record_type, suite, version)?;
+        let parsed = MessageParsed::from_reader(reader, record_type, alg, version)?;
         let encoded_size = reader.position() - pos;
         reader.set_position(pos);
         Ok(Message {
@@ -79,7 +79,7 @@ impl<'a> From<ClientKeyExchange<'a>> for Message<'a> {
 
 
 pub enum MessageParsed<'a> {
-    // Unknown,
+    UnParsed,
     ClientHello(ClientHello<'a>),
     ServerHello(ServerHello<'a>),
     Certificate(Certificates<'a>),
@@ -99,12 +99,12 @@ pub enum MessageParsed<'a> {
 }
 
 impl<'a> MessageParsed<'a> {
-    pub fn from_bytes(bytes: &'a [u8], record_type: &RecordType, suite: Option<&CipherSuite>, version: &Version) -> RlsResult<MessageParsed<'a>> {
+    pub fn from_bytes(bytes: &'a [u8], record_type: &RecordType, alg: KeyExchangeAlg, version: &Version) -> RlsResult<MessageParsed<'a>> {
         let mut reader = Reader::from_slice(bytes);
-        MessageParsed::from_reader(&mut reader, record_type, suite, version)
+        MessageParsed::from_reader(&mut reader, record_type, alg, version)
     }
 
-    fn from_reader_handshake(reader: &mut Reader<'a>, suite: Option<&CipherSuite>, version: &Version) -> RlsResult<MessageParsed<'a>> {
+    fn from_reader_handshake(reader: &mut Reader<'a>, alg: KeyExchangeAlg, version: &Version) -> RlsResult<MessageParsed<'a>> {
         let handshake_type = HandshakeType::from_byte(reader.read_u8()?)?;
         match handshake_type {
             HandshakeType::ClientHello => Ok(MessageParsed::ClientHello(ClientHello::from_bytes(reader)?)),
@@ -113,7 +113,7 @@ impl<'a> MessageParsed<'a> {
             HandshakeType::CompressedCertificate => Ok(MessageParsed::CompressedCertificate(CompressedCertificate::from_reader(handshake_type, reader)?)),
             HandshakeType::ServerKeyExchange => Ok(MessageParsed::ServerKeyExchange(ServerKeyExchange::from_reader(handshake_type, reader)?)),
             HandshakeType::ServerHelloDone => Ok(MessageParsed::ServerHelloDone(ServerHelloDone::from_reader(handshake_type, reader)?)),
-            HandshakeType::ClientKeyExchange => Ok(MessageParsed::ClientKeyExchange(ClientKeyExchange::from_reader(reader, suite)?)),
+            HandshakeType::ClientKeyExchange => Ok(MessageParsed::ClientKeyExchange(ClientKeyExchange::from_reader(reader, alg)?)),
             HandshakeType::NewSessionTicket => Ok(MessageParsed::NewSessionTicket(SessionTicket::from_reader(handshake_type, reader, version)?)),
             HandshakeType::CertificateStatus => Ok(MessageParsed::CertificateStatus(CertificateStatus::from_reader(handshake_type, reader)?)),
             HandshakeType::CertificateRequest => Ok(MessageParsed::CertificateRequest(CertificateRequest::from_reader(handshake_type, reader)?)),
@@ -127,14 +127,14 @@ impl<'a> MessageParsed<'a> {
         }
     }
 
-    pub fn from_reader(reader: &mut Reader<'a>, record_type: &RecordType, suite: Option<&CipherSuite>, version: &Version) -> RlsResult<MessageParsed<'a>> {
+    pub fn from_reader(reader: &mut Reader<'a>, record_type: &RecordType, alg: KeyExchangeAlg, version: &Version) -> RlsResult<MessageParsed<'a>> {
         match record_type {
             RecordType::CipherSpec => {
                 reader.read_u8()?;
                 Ok(MessageParsed::CipherSpec)
             }
             RecordType::Alert => Ok(MessageParsed::Payload(Buf::Ref(reader.read_slice(2)?))),
-            RecordType::HandShake => MessageParsed::from_reader_handshake(reader, suite, version),
+            RecordType::HandShake => MessageParsed::from_reader_handshake(reader, alg, version),
             RecordType::ApplicationData => {
                 let len = reader.unread_len();
                 Ok(MessageParsed::Payload(Buf::Ref(reader.read_slice(len)?)))
@@ -144,6 +144,7 @@ impl<'a> MessageParsed<'a> {
 
     pub fn len(&self, key_size: u8) -> usize {
         match self {
+            MessageParsed::UnParsed => 0,
             MessageParsed::ClientHello(v) => v.len(),
             MessageParsed::ServerHello(v) => v.len(),
             MessageParsed::Certificate(v) => v.len(),
@@ -165,6 +166,7 @@ impl<'a> MessageParsed<'a> {
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) -> Result<(), BufferError> {
         match self {
+            MessageParsed::UnParsed => Ok(()),
             MessageParsed::ClientHello(v) => v.write_to(writer),
             MessageParsed::ServerHello(v) => v.write_to(writer),
             MessageParsed::Certificate(v) => v.write_to(writer),
@@ -232,6 +234,7 @@ impl<'a> MessageParsed<'a> {
 impl<'a> Debug for MessageParsed<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            MessageParsed::UnParsed => write!(f, "UnParsed"),
             MessageParsed::ClientHello(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) }
             MessageParsed::ServerHello(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) }
             MessageParsed::Certificate(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) }

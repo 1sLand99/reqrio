@@ -13,6 +13,7 @@ pub enum HandShakeError {
     UnknownRecord(u8),
     UnknownHandShake(u8),
     UnsupportedMessage(HandshakeType),
+    UnknownCipherSuite(u16),
 }
 
 impl Display for HandShakeError {

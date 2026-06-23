@@ -1,19 +1,19 @@
-use crate::error::RlsResult;
 use crate::extend::Aead;
-use crate::hash::{HashError, HashType};
-use crate::{CipherType, Hasher, RlsError};
+use crate::hash::HashType;
+use crate::{CipherType, Version};
 pub use cipher::TlsCipher;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 
 pub mod iv;
 mod cipher;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]
-#[allow(dead_code)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum KeyExchangeAlg {
+    NULL,
     ECDHE_ECDSA,
+    ECDHE_RSA,
     DHE_DSS,
     DHE_RSA,
     DH_ANON,
@@ -22,15 +22,20 @@ pub enum KeyExchangeAlg {
     RSA,
 }
 
-#[allow(dead_code)]
+#[derive(Debug, Copy, Clone)]
 pub struct CipherSuite {
     value: u16,
     cipher: CipherType,
     exchange: KeyExchangeAlg,
     mac: HashType,
     hash: HashType,
-    hasher: Option<Hasher>,
-    aead: Option<Aead>,
+    pub(crate) key_size: usize,
+    pub(crate) fix_iv_size: usize,
+    pub(crate) explict_iv_size: usize,
+    pub(crate) trans_iv_len: usize,
+    pub(crate) mac_key_size: usize,
+    pub(crate) version: &'static Version,
+    spec: &'static str,
 }
 
 impl CipherSuite {
@@ -41,52 +46,492 @@ impl CipherSuite {
         exchange: KeyExchangeAlg::ECDHE_ECDSA,
         mac: HashType::Sha256,
         hash: HashType::Sha256,
-        hasher: None,
-        aead: None,
+        key_size: 16,
+        fix_iv_size: 4,
+        explict_iv_size: 8,
+        trans_iv_len: 8,
+        mac_key_size: 0,
+        spec: "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+        version: &Version::TLS_1_2,
     };
-    pub const TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384: u16 = 0xc02c;
-    pub const TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256: u16 = 0xc023;
-    pub const TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384: u16 = 0xc024;
-    pub const TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA: u16 = 0xc009;
-    pub const TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA: u16 = 0xc00a;
-    pub const TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256: u16 = 0xcca9;
+    pub const TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384: CipherSuite = CipherSuite {
+        value: 0xc02c,
+        cipher: CipherType::AES_256_GCM,
+        exchange: KeyExchangeAlg::ECDHE_ECDSA,
+        mac: HashType::Sha384,
+        hash: HashType::Sha384,
+        key_size: 32,
+        fix_iv_size: 4,
+        explict_iv_size: 8,
+        trans_iv_len: 8,
+        mac_key_size: 0,
+        spec: "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256: CipherSuite = CipherSuite {
+        value: 0xc023,
+        cipher: CipherType::AES_128_CBC,
+        exchange: KeyExchangeAlg::ECDHE_ECDSA,
+        mac: HashType::Sha256,
+        hash: HashType::Sha256,
+        key_size: 16,
+        fix_iv_size: 16,
+        explict_iv_size: 0,
+        trans_iv_len: 16,
+        mac_key_size: 32,
+        spec: "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384: CipherSuite = CipherSuite {
+        value: 0xc024,
+        cipher: CipherType::AES_256_CBC,
+        exchange: KeyExchangeAlg::ECDHE_ECDSA,
+        mac: HashType::Sha384,
+        hash: HashType::Sha384,
+        key_size: 32,
+        fix_iv_size: 16,
+        explict_iv_size: 0,
+        trans_iv_len: 16,
+        mac_key_size: 48,
+        spec: "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA: CipherSuite = CipherSuite {
+        value: 0xc009,
+        cipher: CipherType::AES_128_CBC,
+        exchange: KeyExchangeAlg::ECDHE_ECDSA,
+        mac: HashType::Sha1,
+        hash: HashType::Sha256,
+        key_size: 16,
+        fix_iv_size: 16,
+        explict_iv_size: 0,
+        trans_iv_len: 16,
+        mac_key_size: 20,
+        spec: "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA: CipherSuite = CipherSuite {
+        value: 0xc00a,
+        cipher: CipherType::AES_256_CBC,
+        exchange: KeyExchangeAlg::ECDHE_ECDSA,
+        mac: HashType::Sha1,
+        hash: HashType::Sha256,
+        key_size: 32,
+        fix_iv_size: 16,
+        explict_iv_size: 0,
+        trans_iv_len: 16,
+        mac_key_size: 20,
+        spec: "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256: CipherSuite = CipherSuite {
+        value: 0xcca9,
+        cipher: CipherType::CHACHA20_POLY1305,
+        exchange: KeyExchangeAlg::ECDHE_ECDSA,
+        mac: HashType::Sha256,
+        hash: HashType::Sha256,
+        key_size: 32,
+        fix_iv_size: 12,
+        explict_iv_size: 0,
+        trans_iv_len: 0,
+        mac_key_size: 0,
+        spec: "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+        version: &Version::TLS_1_2,
+    };
 
     //ecdhe-rsa
-    pub const TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256: u16 = 0xc02f;
-    pub const TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384: u16 = 0xc030;
-    pub const TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256: u16 = 0xc027;
-    pub const TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384: u16 = 0xc028;
-    pub const TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA: u16 = 0xc013;
-    pub const TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA: u16 = 0xc014;
-    pub const TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256: u16 = 0xcca8;
+    pub const TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256: CipherSuite = CipherSuite {
+        value: 0xc02f,
+        cipher: CipherType::AES_128_GCM,
+        exchange: KeyExchangeAlg::ECDHE_RSA,
+        mac: HashType::Sha256,
+        hash: HashType::Sha256,
+        key_size: 16,
+        fix_iv_size: 4,
+        explict_iv_size: 8,
+        trans_iv_len: 8,
+        mac_key_size: 0,
+        spec: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384: CipherSuite = CipherSuite {
+        value: 0xc030,
+        cipher: CipherType::AES_256_GCM,
+        exchange: KeyExchangeAlg::ECDHE_RSA,
+        mac: HashType::Sha384,
+        hash: HashType::Sha384,
+        key_size: 32,
+        fix_iv_size: 4,
+        explict_iv_size: 8,
+        trans_iv_len: 8,
+        mac_key_size: 0,
+        spec: "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256: CipherSuite = CipherSuite {
+        value: 0xc027,
+        cipher: CipherType::AES_128_CBC,
+        exchange: KeyExchangeAlg::ECDHE_RSA,
+        mac: HashType::Sha256,
+        hash: HashType::Sha256,
+        key_size: 16,
+        fix_iv_size: 16,
+        explict_iv_size: 0,
+        trans_iv_len: 16,
+        mac_key_size: 32,
+        spec: "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384: CipherSuite = CipherSuite {
+        value: 0xc028,
+        cipher: CipherType::AES_256_CBC,
+        exchange: KeyExchangeAlg::ECDHE_RSA,
+        mac: HashType::Sha384,
+        hash: HashType::Sha384,
+        key_size: 32,
+        fix_iv_size: 16,
+        explict_iv_size: 0,
+        trans_iv_len: 16,
+        mac_key_size: 48,
+        spec: "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA: CipherSuite = CipherSuite {
+        value: 0xc013,
+        cipher: CipherType::AES_128_CBC,
+        exchange: KeyExchangeAlg::ECDHE_RSA,
+        mac: HashType::Sha1,
+        hash: HashType::Sha256,
+        key_size: 16,
+        fix_iv_size: 16,
+        explict_iv_size: 0,
+        trans_iv_len: 16,
+        mac_key_size: 20,
+        spec: "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA: CipherSuite = CipherSuite {
+        value: 0xc014,
+        cipher: CipherType::AES_256_CBC,
+        exchange: KeyExchangeAlg::ECDHE_RSA,
+        mac: HashType::Sha1,
+        hash: HashType::Sha256,
+        key_size: 32,
+        fix_iv_size: 16,
+        explict_iv_size: 0,
+        trans_iv_len: 16,
+        mac_key_size: 20,
+        spec: "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256: CipherSuite = CipherSuite {
+        value: 0xcca8,
+        cipher: CipherType::CHACHA20_POLY1305,
+        exchange: KeyExchangeAlg::ECDHE_RSA,
+        mac: HashType::Sha256,
+        hash: HashType::Sha256,
+        key_size: 32,
+        fix_iv_size: 12,
+        explict_iv_size: 0,
+        trans_iv_len: 0,
+        mac_key_size: 0,
+        spec: "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+        version: &Version::TLS_1_2,
+    };
 
     //dhe-rsa
-    pub const TLS_DHE_RSA_WITH_AES_128_GCM_SHA256: u16 = 0x009e;
-    pub const TLS_DHE_RSA_WITH_AES_256_GCM_SHA384: u16 = 0x009f;
-    pub const TLS_DHE_RSA_WITH_AES_128_CBC_SHA256: u16 = 0x0067;
-    pub const TLS_DHE_RSA_WITH_AES_256_CBC_SHA256: u16 = 0x006b;
-    pub const TLS_DHE_RSA_WITH_AES_128_CBC_SHA: u16 = 0x0033;
-    pub const TLS_DHE_RSA_WITH_AES_256_CBC_SHA: u16 = 0x0039;
-    pub const TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256: u16 = 0xccaa;
+    pub const TLS_DHE_RSA_WITH_AES_128_GCM_SHA256: CipherSuite = CipherSuite {
+        value: 0x009e,
+        cipher: CipherType::AES_128_GCM,
+        exchange: KeyExchangeAlg::DHE_RSA,
+        mac: HashType::Sha256,
+        hash: HashType::Sha256,
+        key_size: 16,
+        fix_iv_size: 4,
+        explict_iv_size: 8,
+        trans_iv_len: 8,
+        mac_key_size: 0,
+        spec: "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_DHE_RSA_WITH_AES_256_GCM_SHA384: CipherSuite = CipherSuite {
+        value: 0x009f,
+        cipher: CipherType::AES_256_GCM,
+        exchange: KeyExchangeAlg::DHE_RSA,
+        mac: HashType::Sha384,
+        hash: HashType::Sha384,
+        key_size: 32,
+        fix_iv_size: 4,
+        explict_iv_size: 8,
+        trans_iv_len: 8,
+        mac_key_size: 0,
+        spec: "TLS_DHE_RSA_WITH_AES_256_GCM_SHA384",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_DHE_RSA_WITH_AES_128_CBC_SHA256: CipherSuite = CipherSuite {
+        value: 0x0067,
+        cipher: CipherType::AES_128_CBC,
+        exchange: KeyExchangeAlg::DHE_RSA,
+        mac: HashType::Sha256,
+        hash: HashType::Sha256,
+        key_size: 16,
+        fix_iv_size: 16,
+        explict_iv_size: 0,
+        trans_iv_len: 16,
+        mac_key_size: 32,
+        spec: "TLS_DHE_RSA_WITH_AES_128_CBC_SHA256",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_DHE_RSA_WITH_AES_256_CBC_SHA256: CipherSuite = CipherSuite {
+        value: 0x006b,
+        cipher: CipherType::AES_256_CBC,
+        exchange: KeyExchangeAlg::DHE_RSA,
+        mac: HashType::Sha256,
+        hash: HashType::Sha256,
+        key_size: 32,
+        fix_iv_size: 16,
+        explict_iv_size: 0,
+        trans_iv_len: 16,
+        mac_key_size: 32,
+        spec: "TLS_DHE_RSA_WITH_AES_256_CBC_SHA256",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_DHE_RSA_WITH_AES_128_CBC_SHA: CipherSuite = CipherSuite {
+        value: 0x0033,
+        cipher: CipherType::AES_128_CBC,
+        exchange: KeyExchangeAlg::DHE_RSA,
+        mac: HashType::Sha1,
+        hash: HashType::Sha256,
+        key_size: 16,
+        fix_iv_size: 16,
+        explict_iv_size: 0,
+        trans_iv_len: 16,
+        mac_key_size: 20,
+        spec: "TLS_DHE_RSA_WITH_AES_128_CBC_SHA",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_DHE_RSA_WITH_AES_256_CBC_SHA: CipherSuite = CipherSuite {
+        value: 0x0039,
+        cipher: CipherType::AES_256_CBC,
+        exchange: KeyExchangeAlg::DHE_RSA,
+        mac: HashType::Sha1,
+        hash: HashType::Sha256,
+        key_size: 32,
+        fix_iv_size: 16,
+        explict_iv_size: 0,
+        trans_iv_len: 16,
+        mac_key_size: 20,
+        spec: "TLS_DHE_RSA_WITH_AES_256_CBC_SHA",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256: CipherSuite = CipherSuite {
+        value: 0xccaa,
+        cipher: CipherType::CHACHA20_POLY1305,
+        exchange: KeyExchangeAlg::DHE_RSA,
+        mac: HashType::Sha256,
+        hash: HashType::Sha256,
+        key_size: 32,
+        fix_iv_size: 12,
+        explict_iv_size: 0,
+        trans_iv_len: 0,
+        mac_key_size: 0,
+        spec: "TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+        version: &Version::TLS_1_2,
+    };
 
 
     //rsa
-    pub const TLS_RSA_WITH_AES_128_GCM_SHA256: u16 = 0x009c;
-    pub const TLS_RSA_WITH_AES_256_GCM_SHA384: u16 = 0x009d;
-    pub const TLS_RSA_WITH_AES_128_CBC_SHA256: u16 = 0x003c;
-    pub const TLS_RSA_WITH_AES_256_CBC_SHA256: u16 = 0x003d;
-    pub const TLS_RSA_WITH_AES_128_CBC_SHA: u16 = 0x002f;
-    pub const TLS_RSA_WITH_AES_256_CBC_SHA: u16 = 0x0035;
+    pub const TLS_RSA_WITH_AES_128_GCM_SHA256: CipherSuite = CipherSuite {
+        value: 0x009c,
+        cipher: CipherType::AES_128_GCM,
+        exchange: KeyExchangeAlg::RSA,
+        mac: HashType::Sha256,
+        hash: HashType::Sha256,
+        key_size: 16,
+        fix_iv_size: 4,
+        explict_iv_size: 8,
+        trans_iv_len: 8,
+        mac_key_size: 0,
+        spec: "TLS_RSA_WITH_AES_128_GCM_SHA256",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_RSA_WITH_AES_256_GCM_SHA384: CipherSuite = CipherSuite {
+        value: 0x009d,
+        cipher: CipherType::AES_256_GCM,
+        exchange: KeyExchangeAlg::RSA,
+        mac: HashType::Sha384,
+        hash: HashType::Sha384,
+        key_size: 32,
+        fix_iv_size: 4,
+        explict_iv_size: 8,
+        trans_iv_len: 8,
+        mac_key_size: 0,
+        spec: "TLS_RSA_WITH_AES_256_GCM_SHA384",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_RSA_WITH_AES_128_CBC_SHA256: CipherSuite = CipherSuite {
+        value: 0x003c,
+        cipher: CipherType::AES_128_CBC,
+        exchange: KeyExchangeAlg::RSA,
+        mac: HashType::Sha256,
+        hash: HashType::Sha256,
+        key_size: 16,
+        fix_iv_size: 16,
+        explict_iv_size: 0,
+        trans_iv_len: 16,
+        mac_key_size: 32,
+        spec: "TLS_RSA_WITH_AES_128_CBC_SHA256",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_RSA_WITH_AES_256_CBC_SHA256: CipherSuite = CipherSuite {
+        value: 0x003d,
+        cipher: CipherType::AES_256_CBC,
+        exchange: KeyExchangeAlg::RSA,
+        mac: HashType::Sha384,
+        hash: HashType::Sha384,
+        key_size: 32,
+        fix_iv_size: 16,
+        explict_iv_size: 0,
+        trans_iv_len: 16,
+        mac_key_size: 32,
+        spec: "TLS_RSA_WITH_AES_256_CBC_SHA256",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_RSA_WITH_AES_128_CBC_SHA: CipherSuite = CipherSuite {
+        value: 0x002f,
+        cipher: CipherType::AES_128_CBC,
+        exchange: KeyExchangeAlg::RSA,
+        mac: HashType::Sha1,
+        hash: HashType::Sha256,
+        key_size: 16,
+        fix_iv_size: 16,
+        explict_iv_size: 0,
+        trans_iv_len: 16,
+        mac_key_size: 20,
+        spec: "TLS_RSA_WITH_AES_128_CBC_SHA",
+        version: &Version::TLS_1_2,
+    };
+    pub const TLS_RSA_WITH_AES_256_CBC_SHA: CipherSuite = CipherSuite {
+        value: 0x0035,
+        cipher: CipherType::AES_128_CBC,
+        exchange: KeyExchangeAlg::RSA,
+        mac: HashType::Sha1,
+        hash: HashType::Sha256,
+        key_size: 32,
+        fix_iv_size: 16,
+        explict_iv_size: 0,
+        trans_iv_len: 16,
+        mac_key_size: 20,
+        spec: "TLS_RSA_WITH_AES_256_CBC_SHA",
+        version: &Version::TLS_1_2,
+    };
 
     //tls1.3
-    pub const TLS_AES_128_GCM_SHA256: u16 = 0x1301;
-    pub const TLS_AES_256_GCM_SHA384: u16 = 0x1302;
-    pub const TLS_CHACHA20_POLY1305_SHA256: u16 = 0x1303;
+    pub const TLS_AES_128_GCM_SHA256: CipherSuite = CipherSuite {
+        value: 0x1301,
+        cipher: CipherType::AES_128_GCM,
+        exchange: KeyExchangeAlg::NULL,
+        mac: HashType::Sha256,
+        hash: HashType::Sha256,
+        key_size: 16,
+        fix_iv_size: 12,
+        explict_iv_size: 0,
+        trans_iv_len: 0,
+        mac_key_size: 0,
+        spec: "TLS_AES_128_GCM_SHA256",
+        version: &Version::TLS_1_3,
+    };
+    pub const TLS_AES_256_GCM_SHA384: CipherSuite = CipherSuite {
+        value: 0x1302,
+        cipher: CipherType::AES_256_GCM,
+        exchange: KeyExchangeAlg::NULL,
+        mac: HashType::Sha384,
+        hash: HashType::Sha384,
+        key_size: 32,
+        fix_iv_size: 12,
+        explict_iv_size: 0,
+        trans_iv_len: 0,
+        mac_key_size: 0,
+        spec: "TLS_AES_256_GCM_SHA384",
+        version: &Version::TLS_1_3,
+    };
+    pub const TLS_CHACHA20_POLY1305_SHA256: CipherSuite = CipherSuite {
+        value: 0x1303,
+        cipher: CipherType::CHACHA20_POLY1305,
+        exchange: KeyExchangeAlg::NULL,
+        mac: HashType::Sha256,
+        hash: HashType::Sha256,
+        key_size: 32,
+        fix_iv_size: 12,
+        explict_iv_size: 0,
+        trans_iv_len: 0,
+        mac_key_size: 0,
+        spec: "TLS_CHACHA20_POLY1305_SHA256",
+        version: &Version::TLS_1_3,
+    };
 
-    pub const TLS_EMPTY_RENEGOTIATION_INFO_SCSV: u16 = 0x00ff;
+    pub const TLS_SM4_GCM_SM3: CipherSuite = CipherSuite {
+        value: 0x00c6,
+        cipher: CipherType::SM4_GCM,
+        exchange: KeyExchangeAlg::NULL,
+        mac: HashType::Sm3,
+        hash: HashType::Sm3,
+        key_size: 16,
+        fix_iv_size: 12,
+        explict_iv_size: 0,
+        trans_iv_len: 0,
+        mac_key_size: 0,
+        version: &Version::TLS_1_3,
+        spec: "TLS_SM4_GCM_SM3",
+    };
 
-    pub const ALL: [u16; 31] = [
-        CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256.value,
+    pub const TLS_ECDHE_SM4_CBC_SM3: CipherSuite = CipherSuite {
+        value: 0xe013,
+        cipher: CipherType::SM4_CBC,
+        exchange: KeyExchangeAlg::ECDHE_ECDSA,
+        mac: HashType::Sm3,
+        hash: HashType::Sm3,
+        key_size: 16,
+        fix_iv_size: 16,
+        explict_iv_size: 0,
+        trans_iv_len: 16,
+        mac_key_size: 32,
+        version: &Version::TLS_1_2,
+        spec: "TLS_ECDHE_SM4_CBC_SM3",
+    };
+
+    pub const TLS_EMPTY_RENEGOTIATION_INFO_SCSV: CipherSuite = CipherSuite {
+        value: 0x00ff,
+        cipher: CipherType::AES_128_CBC,
+        exchange: KeyExchangeAlg::ECDHE_ECDSA,
+        mac: HashType::MD5,
+        hash: HashType::MD5,
+        key_size: 0,
+        fix_iv_size: 0,
+        explict_iv_size: 0,
+        trans_iv_len: 0,
+        mac_key_size: 0,
+        spec: "",
+        version: &Version::TLS_1_0,
+    };
+
+    pub(crate) const UNKNOWN: CipherSuite = CipherSuite {
+        value: 0,
+        cipher: CipherType::AES_128_CBC,
+        exchange: KeyExchangeAlg::NULL,
+        mac: HashType::MD5,
+        hash: HashType::MD5,
+        key_size: 0,
+        fix_iv_size: 0,
+        explict_iv_size: 0,
+        trans_iv_len: 0,
+        mac_key_size: 0,
+        spec: "",
+        version: &Version::TLS_1_0,
+    };
+
+    pub const ALL: [CipherSuite; 31] = [
+        CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
         CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
         CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
         CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
@@ -129,125 +574,20 @@ impl CipherSuite {
     ];
 
     pub fn spec(&self) -> &str {
-        match self.value {
-            0xc02b => "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 => "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256 => "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256",
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384 => "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384",
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA => "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA => "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 => "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
-
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 => "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 => "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256 => "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384 => "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384",
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA => "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA => "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
-            CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 => "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
-
-            CipherSuite::TLS_DHE_RSA_WITH_AES_128_GCM_SHA256 => "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256",
-            CipherSuite::TLS_DHE_RSA_WITH_AES_256_GCM_SHA384 => "TLS_DHE_RSA_WITH_AES_256_GCM_SHA384",
-            CipherSuite::TLS_DHE_RSA_WITH_AES_128_CBC_SHA256 => "TLS_DHE_RSA_WITH_AES_128_CBC_SHA256",
-            CipherSuite::TLS_DHE_RSA_WITH_AES_256_CBC_SHA256 => "TLS_DHE_RSA_WITH_AES_256_CBC_SHA256",
-            CipherSuite::TLS_DHE_RSA_WITH_AES_128_CBC_SHA => "TLS_DHE_RSA_WITH_AES_128_CBC_SHA",
-            CipherSuite::TLS_DHE_RSA_WITH_AES_256_CBC_SHA => "TLS_DHE_RSA_WITH_AES_256_CBC_SHA",
-            CipherSuite::TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256 => "TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
-
-            CipherSuite::TLS_RSA_WITH_AES_128_GCM_SHA256 => "TLS_RSA_WITH_AES_128_GCM_SHA256",
-            CipherSuite::TLS_RSA_WITH_AES_256_GCM_SHA384 => "TLS_RSA_WITH_AES_256_GCM_SHA384",
-            CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA256 => "TLS_RSA_WITH_AES_128_CBC_SHA256",
-            CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA256 => "TLS_RSA_WITH_AES_256_CBC_SHA256",
-            CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA => "TLS_RSA_WITH_AES_128_CBC_SHA",
-            CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA => "TLS_RSA_WITH_AES_256_CBC_SHA",
-
-            CipherSuite::TLS_AES_128_GCM_SHA256 => "TLS_AES_128_GCM_SHA256",
-            CipherSuite::TLS_AES_256_GCM_SHA384 => "TLS_AES_256_GCM_SHA384",
-            CipherSuite::TLS_CHACHA20_POLY1305_SHA256 => "TLS_CHACHA20_POLY1305_SHA256",
-
-            CipherSuite::TLS_EMPTY_RENEGOTIATION_INFO_SCSV => "TLS_EMPTY_RENEGOTIATION_INFO_SCSV",
-            _ => "Reserved"
-        }
+        self.spec
     }
 
-    pub fn key_size(&self) -> u8 {
-        match self.value {
-            CipherSuite::TLS_RSA_WITH_AES_128_GCM_SHA256 | CipherSuite::TLS_RSA_WITH_AES_256_GCM_SHA384 |
-            CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA256 | CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA256 |
-            CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA | CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA => 2,
-            _ => 1,
-        }
+    pub fn cipher(&self) -> CipherType {
+        self.cipher
     }
 
-    pub fn is_aead(&self) -> bool {
-        matches!(self.value, 0xc02b |
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 |
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 |
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 |
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 |
-            CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 |
-            CipherSuite::TLS_DHE_RSA_WITH_AES_128_GCM_SHA256 |
-            CipherSuite::TLS_DHE_RSA_WITH_AES_256_GCM_SHA384 |
-            CipherSuite::TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256 |
-            CipherSuite::TLS_RSA_WITH_AES_128_GCM_SHA256 |
-            CipherSuite::TLS_RSA_WITH_AES_256_GCM_SHA384 |
-            CipherSuite::TLS_AES_128_GCM_SHA256 |
-            CipherSuite::TLS_AES_256_GCM_SHA384 |
-            CipherSuite::TLS_CHACHA20_POLY1305_SHA256)
+    pub fn exchange_alg(&self) -> KeyExchangeAlg {
+        self.exchange
     }
 
 
-    pub fn mac_hash(&self) -> Option<HashType> {
-        match self.value {
-            0xc02b => Some(HashType::Sha256),
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 => Some(HashType::Sha384),
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256 => Some(HashType::Sha256),
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384 => Some(HashType::Sha384),
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA => Some(HashType::Sha1),
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA => Some(HashType::Sha1),
-            CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 => Some(HashType::Sha256),
-
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 => Some(HashType::Sha256),
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 => Some(HashType::Sha384),
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256 => Some(HashType::Sha256),
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384 => Some(HashType::Sha384),
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA => Some(HashType::Sha1),
-            CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA => Some(HashType::Sha1),
-            CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 => Some(HashType::Sha256),
-
-            CipherSuite::TLS_DHE_RSA_WITH_AES_128_GCM_SHA256 => Some(HashType::Sha256),
-            CipherSuite::TLS_DHE_RSA_WITH_AES_256_GCM_SHA384 => Some(HashType::Sha384),
-
-            CipherSuite::TLS_DHE_RSA_WITH_AES_128_CBC_SHA256 => Some(HashType::Sha256),
-            CipherSuite::TLS_DHE_RSA_WITH_AES_256_CBC_SHA256 => Some(HashType::Sha256),
-            CipherSuite::TLS_DHE_RSA_WITH_AES_128_CBC_SHA => Some(HashType::Sha1),
-            CipherSuite::TLS_DHE_RSA_WITH_AES_256_CBC_SHA => Some(HashType::Sha1),
-            CipherSuite::TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256 => Some(HashType::Sha256),
-
-            CipherSuite::TLS_RSA_WITH_AES_128_GCM_SHA256 => Some(HashType::Sha256),
-            CipherSuite::TLS_RSA_WITH_AES_256_GCM_SHA384 => Some(HashType::Sha384),
-            CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA256 => Some(HashType::Sha256),
-            CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA256 => Some(HashType::Sha256),
-            CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA => Some(HashType::Sha1),
-            CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA => Some(HashType::Sha1),
-
-            CipherSuite::TLS_AES_128_GCM_SHA256 => Some(HashType::Sha256),
-            CipherSuite::TLS_AES_256_GCM_SHA384 => Some(HashType::Sha384),
-            CipherSuite::TLS_CHACHA20_POLY1305_SHA256 => Some(HashType::Sha256),
-            _ => None
-        }
-    }
-}
-
-impl From<u16> for CipherSuite {
-    fn from(value: u16) -> Self {
-        CipherSuite::new(value)
-    }
-}
-
-impl From<&u16> for CipherSuite {
-    fn from(value: &u16) -> Self {
-        CipherSuite::new(*value)
+    pub fn mac_hash(&self) -> HashType {
+        self.mac
     }
 }
 
@@ -257,44 +597,28 @@ impl PartialEq for CipherSuite {
     }
 }
 
-impl PartialEq<u16> for CipherSuite {
-    fn eq(&self, other: &u16) -> bool {
-        self.value == *other
+impl PartialEq<CipherSuite> for &CipherSuite {
+    fn eq(&self, other: &CipherSuite) -> bool {
+        self.value == other.value
     }
 }
-
-impl PartialEq<u16> for &CipherSuite {
-    fn eq(&self, other: &u16) -> bool {
-        self.value == *other
-    }
-}
-
-impl Clone for CipherSuite {
-    fn clone(&self) -> Self {
-        CipherSuite::new(self.value)
+impl From<u16> for CipherSuite {
+    fn from(value: u16) -> Self {
+        let suite = CipherSuite::ALL.into_iter().find(|x| x.value == value);
+        if let Some(suite) = suite {
+            suite
+        } else {
+            let mut suite = CipherSuite::UNKNOWN;
+            suite.value = value;
+            suite.spec = "Custom";
+            suite
+        }
     }
 }
 
 impl CipherSuite {
-    pub fn new(v: u16) -> CipherSuite {
-        CipherSuite {
-            value: v,
-            cipher: CipherType::AES_128_CBC,
-            exchange: KeyExchangeAlg::ECDHE_ECDSA,
-            mac: HashType::MD5,
-            hash: HashType::MD5,
-            hasher: None,
-            aead: None,
-        }
-    }
-
-    pub fn from_bytes(bytes: &[u8]) -> RlsResult<Vec<CipherSuite>> {
-        let mut res = vec![];
-        for chuck in bytes.chunks(2) {
-            let v = u16::from_be_bytes(chuck.try_into()?);
-            res.push(CipherSuite::new(v));
-        }
-        Ok(res)
+    pub fn find(v: u16) -> Option<&'static CipherSuite> {
+        Self::ALL.as_ref().iter().find(|suite| suite.value == v)
     }
 
     pub fn is_reserved(&self) -> bool {
@@ -303,53 +627,27 @@ impl CipherSuite {
 
     pub fn into_inner(self) -> u16 { self.value }
 
-    pub fn as_u16(&self) -> u16 {
+    pub fn aead(&self) -> Option<Aead> {
+        Aead::from_cipher_kind(self.spec())
+    }
+
+    pub fn hash(&self) -> HashType {
+        self.hash
+    }
+
+    pub fn value(&self) -> u16 {
         self.value
-    }
-
-    pub fn update(&mut self, data: impl AsRef<[u8]>) -> Result<(), HashError> {
-        match self.hasher.as_mut() {
-            None => Err(HashError::HasherNone),
-            Some(hasher) => hasher.update(data),
-        }
-    }
-
-    fn find_hasher(&self) -> Result<Hasher, HashError> {
-        let text = self.spec().to_lowercase();
-        if text.contains("sha256") {
-            Ok(Hasher::new(HashType::Sha256)?)
-        } else if text.contains("sha384") {
-            Ok(Hasher::new(HashType::Sha384)?)
-        } else if text.ends_with("_sha") {
-            Ok(Hasher::new(HashType::Sha256)?)
-        } else {
-            Err(HashError::UnsupportedHasher(text))
-        }
-    }
-
-    pub fn current_session_hash(&mut self) -> Result<&[u8], HashError> {
-        self.hasher.as_mut().ok_or(HashError::HasherNone)?.current_hash()
-    }
-
-    pub fn aead(&self) -> Option<&Aead> {
-        self.aead.as_ref()
-    }
-
-    pub fn init_aead_hasher(&mut self) -> RlsResult<()> {
-        //当hasher为空时需要把这个错误抛出，初始化hasher后一定不能为空
-        self.hasher = Some(self.find_hasher()?);
-        //aead同理
-        self.aead = Some(Aead::from_cipher_kind(self.spec()).ok_or(RlsError::AeadNone)?);
-        Ok(())
-    }
-
-    pub fn hasher(&self) -> &Option<Hasher> {
-        &self.hasher
     }
 }
 
-impl Debug for CipherSuite {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}(0x{:04x})", self.spec(), self.value)
+
+#[cfg(test)]
+mod tests {
+    use crate::CipherSuite;
+
+    #[test]
+    fn test_cipher_suite() {
+        let suite = CipherSuite::from(0xc02b);
+        assert_eq!(suite, CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256);
     }
 }

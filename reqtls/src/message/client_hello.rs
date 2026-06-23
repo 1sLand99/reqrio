@@ -56,7 +56,7 @@ impl<'a> ClientHello<'a> {
         res.session_id = Buf::Ref(reader.read_slice(res.session_id_len as usize)?);
         res.cipher_suites_len = reader.read_u16()?;
         for _ in (0..res.cipher_suites_len).step_by(2) {
-            res.cipher_suites.push(CipherSuite::new(reader.read_u16()?));
+            res.cipher_suites.push(CipherSuite::from(reader.read_u16()?));
         }
 
         res.compress_method_len = reader.read_u8()?;
@@ -86,7 +86,7 @@ impl<'a> ClientHello<'a> {
         let len = self.cipher_suites.iter().map(|_| 2).sum::<usize>();
         writer.write_u16(len as u16)?;
         for cipher_suite in self.cipher_suites {
-            writer.write_u16(cipher_suite.into_inner())?;
+            writer.write_u16(cipher_suite.value())?;
         }
         writer.write_u8(self.compress_method.len() as u8)?;
         writer.write_slice(self.compress_method.as_ref())?;
@@ -108,7 +108,7 @@ impl<'a> ClientHello<'a> {
         // 771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,51-35-65281-0-23-17613-18-5-65037-43-27-13-10-11-45-16,4588-29-23-24,0]
         // 771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,51-35-65281-0-23-17613-18-5-65037-43-27-13-10-11-45-16,4588-29-23-24,0
         let ver = self.version.as_u16();
-        let suite = self.cipher_suites.iter().filter_map(|x| if x.is_reserved() { None } else { Some(x.as_u16().to_string()) }).collect::<Vec<_>>();
+        let suite = self.cipher_suites.iter().filter_map(|x| if x.is_reserved() { None } else { Some(x.value().to_string()) }).collect::<Vec<_>>();
         let ext = self.extensions.iter().filter_map(|x| if x.extension_type().is_reserved() { None } else { Some(x.extension_type().as_u16().to_string()) }).collect::<Vec<_>>();
         let extend = self.extensions.iter().find(|x| x.supported_groups().is_some());
         let group = if let Some(extend) = extend && let Some(group) = extend.supported_groups() {
@@ -138,7 +138,7 @@ impl<'a> ClientHello<'a> {
         let mut suite = self.cipher_suites.iter().filter_map(|x| if x.is_reserved() {
             None
         } else {
-            Some(x.as_u16())
+            Some(x.value())
         }).collect::<Vec<_>>();
         suite.sort();
         let mut exts = self.extensions.iter().filter_map(|x| if x.extension_type().is_reserved() || x.alps().is_some() || x.server_name().is_some() {
@@ -275,7 +275,7 @@ impl<'a> ClientHello<'a> {
             *value = padding;
         }
     }
-    
+
     pub fn remove_padding(&mut self) {
         let extend = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::Padding);
         if let Some(index) = extend {

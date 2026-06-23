@@ -1,13 +1,12 @@
-use std::fs::OpenOptions;
-use std::io::Write;
-use std::path::PathBuf;
 use super::block::{KeyBlock, TlsSession};
 use super::{Key, TrafficSecret};
-use crate::extend::Aead;
-use crate::{HandShakeError, HashType, Hasher, Hmac, Version};
 use crate::error::RlsResult;
 use crate::hkdf::Hkdf;
 use crate::prf::Prf;
+use crate::{CipherSuite, HandShakeError, HashType, Hmac, Version};
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::path::PathBuf;
 
 pub(crate) struct DerivedKey {
     prf: Prf,
@@ -44,11 +43,11 @@ impl DerivedKey {
     }
 
 
-    pub fn init(&mut self, aead: &Aead, hasher: &Hasher, version: &Version) {
-        self.prf = Prf::from_hasher(hasher);
-        self.hash = *hasher.hash_type();
+    pub fn init(&mut self, suite: &'static CipherSuite) {
+        self.prf = Prf::from_hasher(suite.hash());
+        self.hash = suite.hash();
         self.traffic_secret.size = self.hash.hash_size();
-        self.key_block.init(aead, version);
+        self.key_block.init(suite);
     }
 
     ///gen tls 1.2 master secret key

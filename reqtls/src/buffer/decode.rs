@@ -1,6 +1,6 @@
 use crate::error::RlsResult;
-use crate::extend::Aead;
-use crate::{BufferError, Version};
+use crate::{BufferError, CipherSuite, CipherType, Version};
+use crate::suite::iv::Iv;
 
 pub struct PayloadDecodeBuffer<'a> {
     origin: &'a [u8],
@@ -9,14 +9,13 @@ pub struct PayloadDecodeBuffer<'a> {
 
 
 pub struct RecordDecodeBuffer<'a> {
-    aead: &'a Aead,
+    suite: &'static CipherSuite,
     head: &'a [u8],
     payload: PayloadDecodeBuffer<'a>,
-    version: &'a Version,
 }
 
 impl<'a> RecordDecodeBuffer<'a> {
-    pub fn from_buffer(origin: &'a [u8], decoded: &'a mut [u8], aead: &'a Aead, version: &'a Version) -> RlsResult<Self> {
+    pub fn from_buffer(origin: &'a [u8], decoded: &'a mut [u8], suite: &'static CipherSuite) -> RlsResult<Self> {
         if decoded.len() < origin.len() - 5 {
             return Err(BufferError::CapacityTooSmall {
                 current: decoded.len(),
@@ -25,15 +24,14 @@ impl<'a> RecordDecodeBuffer<'a> {
         }
         let (head, origin) = origin.split_at(5);
         Ok(RecordDecodeBuffer {
-            aead,
+            suite,
             head,
             payload: PayloadDecodeBuffer { origin, decoded },
-            version,
         })
     }
 
     pub fn aad(&self, seq: u64) -> RlsResult<Vec<u8>> {
-        match *self.version {
+        match *self.suite.version {
             Version::TLS_1_3 => Ok(self.tls13_aad()),
             Version::TLS_1_2 => Ok(self.tls12_aad(seq)),
             _ => Err("Unsupported version".into()),
@@ -46,7 +44,7 @@ impl<'a> RecordDecodeBuffer<'a> {
         res[0..8].copy_from_slice(seq.to_be_bytes().as_ref());
         res[8] = self.head[0];
         res[9..11].copy_from_slice(&self.head[1..3]);
-        let payload_len = self.payload.origin.len() as u16 - self.aead.explicit_len(self.version) as u16 - 16;
+        let payload_len = self.payload.origin.len() as u16 - self.suite.trans_iv_len as u16 - 16;
         res[11..13].copy_from_slice(&payload_len.to_be_bytes());
         res
     }
@@ -61,28 +59,12 @@ impl<'a> RecordDecodeBuffer<'a> {
     }
 
     pub fn encrypted_payload(&self) -> &[u8] {
-        match self.aead {
-            Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::SM4_GCM => match *self.version {
-                Version::TLS_1_3 => &self.payload.origin[0..],
-                _ => &self.payload.origin[8..],
-            },
-            Aead::ChaCha20_POLY1305 => self.payload.origin,
-            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => &self.payload.origin[16..],
-            Aead::AES_128_CBC_SHA256 | Aead::AES_256_CBC_SHA384 => &self.payload.origin[16..],
-            _ => self.payload.origin
-        }
+        &self.payload.origin[self.suite.trans_iv_len..]
     }
 
     pub fn explicit_iv(&self) -> &[u8] {
-        match self.aead {
-            Aead::AES_128_GCM | Aead::AES_256_GCM | Aead::SM4_GCM => &self.payload.origin[..8],
-            Aead::AES_128_CBC_SHA | Aead::AES_256_CBC_SHA => &self.payload.origin[..16],
-            Aead::AES_128_CBC_SHA256 | Aead::AES_256_CBC_SHA384 => &self.payload.origin[..16],
-            _ => &self.payload.origin[..0]
-        }
+        &self.payload.origin[..self.suite.trans_iv_len]
     }
-
-    pub fn aead(&self) -> &Aead { self.aead }
 
     pub fn decrypted_buffer(&mut self) -> &mut [u8] {
         self.payload.decoded
@@ -90,6 +72,17 @@ impl<'a> RecordDecodeBuffer<'a> {
 
     pub fn head(&self) -> &[u8] { self.head }
 
-    pub fn version(&self) -> &Version { self.version }
+    pub fn nonce(&self, iv: &mut Iv, seq: u64) -> Vec<u8> {
+        iv.set_explicit(self.explicit_iv().to_vec());
+        match self.suite.cipher() {
+            CipherType::AES_128_GCM | CipherType::AES_256_GCM => match *self.suite.version {
+                Version::TLS_1_3 => iv.as_array(seq),
+                _ => iv.decrypting_iv()
+            },
+            CipherType::CHACHA20_POLY1305 => iv.as_array(seq),
+            CipherType::AES_128_CBC | CipherType::AES_256_CBC => iv.decrypting_iv(),
+            _ => panic!("gen iv failed"),
+        }
+    }
 }
 

@@ -1,5 +1,6 @@
 use std::io::{Read, Write};
 use std::net::TcpListener;
+#[cfg(feature = "aync")]
 use std::time::Duration;
 #[cfg(feature = "aync")]
 use tokio::io::{AsyncReadExt, AsyncWriteExt};

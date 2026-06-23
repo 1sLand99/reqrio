@@ -65,7 +65,6 @@ impl Response {
                         Err(e) => return Err(e.into()),
                     }
                 };
-                println!("{} {}", reader.position(), self.raw.len());
                 self.read_size += reader.position();
                 buffer.used_empty(reader.position());
                 let len = self.header.content_length().unwrap_or(0);
@@ -173,7 +172,6 @@ impl Response {
     }
 
     pub fn as_text(&self) -> Result<&str, Utf8Error> {
-        println!("11={}", self.raw.len());
         std::str::from_utf8(self.raw.filled())
     }
 
