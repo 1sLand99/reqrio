@@ -149,7 +149,7 @@ impl Stream {
             }
             Scheme::Https | Scheme::Wss => {
                 let tls_stream = SyncStream::connect(ClientConfig::from(param), stream)?;
-                let alpn = tls_stream.alpn().map(|x| ALPN::from_slice(x.as_bytes())).unwrap_or(ALPN::Http11);
+                let alpn = tls_stream.alpn().cloned().unwrap_or(ALPN::Http11);
                 *self = Stream::SyncHttps(tls_stream);
                 Ok(alpn)
             }

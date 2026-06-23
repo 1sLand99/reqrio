@@ -64,8 +64,8 @@ impl<S: Read + Write> SyncStream<S> {
         Ok(())
     }
 
-    pub fn alpn(&self) -> Option<&str> {
-        Some(self.conn.alpn()?.value())
+    pub fn alpn(&self) -> Option<&ALPN> {
+        self.conn.alpn()
     }
 
     pub fn connection(&self) -> &Connection {
