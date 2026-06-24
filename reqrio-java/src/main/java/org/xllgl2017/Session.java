@@ -130,7 +130,7 @@ public class Session implements AutoCloseable {
     }
 
     public void connect(String url) throws Exception {
-        this.connect(host, null);
+        this.connect(url, null);
     }
 
 //    public void set_callback(ScReqCallback cb) throws Exception {

@@ -20,7 +20,7 @@
 #include "WebSocket.h"
 
 static QString read_token() {
-    QFile file("../TOKEN");
+    QFile file("../../TOKEN");
     if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         return file.readAll();
     }
@@ -31,6 +31,7 @@ void get() {
     const auto *session = new Session(HTTP20);
     session->addHeader("User-Agent",
                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0");
+    session->connect("https://www.baidu.com");
     const Response resp = session->get("https://www.baidu.com");
     qDebug() << resp.statusCode();
     qDebug() << resp.text().mid(0, 100);

@@ -1,4 +1,5 @@
 package main
+
 /*
 git tag reqrio-go/v0.3.0-rc2
 git push origin reqrio-go/v0.3.0-rc2
@@ -31,6 +32,10 @@ var headers = map[string]string{
 func get() {
 	session := reqrio.NewSession()
 	err := session.SetHeaders(headers)
+	if err != nil {
+		panic(err)
+	}
+	err = session.Connect("https://www.baidu.com", "www.baidu.com")
 	if err != nil {
 		panic(err)
 	}

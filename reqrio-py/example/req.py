@@ -28,6 +28,7 @@ headers = {
 def get():
     print("===========>reqrio [GET]<============")
     session = Session(headers)
+    session.connect('https://www.baidu.com')
     resp = session.get("https://www.baidu.com")
     print('code: ', resp.statue_code())
     print('body: ', len(resp.bytes()))

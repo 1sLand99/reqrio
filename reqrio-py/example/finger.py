@@ -2,7 +2,11 @@ import reqrio
 from example.req import headers
 from reqrio import *
 
-TOKEN = "<token>"
+try:
+    with open("../../TOKEN", 'r', encoding="utf-8") as f:
+        TOKEN = f.read()
+except:
+    TOKEN = ""
 
 
 # ====================================>TLS Example<======================================

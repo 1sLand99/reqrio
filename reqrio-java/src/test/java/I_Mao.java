@@ -115,6 +115,7 @@ public class I_Mao {
 
     public static void main(String[] args) throws Exception {
         Session session = new Session(ALPN.HTTP20);
+        session.setVerify(true);
         session.setFingerprint(buildFingerprint(SNI));
         session.setHeaders(buildHeader());
         session.setKeyLog("../2.log");

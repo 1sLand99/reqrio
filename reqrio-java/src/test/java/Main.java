@@ -71,7 +71,7 @@ public class Main {
 
     public static void post_json() throws Exception {
         Session session = new Session(ALPN.HTTP11);
-        session.connect("https://www.baidu.com","www.baidu.com")
+        session.connect("https://www.baidu.com","www.baidu.com");
         session.setHeaders(getHeaders());
         JsonObject obj = new JsonObject();
         obj.add("field1", new JsonPrimitive(1));
@@ -117,7 +117,7 @@ public class Main {
         Session session = new Session(ALPN.HTTP11);
         session.setHeaders(getHeaders());
         HttpFile file = new HttpFile();
-        file.addFile("2.log");
+        file.addFile("../2.log");
         Response resp = session.post("https://www.baidu.com", new Body(file));
         System.out.println("code: " + resp.statusCode());
         System.out.println("len: " + resp.bytes().length);
