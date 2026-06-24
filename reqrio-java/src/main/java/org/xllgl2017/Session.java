@@ -123,16 +123,14 @@ public class Session implements AutoCloseable {
 
     /// 连接到目标主机，在需要提前建立连接的情况下调用
     ///
-    /// @param host :目标主机地址，ip或域名
-    /// @param port :目标主机端口, 为0时自动设置为443
-    public void connect(String host, int port) throws Exception {
-        String url = "https://" + host;
-        if (port != 0) url += ":" + port;
-        util.check_err(REQRIO.ScReq_connect(this.pointer(), url));
+    /// @param url :目标主机地址
+    /// @param sni :域名
+    public void connect(String url, String sni) throws Exception {
+        util.check_err(REQRIO.ScReq_connect(this.pointer(), url, sni));
     }
 
-    public void connect(String host) throws Exception {
-        this.connect(host, 0);
+    public void connect(String url) throws Exception {
+        this.connect(host, null);
     }
 
 //    public void set_callback(ScReqCallback cb) throws Exception {

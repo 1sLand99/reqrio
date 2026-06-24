@@ -153,7 +153,7 @@ namespace bindings {
 
     char *ScReq_reconnect(ScReq *req);
 
-    char *ScReq_connect(ScReq *req);
+    char *ScReq_connect(ScReq *req, const char *url, const char *sni);
 
     char *ScReq_close_stream(ScReq *req);
 

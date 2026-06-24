@@ -37,7 +37,7 @@ public class Main {
 
     public static void get() throws Exception {
         try (Session session = new Session(ALPN.HTTP20)) {
-            session.connect("www.baidu.com");
+            session.connect("https://www.baidu.com");
             session.setHeaders(getHeaders());
             Body body = new Body();
             ///get with str
@@ -71,6 +71,7 @@ public class Main {
 
     public static void post_json() throws Exception {
         Session session = new Session(ALPN.HTTP11);
+        session.connect("https://www.baidu.com","www.baidu.com")
         session.setHeaders(getHeaders());
         JsonObject obj = new JsonObject();
         obj.add("field1", new JsonPrimitive(1));

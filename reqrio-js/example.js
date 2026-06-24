@@ -3,10 +3,12 @@ const {CipherSuite, ExtensionType, Group, EcPointFormat, Algorithm, Version, H2S
 
 function get() {
     let session = new Session(ALPN.HTTP20);
+    session.connect("https://www.baidu.com")
     let resp = session.get("https://www.baidu.com", {
         params: {foo: "bar"},
     });
     console.log("Status:", resp.status_code());
+    session.connect('https://www.baidu.com', 'www.baidu.com')
     let resp1 = session.get("https://www.baidu.com", {
         params: {foo: "bar"},
     });
@@ -102,7 +104,7 @@ function client_hello() {
     session.set_headers(headers);
     session.set_finger_by_client_hello(Uint8Array.from(client_hello), read_token());
     session.set_timeout({
-        connect: 1000,
+        connect: 2000,
         //读取超时，单次
         read: 1000,
         //写出超时，单次

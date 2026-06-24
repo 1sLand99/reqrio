@@ -68,6 +68,8 @@ public:
 
     void setFingerprint(Fingerprint *fingerprint) const;
 
+    void connect(const QString &url, const QString &sni) const;
+
     void reconnect() const;
 
     void close_stream() const;

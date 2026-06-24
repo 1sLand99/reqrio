@@ -69,6 +69,10 @@ void Session::reconnect() const {
     util::check_err(bindings::ScReq_reconnect(this->req));
 }
 
+void Session::connect(const QString &url, const QString &sni) const {
+    util::check_err(bindings::ScReq_connect(this->req, url.toUtf8(), sni.toUtf8()))
+}
+
 void Session::close_stream() const {
     util::check_err(bindings::ScReq_close_stream(this->req));
 }

@@ -41,7 +41,7 @@ public interface ReqrioLibrary extends Library {
 
     Pointer ScReq_reconnect(Pointer req);
 
-    Pointer ScReq_connect(Pointer req, String url);
+    Pointer ScReq_connect(Pointer req, String url, String sni);
 
     Pointer ScReq_stream_io(Pointer req, int method, Pointer url, Pointer body, PointerByReference err);
 

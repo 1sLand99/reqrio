@@ -184,9 +184,10 @@ class Session {
 
     /**连接到某个url，不会发包
      * @param {string} url
+     * @param {string|null} sni
      **/
-    connect(url) {
-        check_error(this.library, this.library.ScReq_connect(this.req, url))
+    connect(url, sni = null) {
+        check_error(this.library, this.library.ScReq_connect(this.req, url, sni))
     }
 
 

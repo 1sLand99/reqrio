@@ -173,7 +173,7 @@ function binding_library() {
         ScReq_add_cookie: [charPtr, [voidPtr, 'string', 'string']],
         ScReq_stream_io: [voidPtr, [voidPtr, 'int', voidPtr, voidPtr, charPtrPtr]],
         ScReq_reconnect: [charPtr, [voidPtr]],
-        ScReq_connect: [charPtr, [voidPtr, 'string']],
+        ScReq_connect: [charPtr, [voidPtr, 'string', "string"]],
         ScReq_close_stream: [charPtr, [voidPtr]],
         ScReq_set_callback: [charPtr, [voidPtr, 'pointer']],
         ScReq_drop: ['void', [voidPtr]],

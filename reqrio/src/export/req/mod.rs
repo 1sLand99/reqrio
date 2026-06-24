@@ -216,11 +216,14 @@ pub extern "system" fn ScReq_reconnect(req: *mut ScReq) -> *mut c_char {
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn ScReq_connect(req: *mut ScReq, url: *const c_char) -> *mut c_char {
+pub extern "system" fn ScReq_connect(req: *mut ScReq, url: *const c_char, sni: *const c_char) -> *mut c_char {
     catch_unwind(AssertUnwindSafe(|| {
         check_run(move || {
             let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
-            let url = unsafe { CStr::from_ptr(url) }.to_str()?.try_into()?;
+            let mut url: Url = unsafe { CStr::from_ptr(url) }.to_str()?.try_into()?;
+            if !sni.is_null() && let Ok(sni) = unsafe { CStr::from_ptr(sni) }.to_str() {
+                url.set_domain(sni);
+            }
             req.re_conn(Some(&url))?;
             Ok(null_mut())
         }, handle_err2)

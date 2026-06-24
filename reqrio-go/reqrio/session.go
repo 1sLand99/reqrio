@@ -25,7 +25,7 @@ extern char * ScReq_add_cookie(void *req, const char *name, const char *value);
 //callback
 extern void * ScReq_stream_io(void *req, int method, void *url, void * body, char **err);
 extern char * ScReq_reconnect(void *req);
-extern char * ScReq_connect(void *req, const char *url);
+extern char * ScReq_connect(void *req, const char *url, const char *sni);
 extern char * ScReq_close_stream(void *req);
 extern void ScReq_drop(void *req);
 
@@ -298,8 +298,8 @@ func (session *Session) Reconnect() error {
 	return nil
 }
 
-func (session *Session) Connect(url string) error {
-	err := C.ScReq_connect(session.req, C.CString(url))
+func (session *Session) Connect(url string, sni string) error {
+	err := C.ScReq_connect(session.req, C.CString(url), C.CString(sni))
 	if err != nil {
 		errMsg := C.GoString(err)
 		C.char_free(err)
