@@ -28,12 +28,13 @@ pub struct ScReq {
     key_log: Option<PathBuf>,
     url: Url,
     tls_session: Option<TlsSession>,
+    ignore_order: bool,
 }
 
 impl Default for ScReq {
     fn default() -> Self {
         ScReq {
-            header: Header::new_req_h2(),
+            header: Header::default(),
             stream: Stream::NonConnection,
             callback: None,
             timeout: Timeout::default(),
@@ -51,6 +52,7 @@ impl Default for ScReq {
             key_log: None,
             url: Url::default(),
             tls_session: None,
+            ignore_order: false,
         }
     }
 }
@@ -226,7 +228,7 @@ impl ScReq {
                     #[cfg(feature = "log")]
                     debug!("[AcReq] Connected | ALPN: {} | RemoteAddr: {}", alpn, url.unwrap_or(&self.url).addr());
                     self.tls_session = None;
-                    self.header.init_by_alpn(alpn);
+                    if !self.ignore_order { self.header.init_by_alpn(alpn); }
                     if self.header.alpn() == &ALPN::Http20 { self.handle_h2_setting()?; }
                     if let Some(url) = url {
                         self.url = url.clone();
@@ -402,6 +404,10 @@ impl ReqExt for ScReq {
 
     fn tls_session(&self) -> &Option<TlsSession> {
         &self.tls_session
+    }
+    fn ignore_hdr_order(mut self) -> Self {
+        self.ignore_order = true;
+        self
     }
 }
 

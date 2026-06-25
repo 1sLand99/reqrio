@@ -62,7 +62,7 @@ impl Header {
                 HeaderKey::new_reserved("sec-ch-ua-model", HeaderValue::String("".to_string())),
                 HeaderKey::new_reserved("sec-ch-ua-bitness", HeaderValue::String("".to_string())),
                 HeaderKey::new_reserved("sec-ch-ua-full-version-list", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("upgrade-insecure-requests", HeaderValue::String("1".to_string())),
+                HeaderKey::new_reserved("upgrade-insecure-requests", HeaderValue::String("".to_string())),
                 HeaderKey::new_reserved("user-agent", HeaderValue::String("".to_string())),
                 HeaderKey::new_reserved("accept", HeaderValue::String("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".to_string())),
                 HeaderKey::new_reserved("origin", HeaderValue::String("".to_string())),
@@ -100,7 +100,7 @@ impl Header {
                 HeaderKey::new_reserved("sec-ch-ua", HeaderValue::String("".to_string())),
                 HeaderKey::new_reserved("sec-ch-ua-mobile", HeaderValue::String("".to_string())),
                 HeaderKey::new_reserved("sec-ch-ua-platform", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("Upgrade-Insecure-Requests", HeaderValue::String("1".to_string())),
+                HeaderKey::new_reserved("Upgrade-Insecure-Requests", HeaderValue::String("".to_string())),
                 HeaderKey::new_reserved("User-Agent", HeaderValue::String("".to_string())),
                 HeaderKey::new_reserved("Accept", HeaderValue::String("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".to_string())),
                 HeaderKey::new_reserved("Sec-Fetch-Site", HeaderValue::String("".to_string())),
@@ -192,7 +192,7 @@ impl Header {
                 }
                 "content-length" => header.set_value(HeaderValue::Number(v.to_string().parse()?)),
                 "content-type" => header.set_value(HeaderValue::ContextType(ContentType::try_from(&v.to_string())?)),
-                "upgrade-insecure-requests" => header.set_value(HeaderValue::String("1".to_string())),
+                "upgrade-insecure-requests" => header.set_value(HeaderValue::String(v.to_string())),
                 "set-cookie" => header.value_mut().add_cookie(Cookie::from_res(v.to_string())?),
                 _ => header.set_value(HeaderValue::String(v.to_string())),
             }

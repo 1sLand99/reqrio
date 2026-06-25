@@ -30,12 +30,13 @@ pub struct AcReq {
     key_log: Option<PathBuf>,
     url: Url,
     tls_session: Option<TlsSession>,
+    ignore_order: bool,
 }
 
 impl Default for AcReq {
     fn default() -> Self {
         AcReq {
-            header: Header::new_req_h2(),
+            header: Header::default(),
             stream: Stream::NonConnection,
             timeout: Timeout::default(),
             callback: None,
@@ -53,6 +54,7 @@ impl Default for AcReq {
             key_log: None,
             url: Default::default(),
             tls_session: None,
+            ignore_order: false,
         }
     }
 }
@@ -231,7 +233,7 @@ impl AcReq {
                     #[cfg(feature = "log")]
                     debug!("[AcReq] Connected | ALPN: {} | RemoteAddr: {}", alpn, url.unwrap_or(&self.url).addr());
                     self.tls_session = None;
-                    self.header.init_by_alpn(alpn);
+                    if !self.ignore_order { self.header.init_by_alpn(alpn); }
                     if self.header.alpn() == &ALPN::Http20 { self.handle_h2_setting().await?; }
                     if let Some(url) = url {
                         self.url = url.clone();
@@ -388,6 +390,11 @@ impl ReqExt for AcReq {
 
     fn set_fingerprint(&mut self, fingerprint: Fingerprint) {
         self.fingerprint = fingerprint;
+    }
+
+    fn ignore_hdr_order(mut self) -> Self {
+        self.ignore_order = true;
+        self
     }
 }
 

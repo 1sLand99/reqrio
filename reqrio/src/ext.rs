@@ -117,6 +117,8 @@ pub trait ReqExt: ReqPriExt + Sized {
     fn remove_header(&mut self, k: impl AsRef<str>) -> Option<HeaderValue> {
         self.header_mut().remove(k)
     }
+
+    fn ignore_hdr_order(self) -> Self;
 }
 
 pub(crate) trait ReqPriExt {

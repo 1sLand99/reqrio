@@ -38,6 +38,7 @@ async fn main() {
         .with_verify(false)
         .with_alpn(ALPN::Http11)
         .with_proxy(Proxy::try_from(format!("http://{}", res.text().unwrap().trim())).unwrap())
+        .ignore_hdr_order()
         // .with_proxy(Proxy::try_from("http://222.186.129.68:15265").unwrap())
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::new_socks5("127.0.0.1",10279))
@@ -45,6 +46,7 @@ async fn main() {
         // .connect("https://104.18.34.137".sni("whatnot.com")).await.unwrap()
         ;
     let headers = json::object! {
+        "Host": "",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
         "Accept": "*/*",
         "Sec-Fetch-Site": "none",
@@ -128,13 +130,13 @@ async fn main() {
     // let url = Url::try_from("https://cn.bing.com/").unwrap();
     // let url = "https://113.108.215.122/xhr/front/trade/priority/rushPurchase/hot/branch/one".sni("h5.moutai519.com.cn").unwrap(); //
     // let url = "https://www.baidu.com".try_into().unwrap();
-    let url = "https://m.so.com".try_into().unwrap();
-    req.re_conn(Some(&url)).await.unwrap();
+    let url: Url = "https://m.so.com".try_into().unwrap();
+    // req.re_conn(Some(&url)).await.unwrap();
     let resp = req.get(url.clone(), None).await.unwrap();
     println!("{}", resp.header());
-    req.re_conn(None).await.unwrap();
-    let resp = req.get(url, None).await.unwrap();
-    println!("{}", resp.header());
+    // req.re_conn(None).await.unwrap();
+    // let resp = req.get(url, None).await.unwrap();
+    // println!("{}", resp.header());
     // println!("{}", resp.as_text().unwrap());
 
     // println!("{} {}", res1.header(), res2.header());
