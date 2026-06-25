@@ -18,7 +18,7 @@ pub struct Response {
 impl Default for Response {
     fn default() -> Self {
         Response {
-            header: Header::new_res(),
+            header: Header::default(),
             raw: Buffer::with_capacity(8192),
             coder: None,
             read_size: 0,
@@ -161,9 +161,7 @@ impl Response {
     pub fn raw_string(&self) -> String {
         let mut header = self.header.to_string();
         let body = self.as_text().unwrap_or("(二进制数据)");
-        if self.header.alpn() != &ALPN::Http11 {
-            header += "\r\n\r\n";
-        }
+        header += "\r\n\r\n";
         header + body
     }
 

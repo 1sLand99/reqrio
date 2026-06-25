@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use super::content_type::ContentType;
 use super::cookie::Cookie;
 use crate::cookie::CookieManager;
@@ -9,9 +8,10 @@ use crate::reader::{RefReader, StrCow};
 use crate::*;
 pub use key::HeaderKey;
 pub use method::Method;
-pub use reader::{HeaderReader, HeaderParam};
 use reader::{H1HeaderReader, H2HeaderReader};
+pub use reader::{HeaderParam, HeaderReader};
 pub use status::HttpStatus;
+use std::borrow::Cow;
 use std::fmt::Display;
 use std::mem;
 pub use value::HeaderValue;
@@ -31,9 +31,9 @@ pub struct Header {
     keys: Vec<HeaderKey>,
 }
 
-impl Header {
-    pub fn new_res() -> Self {
-        Self {
+impl Default for Header {
+    fn default() -> Self {
+        Header {
             method: Method::GET,
             alpn: ALPN::Custom(vec![]),
             uri: Uri::default(),
@@ -41,73 +41,80 @@ impl Header {
             keys: vec![],
         }
     }
+}
 
-
+impl Header {
     pub fn new_req_h2() -> Self {
-        let mut res = Header::new_res();
-        res.alpn = ALPN::Http20;
-        res.keys = vec![
-            //h2 order
-            HeaderKey::new_reserved("cache-control", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("sec-ch-ua", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("sec-ch-ua-mobile", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("sec-ch-ua-full-version", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("sec-ch-ua-arch", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("sec-ch-ua-platform", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("sec-ch-ua-platform-version", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("sec-ch-ua-model", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("sec-ch-ua-bitness", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("sec-ch-ua-full-version-list", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("upgrade-insecure-requests", HeaderValue::Bool(true)),
-            HeaderKey::new_reserved("user-agent", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("accept", HeaderValue::String("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".to_string())),
-            HeaderKey::new_reserved("origin", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("sec-fetch-site", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("sec-fetch-mode", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("sec-fetch-user", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("sec-fetch-dest", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("sec-fetch-storage-access", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("referer", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("accept-encoding", HeaderValue::String("gzip, deflate, br, zstd".to_string())),
-            HeaderKey::new_reserved("accept-language", HeaderValue::String("zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6".to_string())),
-            HeaderKey::new_reserved("cookie", HeaderValue::Cookies(CookieManager::new(vec![]))),
-            HeaderKey::new_reserved("priority", HeaderValue::String("".to_string())),
-            //unknown or http
-            HeaderKey::new_reserved("content-encoding", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("content-type", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("authorization", HeaderValue::String("".to_string())),
-        ];
-        res
+        Header {
+            method: Method::GET,
+            uri: Uri::default(),
+            alpn: ALPN::Http20,
+            status: HttpStatus::None,
+            keys: vec![
+                //h2 order
+                HeaderKey::new_reserved("cache-control", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("sec-ch-ua", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("sec-ch-ua-mobile", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("sec-ch-ua-full-version", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("sec-ch-ua-arch", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("sec-ch-ua-platform", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("sec-ch-ua-platform-version", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("sec-ch-ua-model", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("sec-ch-ua-bitness", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("sec-ch-ua-full-version-list", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("upgrade-insecure-requests", HeaderValue::String("1".to_string())),
+                HeaderKey::new_reserved("user-agent", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("accept", HeaderValue::String("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".to_string())),
+                HeaderKey::new_reserved("origin", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("sec-fetch-site", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("sec-fetch-mode", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("sec-fetch-user", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("sec-fetch-dest", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("sec-fetch-storage-access", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("referer", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("accept-encoding", HeaderValue::String("gzip, deflate, br, zstd".to_string())),
+                HeaderKey::new_reserved("accept-language", HeaderValue::String("zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6".to_string())),
+                HeaderKey::new_reserved("cookie", HeaderValue::Cookies(CookieManager::new(vec![]))),
+                HeaderKey::new_reserved("priority", HeaderValue::String("".to_string())),
+                //unknown or http
+                HeaderKey::new_reserved("content-encoding", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("content-type", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("authorization", HeaderValue::String("".to_string())),
+            ],
+        }
     }
 
     pub fn new_req_h1() -> Self {
-        let mut res = Header::new_res();
-        res.alpn = ALPN::Http11;
-        res.keys = vec![
-            HeaderKey::new_reserved("Host", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("Connection", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("Content-Length", HeaderValue::Number(0)),
-            HeaderKey::new_reserved("Authorization", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("Content-Type", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("Cache-Control", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("sec-ch-ua", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("sec-ch-ua-mobile", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("sec-ch-ua-platform", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("Upgrade-Insecure-Requests", HeaderValue::Bool(true)),
-            HeaderKey::new_reserved("User-Agent", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("Accept", HeaderValue::String("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".to_string())),
-            HeaderKey::new_reserved("Sec-Fetch-Site", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("Sec-Fetch-Mode", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("Sec-Fetch-User", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("Sec-Fetch-Dest", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("Sec-Fetch-Storage-Access", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("Referer", HeaderValue::String("".to_string())),
-            HeaderKey::new_reserved("Accept-Encoding", HeaderValue::String("gzip, deflate, br, zstd".to_string())),
-            HeaderKey::new_reserved("Accept-Language", HeaderValue::String("zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6".to_string())),
-            HeaderKey::new_reserved("Cookie", HeaderValue::Cookies(CookieManager::new(vec![]))),
-            HeaderKey::new_reserved("Origin", HeaderValue::String("".to_string())),
-        ];
-        res
+        Header {
+            method: Method::GET,
+            uri: Uri::default(),
+            alpn: ALPN::Http11,
+            status: HttpStatus::None,
+            keys: vec![
+                HeaderKey::new_reserved("Host", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("Connection", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("Content-Length", HeaderValue::Number(0)),
+                HeaderKey::new_reserved("Authorization", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("Content-Type", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("Cache-Control", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("sec-ch-ua", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("sec-ch-ua-mobile", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("sec-ch-ua-platform", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("Upgrade-Insecure-Requests", HeaderValue::String("1".to_string())),
+                HeaderKey::new_reserved("User-Agent", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("Accept", HeaderValue::String("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".to_string())),
+                HeaderKey::new_reserved("Sec-Fetch-Site", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("Sec-Fetch-Mode", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("Sec-Fetch-User", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("Sec-Fetch-Dest", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("Sec-Fetch-Storage-Access", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("Referer", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("Accept-Encoding", HeaderValue::String("gzip, deflate, br, zstd".to_string())),
+                HeaderKey::new_reserved("Accept-Language", HeaderValue::String("zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6".to_string())),
+                HeaderKey::new_reserved("Cookie", HeaderValue::Cookies(CookieManager::new(vec![]))),
+                HeaderKey::new_reserved("Origin", HeaderValue::String("".to_string())),
+            ],
+        }
     }
 
     pub fn to_req_cookie_str(&self) -> String {
@@ -117,25 +124,6 @@ impl Header {
         } else {
             "".to_string()
         }
-    }
-
-    pub fn as_raw(&mut self, body_len: usize) -> HlsResult<Vec<String>> {
-        self.set_content_length(body_len)?;
-        Ok(self.raw(true))
-    }
-
-    fn raw(&self, http: bool) -> Vec<String> {
-        let mut res = vec![];
-        for key in &self.keys {
-            if key.value().to_string() == "" && http { continue; }
-            match key.name_lower().as_str() {
-                "set-cookie" => for cookie in key.cookies().unwrap_or(&[]) {
-                    res.push(format!("Set-Cookie: {}", cookie.as_res()));
-                },
-                _ => res.push(format!("{}: {}", key.name(), key.value()))
-            }
-        }
-        res
     }
 
     pub fn get(&self, name: impl AsRef<str>) -> Option<&HeaderValue> {
@@ -204,7 +192,7 @@ impl Header {
                 }
                 "content-length" => header.set_value(HeaderValue::Number(v.to_string().parse()?)),
                 "content-type" => header.set_value(HeaderValue::ContextType(ContentType::try_from(&v.to_string())?)),
-                "upgrade-insecure-requests" => header.set_value(HeaderValue::Bool(v.to_string() == "1")),
+                "upgrade-insecure-requests" => header.set_value(HeaderValue::String("1".to_string())),
                 "set-cookie" => header.value_mut().add_cookie(Cookie::from_res(v.to_string())?),
                 _ => header.set_value(HeaderValue::String(v.to_string())),
             }
@@ -259,10 +247,6 @@ impl Header {
         self.get("user-agent")?.as_string()
     }
 
-    #[deprecated = "it will be auto fill by addr"]
-    pub fn set_host(&mut self, host: impl ToString) -> HlsResult<()> {
-        self.insert("host", host)
-    }
 
     pub fn host(&self) -> Option<&str> {
         self.get("host")?.as_string()
@@ -370,7 +354,7 @@ impl Header {
     }
 
     fn parse_req(value: &str) -> HlsResult<Header> {
-        let mut header = Header::new_res();
+        let mut header = Header::default();
         let value = value.replace("\r\n", "\n");
         for (index, line) in value.split("\n").enumerate() {
             if line.is_empty() { continue; }
@@ -390,7 +374,7 @@ impl Header {
     }
 
     fn parse_res(value: &str) -> HlsResult<Header> {
-        let mut header = Header::new_res();
+        let mut header = Header::default();
         let value = value.replace("\r\n", "\n");
         for (index, line) in value.split("\n").enumerate() {
             if line.is_empty() { continue; }
@@ -421,8 +405,10 @@ impl Header {
     }
 
     pub fn parse_h2(packs: Vec<HPackItem>) -> HlsResult<Header> {
-        let mut header = Header::new_res();
-        header.alpn = ALPN::Http20;
+        let mut header = Header {
+            alpn: ALPN::Http20,
+            ..Header::default()
+        };
         for pack in packs {
             header.push_pack_item(&pack)?
         }
@@ -450,9 +436,9 @@ impl Header {
     }
 
     pub fn set_by_json(&mut self, headers: JsonValue) -> HlsResult<()> {
-        for (k, v) in headers.entries() {
-            match k.to_lowercase().as_str() {
-                "cookie" => self.set_cookie(v.dump())?,
+        for (k, v) in headers.into_entries() {
+            match k.as_str() {
+                "cookie" | "Cookie" => self.set_cookie(v.dump())?,
                 _ => self.insert(k, v.dump())?
             }
         }
@@ -530,7 +516,6 @@ impl Header {
             keys.push((StrCow::Borrowed(":authority"), StrCow::Owned(format!("{}:{}", param.url.sni(), param.url.addr().port()))));
         }
         keys.push((StrCow::Borrowed(":scheme"), StrCow::Borrowed(param.url.scheme().spec())));
-        // println!("{}", self);
         for key in self.keys.iter() {
             if H2HeaderReader::skip_h2_key(key, ct) { continue; }
             let name = key.name_lower();
@@ -588,36 +573,109 @@ impl TryFrom<&str> for Header {
 
 impl Display for Header {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let raw = match self.status {
+        let mut write_header = false;
+        match self.status {
             HttpStatus::None => {
-                let mut raw = self.raw(false);
-                if matches!(self.alpn,ALPN::Http11|ALPN::Http10) { raw.insert(0, format!("{} {} {}", self.method, self.uri, self.alpn)); }
-                raw
-            }
-            _ => {
-                if matches!(self.alpn,ALPN::Http11|ALPN::Http10) {
-                    let mut raw = self.raw(false);
-                    raw.insert(0, format!("{} {} {}", self.alpn, self.status.code(), self.status.spec()));
-                    raw.push("".to_string());
-                    raw.push("".to_string());
-                    raw
-                } else {
-                    let mut raw = vec![];
-                    self.keys.iter().for_each(|k| match k.value() {
-                        HeaderValue::Cookies(cookies) => for cookie in cookies.inner() {
-                            raw.push(format!("{}: {}", k.name(), cookie.as_res()));
-                        },
-                        _ => raw.push(format!("{}: {}", k.name(), k.value()))
-                    });
-                    raw
+                if matches!(self.alpn, ALPN::Http11|ALPN::Http10) {
+                    write!(f, "{} {} {}", self.method, self.uri, self.alpn)?;
+                    write_header = true;
                 }
             }
-        };
-        f.write_str(&raw.join("\r\n"))
+            _ => {
+                if matches!(self.alpn, ALPN::Http11|ALPN::Http10) {
+                    write!(f, "{} {} {}", self.alpn, self.status.code(), self.status.spec())?;
+                    write_header = true;
+                }
+            }
+        }
+        if !self.keys.is_empty() && write_header { write!(f, "\r\n")?; }
+        for (i, key) in self.keys.iter().enumerate() {
+            if key.value().is_empty() && key.is_reserved() { continue; }
+            match key.name_lower().as_str() {
+                "set-cookie" => for (i, cookie) in key.cookies().unwrap_or(&[]).iter().enumerate() {
+                    write!(f, "{}: {}", key.name(), cookie.as_res())?;
+                    if key.cookies().map(|x| x.len()).unwrap_or(0) != i + 1 { write!(f, "\r\n")?; }
+                }
+                _ => write!(f, "{}: {}", key.name(), key.value())?
+            };
+            if self.keys.len() != i + 1 { write!(f, "\r\n")? }
+        }
+        Ok(())
     }
 }
 
 
+#[cfg(test)]
+mod tests {
+    use crate::{json, Header};
+    use reqtls::ALPN;
 
+    #[test]
+    fn test_header_order() {
+        let headers = json::object! {
+            "Connection": "keep-alive",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090a13) UnifiedPCWindowsWechat(0xf254181b) XWEB/20001",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "xweb_xhr": "1",
+            "Host-Ip": "",
+            "Sec-Fetch-Site": "cross-site",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Dest": "empty",
+            "Referer": "https://xxxxx/wx9e2927dd595b0473/99/page-frame.html",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Language": "zh-CN,zh;q=0.9",
+        };
+        let mut header = Header::default();
+        header.set_by_json(headers.clone()).unwrap();
+        header.insert("host", "xxxxx").unwrap();
+        header.insert("content-length", "748").unwrap();
+        header.insert("cookie", "wzws_sid=09e4de52dac0115697d02e683a8392ab9ba59d669a31374ab5dec4aa741bbcdc55ca5706bd0bd215c3409379a81dd61a5418181521d37c9ffe6173193bcfdafd9a1ddd4158c287aacf1f38a457623aa16e28a4d99ea469583b665c97c27e27662aff4242e149f73a2984ab96ab942e34c31a38b0f5276e8b40522e403e1ad081855f179e167034611d12e22175f33410894113ed3d6718db311cb87604e7cd676995fb5917b30a538b9ac569a84b7a6166acbaff7830eca7eef50a780c573ada086ffba2e5c216f0ca06b1a5c5bceb8ecc9a4c7b6734855fd0f30b3a7f4ad0a2efeadab43a2dd8c6648e8eb23d457184").unwrap();
+        header.insert("Authorization", "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJsb2dpbl91c2VyX25hbWUiOiLmuLjlrqIgMTc2OTEzOTYzMDciLCJsb2dpbl9leHBpcmVkX3RpbWUiOjE3ODIzNjY3MTIxNDQsImxvZ2luX3VzZXJfaWQiOjI0NjAwODAzLCJsb2dpbl91c2VyX2tleSI6IjI0NjAwODAzOjQ3ZGFjZjQwLTcwZjMtNGZiNS1hMDVhLTI4ZTE0OGNlMDg5ZiIsImxvZ2luX3VzZXJfYWNjb3VudCI6IjE3NjkxMzk2MzA3In0.hKMvQpkzp5YpEN_B2fjhIQ1VHyi6dkwhtH8pjrDNJWM").unwrap();
+        assert_eq!(header.to_string(), r#"Connection: keep-alive
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090a13) UnifiedPCWindowsWechat(0xf254181b) XWEB/20001
+Accept: application/json
+Content-Type: application/json
+xweb_xhr: 1
+Host-Ip:
+Sec-Fetch-Site: cross-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: https://xxxxx/wx9e2927dd595b0473/99/page-frame.html
+Accept-Encoding: gzip, deflate, br
+Accept-Language: zh-CN,zh;q=0.9
+host: xxxxx
+content-length: 748
+cookie: wzws_sid=09e4de52dac0115697d02e683a8392ab9ba59d669a31374ab5dec4aa741bbcdc55ca5706bd0bd215c3409379a81dd61a5418181521d37c9ffe6173193bcfdafd9a1ddd4158c287aacf1f38a457623aa16e28a4d99ea469583b665c97c27e27662aff4242e149f73a2984ab96ab942e34c31a38b0f5276e8b40522e403e1ad081855f179e167034611d12e22175f33410894113ed3d6718db311cb87604e7cd676995fb5917b30a538b9ac569a84b7a6166acbaff7830eca7eef50a780c573ada086ffba2e5c216f0ca06b1a5c5bceb8ecc9a4c7b6734855fd0f30b3a7f4ad0a2efeadab43a2dd8c6648e8eb23d457184
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJsb2dpbl91c2VyX25hbWUiOiLmuLjlrqIgMTc2OTEzOTYzMDciLCJsb2dpbl9leHBpcmVkX3RpbWUiOjE3ODIzNjY3MTIxNDQsImxvZ2luX3VzZXJfaWQiOjI0NjAwODAzLCJsb2dpbl91c2VyX2tleSI6IjI0NjAwODAzOjQ3ZGFjZjQwLTcwZjMtNGZiNS1hMDVhLTI4ZTE0OGNlMDg5ZiIsImxvZ2luX3VzZXJfYWNjb3VudCI6IjE3NjkxMzk2MzA3In0.hKMvQpkzp5YpEN_B2fjhIQ1VHyi6dkwhtH8pjrDNJWM"#
+            .replace("\n", "\r\n").replace("Host-Ip:", "Host-Ip: "));
+
+        let mut header = Header::default();
+        header.init_by_alpn(ALPN::Http11);
+        header.set_by_json(headers).unwrap();
+        header.insert("host", "xxxxx").unwrap();
+        header.insert("content-length", "748").unwrap();
+        header.insert("cookie", "wzws_sid=09e4de52dac0115697d02e683a8392ab9ba59d669a31374ab5dec4aa741bbcdc55ca5706bd0bd215c3409379a81dd61a5418181521d37c9ffe6173193bcfdafd9a1ddd4158c287aacf1f38a457623aa16e28a4d99ea469583b665c97c27e27662aff4242e149f73a2984ab96ab942e34c31a38b0f5276e8b40522e403e1ad081855f179e167034611d12e22175f33410894113ed3d6718db311cb87604e7cd676995fb5917b30a538b9ac569a84b7a6166acbaff7830eca7eef50a780c573ada086ffba2e5c216f0ca06b1a5c5bceb8ecc9a4c7b6734855fd0f30b3a7f4ad0a2efeadab43a2dd8c6648e8eb23d457184").unwrap();
+        header.insert("Authorization", "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJsb2dpbl91c2VyX25hbWUiOiLmuLjlrqIgMTc2OTEzOTYzMDciLCJsb2dpbl9leHBpcmVkX3RpbWUiOjE3ODIzNjY3MTIxNDQsImxvZ2luX3VzZXJfaWQiOjI0NjAwODAzLCJsb2dpbl91c2VyX2tleSI6IjI0NjAwODAzOjQ3ZGFjZjQwLTcwZjMtNGZiNS1hMDVhLTI4ZTE0OGNlMDg5ZiIsImxvZ2luX3VzZXJfYWNjb3VudCI6IjE3NjkxMzk2MzA3In0.hKMvQpkzp5YpEN_B2fjhIQ1VHyi6dkwhtH8pjrDNJWM").unwrap();
+        assert_eq!(header.to_string(), r#"GET  HTTP/1.1
+Host: xxxxx
+Connection: keep-alive
+Content-Length: 748
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJsb2dpbl91c2VyX25hbWUiOiLmuLjlrqIgMTc2OTEzOTYzMDciLCJsb2dpbl9leHBpcmVkX3RpbWUiOjE3ODIzNjY3MTIxNDQsImxvZ2luX3VzZXJfaWQiOjI0NjAwODAzLCJsb2dpbl91c2VyX2tleSI6IjI0NjAwODAzOjQ3ZGFjZjQwLTcwZjMtNGZiNS1hMDVhLTI4ZTE0OGNlMDg5ZiIsImxvZ2luX3VzZXJfYWNjb3VudCI6IjE3NjkxMzk2MzA3In0.hKMvQpkzp5YpEN_B2fjhIQ1VHyi6dkwhtH8pjrDNJWM
+Content-Type: application/json
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090a13) UnifiedPCWindowsWechat(0xf254181b) XWEB/20001
+Accept: application/json
+Sec-Fetch-Site: cross-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: https://xxxxx/wx9e2927dd595b0473/99/page-frame.html
+Accept-Encoding: gzip, deflate, br
+Accept-Language: zh-CN,zh;q=0.9
+Cookie: wzws_sid=09e4de52dac0115697d02e683a8392ab9ba59d669a31374ab5dec4aa741bbcdc55ca5706bd0bd215c3409379a81dd61a5418181521d37c9ffe6173193bcfdafd9a1ddd4158c287aacf1f38a457623aa16e28a4d99ea469583b665c97c27e27662aff4242e149f73a2984ab96ab942e34c31a38b0f5276e8b40522e403e1ad081855f179e167034611d12e22175f33410894113ed3d6718db311cb87604e7cd676995fb5917b30a538b9ac569a84b7a6166acbaff7830eca7eef50a780c573ada086ffba2e5c216f0ca06b1a5c5bceb8ecc9a4c7b6734855fd0f30b3a7f4ad0a2efeadab43a2dd8c6648e8eb23d457184
+xweb_xhr: 1
+Host-Ip: "#.replace("\n", "\r\n"))
+    }
+}
 
 

@@ -2,7 +2,7 @@ use crate::extend::Aead;
 use crate::hash::HashType;
 use crate::{CipherType, Version};
 pub use cipher::TlsCipher;
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 
 pub mod iv;
 mod cipher;
@@ -22,7 +22,7 @@ pub enum KeyExchangeAlg {
     RSA,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct CipherSuite {
     value: u16,
     cipher: CipherType,
@@ -613,6 +613,12 @@ impl From<u16> for CipherSuite {
             suite.spec = "Custom";
             suite
         }
+    }
+}
+
+impl Debug for CipherSuite {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(0x{:04x})", self.spec, self.value)
     }
 }
 

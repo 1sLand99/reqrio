@@ -35,7 +35,7 @@ pub struct AcReq {
 impl Default for AcReq {
     fn default() -> Self {
         AcReq {
-            header: Header::new_req_h1(),
+            header: Header::new_req_h2(),
             stream: Stream::NonConnection,
             timeout: Timeout::default(),
             callback: None,

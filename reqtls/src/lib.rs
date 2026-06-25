@@ -299,7 +299,7 @@ pub use message::{Certificates, ClientHello, ClientKeyExchange, ServerKeyExchang
                   ServerHelloDone, SessionTicket, TlsSessionTicket, NamedCurve, Alert,
                   CertificateRequest, CertificateVerify, MessageParsed, Message};
 pub use record::{RecordLayer, RecordType};
-pub use suite::CipherSuite;
+pub use suite::{CipherSuite, KeyExchangeAlg};
 pub use url::{Addr, Param, Scheme, Uri, Url, UrlError};
 pub use version::Version;
 pub use key::{SecretKey, TlsSession};

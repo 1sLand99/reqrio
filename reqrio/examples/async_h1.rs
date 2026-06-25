@@ -128,7 +128,7 @@ async fn main() {
     // let url = Url::try_from("https://cn.bing.com/").unwrap();
     // let url = "https://113.108.215.122/xhr/front/trade/priority/rushPurchase/hot/branch/one".sni("h5.moutai519.com.cn").unwrap(); //
     // let url = "https://www.baidu.com".try_into().unwrap();
-    let url = "https://m.so.com/api/dsf".try_into().unwrap();
+    let url = "https://m.so.com".try_into().unwrap();
     req.re_conn(Some(&url)).await.unwrap();
     let resp = req.get(url.clone(), None).await.unwrap();
     println!("{}", resp.header());
