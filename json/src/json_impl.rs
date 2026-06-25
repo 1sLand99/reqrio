@@ -188,6 +188,12 @@ impl JsonValue {
             _ => Err("parse bool error!".into())
         }
     }
+
+    pub fn to_struct<T: Default + Serialize + for<'de> Deserialize<'de>>(self) -> JsonResult<T> {
+        let mut self_struct = crate::from_struct(&T::default())?;
+        self_struct.update_by(self)?;
+        self_struct.as_struct()
+    }
 }
 
 impl From<String> for JsonValue {

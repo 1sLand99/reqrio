@@ -16,7 +16,6 @@ use crate::object::{ObjectIntoIter, ObjectIter, ObjectIterMut};
 mod object;
 mod json_impl;
 pub mod number;
-pub mod ext;
 pub use serde_json::Value;
 
 pub struct JsonError {
@@ -161,6 +160,7 @@ impl JsonValue {
         match *self {
             JsonValue::Array(ref vec) => vec.len(),
             JsonValue::Object(ref object) => object.len(),
+            JsonValue::String(ref string) => string.len(),
             _ => 0
         }
     }
@@ -172,12 +172,12 @@ impl JsonValue {
         }
     }
 
-    pub fn insert<T>(&mut self, key: &str, value: T) -> JsonResult<()>
+    pub fn insert<T>(&mut self, key: impl AsRef<str>, value: T) -> JsonResult<()>
     where
         T: Into<JsonValue>,
     {
         match self {
-            JsonValue::Object(o) => Ok(o.insert(key, value.into())),
+            JsonValue::Object(o) => Ok(o.insert(key.as_ref(), value.into())),
             _ => Err("Wrong Type Object!".into())
         }
     }
@@ -198,9 +198,9 @@ impl JsonValue {
         }
     }
 
-    pub fn has_key(&self, key: &str) -> bool {
+    pub fn has_key(&self, key: impl AsRef<str>) -> bool {
         match *self {
-            JsonValue::Object(ref object) => !object.get(key).is_null(),
+            JsonValue::Object(ref object) => !object.get(key.as_ref()).is_null(),
             _ => false
         }
     }
@@ -346,22 +346,24 @@ impl JsonValue {
         Ok(())
     }
 
-    fn get_by_xpath(&self, xp: &[String]) -> JsonResult<&JsonValue> {
+    fn get_by_xpath(&self, xp: &[String]) -> &JsonValue {
         if !xp.is_empty() {
             if xp[0].starts_with("[") && xp[0].ends_with("]") {
-                if !self.is_array() { return Err("xpath error-current is not array".into()); }
-                let index = xp[0].replace("[", "").replace("]", "").parse::<usize>()?;
-                self[index].get_by_xpath(&xp[1..])
+                if !self.is_array() { return &NULL; }
+                let index = xp[0].replace("[", "").replace("]", "").parse::<usize>();
+                if let Ok(index) = index {
+                    self[index].get_by_xpath(&xp[1..])
+                } else { &NULL }
             } else {
-                if !self.is_object() { return Err("xpath error-current is not object".into()); }
+                if !self.is_object() { return &NULL; }
                 self[xp[0].as_str()].get_by_xpath(&xp[1..])
             }
         } else {
-            Ok(self)
+            self
         }
     }
 
-    pub fn xpath(&self, xpath: &str) -> JsonResult<&JsonValue> {
+    pub fn xpath(&self, xpath: &str) -> &JsonValue {
         let paths = xpath.split('.').collect::<Vec<_>>();
         let xpaths = paths.iter().filter_map(|x| if x != &"" { Some(x.to_string()) } else { None }).collect::<Vec<_>>();
         self.get_by_xpath(xpaths.as_slice())
