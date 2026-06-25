@@ -663,7 +663,6 @@ Connection: keep-alive
 Content-Length: 748
 Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJsb2dpbl91c2VyX25hbWUiOiLmuLjlrqIgMTc2OTEzOTYzMDciLCJsb2dpbl9leHBpcmVkX3RpbWUiOjE3ODIzNjY3MTIxNDQsImxvZ2luX3VzZXJfaWQiOjI0NjAwODAzLCJsb2dpbl91c2VyX2tleSI6IjI0NjAwODAzOjQ3ZGFjZjQwLTcwZjMtNGZiNS1hMDVhLTI4ZTE0OGNlMDg5ZiIsImxvZ2luX3VzZXJfYWNjb3VudCI6IjE3NjkxMzk2MzA3In0.hKMvQpkzp5YpEN_B2fjhIQ1VHyi6dkwhtH8pjrDNJWM
 Content-Type: application/json
-Upgrade-Insecure-Requests: 1
 User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090a13) UnifiedPCWindowsWechat(0xf254181b) XWEB/20001
 Accept: application/json
 Sec-Fetch-Site: cross-site

@@ -26,7 +26,7 @@ jobs:
             ${{ runner.os }}-cargo-
       - name: build and test
         run: |
-          cargo test --features aync,serde
+          cargo test --features aync,serde -- --test-threads=1
           cargo build --package reqrio --features export
       - name: Copy So
         run: |
@@ -60,7 +60,7 @@ jobs:
             ${{ runner.os }}-cargo-
       - name: build-msvc
         run: |
-          cargo test --features aync,serde
+          cargo test --features aync,serde -- --test-threads=1
           cargo build --package reqrio --features export
       - name: Copy DLL
         run: |
