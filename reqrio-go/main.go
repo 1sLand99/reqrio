@@ -1,8 +1,8 @@
 package main
 
 /*
-git tag reqrio-go/v0.3.0-rc2
-git push origin reqrio-go/v0.3.0-rc2
+git tag reqrio-go/v0.3.0-rc3
+git push origin reqrio-go/v0.3.0-rc3
 */
 import (
 	"encoding/hex"
