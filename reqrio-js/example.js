@@ -3,6 +3,7 @@ const {CipherSuite, ExtensionType, Group, EcPointFormat, Algorithm, Version, H2S
 
 function get() {
     let session = new Session(ALPN.HTTP20);
+    session.add_header("a", "s")
     session.connect("https://www.baidu.com")
     let resp = session.get("https://www.baidu.com", {
         params: {foo: "bar"},

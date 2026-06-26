@@ -118,11 +118,11 @@ namespace bindings {
     ///=========================>[ScReq]<=====================
     struct ScReq;
 
-    ScReq *ScReq_new();
+    ScReq *ScReq_new(bool ignore_hdr_sort);
 
     char *ScReq_set_header_json(ScReq *req, const char *header);
 
-    char *ScReq_add_header(ScReq *req, const char *key, const char *value);
+    char *ScReq_add_header(ScReq *req, const char *key, const char *value, bool reversed);
 
     char *ScReq_remove_header(ScReq *req, const char *key);
 

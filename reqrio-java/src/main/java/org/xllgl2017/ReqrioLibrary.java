@@ -11,11 +11,11 @@ import java.io.IOException;
 public interface ReqrioLibrary extends Library {
     ReqrioLibrary REQRIO = ReqrioLibrary.loadLibrary();
 
-    Pointer ScReq_new();
+    Pointer ScReq_new(boolean ignore_hdr_sort);
 
     Pointer ScReq_set_header_json(Pointer req, String header);
 
-    Pointer ScReq_add_header(Pointer req, String key, String value);
+    Pointer ScReq_add_header(Pointer req, String key, String value, boolean reversed);
 
     Pointer ScReq_remove_header(Pointer req, String key);
 

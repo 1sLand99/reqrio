@@ -20,7 +20,8 @@ class Session:
             client_hello: bytes = None,
             random_tls: bool = False,
             custom_tls: dict = None,
-            token: str = ""
+            token: str = "",
+            ignore_hdr_sort: bool = False
     ):
         """
         :param
@@ -34,12 +35,13 @@ class Session:
         :param random_tls: 使用随机指纹
         :param custom_tls: 使用自定义指纹，具体参数参阅https://github.com/xllgl2017/reqrio
         :param token: 修改指纹时所有的认证token
+        :param ignore_hdr_sort: 忽略内置请求头顺序
         """
 
         self.dll = DLL
         self.callback = CALLBACK
         # alpn
-        self.hid = self.dll.ScReq_new()
+        self.hid = self.dll.ScReq_new(ignore_hdr_sort)
         err = self.dll.ScReq_set_alpn(self.hid, alpn.encode('utf-8'))
         err, msg = util.check_char_err(err)
         if err: raise Exception(msg)
@@ -88,8 +90,9 @@ class Session:
         if err: raise Exception(msg)
         return
 
-    def add_header(self, name: str, value: str):
-        err, msg = util.check_char_err(self.dll.ScReq_add_header(self.hid, name.encode('utf-8'), value.encode('utf-8')))
+    def add_header(self, name: str, value: str, _reversed=True):
+        err = self.dll.ScReq_add_header(self.hid, name.encode('utf-8'), value.encode('utf-8'), _reversed)
+        err, msg = util.check_char_err(err)
         if err: raise Exception(msg)
 
     def remove_header(self, name: str):
@@ -292,10 +295,10 @@ class Session:
         err, msg = util.check_char_err(self.dll.ScReq_reconnect(self.hid))
         if err: raise Exception(msg)
 
-    def connect(self, url:str, sni:str=None):
-        sni_bs=sni
+    def connect(self, url: str, sni: str = None):
+        sni_bs = sni
         if sni is not None:
-            sni_bs=sni.encode('utf-8')
+            sni_bs = sni.encode('utf-8')
         err, msg = util.check_char_err(self.dll.ScReq_connect(self.hid, url.encode('utf-8'), sni_bs))
         if err: raise Exception(msg)
 

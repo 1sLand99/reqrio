@@ -32,6 +32,7 @@ class Session {
      * @param {string|null} key_log 导出tls密钥
      * @param {boolean} rand_tls
      * @param {string|null} token 认证token
+     * @param {boolean} ignore_hdr_sort 忽略内置请求头顺序
      **/
     constructor(
         alpn,
@@ -41,9 +42,10 @@ class Session {
         key_log = null,
         rand_tls = false,
         token = null,
+        ignore_hdr_sort = false,
     ) {
         this.library = binding_library();
-        this.req = this.library.ScReq_new();
+        this.req = this.library.ScReq_new(ignore_hdr_sort);
         console.log(111)
 
         if (alpn) check_error(this.library, this.library.ScReq_set_alpn(this.req, alpn));
@@ -136,9 +138,10 @@ class Session {
     /**添加一个请求头
      * @param {string} name
      * @param {string} value
+     * @param {boolean} reversed 为true时,值为空，改请求头不发送
      **/
-    add_header(name, value) {
-        check_error(this.library, this.library.ScReq_add_header(this.req, name, value))
+    add_header(name, value,reversed=true) {
+        check_error(this.library, this.library.ScReq_add_header(this.req, name, value, reversed));
     }
 
     /**移除一个请求头

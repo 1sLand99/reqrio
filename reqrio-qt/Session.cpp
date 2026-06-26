@@ -7,11 +7,12 @@
 #include <QJsonDocument>
 
 
-Session::Session(QObject *parent) : QObject(parent) {
-    this->req = bindings::ScReq_new();
+Session::Session(const bool ignore_hdr_sort, QObject *parent) : QObject(parent) {
+    this->req = bindings::ScReq_new(ignore_hdr_sort);
 }
 
-Session::Session(const ALPN alpn, const bool verify, const bool auto_redirect, QObject *parent) : Session(parent) {
+Session::Session(const ALPN alpn, const bool verify, const bool auto_redirect, const bool ignore_hdr_sort,
+                 QObject *parent) : Session(ignore_hdr_sort, parent) {
     this->setAlpn(alpn);
     this->setVerify(verify);
     this->setRedirect(auto_redirect);
@@ -21,8 +22,8 @@ void Session::setHeader(const QJsonDocument &header) const {
     util::check_err(bindings::ScReq_set_header_json(this->req, header.toJson().data()));
 }
 
-void Session::addHeader(const QString &name, const QString &value) const {
-    util::check_err(bindings::ScReq_add_header(this->req, name.toUtf8(), value.toUtf8()));
+void Session::addHeader(const QString &name, const QString &value, const bool reversed) const {
+    util::check_err(bindings::ScReq_add_header(this->req, name.toUtf8(), value.toUtf8(), reversed));
 }
 
 void Session::setAlpn(const ALPN alpn) const {
@@ -70,11 +71,10 @@ void Session::reconnect() const {
 }
 
 void Session::connect(const QString &url, const QString &sni) const {
-    util::check_err(bindings::ScReq_connect(this->req, url.toUtf8(), sni.toUtf8()));
-}
-
-void Session::connect(const QString &url) const {
-    this->connect(url, nullptr);
+    if (sni.isEmpty())
+        util::check_err(bindings::ScReq_connect(this->req, url.toUtf8(), nullptr));
+    else
+        util::check_err(bindings::ScReq_connect(this->req, url.toUtf8(), sni.toUtf8()));
 }
 
 void Session::close_stream() const {

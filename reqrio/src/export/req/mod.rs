@@ -39,8 +39,9 @@ pub extern "system" fn set_max_log_level(level: LevelFilter) {
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn ScReq_new() -> *mut ScReq {
-    let sc = ScReq::new();
+pub extern "system" fn ScReq_new(ignore_hdr_sort: bool) -> *mut ScReq {
+    let mut sc = ScReq::new();
+    sc.ignore_order = ignore_hdr_sort;
     Box::into_raw(Box::new(sc))
 }
 

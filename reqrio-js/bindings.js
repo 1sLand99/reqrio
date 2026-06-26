@@ -158,9 +158,9 @@ function binding_library() {
     let libpath = path.join(__dirname, libname)
     return ffi.Library(libpath, {
         // === ScReq ===
-        ScReq_new: [voidPtr, []],
+        ScReq_new: [voidPtr, ['bool']],
         ScReq_set_header_json: ['pointer', [voidPtr, 'string']],
-        ScReq_add_header: [charPtr, [voidPtr, 'string', 'string']],
+        ScReq_add_header: [charPtr, [voidPtr, 'string', 'string', 'bool']],
         ScReq_remove_header: [charPtr, [voidPtr, 'string']],
         ScReq_set_alpn: [charPtr, [voidPtr, 'string']],
         ScReq_set_verify: [charPtr, [voidPtr, 'bool']],

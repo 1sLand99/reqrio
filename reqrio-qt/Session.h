@@ -20,7 +20,7 @@ class Session : QObject {
     bindings::ScReq *req = nullptr;
 
 public:
-    explicit Session(QObject *parent = nullptr);
+    explicit Session(bool ignore_hdr_sort = false, QObject *parent = nullptr);
 
     ~Session() override;
 
@@ -29,7 +29,9 @@ public:
     ///@param verify :是否对服务器证书链进行验证
     ///@param auto_redirect :是否对重定向连接进行自动跳转
     ///@param parent
-    explicit Session(ALPN alpn, bool verify = true, bool auto_redirect = true, QObject *parent = nullptr);
+    ///@param ignore_hdr_sort: 忽略内置的请求头排序
+    explicit Session(ALPN alpn, bool verify = true, bool auto_redirect = true, bool ignore_hdr_sort = false,
+                     QObject *parent = nullptr);
 
     /// 设置请求头
     ///@param header :请求头，JSON格式。
@@ -38,7 +40,8 @@ public:
     /// 添加一个请求头，已存在的请求头将会被覆盖
     ///@param name:参数名
     ///@param value:值，应为未编码
-    void addHeader(const QString &name, const QString &value) const;
+    ///@param reversed: 为true时，值为空会发送，false时值为空不发送
+    void addHeader(const QString &name, const QString &value, bool reversed = false) const;
 
     /// 设置请求的版本
     void setAlpn(ALPN alpn) const;
@@ -68,9 +71,7 @@ public:
 
     void setFingerprint(Fingerprint *fingerprint) const;
 
-    void connect(const QString &url, const QString &sni) const;
-
-    void connect(const QString &url) const;
+    void connect(const QString &url, const QString &sni = "") const;
 
     void reconnect() const;
 

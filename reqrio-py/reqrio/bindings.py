@@ -83,12 +83,13 @@ DLL.Response_drop.argtypes = [c_void_p]
 # ===========================>ScReq<===================================
 
 # 初始化函数
+DLL.ScReq_new.argtypes = [c_bool]
 DLL.ScReq_new.restype = c_void_p
 
 DLL.ScReq_set_header_json.argtypes = [c_void_p, c_char_p]
 DLL.ScReq_set_header_json.restype = c_void_p
 
-DLL.ScReq_add_header.argtypes = [c_void_p, c_char_p, c_char_p]
+DLL.ScReq_add_header.argtypes = [c_void_p, c_char_p, c_char_p, c_bool]
 DLL.ScReq_add_header.restype = c_void_p
 
 DLL.ScReq_remove_header.argtypes = [c_void_p, c_char_p]

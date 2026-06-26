@@ -30,7 +30,7 @@ var headers = map[string]string{
 }
 
 func get() {
-	session := reqrio.NewSession()
+	session := reqrio.NewSession(false)
 	err := session.SetHeaders(headers)
 	if err != nil {
 		panic(err)
@@ -75,7 +75,7 @@ func get() {
 }
 
 func postForm() {
-	session := reqrio.NewSession()
+	session := reqrio.NewSession(false)
 	resp, err := session.SendRequest(reqrio.ConnParam{
 		Method: reqrio.POST,
 		Url:    "https://www.baidu.com",
@@ -92,7 +92,7 @@ func postForm() {
 }
 
 func postJson() {
-	session := reqrio.NewSession()
+	session := reqrio.NewSession(false)
 	resp, err := session.SendRequest(reqrio.ConnParam{
 		Method: reqrio.POST,
 		Url:    "https://www.baidu.com",
@@ -112,7 +112,7 @@ func postJson() {
 }
 
 func postText() {
-	session := reqrio.NewSession()
+	session := reqrio.NewSession(false)
 	resp, err := session.SendRequest(reqrio.ConnParam{
 		Method:      reqrio.POST,
 		Url:         "https://www.baidu.com",
@@ -127,7 +127,7 @@ func postText() {
 }
 
 func postFiles() {
-	session := reqrio.NewSession()
+	session := reqrio.NewSession(false)
 	err := session.SetKeyLog("../2.log")
 	resp, err := session.SendRequest(reqrio.ConnParam{
 		Method: reqrio.POST,
@@ -172,7 +172,7 @@ func clientHello() {
 	if err != nil {
 		panic(err)
 	}
-	session := reqrio.NewSession()
+	session := reqrio.NewSession(false)
 	err = session.SetFingerprint(fingerprint)
 	if err != nil {
 		panic(err)
@@ -194,7 +194,7 @@ func ja3() {
 	if err != nil {
 		panic(err)
 	}
-	session := reqrio.NewSession()
+	session := reqrio.NewSession(false)
 	err = session.SetFingerprint(fingerprint)
 	if err != nil {
 		panic(err)
@@ -216,7 +216,7 @@ func ja4() {
 	if err != nil {
 		panic(err)
 	}
-	session := reqrio.NewSession()
+	session := reqrio.NewSession(false)
 	err = session.SetFingerprint(fingerprint)
 	if err != nil {
 		panic(err)
@@ -237,7 +237,7 @@ func randTls() {
 	if err != nil {
 		panic(err)
 	}
-	session := reqrio.NewSession()
+	session := reqrio.NewSession(false)
 	err = session.SetFingerprint(fingerprint)
 	if err != nil {
 		panic(err)
@@ -321,7 +321,7 @@ func customTls() {
 	fingerprint.AddH2Setting(reqrio.MaxHeaderListSize, 242144)
 	fingerprint.SetH2WindowSize(2147418112)
 	fingerprint.SetH2Priority(true, 147)
-	session := reqrio.NewSession()
+	session := reqrio.NewSession(false)
 	err := session.SetFingerprint(fingerprint)
 	if err != nil {
 		panic(err)

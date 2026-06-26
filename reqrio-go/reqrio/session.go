@@ -9,9 +9,9 @@ package reqrio
 
 #cgo LDFLAGS: -L${SRCDIR}/../ -lreqrio
 //-----------------[ScReq API]-----------------
-extern void * ScReq_new();
+extern void * ScReq_new(bool ignore_hdr_sort);
 extern char * ScReq_set_header_json(void *req, const char *headers);
-extern char * ScReq_add_header(void *req, const char *name, char *value);
+extern char * ScReq_add_header(void *req, const char *name, char *value, bool reversed);
 extern char * ScReq_remove_header(void *req, const char *name);
 extern char * ScReq_set_alpn(void *req, const char *alpn);
 extern char * ScReq_set_verify(void *req, bool verify);
@@ -76,8 +76,9 @@ type ConnParam struct {
 	ContentType string
 }
 
-func NewSession() Session {
-	p := C.ScReq_new()
+// NewSession /*
+func NewSession(ignoreHdrSort bool) Session {
+	p := C.ScReq_new(C.bool(ignoreHdrSort))
 	return Session{req: p}
 }
 
@@ -97,11 +98,11 @@ func (session *Session) SetHeaders(headers map[string]string) error {
 	return nil
 }
 
-func (session *Session) AddHeader(name string, value string) error {
+func (session *Session) AddHeader(name string, value string, reversed bool) error {
 	cName, cValue := C.CString(name), C.CString(value)
 	defer C.free(unsafe.Pointer(cName))
 	defer C.free(unsafe.Pointer(cValue))
-	err := C.ScReq_add_header(session.req, cName, cValue)
+	err := C.ScReq_add_header(session.req, cName, cValue, C.bool(reversed))
 	if err != nil {
 		defer C.char_free(err)
 		return errors.New(C.GoString(err))
@@ -299,7 +300,11 @@ func (session *Session) Reconnect() error {
 }
 
 func (session *Session) Connect(url string, sni string) error {
-	err := C.ScReq_connect(session.req, C.CString(url), C.CString(sni))
+	cUrl := C.CString(url)
+	defer C.free(unsafe.Pointer(cUrl))
+	cSni := C.CString(sni)
+	defer C.free(unsafe.Pointer(cSni))
+	err := C.ScReq_connect(session.req, cUrl, cSni)
 	if err != nil {
 		errMsg := C.GoString(err)
 		C.char_free(err)

@@ -28,7 +28,7 @@ pub struct ScReq {
     key_log: Option<PathBuf>,
     url: Url,
     tls_session: Option<TlsSession>,
-    ignore_order: bool,
+    pub(crate) ignore_order: bool,
 }
 
 impl Default for ScReq {
