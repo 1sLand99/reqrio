@@ -15,12 +15,14 @@ use std::borrow::Cow;
 use std::fmt::Display;
 use std::mem;
 pub use value::HeaderValue;
+pub use error::HeaderError;
 
 mod value;
 mod key;
 mod method;
 mod status;
 mod reader;
+mod error;
 
 #[derive(Clone)]
 pub struct Header {
@@ -52,34 +54,34 @@ impl Header {
             status: HttpStatus::None,
             keys: vec![
                 //h2 order
-                HeaderKey::new_reserved("cache-control", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("sec-ch-ua", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("sec-ch-ua-mobile", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("sec-ch-ua-full-version", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("sec-ch-ua-arch", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("sec-ch-ua-platform", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("sec-ch-ua-platform-version", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("sec-ch-ua-model", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("sec-ch-ua-bitness", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("sec-ch-ua-full-version-list", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("upgrade-insecure-requests", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("user-agent", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("accept", HeaderValue::String("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".to_string())),
-                HeaderKey::new_reserved("origin", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("sec-fetch-site", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("sec-fetch-mode", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("sec-fetch-user", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("sec-fetch-dest", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("sec-fetch-storage-access", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("referer", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("accept-encoding", HeaderValue::String("gzip, deflate, br, zstd".to_string())),
-                HeaderKey::new_reserved("accept-language", HeaderValue::String("zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6".to_string())),
+                HeaderKey::new_reserved("cache-control", ""),
+                HeaderKey::new_reserved("sec-ch-ua", ""),
+                HeaderKey::new_reserved("sec-ch-ua-mobile", ""),
+                HeaderKey::new_reserved("sec-ch-ua-full-version", ""),
+                HeaderKey::new_reserved("sec-ch-ua-arch", ""),
+                HeaderKey::new_reserved("sec-ch-ua-platform", ""),
+                HeaderKey::new_reserved("sec-ch-ua-platform-version", ""),
+                HeaderKey::new_reserved("sec-ch-ua-model", ""),
+                HeaderKey::new_reserved("sec-ch-ua-bitness", ""),
+                HeaderKey::new_reserved("sec-ch-ua-full-version-list", ""),
+                HeaderKey::new_reserved("upgrade-insecure-requests", ""),
+                HeaderKey::new_reserved("user-agent", ""),
+                HeaderKey::new_reserved("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"),
+                HeaderKey::new_reserved("origin", ""),
+                HeaderKey::new_reserved("sec-fetch-site", ""),
+                HeaderKey::new_reserved("sec-fetch-mode", ""),
+                HeaderKey::new_reserved("sec-fetch-user", ""),
+                HeaderKey::new_reserved("sec-fetch-dest", ""),
+                HeaderKey::new_reserved("sec-fetch-storage-access", ""),
+                HeaderKey::new_reserved("referer", ""),
+                HeaderKey::new_reserved("accept-encoding", "gzip, deflate, br, zstd"),
+                HeaderKey::new_reserved("accept-language", "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6"),
                 HeaderKey::new_reserved("cookie", HeaderValue::Cookies(CookieManager::new(vec![]))),
-                HeaderKey::new_reserved("priority", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("priority", ""),
                 //unknown or http
-                HeaderKey::new_reserved("content-encoding", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("content-type", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("authorization", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("content-encoding", ""),
+                HeaderKey::new_reserved("content-type", ""),
+                HeaderKey::new_reserved("authorization", ""),
             ],
         }
     }
@@ -91,28 +93,28 @@ impl Header {
             alpn: ALPN::Http11,
             status: HttpStatus::None,
             keys: vec![
-                HeaderKey::new_reserved("Host", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("Connection", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("Content-Length", HeaderValue::Number(0)),
-                HeaderKey::new_reserved("Authorization", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("Content-Type", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("Cache-Control", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("sec-ch-ua", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("sec-ch-ua-mobile", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("sec-ch-ua-platform", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("Upgrade-Insecure-Requests", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("User-Agent", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("Accept", HeaderValue::String("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".to_string())),
-                HeaderKey::new_reserved("Sec-Fetch-Site", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("Sec-Fetch-Mode", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("Sec-Fetch-User", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("Sec-Fetch-Dest", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("Sec-Fetch-Storage-Access", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("Referer", HeaderValue::String("".to_string())),
-                HeaderKey::new_reserved("Accept-Encoding", HeaderValue::String("gzip, deflate, br, zstd".to_string())),
-                HeaderKey::new_reserved("Accept-Language", HeaderValue::String("zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6".to_string())),
+                HeaderKey::new_reserved("Host", ""),
+                HeaderKey::new_reserved("Connection", ""),
+                HeaderKey::new_reserved("Content-Length", 0),
+                HeaderKey::new_reserved("Authorization", ""),
+                HeaderKey::new_reserved("Content-Type", ""),
+                HeaderKey::new_reserved("Cache-Control", ""),
+                HeaderKey::new_reserved("sec-ch-ua", ""),
+                HeaderKey::new_reserved("sec-ch-ua-mobile", ""),
+                HeaderKey::new_reserved("sec-ch-ua-platform", ""),
+                HeaderKey::new_reserved("Upgrade-Insecure-Requests", ""),
+                HeaderKey::new_reserved("User-Agent", ""),
+                HeaderKey::new_reserved("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"),
+                HeaderKey::new_reserved("Sec-Fetch-Site", ""),
+                HeaderKey::new_reserved("Sec-Fetch-Mode", ""),
+                HeaderKey::new_reserved("Sec-Fetch-User", ""),
+                HeaderKey::new_reserved("Sec-Fetch-Dest", ""),
+                HeaderKey::new_reserved("Sec-Fetch-Storage-Access", ""),
+                HeaderKey::new_reserved("Referer", ""),
+                HeaderKey::new_reserved("Accept-Encoding", "gzip, deflate, br, zstd"),
+                HeaderKey::new_reserved("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6"),
                 HeaderKey::new_reserved("Cookie", HeaderValue::Cookies(CookieManager::new(vec![]))),
-                HeaderKey::new_reserved("Origin", HeaderValue::String("".to_string())),
+                HeaderKey::new_reserved("Origin", ""),
             ],
         }
     }
@@ -430,7 +432,7 @@ impl Header {
             let nk = self.keys.iter_mut().find(|x| x.name_lower() == ok.name_lower());
             match nk {
                 None => self.keys.push(ok),
-                Some(nk) => nk.set_value(ok.take_value())
+                Some(nk) => nk.set_value(ok.into_value())
             }
         }
     }
@@ -552,6 +554,41 @@ impl Header {
             _ => HeaderReader::H1(self.as_h1_reader(param, ct))
         }
     }
+
+    pub(crate) fn add_key(&mut self, key: HeaderKey) {
+        let header = self.keys.iter_mut().find(|x| x.name().eq_ignore_ascii_case(key.name()));
+        match header {
+            None => self.keys.push(key),
+            Some(hdr) => {
+                let value = key.into_value();
+                match value {
+                    HeaderValue::Cookies(cookies) => for cookie in cookies.into_inner() {
+                        hdr.value_mut().add_cookie(cookie);
+                    }
+                    _ => hdr.set_value(value),
+                }
+            }
+        }
+    }
+
+    pub(crate) fn set_by_keys(&mut self, keys: Vec<HeaderKey>, keep_sort: bool) -> Result<(), HeaderError> {
+        let mut have_host = false;
+        let mut have_content_type = false;
+        let mut have_content_length = false;
+        if keep_sort { self.keys.clear(); }
+        for key in keys {
+            if key.name().eq_ignore_ascii_case("host") { have_host = true; }
+            if key.name().eq_ignore_ascii_case("content-type") { have_content_type = true; }
+            if key.name().eq_ignore_ascii_case("content-length") { have_content_length = true; }
+            self.add_key(key);
+        }
+        if keep_sort {
+            if !have_host { return Err(HeaderError::MissingBasicKey("Host")); }
+            if !have_content_type { return Err(HeaderError::MissingBasicKey("Content-Type")); }
+            if !have_content_length { return Err(HeaderError::MissingBasicKey("Content-Length")); }
+        }
+        Ok(())
+    }
 }
 
 impl TryFrom<String> for Header {
@@ -630,8 +667,8 @@ mod tests {
         header.set_by_json(headers.clone()).unwrap();
         header.insert("host", "xxxxx").unwrap();
         header.insert("content-length", "748").unwrap();
-        header.insert("cookie", "wzws_sid=09e4de52dac0115697d02e683a8392ab9ba59d669a31374ab5dec4aa741bbcdc55ca5706bd0bd215c3409379a81dd61a5418181521d37c9ffe6173193bcfdafd9a1ddd4158c287aacf1f38a457623aa16e28a4d99ea469583b665c97c27e27662aff4242e149f73a2984ab96ab942e34c31a38b0f5276e8b40522e403e1ad081855f179e167034611d12e22175f33410894113ed3d6718db311cb87604e7cd676995fb5917b30a538b9ac569a84b7a6166acbaff7830eca7eef50a780c573ada086ffba2e5c216f0ca06b1a5c5bceb8ecc9a4c7b6734855fd0f30b3a7f4ad0a2efeadab43a2dd8c6648e8eb23d457184").unwrap();
-        header.insert("Authorization", "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJsb2dpbl91c2VyX25hbWUiOiLmuLjlrqIgMTc2OTEzOTYzMDciLCJsb2dpbl9leHBpcmVkX3RpbWUiOjE3ODIzNjY3MTIxNDQsImxvZ2luX3VzZXJfaWQiOjI0NjAwODAzLCJsb2dpbl91c2VyX2tleSI6IjI0NjAwODAzOjQ3ZGFjZjQwLTcwZjMtNGZiNS1hMDVhLTI4ZTE0OGNlMDg5ZiIsImxvZ2luX3VzZXJfYWNjb3VudCI6IjE3NjkxMzk2MzA3In0.hKMvQpkzp5YpEN_B2fjhIQ1VHyi6dkwhtH8pjrDNJWM").unwrap();
+        header.insert("cookie", "wzws_sid=xxx").unwrap();
+        header.insert("Authorization", "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.xxx.hKMvQpkzp5YpEN_B2fjhIQ1VHyi6dkwhtH8pjrDNJWM").unwrap();
         assert_eq!(header.to_string(), r#"Connection: keep-alive
 User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090a13) UnifiedPCWindowsWechat(0xf254181b) XWEB/20001
 Accept: application/json
@@ -646,8 +683,8 @@ Accept-Encoding: gzip, deflate, br
 Accept-Language: zh-CN,zh;q=0.9
 host: xxxxx
 content-length: 748
-cookie: wzws_sid=09e4de52dac0115697d02e683a8392ab9ba59d669a31374ab5dec4aa741bbcdc55ca5706bd0bd215c3409379a81dd61a5418181521d37c9ffe6173193bcfdafd9a1ddd4158c287aacf1f38a457623aa16e28a4d99ea469583b665c97c27e27662aff4242e149f73a2984ab96ab942e34c31a38b0f5276e8b40522e403e1ad081855f179e167034611d12e22175f33410894113ed3d6718db311cb87604e7cd676995fb5917b30a538b9ac569a84b7a6166acbaff7830eca7eef50a780c573ada086ffba2e5c216f0ca06b1a5c5bceb8ecc9a4c7b6734855fd0f30b3a7f4ad0a2efeadab43a2dd8c6648e8eb23d457184
-Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJsb2dpbl91c2VyX25hbWUiOiLmuLjlrqIgMTc2OTEzOTYzMDciLCJsb2dpbl9leHBpcmVkX3RpbWUiOjE3ODIzNjY3MTIxNDQsImxvZ2luX3VzZXJfaWQiOjI0NjAwODAzLCJsb2dpbl91c2VyX2tleSI6IjI0NjAwODAzOjQ3ZGFjZjQwLTcwZjMtNGZiNS1hMDVhLTI4ZTE0OGNlMDg5ZiIsImxvZ2luX3VzZXJfYWNjb3VudCI6IjE3NjkxMzk2MzA3In0.hKMvQpkzp5YpEN_B2fjhIQ1VHyi6dkwhtH8pjrDNJWM"#
+cookie: wzws_sid=xxx
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.xxx.hKMvQpkzp5YpEN_B2fjhIQ1VHyi6dkwhtH8pjrDNJWM"#
             .replace("\n", "\r\n").replace("Host-Ip:", "Host-Ip: "));
 
         let mut header = Header::default();
@@ -655,13 +692,13 @@ Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJsb2dpbl91c2VyX25hb
         header.set_by_json(headers).unwrap();
         header.insert("host", "xxxxx").unwrap();
         header.insert("content-length", "748").unwrap();
-        header.insert("cookie", "wzws_sid=09e4de52dac0115697d02e683a8392ab9ba59d669a31374ab5dec4aa741bbcdc55ca5706bd0bd215c3409379a81dd61a5418181521d37c9ffe6173193bcfdafd9a1ddd4158c287aacf1f38a457623aa16e28a4d99ea469583b665c97c27e27662aff4242e149f73a2984ab96ab942e34c31a38b0f5276e8b40522e403e1ad081855f179e167034611d12e22175f33410894113ed3d6718db311cb87604e7cd676995fb5917b30a538b9ac569a84b7a6166acbaff7830eca7eef50a780c573ada086ffba2e5c216f0ca06b1a5c5bceb8ecc9a4c7b6734855fd0f30b3a7f4ad0a2efeadab43a2dd8c6648e8eb23d457184").unwrap();
-        header.insert("Authorization", "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJsb2dpbl91c2VyX25hbWUiOiLmuLjlrqIgMTc2OTEzOTYzMDciLCJsb2dpbl9leHBpcmVkX3RpbWUiOjE3ODIzNjY3MTIxNDQsImxvZ2luX3VzZXJfaWQiOjI0NjAwODAzLCJsb2dpbl91c2VyX2tleSI6IjI0NjAwODAzOjQ3ZGFjZjQwLTcwZjMtNGZiNS1hMDVhLTI4ZTE0OGNlMDg5ZiIsImxvZ2luX3VzZXJfYWNjb3VudCI6IjE3NjkxMzk2MzA3In0.hKMvQpkzp5YpEN_B2fjhIQ1VHyi6dkwhtH8pjrDNJWM").unwrap();
+        header.insert("cookie", "wzws_sid=xxx").unwrap();
+        header.insert("Authorization", "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.xxx.hKMvQpkzp5YpEN_B2fjhIQ1VHyi6dkwhtH8pjrDNJWM").unwrap();
         assert_eq!(header.to_string(), r#"GET  HTTP/1.1
 Host: xxxxx
 Connection: keep-alive
 Content-Length: 748
-Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJsb2dpbl91c2VyX25hbWUiOiLmuLjlrqIgMTc2OTEzOTYzMDciLCJsb2dpbl9leHBpcmVkX3RpbWUiOjE3ODIzNjY3MTIxNDQsImxvZ2luX3VzZXJfaWQiOjI0NjAwODAzLCJsb2dpbl91c2VyX2tleSI6IjI0NjAwODAzOjQ3ZGFjZjQwLTcwZjMtNGZiNS1hMDVhLTI4ZTE0OGNlMDg5ZiIsImxvZ2luX3VzZXJfYWNjb3VudCI6IjE3NjkxMzk2MzA3In0.hKMvQpkzp5YpEN_B2fjhIQ1VHyi6dkwhtH8pjrDNJWM
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.xxx.hKMvQpkzp5YpEN_B2fjhIQ1VHyi6dkwhtH8pjrDNJWM
 Content-Type: application/json
 User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090a13) UnifiedPCWindowsWechat(0xf254181b) XWEB/20001
 Accept: application/json
@@ -671,7 +708,7 @@ Sec-Fetch-Dest: empty
 Referer: https://xxxxx/wx9e2927dd595b0473/99/page-frame.html
 Accept-Encoding: gzip, deflate, br
 Accept-Language: zh-CN,zh;q=0.9
-Cookie: wzws_sid=09e4de52dac0115697d02e683a8392ab9ba59d669a31374ab5dec4aa741bbcdc55ca5706bd0bd215c3409379a81dd61a5418181521d37c9ffe6173193bcfdafd9a1ddd4158c287aacf1f38a457623aa16e28a4d99ea469583b665c97c27e27662aff4242e149f73a2984ab96ab942e34c31a38b0f5276e8b40522e403e1ad081855f179e167034611d12e22175f33410894113ed3d6718db311cb87604e7cd676995fb5917b30a538b9ac569a84b7a6166acbaff7830eca7eef50a780c573ada086ffba2e5c216f0ca06b1a5c5bceb8ecc9a4c7b6734855fd0f30b3a7f4ad0a2efeadab43a2dd8c6648e8eb23d457184
+Cookie: wzws_sid=xxx
 xweb_xhr: 1
 Host-Ip: "#.replace("\n", "\r\n"))
     }

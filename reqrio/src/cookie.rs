@@ -19,6 +19,8 @@ impl CookieManager {
 
     pub fn inner(&self) -> &Vec<Cookie> { &self.0 }
 
+    pub fn into_inner(self) -> Vec<Cookie> { self.0 }
+
     pub fn is_empty(&self) -> bool { self.0.is_empty() }
 
     pub fn get(&self, name: &str) -> Option<&Cookie> {

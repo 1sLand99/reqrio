@@ -4,7 +4,7 @@ mod body;
 
 use crate::export::{check_run, handle_err1, handle_err2};
 use crate::time::Timeout;
-use crate::{json, Body, Cookie, HlsError, Method, Proxy, ReqExt, ReqGenExt, Response, ScReq, ALPN, Url};
+use crate::{json, Body, Cookie, HlsError, Method, Proxy, ReqExt, ReqGenExt, Response, ScReq, ALPN, Url, HeaderKey};
 use crate::Fingerprint;
 use std::ffi::{c_char, CStr, CString};
 use std::ops::{Deref, DerefMut};
@@ -58,12 +58,13 @@ pub extern "system" fn ScReq_set_header_json(req: *mut ScReq, header: *const c_c
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn ScReq_add_header(req: *mut ScReq, key: *const c_char, value: *const c_char) -> *mut c_char {
+pub extern "system" fn ScReq_add_header(req: *mut ScReq, key: *const c_char, value: *const c_char, reversed: bool) -> *mut c_char {
     check_run(move || {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
-        let key = unsafe { CStr::from_ptr(key) }.to_str()?;
+        let name = unsafe { CStr::from_ptr(key) }.to_str()?;
         let value = unsafe { CStr::from_ptr(value) }.to_str()?;
-        req.header_mut().insert(key, value)?;
+        let key = HeaderKey::new(name, value).with_reserved(reversed);
+        req.header_mut().add_key(key);
         Ok(null_mut())
     }, handle_err2)
 }

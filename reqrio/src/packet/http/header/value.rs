@@ -54,3 +54,28 @@ impl Display for HeaderValue {
         }
     }
 }
+
+impl From<String> for HeaderValue {
+    fn from(value: String) -> Self {
+        HeaderValue::String(value)
+    }
+}
+
+impl From<&str> for HeaderValue {
+    fn from(value: &str) -> Self {
+        HeaderValue::String(value.to_string())
+    }
+}
+
+
+impl From<usize> for HeaderValue {
+    fn from(value: usize) -> Self {
+        HeaderValue::Number(value)
+    }
+}
+
+impl From<ContentType> for HeaderValue {
+    fn from(value: ContentType) -> Self {
+        HeaderValue::ContextType(value)
+    }
+}

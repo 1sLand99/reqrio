@@ -17,6 +17,7 @@ use tokio::time::error::Elapsed;
 use reqtls::cipher::CipherError;
 use reqtls::coder::CodingError;
 use crate::body::FormError;
+use crate::packet::HeaderError;
 use crate::time::TimeError;
 
 #[derive(Debug)]
@@ -35,6 +36,7 @@ pub enum HlsError {
     Rls(RlsError),
     HPack(HPackError),
     Time(TimeError),
+    Header(HeaderError),
     Currently(String),
 }
 
@@ -80,6 +82,7 @@ impl Display for HlsError {
             HlsError::Time(e) => write!(f, "Time({:?})", e),
             HlsError::UnsupportedAlpn(alpn) => write!(f, "UnsupportedAlpn({})", alpn),
             HlsError::RstStream => f.write_str("RstStream"),
+            HlsError::Header(e) => write!(f, "Header({:?})", e),
         }
     }
 }
@@ -208,6 +211,12 @@ impl From<io::ErrorKind> for HlsError {
 impl From<CipherError> for HlsError {
     fn from(value: CipherError) -> Self {
         HlsError::Rls(RlsError::Cipher(value))
+    }
+}
+
+impl From<HeaderError> for HlsError {
+    fn from(value: HeaderError) -> Self {
+        HlsError::Header(value)
     }
 }
 

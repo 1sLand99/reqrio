@@ -392,9 +392,10 @@ impl ReqExt for AcReq {
         self.fingerprint = fingerprint;
     }
 
-    fn ignore_hdr_order(mut self) -> Self {
-        self.ignore_order = true;
-        self
+    fn set_header_keys(&mut self, headers: Vec<HeaderKey>, keep_sort: bool) -> HlsResult<()> {
+        self.ignore_order = keep_sort;
+        self.header.set_by_keys(headers, keep_sort)?;
+        Ok(())
     }
 }
 

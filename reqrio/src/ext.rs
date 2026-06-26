@@ -118,7 +118,15 @@ pub trait ReqExt: ReqPriExt + Sized {
         self.header_mut().remove(k)
     }
 
-    fn ignore_hdr_order(self) -> Self;
+
+    ///设置请求头，keep_sort为true时请求头内务必包含必要参数（如：Host, Content-Length等）
+    fn with_headers_keys(mut self, headers: Vec<HeaderKey>, keep_sort: bool) -> HlsResult<Self> {
+        self.set_header_keys(headers, keep_sort)?;
+        Ok(self)
+    }
+
+    fn set_header_keys(&mut self, headers: Vec<HeaderKey>, keep_sort: bool)->HlsResult<()>;
+
 }
 
 pub(crate) trait ReqPriExt {

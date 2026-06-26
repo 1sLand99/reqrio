@@ -18,18 +18,25 @@ impl HeaderKey {
         }
     }
 
-    pub fn new(name: impl ToString, value: HeaderValue) -> HeaderKey {
+    pub fn new(name: impl ToString, value: impl Into<HeaderValue>) -> HeaderKey {
         HeaderKey {
             name: Cow::Owned(name.to_string()),
-            value,
+            value: value.into(),
             reserved: false,
         }
     }
 
-    pub(crate) fn new_reserved(name: &'static str, value: HeaderValue) -> HeaderKey {
+    #[cfg(feature = "export")]
+    pub(crate) fn with_reserved(mut self, reserved: bool) -> HeaderKey {
+        self.reserved = reserved;
+        self
+    }
+
+    ///保留的key，当key的值为空时，该值不会被发送; 若要发送请使用new
+    pub fn new_reserved(name: &'static str, value: impl Into<HeaderValue>) -> HeaderKey {
         HeaderKey {
             name: Cow::Borrowed(name),
-            value,
+            value: value.into(),
             reserved: true,
         }
     }
@@ -47,8 +54,6 @@ impl HeaderKey {
 
     pub fn value(&self) -> &HeaderValue { &self.value }
 
-    pub fn take_value(self) -> HeaderValue { self.value }
-
     pub fn value_mut(&mut self) -> &mut HeaderValue { &mut self.value }
 
     pub fn set_value(&mut self, value: HeaderValue) {
@@ -57,5 +62,5 @@ impl HeaderKey {
 
     pub fn into_value(self) -> HeaderValue { self.value }
 
-    pub fn is_reserved(&self) -> bool { self.reserved }
+    pub(crate) fn is_reserved(&self) -> bool { self.reserved }
 }
