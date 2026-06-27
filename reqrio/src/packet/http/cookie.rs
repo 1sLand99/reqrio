@@ -17,6 +17,7 @@ pub struct Cookie {
     expires: String,
     same_site: String,
     icpsp: bool,
+    equal_sign: bool,
 }
 
 impl Default for Cookie {
@@ -32,6 +33,7 @@ impl Default for Cookie {
             expires: "".to_string(),
             same_site: "".to_string(),
             icpsp: false,
+            equal_sign: true,
         }
     }
 }
@@ -43,6 +45,15 @@ impl Cookie {
             value: value.to_string(),
             ..Default::default()
         }
+    }
+
+    pub fn equal_sign(&self) -> bool {
+        self.equal_sign
+    }
+
+    pub fn with_equal_sign(mut self, value: bool) -> Self {
+        self.equal_sign = value;
+        self
     }
 
     pub fn insert(&mut self, k: &str, v: String) {
@@ -65,11 +76,12 @@ impl Cookie {
     pub fn from_req(ck: impl AsRef<str>) -> HlsResult<Vec<Cookie>> {
         let mut res = vec![];
         let ck = ck.as_ref().replace("; ", ";");
+        if ck.is_empty() { return Ok(res); }
         for cookie in ck.split(";") {
             let mut items = cookie.split("=");
             let name = items.next().ok_or("cooke name not found")?.to_string();
             let value = items.collect::<Vec<_>>().join("=");
-            res.push(Cookie::new_cookie(name, value));
+            res.push(Cookie::new_cookie(name, value).with_equal_sign(cookie.contains("=")));
         }
         Ok(res)
     }
@@ -96,7 +108,9 @@ impl Cookie {
         if self.icpsp { res.push("icpsp".to_string()); }
         res.join("; ")
     }
-    pub fn as_req(&self) -> String { format!("{}={}", self.name, self.value) }
+    pub fn as_req(&self) -> String {
+        format!("{}{}{}", self.name, if self.equal_sign { "=" } else { "" }, self.value)
+    }
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }

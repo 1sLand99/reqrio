@@ -487,7 +487,7 @@ impl Header {
                     if let Some(cookies) = key.cookies() {
                         for (index, cookie) in cookies.iter().enumerate() {
                             reader.add_str(cookie.name());
-                            reader.add_str("=");
+                            if cookie.equal_sign() { reader.add_str("="); }
                             reader.add_str(cookie.value());
                             if index != key.cookies().unwrap_or(&[]).len() - 1 { reader.add_str("; ") }
                         }
