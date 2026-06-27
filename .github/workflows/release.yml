@@ -1,12 +1,15 @@
 name: release
 
+# 手动触发：输入目标版本号，自动修改所有相关文件的版本号，
+# 提交一个 release commit
+# 提交 release: bump version X.Y.Z,推送
 on:
-  workflow_run:
-    workflows:
-      - bump-version
-    types:
-      - completed
   workflow_dispatch:
+    inputs:
+      version:
+        description: "目标版本号（不含 v 前缀），例如 0.3.0 或 0.3.0-alpha3"
+        required: true
+        type: string
 
 env:
   CARGO_TERM_COLOR: always
@@ -36,7 +39,7 @@ jobs:
 
       - name: cargo test
         run: |
-          cargo test --features aync,serde --release
+          cargo test --features async,serde --release
 
       - name: cargo build (export cdylib)
         run: cargo build --package reqrio --release --features export
@@ -63,11 +66,69 @@ jobs:
           python reqrio-py/tests/test_cipher.py
 
   # ----------------------------------------------------------------------------
+  # 发布前检查：Linux + Windows 上跑测试与 FFI 测试，任一失败则中止整个发布流程
+  # ----------------------------------------------------------------------------
+  bump-version:
+    needs: prerelease-check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Validate version format
+        run: |
+          if ! echo "${{ inputs.version }}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)[0-9]*)?$'; then
+            echo "非法版本号: ${{ inputs.version }}" >&2
+            exit 1
+          fi
+
+      - name: Bump version in all packages
+        env:
+          NEW: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          # Rust: reqrio / reqtls 包版本（行首 version）
+          sed -i -E 's/^version = "[^"]*"/version = "'"$NEW"'"/' reqrio/Cargo.toml
+          sed -i -E 's/^version = "[^"]*"/version = "'"$NEW"'"/' reqtls/Cargo.toml
+
+          # Rust: 工作区对 reqtls 的依赖引用
+          sed -i -E 's/(reqtls = \{ path = "reqtls", version = ")[^"]*(")/\1'"$NEW"'\2/' Cargo.toml
+
+          # Python
+          sed -i -E 's/^version = "[^"]*"/version = "'"$NEW"'"/' reqrio-py/pyproject.toml
+          sed -i -E 's/(version=")[^"]*(")/\1'"$NEW"'\2/' reqrio-py/setup.py
+
+          # Java（仅项目 version，4 空格缩进，避免误伤依赖/插件版本）
+          sed -i -E 's#^    <version>[^<]*</version>#    <version>'"$NEW"'</version>#' reqrio-java/pom.xml
+
+          # Node.js
+          sed -i -E 's/("version": ")[^"]*(")/\1'"$NEW"'\2/' reqrio-js/package.json
+
+      - name: Show diff
+        run: git --no-pager diff
+
+      - name: Commit and push
+        env:
+          NEW: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add reqrio/Cargo.toml reqtls/Cargo.toml Cargo.toml \
+                  reqrio-py/pyproject.toml reqrio-py/setup.py \
+                  reqrio-java/pom.xml reqrio-js/package.json
+          git commit -m "bump version ${NEW}"
+          git push origin HEAD
+  # ----------------------------------------------------------------------------
   # 构建跨平台原生库（.so / .dll），上传为 artifact 供各语言发布任务复用
   # ----------------------------------------------------------------------------
   build-natives:
     name: build-natives (${{ matrix.target.os }})
-    needs: prerelease-check
+    needs: bump-version
     strategy:
       matrix:
         target:
@@ -106,22 +167,6 @@ jobs:
         with:
           prefix-key: |
             windows-2022-cargo-
-      - name: Determine version
-        id: get_version
-        shell: bash
-        run: |
-          COMMIT_MSG="${{ github.event.workflow_run.head_commit.message || '' }}"
-          VER=$(echo "$COMMIT_MSG" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9.]+)?' || true)
-          if [ -n "$VER" ]; then
-            VER=${VER#v}
-          else
-            VER=$(grep -E '^version' Cargo.toml | head -n1 | sed -E 's/.*"(.+)".*/\1/')
-          fi
-          if [ -z "$VER" ]; then
-            echo "Failed to determine version" >&2
-            exit 1
-          fi
-          echo "VERSION=$VER" >> $GITHUB_ENV
       - name: build windows-gnu
         run: |
           cargo build --package reqrio --release --features export --target x86_64-pc-windows-gnu
@@ -139,12 +184,8 @@ jobs:
           cd reqrio-go
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if [ -z "$VERSION" ]; then
-            echo "VERSION is empty; cannot tag" >&2
-            exit 1
-          fi
-          git tag "reqrio-go/v$VERSION"
-          git push origin "reqrio-go/v$VERSION"
+          git tag "reqrio-go/v${{inputs.version}}"
+          git push origin "reqrio-go/v${{inputs.version}}"
 
   # ----------------------------------------------------------------------------
   # GitHub Release：聚合原生库并创建 Release
@@ -155,19 +196,16 @@ jobs:
     runs-on: ubuntu-latest
     # 预发行版本（alpha/beta/rc）不创建 GitHub Release，仅发布到各语言仓库
     if: >-
-      github.event_name == 'workflow_run' 
-      && github.event.workflow_run.conclusion == 'success'
-      && contains(github.event.workflow_run.head_commit.message, 'bump version')
-      && !contains(github.event.workflow_run.head_commit.message, 'alpha')
-      && !contains(github.event.workflow_run.head_commit.message, 'beta')
-      && !contains(github.event.workflow_run.head_commit.message, 'rc')
+      !contains(inputs.version, 'alpha')
+      && !contains(inputs.version, 'beta')
+      && !contains(inputs.version, 'rc')
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Extract release notes from CHANGELOG.md
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${{inputs.version}}"
           awk -v ver="reqrio-v${VERSION}" '
             $0 == "# " ver { capture = 1; next }
             capture && /^# reqrio-v/ { exit }
@@ -238,7 +276,7 @@ jobs:
   # ----------------------------------------------------------------------------
   publish-crate:
     name: publish-crate (crates.io)
-    needs: prerelease-check
+    needs: bump-version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
