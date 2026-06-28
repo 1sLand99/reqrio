@@ -48,7 +48,7 @@ pub trait ReqExt: ReqPriExt + Sized {
         self
     }
 
-    ///导出tls key log，不设置时读取SSLKEYLOGFILE环境变量，为保证通信安全，此功能仅Debug下起作用
+    ///导出tls key log，不设置时读取SSLKEYLOGFILE环境变量，为保证通信安全，请勿用于生产模式，以免造成隐私泄露
     fn set_key_log(&mut self, path: impl AsRef<Path>);
 
     fn with_key_log(mut self, path: impl AsRef<Path>) -> Self {
@@ -125,8 +125,7 @@ pub trait ReqExt: ReqPriExt + Sized {
         Ok(self)
     }
 
-    fn set_header_keys(&mut self, headers: Vec<HeaderKey>, keep_sort: bool)->HlsResult<()>;
-
+    fn set_header_keys(&mut self, headers: Vec<HeaderKey>, keep_sort: bool) -> HlsResult<()>;
 }
 
 pub(crate) trait ReqPriExt {
@@ -198,7 +197,8 @@ pub(crate) trait ReqPriExt {
     }
 
     fn update_cookie(&mut self, response: &Response) {
-        for cookie in response.header().cookies().unwrap_or(&vec![]) {
+        let Some(cookies) = response.header().cookies()else { return; };
+        for cookie in cookies {
             if cookie.name() == "" && cookie.value() == "" { continue; }
             self.req_param().header.add_cookie(cookie.clone());
         }

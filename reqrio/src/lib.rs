@@ -22,16 +22,24 @@
 //! ## Architecture: Efficient Data Pipeline
 //!
 //! `reqrio` uses a layered architecture that optimizes memory usage through intelligent borrowing and streaming:
+//!```text
+//! ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ Write ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐
+//! │        Form  ┌─────────┐           ┌───────────────┐           ┌─────────────┐           ┌──────┐ │
+//! │ User ───────►│  Req    │  Body     │ RequestBuf    │  Buffer   │             │ Encrypted │      │ │
+//! │        Json  │ Engine  ├─ Cow<T> ──┤ Header + Body │──────────►│  TlsStream  │──────────►│ TCP  │ │
+//! │        Files │ (Sync)  │ Lifetime  │    Readers    │           │   Encrypt   │           │ Send │ │
+//! │ User ───────►│ (Async) │           │ (borrowed)    │           │             │           │      │ │
+//! │              └─────────┘           └───────────────┘           └─────────────┘           └──────┘ │
+//! └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
+//! ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  Read ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  ─ ─ ─ ─ ┐
+//! │                 ┌──────────┐            ┌────────┐                 │
+//! │ ┌───────┐ read  │   TLS    │ decrypt to │ ScReq  │  return         │
+//! │ │  TCP  │──────►│ Fragment │───────────►│ AcReq  │─────────► User  │
+//! │ └───────┘       │ Decrypt  │            │(Engine)│ Response        │
+//! │                 └──────────┘            └────────┘                 │
+//! └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┘
 //!
-//! ```text
-//!         Form  ┌─────────┐           ┌───────────────┐           ┌─────────────┐           ┌──────┐
-//!  User ───────►│  Req    │  Body     │ RequestBuf    │  Buffer   │             │ Encrypted │      │
-//!         Json  │ Engine  ├─ Cow<T> ──┤ Header + Body │──────────►│  TlsStream  │──────────►│ TCP  │
-//!         Files │ (Sync)  │ Lifetime  │    Readers    │           │   Encrypt   │           │ Send │
-//!  User ───────►│ (Async) │           │ (borrowed)    │           │             │           │      │
-//!               └─────────┘           └───────────────┘           └─────────────┘           └──────┘
-//! ```
-//!
+// ```
 //! **Key Design Principles:**
 //! - **Lifetime-Based Borrowing**: Data is borrowed via lifetime parameters during header and body processing, avoiding unnecessary copies
 //! - **Copy-on-Write (Cow)**: Form data and JSON payloads use `Cow<T>` to support both borrowed and owned data without overhead
