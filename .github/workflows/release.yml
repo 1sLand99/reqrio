@@ -39,7 +39,7 @@ jobs:
 
       - name: cargo test
         run: |
-          cargo test --features async,serde --release
+          cargo test --features aync,serde --release
 
       - name: cargo build (export cdylib)
         run: cargo build --package reqrio --release --features export
