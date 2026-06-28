@@ -15,7 +15,7 @@ impl HeaderValue {
     pub fn add_cookie(&mut self, cookie: Cookie) {
         if let HeaderValue::Cookies(cookies) = self {
             cookies.push(cookie);
-        }
+        } else { *self = HeaderValue::Cookies(CookieManager::new(vec![cookie])) }
     }
 
     pub fn as_string(&self) -> Option<&str> {

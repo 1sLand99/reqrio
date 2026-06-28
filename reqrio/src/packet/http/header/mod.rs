@@ -309,7 +309,10 @@ impl Header {
     }
 
     pub fn cookies(&self) -> Option<&[Cookie]> {
-        let header = self.keys.iter().find(|x| x.name_lower() == "cookie" || x.name_lower() == "set-cookie");
+        let header = self.keys.iter().find(|x|
+            x.name().eq_ignore_ascii_case("cookie")
+                || x.name().eq_ignore_ascii_case("set-cookie")
+        );
         header?.cookies()
     }
 
@@ -468,6 +471,7 @@ impl Header {
         reader.add_str("\r\n");
         for key in self.keys.iter() {
             if H1HeaderReader::skip_h1_key(key, &params.body_len, ct) { continue; }
+
             reader.add_str(key.name());
             reader.add_str(": ");
             match key.name() {
