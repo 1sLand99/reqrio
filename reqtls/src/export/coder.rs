@@ -55,7 +55,7 @@ pub extern "C" fn hex_decode(data: *const c_char, out: *mut *mut u8, len: &mut u
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
 pub fn Base64_new() -> *mut Base64 {
-    Box::into_raw(Box::new(Base64::new()))
+    Box::into_raw(Box::new(Base64::default()))
 }
 
 #[unsafe(no_mangle)]

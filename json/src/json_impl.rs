@@ -60,7 +60,7 @@ impl Index<String> for JsonValue {
     }
 }
 
-impl<'a> Index<&'a String> for JsonValue {
+impl Index<&String> for JsonValue {
     type Output = JsonValue;
 
     fn index(&self, index: &String) -> &JsonValue {
@@ -448,9 +448,9 @@ where
     }
 }
 
-impl Into<Box<dyn Error>> for JsonValue {
-    fn into(self) -> Box<dyn Error> {
-        Box::from(self.to_string())
+impl From<JsonValue> for Box<dyn Error> {
+    fn from(value: JsonValue) -> Self {
+        Box::from(value.dump())
     }
 }
 
@@ -476,7 +476,7 @@ impl<'de> Deserialize<'de> for JsonValue {
         D: Deserializer<'de>,
     {
         let value = Value::deserialize(deserializer)?;
-        Ok(JsonValue::try_from(value).or(Err(serde::de::Error::custom("to json value error")))?)
+        JsonValue::try_from(value).or(Err(serde::de::Error::custom("to json value error")))
     }
 }
 

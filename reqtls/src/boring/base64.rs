@@ -9,12 +9,14 @@ pub struct Base64 {
     ctx: CPointer<EVP_ENCODE_CTX>,
 }
 
-impl Base64 {
-    pub fn new() -> Base64 {
+impl Default for Base64 {
+    fn default() -> Self {
         let ctx = CPointer::new(unsafe { EVP_ENCODE_CTX_new() });
         Base64 { ctx }
     }
+}
 
+impl Base64 {
     pub fn encode(&self, data: &[u8]) -> Vec<u8> {
         let mut out = vec![0u8; data.len() * 2];
         let mut len = 0;
@@ -67,10 +69,10 @@ impl Base64 {
 
 
 pub fn b64encode(context: impl AsRef<[u8]>) -> Result<String, FromUtf8Error> {
-    let bs = Base64::new().encode(context.as_ref());
+    let bs = Base64::default().encode(context.as_ref());
     String::from_utf8(bs)
 }
 
 pub fn b64decode(context: impl AsRef<[u8]>) -> RlsResult<Vec<u8>> {
-    Base64::new().decode(context.as_ref())
+    Base64::default().decode(context.as_ref())
 }
