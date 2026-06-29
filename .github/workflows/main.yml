@@ -49,6 +49,8 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
+    env:
+      TOKEN: ${{ secrets.TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
