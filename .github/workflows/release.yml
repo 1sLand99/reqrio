@@ -128,7 +128,12 @@ jobs:
           git add reqrio/Cargo.toml reqtls/Cargo.toml Cargo.toml \
                   reqrio-py/pyproject.toml reqrio-py/setup.py \
                   reqrio-java/pom.xml reqrio-js/package.json
-          git commit -m "bump version ${NEW}"
+          # 版本号已是目标值时无改动可提交，跳过 commit 但仍推临时分支
+          if git diff --cached --quiet; then
+            echo "版本号已是 ${NEW}，无需提交"
+          else
+            git commit -m "bump version ${NEW}"
+          fi
           # 推到临时分支（不碰主分支）；-f 让本版本号可重跑覆盖
           git push -f origin "HEAD:refs/heads/ci/release-${NEW}"
   # ----------------------------------------------------------------------------
