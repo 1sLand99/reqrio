@@ -96,10 +96,11 @@ impl AeadCtx {
 
 #[cfg(test)]
 mod aead_tests {
+    use std::{env, fs};
     use crate::boring::bindings::EVP_AEAD_DEFAULT_TAG_LENGTH;
     use crate::boring::{AeadCtx, CryptDecodeParam, CryptEncodeParam};
     use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
-    use crate::{CipherSuite, RecordType, Version};
+    use crate::{Buffer, CipherSuite, RecordType, Version, WriteExt};
 
     fn test_aead(suite: &'static CipherSuite, key: &[u8], size: usize, en: &[u8]) {
         let aead = suite.aead().unwrap();
@@ -139,6 +140,10 @@ mod aead_tests {
 
     #[test]
     fn test_aead_ctx() {
+        let token=fs::read_to_string("../TOKEN").unwrap_or_else(|_|{
+            env::var("TOKEN").unwrap_or("".to_string())
+        });
+        Buffer::check_subscription(token).unwrap();
         let key = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];
         test_aead(&CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, &key, 45, &[22, 3, 3, 0, 40, 5, 6, 7, 8, 1, 2, 3, 4, 73, 124, 57, 79, 141, 133, 227, 18, 144, 234, 121, 155, 242, 80, 24, 135, 186, 135, 31, 85, 210, 190, 133, 14, 120, 110, 158, 242, 184, 89, 14, 110]);
         // test_aead(&CipherSuite::TLS_SM4_GCM_SM3, &key, 45, &[22, 3, 3, 0, 40, 5, 6, 7, 8, 1, 2, 3, 4, 230, 37, 165, 245, 42, 213, 2, 105, 130, 26, 88, 111, 64, 103, 112, 27, 84, 7, 132, 205, 148, 74, 255, 79, 145, 66, 202, 195, 68, 19, 144, 161]);
