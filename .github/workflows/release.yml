@@ -1,5 +1,8 @@
 name: release
 
+# 每次运行在 Actions 列表里显示为「release v<版本号>」，便于区分不同版本的发布
+run-name: release v${{ inputs.version }}
+
 # 手动触发：输入目标版本号，自动修改所有相关文件的版本号，
 # 提交一个 release commit
 # 提交 release: bump version X.Y.Z,推送
@@ -68,7 +71,9 @@ jobs:
           python reqrio-py/tests/test_cipher.py
 
   # ----------------------------------------------------------------------------
-  # 发布前检查：Linux + Windows 上跑测试与 FFI 测试，任一失败则中止整个发布流程
+  # 版本号 bump：改好所有文件版本号后提交到「临时分支」ci/release-<version>，
+  # 不直接推主分支；下游全部基于该临时分支构建/发布，
+  # 待所有任务成功后由 finalize 合并回主分支并打 tag
   # ----------------------------------------------------------------------------
   bump-version:
     needs: prerelease-check
@@ -113,7 +118,7 @@ jobs:
       - name: Show diff
         run: git --no-pager diff
 
-      - name: Commit and push
+      - name: Commit to temp release branch
         env:
           NEW: ${{ inputs.version }}
         run: |
@@ -124,7 +129,8 @@ jobs:
                   reqrio-py/pyproject.toml reqrio-py/setup.py \
                   reqrio-java/pom.xml reqrio-js/package.json
           git commit -m "bump version ${NEW}"
-          git push origin HEAD
+          # 推到临时分支（不碰主分支）；-f 让本版本号可重跑覆盖
+          git push -f origin "HEAD:refs/heads/ci/release-${NEW}"
   # ----------------------------------------------------------------------------
   # 构建跨平台原生库（.so / .dll），上传为 artifact 供各语言发布任务复用
   # ----------------------------------------------------------------------------
@@ -139,6 +145,8 @@ jobs:
     runs-on: ${{ matrix.target.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ci/release-${{ inputs.version }}
       - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: |
@@ -157,37 +165,29 @@ jobs:
           if-no-files-found: error
 
   # ----------------------------------------------------------------------------
-  # go发布
+  # go 构建验证：交叉编译 windows-gnu 目标，确保可链接通过
+  # （go module tag 改到 finalize，待所有任务成功后再打）
   # ----------------------------------------------------------------------------
   release-go:
-    name: release-go (${{ matrix.target.os }})
-    needs: build-natives
+    name: release-go (windows-gnu build)
+    needs: bump-version
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ci/release-${{ inputs.version }}
       - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: |
             windows-2022-cargo-
       - name: build windows-gnu
+        # build.rs 对 windows-gnu 用 dylib 链接 stdc++，但 bds.cpp 的
+        # std::filesystem / codecvt 符号只在静态 libstdc++.a 里、DLL 不导出，
+        # 这里追加静态 stdc++（排在最后，解析 rlib 里残留的 codecvt 引用）
+        env:
+          RUSTFLAGS: "-Clink-arg=-Wl,-Bstatic -Clink-arg=-lstdc++ -Clink-arg=-Wl,-Bdynamic"
         run: |
           cargo build --package reqrio --release --features export --target x86_64-pc-windows-gnu
-          cp target/x86_64-pc-windows-gnu/release/reqrio.dll reqrio-go
-      - name: Download native libs
-        uses: actions/download-artifact@v4
-        with:
-          pattern: native-*
-          path: natives
-          merge-multiple: true
-      - name: copy linux file and release
-        shell: bash
-        run: |
-          cp natives/libreqrio.so reqrio-go/ || true
-          cd reqrio-go
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "reqrio-go/v${{inputs.version}}"
-          git push origin "reqrio-go/v${{inputs.version}}"
 
   # ----------------------------------------------------------------------------
   # GitHub Release：聚合原生库并创建 Release
@@ -205,6 +205,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ci/release-${{ inputs.version }}
       - name: Extract release notes from CHANGELOG.md
         run: |
           VERSION="${{inputs.version}}"
@@ -282,6 +284,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ci/release-${{ inputs.version }}
       - uses: Swatinem/rust-cache@v2
       - name: cargo publish
         env:
@@ -299,6 +303,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ci/release-${{ inputs.version }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -336,6 +342,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ci/release-${{ inputs.version }}
       - name: Setup JDK + Maven settings
         uses: actions/setup-java@v4
         with:
@@ -376,6 +384,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ci/release-${{ inputs.version }}
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -398,3 +408,44 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public
+
+  # ----------------------------------------------------------------------------
+  # 收尾：所有任务成功后，才把版本提交合并回主分支并推送 go module tag，
+  # 最后清理临时分支
+  # ----------------------------------------------------------------------------
+  finalize:
+    name: finalize
+    needs:
+      - build-natives
+      - release-go
+      - github-release
+      - publish-crate
+      - publish-pypi
+      - publish-maven
+      - publish-npm
+    # 任一任务失败或被取消则不提交；github-release 在预发行时被 skip 不算失败
+    if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ci/release-${{ inputs.version }}
+          fetch-depth: 0
+      - name: Push bump commit to ${{ github.ref_name }} and tag go module
+        env:
+          NEW: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # 把临时分支上的版本提交推到主分支
+          git push origin "HEAD:${{ github.ref_name }}"
+          # 打并推送 go module tag（指向同一个提交）
+          git tag "reqrio-go/v${NEW}"
+          git push origin "reqrio-go/v${NEW}"
+      - name: Delete temp release branch
+        env:
+          NEW: ${{ inputs.version }}
+        run: git push origin --delete "ci/release-${NEW}"
