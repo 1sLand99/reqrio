@@ -161,6 +161,21 @@ jobs:
           prefix-key: |
             ${{ runner.os }}-cargo-
 
+      # 预编译静态库（lib/windows/gnu）是用 MSYS2 mingw64 编的，
+      # runner 自带的 C:\mingw64 链接会缺 codecvt<wchar_t> 符号，
+      # 故装与本地一致的 MSYS2 mingw64 并放到 PATH 最前
+      - name: Setup MSYS2 mingw64 toolchain (windows-gnu)
+        if: matrix.target.rust_target == 'x86_64-pc-windows-gnu'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: mingw-w64-x86_64-gcc
+      - name: Prepend MSYS2 mingw64 to PATH (windows-gnu)
+        if: matrix.target.rust_target == 'x86_64-pc-windows-gnu'
+        shell: bash
+        run: echo "${RUNNER_TEMP}/msys64/mingw64/bin" >> "$GITHUB_PATH"
+
       - name: cargo build (export cdylib)
         shell: bash
         run: |
