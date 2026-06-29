@@ -132,16 +132,20 @@ jobs:
           # 推到临时分支（不碰主分支）；-f 让本版本号可重跑覆盖
           git push -f origin "HEAD:refs/heads/ci/release-${NEW}"
   # ----------------------------------------------------------------------------
-  # 构建跨平台原生库（.so / .dll），上传为 artifact 供各语言发布任务复用
+  # 构建跨平台原生库，上传为 artifact 供各语言发布任务复用：
+  #   native-linux    : linux  libreqrio.so
+  #   native-windows  : windows-msvc reqrio.dll（+ .lib）
+  #   go-windows-gnu  : windows-gnu  reqrio.dll（供 go 使用，故单独命名避免与 msvc 冲突）
   # ----------------------------------------------------------------------------
   build-natives:
-    name: build-natives (${{ matrix.target.os }})
+    name: build-natives (${{ matrix.target.artifact }})
     needs: bump-version
     strategy:
       matrix:
         target:
-          - { os: ubuntu-latest,  artifact: linux,   file: libreqrio.so }
-          - { os: windows-latest, artifact: windows, file: reqrio.dll }
+          - { os: ubuntu-latest,  artifact: native-linux,   rust_target: "",                    outdir: release,                       file: libreqrio.so }
+          - { os: windows-latest, artifact: native-windows, rust_target: "",                    outdir: release,                       file: reqrio.dll }
+          - { os: windows-2022,   artifact: go-windows-gnu, rust_target: x86_64-pc-windows-gnu, outdir: x86_64-pc-windows-gnu/release, file: reqrio.dll }
     runs-on: ${{ matrix.target.os }}
     steps:
       - uses: actions/checkout@v4
@@ -153,41 +157,25 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: cargo build (export cdylib)
-        run: cargo build --package reqrio --release --features export
+        shell: bash
+        run: |
+          if [ -n "${{ matrix.target.rust_target }}" ]; then
+            # windows-gnu: bds.cpp 的 std::filesystem / codecvt 符号只在静态
+            # libstdc++.a 里、DLL 不导出，追加静态 stdc++（排在最后解析残留引用）
+            export RUSTFLAGS="-Clink-arg=-Wl,-Bstatic -Clink-arg=-lstdc++ -Clink-arg=-Wl,-Bdynamic"
+            cargo build --package reqrio --release --features export --target "${{ matrix.target.rust_target }}"
+          else
+            cargo build --package reqrio --release --features export
+          fi
 
       - name: Upload native lib
         uses: actions/upload-artifact@v4
         with:
-          name: native-${{ matrix.target.artifact }}
+          name: ${{ matrix.target.artifact }}
           path: |
-            target/release/${{ matrix.target.file }}
-            target/release/*.lib
+            target/${{ matrix.target.outdir }}/${{ matrix.target.file }}
+            target/${{ matrix.target.outdir }}/*.lib
           if-no-files-found: error
-
-  # ----------------------------------------------------------------------------
-  # go 构建验证：交叉编译 windows-gnu 目标，确保可链接通过
-  # （go module tag 改到 finalize，待所有任务成功后再打）
-  # ----------------------------------------------------------------------------
-  release-go:
-    name: release-go (windows-gnu build)
-    needs: bump-version
-    runs-on: windows-2022
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ci/release-${{ inputs.version }}
-      - uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: |
-            windows-2022-cargo-
-      - name: build windows-gnu
-        # build.rs 对 windows-gnu 用 dylib 链接 stdc++，但 bds.cpp 的
-        # std::filesystem / codecvt 符号只在静态 libstdc++.a 里、DLL 不导出，
-        # 这里追加静态 stdc++（排在最后，解析 rlib 里残留的 codecvt 引用）
-        env:
-          RUSTFLAGS: "-Clink-arg=-Wl,-Bstatic -Clink-arg=-lstdc++ -Clink-arg=-Wl,-Bdynamic"
-        run: |
-          cargo build --package reqrio --release --features export --target x86_64-pc-windows-gnu
 
   # ----------------------------------------------------------------------------
   # GitHub Release：聚合原生库并创建 Release
@@ -410,14 +398,13 @@ jobs:
         run: npm publish --access public
 
   # ----------------------------------------------------------------------------
-  # 收尾：所有任务成功后，才把版本提交合并回主分支并推送 go module tag，
-  # 最后清理临时分支
+  # 收尾：所有任务成功后，下载 go 所需原生库放入 reqrio-go 并提交，
+  # 把版本提交合并回主分支、推送 go module tag，最后清理临时分支
   # ----------------------------------------------------------------------------
   finalize:
     name: finalize
     needs:
       - build-natives
-      - release-go
       - github-release
       - publish-crate
       - publish-pypi
@@ -433,18 +420,37 @@ jobs:
         with:
           ref: ci/release-${{ inputs.version }}
           fetch-depth: 0
-      - name: Push bump commit to ${{ github.ref_name }} and tag go module
+
+      # go 需要 linux .so（native-linux）与 windows-gnu .dll（go-windows-gnu）
+      - name: Download linux native lib
+        uses: actions/download-artifact@v4
+        with:
+          name: native-linux
+          path: natives
+      - name: Download windows-gnu dll
+        uses: actions/download-artifact@v4
+        with:
+          name: go-windows-gnu
+          path: natives
+
+      - name: Commit go native libs, push to ${{ github.ref_name }} and tag
         env:
           NEW: ${{ inputs.version }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # 把临时分支上的版本提交推到主分支
+          # 放置 go 所需原生库并提交（让 reqrio-go/v<version> tag 包含这些文件）
+          cp natives/libreqrio.so reqrio-go/
+          cp natives/reqrio.dll   reqrio-go/
+          git add reqrio-go/libreqrio.so reqrio-go/reqrio.dll
+          git commit -m "add go native libs ${NEW}" || echo "no native lib changes to commit"
+          # 把临时分支上的提交推到主分支
           git push origin "HEAD:${{ github.ref_name }}"
-          # 打并推送 go module tag（指向同一个提交）
+          # 打并推送 go module tag（指向含原生库的提交）
           git tag "reqrio-go/v${NEW}"
           git push origin "reqrio-go/v${NEW}"
+
       - name: Delete temp release branch
         env:
           NEW: ${{ inputs.version }}
