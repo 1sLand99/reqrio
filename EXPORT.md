@@ -1,6 +1,6 @@
 # reqrio export function
 
-* char **一般是错误，传入一个nullptr。函数调用后应检查其是否为nullptr，若为nullptr应获取对应的错误，并使用char_free对其进行内存释放
+* char **一般是错误，传入一个nullptr。函数调用后应检查其是否为nullptr，若不为nullptr应获取对应的错误，并使用char_free对其进行内存释放
 * 返回char *, 与char **基本一致
 
 ## ScReq
@@ -40,11 +40,13 @@ extern "system" {
     fn ScReq_set_verify(req: *mut ScReq, verify: bool) -> *mut c_char;
     fn ScReq_set_redirect(req: *mut ScReq, redirect: bool) -> *mut c_char;
     fn ScReq_set_key_log(req: *mut ScReq, key_log: *const c_char) -> *mut c_char;
+    //转移了fingerprint的所有权
     fn ScReq_set_fingerprint(req: *mut ScReq, fingerprint: *mut Fingerprint) -> *mut c_char;
     fn ScReq_set_proxy(req: *mut ScReq, addr: *const c_char) -> *mut c_char;
     fn ScReq_set_timeout(req: *mut ScReq, timeout: *const c_char) -> *mut c_char;
     fn ScReq_set_cookie(req: *mut ScReq, cookie: *const c_char) -> *mut c_char;
     fn ScReq_add_cookie(req: *mut ScReq, name: *const c_char, value: *const c_char) -> *mut c_char;
+    //转移了url和body的所有权
     fn ScReq_stream_io(req: *mut ScReq, method: Method, url: *mut Url, body: *mut Body<'static>, err: *mut *mut c_char) -> *mut Response;
     fn ScReq_reconnect(req: *mut ScReq) -> *mut c_char;
     fn ScReq_connect(req: *mut ScReq, url: *const c_char, sni: *const c_char) -> *mut c_char;
@@ -328,8 +330,10 @@ extern "system" {
 extern "system" {
     fn Body_new(data: *const u8, len: usize, ty: *const c_char, err: *mut *mut c_char) -> *mut Body<'static>;
     fn Body_none() -> *mut Body<'static>;
+    //转移了file的所有权
     fn Body_new_files(file: *mut HttpFile, data: *const c_char, err: *mut *mut c_char) -> *mut Body<'static>;
     fn HttpFile_new() -> *mut HttpFile;
+    //转移了form的所有权
     fn HttpFile_add_form(file: *mut HttpFile, form: *mut FileForm) -> *mut c_char;
     fn FileForm_new(path: *const c_char, field_name: *const c_char, filetype: *const c_char, err: *mut *mut c_char) -> *mut FileForm;
     fn HttpFile_drop(form: *mut HttpFile);
