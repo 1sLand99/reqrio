@@ -57,7 +57,7 @@ impl Fingerprint {
                 weight: 0,
                 priority: false,
             },
-            legal_subscript: Buffer::with_capacity(1).check_subscription(token).unwrap_or(-2),
+            legal_subscript: Buffer::check_subscription(token).unwrap_or(-2),
         }
     }
 
@@ -65,14 +65,14 @@ impl Fingerprint {
         Ok(Fingerprint {
             tls,
             h2,
-            legal_subscript: Buffer::with_capacity(1).check_subscription(token)?,
+            legal_subscript: Buffer::check_subscription(token)?,
         })
     }
 
     pub fn new_tls(tls: TlsFinger, token: impl AsRef<str>) -> HlsResult<Self> {
         Ok(Fingerprint {
             tls,
-            legal_subscript: Buffer::with_capacity(1).check_subscription(token)?,
+            legal_subscript: Buffer::check_subscription(token)?,
             ..Default::default()
         })
     }
@@ -98,7 +98,7 @@ impl Fingerprint {
     pub fn random(token: impl AsRef<str>) -> Fingerprint {
         Fingerprint {
             tls: TlsFinger::random(),
-            legal_subscript: Buffer::with_capacity(0).check_subscription(token).unwrap_or(-2),
+            legal_subscript: Buffer::check_subscription(token).unwrap_or(-2),
             ..Default::default()
         }
     }
@@ -106,7 +106,7 @@ impl Fingerprint {
     pub fn from_client_hello(ch: Vec<u8>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {
         Ok(Fingerprint {
             tls: TlsFinger::ClientHello(Bytes::new(ch)),
-            legal_subscript: Buffer::with_capacity(0).check_subscription(token)?,
+            legal_subscript: Buffer::check_subscription(token)?,
             ..Default::default()
         })
     }
@@ -117,7 +117,7 @@ impl Fingerprint {
         let _ = client_hello.split_off(len);
         Ok(Fingerprint {
             tls: TlsFinger::ClientHello(Bytes::new(client_hello)),
-            legal_subscript: Buffer::with_capacity(0).check_subscription(token)?,
+            legal_subscript: Buffer::check_subscription(token)?,
             ..Default::default()
         })
     }
@@ -125,7 +125,7 @@ impl Fingerprint {
     pub fn from_ja3(ja3: impl AsRef<str>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {
         Ok(Fingerprint {
             tls: TlsFinger::from_ja3(ja3)?,
-            legal_subscript: Buffer::with_capacity(0).check_subscription(token)?,
+            legal_subscript: Buffer::check_subscription(token)?,
             ..Default::default()
         })
     }
@@ -133,7 +133,7 @@ impl Fingerprint {
     pub fn from_ja4(ja4: impl AsRef<str>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {
         Ok(Fingerprint {
             tls: TlsFinger::from_ja4(ja4)?,
-            legal_subscript: Buffer::with_capacity(0).check_subscription(token)?,
+            legal_subscript: Buffer::check_subscription(token)?,
             ..Default::default()
         })
     }

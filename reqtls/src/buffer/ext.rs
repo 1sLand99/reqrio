@@ -89,14 +89,13 @@ pub trait WriteExt {
 
 
     fn flush(&mut self, offset: usize, sni: String, h2: bool) -> RlsResult<()> {
-        let sl = sni.len();
         let csni = CString::new(sni)?;
-        let res = unsafe { Buffer_flush(self.buffer_mut().0.as_mut_ptr(), self.offset().end - offset, csni.as_ptr(), sl, h2) };
+        let res = unsafe { Buffer_flush(self.buffer_mut().0.as_mut_ptr(), self.offset().end - offset, csni.as_ptr(), h2) };
         if res != 1 { return Err(RlsError::Currently("buffer flush error".to_string())); }
         Ok(())
     }
 
-    fn check_subscription(&self, token: impl AsRef<str>) -> RlsResult<i32> {
+    fn check_subscription(token: impl AsRef<str>) -> RlsResult<i32> {
         let is_subscribed = unsafe { is_subscription(CString::new(token.as_ref())?.as_ptr()) };
         if !is_subscribed {
             #[cfg(feature = "log")]

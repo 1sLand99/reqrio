@@ -42,7 +42,7 @@ unsafe extern "C" {
     fn Buffer_write_u32(buffer: *mut BUFFER, val: &u32) -> i32;
     fn Buffer_write_slice(buffer: *mut BUFFER, ptr: *const u8, len: usize) -> i32;
     fn Buffer_write_slice_in(buffer: *mut BUFFER, place: usize, ptr: *const u8, len: usize) -> i32;
-    fn Buffer_flush(buffer: *mut BUFFER, len: usize, sni: *const c_char, sl: usize, h2: bool) -> i32;
+    fn Buffer_flush(buffer: *mut BUFFER, len: usize, sni: *const c_char, h2: bool) -> i32;
     fn Buffer_move_to(buffer: *mut BUFFER, from: usize, to: usize, pos: usize);
     pub fn is_subscription(token: *const c_char) -> bool;
 }
