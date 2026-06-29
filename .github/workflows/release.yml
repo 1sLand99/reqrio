@@ -432,11 +432,16 @@ jobs:
         with:
           name: native-linux
           path: natives
+      - name: Download windows-msvc native lib
+        uses: actions/download-artifact@v4
+        with:
+          name: native-windows
+          path: natives
       - name: Download windows-gnu dll
         uses: actions/download-artifact@v4
         with:
           name: go-windows-gnu
-          path: natives
+          path: natives-go
 
       - name: Commit go native libs, push to ${{ github.ref_name }} and tag
         env:
@@ -445,11 +450,31 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # 放置 go 所需原生库并提交（让 reqrio-go/v<version> tag 包含这些文件）
+          # go
           cp natives/libreqrio.so reqrio-go/
-          cp natives/reqrio.dll   reqrio-go/
-          git add reqrio-go/libreqrio.so reqrio-go/reqrio.dll
-          git commit -m "add go native libs ${NEW}" || echo "no native lib changes to commit"
+          cp natives-go/reqrio.dll reqrio-go/
+          #python
+          cp natives/reqrio.dll reqrio-py/reqrio/
+          cp natives/libreqrio.so reqrio-py/reqrio/
+          # nodejs
+          cp natives/reqrio.dll reqrio-js/
+          cp natives/libreqrio.so reqrio-js/
+          # java
+          cp natives/reqrio.dll reqrio-java/src/main/resources/
+          cp natives/libreqrio.so reqrio-java/src/main/resources/
+          # qt
+          cp natives/reqrio.dll reqrio-qt/
+          cp natives/reqrio.dll.lib reqrio-qt/reqrio.lib
+          cp natives/libreqrio.so reqrio-qt/
+          
+          # -f 强制加入（原生库通常被 .gitignore 忽略），把所有绑定的库一并提交
+          git add -f \
+            reqrio-go/libreqrio.so reqrio-go/reqrio.dll \
+            reqrio-py/reqrio/reqrio.dll reqrio-py/reqrio/libreqrio.so \
+            reqrio-js/reqrio.dll reqrio-js/libreqrio.so \
+            reqrio-java/src/main/resources/reqrio.dll reqrio-java/src/main/resources/libreqrio.so \
+            reqrio-qt/reqrio.dll reqrio-qt/reqrio.lib reqrio-qt/libreqrio.so
+          git commit -m "update all bindings to ${NEW}" || echo "no native lib changes to commit"
           # 把临时分支上的提交推到主分支
           git push origin "HEAD:${{ github.ref_name }}"
           # 打并推送 go module tag（指向含原生库的提交）
