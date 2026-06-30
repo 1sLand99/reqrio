@@ -1,48 +1,68 @@
-# reqrio-v0.3.0
+# reqrio v0.3.0
 
-`v0.3.0` is a significant architectural upgrade, marking the evolution of reqrio from a basic HTTP client to a controllable network stack with TLS/streaming capabilities.
+`v0.3.0` is a significant architectural upgrade, marking the evolution of reqrio
+from a basic HTTP client into a controllable network stack with TLS/streaming
+capabilities.
+
+## ⚠️ Breaking Changes
+
+The `ScReq` / `AcReq` request interfaces were refactored. Code written against
+v0.2.0 needs to be updated.
+
+```text
+// Before (v0.2.0)
+// let req = ScReq::new();
+// req.set_url(url).unwrap();
+// let resp=req.get().unwrap();
+
+// After (v0.3.0)
+let mut req = ScReq::new();
+let resp = req.get(url, None)?;   // 2nd arg = optional headers/options (None to skip)
+```
 
 ## ✨ New Features
 
-### 🔧 New HTTP API [#7](https://github.com/xllgl2017/reqrio/pull/7)
+### 🔧 New HTTP API ([#7](https://github.com/xllgl2017/reqrio/pull/7))
 
-* [x] Refactor the `ScReq` / `AcReq` request interfaces
-* [x] Simplify the Fast Request API
+- Refactored the `ScReq` / `AcReq` request interfaces
+- Simplified the fast-request API
+- Enhanced support for method chaining
+- Optimized code examples and documentation
 
 ```text
 let mut req = ScReq::new();
 let url = "https://www.baidu.com/";
-let resp = req.get(url, None).unwrap();
+let resp = req.get(url, None).unwrap();   // None = no extra headers/options
 println!("{}", resp.header());
 ```
 
-* [x] Enhanced support for method chaining
-* [x] Optimize code examples and documentation
+### 🌐 Built-in ECH (Encrypted ClientHello) lookup ([#11](https://github.com/xllgl2017/reqrio/pull/11))
 
-### 🌐 Built-in ECH query [#11](https://github.com/xllgl2017/reqrio/pull/11)
+- Supports querying ECH configuration for a domain
+- Can construct ECH data from the query result
+- Provides foundational capabilities for TLS fingerprint emulation and
+  privacy-enhancing connections
 
-* Supports ECH (Encrypted ClientHello) configuration for querying domains
-* Can construct ECH data based on query results
-* Provides foundational capabilities for TLS fingerprint emulation and privacy-enhancing connections
+### 🌊 Streaming response handling
 
-### 🌊 Streaming response analysis
+#### 1. Lightweight streaming parser `Reader` ([#12](https://github.com/xllgl2017/reqrio/pull/12))
 
-#### 1. Lightweight streaming parser `Reader` [#12](https://github.com/xllgl2017/reqrio/pull/12)
+- Supported types:
+  - `u8` / `u16` / `u24` / `u32`
+  - `&[u8]` / `str`
+- Useful for parsing protocols such as TLS, DNS, and HTTP.
 
-* supported types：
-    * u8 / u16 / u24 / u32
-    * &[u8] / str
-* suitable for scenarios involving the resolution of protocols such as TLS, DNS, and HTTP.
+#### 2. Stream decompression `StreamDecode` ([#15](https://github.com/xllgl2017/reqrio/pull/15))
 
-#### 2. Stream Decompression `StreamDecode` [#15](https://github.com/xllgl2017/reqrio/pull/15)
-
-* supported types：
-    * chunk-gzip / br / deflate / zstd
-    * gzip / br / deflate / zstd
+- Supported formats:
+  - chunked gzip / br / deflate / zstd
+  - gzip / br / deflate / zstd
 
 ## 🎯 Fingerprint-level network behavior control
 
-In v0.3.0, the `Fingerprint` architecture was refactored to support fine-grained control over TLS and HTTP/2 behavior.
+In v0.3.0 the `Fingerprint` architecture was refactored to support fine-grained
+control over TLS and HTTP/2 behavior.
+
 ### 🔐 Custom TLS fingerprint
 
 Customization is supported:
@@ -78,7 +98,7 @@ let finger = TlsFinger::Custom {
 }
 ```
 
-👉 Can be used for:
+👉 Use cases:
 
 * Precise TLS fingerprinting, simulating browser TLS fingerprinting behavior
 * Web crawler detection and countermeasures
@@ -91,49 +111,50 @@ Supports custom HTTP/2 frame and priority parameters:
 ```text
 let h2 = H2Finger {
     setting: vec![
-        H2Setting::EnablePush(0),
+        H2Setting::EnablePush(0),               // 0 = disable server push
         H2Setting::HeaderTableSize(4096),
         H2Setting::InitialWindowSize(8192),
-        H2Setting::MaxHeaderListSize(242144)
+        H2Setting::MaxHeaderListSize(242144),
     ],
     window_size: 2147418112,
-    weight: 234, //priority weight
-    priority: true, //priority
+    weight: 234,        // priority weight
+    priority: true,     // enable priority
 };
 ```
 
-👉 Can be used for:
+👉 Use cases:
 
-* Constructing HTTP/2 fingerprints (Settings / Window / Priority)
-* Simulating browser network behavior
-* Fine-grained control over connection scheduling strategies
+- Constructing HTTP/2 fingerprints (Settings / Window / Priority)
+- Simulating browser network behavior
+- Fine-grained control over connection-scheduling strategies
 
-## 🔐 Supports TLS 1.3 [#9](https://github.com/xllgl2017/reqrio/pull/9)
+## 🔐 TLS 1.3 support ([#9](https://github.com/xllgl2017/reqrio/pull/9))
 
-* Full support for the TLS 1.3 handshake process
-* Support for integration with custom TLS fingerprints
-* Provides a foundation for browser-level TLS behavior emulation
+- support for the TLS 1.3 handshake
+- Integrates with custom TLS fingerprints
+- Provides a foundation for browser-level TLS behavior emulation
 
-## 📦 Others
+## 📦 Other changes
 
 ### New cryptographic algorithms
 
-* sm4-ecb
-* sm4-cbc
-* sm4-ofb
-* sm4-cfb
-* sm4-ctr
-* aead-sm4-gcm
-* sm3
-* 3des-cbc
-* 3des-ecb
+- sm4-ecb / sm4-cbc / sm4-ofb / sm4-cfb / sm4-ctr
+- aead-sm4-gcm
+- sm3
+- 3des-cbc / 3des-ecb
 
-### Log Longer - Provide logging information for bindings
+### Logging
+
+- Improved logging — log output is now exposed to the language bindings.
 
 ## Contact
 
-* Tg: https://t.me/+VVfbAeug-ohhZjU1
-* QQ: 1083315546
+- Telegram: https://t.me/+VVfbAeug-ohhZjU1
+- QQ: 1083315546
+
+---
+
+**Full Changelog**: https://github.com/xllgl2017/reqrio/compare/v0.2.0...v0.3.0
 
 # reqrio-v0.2.0
 
