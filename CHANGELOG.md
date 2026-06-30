@@ -1,4 +1,4 @@
-# reqrio v0.3.0
+# reqrio-v0.3.0
 
 `v0.3.0` is a significant architectural upgrade, marking the evolution of reqrio
 from a basic HTTP client into a controllable network stack with TLS/streaming

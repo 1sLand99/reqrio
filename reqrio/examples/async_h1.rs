@@ -1,4 +1,3 @@
-use std::fs;
 use reqrio::*;
 
 #[cfg(feature = "log")]
