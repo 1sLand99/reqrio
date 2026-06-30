@@ -16,7 +16,6 @@ reqrio-java/src/main/resources/nls_100.json
 reqrio-qt/.idea
 reqrio-qt/cmake-build-debug-visual-studio
 reqrio-qt/cmake-build-release-visual-studio
-reqrio-qt/reqrio.lib
 nls_100.json
 node_modules
 package.json

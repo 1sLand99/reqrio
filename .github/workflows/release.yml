@@ -268,13 +268,12 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "v${VERSION}" -m "v${VERSION}" || true
-          git push origin "v${VERSION}"
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          git tag -a "v${{ inputs.version }}" -m "v${{ inputs.version }}" || true
+          git push origin "v${{ inputs.version }}"
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.VERSION }}
+          tag_name: v${{ inputs.version }}
           body_path: RELEASE_NOTES.txt
           files: |
             dist/py.zip
