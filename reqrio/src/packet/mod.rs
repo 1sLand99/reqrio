@@ -5,3 +5,4 @@ pub use ws::*;
 mod http;
 mod h2c;
 mod ws;
+mod quic;
