@@ -1,6 +1,5 @@
 use std::io::{Read, Write};
 use std::net::TcpListener;
-#[cfg(feature = "aync")]
 use std::time::Duration;
 #[cfg(feature = "aync")]
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -52,36 +51,31 @@ fn aync_server(ca: &[u8], cert: &[u8], key: &[u8]) {
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().thread_stack_size(16 * 1024 * 1024).build().unwrap();
     let _ = rt.enter();
     rt.spawn(async move {
-        let listen = tokio::net::TcpListener::bind("0.0.0.0:7879").await.unwrap();
+        let listen = tokio::net::TcpListener::bind("0.0.0.0:7877").await.unwrap();
         let (stream, _) = listen.accept().await.unwrap();
-        let tls_stream = TlsStream::accept(stream, ServerConfig {
-            alpn: &ALPN::Http20,
+        let mut tls_stream = TlsStream::accept(stream, ServerConfig {
+            alpn: &ALPN::Http11,
             ca: &mut Certificate::none(),
             server_cert: &mut cert,
             cert_key: &key,
             verify: false,
             ca_certs: &vec![],
             key_log: None,
-        }).await;
-        if let Ok(mut tls_stream) = tls_stream {
-            tokio::spawn(async move {
-                let mut buffer = [0; 1024];
-                let _ = tls_stream.read(&mut buffer).await.unwrap();
-                if buffer.starts_with(b"GET") || buffer.starts_with(b"POST") {
-                    tls_stream.write_all("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok".as_bytes()).await.unwrap();
-                }
-            });
+        }).await.unwrap();
+        let mut buffer = [0; 1024];
+        let _ = tls_stream.read(&mut buffer).await.unwrap();
+        if buffer.starts_with(b"GET") || buffer.starts_with(b"POST") {
+            tls_stream.write_all("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok".as_bytes()).await.unwrap();
         }
     });
     rt.block_on(async move {
         tokio::time::sleep(Duration::from_secs(1)).await;
         let cas = Certificate::from_der(ca).unwrap();
-        let mut req = AcReq::new();
+        let mut req = AcReq::new().with_verify(false);
         req.set_mtls(vec![], RsaKey::none(), Some(vec![cas]));
         let resp = req.get("https://127.0.0.1:7879".sni("test.reqrio.org"), None).await.unwrap();
         assert_eq!(resp.header().status(), &HttpStatus::OK);
     });
-
 }
 
 
@@ -91,25 +85,22 @@ fn sync_server(ca: &[u8], cert: &[u8], key: &[u8]) {
     std::thread::spawn(move || {
         let listen = TcpListener::bind("0.0.0.0:7878").unwrap();
         let (stream, _) = listen.accept().unwrap();
-        let tls_stream = SyncStream::accept(stream, ServerConfig {
-            alpn: &ALPN::Http20,
+        let mut tls_stream = SyncStream::accept(stream, ServerConfig {
+            alpn: &ALPN::Http11,
             ca: &mut Certificate::none(),
             server_cert: &mut cert,
             cert_key: &key,
             verify: false,
             ca_certs: &vec![],
             key_log: None,
-        });
-        if let Ok(mut tls_stream) = tls_stream {
-            std::thread::spawn(move || {
-                let mut buffer = [0; 1024];
-                let _ = tls_stream.read(&mut buffer).unwrap();
-                if buffer.starts_with(b"GET") || buffer.starts_with(b"POST") {
-                    tls_stream.write_all("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok".as_bytes()).unwrap();
-                }
-            });
+        }).unwrap();
+        let mut buffer = [0; 1024];
+        let _ = tls_stream.read(&mut buffer).unwrap();
+        if buffer.starts_with(b"GET") || buffer.starts_with(b"POST") {
+            tls_stream.write_all("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok".as_bytes()).unwrap();
         }
     });
+    std::thread::sleep(Duration::from_secs(1));
     let cas = Certificate::from_der(ca).unwrap();
     let mut req = ScReq::new();
     req.set_mtls(vec![], RsaKey::none(), Some(vec![cas]));
