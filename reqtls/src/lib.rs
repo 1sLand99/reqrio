@@ -296,7 +296,7 @@ pub use extend::{formats::EcPointFormat, CompressionMethod, ExtensionType, Suppo
 pub use hash::{HashType, Hasher, Hmac};
 pub use hex;
 pub use message::{Certificates, ClientHello, ClientKeyExchange, ServerKeyExchange, ServerHello,
-                  ServerHelloDone, SessionTicket, TlsSessionTicket, NamedCurve, Alert,
+                  ServerHelloDone, SessionTicket, TlsSessionTicket, NamedCurve, Alert, AlertLevel,
                   CertificateRequest, CertificateVerify, MessageParsed, Message};
 pub use record::{RecordLayer, RecordType};
 pub use suite::{CipherSuite, KeyExchangeAlg};

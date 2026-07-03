@@ -4,7 +4,7 @@ use crate::{BufferError, WriteExt};
 use std::fmt::{Display, Formatter};
 use std::io;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum AlertLevel {
     Warning = 1,
     Fatal = 2,
@@ -164,6 +164,8 @@ impl Alert {
     pub fn to_bytes(self) -> [u8; 2] {
         [self.level as u8, self.desc as u8]
     }
+
+    pub fn level(&self) -> AlertLevel { self.level }
 }
 
 impl Error for Alert {}

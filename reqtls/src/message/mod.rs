@@ -10,7 +10,7 @@ use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::suite::KeyExchangeAlg;
 use crate::{BufferError, HandShakeError, ReadExt, Reader, RecordType, Version, WriteExt};
-pub use alert::Alert;
+pub use alert::{Alert, AlertLevel};
 use certificate::CertificateStatus;
 pub use certificate::Certificates;
 pub use certificate::{CertificateRequest, CertificateVerify, CompressedCertificate};
