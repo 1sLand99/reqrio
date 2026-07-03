@@ -443,6 +443,12 @@ impl<'a> Extension<'a> {
         }
     }
 
+    pub fn key_share(&self) -> Option<&KeyShare<'a>> {
+        if let ExtensionValue::KeyShare(ref key) = self.value {
+            Some(key)
+        } else { None }
+    }
+
     pub fn key_share_mut(&mut self) -> Option<&mut KeyShare<'a>> {
         if let ExtensionValue::KeyShare(ref mut key) = self.value {
             Some(key)
