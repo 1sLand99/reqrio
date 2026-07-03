@@ -298,5 +298,12 @@ impl<'a> ClientHello<'a> {
             ext.remove_tls13()
         }
     }
+
+    pub fn remove_server_name(&mut self) {
+        let pos = self.extensions.iter_mut().position(|x| x.extension_type() == &ExtensionType::ServerName);
+        if let Some(pos) = pos {
+            self.extensions.remove(pos);
+        }
+    }
 }
 
