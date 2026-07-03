@@ -1,3 +1,5 @@
+use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 use crate::hpack::index::Index;
 use crate::hpack::table::Table;
 use crate::hpack::{huffman, HPackItem};
@@ -85,6 +87,10 @@ impl HPackEncode {
 
     pub fn update_table_size(&mut self, max_size: usize) {
         self.table.update_table_size(max_size);
+    }
+
+    pub fn table_size(&self) -> &Arc<AtomicUsize> {
+        self.table.max_size()
     }
 }
 

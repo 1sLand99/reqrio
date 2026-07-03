@@ -1,20 +1,18 @@
 use std::ops::Index;
 use crate::hpack::HPackItem;
 use std::slice::Iter;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub struct DynamicTable {
     values: Vec<HPackItem>,
-    max_size: usize,
+    max_size: Arc<AtomicUsize>,
     size: usize,
 }
 
 impl Default for DynamicTable {
     fn default() -> Self {
-        DynamicTable {
-            values: Vec::with_capacity(4096),
-            max_size: 4096,
-            size: 0,
-        }
+        DynamicTable::new_size(4096)
     }
 }
 
@@ -22,7 +20,7 @@ impl DynamicTable {
     pub fn new_size(max_size: usize) -> Self {
         DynamicTable {
             values: Vec::with_capacity(max_size),
-            max_size,
+            max_size: Arc::new(AtomicUsize::new(max_size)),
             size: 0,
         }
     }
@@ -51,7 +49,7 @@ impl DynamicTable {
     ///
     /// 文档文档rfc7541-4.3
     fn resize(&mut self) {
-        while self.size > self.max_size {
+        while self.size > self.max_size.load(Ordering::SeqCst) {
             match self.values.pop() {
                 None => self.size = 0,
                 Some(item) => self.size -= item.item_size(),
@@ -60,8 +58,12 @@ impl DynamicTable {
     }
 
     pub fn update_table_size(&mut self, max_size: usize) {
-        self.max_size = max_size;
+        self.max_size.store(max_size, Ordering::SeqCst);
         self.resize();
+    }
+
+    pub fn max_size(&self)->&Arc<AtomicUsize> {
+        &self.max_size
     }
 
     pub fn iter(&self) -> Iter<'_, HPackItem> {

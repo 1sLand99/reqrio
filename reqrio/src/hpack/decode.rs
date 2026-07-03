@@ -5,6 +5,8 @@ use crate::error::HlsResult;
 use crate::hpack::{huffman, HPackItem};
 use crate::Header;
 use std::mem;
+use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 
 pub struct HPackDecodeBuf<'a> {
     remain: Vec<u8>,
@@ -169,6 +171,10 @@ impl HPackDecode {
 
     pub fn update_table_size(&mut self, max_size: usize) {
         self.table.update_table_size(max_size);
+    }
+    
+    pub fn table_size(&self) -> &Arc<AtomicUsize> {
+        self.table.max_size()
     }
 }
 

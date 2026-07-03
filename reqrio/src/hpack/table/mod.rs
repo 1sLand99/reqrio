@@ -4,6 +4,8 @@ use crate::hpack::index::Index;
 use dynamic::DynamicTable;
 use r#static::STATIC_TABLE;
 use std::slice::Iter;
+use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 
 mod r#static;
 mod dynamic;
@@ -62,6 +64,10 @@ impl Table {
 
     pub fn update_table_size(&mut self, max_size: usize) {
         self.dynamic_table.update_table_size(max_size);
+    }
+
+    pub fn max_size(&self) -> &Arc<AtomicUsize> {
+        self.dynamic_table.max_size()
     }
 }
 
