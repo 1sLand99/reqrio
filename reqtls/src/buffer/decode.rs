@@ -72,15 +72,14 @@ impl<'a> RecordDecodeBuffer<'a> {
 
     pub fn head(&self) -> &[u8] { self.head }
 
-    pub fn nonce(&self, iv: &mut Iv, seq: u64) -> Vec<u8> {
-        iv.set_explicit(self.explicit_iv().to_vec());
+    pub fn nonce(&self, iv: &Iv, seq: u64) -> Vec<u8> {
         match self.suite.cipher() {
             CipherType::AES_128_GCM | CipherType::AES_256_GCM => match *self.suite.version {
-                Version::TLS_1_3 => iv.as_array(seq),
-                _ => iv.decrypting_iv()
+                Version::TLS_1_3 => iv.as_array(seq, Some(self.explicit_iv())),
+                _ => iv.decrypting_iv(Some(self.explicit_iv())).into_owned()
             },
-            CipherType::CHACHA20_POLY1305 => iv.as_array(seq),
-            CipherType::AES_128_CBC | CipherType::AES_256_CBC => iv.decrypting_iv(),
+            CipherType::CHACHA20_POLY1305 => iv.as_array(seq, Some(self.explicit_iv())),
+            CipherType::AES_128_CBC | CipherType::AES_256_CBC => iv.decrypting_iv(Some(self.explicit_iv())).into_owned(),
             _ => panic!("gen iv failed"),
         }
     }

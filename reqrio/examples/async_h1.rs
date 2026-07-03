@@ -22,6 +22,7 @@ async fn main() {
     test_log();
     let mut timeout = Timeout::longer();
     timeout.set_handle_times(1);
+    println!("{}", "GET /index.html HTTP/1.1\r\nHost: 38hmzg.cn:5001\r\nConnection: keep-alive\r\nUpgrade-Insecure-Requests: 1\r\nUser-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7\r\nSec-Fetch-Site: none\r\nSec-Fetch-Mode: navigate\r\nSec-Fetch-User: ?1\r\nSec-Fetch-Dest: document\r\ndevice-memory: 8\r\nsec-ch-device-memory: 8\r\ndpr: 1\r\nsec-ch-dpr: 1\r\nviewport-width: 937\r\nsec-ch-viewport-width: 937\r\nsec-ch-viewport-height: 877\r\nect: 3g\r\nsec-ch-ua: \"Google Chrome\";v=\"135\", \"Not-A.Brand\";v=\"8\", \"Chromium\";v=\"135\"\r\nsec-ch-ua-mobile: ?0\r\nsec-ch-ua-full-version: \"135.0.7049.52\"\r\nsec-ch-ua-arch: \"x86\"\r\nsec-ch-ua-platform: \"Linux\"\r\nsec-ch-ua-platform-version: \"5.14.0\"\r\nsec-ch-ua-model: \"\"\r\nsec-ch-ua-bitness: \"64\"\r\nsec-ch-ua-wow64: ?0\r\nsec-ch-ua-full-version-list: \"Google Chrome\";v=\"135.0.7049.52\", \"Not-A.Brand\";v=\"8.0.0.0\", \"Chromium\";v=\"135.0.7049.52\"\r\nsec-ch-ua-form-factors: \"Desktop\"\r\nsec-ch-prefers-color-scheme: light\r\nsec-ch-prefers-reduced-motion: no-preference\r\nsec-ch-prefers-reduced-transparency: no-preference\r\nAccept-Encoding: gzip, deflate, br, zstd\r\nAccept-Language: zh-CN,zh;q=0.9\r\n\r\n");
 
     let mut req = AcReq::new()
         // .with_fingerprint(fingerprint)
@@ -122,85 +123,10 @@ async fn main() {
     // let url = Url::try_from("https://cn.bing.com/").unwrap();
     // let url = "https://113.108.215.122/xhr/front/trade/priority/rushPurchase/hot/branch/one".sni("h5.moutai519.com.cn").unwrap(); //
     // let url = "https://www.baidu.com".try_into().unwrap();
-    let url: Url = "https://www.bing.com".try_into().unwrap();
-    // req.re_conn(Some(&url)).await.unwrap();
-    let resp = req.get(url.clone(), None).await.unwrap();
-    println!("{} {}", resp.header(), resp.as_bytes().len());
-    // req.re_conn(None).await.unwrap();
-    // let resp = req.get(url, None).await.unwrap();
-    // println!("{}", resp.header());
-    // println!("{}", resp.as_text().unwrap());
-
-    // println!("{} {}", res1.header(), res2.header());
-    // let res = req.get("https://m.sogou.com", None).await.unwrap();
-    // let session=req.stream_mut().tls_session().cloned();
-    // req.set_tls_session(session);
-    // let res = req.get("https://150.139.229.223".sni("h5.moutai519.com.cn"), None).await.unwrap();
-    // let res = req.get("https://aswbe.ana.co.jp/webapps/reservation/flight-search", None).await.unwrap();
-    // req.re_conn(None).await.unwrap();
-    // let res = req.get("https://aswbe.ana.co.jp/webapps/reservation/flight-search", None).await.unwrap();
-    // let res = req.send("https://oauth.hubei.gov.cn:8443/", None).await.unwrap();
-    // let res = req.get("https://104.18.34.137".sni("whatnot.com"), None).await.unwrap();
-    // let res = req.get("https://150.139.229.223".sni("h5.moutai519.com.cn"), None).await.unwrap();
-    // loop {
-
-    //     println!("{}", res.header().status());
-    //
-    // }
-
-    // let res=req.get("https://h5.moutai519.com.cn",None).await.unwrap();
-    // let res = req.get("https://m.baidu.com", None).await.unwrap();
-    // println!("{}", res.json().unwrap().pretty())
-    // println!("{:#?}", req.header().cookies());
-    // println!("{}",res.text().unwrap());
-    // req.set_url("https://m.so.com").await.unwrap();
-    // req.set_url("https://im.jinritemai.com/").await.unwrap();
-    // req.set_auto_redirect(false);
-    // req.set_url("https://cn.bing.com/AS/Suggestions?pt=page.home&qry=&csr=1&pths=1&zis=1&pf=1&cvid=AFEA02EAF9E449A99970476597AE6CED").await.unwrap();
-    // req.set_text("sfssdfsfsdfdf");
-    // println!("{:?}",String::from_utf8(fs::read("/home/xl/1/ca.crt").unwrap()).unwrap());
-    // let data = json::object! {"test_key":"test_value"};
-    // let file = HttpFile::new_bytes_data(data, fs::read("/home/xl/1/ca.crt").unwrap());
-    // req.set_files(file).unwrap();
-    // req.set_data(data);
-    // println!("{}", req.h1_raw_string().unwrap());
-    // let res = req.get().await.unwrap();
-    // println!("{} {:#?}", res.header().status(), req.header().cookies());
-    // let params = json::object! {
-    //     format:"{\\json",
-    //     ecount:20,
-    //     efirst:0
-    // };
-    // let url = "https://cn.bing.com/hp/api/v1/carousel".to_string();
-    // // println!("{}", url);
-    // let res = req.get(url.params(params), None).await.unwrap();
-    // req.set_url("https://cn.bing.com/notifications/render?bnptrigger=%7B%22PartnerId%22%3A%22HomePage%22%2C%22IID%22%3A%22Bnp%22%2C%22Attributes%22%3A%7B%22RawRequestURL%22%3A%22%2F%22%7D%7D&IG=AFEA02EAF9E449A99970476597AE6CED&IID=Bnp").await.unwrap();
-    // let res = req.get().await.unwrap();
-    // req.set_url("https://cn.bing.com/web/xlsc.aspx?dl=1&f=8").await.unwrap();
-    // let res = req.get().await.unwrap();
-    // req.set_url("https://cn.bing.com/hp/api/model").await.unwrap();
-    // let res = req.get().await.unwrap();
-    // req.set_url("https://cn.bing.com/sa/simg/favicon-trans-bg-blue-mg-png.png").await.unwrap();
-    // let res = req.get().await.unwrap();
-    // req.set_url("https://cn.bing.com/web/xlsc.aspx?dl=1&f=8").await.unwrap();
-    // let res = req.get().await.unwrap();
-    // let res = req.get().await.unwrap();
-    // let res = req.get().await.unwrap();
-    // req.set_url("https://cn.bing.com/AS/Suggestions?pt=page.home&qry=&csr=1&pths=1&zis=1&pf=1&cvid=AFEA02EAF9E449A99970476597AE6CED").await.unwrap();
-    // let res = req.get().await.unwrap();
-    // req.set_url("https://cn.bing.com/hp/api/v1/carousel?&format=json&ecount=20&efirst=0&&").await.unwrap();
-    // let res = req.get().await.unwrap();
-    // req.set_url("https://cn.bing.com/notifications/render?bnptrigger=%7B%22PartnerId%22%3A%22HomePage%22%2C%22IID%22%3A%22Bnp%22%2C%22Attributes%22%3A%7B%22RawRequestURL%22%3A%22%2F%22%7D%7D&IG=AFEA02EAF9E449A99970476597AE6CED&IID=Bnp").await.unwrap();
-    // let res = req.get().await.unwrap();
-    // req.set_url("https://cn.bing.com/web/xlsc.aspx?dl=1&f=8").await.unwrap();
-    // let res = req.get().await.unwrap();
-    // req.set_url("https://cn.bing.com/hp/api/model").await.unwrap();
-    // let res = req.get().await.unwrap();
-    // req.set_url("https://cn.bing.com/sa/simg/favicon-trans-bg-blue-mg-png.png").await.unwrap();
-    // let res = req.get().await.unwrap();
-    // req.set_url("https://cn.bing.com/web/xlsc.aspx?dl=1&f=8").await.unwrap();
-    // let res = req.get().await.unwrap();
-    // let res = req.get().await.unwrap();
-    // let res = req.get().await.unwrap();
-    // println!("{}", res.header());
+    req.set_verify(false);
+    let t = Time::now();
+    // let resp = req.get("https://192.168.99.140:7879/download/1048576000", None).await.unwrap();
+    let resp = req.get("https://www.baidu.com", None).await.unwrap();
+    println!("{}", resp.header());
+    println!("{}", Time::now().as_mills() - t.as_mills());
 }

@@ -363,13 +363,13 @@ impl Connection {
     }
 
 
-    pub fn make_message(&mut self, cty: RecordType, buffer: &mut [u8], payload: &[u8]) -> RlsResult<usize> {
+    pub fn make_message(&self, cty: RecordType, buffer: &mut [u8], payload: &[u8]) -> RlsResult<usize> {
         if buffer.len() < 5 + payload.len() { return Err(BufferError::CapacityTooSmall { needed: 5 + payload.len(), current: buffer.len() }.into()); }
         let buffer = RecordEncodeBuffer::new(cty, buffer, payload, self.cipher_suite);
         self.write.encrypt(buffer)
     }
 
-    pub fn read_message(&mut self, origin: &[u8], buffer: &mut [u8]) -> RlsResult<usize> {
+    pub fn read_message(&self, origin: &[u8], buffer: &mut [u8]) -> RlsResult<usize> {
         let buffer = RecordDecodeBuffer::from_buffer(origin, buffer, self.cipher_suite)?;
         self.read.decrypt(buffer)
     }
