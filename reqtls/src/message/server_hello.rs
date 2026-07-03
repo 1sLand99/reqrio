@@ -56,7 +56,7 @@ impl<'a> ServerHello<'a> {
         Ok(res)
     }
 
-    pub fn from_client_hello<'b: 'a>(mut client_hello: ClientHello<'b>) -> RlsResult<ServerHello<'a>> {
+    pub fn from_client_hello<'b: 'a>(mut client_hello: ClientHello<'b>, alpn: ALPN) -> RlsResult<ServerHello<'a>> {
         let mut res = ServerHello {
             version: Version::TLS_1_2,
             cipher_suite: &CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
@@ -79,7 +79,7 @@ impl<'a> ServerHello<'a> {
                 }
                 ExtensionType::ApplicationLayerProtocolNegotiation => {
                     let mut alps = ALPS::new(vec![]);
-                    alps.add_alpn(ALPN::Http11);
+                    alps.add_alpn(alpn.clone());
                     res.extensions.push(Extension::new(ExtensionType::ApplicationLayerProtocolNegotiation, ExtensionValue::ApplicationLayerProtocolNegotiation(alps)));
                 }
                 ExtensionType::ExtendMasterSecret => res.extensions.push(extension),

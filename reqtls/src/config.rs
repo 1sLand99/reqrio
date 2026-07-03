@@ -22,7 +22,6 @@ impl<'a> Config<'a> {
     }
 }
 
-
 pub struct ClientConfig<'a> {
     ///域名，ServerName
     pub sni: &'a str,
