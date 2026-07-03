@@ -128,6 +128,7 @@ impl Connection {
             let key_entry = server_hello.key_share_extend().ok_or(RlsError::MissingKeyEntry)?.key_entry();
             #[cfg(feature = "log")]
             info!("[ParsedServerHello] KeyShare={:?}; pubkey={}",key_entry.name_curve(), key_entry.exchange_key().len());
+            self.named_curve = *key_entry.name_curve();
             let mut secret_key = self.secret_keys.remove(key_entry.name_curve()).ok_or("secret not inited")?;
             let share_secret = secret_key.diffie_hellman(key_entry.exchange_key().as_ref())?;
             self.derived.make_handshake_traffic_secret(share_secret, self.hasher.current_hash()?)?;
@@ -304,7 +305,7 @@ impl Connection {
         Ok(())
     }
 
-    pub fn gen_server_hello<'a>(&mut self, client_hello: ClientHello<'a>, certificate: &'a mut [Certificate], pri_key: &RsaKey, random: &'a [u8]) -> RlsResult<RecordLayer<'a>> {
+    pub fn gen_server_hello<'a>(&mut self, client_hello: ClientHello<'a>, certificate: &'a mut [Certificate], pri_key: &RsaKey, random: &'a [u8], alpn: ALPN) -> RlsResult<RecordLayer<'a>> {
         self.derived.set_client_random(client_hello.client_random().as_ref().try_into()?);
         let mut record = RecordLayer {
             content_type: RecordType::HandShake,
@@ -313,7 +314,7 @@ impl Connection {
             messages: vec![],
         };
         //server hello
-        let mut server_hello = ServerHello::from_client_hello(client_hello)?;
+        let mut server_hello = ServerHello::from_client_hello(client_hello, alpn)?;
         server_hello.set_random(random);
         self.set_by_server_hello(&server_hello)?;
         record.messages.push(Message::new_parsed(MessageParsed::ServerHello(server_hello)));
@@ -410,6 +411,8 @@ impl Connection {
     pub fn secret_key(&self) -> &Option<SecretKey> {
         &self.secret_key
     }
+
+    pub fn named_curve(&self) -> &NamedCurve { &self.named_curve }
 
     pub fn version(&self) -> &Version { &self.version }
 }
