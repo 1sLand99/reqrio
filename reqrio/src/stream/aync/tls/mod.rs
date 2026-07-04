@@ -203,7 +203,7 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for TlsStream<S> {
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Error>> {
         let stream = self.get_mut();
         if stream.write_buffer.is_empty() {
-            let len = stream.conn.make_message(RecordType::Alert, &mut stream.write_buffer.unfilled(), &Alert::close_notify().to_bytes())?;
+            let len = stream.conn.make_message(RecordType::Alert, stream.write_buffer.unfilled(), &Alert::close_notify().to_bytes())?;
             stream.write_buffer.add_len(len);
         }
         match stream.shutdown_wrote {
