@@ -39,7 +39,7 @@
 //! │                 └──────────┘            └────────┘                 │
 //! └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┘
 //!
-// ```
+//! ```
 //! **Key Design Principles:**
 //! - **Lifetime-Based Borrowing**: Data is borrowed via lifetime parameters during header and body processing, avoiding unnecessary copies
 //! - **Copy-on-Write (Cow)**: Form data and JSON payloads use `Cow<T>` to support both borrowed and owned data without overhead

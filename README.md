@@ -85,17 +85,17 @@ languages via ffi. Supports HTTP/1.1 and HTTP/2.0; TLS supports TLS 1.2 and TLS 
 
 ## 🔐 TLS / fingerprint capability
 
-| Abilities/Characteristics             | reqrio | reqwest | requests (py) | uTLS (Go)          | curl-ffi (py) | blockreq |
-|---------------------------------------|--------|---------|---------------|--------------------|---------------|----------|
-| JA3                                   | ✅      | ❌       | ❌             | ⚠️（模拟）             | ⚠️（依赖libcurl） | ⚠️       |
-| JA4                                   | ✅      | ❌       | ❌             | ❌                  | ❌             | ⚠️       |
-| ClientHello                           | ✅      | ❌       | ❌             | ⚠️（模板化）            | ❌             | ⚠️       |
-| Random TLS                            | ✅      | ❌       | ❌             | ❌                  | ❌             | ⚠️       |
-| Custom TLS fingerprint                | ✅      | ❌       | ❌             | ⚠️                 | ❌             | ⚠️       |
-| Browser-level TLS                     | ✅      | ❌       | ❌             | ⚠️（Chrome profile） | ❌             | ⚠️       |
-| Fine-grained control of TLS 1.2 / 1.3 | ✅      | ⚠️      | ❌             | ⚠️                 | ⚠️            | ⚠️       |
-| Session Ticket Control                | ✅      | ❌       | ❌             | ❌                  | ❌             | ⚠️       |
-| TLS session recovery                  | ✅      | ⚠️      | ⚠️            | ⚠️                 | ⚠️            | ⚠️       |
+| Abilities/Characteristics             | reqrio | reqwest | requests (py) | uTLS (Go)          | curl-ffi (py)          | blockreq |
+|---------------------------------------|--------|---------|---------------|--------------------|------------------------|----------|
+| JA3                                   | ✅      | ❌       | ❌             | ⚠️（simulation）     | ⚠️（Depends on libcurl） | ⚠️       |
+| JA4                                   | ✅      | ❌       | ❌             | ❌                  | ❌                      | ⚠️       |
+| ClientHello                           | ✅      | ❌       | ❌             | ⚠️（templatization） | ❌                      | ⚠️       |
+| Random TLS                            | ✅      | ❌       | ❌             | ❌                  | ❌                      | ⚠️       |
+| Custom TLS fingerprint                | ✅      | ❌       | ❌             | ⚠️                 | ❌                      | ⚠️       |
+| Browser-level TLS                     | ✅      | ❌       | ❌             | ⚠️（Chrome profile） | ❌                      | ⚠️       |
+| Fine-grained control of TLS 1.2 / 1.3 | ✅      | ⚠️      | ❌             | ⚠️                 | ⚠️                     | ⚠️       |
+| Session Ticket Control                | ✅      | ❌       | ❌             | ❌                  | ❌                      | ⚠️       |
+| TLS session recovery                  | ✅      | ⚠️      | ⚠️            | ⚠️                 | ⚠️                     | ⚠️       |
 
 ---
 
