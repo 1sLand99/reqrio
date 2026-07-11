@@ -39,7 +39,7 @@ async fn main() {
         // .with_proxy(Proxy::Null)
         .with_verify(false)
         .with_alpn(ALPN::Http20)
-        // .with_proxy(Proxy::try_from("http: //222.186.129.68:15265").unwrap())
+        .with_proxy(Proxy::try_from("socks5://121.31.233.38:10063").unwrap())
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::new_socks5("127.0.0.1",10279))
         // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10279))
