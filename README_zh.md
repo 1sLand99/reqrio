@@ -13,6 +13,12 @@
 [![Rustdocs](https://docs.rs/reqrio/badge.svg)](https://docs.rs/reqrio)
 [![Javadocs](https://javadoc.io/badge/io.github.xllgl2017/reqrio/latest.svg)](https://javadoc.io/doc/io.github.xllgl2017/reqrio/latest)
 
+
+---
+
+🌐 **官方网站**: [reqrio](https://ms.xllgl.top/)
+
+💡 **应用案例**: [TLS Forward](https://tlsfoward.com/) — 基于 reqrio 构建的高级抓包工具
 ## 概述
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`reqrio` 是一个面向 **协议研究、TLS 指纹控制、高并发采集、复杂网络环境模拟** 设计的
