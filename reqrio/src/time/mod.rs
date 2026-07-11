@@ -37,7 +37,7 @@ impl Display for TimeError {
 
 impl Error for TimeError {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Time {
     year: u128,
     month: u128,
