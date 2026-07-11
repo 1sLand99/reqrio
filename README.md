@@ -12,7 +12,11 @@
 
 [![Rustdocs](https://docs.rs/reqrio/badge.svg)](https://docs.rs/reqrio)
 [![Javadocs](https://javadoc.io/badge/io.github.xllgl2017/reqrio/latest.svg)](https://javadoc.io/doc/io.github.xllgl2017/reqrio/latest)
+---
 
+🌐 **Official Website**: [reqrio](https://ms.xllgl.top/)
+
+💡 **Application Cases**: [TLS Forward](https://tlsfoward.com/) — Advanced packet capture tool built on reqrio
 ## Overview
 
 &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;`reqrio` is an HTTP request library designed for **protocol research, TLS
