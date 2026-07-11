@@ -144,9 +144,24 @@ impl Response {
         Ok(ended)
     }
 
-    // pub fn push_raw_slice(&mut self, raw: &[u8]) {
-    //     self.raw.extend_from_slice(raw)
-    // }
+    pub fn push_raw_slice(&mut self, raw: &[u8]) -> HlsResult<()> {
+        if self.coder.is_none() {
+            if self.raw.unfilled_len() < raw.len() {
+                self.raw.resize(self.raw.capacity() * 2)?;
+            }
+            self.raw.write_slice(raw)?;
+        }else {
+            let mut buffer = mem::replace(&mut self.h2_buffer, Buffer::with_capacity(0));
+            let ret = buffer.check_move(raw.len());
+            if ret.is_err() || buffer.unfilled_len() < raw.len() {
+                buffer.resize(buffer.capacity() * 2 + raw.len())?;
+            }
+            buffer.write_slice(raw)?;
+            self.extend_body(&mut buffer)?;
+            drop(mem::replace(&mut self.h2_buffer, buffer));
+        }
+        Ok(())
+    }
 
     pub fn header(&self) -> &Header {
         &self.header
@@ -154,8 +169,9 @@ impl Response {
 
     pub fn header_mut(&mut self) -> &mut Header { &mut self.header }
 
-    pub fn set_header(&mut self, header: Header) {
-        self.header = header
+    pub fn set_header(&mut self, header: Header) -> HlsResult<()> {
+        self.header = header;
+        self.make_coding()
     }
 
     pub fn raw_string(&self) -> String {
