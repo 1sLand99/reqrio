@@ -370,10 +370,10 @@ impl Header {
                 header.alpn = ALPN::from_slice(items.collect::<Vec<_>>().join(" ").to_lowercase().as_bytes());
                 continue;
             }
-            let mut items = line.split(": ");
-            let name = items.next().unwrap_or("");
-            let v = items.collect::<Vec<_>>().join(": ");
-            header.insert(name, v)?;
+            let pos = line.find(':').unwrap_or(line.len());
+            let name = &line[..pos];
+            let value = if pos == line.len() { "" } else { line[pos + 1..].trim() };
+            header.insert(name, value)?;
         }
         Ok(header)
     }
@@ -390,10 +390,10 @@ impl Header {
                 header.status = HttpStatus::new(status);
                 continue;
             }
-            let mut items = line.split(": ");
-            let name = items.next().unwrap_or("");
-            let v = items.collect::<Vec<_>>().join(": ");
-            header.insert(name, v)?;
+            let pos = line.find(':').unwrap_or(line.len());
+            let name = &line[..pos];
+            let value = if pos == line.len() { "" } else { line[pos + 1..].trim() };
+            header.insert(name, value)?;
         }
         Ok(header)
     }
