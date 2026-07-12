@@ -114,8 +114,8 @@ impl<'a> ClientHello<'a> {
         let group = if let Some(extend) = extend && let Some(group) = extend.supported_groups() {
             group.values().iter().filter_map(|x| if x.is_reserved() { None } else { Some(x.as_u16().to_string()) }).collect::<Vec<_>>()
         } else { vec![] };
-        let extend = self.extensions.iter().find(|x| x.ex_point_formats().is_some());
-        let formats = if let Some(extend) = extend && let Some(formats) = extend.ex_point_formats() {
+        let extend = self.extensions.iter().find(|x| x.ec_point_formats().is_some());
+        let formats = if let Some(extend) = extend && let Some(formats) = extend.ec_point_formats() {
             formats.formats().iter().map(|x| (*x).into_inner().to_string()).collect::<Vec<_>>()
         } else {
             vec![]

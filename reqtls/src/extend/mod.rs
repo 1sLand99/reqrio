@@ -405,7 +405,7 @@ impl<'a> Extension<'a> {
         }
     }
 
-    pub fn ex_point_formats(&self) -> Option<&EcPointFormats> {
+    pub fn ec_point_formats(&self) -> Option<&EcPointFormats> {
         match &self.value {
             ExtensionValue::EcPointFormats(v) => Some(v),
             _ => None
