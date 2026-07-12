@@ -89,10 +89,10 @@ impl WebSocket {
             None => headers.insert("Sec-WebSocket-Version", "13")?,
             Some(value) => if value.to_string() == "" { *value = HeaderValue::String("13".to_string()) }
         }
-        match headers.get_mut("Sec-WebSocket-Extensions") {
-            None => headers.insert("Sec-WebSocket-Extensions", "permessage-deflate; client_max_window_bits")?,
-            Some(value) => if value.to_string() == "" { *value = HeaderValue::String("permessage-deflate; client_max_window_bits".to_string()) }
-        }
+        // match headers.get_mut("Sec-WebSocket-Extensions") {
+        //     None => headers.insert("Sec-WebSocket-Extensions", "permessage-deflate; client_max_window_bits")?,
+        //     Some(value) => if value.to_string() == "" { *value = HeaderValue::String("permessage-deflate; client_max_window_bits".to_string()) }
+        // }
         match headers.get_mut("Upgrade") {
             None => headers.insert("Upgrade", "websocket")?,
             Some(value) => if value.to_string() == "" { *value = HeaderValue::String("websocket".to_string()) }
