@@ -51,24 +51,24 @@ jobs:
 
       - name: Copy native lib (Linux)
         if: runner.os == 'Linux'
-        run: cp target/release/libreqrio.so reqrio-py/reqrio/
+        run: cp target/release/libreqrio.so bindings/python/reqrio/
 
       - name: Copy native lib (Windows)
         if: runner.os == 'Windows'
-        run: copy target\release\reqrio.dll reqrio-py\reqrio\
+        run: copy target\release\reqrio.dll bindings\python\reqrio\
 
       - name: Set PYTHONPATH (Linux)
         if: runner.os == 'Linux'
-        run: echo "PYTHONPATH=${{ github.workspace }}/reqrio-py" >> $GITHUB_ENV
+        run: echo "PYTHONPATH=${{ github.workspace }}/bindings/python" >> $GITHUB_ENV
 
       - name: Set PYTHONPATH (Windows)
         if: runner.os == 'Windows'
-        run: echo "PYTHONPATH=${{ github.workspace }}\reqrio-py" >> $env:GITHUB_ENV
+        run: echo "PYTHONPATH=${{ github.workspace }}\bindings\python" >> $env:GITHUB_ENV
 
       - name: Run Python FFI test
         run: |
-          python reqrio-py/tests/test_session.py
-          python reqrio-py/tests/test_cipher.py
+          python bindings/python/tests/test_session.py
+          python bindings/python/tests/test_cipher.py
 
   # ----------------------------------------------------------------------------
   # 版本号 bump：改好所有文件版本号后提交到「临时分支」ci/release-<version>，
@@ -106,14 +106,14 @@ jobs:
           sed -i -E 's/(reqtls = \{ path = "reqtls", version = ")[^"]*(")/\1'"$NEW"'\2/' Cargo.toml
 
           # Python
-          sed -i -E 's/^version = "[^"]*"/version = "'"$NEW"'"/' reqrio-py/pyproject.toml
-          sed -i -E 's/(version=")[^"]*(")/\1'"$NEW"'\2/' reqrio-py/setup.py
+          sed -i -E 's/^version = "[^"]*"/version = "'"$NEW"'"/' bindings/python/pyproject.toml
+          sed -i -E 's/(version=")[^"]*(")/\1'"$NEW"'\2/' bindings/python/setup.py
 
           # Java（仅项目 version，4 空格缩进，避免误伤依赖/插件版本）
-          sed -i -E 's#^    <version>[^<]*</version>#    <version>'"$NEW"'</version>#' reqrio-java/pom.xml
+          sed -i -E 's#^    <version>[^<]*</version>#    <version>'"$NEW"'</version>#' bindings/java/pom.xml
 
           # Node.js
-          sed -i -E 's/("version": ")[^"]*(")/\1'"$NEW"'\2/' reqrio-js/package.json
+          sed -i -E 's/("version": ")[^"]*(")/\1'"$NEW"'\2/' bindings/nodejs/package.json
 
       - name: Show diff
         run: git --no-pager diff
@@ -126,8 +126,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add reqrio/Cargo.toml reqtls/Cargo.toml Cargo.toml \
-                  reqrio-py/pyproject.toml reqrio-py/setup.py \
-                  reqrio-java/pom.xml reqrio-js/package.json
+                  bindings/python/pyproject.toml bindings/python/setup.py \
+                  bindings/java/pom.xml bindings/nodejs/package.json
           # 版本号已是目标值时无改动可提交，跳过 commit 但仍推临时分支
           if git diff --cached --quiet; then
             echo "版本号已是 ${NEW}，无需提交"
@@ -239,30 +239,30 @@ jobs:
           set -e
           mkdir -p natives || true
           if [ -f natives/libreqrio.so ]; then
-            cp natives/libreqrio.so reqrio-py/reqrio/ || true
-            cp natives/libreqrio.so reqrio-java/src/main/resources/ || true
-            cp natives/libreqrio.so reqrio-js/ || true
-            cp natives/libreqrio.so reqrio-qt/ || true
-            cp natives/libreqrio.so reqrio-go/ || true
+            cp natives/libreqrio.so bindings/python/reqrio/ || true
+            cp natives/libreqrio.so bindings/java/src/main/resources/ || true
+            cp natives/libreqrio.so bindings/nodejs/ || true
+            cp natives/libreqrio.so bindings/qt/ || true
+            cp natives/libreqrio.so bindings/go/ || true
           fi
           if [ -f natives/reqrio.dll ]; then
-            cp natives/reqrio.dll reqrio-py/reqrio/ || true
-            cp natives/reqrio.dll reqrio-java/src/main/resources/ || true
-            cp natives/reqrio.dll reqrio-js/ || true
-            cp natives/reqrio.dll reqrio-qt/ || true
-            cp natives/reqrio.dll reqrio-go/ || true
+            cp natives/reqrio.dll bindings/python/reqrio/ || true
+            cp natives/reqrio.dll bindings/java/src/main/resources/ || true
+            cp natives/reqrio.dll bindings/nodejs/ || true
+            cp natives/reqrio.dll bindings/qt/ || true
+            cp natives/reqrio.dll bindings/go/ || true
           fi
           if ls natives/*.lib 1> /dev/null 2>&1; then
-            cp natives/reqrio.dll.lib reqrio-qt/reqrio.lib || true
+            cp natives/reqrio.dll.lib bindings/qt/reqrio.lib || true
           fi
       - name: Package bindings into zips
         run: |
           mkdir -p dist
-          zip -r dist/py.zip   reqrio-py
-          zip -r dist/go.zip   reqrio-go
-          zip -r dist/js.zip   reqrio-js
-          zip -r dist/java.zip reqrio-java
-          zip -r dist/qt.zip   reqrio-qt
+          zip -r dist/py.zip   bindings/python
+          zip -r dist/go.zip   bindings/go
+          zip -r dist/js.zip   bindings/nodejs
+          zip -r dist/java.zip bindings/java
+          zip -r dist/qt.zip   bindings/qt
       - name: Determine version and create tag if not pre-release
         run: |
           set -euo pipefail
@@ -325,11 +325,11 @@ jobs:
 
       - name: Place native libs into package
         run: |
-          cp natives/libreqrio.so reqrio-py/reqrio/
-          cp natives/reqrio.dll   reqrio-py/reqrio/
+          cp natives/libreqrio.so bindings/python/reqrio/
+          cp natives/reqrio.dll   bindings/python/reqrio/
 
       - name: Build wheel & sdist
-        working-directory: reqrio-py
+        working-directory: bindings/python
         run: |
           python -m pip install --upgrade build
           python -m build
@@ -337,7 +337,7 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: reqrio-py/dist
+          packages-dir: bindings/python/dist
           password: ${{ secrets.PYPI_API_TOKEN }}
 
   # ----------------------------------------------------------------------------
@@ -371,11 +371,11 @@ jobs:
 
       - name: Place native libs into resources
         run: |
-          cp natives/libreqrio.so reqrio-java/src/main/resources/
-          cp natives/reqrio.dll   reqrio-java/src/main/resources/
+          cp natives/libreqrio.so bindings/java/src/main/resources/
+          cp natives/reqrio.dll   bindings/java/src/main/resources/
 
       - name: Deploy to Maven Central
-        working-directory: reqrio-java
+        working-directory: bindings/java
         env:
           MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
@@ -407,11 +407,11 @@ jobs:
 
       - name: Place native libs into package
         run: |
-          cp natives/libreqrio.so reqrio-js/
-          cp natives/reqrio.dll   reqrio-js/
+          cp natives/libreqrio.so bindings/nodejs/
+          cp natives/reqrio.dll   bindings/nodejs/
 
       - name: Publish to npm
-        working-directory: reqrio-js
+        working-directory: bindings/nodejs
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public
@@ -465,35 +465,35 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # go
-          cp natives/libreqrio.so reqrio-go/
-          cp natives-go/reqrio.dll reqrio-go/
+          cp natives/libreqrio.so bindings/go/
+          cp natives-go/reqrio.dll bindings/go/
           #python
-          cp natives/reqrio.dll reqrio-py/reqrio/
-          cp natives/libreqrio.so reqrio-py/reqrio/
+          cp natives/reqrio.dll bindings/python/reqrio/
+          cp natives/libreqrio.so bindings/python/reqrio/
           # nodejs
-          cp natives/reqrio.dll reqrio-js/
-          cp natives/libreqrio.so reqrio-js/
+          cp natives/reqrio.dll bindings/nodejs/
+          cp natives/libreqrio.so bindings/nodejs/
           # java
-          cp natives/reqrio.dll reqrio-java/src/main/resources/
-          cp natives/libreqrio.so reqrio-java/src/main/resources/
+          cp natives/reqrio.dll bindings/java/src/main/resources/
+          cp natives/libreqrio.so bindings/java/src/main/resources/
           # qt
-          cp natives/reqrio.dll reqrio-qt/
-          cp natives/reqrio.dll.lib reqrio-qt/reqrio.lib
-          cp natives/libreqrio.so reqrio-qt/
+          cp natives/reqrio.dll bindings/qt/
+          cp natives/reqrio.dll.lib bindings/qt/reqrio.lib
+          cp natives/libreqrio.so bindings/qt/
           
           # -f 强制加入（原生库通常被 .gitignore 忽略），把所有绑定的库一并提交
           git add -f \
-            reqrio-go/libreqrio.so reqrio-go/reqrio.dll \
-            reqrio-py/reqrio/reqrio.dll reqrio-py/reqrio/libreqrio.so \
-            reqrio-js/reqrio.dll reqrio-js/libreqrio.so \
-            reqrio-java/src/main/resources/reqrio.dll reqrio-java/src/main/resources/libreqrio.so \
-            reqrio-qt/reqrio.dll reqrio-qt/reqrio.lib reqrio-qt/libreqrio.so
+            bindings/go/libreqrio.so bindings/go/reqrio.dll \
+            bindings/python/reqrio/reqrio.dll bindings/python/reqrio/libreqrio.so \
+            bindings/nodejs/reqrio.dll bindings/nodejs/libreqrio.so \
+            bindings/java/src/main/resources/reqrio.dll bindings/java/src/main/resources/libreqrio.so \
+            bindings/qt/reqrio.dll bindings/qt/reqrio.lib bindings/qt/libreqrio.so
           git commit -m "update all bindings to ${NEW}" || echo "no native lib changes to commit"
           # 把临时分支上的提交推到主分支
           git push origin "HEAD:${{ github.ref_name }}"
           # 打并推送 go module tag（指向含原生库的提交）
-          git tag "reqrio-go/v${NEW}"
-          git push origin "reqrio-go/v${NEW}"
+          git tag "go/v${NEW}"
+          git push origin "go/v${NEW}"
 
       - name: Delete temp release branch
         env:
