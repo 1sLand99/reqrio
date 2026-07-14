@@ -85,6 +85,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          submodules: recursive
           ref: ${{ github.ref_name }}
 
       - name: Validate version format
@@ -157,6 +158,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          submodules: recursive
           ref: ci/release-${{ inputs.version }}
       - uses: Swatinem/rust-cache@v2
         with:
@@ -216,6 +218,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          submodules: recursive
           ref: ci/release-${{ inputs.version }}
       - name: Extract release notes from CHANGELOG.md
         run: |
@@ -294,6 +297,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          submodules: recursive
           ref: ci/release-${{ inputs.version }}
       - uses: Swatinem/rust-cache@v2
       - name: cargo publish
@@ -313,6 +317,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          submodules: recursive
           ref: ci/release-${{ inputs.version }}
       - uses: actions/setup-python@v5
         with:
@@ -352,6 +357,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          submodules: recursive
           ref: ci/release-${{ inputs.version }}
       - name: Setup JDK + Maven settings
         uses: actions/setup-java@v4
@@ -394,6 +400,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          submodules: recursive
           ref: ci/release-${{ inputs.version }}
       - uses: actions/setup-node@v4
         with:
@@ -439,6 +446,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          submodules: recursive
           ref: ci/release-${{ inputs.version }}
           fetch-depth: 0
 
