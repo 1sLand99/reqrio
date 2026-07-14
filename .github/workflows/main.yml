@@ -17,6 +17,8 @@ jobs:
       TOKEN: ${{ secrets.TOKEN }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - uses: Swatinem/rust-cache@v2
         with:
           key: |
@@ -53,6 +55,8 @@ jobs:
       TOKEN: ${{ secrets.TOKEN }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - uses: Swatinem/rust-cache@v2
         with:
           key: |
@@ -68,7 +72,7 @@ jobs:
           cargo build --package reqrio --features export
       - name: Copy DLL
         run: |
-          copy target\\debug\\reqrio.dll \\bindings\\python\\reqrio\\
+          copy target\\debug\\reqrio.dll bindings\\python\\reqrio\\
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=${{ github.workspace }}\\bindings\\python" >> $env:GITHUB_ENV
       - name: Run Python FFI Test
