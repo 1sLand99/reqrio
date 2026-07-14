@@ -105,7 +105,7 @@ impl Buffer {
     }
 
     pub fn move_to(&mut self, r: Range<usize>, pos: usize) -> Result<(), BufferError> {
-        if r.end < r.start { return Err(BufferError::RangeEdgeError(r)); };
+        if r.end < r.start || r.end > self.end() { return Err(BufferError::RangeEdgeError(r)); };
         unsafe { Buffer_move_to(self.0.as_mut_ptr(), r.start, r.end, pos) };
         Ok(())
     }
@@ -284,6 +284,13 @@ mod test_buffer {
         buffer.used_empty(1);
         assert_eq!(buffer.filled(), [2, 3, 4, 5]);
         assert_eq!(buffer.unfilled().len(), 1019);
+        
+        buffer.move_to(3..5, 2).unwrap();
+        assert_eq!(buffer.filled(), [2, 4, 5]);
+        assert_eq!(buffer.offset(), 1..4);
+        buffer.move_to(buffer.offset(), 0).unwrap();
+        assert_eq!(buffer.filled(), [2, 4, 5]);
+        assert_eq!(buffer.offset(), 0..3);
 
         buffer.resize(2048).unwrap();
         assert_eq!(buffer.capacity(), 2048);
