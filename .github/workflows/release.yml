@@ -108,7 +108,7 @@ jobs:
           # Rust: 工作区对 reqtls 的依赖引用
           sed -i -E 's/(reqtls = \{ path = "reqtls", version = ")[^"]*(")/\1'"$NEW"'\2/' Cargo.toml
 
-          # Python
+          # Python（子模块 bindings 自己维护）
           sed -i -E 's/^version = "[^"]*"/version = "'"$NEW"'"/' bindings/python/pyproject.toml
           sed -i -E 's/(version=")[^"]*(")/\1'"$NEW"'\2/' bindings/python/setup.py
 
@@ -117,6 +117,25 @@ jobs:
 
           # Node.js
           sed -i -E 's/("version": ")[^"]*(")/\1'"$NEW"'\2/' bindings/nodejs/package.json
+
+      - name: Commit bindings submodule changes
+        env:
+          NEW: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -d bindings/.git ] || [ -f bindings/.git ]; then
+            git -C bindings config user.name "github-actions[bot]"
+            git -C bindings config user.email "github-actions[bot]@users.noreply.github.com"
+            git -C bindings add -f python/pyproject.toml python/setup.py java/pom.xml nodejs/package.json
+            if ! git -C bindings diff --cached --quiet; then
+              git -C bindings commit -m "bump version ${NEW}"
+              git -C bindings push origin "HEAD:refs/heads/ci/release-${NEW}" || echo "submodule temp branch push skipped"
+            else
+              echo "子模块 bindings 中没有需要提交的版本变更"
+            fi
+          else
+            echo "bindings 不是已初始化的 git 子模块，跳过子模块提交"
+          fi
 
       - name: Show diff
         run: git --no-pager diff
@@ -128,9 +147,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add reqrio/Cargo.toml reqtls/Cargo.toml Cargo.toml \
-                  bindings/python/pyproject.toml bindings/python/setup.py \
-                  bindings/java/pom.xml bindings/nodejs/package.json
+          git add reqrio/Cargo.toml reqtls/Cargo.toml Cargo.toml bindings
           # 版本号已是目标值时无改动可提交，跳过 commit 但仍推临时分支
           if git diff --cached --quiet; then
             echo "版本号已是 ${NEW}，无需提交"
@@ -491,16 +508,48 @@ jobs:
           cp natives/reqrio.dll.lib bindings/qt/reqrio.lib
           cp natives/libreqrio.so bindings/qt/
           
-          # -f 强制加入（原生库通常被 .gitignore 忽略），把所有绑定的库一并提交
-          git add -f \
-            bindings/go/libreqrio.so bindings/go/reqrio.dll \
-            bindings/python/reqrio/reqrio.dll bindings/python/reqrio/libreqrio.so \
-            bindings/nodejs/reqrio.dll bindings/nodejs/libreqrio.so \
-            bindings/java/src/main/resources/reqrio.dll bindings/java/src/main/resources/libreqrio.so \
-            bindings/qt/reqrio.dll bindings/qt/reqrio.lib bindings/qt/libreqrio.so
-          git commit -m "update all bindings to ${NEW}" || echo "no native lib changes to commit"
-          # 把临时分支上的提交推到主分支
-          git push origin "HEAD:${{ github.ref_name }}"
+          git -C bindings config user.name "github-actions[bot]"
+          git -C bindings config user.email "github-actions[bot]@users.noreply.github.com"
+          git -C bindings add -f \
+            go/libreqrio.so go/reqrio.dll \
+            python/reqrio/reqrio.dll python/reqrio/libreqrio.so \
+            nodejs/reqrio.dll nodejs/libreqrio.so \
+            java/src/main/resources/reqrio.dll java/src/main/resources/libreqrio.so \
+            qt/reqrio.dll qt/reqrio.lib qt/libreqrio.so
+          if ! git -C bindings diff --cached --quiet; then
+            git -C bindings commit -m "update all bindings to ${NEW}"
+            git -C bindings push origin "HEAD:refs/heads/ci/release-${NEW}" || echo "submodule temp branch push skipped"
+          else
+            echo "bindings submodule has no native lib changes to commit"
+          fi
+
+          git add bindings
+          if ! git diff --cached --quiet; then
+            git commit -m "update all bindings to ${NEW}" || echo "no parent repo changes to commit"
+          else
+            echo "parent repo has no changes to commit"
+          fi
+
+          # 先把临时发布分支合并到主分支，再推送主分支
+          git fetch origin "${{ github.ref_name }}"
+          git fetch origin "ci/release-${NEW}"
+          git checkout -B "${{ github.ref_name }}" "origin/${{ github.ref_name }}"
+          git merge --ff-only "ci/release-${NEW}" || {
+            echo "fast-forward merge to main failed; falling back to direct push"
+            git push origin "HEAD:refs/heads/${{ github.ref_name }}"
+          }
+          git push origin "${{ github.ref_name }}"
+
+          # 同步子模块的临时分支内容到子模块主分支
+          git -C bindings fetch origin "${{ github.ref_name }}"
+          git -C bindings fetch origin "ci/release-${NEW}"
+          git -C bindings checkout -B "${{ github.ref_name }}" "origin/${{ github.ref_name }}"
+          git -C bindings merge --ff-only "ci/release-${NEW}" || {
+            echo "submodule fast-forward merge failed; falling back to direct push"
+            git -C bindings push origin "HEAD:refs/heads/${{ github.ref_name }}"
+          }
+          git -C bindings push origin "${{ github.ref_name }}"
+
           # 打并推送 go module tag（指向含原生库的提交）
           git tag "go/v${NEW}"
           git push origin "go/v${NEW}"
@@ -508,4 +557,6 @@ jobs:
       - name: Delete temp release branch
         env:
           NEW: ${{ inputs.version }}
-        run: git push origin --delete "ci/release-${NEW}"
+        run: |
+          git push origin --delete "ci/release-${NEW}" || true
+          git -C bindings push origin --delete "ci/release-${NEW}" || true
