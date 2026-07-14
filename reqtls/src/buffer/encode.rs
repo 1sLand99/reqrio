@@ -2,12 +2,14 @@ use crate::{CipherSuite, RecordType, Version};
 use std::ops::Range;
 
 pub struct PayloadEncodeBuffer<'a> {
-    payload: &'a mut [u8],
+    encoded: &'a mut [u8],
+    plain: &'a [u8],
     plain_offset: Range<usize>,
     encode_offset: Range<usize>,
 }
+
 impl<'a> PayloadEncodeBuffer<'a> {
-    pub fn new(suite: &'static CipherSuite, ct: &RecordType, buffer: &'a mut [u8], origin: &[u8]) -> PayloadEncodeBuffer<'a> {
+    pub fn new_tls(suite: &'static CipherSuite, ct: &RecordType, buffer: &'a mut [u8], origin: &'a [u8]) -> PayloadEncodeBuffer<'a> {
         let mut plain_offset = suite.trans_iv_len..suite.trans_iv_len + origin.len();
         buffer[plain_offset.clone()].copy_from_slice(origin);
         if suite.version == &Version::TLS_1_3 {
@@ -15,32 +17,42 @@ impl<'a> PayloadEncodeBuffer<'a> {
             plain_offset.end += 1
         }
         PayloadEncodeBuffer {
-            payload: buffer,
+            encoded: buffer,
+            plain: origin,
             encode_offset: suite.trans_iv_len..suite.trans_iv_len + plain_offset.len() + 16,
             plain_offset,
 
         }
     }
 
+    pub fn new_quic(buffer: &'a mut [u8], origin: &'a [u8]) -> PayloadEncodeBuffer<'a> {
+        PayloadEncodeBuffer {
+            encoded: buffer,
+            plain: origin,
+            plain_offset: 0..origin.len(),
+            encode_offset: 0..1 + origin.len(),
+        }
+    }
+
     fn add_explicit_iv(&mut self, suite: &'static CipherSuite, iv: &[u8]) {
         match suite.trans_iv_len {
-            8 => self.payload[..8].copy_from_slice(&iv[4..]),
-            16 => self.payload[..16].copy_from_slice(&iv[..16]),
+            8 => self.encoded[..8].copy_from_slice(&iv[4..]),
+            16 => self.encoded[..16].copy_from_slice(&iv[..16]),
             0 => {}
             _ => panic!("unsupported suite specification"),
         }
     }
 
     pub fn origin_payload(&self) -> &[u8] {
-        &self.payload[self.plain_offset.clone()]
+        &self.encoded[self.plain_offset.clone()]
     }
 
     pub fn encoded_payload(&mut self) -> &mut [u8] {
-        &mut self.payload[self.encode_offset.clone()]
+        &mut self.encoded[self.encode_offset.clone()]
     }
 }
 
-pub struct RecordEncodeBuffer<'a> {
+pub struct CipherEncodeBuffer<'a> {
     suite: &'static CipherSuite,
     head: &'a mut [u8],
     record_len: usize,
@@ -48,8 +60,8 @@ pub struct RecordEncodeBuffer<'a> {
 }
 
 
-impl<'a> RecordEncodeBuffer<'a> {
-    pub(crate) fn new(rt: RecordType, buffer: &'a mut [u8], origin: &'a [u8], suite: &'static CipherSuite) -> RecordEncodeBuffer<'a> {
+impl<'a> CipherEncodeBuffer<'a> {
+    pub(crate) fn new_tls(rt: RecordType, buffer: &'a mut [u8], origin: &'a [u8], suite: &'static CipherSuite) -> CipherEncodeBuffer<'a> {
         let (head, payload) = buffer.split_at_mut(5);
         head[0] = match *suite.version {
             Version::TLS_1_3 => 23,
@@ -57,11 +69,21 @@ impl<'a> RecordEncodeBuffer<'a> {
         };
         head[1] = 3;
         head[2] = 3;
-        RecordEncodeBuffer {
+        CipherEncodeBuffer {
             suite,
             head,
             record_len: 0,
-            payload: PayloadEncodeBuffer::new(suite, &rt, payload, origin),
+            payload: PayloadEncodeBuffer::new_tls(suite, &rt, payload, origin),
+        }
+    }
+
+    pub(crate) fn new_quic(buffer: &'a mut [u8], origin: &'a [u8], suite: &'static CipherSuite) -> CipherEncodeBuffer<'a> {
+        let (head, payload) = buffer.split_at_mut(22);
+        CipherEncodeBuffer {
+            suite,
+            head,
+            record_len: 0,
+            payload: PayloadEncodeBuffer::new_quic(payload, origin),
         }
     }
 
@@ -112,7 +134,7 @@ impl<'a> RecordEncodeBuffer<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::buffer::RecordEncodeBuffer;
+    use crate::buffer::CipherEncodeBuffer;
     use crate::{CipherSuite, RecordType};
 
     #[test]
@@ -122,7 +144,7 @@ mod tests {
         let record_type = RecordType::ApplicationData;
 
         let suite = &CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256;
-        let mut encode = RecordEncodeBuffer::new(record_type, &mut buffer, &payload, suite);
+        let mut encode = CipherEncodeBuffer::new_tls(record_type, &mut buffer, &payload, suite);
         encode.add_explicit_iv(&[14; 12]);
         assert_eq!(encode.head(), [record_type.as_u8(), 3, 3, 0, 0]);
         assert_eq!(encode.payload.origin_payload(), payload);
@@ -133,14 +155,14 @@ mod tests {
 
         let suite = &CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256;
         let mut buffer = [0; 1024];
-        let mut encode = RecordEncodeBuffer::new(record_type, &mut buffer, &payload, suite);
+        let mut encode = CipherEncodeBuffer::new_tls(record_type, &mut buffer, &payload, suite);
         assert_eq!(encode.head(), [record_type.as_u8(), 3, 3, 0, 0]);
         assert_eq!(encode.payload.origin_payload(), payload);
         assert_eq!(encode.payload.encoded_payload(), pd);
 
         let suite = &CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA;
         let mut buffer = [0; 1024];
-        let mut encode = RecordEncodeBuffer::new(record_type, &mut buffer, &payload, suite);
+        let mut encode = CipherEncodeBuffer::new_tls(record_type, &mut buffer, &payload, suite);
         encode.add_explicit_iv(&[77; 16]);
         assert_eq!(encode.head(), [record_type.as_u8(), 3, 3, 0, 0]);
         assert_eq!(encode.payload.origin_payload(), payload);
@@ -154,7 +176,7 @@ mod tests {
         let record_type = RecordType::HandShake;
 
         let suite = &CipherSuite::TLS_AES_128_GCM_SHA256;
-        let mut encode = RecordEncodeBuffer::new(record_type, &mut buffer, &payload, suite);
+        let mut encode = CipherEncodeBuffer::new_tls(record_type, &mut buffer, &payload, suite);
         encode.add_explicit_iv(&[14; 12]);
         assert_eq!(encode.head(), [23, 3, 3, 0, 0]);
         let mut pd = Vec::with_capacity(suite.trans_iv_len + payload.len() + 16);
@@ -167,7 +189,7 @@ mod tests {
 
         let suite = &CipherSuite::TLS_CHACHA20_POLY1305_SHA256;
         let mut buffer = [0; 1024];
-        let mut encode = RecordEncodeBuffer::new(record_type, &mut buffer, &payload, suite);
+        let mut encode = CipherEncodeBuffer::new_tls(record_type, &mut buffer, &payload, suite);
         assert_eq!(encode.head(), [23, 3, 3, 0, 0]);
         pd = pd[..pd.len() - 16].to_vec();
         assert_eq!(encode.payload.origin_payload(), pd);

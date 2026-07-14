@@ -136,7 +136,7 @@ impl CipherCrypto {
 mod tests {
     use crate::boring::evp::CipherCrypto;
     use crate::boring::{CryptDecodeParam, CryptEncodeParam};
-    use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
+    use crate::buffer::{CipherDecodeBuffer, CipherEncodeBuffer};
     use crate::{CipherSuite, RecordType};
 
     fn test_cipher_tls(suite: &'static CipherSuite, key: &[u8], en: &[u8]) {
@@ -144,7 +144,7 @@ mod tests {
         let payload = [1, 2, 3, 4, 5, 61, 2, 3, 4, 5, 6, 7, 8, 9, 23, 23];
         let mac_key = vec![12; suite.mac_key_size];
         let mut buffer = [0; 1024];
-        let mut record_buffer = RecordEncodeBuffer::new(RecordType::HandShake, &mut buffer, &payload, suite);
+        let mut record_buffer = CipherEncodeBuffer::new_tls(RecordType::HandShake, &mut buffer, &payload, suite);
         record_buffer.add_explicit_iv(&iv);
         let crypto = CipherCrypto::new(&suite.aead().unwrap(), key.to_vec(), mac_key.to_vec(), suite.mac_hash()).unwrap();
         crypto.encrypt(CryptEncodeParam {
@@ -158,7 +158,7 @@ mod tests {
         assert_eq!(&buffer[..len], en);
 
         let mut decoded_buffer = vec![0; 1024];
-        let mut record_buffer = RecordDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, suite).unwrap();
+        let mut record_buffer = CipherDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, suite).unwrap();
         let len = crypto.decrypt(CryptDecodeParam {
             nonce: &[0; 12],
             iv: &iv,
