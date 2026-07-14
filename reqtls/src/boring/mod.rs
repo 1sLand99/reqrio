@@ -19,7 +19,7 @@ pub use evp::{AeadCtx, CipherCrypto, EvpCurve};
 pub use ec_curve::*;
 pub use hash::*;
 
-use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
+use crate::buffer::{CipherDecodeBuffer, CipherEncodeBuffer};
 use crate::error::RlsResult;
 use crate::extend::Aead;
 pub use signature::{AlgorithmSigner, SignatureAlgorithm};
@@ -44,7 +44,7 @@ pub(crate) struct CryptEncodeParam<'a, 'b: 'a> {
     pub(crate) iv: &'a [u8],
     pub(crate) aad: &'a [u8],
     pub(crate) seq: &'a u64,
-    pub(crate) buffer: &'a mut RecordEncodeBuffer<'b>,
+    pub(crate) buffer: &'a mut CipherEncodeBuffer<'b>,
 }
 
 pub(crate) struct CryptDecodeParam<'a, 'b: 'a> {
@@ -52,7 +52,7 @@ pub(crate) struct CryptDecodeParam<'a, 'b: 'a> {
     pub(crate) iv: &'a [u8],
     pub(crate) aad: &'a [u8],
     pub(crate) seq: &'a u64,
-    pub(crate) buffer: &'a mut RecordDecodeBuffer<'b>,
+    pub(crate) buffer: &'a mut CipherDecodeBuffer<'b>,
 }
 
 pub enum Crypto {

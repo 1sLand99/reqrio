@@ -5,7 +5,7 @@ use super::suite::CipherSuite;
 use super::suite::TlsCipher;
 use super::version::Version;
 use crate::boring::{certificate, AlgorithmSigner};
-use crate::buffer::{Buf, RecordDecodeBuffer, RecordEncodeBuffer};
+use crate::buffer::{Buf, CipherDecodeBuffer, CipherEncodeBuffer};
 use crate::error::{HandShakeError, RlsResult};
 use crate::key::{DerivedKey, Key, SecretKey, TlsSession};
 use crate::message::{CompressedCertificate, EncryptedExtension, HandshakeType};
@@ -368,12 +368,12 @@ impl Connection {
 
     pub fn make_message(&self, cty: RecordType, buffer: &mut [u8], payload: &[u8]) -> RlsResult<usize> {
         if buffer.len() < 5 + payload.len() { return Err(BufferError::CapacityTooSmall { needed: 5 + payload.len(), current: buffer.len() }.into()); }
-        let buffer = RecordEncodeBuffer::new(cty, buffer, payload, self.cipher_suite);
+        let buffer = CipherEncodeBuffer::new_tls(cty, buffer, payload, self.cipher_suite);
         self.write.encrypt(buffer)
     }
 
-    pub fn read_message(&self, origin: &[u8], buffer: &mut [u8]) -> RlsResult<usize> {
-        let buffer = RecordDecodeBuffer::from_buffer(origin, buffer, self.cipher_suite)?;
+    pub fn read_message(&mut self, origin: &[u8], buffer: &mut [u8]) -> RlsResult<usize> {
+        let buffer = CipherDecodeBuffer::from_buffer(origin, buffer, self.cipher_suite)?;
         self.read.decrypt(buffer)
     }
 

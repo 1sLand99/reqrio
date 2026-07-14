@@ -73,6 +73,25 @@ impl AeadCtx {
         Ok(())
     }
 
+    pub fn seal2(&self, out: &mut [u8], nonce: &[u8], origin: &[u8], aad: &[u8]) -> RlsResult<usize> {
+        let mut out_len = 0;
+        unsafe {
+            AEAD_CTX_seal(
+                self.0.as_ptr(),
+                out.as_mut_ptr(),
+                &mut out_len,
+                out.len(),
+                nonce.as_ptr(),
+                nonce.len(),
+                origin.as_ptr(),
+                origin.len(),
+                aad.as_ptr(),
+                aad.len(),
+            )
+        }.ok(RlsError::AeadEncryptError)?;
+        Ok(out_len)
+    }
+
     pub fn open(&self, param: CryptDecodeParam) -> RlsResult<usize> {
         let mut out_len = 0usize;
         let ok = unsafe {
@@ -91,6 +110,26 @@ impl AeadCtx {
         };
         if ok != 1 { Err(RlsError::AeadDecryptError) } else { Ok(out_len) }
     }
+
+
+    pub fn open2(&self, out: &mut [u8], nonce: &[u8], origin: &[u8], aad: &[u8]) -> RlsResult<usize> {
+        let mut out_len = 0usize;
+        let ok = unsafe {
+            AEAD_CTX_open(
+                self.0.as_ptr(),
+                out.as_mut_ptr(),
+                &mut out_len,
+                origin.len() - 16,
+                nonce.as_ptr(),
+                nonce.len(),
+                origin.as_ptr(),
+                origin.len(),
+                aad.as_ptr(),
+                aad.len(),
+            )
+        };
+        if ok != 1 { Err(RlsError::AeadDecryptError) } else { Ok(out_len) }
+    }
 }
 
 
@@ -99,7 +138,7 @@ mod aead_tests {
     use std::{env, fs};
     use crate::boring::bindings::EVP_AEAD_DEFAULT_TAG_LENGTH;
     use crate::boring::{AeadCtx, CryptDecodeParam, CryptEncodeParam};
-    use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
+    use crate::buffer::{CipherDecodeBuffer, CipherEncodeBuffer};
     use crate::{Buffer, CipherSuite, RecordType, Version, WriteExt};
 
     fn test_aead(suite: &'static CipherSuite, key: &[u8], size: usize, en: &[u8]) {
@@ -108,7 +147,7 @@ mod aead_tests {
         let payload = [1, 2, 3, 4, 5, 61, 2, 3, 4, 5, 6, 7, 8, 9, 23, 23];
         let iv = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4];
         let mut buffer = [0; 1024];
-        let mut record_buffer = RecordEncodeBuffer::new(RecordType::HandShake, &mut buffer, &payload, suite);
+        let mut record_buffer = CipherEncodeBuffer::new_tls(RecordType::HandShake, &mut buffer, &payload, suite);
         record_buffer.add_explicit_iv(&iv);
         let aad = record_buffer.aad(0);
         ctx.seal(CryptEncodeParam {
@@ -122,7 +161,7 @@ mod aead_tests {
         assert_eq!(len, size);
         assert_eq!(&buffer[..len], en);
         let mut decoded_buffer = vec![0; 1024];
-        let mut record_buffer = RecordDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, suite).unwrap();
+        let mut record_buffer = CipherDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, suite).unwrap();
         let aad = record_buffer.aad(0).unwrap();
         let mut len = ctx.open(CryptDecodeParam {
             nonce: &[0; 12],

@@ -8,13 +8,13 @@ pub struct PayloadDecodeBuffer<'a> {
 }
 
 
-pub struct RecordDecodeBuffer<'a> {
+pub struct CipherDecodeBuffer<'a> {
     suite: &'static CipherSuite,
     head: &'a [u8],
     payload: PayloadDecodeBuffer<'a>,
 }
 
-impl<'a> RecordDecodeBuffer<'a> {
+impl<'a> CipherDecodeBuffer<'a> {
     pub fn from_buffer(origin: &'a [u8], decoded: &'a mut [u8], suite: &'static CipherSuite) -> RlsResult<Self> {
         if decoded.len() < origin.len() - 5 {
             return Err(BufferError::CapacityTooSmall {
@@ -23,7 +23,7 @@ impl<'a> RecordDecodeBuffer<'a> {
             }.into());
         }
         let (head, origin) = origin.split_at(5);
-        Ok(RecordDecodeBuffer {
+        Ok(CipherDecodeBuffer {
             suite,
             head,
             payload: PayloadDecodeBuffer { origin, decoded },
