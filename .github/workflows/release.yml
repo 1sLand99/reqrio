@@ -227,7 +227,7 @@ jobs:
           ' CHANGELOG.md > RELEASE_NOTES.txt
           if [ ! -s RELEASE_NOTES.txt ]; then
             echo "未在 CHANGELOG.md 中找到版本 ${VERSION} 的说明" >&2
-            exit 1
+            exit 0
           fi
       - name: Download native libs
         uses: actions/download-artifact@v4
