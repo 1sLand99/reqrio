@@ -5,6 +5,7 @@ mod key_exchange;
 mod session_ticket;
 mod alert;
 mod encrypted_extension;
+mod quic;
 
 use crate::buffer::Buf;
 use crate::error::RlsResult;
@@ -20,6 +21,7 @@ pub use key_exchange::{ClientKeyExchange, NamedCurve, ServerKeyExchange};
 pub use server_hello::{ServerHello, ServerHelloDone};
 pub use session_ticket::{SessionTicket, TlsSessionTicket};
 use std::fmt::{Debug, Formatter};
+pub(crate) use quic::{QUICPacket, QUICFlag, PacketType};
 
 pub struct Message<'a> {
     pub encoded: Buf<'a>,

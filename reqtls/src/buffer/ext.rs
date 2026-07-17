@@ -190,6 +190,14 @@ pub trait ReadExt<'a> {
         Ok(res)
     }
 
+    fn read_u64(&mut self) -> Result<u64, BufferError> {
+        self.check(8)?;
+        let ptr = self.unread_ptr() as *const u64;
+        let res = unsafe { ptr.read_unaligned() }.to_be();
+        self.add_len(8);
+        Ok(res)
+    }
+
     fn read_u24(&mut self) -> Result<u24, BufferError> {
         self.check(3)?;
         let ptr = self.unread_ptr() as *const u24;

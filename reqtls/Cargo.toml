@@ -18,3 +18,4 @@ log = { version = "0.4", default-features = false, optional = true }
 zstd = []
 dylib = []
 export = []
+quic = []
