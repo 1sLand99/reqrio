@@ -21,7 +21,7 @@ pub use key_exchange::{ClientKeyExchange, NamedCurve, ServerKeyExchange};
 pub use server_hello::{ServerHello, ServerHelloDone};
 pub use session_ticket::{SessionTicket, TlsSessionTicket};
 use std::fmt::{Debug, Formatter};
-pub(crate) use quic::{QUICPacket, QUICFlag, PacketType};
+pub(crate) use quic::*;
 
 pub struct Message<'a> {
     pub encoded: Buf<'a>,

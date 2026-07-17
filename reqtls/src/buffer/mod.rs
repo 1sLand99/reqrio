@@ -235,6 +235,10 @@ impl<'a> Reader<'a> {
     pub fn into_inner(self) -> &'a [u8] { self.buf }
 
     pub fn inner(&self) -> &'a [u8] { self.buf }
+
+    pub fn find<P: FnMut(&u8) -> bool>(&self, predicate: P) -> Option<usize> {
+        self.buf[self.pos..].iter().position(predicate)
+    }
 }
 
 impl<'a> From<&'a [u8]> for Reader<'a> {
