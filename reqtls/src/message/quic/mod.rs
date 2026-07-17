@@ -1,33 +1,20 @@
-use crate::Buf;
+mod frame;
 
-#[repr(u8)]
-pub enum FrameType {
-    Padding = 0x00,
-    Ping = 0x01,
-    Ack = 0x02,
-    AckEcn = 0x03,
-    ResetStream = 0x04,
-    StopSending = 0x05,
-    Crypto = 0x06,
-    NewToken = 0x07,
-    Stream(u8),
-    MaxData = 0x10,
-    MaxStreamData = 0x11,
-    MaxStreamsBidi = 0x12,
-    MaxStreamsUni = 0x13,
-    DataBlocked = 0x14,
-    StreamDataBlocked = 0x15,
-    StreamsBlockedBidi = 0x16,
-    StreamsBlockedUnu = 0x17,
-    NewConnectionId = 0x18,
-    RetireConnectionId = 0x19,
-    PathChallenge = 0x1a,
-    PathResponse = 0x1b,
-    ConnectionCloseTrp = 0x1c,
-    ConnectionCloseApp = 0x1d,
-    HandshakeDone = 0x1e,
+use crate::{Buf, ReadExt, Reader};
+pub(crate) use frame::Frame;
+use crate::connection::QUICError;
 
+pub(crate) fn read_varint(reader: &mut Reader) -> Result<usize, QUICError> {
+    let flag = reader.current();
+    match flag >> 6 {
+        0b00 => Ok(reader.read_u8()? as usize),
+        0b01 => Ok((reader.read_u16()? & 0x3FFF) as usize),
+        0b10 => Ok((reader.read_u32()? & 0x3FFF_FFFF) as usize),
+        0b11 => Ok((reader.read_u64()? & 0x3FFF_FFFF_FFFF_FFFF) as usize),
+        _ => Err(QUICError::InvalidVarint)
+    }
 }
+
 
 #[derive(Default, Copy, Clone, Debug)]
 pub enum PacketType {
@@ -37,6 +24,7 @@ pub enum PacketType {
 
 impl From<u8> for PacketType {
     fn from(value: u8) -> Self {
+        println!("{}", value);
         match value {
             0 => PacketType::Initial,
             _ => unreachable!(),
@@ -56,10 +44,11 @@ pub struct QUICFlag {
 
 impl QUICFlag {
     pub fn from_u8(v: u8) -> QUICFlag {
+        println!("{}", v);
         QUICFlag {
             long_header: v & 0x80 == 0x80,
             fixed_bit: v & 0x40 == 0x40,
-            packet_type: (v & 0x30 >> 4).into(),
+            packet_type: ((v & 0x30) >> 4).into(),
             reserved: v & 0xc >> 2,
             num_len: (v & 3) + 1,
         }
