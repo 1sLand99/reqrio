@@ -5,8 +5,8 @@ mod error;
 
 use crate::ffi;
 use crate::ffi::CPointer;
-pub use decode::RecordDecodeBuffer;
-pub use encode::RecordEncodeBuffer;
+pub use decode::CipherDecodeBuffer;
+pub use encode::CipherEncodeBuffer;
 pub use error::BufferError;
 pub use ext::{u24, ReadExt, WriteExt};
 use std::fmt::{Debug, Formatter};

@@ -21,6 +21,7 @@ use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 use std::sync::PoisonError;
 use std::time::SystemTimeError;
+use crate::connection::QUICError;
 
 #[derive(Debug)]
 pub enum RlsError {
@@ -92,6 +93,7 @@ pub enum RlsError {
     Cipher(CipherError),
     Pkey(PKeyError),
     Coding(CodingError),
+    Quic(QUICError)
 }
 
 impl Display for RlsError {
@@ -165,6 +167,7 @@ impl Display for RlsError {
             RlsError::Cipher(e) => write!(f, "Cipher({:?})", e),
             RlsError::Pkey(e) => write!(f, "Pkey({:?})", e),
             RlsError::Coding(e) => write!(f, "Coding({:?})", e),
+            RlsError::Quic(e) => write!(f, "Quic({:?})", e),
         }
     }
 }
@@ -325,6 +328,12 @@ impl From<PKeyError> for RlsError {
 impl From<CodingError> for RlsError {
     fn from(value: CodingError) -> Self {
         RlsError::Coding(value)
+    }
+}
+
+impl From<QUICError> for RlsError {
+    fn from(value: QUICError) -> Self {
+        RlsError::Quic(value)
     }
 }
 

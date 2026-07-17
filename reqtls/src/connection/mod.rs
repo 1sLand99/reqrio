@@ -1,3 +1,5 @@
+mod quic;
+
 use super::bytes::Bytes;
 use super::record::{RecordLayer, RecordType};
 use super::suite::iv::Iv;
@@ -15,6 +17,7 @@ use log::debug;
 use std::collections::HashMap;
 use std::mem;
 use std::path::PathBuf;
+pub use quic::QUICError;
 
 pub struct Connection {
     read: TlsCipher,
@@ -365,12 +368,12 @@ impl Connection {
     pub fn make_message(&mut self, cty: RecordType, buffer: &mut [u8], payload: &[u8]) -> RlsResult<usize> {
         if buffer.len() < 5 + payload.len() { return Err(BufferError::CapacityTooSmall { needed: 5 + payload.len(), current: buffer.len() }.into()); }
         let buffer = CipherEncodeBuffer::new_tls(cty, buffer, payload, self.cipher_suite);
-        self.write.encrypt(buffer)
+        self.write.encrypt(None, buffer)
     }
 
     pub fn read_message(&mut self, origin: &[u8], buffer: &mut [u8]) -> RlsResult<usize> {
         let buffer = CipherDecodeBuffer::from_buffer(origin, buffer, self.cipher_suite)?;
-        self.read.decrypt(buffer)
+        self.read.decrypt(None, buffer)
     }
 
     pub fn alpn(&self) -> Option<&ALPN> {

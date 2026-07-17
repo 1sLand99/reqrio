@@ -1,4 +1,3 @@
-use crate::error::RlsResult;
 use crate::hash::HashError;
 use crate::{HashType, Hmac};
 use std::borrow::Cow;
@@ -34,7 +33,7 @@ impl<'a> Hkdf<'a> {
         Ok(out)
     }
 
-    pub fn extend_multi(&mut self, infos: &[&[u8]], out: &mut [u8]) -> RlsResult<()> {
+    pub fn extend_multi(&mut self, infos: &[&[u8]], out: &mut [u8]) -> Result<(), HashError> {
         let mut prev = vec![0; self.hash.hash_size()];
         for (i, chunk) in out.chunks_mut(self.hash.hash_size()).enumerate() {
             let mut hmac = Hmac::new(&self.prk, self.hash)?;
@@ -50,11 +49,11 @@ impl<'a> Hkdf<'a> {
     }
 
     #[allow(dead_code)]
-    pub fn extend(&mut self, infos: &[u8], out: &mut [u8]) -> RlsResult<()> {
+    pub fn extend(&mut self, infos: &[u8], out: &mut [u8]) -> Result<(), HashError> {
         self.extend_multi(&[infos], out)
     }
 
-    pub fn hkdf(&mut self, label: &str, content: &[u8], out: &mut [u8]) -> RlsResult<()> {
+    pub fn hkdf(&mut self, label: &str, content: &[u8], out: &mut [u8]) -> Result<(), HashError> {
         let len = out.len() as u16;
         self.extend_multi(&[
             //out len u16
@@ -73,13 +72,12 @@ impl<'a> Hkdf<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::boring::bindings::EVP_AEAD_DEFAULT_TAG_LENGTH;
+    use crate::boring::AeadCtx;
+    use crate::extend::Aead;
     use crate::hkdf::Hkdf;
     use crate::key::{DerivedKey, Key};
-    use crate::{cipher, Cipher, CipherSuite, CipherType, HashType, Version};
-    use crate::boring::{AeadCtx, CryptDecodeParam};
-    use crate::boring::bindings::EVP_AEAD_DEFAULT_TAG_LENGTH;
-    use crate::buffer::{CipherDecodeBuffer, CipherEncodeBuffer};
-    use crate::extend::Aead;
+    use crate::{Cipher, CipherSuite, HashType, Version};
 
     #[test]
     fn test_hkdf() {
@@ -132,6 +130,7 @@ mod tests {
     fn test_quic() {
         let cid = [0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08];
         let init_salt = [0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17, 0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad, 0xcc, 0xbb, 0x7f, 0x0a];
+        println!("{:?}", init_salt);
         let mut hkdf = Hkdf::new(&init_salt, &cid, HashType::Sha256).unwrap();
         assert_eq!(hex::encode(hkdf.prk.as_ref()), "7db5df06e7a69e432496adedb00851923595221596ae2ae9fb8115c1e9ed0a44");
 
