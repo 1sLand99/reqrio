@@ -101,6 +101,10 @@ pub fn random_fingerprint(sni: &str) -> Result<Fingerprint, HlsError> {
 fn main() {
     #[cfg(feature = "log")]
     test_log();
+    let res = ScReq::new().get("http://127.0.0.1:12354/json/version", None).unwrap();
+    println!("{}", res.raw_string());
+
+    return;
     let mut req = ScReq::new()
         .with_alpn(ALPN::Http20)
         .with_verify(true)

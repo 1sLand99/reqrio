@@ -1,4 +1,3 @@
-use std::fs;
 use reqrio::*;
 
 #[cfg(feature = "log")]
@@ -19,19 +18,13 @@ fn test_log() {
 
 #[tokio::main]
 async fn main() {
-    // return;
     #[cfg(feature = "log")]
     test_log();
     let mut timeout = Timeout::longer();
     timeout.set_handle_times(1);
 
-    let ja4 = "t13d1513h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0015,0017,0023,002b,002d,0033,ff01_0403,0804,0401,0503,0805,0501,0806,0601,0201";
-                   //t13d1513h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0015,0017,0023,002b,002d,0033,ff01_0403,0804,0401,0503,0805,0501,0806,0601,0201
-    let fingerprint = Fingerprint::from_ja4(ja4, fs::read_to_string("TOKEN").unwrap()).unwrap();
-    println!("{:#?}", fingerprint);
-
     let mut req = AcReq::new()
-        .with_fingerprint(fingerprint)
+        // .with_fingerprint(fingerprint)
         .with_timeout(timeout)
         .with_verify(true)
         .with_key_log("2.log")
@@ -39,7 +32,7 @@ async fn main() {
         // .with_proxy(Proxy::Null)
         .with_verify(false)
         .with_alpn(ALPN::Http20)
-        .with_proxy(Proxy::try_from("socks5://121.31.233.38:10063").unwrap())
+        // .with_proxy(Proxy::try_from("http: //222.186.129.68:15265").unwrap())
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::new_socks5("127.0.0.1",10279))
         // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10279))
@@ -121,7 +114,7 @@ async fn main() {
     // req.set_url("https://127.0.0.1:8000").await.unwrap();
     // req.set_auto_redirect(false);
     // req.set_url("https://oauth.hubei.gov.cn:8443/").await.unwrap();
-    req.set_auto_redirect(false);
+    req.set_auto_redirect(true);
     // let res = req.get("https://dns.alidns.com/resolve?name=crypto.cloudflare.com&type=HTTPS", None).await.unwrap();
     // let res=req.get("https://www.link114.cn/",None).await.unwrap();
     // let res = req.get("https://www.bing.com".params(json::object! {}), vec![0u8; 0].ty(Application::Json)).await.unwrap();
@@ -129,10 +122,11 @@ async fn main() {
     // let url = Url::try_from("https://cn.bing.com/").unwrap();
     // let url = "https://113.108.215.122/xhr/front/trade/priority/rushPurchase/hot/branch/one".sni("h5.moutai519.com.cn").unwrap(); //
     // let url = "https://www.baidu.com".try_into().unwrap();
-    req.set_verify(false);
+    req.set_verify(true);
     let t = Time::now();
-    let resp = req.get("https://m.so.com/", None).await.unwrap();
-    // let resp = req.get("https://api-developer.sephora.com/v1/dotcom/auth/v1/login", None).await.unwrap();
-    println!("{} {}", resp.header(), resp.as_bytes().len());
+    // req.set_proxy(Proxy::new_http_plain("127.0.0.1", 8080));
+    // let resp = req.get("https://192.168.99.140:7879/download/104857", None).await.unwrap();
+    let resp = req.get("https://4399.com", None).await.unwrap();
+    println!("{}", resp.header());
     println!("{}", Time::now().as_mills() - t.as_mills());
 }

@@ -30,6 +30,7 @@ pub struct Connection {
     secret_key: Option<SecretKey>,
     verify: bool,
     root_stores: &'static CertStore,
+    sig_alg: SignatureAlgorithm,
     mtls_hash: SignatureAlgorithm,
     mtls_enable: bool,
     version: Version,
@@ -65,6 +66,7 @@ impl Connection {
             secret_key: None,
             server: false,
             hasher: Hasher::default(),
+            sig_alg: SignatureAlgorithm::new(0),
         }
     }
 
@@ -229,16 +231,17 @@ impl Connection {
     }
 
     pub fn set_by_server_exchange_key(&mut self, server_key: ServerKeyExchange) -> RlsResult<()> {
+        self.sig_alg = server_key.hellman_param().signature_algorithm().clone();
+        self.named_curve = server_key.hellman_param().named_curve().clone();
         #[cfg(feature = "log")]
-        info!("[ExchangeKey] algorithm={}; curve={:?}; verify={}",server_key.hellman_param().signature_algorithm().spec(),server_key.hellman_param().named_curve(),self.verify);
+        info!("[ExchangeKey] algorithm={}; curve={:?}; verify={}", self.sig_alg.spec(), self.named_curve, self.verify);
         if self.verify {
             let sign_data = self.gen_key_sign_data(&server_key);
-            let signature = AlgorithmSigner::new_verify(self.certificates[0].pub_key()?, *server_key.hellman_param().signature_algorithm())?;
+            let signature = AlgorithmSigner::new_verify(self.certificates[0].pub_key()?, self.sig_alg)?;
             signature.verify(sign_data, server_key.hellman_param().signature().as_ref())?;
         }
         self.exchange_pub_key = Bytes::new(server_key.hellman_param().pub_key().to_vec());
-        self.named_curve = *server_key.hellman_param().named_curve();
-        self.secret_key = Some(SecretKey::new(server_key.hellman_param().named_curve())?);
+        self.secret_key = Some(SecretKey::new(&self.named_curve)?);
         self.secret_keys.clear();
         self.secret_keys.shrink_to_fit();
         Ok(())
@@ -390,7 +393,7 @@ impl Connection {
     }
 
     pub fn session_bytes(&self) -> &[u8] { &self.session_bytes }
-    pub fn cipher_suite(&self) -> &CipherSuite { &self.cipher_suite }
+    pub fn cipher_suite(&self) -> &'static CipherSuite { self.cipher_suite }
     pub fn session(&self) -> &TlsSession { self.derived.session() }
     pub fn server(&self) -> bool { self.server }
     pub fn handle_mtls_client<W: WriteExt>(&mut self, writer: &mut W, key: &RsaKey) -> RlsResult<()> {
@@ -415,4 +418,6 @@ impl Connection {
     pub fn named_curve(&self) -> &NamedCurve { &self.named_curve }
 
     pub fn version(&self) -> &Version { &self.version }
+
+    pub fn sig_alg(&self) -> &SignatureAlgorithm { &self.sig_alg }
 }

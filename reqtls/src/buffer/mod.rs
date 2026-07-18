@@ -285,7 +285,7 @@ mod test_buffer {
         assert_eq!(buffer.filled(), [2, 3, 4, 5]);
         assert_eq!(buffer.unfilled().len(), 1019);
         
-        buffer.move_to(3..5, 2).unwrap();
+        buffer.move_to(3..buffer.offset().end, 2).unwrap();
         assert_eq!(buffer.filled(), [2, 4, 5]);
         assert_eq!(buffer.offset(), 1..4);
         buffer.move_to(buffer.offset(), 0).unwrap();
