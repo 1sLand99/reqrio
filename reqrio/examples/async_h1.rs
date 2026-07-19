@@ -1,3 +1,4 @@
+use std::fs;
 use reqrio::*;
 
 #[cfg(feature = "log")]
@@ -20,6 +21,7 @@ fn test_log() {
 async fn main() {
     #[cfg(feature = "log")]
     test_log();
+
     let mut timeout = Timeout::longer();
     timeout.set_handle_times(1);
 
@@ -114,7 +116,7 @@ async fn main() {
     // req.set_url("https://127.0.0.1:8000").await.unwrap();
     // req.set_auto_redirect(false);
     // req.set_url("https://oauth.hubei.gov.cn:8443/").await.unwrap();
-    req.set_auto_redirect(true);
+    req.set_auto_redirect(false);
     // let res = req.get("https://dns.alidns.com/resolve?name=crypto.cloudflare.com&type=HTTPS", None).await.unwrap();
     // let res=req.get("https://www.link114.cn/",None).await.unwrap();
     // let res = req.get("https://www.bing.com".params(json::object! {}), vec![0u8; 0].ty(Application::Json)).await.unwrap();
@@ -122,11 +124,89 @@ async fn main() {
     // let url = Url::try_from("https://cn.bing.com/").unwrap();
     // let url = "https://113.108.215.122/xhr/front/trade/priority/rushPurchase/hot/branch/one".sni("h5.moutai519.com.cn").unwrap(); //
     // let url = "https://www.baidu.com".try_into().unwrap();
-    req.set_verify(true);
-    let t = Time::now();
-    // req.set_proxy(Proxy::new_http_plain("127.0.0.1", 8080));
-    // let resp = req.get("https://192.168.99.140:7879/download/104857", None).await.unwrap();
-    let resp = req.get("https://4399.com", None).await.unwrap();
-    println!("{}", resp.header());
-    println!("{}", Time::now().as_mills() - t.as_mills());
+    // let url: Url = "https://www.bing.com".try_into().unwrap();
+    let url = "https://www.hapag-lloyd.cn/solutions/web-chat/js/floatingbtn.js";
+    // req.re_conn(Some(&url)).await.unwrap();
+    // let resp = req.post(url.clone(), None).await.unwrap();
+    // let resp = req.post(url.clone(), None).await.unwrap();
+    let resp = req.get(url, None).await.unwrap();
+    println!("{} {}", resp.header(), resp.as_bytes().len());
+    // req.re_conn(None).await.unwrap();
+    // let resp = req.get(url, None).await.unwrap();
+    // println!("{}", resp.header());
+    // println!("{}", resp.as_text().unwrap());
+
+    // println!("{} {}", res1.header(), res2.header());
+    // let res = req.get("https://m.sogou.com", None).await.unwrap();
+    // let session=req.stream_mut().tls_session().cloned();
+    // req.set_tls_session(session);
+    // let res = req.get("https://150.139.229.223".sni("h5.moutai519.com.cn"), None).await.unwrap();
+    // let res = req.get("https://aswbe.ana.co.jp/webapps/reservation/flight-search", None).await.unwrap();
+    // req.re_conn(None).await.unwrap();
+    // let res = req.get("https://aswbe.ana.co.jp/webapps/reservation/flight-search", None).await.unwrap();
+    // let res = req.send("https://oauth.hubei.gov.cn:8443/", None).await.unwrap();
+    // let res = req.get("https://104.18.34.137".sni("whatnot.com"), None).await.unwrap();
+    // let res = req.get("https://150.139.229.223".sni("h5.moutai519.com.cn"), None).await.unwrap();
+    // loop {
+
+    //     println!("{}", res.header().status());
+    //
+    // }
+
+    // let res=req.get("https://h5.moutai519.com.cn",None).await.unwrap();
+    // let res = req.get("https://m.baidu.com", None).await.unwrap();
+    // println!("{}", res.json().unwrap().pretty())
+    // println!("{:#?}", req.header().cookies());
+    // println!("{}",res.text().unwrap());
+    // req.set_url("https://m.so.com").await.unwrap();
+    // req.set_url("https://im.jinritemai.com/").await.unwrap();
+    // req.set_auto_redirect(false);
+    // req.set_url("https://cn.bing.com/AS/Suggestions?pt=page.home&qry=&csr=1&pths=1&zis=1&pf=1&cvid=AFEA02EAF9E449A99970476597AE6CED").await.unwrap();
+    // req.set_text("sfssdfsfsdfdf");
+    // println!("{:?}",String::from_utf8(fs::read("/home/xl/1/ca.crt").unwrap()).unwrap());
+    // let data = json::object! {"test_key":"test_value"};
+    // let file = HttpFile::new_bytes_data(data, fs::read("/home/xl/1/ca.crt").unwrap());
+    // req.set_files(file).unwrap();
+    // req.set_data(data);
+    // println!("{}", req.h1_raw_string().unwrap());
+    // let res = req.get().await.unwrap();
+    // println!("{} {:#?}", res.header().status(), req.header().cookies());
+    // let params = json::object! {
+    //     format:"{\\json",
+    //     ecount:20,
+    //     efirst:0
+    // };
+    // let url = "https://cn.bing.com/hp/api/v1/carousel".to_string();
+    // // println!("{}", url);
+    // let res = req.get(url.params(params), None).await.unwrap();
+    // req.set_url("https://cn.bing.com/notifications/render?bnptrigger=%7B%22PartnerId%22%3A%22HomePage%22%2C%22IID%22%3A%22Bnp%22%2C%22Attributes%22%3A%7B%22RawRequestURL%22%3A%22%2F%22%7D%7D&IG=AFEA02EAF9E449A99970476597AE6CED&IID=Bnp").await.unwrap();
+    // let res = req.get().await.unwrap();
+    // req.set_url("https://cn.bing.com/web/xlsc.aspx?dl=1&f=8").await.unwrap();
+    // let res = req.get().await.unwrap();
+    // req.set_url("https://cn.bing.com/hp/api/model").await.unwrap();
+    // let res = req.get().await.unwrap();
+    // req.set_url("https://cn.bing.com/sa/simg/favicon-trans-bg-blue-mg-png.png").await.unwrap();
+    // let res = req.get().await.unwrap();
+    // req.set_url("https://cn.bing.com/web/xlsc.aspx?dl=1&f=8").await.unwrap();
+    // let res = req.get().await.unwrap();
+    // let res = req.get().await.unwrap();
+    // let res = req.get().await.unwrap();
+    // req.set_url("https://cn.bing.com/AS/Suggestions?pt=page.home&qry=&csr=1&pths=1&zis=1&pf=1&cvid=AFEA02EAF9E449A99970476597AE6CED").await.unwrap();
+    // let res = req.get().await.unwrap();
+    // req.set_url("https://cn.bing.com/hp/api/v1/carousel?&format=json&ecount=20&efirst=0&&").await.unwrap();
+    // let res = req.get().await.unwrap();
+    // req.set_url("https://cn.bing.com/notifications/render?bnptrigger=%7B%22PartnerId%22%3A%22HomePage%22%2C%22IID%22%3A%22Bnp%22%2C%22Attributes%22%3A%7B%22RawRequestURL%22%3A%22%2F%22%7D%7D&IG=AFEA02EAF9E449A99970476597AE6CED&IID=Bnp").await.unwrap();
+    // let res = req.get().await.unwrap();
+    // req.set_url("https://cn.bing.com/web/xlsc.aspx?dl=1&f=8").await.unwrap();
+    // let res = req.get().await.unwrap();
+    // req.set_url("https://cn.bing.com/hp/api/model").await.unwrap();
+    // let res = req.get().await.unwrap();
+    // req.set_url("https://cn.bing.com/sa/simg/favicon-trans-bg-blue-mg-png.png").await.unwrap();
+    // let res = req.get().await.unwrap();
+    // req.set_url("https://cn.bing.com/web/xlsc.aspx?dl=1&f=8").await.unwrap();
+    // let res = req.get().await.unwrap();
+    // let res = req.get().await.unwrap();
+    // let res = req.get().await.unwrap();
+    // println!("{}", res.header());
+
 }
