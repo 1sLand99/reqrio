@@ -1,17 +1,17 @@
 mod frame;
 
-use crate::{Buf, ReadExt, Reader};
-pub(crate) use frame::Frame;
+use crate::{Buf, BufferError, ReadExt, Reader};
+pub(crate) use frame::{FrameType};
 use crate::connection::QUICError;
 
-pub(crate) fn read_varint(reader: &mut Reader) -> Result<usize, QUICError> {
+pub(crate) fn read_variant(reader: &mut Reader) -> Result<usize, BufferError> {
     let flag = reader.current();
     match flag >> 6 {
         0b00 => Ok(reader.read_u8()? as usize),
         0b01 => Ok((reader.read_u16()? & 0x3FFF) as usize),
         0b10 => Ok((reader.read_u32()? & 0x3FFF_FFFF) as usize),
         0b11 => Ok((reader.read_u64()? & 0x3FFF_FFFF_FFFF_FFFF) as usize),
-        _ => Err(QUICError::InvalidVarint)
+        _ => Err(BufferError::InvalidVariant)
     }
 }
 
@@ -24,7 +24,6 @@ pub enum PacketType {
 
 impl From<u8> for PacketType {
     fn from(value: u8) -> Self {
-        println!("{}", value);
         match value {
             0 => PacketType::Initial,
             _ => unreachable!(),
@@ -44,7 +43,6 @@ pub struct QUICFlag {
 
 impl QUICFlag {
     pub fn from_u8(v: u8) -> QUICFlag {
-        println!("{}", v);
         QUICFlag {
             long_header: v & 0x80 == 0x80,
             fixed_bit: v & 0x40 == 0x40,
