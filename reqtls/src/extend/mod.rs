@@ -260,7 +260,10 @@ impl<'a> ExtensionValue<'a> {
             ExtensionValue::ApplicationSettingOld(v) => v.write_to(writer),
             ExtensionValue::Padding(size) => writer.write_slice(&vec![0u8; size]),
             ExtensionValue::QUICTrpParameters(values) => {
-                todo!()
+                for value in values {
+                    value.write_to(writer)?;
+                }
+                Ok(())
             }
         }
     }

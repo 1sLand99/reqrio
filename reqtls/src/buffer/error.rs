@@ -6,7 +6,7 @@ use std::ops::Range;
 pub enum BufferError {
     ///内容长度过小
     Insufficient,
-    InvalidVariant,
+    InvalidQUICVariant,
     CapacityTooSmall { needed: usize, current: usize },
     Overflow { capacity: usize, len: usize, need: usize },
     IndexOutBound { size: usize, index: usize },
@@ -25,7 +25,7 @@ impl Display for BufferError {
             BufferError::RangeEdgeError(range) => write!(f, "The range is {:?} of Buffer is fail", range),
             BufferError::Nullptr => write!(f, "Nullptr"),
             BufferError::ResizeFail { current, new } => write!(f, "resize to {} fail from {}", new, current),
-            BufferError::InvalidVariant => write!(f, "Invalid variant"),
+            BufferError::InvalidQUICVariant => write!(f, "Invalid variant"),
         }
     }
 }

@@ -1,5 +1,5 @@
 mod quic;
-mod offset;
+mod buffer;
 
 use super::bytes::Bytes;
 use super::record::{RecordLayer, RecordType};
@@ -18,7 +18,8 @@ use log::debug;
 use std::collections::HashMap;
 use std::mem;
 use std::path::PathBuf;
-pub use quic::QUICError;
+pub use quic::{QUICError, QUICConnection};
+pub use buffer::QUICBuffer;
 
 pub struct Connection {
     read: TlsCipher,

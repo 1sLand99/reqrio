@@ -5,7 +5,7 @@ use crate::hash::HashError;
 use crate::message::{FrameType, PacketType, QUICFlag, QUICPacket};
 use crate::suite::iv::Iv;
 use crate::suite::TlsCipher;
-use crate::{message, Buf, Buffer, BufferError, Cipher, HashType, Hkdf, ReadExt, Reader, WriteExt};
+use crate::{Buf, Buffer, BufferError, Cipher, HashType, Hkdf, ReadExt, Reader, WriteExt};
 #[cfg(feature = "log")]
 use log::trace;
 use std::error::Error;
@@ -107,10 +107,10 @@ impl QUICConnection {
             packet.sc_id = Buf::Ref(reader.read_slice(scid_len)?);
             self.init(flag, &hex::decode("5826e10f9e47274a").unwrap(), server)?;
             if flag & 0x30 == 0 {
-                let tk_len = message::read_variant(&mut reader)?;
+                let tk_len = crate::quic::read_variant(&mut reader)?;
                 packet.token = Buf::Ref(reader.read_slice(tk_len)?);
             }
-            packet.len = message::read_variant(&mut reader)?;
+            packet.len = crate::quic::read_variant(&mut reader)?;
             let pn_offset = reader.position();
             #[cfg(feature = "log")]
             trace!("[QUIC] read: dcid={:?}; scid={:?}; token={:?}",packet.dc_id, packet.sc_id, packet.token);
@@ -173,7 +173,7 @@ impl QUICConnection {
 
 #[cfg(test)]
 mod tests {
-    use crate::connection::offset::QUICBuffer;
+    use crate::connection::buffer::QUICBuffer;
     use crate::connection::quic::QUICConnection;
     use crate::message::FrameType;
     use crate::{KeyExchangeAlg, Message, RecordType, Version};

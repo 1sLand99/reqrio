@@ -72,9 +72,6 @@ impl<'a> Hkdf<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::boring::bindings::EVP_AEAD_DEFAULT_TAG_LENGTH;
-    use crate::boring::AeadCtx;
-    use crate::extend::Aead;
     use crate::hkdf::Hkdf;
     use crate::key::{DerivedKey, Key};
     use crate::{Cipher, CipherSuite, HashType, Version};
@@ -172,15 +169,15 @@ mod tests {
         pd.resize(1162, 0);
         println!("{:?}", pd);
 
-        let aead = AeadCtx::new(&Aead::AES_128_GCM, &key, EVP_AEAD_DEFAULT_TAG_LENGTH).unwrap();
-        let mut out = [0; 4096];
-        let aad = hex::decode("c300000001088394c8f03e5157080000449e00000002").unwrap();
-        let sbs = 2u64.to_be_bytes();
-        for (i, b) in iv[4..12].iter_mut().enumerate() {
-            *b ^= sbs[i];
-        }
-        let len = aead.seal2(&mut out, &iv, &pd, &aad).unwrap();
-        println!("{:?}", hex::encode(&out[..len]));
+        // let aead = AeadCtx::new(&Aead::AES_128_GCM, &key, EVP_AEAD_DEFAULT_TAG_LENGTH).unwrap();
+        // let mut out = [0; 4096];
+        // let aad = hex::decode("c300000001088394c8f03e5157080000449e00000002").unwrap();
+        // let sbs = 2u64.to_be_bytes();
+        // for (i, b) in iv[4..12].iter_mut().enumerate() {
+        //     *b ^= sbs[i];
+        // }
+        // let len = aead.seal2(&mut out, &iv, &pd, &aad).unwrap();
+        // println!("{:?}", hex::encode(&out[..len]));
 
         let mut hkdf = Hkdf::from_prk(&server_initial_secret, HashType::Sha256);
         hkdf.hkdf("tls13 quic key", b"", &mut key).unwrap();
