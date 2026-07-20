@@ -52,7 +52,6 @@ impl TlsCipher {
         if let Some(seq) = seq { self.seq = seq; }
         let add = buffer.aad(self.seq)?;
         let nonce = buffer.nonce(&mut self.iv, self.seq);
-        println!("{} {:x?} {:x?}", self.seq, add, nonce);
         let len = self.crypto.decrypt(CryptDecodeParam {
             nonce: &nonce,
             iv: &nonce,
@@ -61,6 +60,10 @@ impl TlsCipher {
             buffer: &mut buffer,
         })?;
         Ok(len)
+    }
+
+    pub fn is_null(&self) -> bool {
+        matches!(self.crypto, Crypto::None)
     }
 }
 
