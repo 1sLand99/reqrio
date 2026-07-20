@@ -1,19 +1,7 @@
 mod frame;
 
-use crate::{Buf, BufferError, ReadExt, Reader};
-pub(crate) use frame::{FrameType};
-use crate::connection::QUICError;
-
-pub(crate) fn read_variant(reader: &mut Reader) -> Result<usize, BufferError> {
-    let flag = reader.current();
-    match flag >> 6 {
-        0b00 => Ok(reader.read_u8()? as usize),
-        0b01 => Ok((reader.read_u16()? & 0x3FFF) as usize),
-        0b10 => Ok((reader.read_u32()? & 0x3FFF_FFFF) as usize),
-        0b11 => Ok((reader.read_u64()? & 0x3FFF_FFFF_FFFF_FFFF) as usize),
-        _ => Err(BufferError::InvalidVariant)
-    }
-}
+use crate::Buf;
+pub(crate) use frame::FrameType;
 
 
 #[derive(Default, Copy, Clone, Debug)]

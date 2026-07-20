@@ -281,6 +281,7 @@ mod hkdf;
 mod key;
 mod finger;
 mod ext;
+mod quic;
 
 pub use alpn::ALPN;
 pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner,
@@ -289,7 +290,7 @@ pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, 
                  hmac, AlgorithmSigner, Cipher, CipherType, Padding, RsaCipher, RsaKey, RsaPadding,
                  SignatureAlgorithm, PKey, PKeyCtx};
 pub use buffer::{BufferError, Buf, ReadExt, Reader, WriteExt, u24, Buffer};
-pub use connection::Connection;
+pub use connection::{Connection, QUICConnection, QUICBuffer};
 pub use error::{RlsError, HandShakeError};
 pub use extend::{formats::EcPointFormat, CompressionMethod, ExtensionType, SupportVersions,
                  KeyShare, PskMode};

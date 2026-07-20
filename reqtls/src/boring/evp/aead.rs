@@ -73,25 +73,6 @@ impl AeadCtx {
         Ok(())
     }
 
-    pub fn seal2(&self, out: &mut [u8], nonce: &[u8], origin: &[u8], aad: &[u8]) -> RlsResult<usize> {
-        let mut out_len = 0;
-        unsafe {
-            AEAD_CTX_seal(
-                self.0.as_ptr(),
-                out.as_mut_ptr(),
-                &mut out_len,
-                out.len(),
-                nonce.as_ptr(),
-                nonce.len(),
-                origin.as_ptr(),
-                origin.len(),
-                aad.as_ptr(),
-                aad.len(),
-            )
-        }.ok(RlsError::AeadEncryptError)?;
-        Ok(out_len)
-    }
-
     pub fn open(&self, param: CryptDecodeParam) -> RlsResult<usize> {
         let mut out_len = 0usize;
         let ok = unsafe {
@@ -106,26 +87,6 @@ impl AeadCtx {
                 param.buffer.encrypted_payload().len(),
                 param.aad.as_ptr(),
                 param.aad.len(),
-            )
-        };
-        if ok != 1 { Err(RlsError::AeadDecryptError) } else { Ok(out_len) }
-    }
-
-
-    pub fn open2(&self, out: &mut [u8], nonce: &[u8], origin: &[u8], aad: &[u8]) -> RlsResult<usize> {
-        let mut out_len = 0usize;
-        let ok = unsafe {
-            AEAD_CTX_open(
-                self.0.as_ptr(),
-                out.as_mut_ptr(),
-                &mut out_len,
-                origin.len() - 16,
-                nonce.as_ptr(),
-                nonce.len(),
-                origin.as_ptr(),
-                origin.len(),
-                aad.as_ptr(),
-                aad.len(),
             )
         };
         if ok != 1 { Err(RlsError::AeadDecryptError) } else { Ok(out_len) }

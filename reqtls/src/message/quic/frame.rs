@@ -40,7 +40,7 @@ pub enum FrameType<'a> {
 
 impl<'a> FrameType<'a> {
     pub(crate) fn from_reader(reader: &mut Reader<'a>) -> Result<FrameType<'a>, QUICError> {
-        let typ = super::read_variant(reader)? as u64;
+        let typ = crate::quic::read_variant(reader)? as u64;
         match typ {
             0x00 => {
                 let len = reader.find(|&x| x != 0).unwrap_or(reader.unread_len());
@@ -49,15 +49,15 @@ impl<'a> FrameType<'a> {
             }
             0x01 => Ok(FrameType::Ping),
             0x02 => Ok(FrameType::Ack {
-                largest_acknowledged: super::read_variant(reader)? as u64,
-                ack_delay: super::read_variant(reader)? as u64,
-                ack_range_count: super::read_variant(reader)? as u64,
-                first_ack_range: super::read_variant(reader)? as u64,
+                largest_acknowledged: crate::quic::read_variant(reader)? as u64,
+                ack_delay: crate::quic::read_variant(reader)? as u64,
+                ack_range_count: crate::quic::read_variant(reader)? as u64,
+                first_ack_range: crate::quic::read_variant(reader)? as u64,
 
             }),
             0x06 => {
-                let offset = super::read_variant(reader)?;
-                let len = super::read_variant(reader)?;
+                let offset = crate::quic::read_variant(reader)?;
+                let len = crate::quic::read_variant(reader)?;
                 Ok(FrameType::Crypto {
                     offset,
                     value: Buf::Ref(reader.read_slice(len)?),
