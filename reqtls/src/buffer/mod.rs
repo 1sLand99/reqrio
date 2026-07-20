@@ -90,6 +90,10 @@ impl Buffer {
         unsafe { slice::from_raw_parts(self.filled_ptr(), offset.len()) }
     }
 
+    pub fn raw_ptr(&self) -> *const u8 {
+        unsafe { Buffer_pointer(self.0.as_ptr()) }
+    }
+
     pub fn reset(&mut self) {
         unsafe { Buffer_reset(self.0.as_mut_ptr()) }
     }

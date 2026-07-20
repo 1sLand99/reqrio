@@ -4,6 +4,7 @@ use crate::{BufferError, ReadExt, Reader, WriteExt};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ALPN {
+    Http30,
     Http20,
     Http11,
     Http10,
@@ -16,6 +17,7 @@ impl ALPN {
             b"http/1.0" => ALPN::Http10,
             b"http/1.1" => ALPN::Http11,
             b"h2" => ALPN::Http20,
+            b"h3" => ALPN::Http30,
             _ => ALPN::Custom(opt.to_vec()),
         }
     }
@@ -25,6 +27,7 @@ impl ALPN {
             ALPN::Http10 => "http/1.0",
             ALPN::Http11 => "http/1.1",
             ALPN::Http20 => "h2",
+            ALPN::Http30 => "h3",
             ALPN::Custom(v) => unsafe { std::str::from_utf8_unchecked(v.as_slice()) }
         }
     }
@@ -32,7 +35,7 @@ impl ALPN {
     pub fn from_reader(reader: &mut Reader<'_>) -> RlsResult<Vec<ALPN>> {
         let mut res = Vec::with_capacity(reader.unread_len());
         while reader.unread_len() > 0 {
-            let len=reader.read_u8()?;
+            let len = reader.read_u8()?;
             res.push(ALPN::from_slice(reader.read_slice(len as usize)?));
         }
         Ok(res)
@@ -51,6 +54,7 @@ impl ALPN {
 impl Display for ALPN {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            ALPN::Http30 => write!(f, "HTTP/3.0"),
             ALPN::Http20 => write!(f, "HTTP/2.0"),
             ALPN::Http11 => write!(f, "HTTP/1.1"),
             ALPN::Http10 => write!(f, "HTTP/1.0"),

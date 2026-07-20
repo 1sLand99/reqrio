@@ -134,6 +134,10 @@ mod tests {
         let mut hkdf = Hkdf::new(&init_salt, &cid, HashType::Sha256).unwrap();
         assert_eq!(hex::encode(hkdf.prk.as_ref()), "7db5df06e7a69e432496adedb00851923595221596ae2ae9fb8115c1e9ed0a44");
 
+        let mut server_initial_secret = [0; 32];
+        hkdf.hkdf("tls13 server in", &[], &mut server_initial_secret).unwrap();
+        assert_eq!(hex::encode(server_initial_secret), "3c199828fd139efd216c155ad844cc81fb82fa8d7446fa7d78be803acdda951b");
+
 
         let mut client_initial_secret = [0; 32];
         hkdf.hkdf("tls13 client in", b"", &mut client_initial_secret).unwrap();
@@ -178,30 +182,14 @@ mod tests {
         let len = aead.seal2(&mut out, &iv, &pd, &aad).unwrap();
         println!("{:?}", hex::encode(&out[..len]));
 
+        let mut hkdf = Hkdf::from_prk(&server_initial_secret, HashType::Sha256);
+        hkdf.hkdf("tls13 quic key", b"", &mut key).unwrap();
+        assert_eq!(hex::encode(key), "cf3a5331653c364c88f0f379b6067e37");
 
-        // let dcid = [0xfd, 0xad, 0x10, 0x79, 0x4e, 0x9b, 0x4e, 0xb5];
-        // let mut hkdf = Hkdf::new(&init_salt, &dcid, HashType::Sha256).unwrap();
-        // let mut client_initial_secret = [0; 32];
-        // hkdf.hkdf("tls13 client in", b"", &mut client_initial_secret).unwrap();
-        // println!("{:?}", client_initial_secret);
-        //
-        // let mut hkdf = Hkdf::from_prk(&client_initial_secret, HashType::Sha256);
-        // let mut packet_key = [0; 16];
-        // hkdf.hkdf("tls13 quic key", b"", &mut packet_key).unwrap();
-        // println!("{:?}", packet_key);
-        // let mut packet_iv = [0; 12];
-        // hkdf.hkdf("tls13 quic iv", b"", &mut packet_iv).unwrap();
-        // println!("{:?}", packet_iv);
-        // let mut hp_key = [0; 16];
-        // hkdf.hkdf("tls13 quic hp", b"", &mut hp_key).unwrap();
-        // println!("{:?}", hp_key);
-        //
-        // let pd = "b1377568c20fdb394f9636a235297a556c718ffdaeba664e54fa6c56071f7ee7d7826b7d318c66f714f65a03f1673bb06972e04f11263a9bde04ac404ff4fcaee6927524286b58b19cb77ccc43cdfc48d67a2bbac102386a650e76ceb768f2fd25b1f978c60450b9ed5fadfe6d6bafa9dbe02aac8522d3210ab9c4dd09b058bd29000146860ae7bcc79aa6290c518de58a5ca5e14eac5575cde870bb7926ce19ffc254876e7fefb9df606b1d759c0c5775a69756c3984a648a963f6046d8750f85cedf8e4644a061cc3327da5bebffbfaf0c09f7e290f0dc9780aeaefdd7d3e77777b58e4dc62b949fd54cb16c2bfa133362ecf3a9e22bb94b2b60faac0156dac9e8aff2fdb3416db035701154e6d232a16881d96a72c68df6653b4c1406560f1f4d44c135d434cb89cde02cfb48d4408a933f7d815f1ab77835632040d6e6f821761c9dbf6cb0e946708337ab289a51c997698a9c11147d5b9f87753c5bb128e5b70022e4b36451bb3e559f22caf80ba13d1a818efeec6cb0e1138a8bdcc5d024c5a5e2a0afac27fbce1aa07ba6e12259072307c588a443d5e617bce60c9d3c9e7b7d4d9c00075608b9ec694e0fded01fc12452f035287799056a801988c5fbaec32564cce6309466888e138d18d3322e061517a0bc1d370564d53e50ee5ec5f94c575e22fb33054d3972ae47b185768c76a3ac01532c3d01340d3e18ea5749fb46399543b6725c33ecba23e3004eb2cf7d538342e812ffc176269ff16ac6ff84ebe41ce69fd928c36d52516d68f3cee95760b4e6579aa772c4b713292c694124e0ecd3accc47a99c7a40e5779c90da34117bd5e4da80aad2a07bef814dea698eddbe1fae6d463c4d74a2cb0f2e981fa94220edb63917131687928639d0466f00fa66ec0e7a88874a958a9b06e0fd1221970671ca2d068315aafe8df6c6216a8fb9f4ff90246f82d0f31c514e0301607a1207f9a94d8a7aba8ac33670be5574f75bba2837716ed10082fff61c25d094c17e9f49335440ed697dc448694a6a87ce226d9346b896362c9b74715ba139154748431a829d347ef64b4faac93ee74aa903de39d6305be45cb1f3dc49d2fc3762ddce0b9d7bd1d332b269d0759893953691b909158191b60312620d74f70417fd244cc1fb2a0ee5246ff108a5ed309d903fa3a927eca48152be558039919b98f619dffb1f0af71c116ae81b2597ebb23b044e790720fa75fd9d5ae76dc5644fb0fcd340fea46a25bb6edac0159dacd90e4a26bb3c1b4c38952fdd2e85a2e4e1889df2bd40ce5522c431e92d5ac67a9377884a355384c8c63cffbf91b827cfc6d70f55d41489732eb64e9c5e9bfc4614b687b714b20b03794d51872c81c0cff92a5548097fe1bb8beb824150b630e6b9b0c2f14ed96bf11c5461d22296328c823320e2bc6ddd50f99dbdcf6db2b60e30294ed61e0b3e663b220f17f2e14ab4ffa5d230558fb7af180ea31093cb03557210f997642b60de3a9db47c0fb916150728e17f897e38a0c173147e334775bba7f3f145e25a1f92d9afdd8d4ed222d76e71461f2772e63ffc640eeaebc58804c8ee984abb5a651db2bf9b961a98c2331e86f3f5ea7bc5d6f71b8092781ab6ffe5d5ad0719cd88cddbec3d2aa6f40c50b608f696fc94e51c0dbe65508ca40cecdedf7394121e525f7c2542ca3cdfbd3b2d10d0b68921e6a46750236123ff9e1017b01c2ed9c5fe93f806b11aa441b4cb";
-        // let pd = hex::decode(pd).unwrap();
-        // let aead = AeadCtx::new(&Aead::AES_128_GCM, &packet_key, EVP_AEAD_DEFAULT_TAG_LENGTH).unwrap();
-        // let add = [0xc4, 0x00, 0x00, 0x00, 0x01, 0x08, 0xfd, 0xad, 0x10, 0x79, 0x4e, 0x9b, 0x4e, 0xb5, 0x00, 0x00, 0x44, 0xd0, 0x00, 0x00, 0x00, 0x01];
-        // let mut out = vec![0; pd.len()];
-        // let len = aead.open2(&mut out, &packet_iv, &pd, &add).unwrap();
-        // println!("{:?}", &out[..len]);
+        hkdf.hkdf("tls13 quic iv", b"", &mut iv).unwrap();
+        assert_eq!(hex::encode(iv), "0ac1493ca1905853b0bba03e");
+
+        hkdf.hkdf("tls13 quic hp", b"", &mut hp_key).unwrap();
+        assert_eq!(hex::encode(hp_key), "c206b8d9b9f0f37644430b490eeaa314")
     }
 }

@@ -1,4 +1,5 @@
 mod quic;
+mod offset;
 
 use super::bytes::Bytes;
 use super::record::{RecordLayer, RecordType};
