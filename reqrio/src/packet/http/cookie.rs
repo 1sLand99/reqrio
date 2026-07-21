@@ -74,24 +74,28 @@ impl Cookie {
     }
 
     pub fn from_req(ck: impl AsRef<str>) -> HlsResult<Vec<Cookie>> {
+        let ck = ck.as_ref().trim();
         let mut res = vec![];
-        let ck = ck.as_ref().replace("; ", ";");
         if ck.is_empty() { return Ok(res); }
         for cookie in ck.split(";") {
-            let mut items = cookie.split("=");
-            let name = items.next().ok_or("cooke name not found")?.to_string();
-            let value = items.collect::<Vec<_>>().join("=");
+            let cookie = cookie.trim();
+            if cookie.is_empty() { continue; }
+            let index = cookie.find('=').ok_or("cookie name missing")?;
+            let name = cookie[..index].trim();
+            let value = cookie[index + 1..].trim();
             res.push(Cookie::new_cookie(name, value).with_equal_sign(cookie.contains("=")));
         }
         Ok(res)
     }
     pub fn from_res(ck: impl AsRef<str>) -> HlsResult<Cookie> {
+        let ck = ck.as_ref().trim();
         let mut cookie = Cookie::default();
-        let ck = ck.as_ref().replace("; ", ";");
-        for item in ck.split(";").filter(|x| x != &"") {
-            let mut items = item.split("=");
-            let name = items.next().ok_or("cooke name not found")?;
-            let value = items.next().unwrap_or("");
+        for item in ck.split(";") {
+            let item = item.trim();
+            if item.is_empty() { continue; }
+            let index = item.find('=').unwrap_or(item.len());
+            let name = item[..index].trim();
+            let value = if index == item.len() { "" } else { item[index + 1..].trim() };
             cookie.insert(name, value.to_string());
         }
         Ok(cookie)
