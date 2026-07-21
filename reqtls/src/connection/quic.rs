@@ -5,11 +5,12 @@ use crate::hash::HashError;
 use crate::message::{FrameType, PacketType, QUICFlag, QUICPacket};
 use crate::suite::iv::Iv;
 use crate::suite::TlsCipher;
-use crate::{rand, Buf, Buffer, BufferError, Bytes, Cipher, CipherSuite, HashType, Hkdf, ReadExt, Reader, WriteExt};
+use crate::{rand, Buf, Buffer, BufferError, Bytes, Cipher, CipherSuite, Connection, HashType, ReadExt, Reader, WriteExt};
 #[cfg(feature = "log")]
 use log::trace;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use crate::key::Key;
 
 #[derive(Debug)]
 pub enum QUICError {
@@ -45,6 +46,7 @@ pub struct QUICConnection {
     send_sample: Cipher,
     buffer: Buffer,
     cid: Bytes,
+    conn: Connection,
 }
 
 impl Default for QUICConnection {
@@ -56,60 +58,34 @@ impl Default for QUICConnection {
             send_sample: Cipher::aes_128_ecb(),
             buffer: Buffer::with_capacity(1500),
             cid: Bytes::new(rand::random::<[u8; 8]>().to_vec()),
+            conn: Connection::default(),
         }
     }
 }
 
 
 impl QUICConnection {
-    const INIT_SLAT: [u8; 20] = [56, 118, 44, 247, 245, 89, 52, 179, 77, 23, 154, 230, 164, 200, 12, 173, 204, 187, 127, 10];
-
     /// [rfc9001 5.2](https://datatracker.ietf.org/doc/html/rfc9001#name-initial-secrets)
     pub fn make_cipher(&mut self, flag: u8, server: bool) -> RlsResult<()> {
-        if flag & 0x30 != PacketType::Initial as u8 { return Ok(()); };
+        if flag & 0x30 != PacketType::Initial as u8 { return Ok(()); }
+        self.conn.derived.init(&CipherSuite::TLS_AES_128_GCM_SHA256);
         if !self.recv_cipher.is_null() && !self.send_cipher.is_null() { return Ok(()); }
         #[cfg(feature = "log")]
         trace!("[QUIC] dcid={:?}", self.cid);
-        let mut inti_hkdf = Hkdf::new(&Self::INIT_SLAT, self.cid.as_ref(), HashType::Sha256)?;
-        let mut init_secret = [0; 32];
-        let mut key = [0; 16];
-        let mut iv = [0; 12];
-        let mut hp_key = [0; 16];
-
-        inti_hkdf.hkdf("tls13 client in", b"", &mut init_secret)?;
-        let mut hkdf = Hkdf::from_prk(&init_secret, HashType::Sha256);
-        hkdf.hkdf("tls13 quic key", b"", &mut key)?;
-        hkdf.hkdf("tls13 quic iv", b"", &mut iv)?;
-        hkdf.hkdf("tls13 quic hp", b"", &mut hp_key)?;
-        match server {
-            true => {
-                self.recv_cipher.set_key(&key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
-                self.recv_cipher.set_iv(Iv::new(&iv, vec![]));
-                self.recv_sample.set_secret_key(hp_key, None);
-            }
-            false => {
-                self.send_cipher.set_key(&key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
-                self.send_cipher.set_iv(Iv::new(&iv, vec![]));
-                self.send_sample.set_secret_key(hp_key, None);
-            }
-        }
-        inti_hkdf.hkdf("tls13 server in", b"", &mut init_secret)?;
-        let mut hkdf = Hkdf::from_prk(&init_secret, HashType::Sha256);
-        hkdf.hkdf("tls13 quic key", b"", &mut key)?;
-        hkdf.hkdf("tls13 quic iv", b"", &mut iv)?;
-        hkdf.hkdf("tls13 quic hp", b"", &mut hp_key)?;
-        match server {
-            true => {
-                self.send_cipher.set_key(&key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
-                self.send_cipher.set_iv(Iv::new(&iv, vec![]));
-                self.send_sample.set_secret_key(hp_key, None);
-            }
-            false => {
-                self.recv_cipher.set_key(&key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
-                self.recv_cipher.set_iv(Iv::new(&iv, vec![]));
-                self.recv_sample.set_secret_key(hp_key, None);
-            }
-        }
+        let Key::QUIC {
+            send_key,
+            recv_key,
+            send_iv,
+            recv_iv,
+            send_hp_key,
+            recv_hp_key,
+        } = self.conn.derived.make_quic_cipher_key(self.cid.as_ref(), server)?else { unreachable!() };
+        self.send_cipher.set_key(send_key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
+        self.send_cipher.set_iv(Iv::new(send_iv, vec![]));
+        self.send_sample.set_secret_key(send_hp_key, None);
+        self.recv_cipher.set_key(recv_key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
+        self.recv_cipher.set_iv(Iv::new(recv_iv, vec![]));
+        self.recv_sample.set_secret_key(recv_hp_key, None);
         Ok(())
     }
 

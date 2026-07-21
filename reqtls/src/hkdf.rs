@@ -74,7 +74,7 @@ impl<'a> Hkdf<'a> {
 mod tests {
     use crate::hkdf::Hkdf;
     use crate::key::{DerivedKey, Key};
-    use crate::{Cipher, CipherSuite, HashType, Version};
+    use crate::{Cipher, CipherSuite, HashType, TlsSession, Version};
 
     #[test]
     fn test_hkdf() {
@@ -126,35 +126,22 @@ mod tests {
     #[test]
     fn test_quic() {
         let cid = [0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08];
-        let init_salt = [0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17, 0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad, 0xcc, 0xbb, 0x7f, 0x0a];
-        println!("{:?}", init_salt);
-        let mut hkdf = Hkdf::new(&init_salt, &cid, HashType::Sha256).unwrap();
-        assert_eq!(hex::encode(hkdf.prk.as_ref()), "7db5df06e7a69e432496adedb00851923595221596ae2ae9fb8115c1e9ed0a44");
-
-        let mut server_initial_secret = [0; 32];
-        hkdf.hkdf("tls13 server in", &[], &mut server_initial_secret).unwrap();
-        assert_eq!(hex::encode(server_initial_secret), "3c199828fd139efd216c155ad844cc81fb82fa8d7446fa7d78be803acdda951b");
-
-
-        let mut client_initial_secret = [0; 32];
-        hkdf.hkdf("tls13 client in", b"", &mut client_initial_secret).unwrap();
-        assert_eq!(hex::encode(client_initial_secret), "c00cf151ca5be075ed0ebfb5c80323c42d6b7db67881289af4008f1f6c357aea");
-
-        let mut hkdf = Hkdf::from_prk(&client_initial_secret, HashType::Sha256);
-        let mut key = [0; 16];
-        hkdf.hkdf("tls13 quic key", b"", &mut key).unwrap();
-        assert_eq!(hex::encode(key), "1f369613dd76d5467730efcbe3b1a22d");
-
-        let mut iv = [0; 12];
-        hkdf.hkdf("tls13 quic iv", b"", &mut iv).unwrap();
-        assert_eq!(hex::encode(iv), "fa044b2f42a3fd3b46fb255c");
-
-        let mut hp_key = [0; 16];
-        hkdf.hkdf("tls13 quic hp", b"", &mut hp_key).unwrap();
-        assert_eq!(hex::encode(hp_key), "9f50449e04a0e810283a1e9933adedd2");
+        let mut derived = DerivedKey::new([0; 32], [0; 32], TlsSession::default(), None);
+        derived.init(&CipherSuite::TLS_AES_128_GCM_SHA256);
+        let Key::QUIC {
+            send_key,
+            recv_key,
+            send_iv,
+            recv_iv,
+            send_hp_key,
+            recv_hp_key,
+        } = derived.make_quic_cipher_key(&cid, false).unwrap() else { unreachable!() };
+        assert_eq!(hex::encode(send_key), "1f369613dd76d5467730efcbe3b1a22d");
+        assert_eq!(hex::encode(send_iv), "fa044b2f42a3fd3b46fb255c");
+        assert_eq!(hex::encode(send_hp_key), "9f50449e04a0e810283a1e9933adedd2");
 
         let sample = hex::decode("d1b1c98dd7689fb8ec11d242b123dc9b").unwrap();
-        let cipher = Cipher::aes_128_ecb().with_secret_key(&hp_key, None);
+        let cipher = Cipher::aes_128_ecb().with_secret_key(send_hp_key, None);
         let mask = cipher.encrypt(sample).unwrap()[..5].to_owned();
         assert_eq!(hex::encode(&mask), "437b9aec36");
 
@@ -169,24 +156,8 @@ mod tests {
         pd.resize(1162, 0);
         println!("{:?}", pd);
 
-        // let aead = AeadCtx::new(&Aead::AES_128_GCM, &key, EVP_AEAD_DEFAULT_TAG_LENGTH).unwrap();
-        // let mut out = [0; 4096];
-        // let aad = hex::decode("c300000001088394c8f03e5157080000449e00000002").unwrap();
-        // let sbs = 2u64.to_be_bytes();
-        // for (i, b) in iv[4..12].iter_mut().enumerate() {
-        //     *b ^= sbs[i];
-        // }
-        // let len = aead.seal2(&mut out, &iv, &pd, &aad).unwrap();
-        // println!("{:?}", hex::encode(&out[..len]));
-
-        let mut hkdf = Hkdf::from_prk(&server_initial_secret, HashType::Sha256);
-        hkdf.hkdf("tls13 quic key", b"", &mut key).unwrap();
-        assert_eq!(hex::encode(key), "cf3a5331653c364c88f0f379b6067e37");
-
-        hkdf.hkdf("tls13 quic iv", b"", &mut iv).unwrap();
-        assert_eq!(hex::encode(iv), "0ac1493ca1905853b0bba03e");
-
-        hkdf.hkdf("tls13 quic hp", b"", &mut hp_key).unwrap();
-        assert_eq!(hex::encode(hp_key), "c206b8d9b9f0f37644430b490eeaa314")
+        assert_eq!(hex::encode(recv_key), "cf3a5331653c364c88f0f379b6067e37");
+        assert_eq!(hex::encode(recv_iv), "0ac1493ca1905853b0bba03e");
+        assert_eq!(hex::encode(recv_hp_key), "c206b8d9b9f0f37644430b490eeaa314")
     }
 }
