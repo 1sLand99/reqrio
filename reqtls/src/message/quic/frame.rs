@@ -1,5 +1,5 @@
 use crate::connection::QUICError;
-use crate::{Buf, ReadExt, Reader};
+use crate::{Buf, BufferError, ReadExt, Reader, WriteExt};
 
 #[repr(u64)]
 #[derive(Debug)]
@@ -64,6 +64,37 @@ impl<'a> FrameType<'a> {
                 })
             }
             _ => unreachable!()
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    
+    pub fn len(&self) -> usize {
+        match self {
+            FrameType::Padding(size) => *size,
+            FrameType::Ping => 1,
+            FrameType::Crypto { offset, value } => {
+                let offset_size = crate::quic::variant_len(*offset);
+                let value_size = crate::quic::variant_len(value.len());
+                1 + offset_size + value_size + value.len()
+            }
+            _ => todo!()
+        }
+    }
+
+    pub fn write_to<W: WriteExt>(&self, writer: &mut W) -> Result<(), BufferError> {
+        match self {
+            FrameType::Padding(size) => writer.write_slice(&vec![0; *size]),
+            FrameType::Ping => writer.write_u8(0x01),
+            FrameType::Crypto { offset, value } => {
+                writer.write_u8(0x06)?;
+                crate::quic::write_variant(*offset, writer)?;
+                crate::quic::write_variant(value.len(), writer)?;
+                writer.write_slice(value.as_ref())
+            }
+            _ => todo!()
         }
     }
 }
