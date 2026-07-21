@@ -523,13 +523,16 @@ impl Header {
         }
         keys.push((StrCow::Borrowed(":scheme"), StrCow::Borrowed(param.url.scheme().spec())));
         for key in self.keys.iter() {
-            if H2HeaderReader::skip_h2_key(key, ct) { continue; }
+            if H2HeaderReader::skip_h2_key(key, ct, param.body_len) { continue; }
             let name = key.name_lower();
             if name == "content-type" {
                 match ct.spec() {
                     Cow::Borrowed(b) => keys.push((StrCow::Owned(name), StrCow::Borrowed(b))),
                     Cow::Owned(o) => keys.push((StrCow::Owned(name), StrCow::Owned(o))),
                 }
+                continue;
+            } else if name == "content-length" {
+                keys.push((StrCow::Owned(name), StrCow::Owned(param.body_len.to_string())));
                 continue;
             }
             match key.value() {
