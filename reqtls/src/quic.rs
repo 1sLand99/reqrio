@@ -1,4 +1,7 @@
 use crate::{BufferError, ReadExt, Reader, WriteExt};
+pub use crate::connection::{QUICBuffer, QUICError, QUICConnection};
+pub use super::message::{FrameType, QUICPacket};
+
 
 pub(crate) fn read_variant(reader: &mut Reader) -> Result<usize, BufferError> {
     let flag = reader.current();
@@ -8,6 +11,16 @@ pub(crate) fn read_variant(reader: &mut Reader) -> Result<usize, BufferError> {
         0b10 => Ok((reader.read_u32()? & 0x3FFF_FFFF) as usize),
         0b11 => Ok((reader.read_u64()? & 0x3FFF_FFFF_FFFF_FFFF) as usize),
         _ => Err(BufferError::InvalidQUICVariant)
+    }
+}
+
+pub(crate) fn variant_len(val: usize) -> usize {
+    match val {
+        ..0x40 => 1,
+        0x40..0x40FF => 2,
+        0x40FF..0x40FF_FFFF => 4,
+        0x40FF_FFFF..0x40FF_FFFF_FFFF_FFFF => 8,
+        _ => unreachable!()
     }
 }
 

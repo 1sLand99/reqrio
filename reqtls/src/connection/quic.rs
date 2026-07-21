@@ -1,11 +1,11 @@
-use crate::buffer::CipherDecodeBuffer;
+use crate::buffer::{CipherDecodeBuffer, CipherEncodeBuffer};
 use crate::error::RlsResult;
 use crate::extend::Aead;
 use crate::hash::HashError;
 use crate::message::{FrameType, PacketType, QUICFlag, QUICPacket};
 use crate::suite::iv::Iv;
 use crate::suite::TlsCipher;
-use crate::{Buf, Buffer, BufferError, Cipher, HashType, Hkdf, ReadExt, Reader, WriteExt};
+use crate::{rand, Buf, Buffer, BufferError, Bytes, Cipher, CipherSuite, HashType, Hkdf, ReadExt, Reader, WriteExt};
 #[cfg(feature = "log")]
 use log::trace;
 use std::error::Error;
@@ -39,21 +39,23 @@ impl From<HashError> for QUICError {
 }
 
 pub struct QUICConnection {
-    client_cipher: TlsCipher,
-    server_cipher: TlsCipher,
-    client_sample: Cipher,
-    server_sample: Cipher,
+    recv_cipher: TlsCipher,
+    send_cipher: TlsCipher,
+    recv_sample: Cipher,
+    send_sample: Cipher,
     buffer: Buffer,
+    cid: Bytes,
 }
 
 impl Default for QUICConnection {
     fn default() -> Self {
         QUICConnection {
-            client_cipher: TlsCipher::none(),
-            server_cipher: TlsCipher::none(),
-            client_sample: Cipher::aes_128_ecb(),
-            server_sample: Cipher::aes_128_ecb(),
+            recv_cipher: TlsCipher::none(),
+            send_cipher: TlsCipher::none(),
+            recv_sample: Cipher::aes_128_ecb(),
+            send_sample: Cipher::aes_128_ecb(),
             buffer: Buffer::with_capacity(1500),
+            cid: Bytes::new(rand::random::<[u8; 8]>().to_vec()),
         }
     }
 }
@@ -63,31 +65,49 @@ impl QUICConnection {
     const INIT_SLAT: [u8; 20] = [56, 118, 44, 247, 245, 89, 52, 179, 77, 23, 154, 230, 164, 200, 12, 173, 204, 187, 127, 10];
 
     /// [rfc9001 5.2](https://datatracker.ietf.org/doc/html/rfc9001#name-initial-secrets)
-    pub fn init(&mut self, flag: u8, cid: &[u8], server: bool) -> RlsResult<()> {
+    pub fn make_cipher(&mut self, flag: u8, server: bool) -> RlsResult<()> {
         if flag & 0x30 != PacketType::Initial as u8 { return Ok(()); };
-        if (!self.client_cipher.is_null() && !server) || (!self.server_cipher.is_null() && server) { return Ok(()); }
+        if !self.recv_cipher.is_null() && !self.send_cipher.is_null() { return Ok(()); }
         #[cfg(feature = "log")]
-        trace!("[QUIC] dcid={}", hex::encode(cid));
-        let mut hkdf = Hkdf::new(&Self::INIT_SLAT, cid, HashType::Sha256)?;
+        trace!("[QUIC] dcid={:?}", self.cid);
+        let mut inti_hkdf = Hkdf::new(&Self::INIT_SLAT, self.cid.as_ref(), HashType::Sha256)?;
         let mut init_secret = [0; 32];
-        hkdf.hkdf(if server { "tls13 server in" } else { "tls13 client in" }, b"", &mut init_secret)?;
-        let mut hkdf = Hkdf::from_prk(&init_secret, HashType::Sha256);
         let mut key = [0; 16];
-        hkdf.hkdf("tls13 quic key", b"", &mut key)?;
         let mut iv = [0; 12];
-        hkdf.hkdf("tls13 quic iv", b"", &mut iv)?;
         let mut hp_key = [0; 16];
+
+        inti_hkdf.hkdf("tls13 client in", b"", &mut init_secret)?;
+        let mut hkdf = Hkdf::from_prk(&init_secret, HashType::Sha256);
+        hkdf.hkdf("tls13 quic key", b"", &mut key)?;
+        hkdf.hkdf("tls13 quic iv", b"", &mut iv)?;
         hkdf.hkdf("tls13 quic hp", b"", &mut hp_key)?;
         match server {
             true => {
-                self.server_cipher.set_key(&key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
-                self.server_cipher.set_iv(Iv::new(&iv, vec![]));
-                self.server_sample.set_secret_key(hp_key, None);
+                self.recv_cipher.set_key(&key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
+                self.recv_cipher.set_iv(Iv::new(&iv, vec![]));
+                self.recv_sample.set_secret_key(hp_key, None);
             }
             false => {
-                self.client_cipher.set_key(&key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
-                self.client_cipher.set_iv(Iv::new(&iv, vec![]));
-                self.client_sample.set_secret_key(hp_key, None);
+                self.send_cipher.set_key(&key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
+                self.send_cipher.set_iv(Iv::new(&iv, vec![]));
+                self.send_sample.set_secret_key(hp_key, None);
+            }
+        }
+        inti_hkdf.hkdf("tls13 server in", b"", &mut init_secret)?;
+        let mut hkdf = Hkdf::from_prk(&init_secret, HashType::Sha256);
+        hkdf.hkdf("tls13 quic key", b"", &mut key)?;
+        hkdf.hkdf("tls13 quic iv", b"", &mut iv)?;
+        hkdf.hkdf("tls13 quic hp", b"", &mut hp_key)?;
+        match server {
+            true => {
+                self.send_cipher.set_key(&key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
+                self.send_cipher.set_iv(Iv::new(&iv, vec![]));
+                self.send_sample.set_secret_key(hp_key, None);
+            }
+            false => {
+                self.recv_cipher.set_key(&key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
+                self.recv_cipher.set_iv(Iv::new(&iv, vec![]));
+                self.recv_sample.set_secret_key(hp_key, None);
             }
         }
         Ok(())
@@ -105,7 +125,7 @@ impl QUICConnection {
             packet.dc_id = Buf::Ref(reader.read_slice(dcid_len)?);
             let scid_len = reader.read_u8()? as usize;
             packet.sc_id = Buf::Ref(reader.read_slice(scid_len)?);
-            self.init(flag, &hex::decode("5826e10f9e47274a").unwrap(), server)?;
+            self.make_cipher(flag, server)?;
             if flag & 0x30 == 0 {
                 let tk_len = crate::quic::read_variant(&mut reader)?;
                 packet.token = Buf::Ref(reader.read_slice(tk_len)?);
@@ -117,8 +137,8 @@ impl QUICConnection {
             let sample_offset = pn_offset + 4;
             let sample = &origin[sample_offset..sample_offset + 16];
             let mut mask = match server {
-                true => self.server_sample.encrypt(sample)?,
-                false => self.client_sample.encrypt(sample)?,
+                true => self.recv_sample.encrypt(sample)?,
+                false => self.send_sample.encrypt(sample)?,
             };
             mask.truncate(5);
             packet.flag = QUICFlag::from_u8(flag ^ (mask[0] & 0x0f));
@@ -156,8 +176,8 @@ impl QUICConnection {
         self.buffer.reset();
         let buffer = CipherDecodeBuffer::from_quic(packet, self.buffer.unfilled())?;
         let len = match server {
-            true => self.server_cipher.decrypt(Some(packet.num), buffer)?,
-            false => self.client_cipher.decrypt(Some(packet.num), buffer)?,
+            true => self.recv_cipher.decrypt(Some(packet.num), buffer)?,
+            false => self.send_cipher.decrypt(Some(packet.num), buffer)?,
         };
         self.buffer.add_len(len);
         let mut reader = Reader::from_slice(self.buffer.filled());
@@ -168,6 +188,19 @@ impl QUICConnection {
         }
         Ok(frames)
     }
+
+
+    pub fn make_message<'a, 'b: 'a>(&'b mut self, buffer: &mut [u8], packet: &mut QUICPacket<'a>) -> RlsResult<usize> {
+        if packet.flag.packet_type() == PacketType::Initial {
+            packet.dc_id = Buf::Ref(self.cid.as_ref());
+        }
+        let encode_buffer = CipherEncodeBuffer::new_quic(buffer, packet, &CipherSuite::TLS_AES_128_GCM_SHA256);
+        self.send_cipher.encrypt(Some(packet.num), encode_buffer)
+    }
+
+    pub fn cid(&self) -> &Bytes {
+        &self.cid
+    }
 }
 
 
@@ -176,7 +209,7 @@ mod tests {
     use crate::connection::buffer::QUICBuffer;
     use crate::connection::quic::QUICConnection;
     use crate::message::FrameType;
-    use crate::{KeyExchangeAlg, Message, RecordType, Version};
+    use crate::{Bytes, KeyExchangeAlg, Message, RecordType, Version};
 
     fn decode(conn: &mut QUICConnection, origin: &[u8], server: bool, buffer: &mut QUICBuffer) {
         let frames = conn.read(origin, server).unwrap();
@@ -189,7 +222,10 @@ mod tests {
 
     #[test]
     fn test_quic_read() {
-        let mut conn = QUICConnection::default();
+        let mut conn = QUICConnection {
+            cid: Bytes::new(hex::decode("5826e10f9e47274a").unwrap()),
+            ..Default::default()
+        };
         let mut buffer = QUICBuffer::default();
         let raw = hex::decode("cd00000001085826e10f9e47274a000044d0993ab805680e67b4ea7ae47bc5e56b20d8db153d61b499345f4866e3a0132fc87837f6306c971d0d6d6fdf05c48400d650e7de4a63bbc120056e8d9db3ae75c9132d33e6be90a660dc9b0761af9aa5c559d8ffd8970ce50962000097fc4ca9ddc77b791986574e0126fd2edbd9ca847d44d0bd07f24acd47e36a40c29bb47df3dc67db936417c321f666f752c9614f661da188b6fd08bd4a9fb7b2953d359e56808190d504ab0a716af80a0d3fe8888260e4b47d0a0eeae4180eb8faa737d58f3dd61002439bb72b96cf2ce31abe9e532461c47bcf7140d0999f62dd689aa60c287725f5d459b9342ed75f2b43c8328fd7f67c59bd45aceca52800e131a86c4fd25cf60c6f3fc28ab8bae30bf0842522fccf6bd9a74caf90726d667512a90c0235a55b0a991767195c36dcadd569c67aecad1209e9015f867b52789ba0667c30c9500ccc10cc8cebef6263cd74a051f39ece3468274ec53f0604f207d8ee631cad74d185e262c3133f9af955e7d4bb432069940e1e0159e15ab476ed22f3382efc51450fb28d38370e0626a9070f26be69a7cd40a5e71523b7df30186e87a8de2034974eefaebb5ed8216cec13898bcadba5cf9141b4da2161662302176af658b6aef4e5f1d2a026d69d2f9dffaad2cf79b5f4a7b3aead97ad1fe59b195270ef98aa30ac6022dfc6c33afeb87dd0129e701d7b19f7ccd83e7141bfe15ccd28b2b83fcd39577170e72176220b182f0956b4b7fe22d802491a8403dad869116dded38535edc4450d86e3aa77fe8bc6dde380d3bd3f694b2ef27879c48eb00dbf480aaf798b18e7853b841e519a439511b6e90d870b957b051ac6817947060fac8d6add3218d0af1ccbe36193361b8949b820c30b554e9ca66a48903fc5db703b0c893c761abe0603dbebeb616bc39623848536335c491ab002e5f65990577c33d6ac47433dff60c189470135c07576543ecf1ecb90e6db893489a751df1502891d9b484b1995d322f4da7bdf062f50b5aa9d28d0f4b64fdc2e21778d9ce2944a9bfe2e1eaadac0a79b0026452ecb76b9abc94f6c79f5d9ebc36f9d5294d8ea9d4219b06c1c3dfa8101f36494c32f4b814719408c7bafeaaa66c86bb119b95dda3058a59609c284ed10ef4f5338a50da530583b3e93b8a64929a206b9b4ed1b542726abe4d63e5e9bcd869ffeff32d3e88eb44140149e0d3488a6a70351042f6ff4cb5f501e10178ce2b3a9e34d397918d6cbb8a41dbea0c9cdafa8a033db3335180539e115e8b4a66f5fc3638a9d0f95cedcfb2188aaff600e32a6ed418d01f89cf83ed92e0bef3dbd3e520c7e4811519edb437cc202ea83e089dd21e65cc726f509830ce6cc43b9055525e2e92d1b7859681172f6c89b9e9034d1880f7a9b879959ed493bd28cfc65b669498339b31c4728a06de924710f8a81b9a16dc9d45873ae200285ef71ff6f07a5ee30f93d04ac47a2f40676dce6d45b32aedc8abc0216e4c20a53821f74114a51bb1a79e77c972aab80e52ae2a0724979961d70c653003a07b03e062550cf8feddde9285066632a6b5932d4812e2473c362e0bc08e4246dd151e6aba41fb6cc80038f8a1c869cfff0f3de9d809446eae5a680185d87c0a1cc9875cc144ea31a4bd02af8eb6bb5315749def35756565400ae1cf6e470c6fb06a8927b8f2c8ccef65dd7cfdf8a3eef96f284018d823e25c4bf27137d0104f32358c8c975072d8f24b7d429232fe6").unwrap();
         decode(&mut conn, &raw, false, &mut buffer);

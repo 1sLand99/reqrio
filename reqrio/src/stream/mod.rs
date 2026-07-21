@@ -17,6 +17,7 @@ mod proxy;
 mod ws;
 #[cfg(feature = "aync")]
 mod aync;
+mod quic;
 
 pub struct ConnParam<'a> {
     pub url: &'a Url,

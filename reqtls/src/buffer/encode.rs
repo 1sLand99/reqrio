@@ -1,9 +1,9 @@
 use crate::{CipherSuite, RecordType, Version};
 use std::ops::Range;
+use crate::message::QUICPacket;
 
 pub struct PayloadEncodeBuffer<'a> {
     encoded: &'a mut [u8],
-    plain: &'a [u8],
     plain_offset: Range<usize>,
     encode_offset: Range<usize>,
 }
@@ -18,19 +18,17 @@ impl<'a> PayloadEncodeBuffer<'a> {
         }
         PayloadEncodeBuffer {
             encoded: buffer,
-            plain: origin,
             encode_offset: suite.trans_iv_len..suite.trans_iv_len + plain_offset.len() + 16,
             plain_offset,
 
         }
     }
 
-    pub fn new_quic(buffer: &'a mut [u8], origin: &'a [u8]) -> PayloadEncodeBuffer<'a> {
+    pub fn new_quic(buffer: &'a mut [u8], pd_len: usize) -> PayloadEncodeBuffer<'a> {
         PayloadEncodeBuffer {
             encoded: buffer,
-            plain: origin,
-            plain_offset: 0..origin.len(),
-            encode_offset: 0..1 + origin.len(),
+            plain_offset: 0..pd_len,
+            encode_offset: 0..pd_len + 16,
         }
     }
 
@@ -57,6 +55,7 @@ pub struct CipherEncodeBuffer<'a> {
     head: &'a mut [u8],
     record_len: usize,
     payload: PayloadEncodeBuffer<'a>,
+    quic: bool,
 }
 
 
@@ -74,16 +73,18 @@ impl<'a> CipherEncodeBuffer<'a> {
             head,
             record_len: 0,
             payload: PayloadEncodeBuffer::new_tls(suite, &rt, payload, origin),
+            quic: false,
         }
     }
 
-    pub(crate) fn new_quic(buffer: &'a mut [u8], origin: &'a [u8], suite: &'static CipherSuite) -> CipherEncodeBuffer<'a> {
-        let (head, payload) = buffer.split_at_mut(22);
+    pub(crate) fn new_quic(buffer: &'a mut [u8], packet: &QUICPacket, suite: &'static CipherSuite) -> CipherEncodeBuffer<'a> {
+        let (head, payload) = buffer.split_at_mut(packet.hdr_len);
         CipherEncodeBuffer {
             suite,
             head,
             record_len: 0,
-            payload: PayloadEncodeBuffer::new_quic(payload, origin),
+            payload: PayloadEncodeBuffer::new_quic(payload, packet.len - packet.flag.num_len()),
+            quic: true,
         }
     }
 
@@ -96,6 +97,7 @@ impl<'a> CipherEncodeBuffer<'a> {
     }
 
     pub fn set_encrypted_len(&mut self, len: usize) {
+        if self.quic { return; }
         let len = self.suite.trans_iv_len + len;
         self.record_len = len + 5;
         self.head[3..5].copy_from_slice(&(len as u16).to_be_bytes());
@@ -104,6 +106,7 @@ impl<'a> CipherEncodeBuffer<'a> {
     pub fn head(&self) -> &[u8] { self.head }
 
     pub fn aad(&self, seq: u64) -> Vec<u8> {
+        if self.quic { return self.head.to_vec(); }
         match *self.suite.version {
             Version::TLS_1_3 => self.tls13_aad(),
             _ => self.tls12_aad(seq)

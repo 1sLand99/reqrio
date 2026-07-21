@@ -1,10 +1,10 @@
 mod frame;
 
 use crate::Buf;
-pub(crate) use frame::FrameType;
+pub use frame::FrameType;
 
 
-#[derive(Default, Copy, Clone, Debug)]
+#[derive(Default, Copy, Clone, Debug, PartialEq)]
 pub enum PacketType {
     #[default]
     Initial = 0
@@ -40,6 +40,26 @@ impl QUICFlag {
         }
     }
 
+    pub fn encode(&self) -> u8 {
+        let mut v = 0;
+        if self.long_header {
+            v |= 0x80;
+        }
+        if self.fixed_bit {
+            v |= 0x40;
+        }
+        v |= (self.packet_type as u8) << 4;
+        v |= self.reserved << 2;
+        match self.num_len {
+            1 => v |= 0b00,
+            2 => v |= 0b01,
+            4 => v |= 0b10,
+            8 => v |= 0b11,
+            _ => unreachable!(),
+        }
+        v
+    }
+
     pub fn num_len(&self) -> usize {
         self.num_len as usize
     }
@@ -54,7 +74,7 @@ impl QUICFlag {
 }
 
 #[derive(Debug)]
-pub(crate) struct QUICPacket<'a> {
+pub struct QUICPacket<'a> {
     pub(crate) flag: QUICFlag,
     pub(crate) ver: u32,
     pub(crate) dc_id: Buf<'a>,
@@ -86,8 +106,37 @@ impl<'a> Default for QUICPacket<'a> {
 }
 
 impl<'a> QUICPacket<'a> {
+    pub fn new_initial(num: u64, pd_len: usize) -> Self {
+        let num_len = crate::quic::variant_len(num as usize);
+        QUICPacket {
+            flag: QUICFlag {
+                long_header: true,
+                fixed_bit: true,
+                packet_type: PacketType::Initial,
+                reserved: 0,
+                num_len: num_len as u8,
+            },
+            ver: 1,
+            len: num_len + pd_len + 16,
+            ..Default::default()
+        }
+    }
+
     pub(crate) fn aad(&self) -> &[u8] {
         &self.hdr_raw[..self.hdr_len]
+    }
+
+    pub fn hdr_len(&self) -> usize {
+        self.hdr_len
+    }
+
+    pub fn flag(&self) -> &QUICFlag {
+        &self.flag
+    }
+
+    pub fn set_hdr_len(&mut self, dcid_len: usize, scid_len: usize) {
+        self.hdr_len = 1 + 4 + 1 + dcid_len + 1 + scid_len + crate::quic::variant_len(self.token.len())
+            + self.token.len() + crate::quic::variant_len(self.len) + self.flag.num_len as usize;
     }
 }
 

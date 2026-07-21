@@ -281,36 +281,36 @@ mod hkdf;
 mod key;
 mod finger;
 mod ext;
-mod quic;
+pub mod quic;
 
 pub use alpn::ALPN;
 pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner,
                  certificate::CertStore, certificate::CertType, certificate::Certificate, certificate::DnType,
                  certificate::KeyIdentifier, certificate::KeyUsage, certificate::SubjectAltName, cipher, hash,
-                 hmac, AlgorithmSigner, Cipher, CipherType, Padding, RsaCipher, RsaKey, RsaPadding,
-                 SignatureAlgorithm, PKey, PKeyCtx};
-pub use buffer::{BufferError, Buf, ReadExt, Reader, WriteExt, u24, Buffer};
-pub use connection::{Connection, QUICConnection, QUICBuffer};
-pub use error::{RlsError, HandShakeError};
-pub use extend::{formats::EcPointFormat, CompressionMethod, ExtensionType, SupportVersions,
-                 KeyShare, PskMode};
+                 hmac, AlgorithmSigner, Cipher, CipherType, PKey, PKeyCtx, Padding, RsaCipher,
+                 RsaKey, RsaPadding, SignatureAlgorithm};
+pub use buffer::{u24, Buf, Buffer, BufferError, ReadExt, Reader, WriteExt};
+pub use bytes::Bytes;
+pub use config::{ClientConfig, Config, ServerConfig};
+pub use connection::Connection;
+pub use error::{HandShakeError, RlsError};
+pub use ext::{StreamHandle, StreamParam};
+pub use extend::{formats::EcPointFormat, CompressionMethod, ExtensionType, KeyShare,
+                 PskMode, SupportVersions};
+pub use finger::*;
 pub use hash::{HashType, Hasher, Hmac};
 pub use hex;
-pub use message::{Certificates, ClientHello, ClientKeyExchange, ServerKeyExchange, ServerHello,
-                  ServerHelloDone, SessionTicket, TlsSessionTicket, NamedCurve, Alert,
-                  CertificateRequest, CertificateVerify, MessageParsed, Message};
+pub use hkdf::Hkdf;
+pub use key::{SecretKey, TlsSession};
+#[cfg(feature = "log")]
+pub use log::*;
+pub use message::{Alert, CertificateRequest, CertificateVerify, Certificates, ClientHello,
+                  ClientKeyExchange, Message, MessageParsed, NamedCurve, ServerHello,
+                  ServerHelloDone, ServerKeyExchange, SessionTicket, TlsSessionTicket};
 pub use record::{RecordLayer, RecordType};
 pub use suite::{CipherSuite, KeyExchangeAlg};
 pub use url::{Addr, Param, Scheme, Uri, Url, UrlError};
 pub use version::Version;
-pub use key::{SecretKey, TlsSession};
-pub use bytes::Bytes;
-pub use finger::*;
-#[cfg(feature = "log")]
-pub use log::*;
-pub use config::{ClientConfig, ServerConfig, Config};
-pub use ext::{StreamHandle, StreamParam};
-pub use hkdf::Hkdf;
 
 pub const REVERSED: [u16; 16] = [0x0a0a, 0x1a1a, 0x2a2a, 0x3a3a, 0x4a4a, 0x5a5a, 0x6a6a, 0x7a7a, 0x8a8a, 0x9a9a, 0xaaaa, 0xbaba, 0xcaca, 0xdada, 0xeaea, 0xfafa];
 //(?s)  /\*(.*?)-----BEGIN CERTIFICATE----

@@ -50,13 +50,7 @@ impl<'a> Parameter<'a> {
     }
 
     pub fn len(&self) -> usize {
-        match self.flag {
-            ..0x40 => 1 + self.value.len(),
-            0x40..0x40FF => 2 + self.value.len(),
-            0x40FF..0x40FF_FFFF => 4 + self.value.len(),
-            0x40FF_FFFF..0x40FF_FFFF_FFFF_FFFF => 8 + self.value.len(),
-            _ => unreachable!()
-        }
+        crate::quic::variant_len(self.flag as usize) + self.value.len()
     }
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
