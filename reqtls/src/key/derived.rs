@@ -23,6 +23,7 @@ pub(crate) struct DerivedKey {
 
 impl DerivedKey {
     const ZERO: [u8; 64] = [0; 64];
+    const INIT_SLAT: [u8; 20] = [56, 118, 44, 247, 245, 89, 52, 179, 77, 23, 154, 230, 164, 200, 12, 173, 204, 187, 127, 10];
     pub fn new(client_random: [u8; 32], server_random: [u8; 32], session: TlsSession, key_log: Option<PathBuf>) -> Self {
         DerivedKey {
             prf: Prf::default(),
@@ -146,6 +147,42 @@ impl DerivedKey {
         hkdf.hkdf("tls13 key", &[], self.key_block.server_key_mut())?;
         hkdf.hkdf("tls13 iv", &[], self.key_block.server_iv_mut())?;
         Ok(&self.key_block)
+    }
+
+    pub fn make_quic_cipher_key(&mut self, cid: &[u8], server: bool) -> RlsResult<Key<'_>> {
+        let mut inti_hkdf = Hkdf::new(&Self::INIT_SLAT, cid, HashType::Sha256)?;
+        let mut init_secret = [0; 32];
+
+        inti_hkdf.hkdf("tls13 client in", b"", &mut init_secret)?;
+        let mut hkdf = Hkdf::from_prk(&init_secret, HashType::Sha256);
+        hkdf.hkdf("tls13 quic key", b"", self.key_block.client_key_mut())?;
+        hkdf.hkdf("tls13 quic iv", b"", self.key_block.client_iv_mut())?;
+        hkdf.hkdf("tls13 quic hp", b"", self.key_block.client_hp_key_mut())?;
+
+        inti_hkdf.hkdf("tls13 server in", b"", &mut init_secret)?;
+        let mut hkdf = Hkdf::from_prk(&init_secret, HashType::Sha256);
+        hkdf.hkdf("tls13 quic key", b"", self.key_block.server_key_mut())?;
+        hkdf.hkdf("tls13 quic iv", b"", self.key_block.server_iv_mut())?;
+        hkdf.hkdf("tls13 quic hp", b"", self.key_block.server_hp_key_mut())?;
+        Ok(match server {
+            true => Key::QUIC {
+                send_key: self.key_block.server_key(),
+                send_iv: self.key_block.server_iv(),
+                send_hp_key: self.key_block.server_hp_key(),
+                recv_key: self.key_block.client_key(),
+                recv_iv: self.key_block.client_iv(),
+                recv_hp_key: self.key_block.client_hp_key(),
+            },
+            false => Key::QUIC {
+                send_key: self.key_block.client_key(),
+                send_iv: self.key_block.client_iv(),
+                send_hp_key: self.key_block.client_hp_key(),
+                recv_key: self.key_block.server_key(),
+                recv_iv: self.key_block.server_iv(),
+                recv_hp_key: self.key_block.server_hp_key(),
+
+            }
+        })
     }
 
 

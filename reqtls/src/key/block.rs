@@ -17,6 +17,14 @@ pub enum Key<'a> {
         send_iv: &'a [u8],
         recv_iv: &'a [u8],
     },
+    QUIC {
+        send_key: &'a [u8],
+        recv_key: &'a [u8],
+        send_iv: &'a [u8],
+        recv_iv: &'a [u8],
+        send_hp_key: &'a [u8],
+        recv_hp_key: &'a [u8],
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -76,6 +84,8 @@ pub(crate) struct KeyBlock {
     key_size: usize,
     client_iv: [u8; 16],
     server_iv: [u8; 16],
+    client_hp_key: [u8; 16],
+    server_hp_key: [u8; 16],
     ///tls12: fix iv;
     iv_size: usize,
     explicit: [u8; 16],
@@ -93,6 +103,8 @@ impl Default for KeyBlock {
             key_size: 32,
             client_iv: [0; 16],
             server_iv: [0; 16],
+            client_hp_key: [0; 16],
+            server_hp_key: [0; 16],
             iv_size: 16,
             explicit: [0; 16],
             explicit_len: 0,
@@ -201,5 +213,21 @@ impl KeyBlock {
                 }
             },
         }
+    }
+
+    pub fn client_hp_key(&self) -> &[u8] {
+        &self.client_hp_key
+    }
+
+    pub fn client_hp_key_mut(&mut self) -> &mut [u8] {
+        &mut self.client_hp_key
+    }
+
+    pub fn server_hp_key(&self) -> &[u8] {
+        &self.server_hp_key
+    }
+
+    pub fn server_hp_key_mut(&mut self) -> &mut [u8; 16] {
+        &mut self.server_hp_key
     }
 }

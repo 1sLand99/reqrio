@@ -29,7 +29,7 @@ pub struct Connection {
     alpn: Option<ALPN>,
     cipher_suite: &'static CipherSuite,
     session_bytes: Vec<u8>,
-    derived: DerivedKey,
+    pub(crate) derived: DerivedKey,
     certificates: Vec<Certificate>,
     secret_keys: HashMap<NamedCurve, SecretKey>,
     secret_key: Option<SecretKey>,
@@ -304,7 +304,8 @@ impl Connection {
                 self.write.set_iv(Iv::new(send_iv, vec![]));
                 self.read.set_key(recv_key, &[], &aead, hasher)?;
                 self.read.set_iv(Iv::new(recv_iv, vec![]));
-            }
+            },
+            Key::QUIC { .. } => unreachable!()
         }
         Ok(())
     }
