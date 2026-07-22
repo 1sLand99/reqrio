@@ -124,6 +124,8 @@ jobs:
           GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
         run: |
           curl -i -H "Authorization: Bearer ${GIT_TOKEN}" https://api.github.com/user
+          git config --global --unset-all credential.helper
+          git -C bindings config --unset-all credential.helper
           echo "token=${GIT_TOKEN:0:8}"
           set -euo pipefail
           git -C bindings config user.name "xllgl2017"
