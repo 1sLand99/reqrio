@@ -301,8 +301,8 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
-          cargo publish --package reqtls
-          cargo publish --package reqrio
+          cargo publish --package reqtls||true
+          cargo publish --package reqrio||true
 
 
   # ----------------------------------------------------------------------------
