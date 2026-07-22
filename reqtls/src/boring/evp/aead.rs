@@ -141,7 +141,7 @@ mod aead_tests {
     #[test]
     fn test_aead_ctx() {
         let token=fs::read_to_string("../TOKEN").unwrap_or_else(|_|{
-            env::var("TOKEN").unwrap_or("".to_string())
+            env::var("REQRIO_TOKEN").unwrap_or("".to_string())
         });
         Buffer::check_subscription(token).unwrap();
         let key = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];

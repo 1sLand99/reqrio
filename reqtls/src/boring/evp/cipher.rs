@@ -298,7 +298,7 @@ mod tests {
     #[test]
     fn test_cipher() {
         let token=fs::read_to_string("../TOKEN").unwrap_or_else(|_|{
-            env::var("TOKEN").unwrap_or("".to_string())
+            env::var("REQRIO_TOKEN").unwrap_or("".to_string())
         });
         Buffer::check_subscription(token).unwrap();
         let k16 = "1234567812345678";

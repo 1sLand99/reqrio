@@ -14,7 +14,7 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     env:
-      TOKEN: ${{ secrets.TOKEN }}
+      REQRIO_TOKEN: ${{ secrets.REQRIO_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,7 +52,7 @@ jobs:
   build-windows:
     runs-on: windows-latest
     env:
-      TOKEN: ${{ secrets.TOKEN }}
+      REQRIO_TOKEN: ${{ secrets.REQRIO_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
