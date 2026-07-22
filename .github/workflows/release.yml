@@ -215,9 +215,10 @@ jobs:
           ' CHANGELOG.md > RELEASE_NOTES.txt
           if [ ! -s RELEASE_NOTES.txt ]; then
             echo "未在 CHANGELOG.md 中找到版本 ${VERSION} 的说明" >&2
-            exit 0
+            echo "skip=true" >> $GITHUB_OUTPUT
           fi
       - name: Download native libs
+        if: steps.check-notes.outputs.skip != 'true'
         uses: actions/download-artifact@v4
         with:
           pattern: native-*
@@ -225,6 +226,7 @@ jobs:
           merge-multiple: true
 
       - name: Place native libs into packages
+        if: steps.check-notes.outputs.skip != 'true'
         run: |
           set -e
           mkdir -p natives || true
@@ -245,7 +247,9 @@ jobs:
           if ls natives/*.lib 1> /dev/null 2>&1; then
             cp natives/reqrio.dll.lib bindings/qt/reqrio.lib
           fi
+
       - name: Package bindings into zips
+        if: steps.check-notes.outputs.skip != 'true'
         run: |
           mkdir -p dist
           zip -r dist/py.zip   bindings/python
@@ -253,7 +257,9 @@ jobs:
           zip -r dist/js.zip   bindings/nodejs
           zip -r dist/java.zip bindings/java
           zip -r dist/qt.zip   bindings/qt
+
       - name: Determine version and create tag if not pre-release
+        if: steps.check-notes.outputs.skip != 'true'
         env:
           GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
         run: |
@@ -263,7 +269,9 @@ jobs:
           git remote set-url origin "https://x-access-token:${GIT_TOKEN}@github.com/xllgl2017/reqrio.git"
           git tag -a "v${{ inputs.version }}" -m "v${{ inputs.version }}"
           git push origin "v${{ inputs.version }}"
+
       - name: Create GitHub Release
+        if: steps.check-notes.outputs.skip != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ inputs.version }}
