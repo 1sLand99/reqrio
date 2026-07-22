@@ -216,6 +216,8 @@ jobs:
           if [ ! -s RELEASE_NOTES.txt ]; then
             echo "未在 CHANGELOG.md 中找到版本 ${VERSION} 的说明" >&2
             echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
           fi
       - name: Download native libs
         if: steps.check-notes.outputs.skip != 'true'
