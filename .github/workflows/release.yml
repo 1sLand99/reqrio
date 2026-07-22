@@ -78,7 +78,6 @@ jobs:
   # 待所有任务成功后由 finalize 合并回主分支并打 tag
   # ----------------------------------------------------------------------------
   bump-version:
-#    needs: prerelease-check
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -108,46 +107,14 @@ jobs:
           # Rust: 工作区对 reqtls 的依赖引用
           sed -i -E 's/(reqtls = \{ path = "reqtls", version = ")[^"]*(")/\1'"$NEW"'\2/' Cargo.toml
 
-          # Python（子模块 bindings 自己维护）
-          sed -i -E 's/^version = "[^"]*"/version = "'"$NEW"'"/' bindings/python/pyproject.toml
-          sed -i -E 's/(version=")[^"]*(")/\1'"$NEW"'\2/' bindings/python/setup.py
-
-          # Java（仅项目 version，4 空格缩进，避免误伤依赖/插件版本）
-          sed -i -E 's#^    <version>[^<]*</version>#    <version>'"$NEW"'</version>#' bindings/java/pom.xml
-
-          # Node.js
-          sed -i -E 's/("version": ")[^"]*(")/\1'"$NEW"'\2/' bindings/nodejs/package.json
-
-      - name: Commit bindings submodule changes
-        env:
-          NEW: ${{ inputs.version }}
-          GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
-        run: |
-          curl -i -H "Authorization: Bearer ${GIT_TOKEN}" https://api.github.com/user
-          echo "token=${GIT_TOKEN:0:8}"
-          set -euo pipefail
-          git -C bindings config user.name "xllgl2017"
-          git -C bindings config user.email "xinlanxi2017@gmail.com"
-          git -C bindings remote set-url origin "https://x-access-token:${GIT_TOKEN}@github.com/xllgl2017/reqrio-bindings.git"
-          git -C bindings add -f python/pyproject.toml python/setup.py java/pom.xml nodejs/package.json
-          if ! git -C bindings diff --cached --quiet; then
-            git -C bindings commit -m "bump version ${NEW}"
-            git -c credential.helper= -C bindings push https://x-access-token:${GIT_TOKEN}@github.com/xllgl2017/reqrio-bindings.git "HEAD:refs/heads/ci/release-${NEW}"
-          else
-            echo "子模块 bindings 中没有需要提交的版本变更"
-          fi
-      - name: Show diff
-        run: git --no-pager diff
-
       - name: Commit to temp release branch
         env:
           NEW: ${{ inputs.version }}
           GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
         run: |
           set -euo pipefail
-          git -C bindings config user.name "xllgl2017"
-          git -C bindings config user.email "xinlanxi2017@gmail.com"
-          git remote set-url origin "https://x-access-token:${GIT_TOKEN}@github.com/xllgl2017/reqrio.git"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add reqrio/Cargo.toml reqtls/Cargo.toml Cargo.toml bindings
           # 版本号已是目标值时无改动可提交，跳过 commit 但仍推临时分支
           if git diff --cached --quiet; then
@@ -155,7 +122,7 @@ jobs:
           else
             git commit -m "bump version ${NEW}"
             # 推到临时分支（不碰主分支）；-f 让本版本号可重跑覆盖
-            git push -f origin "HEAD:refs/heads/ci/release-${NEW}"
+            git push -f origin "${{ github.ref_name }}"
           fi
   # ----------------------------------------------------------------------------
   # 构建跨平台原生库，上传为 artifact 供各语言发布任务复用：
@@ -328,123 +295,6 @@ jobs:
           cargo publish --package reqtls
           cargo publish --package reqrio
 
-  # ----------------------------------------------------------------------------
-  # Python → PyPI（打包同时携带 .so 与 .dll）
-  # ----------------------------------------------------------------------------
-  publish-pypi:
-    name: publish-pypi (PyPI)
-    needs: build-natives
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          ref: ci/release-${{ inputs.version }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Download native libs
-        uses: actions/download-artifact@v4
-        with:
-          pattern: native-*
-          path: natives
-          merge-multiple: true
-
-      - name: Place native libs into package
-        run: |
-          cp natives/libreqrio.so bindings/python/reqrio/
-          cp natives/reqrio.dll   bindings/python/reqrio/
-
-      - name: Build wheel & sdist
-        working-directory: bindings/python
-        run: |
-          python -m pip install --upgrade build
-          python -m build
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: bindings/python/dist
-          password: ${{ secrets.PYPI_API_TOKEN }}
-
-  # ----------------------------------------------------------------------------
-  # Java → Maven Central（central-publishing-maven-plugin + gpg）
-  # ----------------------------------------------------------------------------
-  publish-maven:
-    name: publish-maven (Maven Central)
-    needs: build-natives
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          ref: ci/release-${{ inputs.version }}
-      - name: Setup JDK + Maven settings
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "11"
-          server-id: central
-          server-username: MAVEN_CENTRAL_USERNAME
-          server-password: MAVEN_CENTRAL_PASSWORD
-          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
-          gpg-passphrase: MAVEN_GPG_PASSPHRASE
-
-      - name: Download native libs
-        uses: actions/download-artifact@v4
-        with:
-          pattern: native-*
-          path: natives
-          merge-multiple: true
-
-      - name: Place native libs into resources
-        run: |
-          cp natives/libreqrio.so bindings/java/src/main/resources/
-          cp natives/reqrio.dll   bindings/java/src/main/resources/
-
-      - name: Deploy to Maven Central
-        working-directory: bindings/java
-        env:
-          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
-          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
-          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
-        run: mvn --batch-mode clean deploy
-
-  # ----------------------------------------------------------------------------
-  # Node.js → npm（打包同时携带 .so 与 .dll）
-  # ----------------------------------------------------------------------------
-  publish-npm:
-    name: publish-npm (npm)
-    needs: build-natives
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          ref: ci/release-${{ inputs.version }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          registry-url: "https://registry.npmjs.org"
-
-      - name: Download native libs
-        uses: actions/download-artifact@v4
-        with:
-          pattern: native-*
-          path: natives
-          merge-multiple: true
-
-      - name: Place native libs into package
-        run: |
-          cp natives/libreqrio.so bindings/nodejs/
-          cp natives/reqrio.dll   bindings/nodejs/
-
-      - name: Publish to npm
-        working-directory: bindings/nodejs
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public
 
   # ----------------------------------------------------------------------------
   # 收尾：所有任务成功后，下载 go 所需原生库放入 reqrio-go 并提交，
@@ -456,9 +306,6 @@ jobs:
       - build-natives
       - github-release
       - publish-crate
-      - publish-pypi
-      - publish-maven
-      - publish-npm
     # 任一任务失败或被取消则不提交；github-release 在预发行时被 skip 不算失败
     if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
@@ -468,102 +315,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          ref: ci/release-${{ inputs.version }}
+          ref: main
           fetch-depth: 0
-
-      # go 需要 linux .so（native-linux）与 windows-gnu .dll（go-windows-gnu）
-      - name: Download linux native lib
-        uses: actions/download-artifact@v4
-        with:
-          name: native-linux
-          path: natives
-      - name: Download windows-msvc native lib
-        uses: actions/download-artifact@v4
-        with:
-          name: native-windows
-          path: natives
-      - name: Download windows-gnu dll
-        uses: actions/download-artifact@v4
-        with:
-          name: go-windows-gnu
-          path: natives-go
-
-      - name: Commit go native libs, push to ${{ github.ref_name }} and tag
-        env:
-          NEW: ${{ inputs.version }}
-          GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
-        run: |
-          set -euo pipefail
-          git -C bindings config user.name "xllgl2017"
-          git -C bindings config user.email "xinlanxi2017@gmail.com"
-          git remote set-url origin "https://x-access-token:${GIT_TOKEN}@github.com/xllgl2017/reqrio.git"
-          # go
-          cp natives/libreqrio.so bindings/go/
-          cp natives-go/reqrio.dll bindings/go/
-          #python
-          cp natives/reqrio.dll bindings/python/reqrio/
-          cp natives/libreqrio.so bindings/python/reqrio/
-          # nodejs
-          cp natives/reqrio.dll bindings/nodejs/
-          cp natives/libreqrio.so bindings/nodejs/
-          # java
-          cp natives/reqrio.dll bindings/java/src/main/resources/
-          cp natives/libreqrio.so bindings/java/src/main/resources/
-          # qt
-          cp natives/reqrio.dll bindings/qt/
-          cp natives/reqrio.dll.lib bindings/qt/reqrio.lib
-          cp natives/libreqrio.so bindings/qt/
-          
-          git -C bindings config user.name "xllgl2017"
-          git -C bindings config user.email "xinlanxi2017@gmail.com"
-          git -C bindings remote set-url origin "https://x-access-token:${GIT_TOKEN}@github.com/xllgl2017/reqrio-bindings.git"
-          git -C bindings add -f \
-            go/libreqrio.so go/reqrio.dll \
-            python/reqrio/reqrio.dll python/reqrio/libreqrio.so \
-            nodejs/reqrio.dll nodejs/libreqrio.so \
-            java/src/main/resources/reqrio.dll java/src/main/resources/libreqrio.so \
-            qt/reqrio.dll qt/reqrio.lib qt/libreqrio.so
-          if ! git -C bindings diff --cached --quiet; then
-            git -C bindings commit -m "update all bindings to ${NEW}"
-            git -C bindings push origin "HEAD:refs/heads/ci/release-${NEW}"
-          else
-            echo "bindings submodule has no native lib changes to commit"
-          fi
-
-          git add bindings
-          if ! git diff --cached --quiet; then
-            git commit -m "update all bindings to ${NEW}"
-          else
-            echo "parent repo has no changes to commit"
-          fi
-
-          # 先把临时发布分支合并到主分支，再推送主分支
-          git fetch origin "${{ github.ref_name }}"
-          git fetch origin "ci/release-${NEW}"
-          git checkout -B "${{ github.ref_name }}" "origin/${{ github.ref_name }}"
-          git merge --ff-only "ci/release-${NEW}" || {
-            echo "fast-forward merge to main failed; falling back to direct push"
-            git push origin "HEAD:refs/heads/${{ github.ref_name }}"
-          }
-          git push origin "${{ github.ref_name }}"
-
-          # 同步子模块的临时分支内容到子模块主分支
-          git -C bindings fetch origin "${{ github.ref_name }}"
-          git -C bindings fetch origin "ci/release-${NEW}"
-          git -C bindings checkout -B "${{ github.ref_name }}" "origin/${{ github.ref_name }}"
-          git -C bindings merge --ff-only "ci/release-${NEW}" || {
-            echo "submodule fast-forward merge failed; falling back to direct push"
-            git -C bindings push origin "HEAD:refs/heads/${{ github.ref_name }}"
-          }
-          git -C bindings push origin "${{ github.ref_name }}"
-
-          # 打并推送 go module tag（指向含原生库的提交）
-          git tag "go/v${NEW}"
-          git push origin "go/v${NEW}"
-
-      - name: Delete temp release branch
+      - name: Trigger bindings release
         env:
           NEW: ${{ inputs.version }}
         run: |
-          git push origin --delete "ci/release-${NEW}"
-          git -C bindings push origin --delete "ci/release-${NEW}"
+          curl \
+            -X POST \
+            -H "Authorization: Bearer ${{ secrets.GIT_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/xllgl2017/reqrio-bindings/dispatches \
+            -d '{
+              "event_type":"reqrio-release",
+              "client_payload":{
+                "version":"'${NEW}'"
+              }
+            }'
+
+
