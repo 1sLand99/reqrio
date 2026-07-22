@@ -268,14 +268,14 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "v${{ inputs.version }}" -m "v${{ inputs.version }}"
-          git push origin "v${{ inputs.version }}"
+          git tag -a "${{ inputs.version }}" -m "${{ inputs.version }}"
+          git push origin "${{ inputs.version }}"
 
       - name: Create GitHub Release
         if: steps.check-notes.outputs.skip != 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ inputs.version }}
+          tag_name: ${{ inputs.version }}
           body_path: RELEASE_NOTES.txt
           files: |
             dist/py.zip
@@ -301,8 +301,8 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
-          cargo publish --package reqtls||true
-          cargo publish --package reqrio||true
+          cargo publish --package reqtls
+          cargo publish --package reqrio
 
 
   # ----------------------------------------------------------------------------

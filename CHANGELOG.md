@@ -1,3 +1,15 @@
+# reqrio-v0.3.1
+
+- Allow H2 to add `content-length` field
+- Fix zstd stream decode
+- Remove `Sec-WebSocket-Extensions` in`WebSocket`
+- fix addHeader in java
+- fix missing cookie in java
+- Fix missing cookies in `setHeader` in Java
+- Fix Buffer move
+- Fix cookie parsing bug in response cookie.
+- Improve doc from 0.3.0
+
 # reqrio-v0.3.0
 
 `v0.3.0` is a significant architectural upgrade, marking the evolution of reqrio
@@ -48,15 +60,15 @@ println!("{}", resp.header());
 #### 1. Lightweight streaming parser `Reader` ([#12](https://github.com/xllgl2017/reqrio/pull/12))
 
 - Supported types:
-  - `u8` / `u16` / `u24` / `u32`
-  - `&[u8]` / `str`
+    - `u8` / `u16` / `u24` / `u32`
+    - `&[u8]` / `str`
 - Useful for parsing protocols such as TLS, DNS, and HTTP.
 
 #### 2. Stream decompression `StreamDecode` ([#15](https://github.com/xllgl2017/reqrio/pull/15))
 
 - Supported formats:
-  - chunked gzip / br / deflate / zstd
-  - gzip / br / deflate / zstd
+    - chunked gzip / br / deflate / zstd
+    - gzip / br / deflate / zstd
 
 ## 🎯 Fingerprint-level network behavior control
 
