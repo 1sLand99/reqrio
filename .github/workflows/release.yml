@@ -125,14 +125,14 @@ jobs:
         run: |
           echo "token=${GIT_TOKEN:0:8}"
           set -euo pipefail
-          git -C bindings config --unset-all credential.helper
           git -C bindings config user.name "xllgl2017"
           git -C bindings config user.email "xinlanxi2017@gmail.com"
           git -C bindings remote set-url origin "https://x-access-token:${GIT_TOKEN}@github.com/xllgl2017/reqrio-bindings.git"
           git -C bindings add -f python/pyproject.toml python/setup.py java/pom.xml nodejs/package.json
           if ! git -C bindings diff --cached --quiet; then
             git -C bindings commit -m "bump version ${NEW}"
-            git -C bindings push -f origin "HEAD:refs/heads/ci/release-${NEW}"
+#            git -C bindings push -f origin "HEAD:refs/heads/ci/release-${NEW}"
+            git -C bindings push https://x-access-token:${GIT_TOKEN}@github.com/xllgl2017/reqrio-bindings.git HEAD:refs/heads/ci/release-${NEW}
           else
             echo "子模块 bindings 中没有需要提交的版本变更"
           fi
