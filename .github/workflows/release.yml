@@ -121,41 +121,40 @@ jobs:
       - name: Commit bindings submodule changes
         env:
           NEW: ${{ inputs.version }}
+          TOKEN: ${{ secrets.TOKEN }}
         run: |
           set -euo pipefail
-          if [ -d bindings/.git ] || [ -f bindings/.git ]; then
-            git -C bindings config user.name "github-actions[bot]"
-            git -C bindings config user.email "github-actions[bot]@users.noreply.github.com"
-            git -C bindings add -f python/pyproject.toml python/setup.py java/pom.xml nodejs/package.json
-            if ! git -C bindings diff --cached --quiet; then
-              git -C bindings commit -m "bump version ${NEW}"
-              git -C bindings push origin "HEAD:refs/heads/ci/release-${NEW}" || echo "submodule temp branch push skipped"
-            else
-              echo "子模块 bindings 中没有需要提交的版本变更"
-            fi
+          git -C bindings config user.name "github-actions[bot]"
+          git -C bindings config user.email "github-actions[bot]@users.noreply.github.com"
+          git -C bindings remote set-url origin "https://${TOKEN}@github.com/xllgl2017/reqrio-bindings.git"
+          git -C bindings add -f python/pyproject.toml python/setup.py java/pom.xml nodejs/package.json
+          if ! git -C bindings diff --cached --quiet; then
+            git -C bindings commit -m "bump version ${NEW}"
+            git -C bindings push -f origin "HEAD:refs/heads/ci/release-${NEW}" || echo "submodule temp branch push skipped"
           else
-            echo "bindings 不是已初始化的 git 子模块，跳过子模块提交"
+            echo "子模块 bindings 中没有需要提交的版本变更"
           fi
-
       - name: Show diff
         run: git --no-pager diff
 
       - name: Commit to temp release branch
         env:
           NEW: ${{ inputs.version }}
+          TOKEN: ${{ secrets.TOKEN }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://${TOKEN}@github.com/xllgl2017/reqrio.git"
           git add reqrio/Cargo.toml reqtls/Cargo.toml Cargo.toml bindings
           # 版本号已是目标值时无改动可提交，跳过 commit 但仍推临时分支
           if git diff --cached --quiet; then
             echo "版本号已是 ${NEW}，无需提交"
           else
             git commit -m "bump version ${NEW}"
+            # 推到临时分支（不碰主分支）；-f 让本版本号可重跑覆盖
+            git push -f origin "HEAD:refs/heads/ci/release-${NEW}"
           fi
-          # 推到临时分支（不碰主分支）；-f 让本版本号可重跑覆盖
-          git push -f origin "HEAD:refs/heads/ci/release-${NEW}"
   # ----------------------------------------------------------------------------
   # 构建跨平台原生库，上传为 artifact 供各语言发布任务复用：
   #   native-linux    : linux  libreqrio.so
@@ -286,10 +285,13 @@ jobs:
           zip -r dist/java.zip bindings/java
           zip -r dist/qt.zip   bindings/qt
       - name: Determine version and create tag if not pre-release
+        env:
+          TOKEN: ${{ secrets.TOKEN }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://${TOKEN}@github.com/xllgl2017/reqrio.git"
           git tag -a "v${{ inputs.version }}" -m "v${{ inputs.version }}" || true
           git push origin "v${{ inputs.version }}"
       - name: Create GitHub Release
@@ -487,10 +489,12 @@ jobs:
       - name: Commit go native libs, push to ${{ github.ref_name }} and tag
         env:
           NEW: ${{ inputs.version }}
+          TOKEN: ${{ secrets.TOKEN }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://${TOKEN}@github.com/xllgl2017/reqrio.git"
           # go
           cp natives/libreqrio.so bindings/go/
           cp natives-go/reqrio.dll bindings/go/
@@ -510,6 +514,7 @@ jobs:
           
           git -C bindings config user.name "github-actions[bot]"
           git -C bindings config user.email "github-actions[bot]@users.noreply.github.com"
+          git -C bindings remote set-url origin "https://${TOKEN}@github.com/xllgl2017/reqrio-bindings.git"
           git -C bindings add -f \
             go/libreqrio.so go/reqrio.dll \
             python/reqrio/reqrio.dll python/reqrio/libreqrio.so \
