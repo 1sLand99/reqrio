@@ -144,7 +144,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          ref: ci/release-${{ inputs.version }}
+          ref: main
       - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: |
@@ -204,7 +204,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          ref: ci/release-${{ inputs.version }}
+          ref: main
       - name: Extract release notes from CHANGELOG.md
         run: |
           VERSION="${{inputs.version}}"
@@ -286,7 +286,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          ref: ci/release-${{ inputs.version }}
+          ref: main
       - uses: Swatinem/rust-cache@v2
       - name: cargo publish
         env:
