@@ -126,11 +126,11 @@ jobs:
           set -euo pipefail
           git -C bindings config user.name "github-actions[bot]"
           git -C bindings config user.email "github-actions[bot]@users.noreply.github.com"
-          git -C bindings remote set-url origin "https://${GIT_TOKEN}@github.com/xllgl2017/reqrio-bindings.git"
+          git -C bindings remote set-url origin "https://x-access-token:${GIT_TOKEN}@github.com/xllgl2017/reqrio-bindings.git"
           git -C bindings add -f python/pyproject.toml python/setup.py java/pom.xml nodejs/package.json
           if ! git -C bindings diff --cached --quiet; then
             git -C bindings commit -m "bump version ${NEW}"
-            git -C bindings push -f origin "HEAD:refs/heads/ci/release-${NEW}" || echo "submodule temp branch push skipped"
+            git -C bindings push -f origin "HEAD:refs/heads/ci/release-${NEW}"
           else
             echo "子模块 bindings 中没有需要提交的版本变更"
           fi
@@ -145,7 +145,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin "https://${GIT_TOKEN}@github.com/xllgl2017/reqrio.git"
+          git remote set-url origin "https://x-access-token:${GIT_TOKEN}@github.com/xllgl2017/reqrio.git"
           git add reqrio/Cargo.toml reqtls/Cargo.toml Cargo.toml bindings
           # 版本号已是目标值时无改动可提交，跳过 commit 但仍推临时分支
           if git diff --cached --quiet; then
@@ -260,21 +260,21 @@ jobs:
           set -e
           mkdir -p natives || true
           if [ -f natives/libreqrio.so ]; then
-            cp natives/libreqrio.so bindings/python/reqrio/ || true
-            cp natives/libreqrio.so bindings/java/src/main/resources/ || true
-            cp natives/libreqrio.so bindings/nodejs/ || true
-            cp natives/libreqrio.so bindings/qt/ || true
-            cp natives/libreqrio.so bindings/go/ || true
+            cp natives/libreqrio.so bindings/python/reqrio/ 
+            cp natives/libreqrio.so bindings/java/src/main/resources/ 
+            cp natives/libreqrio.so bindings/nodejs/ 
+            cp natives/libreqrio.so bindings/qt/ 
+            cp natives/libreqrio.so bindings/go/ 
           fi
           if [ -f natives/reqrio.dll ]; then
-            cp natives/reqrio.dll bindings/python/reqrio/ || true
-            cp natives/reqrio.dll bindings/java/src/main/resources/ || true
-            cp natives/reqrio.dll bindings/nodejs/ || true
-            cp natives/reqrio.dll bindings/qt/ || true
-            cp natives/reqrio.dll bindings/go/ || true
+            cp natives/reqrio.dll bindings/python/reqrio/ 
+            cp natives/reqrio.dll bindings/java/src/main/resources/ 
+            cp natives/reqrio.dll bindings/nodejs/ 
+            cp natives/reqrio.dll bindings/qt/ 
+            cp natives/reqrio.dll bindings/go/ 
           fi
           if ls natives/*.lib 1> /dev/null 2>&1; then
-            cp natives/reqrio.dll.lib bindings/qt/reqrio.lib || true
+            cp natives/reqrio.dll.lib bindings/qt/reqrio.lib
           fi
       - name: Package bindings into zips
         run: |
@@ -291,8 +291,8 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin "https://${GIT_TOKEN}@github.com/xllgl2017/reqrio.git"
-          git tag -a "v${{ inputs.version }}" -m "v${{ inputs.version }}" || true
+          git remote set-url origin "https://x-access-token:${GIT_TOKEN}@github.com/xllgl2017/reqrio.git"
+          git tag -a "v${{ inputs.version }}" -m "v${{ inputs.version }}"
           git push origin "v${{ inputs.version }}"
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -494,7 +494,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin "https://${GIT_TOKEN}@github.com/xllgl2017/reqrio.git"
+          git remote set-url origin "https://x-access-token:${GIT_TOKEN}@github.com/xllgl2017/reqrio.git"
           # go
           cp natives/libreqrio.so bindings/go/
           cp natives-go/reqrio.dll bindings/go/
@@ -514,7 +514,7 @@ jobs:
           
           git -C bindings config user.name "github-actions[bot]"
           git -C bindings config user.email "github-actions[bot]@users.noreply.github.com"
-          git -C bindings remote set-url origin "https://${GIT_TOKEN}@github.com/xllgl2017/reqrio-bindings.git"
+          git -C bindings remote set-url origin "https://x-access-token:${GIT_TOKEN}@github.com/xllgl2017/reqrio-bindings.git"
           git -C bindings add -f \
             go/libreqrio.so go/reqrio.dll \
             python/reqrio/reqrio.dll python/reqrio/libreqrio.so \
@@ -523,14 +523,14 @@ jobs:
             qt/reqrio.dll qt/reqrio.lib qt/libreqrio.so
           if ! git -C bindings diff --cached --quiet; then
             git -C bindings commit -m "update all bindings to ${NEW}"
-            git -C bindings push origin "HEAD:refs/heads/ci/release-${NEW}" || echo "submodule temp branch push skipped"
+            git -C bindings push origin "HEAD:refs/heads/ci/release-${NEW}"
           else
             echo "bindings submodule has no native lib changes to commit"
           fi
 
           git add bindings
           if ! git diff --cached --quiet; then
-            git commit -m "update all bindings to ${NEW}" || echo "no parent repo changes to commit"
+            git commit -m "update all bindings to ${NEW}"
           else
             echo "parent repo has no changes to commit"
           fi
@@ -563,5 +563,5 @@ jobs:
         env:
           NEW: ${{ inputs.version }}
         run: |
-          git push origin --delete "ci/release-${NEW}" || true
-          git -C bindings push origin --delete "ci/release-${NEW}" || true
+          git push origin --delete "ci/release-${NEW}"
+          git -C bindings push origin --delete "ci/release-${NEW}"
