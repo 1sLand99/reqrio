@@ -124,8 +124,8 @@ jobs:
           GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
         run: |
           set -euo pipefail
-          git -C bindings config user.name "github-actions[bot]"
-          git -C bindings config user.email "github-actions[bot]@users.noreply.github.com"
+          git -C bindings config user.name "xllgl2017"
+          git -C bindings config user.email "xinlanxi2017@gmail.com"
           git -C bindings remote set-url origin "https://x-access-token:${GIT_TOKEN}@github.com/xllgl2017/reqrio-bindings.git"
           git -C bindings add -f python/pyproject.toml python/setup.py java/pom.xml nodejs/package.json
           if ! git -C bindings diff --cached --quiet; then
@@ -143,8 +143,8 @@ jobs:
           GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git -C bindings config user.name "xllgl2017"
+          git -C bindings config user.email "xinlanxi2017@gmail.com"
           git remote set-url origin "https://x-access-token:${GIT_TOKEN}@github.com/xllgl2017/reqrio.git"
           git add reqrio/Cargo.toml reqtls/Cargo.toml Cargo.toml bindings
           # 版本号已是目标值时无改动可提交，跳过 commit 但仍推临时分支
@@ -289,8 +289,8 @@ jobs:
           GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git -C bindings config user.name "xllgl2017"
+          git -C bindings config user.email "xinlanxi2017@gmail.com"
           git remote set-url origin "https://x-access-token:${GIT_TOKEN}@github.com/xllgl2017/reqrio.git"
           git tag -a "v${{ inputs.version }}" -m "v${{ inputs.version }}"
           git push origin "v${{ inputs.version }}"
@@ -492,8 +492,8 @@ jobs:
           GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git -C bindings config user.name "xllgl2017"
+          git -C bindings config user.email "xinlanxi2017@gmail.com"
           git remote set-url origin "https://x-access-token:${GIT_TOKEN}@github.com/xllgl2017/reqrio.git"
           # go
           cp natives/libreqrio.so bindings/go/
@@ -512,8 +512,8 @@ jobs:
           cp natives/reqrio.dll.lib bindings/qt/reqrio.lib
           cp natives/libreqrio.so bindings/qt/
           
-          git -C bindings config user.name "github-actions[bot]"
-          git -C bindings config user.email "github-actions[bot]@users.noreply.github.com"
+          git -C bindings config user.name "xllgl2017"
+          git -C bindings config user.email "xinlanxi2017@gmail.com"
           git -C bindings remote set-url origin "https://x-access-token:${GIT_TOKEN}@github.com/xllgl2017/reqrio-bindings.git"
           git -C bindings add -f \
             go/libreqrio.so go/reqrio.dll \
