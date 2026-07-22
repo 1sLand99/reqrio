@@ -125,6 +125,7 @@ jobs:
         run: |
           echo "token=${GIT_TOKEN:0:8}"
           set -euo pipefail
+          git -C bindings config --unset-all credential.helper
           git -C bindings config user.name "xllgl2017"
           git -C bindings config user.email "xinlanxi2017@gmail.com"
           git -C bindings remote set-url origin "https://x-access-token:${GIT_TOKEN}@github.com/xllgl2017/reqrio-bindings.git"
