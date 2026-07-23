@@ -1,6 +1,6 @@
 use crate::{BufferError, ReadExt, Reader, WriteExt};
 pub use crate::connection::{QUICBuffer, QUICError, QUICConnection};
-pub use super::message::{FrameType, QUICPacket};
+pub use super::message::{QUICFrame, QUICPacket};
 
 
 pub(crate) fn read_variant(reader: &mut Reader) -> Result<usize, BufferError> {

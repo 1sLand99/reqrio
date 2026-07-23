@@ -83,7 +83,7 @@ impl<'a> CipherEncodeBuffer<'a> {
             suite,
             head,
             record_len: 0,
-            payload: PayloadEncodeBuffer::new_quic(payload, packet.len - packet.flag.num_len()),
+            payload: PayloadEncodeBuffer::new_quic(payload, packet.pd_len() - packet.flag.num_len()),
             quic: true,
         }
     }

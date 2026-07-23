@@ -304,9 +304,9 @@ pub use hkdf::Hkdf;
 pub use key::{SecretKey, TlsSession};
 #[cfg(feature = "log")]
 pub use log::*;
-pub use message::{Alert, CertificateRequest, CertificateVerify, Certificates, ClientHello,
-                  ClientKeyExchange, Message, MessageParsed, NamedCurve, ServerHello,
-                  ServerHelloDone, ServerKeyExchange, SessionTicket, TlsSessionTicket};
+pub use message::{Alert, CertificateRequest, CertificateVerify, Certificates, ClientHello, Message,
+                  ClientKeyExchange, MessageParsed, NamedCurve, ServerHello, ServerHelloDone,
+                  ServerKeyExchange, SessionTicket, TlsSessionTicket, PacketType, QUICPacket};
 pub use record::{RecordLayer, RecordType};
 pub use suite::{CipherSuite, KeyExchangeAlg};
 pub use url::{Addr, Param, Scheme, Uri, Url, UrlError};
