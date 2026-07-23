@@ -51,6 +51,11 @@ impl QUICBuffer {
         } else { None }
     }
 
+    pub fn raw_buffer_mut(&mut self) -> &mut Buffer {
+        assert_eq!(self.current, self.buffer.offset());
+        &mut self.buffer
+    }
+
     pub fn reset(&mut self) {
         self.current = 0..0;
         self.remains.clear();

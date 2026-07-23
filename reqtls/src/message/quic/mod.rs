@@ -1,19 +1,21 @@
 mod frame;
 
 use crate::{Buf, Buffer, BufferError, ReadExt, Reader, WriteExt};
-pub use frame::FrameType;
+pub use frame::QUICFrame;
 
 
 #[derive(Default, Copy, Clone, Debug, PartialEq)]
 pub enum PacketType {
     #[default]
-    Initial = 0
+    Initial = 0,
+    Handshake = 2,
 }
 
 impl From<u8> for PacketType {
     fn from(value: u8) -> Self {
         match value {
             0 => PacketType::Initial,
+            2 => PacketType::Handshake,
             _ => unreachable!(),
         }
     }
@@ -85,7 +87,7 @@ pub struct QUICPacket<'a> {
     pub(crate) dc_id: Buf<'a>,
     pub(crate) sc_id: Buf<'a>,
     pub(crate) token: Buf<'a>,
-    pub(crate) len: usize,
+    len: usize,
     pub(crate) pn_offset: usize,
     pub(crate) num: u64,
     pub(crate) payload: Buf<'a>,
@@ -146,7 +148,6 @@ impl<'a> QUICPacket<'a> {
     }
 
     pub fn hdr_raw(&self) -> &[u8] {
-        println!("{:?}", &self.hdr_raw[..self.hdr_len]);
         &self.hdr_raw[..self.hdr_len]
     }
 
@@ -160,6 +161,10 @@ impl<'a> QUICPacket<'a> {
 
     pub fn padding_size(&self) -> usize {
         self.padding
+    }
+
+    pub fn pd_len(&self) -> usize {
+        self.len
     }
 
     pub fn encode(&mut self) -> Result<(), BufferError> {
@@ -209,7 +214,7 @@ impl<'a> QUICPacket<'a> {
                 len: crate::quic::read_variant(reader)?,
                 pn_offset: reader.position() - pos,
                 hdr_raw: reader.inner()[pos..pos + 30].try_into()?,
-                payload: Buf::Ref(&reader.inner()[pos..]),
+                payload: Buf::Ref(&[]),
                 num: 0,
                 hdr_len: 0,
                 padding: 0,
@@ -239,6 +244,10 @@ impl<'a> QUICPacket<'a> {
 
     pub fn dc_id(&self) -> &Buf<'a> {
         &self.dc_id
+    }
+
+    pub fn num(&self) -> u64 {
+        self.num
     }
 }
 
