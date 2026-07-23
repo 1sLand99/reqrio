@@ -27,8 +27,8 @@ impl<'a> PayloadEncodeBuffer<'a> {
     pub fn new_quic(buffer: &'a mut [u8], pd_len: usize) -> PayloadEncodeBuffer<'a> {
         PayloadEncodeBuffer {
             encoded: buffer,
-            plain_offset: 0..pd_len,
-            encode_offset: 0..pd_len + 16,
+            plain_offset: 0..pd_len - 16,
+            encode_offset: 0..pd_len,
         }
     }
 

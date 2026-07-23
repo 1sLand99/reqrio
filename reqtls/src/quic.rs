@@ -17,9 +17,9 @@ pub(crate) fn read_variant(reader: &mut Reader) -> Result<usize, BufferError> {
 pub(crate) fn variant_len(val: usize) -> usize {
     match val {
         ..0x40 => 1,
-        0x40..0x40FF => 2,
-        0x40FF..0x40FF_FFFF => 4,
-        0x40FF_FFFF..0x40FF_FFFF_FFFF_FFFF => 8,
+        0x40..0x4000 => 2,
+        0x4000..0x4000_0000 => 4,
+        0x4000_0000..0x4000_0000_0000_0000 => 8,
         _ => unreachable!()
     }
 }
@@ -28,9 +28,9 @@ pub(crate) fn variant_len(val: usize) -> usize {
 pub(crate) fn write_variant<W: WriteExt>(val: usize, writer: &mut W) -> Result<(), BufferError> {
     match val {
         ..0x40 => writer.write_u8(val as u8),
-        0x40..0x40FF => writer.write_u16(val as u16 | 0xc000),
-        0x40FF..0x40FF_FFFF => writer.write_u32(val as u32 | 0xc000_0000),
-        0x40FF_FFFF..0x40FF_FFFF_FFFF_FFFF => writer.write_slice(&(val as u64 | 0xc000_0000_0000_0000).to_be_bytes()),
+        0x40..0x4000 => writer.write_u16(val as u16 | 0x4000),
+        0x4000..0x4000_0000 => writer.write_u32(val as u32 | 0x8000_0000),
+        0x4000_0000..0x4000_0000_0000_0000 => writer.write_slice(&(val as u64 | 0xc000_0000_0000_0000).to_be_bytes()),
         _ => Err(BufferError::InvalidQUICVariant)
     }
 }

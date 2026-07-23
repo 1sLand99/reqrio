@@ -1,6 +1,6 @@
 mod frame;
 
-use crate::Buf;
+use crate::{Buf, Buffer, BufferError, ReadExt, Reader, WriteExt};
 pub use frame::FrameType;
 
 
@@ -30,14 +30,19 @@ pub struct QUICFlag {
 }
 
 impl QUICFlag {
-    pub fn from_u8(v: u8) -> QUICFlag {
+    pub fn from_raw(v: u8) -> QUICFlag {
         QUICFlag {
             long_header: v & 0x80 == 0x80,
             fixed_bit: v & 0x40 == 0x40,
             packet_type: ((v & 0x30) >> 4).into(),
-            reserved: v & 0xc >> 2,
-            num_len: (v & 3) + 1,
+            reserved: 0,
+            num_len: 0,
         }
+    }
+
+    fn decode(&mut self, v: u8) {
+        self.reserved = v & 0xc >> 2;
+        self.num_len = (v & 3) + 1;
     }
 
     pub fn encode(&self) -> u8 {
@@ -81,11 +86,13 @@ pub struct QUICPacket<'a> {
     pub(crate) sc_id: Buf<'a>,
     pub(crate) token: Buf<'a>,
     pub(crate) len: usize,
+    pub(crate) pn_offset: usize,
     pub(crate) num: u64,
     pub(crate) payload: Buf<'a>,
 
     pub(crate) hdr_raw: [u8; 30],
     pub(crate) hdr_len: usize,
+    pub(crate) padding: usize,
 }
 
 impl<'a> Default for QUICPacket<'a> {
@@ -97,17 +104,22 @@ impl<'a> Default for QUICPacket<'a> {
             sc_id: Buf::Ref(&[]),
             token: Buf::Ref(&[]),
             len: 0,
+            pn_offset: 0,
             num: 0,
             payload: Buf::Ref(&[]),
             hdr_raw: [0; 30],
             hdr_len: 0,
+            padding: 0,
         }
     }
 }
 
 impl<'a> QUICPacket<'a> {
-    pub fn new_initial(num: u64, pd_len: usize) -> Self {
+    pub fn new_initial(num: u64, pd_len: usize, dcid: &'a [u8]) -> Self {
         let num_len = crate::quic::variant_len(num as usize);
+        let (len, padding) = if pd_len + num_len + 16 >= 1232 {
+            (pd_len + num_len + 16, 0)
+        } else { (1232, 1232 - pd_len - num_len - 16) };
         QUICPacket {
             flag: QUICFlag {
                 long_header: true,
@@ -117,12 +129,24 @@ impl<'a> QUICPacket<'a> {
                 num_len: num_len as u8,
             },
             ver: 1,
-            len: num_len + pd_len + 16,
+            len,
+            num,
+            padding,
+            dc_id: Buf::Ref(dcid),
             ..Default::default()
         }
     }
 
-    pub(crate) fn aad(&self) -> &[u8] {
+    pub fn is_empty(&self) -> bool {
+        self.hdr_len == 0
+    }
+
+    pub fn len(&self) -> usize {
+        self.hdr_len + self.len
+    }
+
+    pub fn hdr_raw(&self) -> &[u8] {
+        println!("{:?}", &self.hdr_raw[..self.hdr_len]);
         &self.hdr_raw[..self.hdr_len]
     }
 
@@ -134,9 +158,87 @@ impl<'a> QUICPacket<'a> {
         &self.flag
     }
 
-    pub fn set_hdr_len(&mut self, dcid_len: usize, scid_len: usize) {
-        self.hdr_len = 1 + 4 + 1 + dcid_len + 1 + scid_len + crate::quic::variant_len(self.token.len())
-            + self.token.len() + crate::quic::variant_len(self.len) + self.flag.num_len as usize;
+    pub fn padding_size(&self) -> usize {
+        self.padding
+    }
+
+    pub fn encode(&mut self) -> Result<(), BufferError> {
+        let mut writer = Buffer::from_ptr(&mut self.hdr_raw);
+        writer.write_u8(self.flag.encode())?;
+        writer.write_u32(self.ver)?;
+        writer.write_u8(self.dc_id.len() as u8)?;
+        writer.write_slice(self.dc_id.as_ref())?;
+        writer.write_u8(self.sc_id.len() as u8)?;
+        writer.write_slice(self.sc_id.as_ref())?;
+        crate::quic::write_variant(self.token.len(), &mut writer)?;
+        writer.write_slice(self.token.as_ref())?;
+        crate::quic::write_variant(self.len, &mut writer)?;
+        self.pn_offset = writer.len();
+        match self.flag.num_len() {
+            1 => writer.write_u8(self.num as u8)?,
+            2 => writer.write_u16(self.num as u16)?,
+            4 => writer.write_u32(self.num as u32)?,
+            8 => writer.write_slice(&self.num.to_be_bytes())?,
+            _ => unreachable!()
+        }
+        self.hdr_len = writer.len();
+        Ok(())
+    }
+
+
+    pub fn from_reader(reader: &mut Reader<'a>) -> Result<QUICPacket<'a>, BufferError> {
+        let pos = reader.position();
+        let flag = QUICFlag::from_raw(reader.read_u8()?);
+        if flag.long_header {
+            let ver = reader.read_u32()?;
+            let dcid_len = reader.read_u8()? as usize;
+            let dc_id = reader.read_slice(dcid_len)?;
+            let scid_len = reader.read_u8()? as usize;
+            let sc_id = reader.read_slice(scid_len)?;
+            let mut token = Buf::Ref(&[]);
+            if flag.packet_type == PacketType::Initial {
+                let tk_len = crate::quic::read_variant(reader)?;
+                token = Buf::Ref(reader.read_slice(tk_len)?);
+            };
+            Ok(QUICPacket {
+                flag,
+                ver,
+                dc_id: Buf::Ref(dc_id),
+                sc_id: Buf::Ref(sc_id),
+                token,
+                len: crate::quic::read_variant(reader)?,
+                pn_offset: reader.position() - pos,
+                hdr_raw: reader.inner()[pos..pos + 30].try_into()?,
+                payload: Buf::Ref(&reader.inner()[pos..]),
+                num: 0,
+                hdr_len: 0,
+                padding: 0,
+            })
+        } else { Ok(QUICPacket::default()) }
+    }
+
+    pub fn decode(&mut self, mask: &[u8], reader: &mut Reader<'a>) -> Result<(), BufferError> {
+        self.hdr_raw[0] ^= mask[0] & 0x0f;
+        self.flag.decode(self.hdr_raw[0]);
+        let pn_offset = self.pn_offset..self.pn_offset + self.flag.num_len();
+        self.hdr_raw[pn_offset].iter_mut().enumerate().for_each(|(i, x)| *x ^= mask[i + 1]);
+        self.hdr_len = self.pn_offset + self.flag.num_len();
+        let mut decode_reader = Reader::from_slice(&self.hdr_raw);
+        decode_reader.set_position(self.pn_offset);
+        self.num = match self.flag.num_len() {
+            1 => decode_reader.read_u8()? as u64,
+            2 => decode_reader.read_u16()? as u64,
+            3 => decode_reader.read_u24()? as u64,
+            4 => decode_reader.read_u32()? as u64,
+            _ => unreachable!()
+        };
+        reader.add_len(self.flag.num_len());
+        self.payload = Buf::Ref(reader.read_slice(self.len - self.flag.num_len())?);
+        Ok(())
+    }
+
+    pub fn dc_id(&self) -> &Buf<'a> {
+        &self.dc_id
     }
 }
 
