@@ -1,3 +1,4 @@
+use std::array::TryFromSliceError;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
@@ -13,6 +14,7 @@ pub enum BufferError {
     RangeEdgeError(Range<usize>),
     Nullptr,
     ResizeFail { current: usize, new: usize },
+    SliceConvertError(TryFromSliceError),
 }
 
 impl Display for BufferError {
@@ -26,8 +28,15 @@ impl Display for BufferError {
             BufferError::Nullptr => write!(f, "Nullptr"),
             BufferError::ResizeFail { current, new } => write!(f, "resize to {} fail from {}", new, current),
             BufferError::InvalidQUICVariant => write!(f, "Invalid variant"),
+            BufferError::SliceConvertError(er)=> write!(f, "SliceConvertError({})", er),
         }
     }
 }
 
 impl Error for BufferError {}
+
+impl From<TryFromSliceError> for BufferError {
+    fn from(value: TryFromSliceError) -> Self {
+        BufferError::SliceConvertError(value)
+    }
+}

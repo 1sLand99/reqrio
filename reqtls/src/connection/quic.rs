@@ -2,10 +2,10 @@ use crate::buffer::{CipherDecodeBuffer, CipherEncodeBuffer};
 use crate::error::RlsResult;
 use crate::extend::Aead;
 use crate::hash::HashError;
-use crate::message::{FrameType, PacketType, QUICFlag, QUICPacket};
+use crate::message::{FrameType, PacketType, QUICPacket};
 use crate::suite::iv::Iv;
 use crate::suite::TlsCipher;
-use crate::{rand, Buf, Buffer, BufferError, Bytes, Cipher, CipherSuite, Connection, HashType, ReadExt, Reader, WriteExt};
+use crate::{Buf, Buffer, BufferError, Cipher, CipherSuite, Connection, HashType, Reader, WriteExt};
 #[cfg(feature = "log")]
 use log::trace;
 use std::error::Error;
@@ -45,7 +45,6 @@ pub struct QUICConnection {
     recv_sample: Cipher,
     send_sample: Cipher,
     buffer: Buffer,
-    cid: Bytes,
     conn: Connection,
 }
 
@@ -57,7 +56,6 @@ impl Default for QUICConnection {
             recv_sample: Cipher::aes_128_ecb(),
             send_sample: Cipher::aes_128_ecb(),
             buffer: Buffer::with_capacity(1500),
-            cid: Bytes::new(rand::random::<[u8; 8]>().to_vec()),
             conn: Connection::default(),
         }
     }
@@ -66,12 +64,11 @@ impl Default for QUICConnection {
 
 impl QUICConnection {
     /// [rfc9001 5.2](https://datatracker.ietf.org/doc/html/rfc9001#name-initial-secrets)
-    pub fn make_cipher(&mut self, flag: u8, server: bool) -> RlsResult<()> {
-        if flag & 0x30 != PacketType::Initial as u8 { return Ok(()); }
-        self.conn.derived.init(&CipherSuite::TLS_AES_128_GCM_SHA256);
+    pub fn make_cipher(&mut self, cid: &Buf<'_>, server: bool) -> RlsResult<()> {
         if !self.recv_cipher.is_null() && !self.send_cipher.is_null() { return Ok(()); }
+        self.conn.derived.init(&CipherSuite::TLS_AES_128_GCM_SHA256);
         #[cfg(feature = "log")]
-        trace!("[QUIC] dcid={:?}", self.cid);
+        trace!("[QUIC] dcid={:?}", cid);
         let Key::QUIC {
             send_key,
             recv_key,
@@ -79,7 +76,7 @@ impl QUICConnection {
             recv_iv,
             send_hp_key,
             recv_hp_key,
-        } = self.conn.derived.make_quic_cipher_key(self.cid.as_ref(), server)?else { unreachable!() };
+        } = self.conn.derived.make_quic_cipher_key(cid.as_ref(), server)?else { unreachable!() };
         self.send_cipher.set_key(send_key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
         self.send_cipher.set_iv(Iv::new(send_iv, vec![]));
         self.send_sample.set_secret_key(send_hp_key, None);
@@ -89,53 +86,22 @@ impl QUICConnection {
         Ok(())
     }
 
-    ////[rfc9001](https://datatracker.ietf.org/doc/html/rfc9001#name-header-protection-sample)
+    ///[rfc9001](https://datatracker.ietf.org/doc/html/rfc9001#name-header-protection-sample)
     pub fn read(&mut self, origin: &[u8], server: bool) -> RlsResult<Vec<FrameType<'_>>> {
         let mut reader = Reader::from_slice(origin);
-        let flag = reader.read_u8()?;
-        let mut packet = QUICPacket::default();
-        if flag & 0x80 == 0x80 {
-            //LongHeader
-            packet.ver = reader.read_u32()?;
-            let dcid_len = reader.read_u8()? as usize;
-            packet.dc_id = Buf::Ref(reader.read_slice(dcid_len)?);
-            let scid_len = reader.read_u8()? as usize;
-            packet.sc_id = Buf::Ref(reader.read_slice(scid_len)?);
-            self.make_cipher(flag, server)?;
-            if flag & 0x30 == 0 {
-                let tk_len = crate::quic::read_variant(&mut reader)?;
-                packet.token = Buf::Ref(reader.read_slice(tk_len)?);
-            }
-            packet.len = crate::quic::read_variant(&mut reader)?;
-            let pn_offset = reader.position();
+        let mut packet = QUICPacket::from_reader(&mut reader)?;
+        if packet.flag.packet_type() == PacketType::Initial {
+            self.make_cipher(&packet.dc_id, server)?;
             #[cfg(feature = "log")]
-            trace!("[QUIC] read: dcid={:?}; scid={:?}; token={:?}",packet.dc_id, packet.sc_id, packet.token);
-            let sample_offset = pn_offset + 4;
-            let sample = &origin[sample_offset..sample_offset + 16];
+            trace!("[QUIC] read: dcid={:?}; scid={:?}; token={:?}", packet.dc_id, packet.sc_id, packet.token);
+            let sample_offset = packet.pn_offset + 4;
+            let sample = &reader.inner()[sample_offset..sample_offset + 16];
             let mut mask = match server {
                 true => self.recv_sample.encrypt(sample)?,
                 false => self.send_sample.encrypt(sample)?,
             };
             mask.truncate(5);
-            packet.flag = QUICFlag::from_u8(flag ^ (mask[0] & 0x0f));
-            let offset = 0..pn_offset + packet.flag.num_len();
-            packet.hdr_len = offset.len();
-            packet.hdr_raw[offset.clone()].copy_from_slice(&origin[offset]);
-            packet.hdr_raw[0] ^= mask[0] & 0x0f;
-            packet.hdr_raw[pn_offset..pn_offset + packet.flag.num_len()].iter_mut().enumerate()
-                .for_each(|(i, x)| *x ^= mask[i + 1]);
-            let mut decode_reader = Reader::from_slice(&packet.hdr_raw);
-            decode_reader.set_position(pn_offset);
-            packet.num = match packet.flag.num_len() {
-                1 => decode_reader.read_u8()? as u64,
-                2 => decode_reader.read_u16()? as u64,
-                3 => decode_reader.read_u24()? as u64,
-                4 => decode_reader.read_u32()? as u64,
-                _ => unreachable!()
-            };
-            reader.set_position(decode_reader.position());
-            let pd_len = packet.len - packet.flag.num_len();
-            packet.payload = Buf::Ref(reader.read_slice(pd_len)?);
+            packet.decode(&mask, &mut reader)?;
             return self.decode(&packet, server);
         }
         Ok(vec![])
@@ -166,16 +132,20 @@ impl QUICConnection {
     }
 
 
-    pub fn make_message<'a, 'b: 'a>(&'b mut self, buffer: &mut [u8], packet: &mut QUICPacket<'a>) -> RlsResult<usize> {
-        if packet.flag.packet_type() == PacketType::Initial {
-            packet.dc_id = Buf::Ref(self.cid.as_ref());
-        }
+    pub fn make_message<'a, 'b: 'a>(&'b mut self, buffer: &mut [u8], packet: &mut QUICPacket<'a>) -> RlsResult<()> {
         let encode_buffer = CipherEncodeBuffer::new_quic(buffer, packet, &CipherSuite::TLS_AES_128_GCM_SHA256);
-        self.send_cipher.encrypt(Some(packet.num), encode_buffer)
-    }
-
-    pub fn cid(&self) -> &Bytes {
-        &self.cid
+        self.send_cipher.encrypt(Some(packet.num), encode_buffer)?;
+        if packet.flag.packet_type() == PacketType::Initial {
+            let sample = &buffer[packet.pn_offset + 4..packet.pn_offset + 20];
+            let mut mask = self.send_sample.encrypt(sample)?;
+            mask.truncate(5);
+            buffer[0] ^= mask[0] & 0xf;
+            let pn_offset = packet.pn_offset..packet.pn_offset + packet.flag.num_len();
+            buffer[pn_offset].iter_mut().enumerate().for_each(|(i, x)| {
+                *x ^= mask[i + 1]
+            });
+        }
+        Ok(())
     }
 }
 
@@ -185,7 +155,7 @@ mod tests {
     use crate::connection::buffer::QUICBuffer;
     use crate::connection::quic::QUICConnection;
     use crate::message::FrameType;
-    use crate::{Bytes, KeyExchangeAlg, Message, RecordType, Version};
+    use crate::{KeyExchangeAlg, Message, RecordType, Version};
 
     fn decode(conn: &mut QUICConnection, origin: &[u8], server: bool, buffer: &mut QUICBuffer) {
         let frames = conn.read(origin, server).unwrap();
@@ -199,7 +169,6 @@ mod tests {
     #[test]
     fn test_quic_read() {
         let mut conn = QUICConnection {
-            cid: Bytes::new(hex::decode("5826e10f9e47274a").unwrap()),
             ..Default::default()
         };
         let mut buffer = QUICBuffer::default();
@@ -212,7 +181,7 @@ mod tests {
         let message = Message::from_reader(&mut reader, &RecordType::HandShake, KeyExchangeAlg::NULL, &Version::TLS_1_3);
         assert!(message.is_ok());
         println!("{:#?}", message);
-
+        //
         buffer.reset();
         let raw = hex::decode("c900000001000818c8588d0880882d004016b3948a9a3e9b16341cb4b0b03d2b36554573afe3f81f").unwrap();
         decode(&mut conn, &raw, true, &mut buffer);

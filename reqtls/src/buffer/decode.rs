@@ -35,7 +35,7 @@ impl<'a> CipherDecodeBuffer<'a> {
 
     pub fn from_quic(packet: &'a QUICPacket, decoded: &'a mut [u8]) -> RlsResult<Self> {
         Ok(CipherDecodeBuffer {
-            head: packet.aad(),
+            head: packet.hdr_raw(),
             suite: &CipherSuite::TLS_AES_128_GCM_SHA256,
             payload: PayloadDecodeBuffer { origin: packet.payload.as_ref(), decoded },
             quic: true,
