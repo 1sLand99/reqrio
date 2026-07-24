@@ -13,6 +13,20 @@ impl<'a> Debug for Parameter<'a> {
     }
 }
 
+impl<'a> Clone for Parameter<'a> {
+    fn clone(&self) -> Self {
+        let value = match &self.value {
+            Buf::Ptr(_) => unreachable!(),
+            Buf::Ref(v) => Buf::Vec(v.to_vec()),
+            Buf::Vec(v) => Buf::Vec(v.clone())
+        };
+        Parameter {
+            flag: self.flag,
+            value,
+        }
+    }
+}
+
 impl<'a> Parameter<'a> {
     pub fn spec(&self) -> &str {
         match self.flag {
@@ -38,6 +52,13 @@ impl<'a> Parameter<'a> {
         }
     }
 
+    pub fn new(flag: u64, value: Buf<'a>) -> Parameter<'a> {
+        Parameter {
+            flag,
+            value,
+        }
+    }
+
 
     pub fn from_reader(reader: &mut Reader<'a>) -> Result<Parameter<'a>, BufferError> {
         let typ = crate::quic::read_variant(reader)? as u64;
@@ -50,7 +71,8 @@ impl<'a> Parameter<'a> {
     }
 
     pub fn len(&self) -> usize {
-        crate::quic::variant_len(self.flag as usize) + self.value.len()
+        crate::quic::variant_len(self.flag as usize) +
+            crate::quic::variant_len(self.value.len()) + self.value.len()
     }
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {

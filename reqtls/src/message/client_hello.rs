@@ -6,8 +6,8 @@ use crate::boring::hash;
 use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
-use crate::extend::{ExtensionType, ExtensionValue, ServerName};
-use crate::{u24, BufferError, KeyShare, ReadExt, Reader, WriteExt};
+use crate::extend::{ExtensionType, ExtensionValue, Parameter, ServerName};
+use crate::{u24, BufferError, HandShakeError, KeyShare, ReadExt, Reader, SupportVersions, WriteExt, ALPN};
 use std::mem;
 
 #[derive(Debug)]
@@ -299,6 +299,61 @@ impl<'a> ClientHello<'a> {
         }
     }
 
+    pub fn build_quic(&mut self) -> RlsResult<()> {
+        if self.key_share_mut().is_none() { return Err(HandShakeError::QUICMissingKeyShare.into()); };
+        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::SupportedVersions);
+        let extend = extend.ok_or(HandShakeError::MissingSupportedVersions)?;
+        let mut sv = SupportVersions::default();
+        sv.push(Version::TLS_1_3);
+        let sve = Extension::new(ExtensionType::SupportedVersions, ExtensionValue::SupportedVersions(sv));
+        *extend = sve;
+        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::QUICTrpParameters);
+        if extend.is_none() {
+            let params = vec![
+                Parameter::new(0x20, Buf::Ref(&[128, 1, 0, 0])),
+                Parameter::new(0x11, Buf::Ref(&[0, 0, 0, 1, 170, 250, 234, 186, 0, 0, 0, 1])),
+                Parameter::new(0x3127, Buf::Ref(&[128, 3, 51, 213])),
+                Parameter::new(0x04, Buf::Ref(&[128, 240, 0, 0])),
+                Parameter::new(0x07, Buf::Ref(&[128, 96, 0, 0])),
+                Parameter::new(0x0f, Buf::Ref(&[])),
+                Parameter::new(0x18277593fbc5055c, Buf::Ref(&[78, 94, 216, 125, 2, 63, 129, 138, 65, 161, 185, 105])),
+                Parameter::new(0x06, Buf::Ref(&[128, 96, 0, 0])),
+                Parameter::new(0x01, Buf::Ref(&[128, 0, 117, 48])),
+                Parameter::new(0x09, Buf::Ref(&[64, 103])),
+                Parameter::new(0x05, Buf::Ref(&[128, 96, 0, 0])),
+                Parameter::new(0x08, Buf::Ref(&[64, 100])),
+                Parameter::new(0x03, Buf::Ref(&[69, 192]))
+            ];
+            let qte = Extension::new(ExtensionType::QUICTrpParameters, ExtensionValue::QUICTrpParameters(params));
+            self.extensions.insert(0, qte);
+        }
+        if let Some(extend) = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ApplicationLayerProtocolNegotiation) {
+            let alps = ALPS::new(vec![ALPN::Http30]);
+            *extend = Extension::new(ExtensionType::ApplicationLayerProtocolNegotiation, ExtensionValue::ApplicationLayerProtocolNegotiation(alps));
+        }
+        if let Some(extend) = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ApplicationSetting) {
+            let alps = ALPS::new(vec![ALPN::Http30]);
+            *extend = Extension::new(ExtensionType::ApplicationSetting, ExtensionValue::ApplicationSetting(alps));
+        }
+        if let Some(extend) = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ApplicationSettingOld) {
+            let alps = ALPS::new(vec![ALPN::Http30]);
+            *extend = Extension::new(ExtensionType::ApplicationSettingOld, ExtensionValue::ApplicationSettingOld(alps));
+        }
+        let mut suites = vec![];
+        if self.cipher_suites.contains(&CipherSuite::TLS_AES_128_GCM_SHA256) {
+            suites.push(CipherSuite::TLS_AES_128_GCM_SHA256);
+        }
+        if self.cipher_suites.contains(&CipherSuite::TLS_AES_256_GCM_SHA384) {
+            suites.push(CipherSuite::TLS_AES_256_GCM_SHA384);
+        }
+        if self.cipher_suites.contains(&CipherSuite::TLS_CHACHA20_POLY1305_SHA256) {
+            suites.push(CipherSuite::TLS_CHACHA20_POLY1305_SHA256);
+        }
+        self.cipher_suites = suites;
+        self.session_id = Buf::Ref(&[]);
+        Ok(())
+    }
+
     pub fn remove_server_name(&mut self) {
         let pos = self.extensions.iter_mut().position(|x| x.extension_type() == &ExtensionType::ServerName);
         if let Some(pos) = pos {
@@ -306,4 +361,3 @@ impl<'a> ClientHello<'a> {
         }
     }
 }
-

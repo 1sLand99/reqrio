@@ -14,6 +14,9 @@ pub enum HandShakeError {
     UnknownHandShake(u8),
     UnsupportedMessage(HandshakeType),
     UnknownCipherSuite(u16),
+    QUICMissingKeyShare,
+    MissingSupportedVersions,
+    MissingQUICParameters
 }
 
 impl Display for HandShakeError {

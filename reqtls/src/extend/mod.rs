@@ -32,7 +32,7 @@ pub use server_name::ServerName;
 pub use status::StatusRequest;
 use std::fmt::{Debug, Formatter};
 pub use version::SupportVersions;
-use crate::extend::quic::Parameter;
+pub use quic::Parameter;
 
 #[derive(PartialEq, Clone, Copy)]
 pub struct ExtensionType(u16);
@@ -232,7 +232,7 @@ impl<'a> ExtensionValue<'a> {
             ExtensionValue::PreSharedKey(v) => v.len(),
             ExtensionValue::Unknown(v) => v.len(),
             ExtensionValue::Padding(v) => *v,
-            ExtensionValue::QUICTrpParameters(v) => v.len(),
+            ExtensionValue::QUICTrpParameters(v) => v.iter().map(|x|x.len()).sum::<usize>(),
         }
     }
 

@@ -21,7 +21,6 @@ fn test_log() {
 async fn main() {
     #[cfg(feature = "log")]
     test_log();
-    println!("{}"," 3fddsf".trim());
     let mut timeout = Timeout::longer();
     timeout.set_handle_times(1);
 
@@ -123,12 +122,12 @@ async fn main() {
     // let res = req.get("https://117.89.181.21".sni("m.sogou.com"), None).await.unwrap();
     // let url = Url::try_from("https://cn.bing.com/").unwrap();
     // let url = "https://113.108.215.122/xhr/front/trade/priority/rushPurchase/hot/branch/one".sni("h5.moutai519.com.cn").unwrap(); //
-    // let url = "https://www.baidu.com".try_into().unwrap();
+    let url: Url = "https://www.baidu.com".try_into().unwrap();
     // let url: Url = "https://www.bing.com".try_into().unwrap();
-    let url = "https://shop.lululemon.com/help/orders/gift-card-balance";
+    // let url = "https://shop.lululemon.com/help/orders/gift-card-balance";
     // req.re_conn(Some(&url)).await.unwrap();
-    let resp = req.post(url.clone(), None).await.unwrap();
-    let resp = req.post(url.clone(), None).await.unwrap();
+    let resp = req.get(url.clone(), None).await.unwrap();
+    // let resp = req.post(url.clone(), None).await.unwrap();
     println!("{} {}", resp.header(), resp.as_bytes().len());
     // req.re_conn(None).await.unwrap();
     // let resp = req.get(url, None).await.unwrap();

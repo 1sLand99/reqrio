@@ -4,13 +4,13 @@ use crate::extend::Aead;
 use crate::hash::HashError;
 use crate::message::{QUICFrame, PacketType, QUICPacket};
 use crate::suite::iv::Iv;
-use crate::suite::TlsCipher;
-use crate::{Buf, Buffer, BufferError, Cipher, CipherSuite, Connection, HashType, Reader, WriteExt};
+use crate::{Buf, Buffer, BufferError, Cipher, CipherSuite, Connection, HashType, Reader, TlsSession, WriteExt};
 #[cfg(feature = "log")]
 use log::trace;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
+use std::path::PathBuf;
 use std::slice;
 use std::str::Utf8Error;
 use crate::key::Key;
@@ -50,8 +50,6 @@ impl From<Utf8Error> for QUICError {
 }
 
 pub struct QUICConnection {
-    recv_cipher: TlsCipher,
-    send_cipher: TlsCipher,
     recv_sample: Cipher,
     send_sample: Cipher,
     buffer: Buffer,
@@ -61,8 +59,6 @@ pub struct QUICConnection {
 impl Default for QUICConnection {
     fn default() -> Self {
         QUICConnection {
-            recv_cipher: TlsCipher::none(),
-            send_cipher: TlsCipher::none(),
             recv_sample: Cipher::aes_128_ecb(),
             send_sample: Cipher::aes_128_ecb(),
             buffer: Buffer::with_capacity(1500),
@@ -73,9 +69,17 @@ impl Default for QUICConnection {
 
 
 impl QUICConnection {
+    pub fn new_client(session: TlsSession, key_log: Option<PathBuf>) -> QUICConnection {
+        QUICConnection {
+            conn: Connection::new_client(session, key_log),
+            ..Self::default()
+        }
+    }
+
+
     /// [rfc9001 5.2](https://datatracker.ietf.org/doc/html/rfc9001#name-initial-secrets)
     pub fn make_cipher(&mut self, cid: &Buf<'_>, server: bool) -> RlsResult<()> {
-        if !self.recv_cipher.is_null() && !self.send_cipher.is_null() { return Ok(()); }
+        if !self.conn.recv_cipher.is_null() && !self.conn.send_cipher.is_null() { return Ok(()); }
         self.conn.derived.init(&CipherSuite::TLS_AES_128_GCM_SHA256);
         #[cfg(feature = "log")]
         trace!("[QUIC] dcid={:?}", cid);
@@ -87,11 +91,11 @@ impl QUICConnection {
             send_hp_key,
             recv_hp_key,
         } = self.conn.derived.make_quic_cipher_key(cid.as_ref(), server)?else { unreachable!() };
-        self.send_cipher.set_key(send_key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
-        self.send_cipher.set_iv(Iv::new(send_iv, vec![]));
+        self.conn.send_cipher.set_key(send_key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
+        self.conn.send_cipher.set_iv(Iv::new(send_iv, vec![]));
         self.send_sample.set_secret_key(send_hp_key, None);
-        self.recv_cipher.set_key(recv_key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
-        self.recv_cipher.set_iv(Iv::new(recv_iv, vec![]));
+        self.conn.recv_cipher.set_key(recv_key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
+        self.conn.recv_cipher.set_iv(Iv::new(recv_iv, vec![]));
         self.recv_sample.set_secret_key(recv_hp_key, None);
         Ok(())
     }
@@ -115,6 +119,7 @@ impl QUICConnection {
                 println!("{:#?}", packet);
             }
         }
+        println!("{:?}", packet);
         self.decode(&packet)
     }
 
@@ -128,7 +133,7 @@ impl QUICConnection {
         }
         self.buffer.reset();
         let buffer = CipherDecodeBuffer::from_quic(packet, self.buffer.unfilled())?;
-        let len = self.recv_cipher.decrypt(Some(packet.num), buffer)?;
+        let len = self.conn.recv_cipher.decrypt(Some(packet.num), buffer)?;
         self.buffer.add_len(len);
         let mut reader = Reader::from_slice(self.buffer.filled());
         let mut frames = Vec::with_capacity(30);
@@ -161,7 +166,7 @@ impl QUICConnection {
 
     pub fn make_message<'a, 'b: 'a>(&mut self, buffer: &mut [u8], packet: &mut QUICPacket<'a>) -> RlsResult<()> {
         let encode_buffer = CipherEncodeBuffer::new_quic(buffer, packet, &CipherSuite::TLS_AES_128_GCM_SHA256);
-        self.send_cipher.encrypt(Some(packet.num), encode_buffer)?;
+        self.conn.send_cipher.encrypt(Some(packet.num), encode_buffer)?;
         if packet.flag.packet_type() == PacketType::Initial {
             let sample = &buffer[packet.pn_offset + 4..packet.pn_offset + 20];
             let mut mask = self.send_sample.encrypt(sample)?;
