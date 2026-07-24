@@ -5,7 +5,7 @@ use crate::error::HlsResult;
 use crate::stream::{ConnParam, StreamParam};
 use crate::{Buffer, ClientConfig, HlsError, ProxyStream, ServerConfig};
 use connect::{Connecting, Handshake};
-use reqtls::{rand, Alert, Config, Connection, RecordType, StreamHandle, WriteExt, ALPN};
+use reqtls::{Alert, Config, Connection, RecordType, StreamHandle, WriteExt, ALPN};
 use std::io::Error;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -57,7 +57,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
         Connecting {
             handshake: Handshake::Handshaking(Box::new(TlsStream {
                 stream,
-                conn: Connection::from_client(rand::random(), session, mem::take(&mut config.key_log))
+                conn: Connection::new_client(session, mem::take(&mut config.key_log))
                     .with_verify(config.verify).with_mtls(!config.client_cert.is_empty()),
                 handshake_finished: false,
                 hello_retrying: false,

@@ -34,7 +34,17 @@ pub trait StreamHandle {
             client_hello.remove_padding();
         };
         let mut secrets = HashMap::new();
-        match client_hello.key_share_mut() {
+        let key_share = match config.alpn {
+            ALPN::Http30 => match client_hello.key_share_mut().is_some() {
+                true => {
+
+                    client_hello.key_share_mut()
+                },
+                false => return Err(HandShakeError::QUICMissingKeyShare.into()),
+            }
+            _ => client_hello.key_share_mut()
+        };
+        match key_share {
             None => client_hello.remove_tls13(),
             Some(key_share) => {
                 key_share.key_entries().iter().for_each(|key| {
@@ -49,6 +59,8 @@ pub trait StreamHandle {
                 }
             }
         }
+
+        if config.alpn == &ALPN::Http30 { client_hello.build_quic()?; }
         let mut record = RecordLayer::handshake();
         record.messages = vec![client_hello.into()];
         record.version = Version::TLS_1_0;

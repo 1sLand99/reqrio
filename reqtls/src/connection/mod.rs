@@ -22,8 +22,8 @@ pub use quic::{QUICError, QUICConnection};
 pub use buffer::QUICBuffer;
 
 pub struct Connection {
-    read: TlsCipher,
-    write: TlsCipher,
+    pub(crate) recv_cipher: TlsCipher,
+    pub(crate) send_cipher: TlsCipher,
     named_curve: NamedCurve,
     exchange_pub_key: Bytes,
     alpn: Option<ALPN>,
@@ -52,8 +52,8 @@ impl Connection {
 
     pub fn new(client_random: [u8; 32], server_random: [u8; 32], session: TlsSession, key_log: Option<PathBuf>) -> Connection {
         Connection {
-            read: TlsCipher::none(),
-            write: TlsCipher::none(),
+            recv_cipher: TlsCipher::none(),
+            send_cipher: TlsCipher::none(),
             named_curve: NamedCurve::X25519.into(),
             exchange_pub_key: Bytes::none(),
             alpn: None,
@@ -73,8 +73,8 @@ impl Connection {
         }
     }
 
-    pub fn from_client(random: [u8; 32], session: TlsSession, key_log: Option<PathBuf>) -> Connection {
-        Connection::new(random, [0; 32], session, key_log)
+    pub fn new_client(session: TlsSession, key_log: Option<PathBuf>) -> Connection {
+        Connection::new(rand::random(), [0; 32], session, key_log)
     }
 
     pub fn client_random(&self) -> &[u8] {
@@ -145,10 +145,10 @@ impl Connection {
                 recv_key,
                 recv_iv
             } = key.get_side(&self.version, false) {
-                self.write.set_key(send_key, &[], &aead, mac_hash)?;
-                self.write.set_iv(Iv::new(send_iv, vec![]));
-                self.read.set_key(recv_key, &[], &aead, mac_hash)?;
-                self.read.set_iv(Iv::new(recv_iv, vec![]));
+                self.send_cipher.set_key(send_key, &[], &aead, mac_hash)?;
+                self.send_cipher.set_iv(Iv::new(send_iv, vec![]));
+                self.recv_cipher.set_key(recv_key, &[], &aead, mac_hash)?;
+                self.recv_cipher.set_iv(Iv::new(recv_iv, vec![]));
             }
         }
         Ok(false)
@@ -289,10 +289,10 @@ impl Connection {
                 recv_iv,
                 explicit
             } => {
-                self.write.set_key(send_key, send_mac, &aead, hasher)?;
-                self.write.set_iv(Iv::new(send_iv, explicit.to_vec()));
-                self.read.set_key(recv_key, recv_mac, &aead, hasher)?;
-                self.read.set_iv(Iv::new(recv_iv, vec![]));
+                self.send_cipher.set_key(send_key, send_mac, &aead, hasher)?;
+                self.send_cipher.set_iv(Iv::new(send_iv, explicit.to_vec()));
+                self.recv_cipher.set_key(recv_key, recv_mac, &aead, hasher)?;
+                self.recv_cipher.set_iv(Iv::new(recv_iv, vec![]));
             }
             Key::TLS13 {
                 send_key,
@@ -300,11 +300,11 @@ impl Connection {
                 recv_key,
                 recv_iv
             } => {
-                self.write.set_key(send_key, &[], &aead, hasher)?;
-                self.write.set_iv(Iv::new(send_iv, vec![]));
-                self.read.set_key(recv_key, &[], &aead, hasher)?;
-                self.read.set_iv(Iv::new(recv_iv, vec![]));
-            },
+                self.send_cipher.set_key(send_key, &[], &aead, hasher)?;
+                self.send_cipher.set_iv(Iv::new(send_iv, vec![]));
+                self.recv_cipher.set_key(recv_key, &[], &aead, hasher)?;
+                self.recv_cipher.set_iv(Iv::new(recv_iv, vec![]));
+            }
             Key::QUIC { .. } => unreachable!()
         }
         Ok(())
@@ -371,12 +371,12 @@ impl Connection {
     pub fn make_message(&mut self, cty: RecordType, buffer: &mut [u8], payload: &[u8]) -> RlsResult<usize> {
         if buffer.len() < 5 + payload.len() { return Err(BufferError::CapacityTooSmall { needed: 5 + payload.len(), current: buffer.len() }.into()); }
         let buffer = CipherEncodeBuffer::new_tls(cty, buffer, payload, self.cipher_suite);
-        self.write.encrypt(None, buffer)
+        self.send_cipher.encrypt(None, buffer)
     }
 
     pub fn read_message(&mut self, origin: &[u8], buffer: &mut [u8]) -> RlsResult<usize> {
         let buffer = CipherDecodeBuffer::from_buffer(origin, buffer, self.cipher_suite)?;
-        self.read.decrypt(None, buffer)
+        self.recv_cipher.decrypt(None, buffer)
     }
 
     pub fn alpn(&self) -> Option<&ALPN> {
