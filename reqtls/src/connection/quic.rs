@@ -116,7 +116,7 @@ impl QUICConnection {
     }
 
     ///[rfc9001](https://datatracker.ietf.org/doc/html/rfc9001#name-header-protection-sample)
-    pub fn read(&mut self, origin: &[u8], server: bool) -> RlsResult<Vec<QUICFrame<'_>>> {
+    pub fn read<'a>(&'a mut self, origin: &'a [u8], server: bool) -> RlsResult<QUICPacket<'a>> {
         let mut reader = Reader::from_slice(origin);
         let mut packet = QUICPacket::from_reader(&mut reader)?;
         if packet.flag.packet_type() == PacketType::Initial {
@@ -131,12 +131,7 @@ impl QUICConnection {
             mask.truncate(5);
             packet.decode(&mask, &mut reader)?;
         }
-        // println!("{:#?}", packet);
-        self.decode(&packet)
-    }
-
-
-    fn decode(&mut self, packet: &QUICPacket) -> RlsResult<Vec<QUICFrame<'_>>> {
+        println!("{:#?}", packet);
         if self.buffer.capacity() < packet.payload.len() {
             return Err(BufferError::CapacityTooSmall {
                 needed: packet.payload.len(),
@@ -144,17 +139,16 @@ impl QUICConnection {
             }.into());
         }
         self.buffer.reset();
-        let buffer = CipherDecodeBuffer::from_quic(packet, self.buffer.unfilled())?;
+        let buffer = CipherDecodeBuffer::from_quic(&packet, self.buffer.unfilled())?;
         let len = self.conn.recv_cipher.decrypt(Some(packet.num), buffer)?;
         self.buffer.add_len(len);
         let mut reader = Reader::from_slice(self.buffer.filled());
-        let mut frames = Vec::with_capacity(30);
         while reader.unread_len() > 0 {
-            let frame = QUICFrame::from_reader(&mut reader)?;
-            frames.push(frame);
+            packet.push_frame(QUICFrame::from_reader(&mut reader)?)
         }
-        Ok(frames)
+        Ok(packet)
     }
+
 
     pub fn build_message(&mut self, mut packet: QUICPacket, mut frames: Vec<QUICFrame<'_>>, buffer: &mut Buffer) -> RlsResult<(Range<usize>, &[u8])> {
         if packet.padding_size() != 0 {
@@ -206,8 +200,8 @@ mod tests {
     use crate::{Buf, KeyExchangeAlg, Message, RecordType, TlsSession, Version};
 
     fn decode(conn: &mut QUICConnection, origin: &[u8], server: bool, buffer: &mut QUICBuffer) {
-        let frames = conn.read(origin, server).unwrap();
-        for frame in frames {
+        let mut packet = conn.read(origin, server).unwrap();
+        for frame in packet.take_frames() {
             if let QUICFrame::Crypto { offset, value } = frame {
                 buffer.write_at(offset, value).unwrap();
             }

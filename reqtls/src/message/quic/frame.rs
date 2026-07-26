@@ -145,6 +145,12 @@ impl<'a> QUICFrame<'a> {
                 let value_size = crate::quic::variant_len(value.len());
                 1 + offset_size + value_size + value.len()
             }
+            QUICFrame::Ack { largest_acknowledged, ack_delay, ack_range_count, first_ack_range } => {
+                crate::quic::variant_len(*largest_acknowledged as usize) +
+                    crate::quic::variant_len(*ack_delay as usize) +
+                    crate::quic::variant_len(*ack_range_count as usize) +
+                    crate::quic::variant_len(*first_ack_range as usize)
+            }
             _ => todo!()
         }
     }
@@ -158,6 +164,12 @@ impl<'a> QUICFrame<'a> {
                 crate::quic::write_variant(*offset, writer)?;
                 crate::quic::write_variant(value.len(), writer)?;
                 writer.write_slice(value.as_ref())
+            }
+            QUICFrame::Ack { largest_acknowledged, ack_delay, ack_range_count, first_ack_range } => {
+                crate::quic::write_variant(*largest_acknowledged as usize, writer)?;
+                crate::quic::write_variant(*ack_delay as usize, writer)?;
+                crate::quic::write_variant(*ack_range_count as usize, writer)?;
+                crate::quic::write_variant(*first_ack_range as usize, writer)
             }
             _ => todo!()
         }

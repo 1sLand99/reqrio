@@ -1,5 +1,6 @@
 mod frame;
 
+use std::mem;
 use crate::{Buf, Buffer, BufferError, ReadExt, Reader, WriteExt};
 pub use frame::QUICFrame;
 
@@ -95,6 +96,7 @@ pub struct QUICPacket<'a> {
     pub(crate) hdr_raw: [u8; 30],
     pub(crate) hdr_len: usize,
     pub(crate) padding: usize,
+    pub(crate) frames: Vec<QUICFrame<'a>>,
 }
 
 impl<'a> Default for QUICPacket<'a> {
@@ -112,6 +114,7 @@ impl<'a> Default for QUICPacket<'a> {
             hdr_raw: [0; 30],
             hdr_len: 0,
             padding: 0,
+            frames: vec![],
         }
     }
 }
@@ -135,6 +138,26 @@ impl<'a> QUICPacket<'a> {
             num,
             padding,
             dc_id: Buf::Ref(dcid),
+            ..Default::default()
+        }
+    }
+
+    pub fn new_ack(packet: &QUICPacket, pd_len: usize) -> Self {
+        let num_len = crate::quic::variant_len(packet.num as usize);
+        let len = pd_len + num_len + 16;
+        QUICPacket {
+            flag: QUICFlag {
+                long_header: packet.flag.long_header,
+                fixed_bit: true,
+                packet_type: packet.flag.packet_type,
+                reserved: 0,
+                num_len: num_len as u8,
+            },
+            ver: 1,
+            len,
+            num: packet.num,
+            padding: 0,
+            dc_id: Buf::Vec(packet.sc_id.to_vec()),
             ..Default::default()
         }
     }
@@ -169,24 +192,28 @@ impl<'a> QUICPacket<'a> {
 
     pub fn encode(&mut self) -> Result<(), BufferError> {
         let mut writer = Buffer::from_ptr(&mut self.hdr_raw);
-        writer.write_u8(self.flag.encode())?;
-        writer.write_u32(self.ver)?;
-        writer.write_u8(self.dc_id.len() as u8)?;
-        writer.write_slice(self.dc_id.as_ref())?;
-        writer.write_u8(self.sc_id.len() as u8)?;
-        writer.write_slice(self.sc_id.as_ref())?;
-        crate::quic::write_variant(self.token.len(), &mut writer)?;
-        writer.write_slice(self.token.as_ref())?;
-        crate::quic::write_variant(self.len, &mut writer)?;
-        self.pn_offset = writer.len();
-        match self.flag.num_len() {
-            1 => writer.write_u8(self.num as u8)?,
-            2 => writer.write_u16(self.num as u16)?,
-            4 => writer.write_u32(self.num as u32)?,
-            8 => writer.write_slice(&self.num.to_be_bytes())?,
-            _ => unreachable!()
+        if self.flag.long_header {
+            writer.write_u8(self.flag.encode())?;
+            writer.write_u32(self.ver)?;
+            writer.write_u8(self.dc_id.len() as u8)?;
+            writer.write_slice(self.dc_id.as_ref())?;
+            writer.write_u8(self.sc_id.len() as u8)?;
+            writer.write_slice(self.sc_id.as_ref())?;
+            crate::quic::write_variant(self.token.len(), &mut writer)?;
+            writer.write_slice(self.token.as_ref())?;
+            crate::quic::write_variant(self.len, &mut writer)?;
+            self.pn_offset = writer.len();
+            match self.flag.num_len() {
+                1 => writer.write_u8(self.num as u8)?,
+                2 => writer.write_u16(self.num as u16)?,
+                4 => writer.write_u32(self.num as u32)?,
+                8 => writer.write_slice(&self.num.to_be_bytes())?,
+                _ => unreachable!()
+            }
+            self.hdr_len = writer.len();
+        } else {
+            todo!()
         }
-        self.hdr_len = writer.len();
         Ok(())
     }
 
@@ -214,10 +241,7 @@ impl<'a> QUICPacket<'a> {
                 len: crate::quic::read_variant(reader)?,
                 pn_offset: reader.position() - pos,
                 hdr_raw: reader.inner()[pos..pos + 30].try_into()?,
-                payload: Buf::Ref(&[]),
-                num: 0,
-                hdr_len: 0,
-                padding: 0,
+                ..Default::default()
             })
         } else { Ok(QUICPacket::default()) }
     }
@@ -264,6 +288,14 @@ impl<'a> QUICPacket<'a> {
 
     pub fn num(&self) -> u64 {
         self.num
+    }
+
+    pub fn push_frame(&mut self, frame: QUICFrame<'a>) {
+        self.frames.push(frame);
+    }
+
+    pub fn take_frames(&mut self) -> Vec<QUICFrame<'a>> {
+        mem::take(&mut self.frames)
     }
 }
 
