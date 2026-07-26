@@ -34,9 +34,9 @@ impl TlsCipher {
 
 
     pub fn encrypt(&mut self, seq: Option<u64>, mut buffer: CipherEncodeBuffer) -> RlsResult<usize> {
-        if let Some(seq) = seq { self.seq = seq; }
-        let add_arr = buffer.aad(self.seq);
-        let nonce = self.iv.as_array(self.seq);
+        let seq = if let Some(seq) = seq { seq } else { self.seq };
+        let add_arr = buffer.aad(seq);
+        let nonce = self.iv.as_array(seq);
         buffer.add_explicit_iv(&nonce);
         self.crypto.encrypt(CryptEncodeParam {
             nonce: &nonce,
@@ -49,9 +49,10 @@ impl TlsCipher {
     }
 
     pub fn decrypt(&mut self, seq: Option<u64>, mut buffer: CipherDecodeBuffer) -> RlsResult<usize> {
-        if let Some(seq) = seq { self.seq = seq; }
-        let add = buffer.aad(self.seq)?;
-        let nonce = buffer.nonce(&mut self.iv, self.seq);
+        let seq = if let Some(seq) = seq { seq } else { self.seq };
+        let add = buffer.aad(seq)?;
+        let nonce = buffer.nonce(&mut self.iv, seq);
+        println!("seq: {}; aad: {:?}; nonce: {:?}", seq, add, nonce);
         let len = self.crypto.decrypt(CryptDecodeParam {
             nonce: &nonce,
             iv: &nonce,

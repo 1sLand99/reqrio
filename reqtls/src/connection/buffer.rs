@@ -47,6 +47,7 @@ impl QUICBuffer {
             offset.end += self.buffer.end();
             let ptr = self.buffer.raw_ptr();
             let filled = unsafe { slice::from_raw_parts(ptr.add(offset.start), offset.len()) };
+            assert_eq!(self.current, self.buffer.offset());
             Some(Reader::from_slice(filled))
         } else { None }
     }

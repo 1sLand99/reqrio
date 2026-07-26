@@ -93,7 +93,7 @@ mod tests {
     #[test]
     fn test_hkdf_local() {
         let hash = [160, 123, 172, 137, 109, 33, 28, 150, 18, 251, 24, 221, 150, 16, 121, 34, 68, 216, 55, 115, 134, 77, 226, 34, 247, 222, 165, 187, 194, 37, 246, 171, 37, 243, 23, 41, 163, 49, 0, 0, 137, 112, 219, 4, 9, 220, 174, 156];
-        let mut derived = DerivedKey::new([0; 32], [0; 32], Default::default(), None);
+        let mut derived = DerivedKey::new([0; 32], [0; 32], Default::default(), None, false);
         derived.init(&CipherSuite::TLS_AES_256_GCM_SHA384);
         let share_secret = [20, 12, 97, 149, 53, 54, 162, 204, 253, 108, 221, 23, 41, 241, 68, 218, 246, 201, 45, 203, 235, 232, 39, 139, 164, 162, 176, 211, 65, 52, 36, 65];
         derived.make_handshake_traffic_secret(share_secret.to_vec(), &hash).unwrap();
@@ -126,8 +126,9 @@ mod tests {
     #[test]
     fn test_quic() {
         let cid = [0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08];
-        let mut derived = DerivedKey::new([0; 32], [0; 32], TlsSession::default(), None);
+        let mut derived = DerivedKey::new([0; 32], [0; 32], TlsSession::default(), None, true);
         derived.init(&CipherSuite::TLS_AES_128_GCM_SHA256);
+        derived.make_quic_cipher_key(cid.as_ref()).unwrap();
         let Key::QUIC {
             send_key,
             recv_key,
@@ -135,7 +136,7 @@ mod tests {
             recv_iv,
             send_hp_key,
             recv_hp_key,
-        } = derived.make_quic_cipher_key(&cid, false).unwrap() else { unreachable!() };
+        } = derived.make_cipher_key(&Version::TLS_1_3, false).unwrap() else { unreachable!() };
         assert_eq!(hex::encode(send_key), "1f369613dd76d5467730efcbe3b1a22d");
         assert_eq!(hex::encode(send_iv), "fa044b2f42a3fd3b46fb255c");
         assert_eq!(hex::encode(send_hp_key), "9f50449e04a0e810283a1e9933adedd2");

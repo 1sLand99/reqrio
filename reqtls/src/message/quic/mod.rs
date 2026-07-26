@@ -223,22 +223,38 @@ impl<'a> QUICPacket<'a> {
     }
 
     pub fn decode(&mut self, mask: &[u8], reader: &mut Reader<'a>) -> Result<(), BufferError> {
-        self.hdr_raw[0] ^= mask[0] & 0x0f;
-        self.flag.decode(self.hdr_raw[0]);
-        let pn_offset = self.pn_offset..self.pn_offset + self.flag.num_len();
-        self.hdr_raw[pn_offset].iter_mut().enumerate().for_each(|(i, x)| *x ^= mask[i + 1]);
-        self.hdr_len = self.pn_offset + self.flag.num_len();
-        let mut decode_reader = Reader::from_slice(&self.hdr_raw);
-        decode_reader.set_position(self.pn_offset);
-        self.num = match self.flag.num_len() {
-            1 => decode_reader.read_u8()? as u64,
-            2 => decode_reader.read_u16()? as u64,
-            3 => decode_reader.read_u24()? as u64,
-            4 => decode_reader.read_u32()? as u64,
-            _ => unreachable!()
-        };
-        reader.add_len(self.flag.num_len());
-        self.payload = Buf::Ref(reader.read_slice(self.len - self.flag.num_len())?);
+        if self.flag.long_header {
+            self.hdr_raw[0] ^= mask[0] & 0x0f;
+            self.flag.decode(self.hdr_raw[0]);
+            let pn_offset = self.pn_offset..self.pn_offset + self.flag.num_len();
+            self.hdr_raw[pn_offset].iter_mut().enumerate().for_each(|(i, x)| *x ^= mask[i + 1]);
+            self.hdr_len = self.pn_offset + self.flag.num_len();
+            let mut decode_reader = Reader::from_slice(&self.hdr_raw);
+            decode_reader.set_position(self.pn_offset);
+            self.num = match self.flag.num_len() {
+                1 => decode_reader.read_u8()? as u64,
+                2 => decode_reader.read_u16()? as u64,
+                3 => decode_reader.read_u24()? as u64,
+                4 => decode_reader.read_u32()? as u64,
+                _ => unreachable!()
+            };
+            reader.add_len(self.flag.num_len());
+            self.payload = Buf::Ref(reader.read_slice(self.len - self.flag.num_len())?);
+        } else {
+            self.hdr_raw[0] ^= mask[0] & 0x1f;
+            todo!()
+            // let mut decode_reader = Reader::from_slice(&self.hdr_raw);
+            // self.num = match self.flag.num_len() {
+            //     1 => decode_reader.read_u8()? as u64,
+            //     2 => decode_reader.read_u16()? as u64,
+            //     3 => decode_reader.read_u24()? as u64,
+            //     4 => decode_reader.read_u32()? as u64,
+            //     _ => unreachable!()
+            // };
+            // reader.add_len(self.flag.num_len());
+            // self.payload = Buf::Ref(reader.read_slice(self.len - self.flag.num_len())?);
+        }
+
         Ok(())
     }
 

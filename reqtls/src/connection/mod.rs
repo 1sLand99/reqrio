@@ -44,14 +44,14 @@ pub struct Connection {
 }
 impl Default for Connection {
     fn default() -> Self {
-        Connection::new([0; 32], [0; 32], TlsSession::default(), None)
+        Connection::new([0; 32], [0; 32], TlsSession::default(), None, false)
     }
 }
 
 impl Connection {
     const HRR_MAGIC: [u8; 32] = [207, 33, 173, 116, 229, 154, 97, 17, 190, 29, 140, 2, 30, 101, 184, 145, 194, 162, 17, 22, 122, 187, 140, 94, 7, 158, 9, 226, 200, 168, 51, 156];
 
-    pub fn new(client_random: [u8; 32], server_random: [u8; 32], session: TlsSession, key_log: Option<PathBuf>) -> Connection {
+    pub fn new(client_random: [u8; 32], server_random: [u8; 32], session: TlsSession, key_log: Option<PathBuf>, quic: bool) -> Connection {
         Connection {
             recv_cipher: TlsCipher::none(),
             send_cipher: TlsCipher::none(),
@@ -60,7 +60,7 @@ impl Connection {
             alpn: None,
             cipher_suite: &CipherSuite::UNKNOWN,
             session_bytes: Vec::with_capacity(4096),
-            derived: DerivedKey::new(client_random, server_random, session, key_log),
+            derived: DerivedKey::new(client_random, server_random, session, key_log, quic),
             certificates: vec![],
             verify: false,
             root_stores: &certificate::ROOT_STORES,
@@ -75,8 +75,8 @@ impl Connection {
         }
     }
 
-    pub fn new_client(session: TlsSession, key_log: Option<PathBuf>) -> Connection {
-        Connection::new(rand::random(), [0; 32], session, key_log)
+    pub fn new_client(session: TlsSession, key_log: Option<PathBuf>, quic: bool) -> Connection {
+        Connection::new(rand::random(), [0; 32], session, key_log, quic)
     }
 
     pub fn client_random(&self) -> &[u8] {
@@ -133,25 +133,29 @@ impl Connection {
         self.derived.set_ems(server_hello.use_ems());
         if Version::TLS_1_3 == self.version {
             let key_entry = server_hello.key_share_extend().ok_or(RlsError::MissingKeyEntry)?.key_entry();
-            #[cfg(feature = "log")]
-            info!("[ParsedServerHello] KeyShare={:?}; pubkey={}",key_entry.name_curve(), key_entry.exchange_key().len());
             self.named_curve = *key_entry.name_curve();
             let mut secret_key = self.secret_keys.remove(key_entry.name_curve()).ok_or("secret not inited")?;
             let share_secret = secret_key.diffie_hellman(key_entry.exchange_key().as_ref())?;
             self.derived.make_handshake_traffic_secret(share_secret, self.hasher.current_hash()?)?;
             let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
             let mac_hash = self.cipher_suite.mac_hash();
-            let key = self.derived.make_tls13_cipher_key()?;
-            if let Key::TLS13 {
-                send_key,
-                send_iv,
-                recv_key,
-                recv_iv
-            } = key.get_side(&self.version, false) {
-                self.send_cipher.set_key(send_key, &[], &aead, mac_hash)?;
-                self.send_cipher.set_iv(Iv::new(send_iv, vec![]));
-                self.recv_cipher.set_key(recv_key, &[], &aead, mac_hash)?;
-                self.recv_cipher.set_iv(Iv::new(recv_iv, vec![]));
+            let key = self.derived.make_cipher_key(&self.version, false)?;
+            #[cfg(feature = "log")]
+            info!("[ParsedServerHello] KeyShare={:?}; pubkey={}; key={}",key_entry.name_curve(), key_entry.exchange_key().len(), key);
+            match key {
+                Key::TLS13 { send_key, send_iv, recv_key, recv_iv } => {
+                    self.send_cipher.set_key(send_key, &[], &aead, mac_hash)?;
+                    self.send_cipher.set_iv(Iv::new(send_iv, vec![]));
+                    self.recv_cipher.set_key(recv_key, &[], &aead, mac_hash)?;
+                    self.recv_cipher.set_iv(Iv::new(recv_iv, vec![]));
+                }
+                Key::QUIC { send_key, send_iv, recv_key, recv_iv, .. } => {
+                    self.send_cipher.set_key(send_key, &[], &aead, mac_hash)?;
+                    self.send_cipher.set_iv(Iv::new(send_iv, vec![]));
+                    self.recv_cipher.set_key(recv_key, &[], &aead, mac_hash)?;
+                    self.recv_cipher.set_iv(Iv::new(recv_iv, vec![]));
+                }
+                _ => {}
             }
         }
         Ok(false)

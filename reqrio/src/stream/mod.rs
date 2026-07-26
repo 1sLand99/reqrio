@@ -10,6 +10,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 pub use sync_stream::SyncStream;
 pub use ws::{WebSocket, WebSocketBuilder};
+pub use quic::QUICStreamS;
 
 mod sync_stream;
 
@@ -185,7 +186,7 @@ impl Stream {
                 if len == 0 { return Err(HlsError::PeerClosedConnection); }
                 buffer.add_len(len);
                 Ok(())
-            },
+            }
             _ => Err("Unsupported async read".into()),
         }
     }

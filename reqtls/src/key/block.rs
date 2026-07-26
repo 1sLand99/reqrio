@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use crate::{rand, CipherSuite, Version};
 
 #[derive(Debug)]
@@ -25,6 +26,16 @@ pub enum Key<'a> {
         send_hp_key: &'a [u8],
         recv_hp_key: &'a [u8],
     },
+}
+
+impl<'a> Display for Key<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Key::TLS12 { .. } => write!(f, "TLS 1.2"),
+            Key::TLS13 { .. } => write!(f, "TLS 1.3"),
+            Key::QUIC { .. } => write!(f, "QUIC"),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -84,10 +95,11 @@ pub(crate) struct KeyBlock {
     key_size: usize,
     client_iv: [u8; 16],
     server_iv: [u8; 16],
-    client_hp_key: [u8; 16],
-    server_hp_key: [u8; 16],
     ///tls12: fix iv;
     iv_size: usize,
+    client_hp_key: [u8; 32],
+    server_hp_key: [u8; 32],
+    hp_key_size: usize,
     explicit: [u8; 16],
     explicit_len: usize,
 }
@@ -103,11 +115,12 @@ impl Default for KeyBlock {
             key_size: 32,
             client_iv: [0; 16],
             server_iv: [0; 16],
-            client_hp_key: [0; 16],
-            server_hp_key: [0; 16],
+            client_hp_key: [0; 32],
+            server_hp_key: [0; 32],
             iv_size: 16,
             explicit: [0; 16],
             explicit_len: 0,
+            hp_key_size: 16,
         }
     }
 }
@@ -117,7 +130,8 @@ impl KeyBlock {
         self.mac_size = suite.mac_key_size;
         self.key_size = suite.key_size;
         self.iv_size = suite.fix_iv_size;
-        self.explicit_len = suite.explict_iv_size
+        self.explicit_len = suite.explict_iv_size;
+        self.hp_key_size = suite.key_size;
     }
 
     pub fn client_mac_key(&self) -> &[u8] {
@@ -176,9 +190,27 @@ impl KeyBlock {
         ]
     }
 
-    pub fn get_side(&self, version: &Version, server: bool) -> Key<'_> {
-        match server {
-            false => match *version {
+    pub fn get_side(&self, version: &Version, server: bool, quic: bool) -> Key<'_> {
+        match (server, quic) {
+            (true, true) => Key::QUIC {
+                send_key: self.server_key(),
+                send_iv: self.server_iv(),
+                send_hp_key: self.server_hp_key(),
+                recv_key: self.client_key(),
+                recv_iv: self.client_iv(),
+                recv_hp_key: self.client_hp_key(),
+            },
+            (false, true) => Key::QUIC {
+                send_key: self.client_key(),
+                send_iv: self.client_iv(),
+                send_hp_key: self.client_hp_key(),
+                recv_key: self.server_key(),
+                recv_iv: self.server_iv(),
+                recv_hp_key: self.server_hp_key(),
+
+            },
+
+            (false, false) => match *version {
                 Version::TLS_1_3 => Key::TLS13 {
                     send_key: self.client_key(),
                     send_iv: self.client_iv(),
@@ -195,7 +227,7 @@ impl KeyBlock {
                     explicit: self.explicit(),
                 }
             },
-            true => match *version {
+            (true, false) => match *version {
                 Version::TLS_1_3 => Key::TLS13 {
                     send_key: self.server_key(),
                     send_iv: self.server_iv(),
@@ -216,18 +248,18 @@ impl KeyBlock {
     }
 
     pub fn client_hp_key(&self) -> &[u8] {
-        &self.client_hp_key
+        &self.client_hp_key[..self.hp_key_size]
     }
 
     pub fn client_hp_key_mut(&mut self) -> &mut [u8] {
-        &mut self.client_hp_key
+        &mut self.client_hp_key[..self.hp_key_size]
     }
 
     pub fn server_hp_key(&self) -> &[u8] {
-        &self.server_hp_key
+        &self.server_hp_key[..self.hp_key_size]
     }
 
-    pub fn server_hp_key_mut(&mut self) -> &mut [u8; 16] {
-        &mut self.server_hp_key
+    pub fn server_hp_key_mut(&mut self) -> &mut [u8] {
+        &mut self.server_hp_key[..self.hp_key_size]
     }
 }
