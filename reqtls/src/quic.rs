@@ -30,7 +30,7 @@ pub(crate) fn write_variant<W: WriteExt>(val: usize, writer: &mut W) -> Result<(
         ..0x40 => writer.write_u8(val as u8),
         0x40..0x4000 => writer.write_u16(val as u16 | 0x4000),
         0x4000..0x4000_0000 => writer.write_u32(val as u32 | 0x8000_0000),
-        0x4000_0000..0x4000_0000_0000_0000 => writer.write_slice(&(val as u64 | 0xc000_0000_0000_0000).to_be_bytes()),
+        0x4000_0000..0x4000_0000_0000_0000 => writer.write_u64(val as u64 | 0xc000_0000_0000_0000),
         _ => Err(BufferError::InvalidQUICVariant)
     }
 }

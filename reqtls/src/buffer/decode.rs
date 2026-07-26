@@ -21,7 +21,9 @@ impl<'a> CipherDecodeBuffer<'a> {
         if decoded.len() < origin.len() - 5 {
             return Err(BufferError::CapacityTooSmall {
                 current: decoded.len(),
+                file: file!(),
                 needed: origin.len(),
+                line: line!(),
             }.into());
         }
         let (head, origin) = origin.split_at(5);

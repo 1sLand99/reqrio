@@ -8,7 +8,12 @@ pub enum BufferError {
     ///内容长度过小
     Insufficient,
     InvalidQUICVariant,
-    CapacityTooSmall { needed: usize, current: usize },
+    CapacityTooSmall {
+        needed: usize,
+        current: usize,
+        file: &'static str,
+        line: u32,
+    },
     Overflow { capacity: usize, len: usize, need: usize },
     IndexOutBound { size: usize, index: usize },
     RangeEdgeError(Range<usize>),
@@ -21,14 +26,19 @@ impl Display for BufferError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             BufferError::Insufficient => write!(f, "Insufficient decoding data"),
-            BufferError::CapacityTooSmall { needed, current } => write!(f, "The required capacity is {}, but the actual capacity is {}.", needed, current),
+            BufferError::CapacityTooSmall {
+                needed,
+                current,
+                file,
+                line,
+            } => write!(f, "The required capacity is {}, but the actual capacity is {} at {}:{}.", needed, current, file, line),
             BufferError::Overflow { capacity, len, need } => write!(f, "The buffer capacity is {}, but write {} out of it.", capacity, len + need),
             BufferError::IndexOutBound { size, index } => write!(f, "The index {} out of bounds {} ", index, size),
             BufferError::RangeEdgeError(range) => write!(f, "The range is {:?} of Buffer is fail", range),
             BufferError::Nullptr => write!(f, "Nullptr"),
             BufferError::ResizeFail { current, new } => write!(f, "resize to {} fail from {}", new, current),
             BufferError::InvalidQUICVariant => write!(f, "Invalid variant"),
-            BufferError::SliceConvertError(er)=> write!(f, "SliceConvertError({})", er),
+            BufferError::SliceConvertError(er) => write!(f, "SliceConvertError({})", er),
         }
     }
 }

@@ -240,8 +240,8 @@ impl Connection {
     }
 
     pub fn set_by_server_exchange_key(&mut self, server_key: ServerKeyExchange) -> RlsResult<()> {
-        self.sig_alg = server_key.hellman_param().signature_algorithm().clone();
-        self.named_curve = server_key.hellman_param().named_curve().clone();
+        self.sig_alg = *server_key.hellman_param().signature_algorithm();
+        self.named_curve = *server_key.hellman_param().named_curve();
         #[cfg(feature = "log")]
         info!("[ExchangeKey] algorithm={}; curve={:?}; verify={}", self.sig_alg.spec(), self.named_curve, self.verify);
         if self.verify {
@@ -313,7 +313,18 @@ impl Connection {
                 self.recv_cipher.set_key(recv_key, &[], &aead, hasher)?;
                 self.recv_cipher.set_iv(Iv::new(recv_iv, vec![]));
             }
-            Key::QUIC { .. } => unreachable!()
+            Key::QUIC {
+                send_key,
+                send_iv,
+                recv_key,
+                recv_iv,
+                ..
+            } => {
+                self.send_cipher.set_key(send_key, &[], &aead, hasher)?;
+                self.send_cipher.set_iv(Iv::new(send_iv, vec![]));
+                self.recv_cipher.set_key(recv_key, &[], &aead, hasher)?;
+                self.recv_cipher.set_iv(Iv::new(recv_iv, vec![]));
+            }
         }
         Ok(())
     }
@@ -377,7 +388,14 @@ impl Connection {
 
 
     pub fn make_message(&mut self, cty: RecordType, buffer: &mut [u8], payload: &[u8]) -> RlsResult<usize> {
-        if buffer.len() < 5 + payload.len() { return Err(BufferError::CapacityTooSmall { needed: 5 + payload.len(), current: buffer.len() }.into()); }
+        if buffer.len() < 5 + payload.len() {
+            return Err(BufferError::CapacityTooSmall {
+                needed: 5 + payload.len(),
+                current: buffer.len(),
+                file: file!(),
+                line: line!(),
+            }.into());
+        }
         let buffer = CipherEncodeBuffer::new_tls(cty, buffer, payload, self.cipher_suite);
         self.send_cipher.encrypt(None, buffer)
     }

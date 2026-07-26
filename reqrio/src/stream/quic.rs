@@ -1,7 +1,8 @@
+use std::cmp::max;
 use crate::error::HlsResult;
-use crate::HlsError;
+use crate::{warn, HlsError};
 use reqtls::quic::*;
-use reqtls::{rand, Buf, Buffer, ClientConfig, Config, KeyExchangeAlg, Message, PacketType, RecordType, StreamHandle, StreamParam, Version, WriteExt};
+use reqtls::{rand, Buf, Buffer, ClientConfig, Config, KeyExchangeAlg, Message, PacketType, QUICFlag, Reader, RecordType, StreamHandle, StreamParam, Version, WriteExt};
 use std::collections::HashMap;
 use std::io::Write;
 use std::mem;
@@ -18,8 +19,8 @@ pub struct QUICStreamS {
     tw_buffer: Buffer,
     conn: QUICConnection,
     sent: HashMap<u64, Range<usize>>,
-    recv: Vec<u64>,
     largest_ack: u64,
+
     addr: SocketAddr,
     seq: u64,
     dcid: Buf<'static>,
@@ -27,6 +28,7 @@ pub struct QUICStreamS {
     handshake_finish: bool,
     encrypted_channel: bool,
     hello_retrying: bool,
+
 }
 
 impl QUICStreamS {
@@ -42,7 +44,6 @@ impl QUICStreamS {
             tw_buffer: Buffer::with_capacity(16438),
             conn: QUICConnection::new(session, key_log),
             sent: HashMap::new(),
-            recv: vec![],
             largest_ack: 0,
             addr: remote_addr,
             seq: 1,
@@ -51,35 +52,63 @@ impl QUICStreamS {
             encrypted_channel: false,
             hello_retrying: false,
         };
-        stream.conn.make_cipher(&stream.dcid, false)?;
+        stream.conn.make_initial_cipher(&stream.dcid, false)?;
         stream.handle_client_hello(&mut config)?;
         stream.tw_buffer.used_empty(5);
         stream.write_buffer(PacketType::Initial, None)?;
         let mut config = Config::Client(config);
         while !stream.handshake_finish {
-            stream.read_frames().unwrap();
+            stream.read_next_packet(false)?;
             let Some(mut reader) = stream.frame_buffer.flush()else { continue };
-            let message = Message::from_reader(&mut reader, &RecordType::HandShake, KeyExchangeAlg::NULL, &Version::TLS_1_3).unwrap();
-            println!("{:#?}", message);
-            let is_server_hello = message.parsed.server().is_some();
-            QUICStreamS::handle_handshake(&mut StreamParam {
-                handshake_finish: &mut stream.handshake_finish,
-                encrypted_channel: &mut stream.encrypted_channel,
-                hello_retrying: &mut stream.hello_retrying,
-                write_buffer: &mut stream.tw_buffer,
-                conn: stream.conn.tls_conn(),
-            }, Some(&mut config), message).unwrap();
-            stream.frame_buffer.reset();
-            if is_server_hello { stream.conn.make_sample_cipher(false).unwrap(); }
-            if !stream.tw_buffer.is_empty() { stream.write_buffer(PacketType::Handshake, None).unwrap(); }
+            let mut read_len = 0;
+            while let Ok(message) = Message::from_reader(&mut reader, &RecordType::HandShake, KeyExchangeAlg::NULL, &Version::TLS_1_3) {
+                read_len += message.encoded.len();
+                println!("{:#?}", message);
+                let is_server_hello = message.parsed.server().is_some();
+                QUICStreamS::handle_handshake(&mut StreamParam {
+                    handshake_finish: &mut stream.handshake_finish,
+                    encrypted_channel: &mut stream.encrypted_channel,
+                    hello_retrying: &mut stream.hello_retrying,
+                    write_buffer: &mut stream.tw_buffer,
+                    conn: stream.conn.tls_conn(),
+                }, Some(&mut config), message).unwrap();
+                if is_server_hello { stream.conn.make_sample_cipher(false).unwrap(); }
+            }
+            stream.frame_buffer.use_empty(read_len);
+
+            // if !stream.tw_buffer.is_empty() { stream.write_buffer(PacketType::Handshake, None).unwrap(); }
         }
+        stream.conn.make_sample_cipher(false).unwrap();
         Ok(stream)
+    }
+
+    fn send_ack(&mut self, flag: QUICFlag) -> HlsResult<()> {
+        let max_num = self.conn.recv_nums().iter().max().cloned().unwrap_or(self.largest_ack);
+        self.largest_ack = max(max_num, self.largest_ack);
+        let min_num = self.conn.recv_nums().iter().min().cloned().unwrap_or(self.largest_ack);
+        let sum = ((self.largest_ack + min_num) * (self.largest_ack - min_num + 1)) / 2;
+        let recv_sum = self.conn.recv_nums().iter().sum::<u64>();
+        let frame = QUICFrame::Ack {
+            largest_acknowledged: self.largest_ack,
+            ack_delay: 1,
+            ack_range_count: 0,
+            first_ack_range: if sum != recv_sum || sum == self.largest_ack { 0 } else { self.largest_ack - min_num },
+        };
+        let packet = QUICPacket::new_ack(flag, self.dcid.as_ref(), self.seq, frame.len());
+        println!("{:#?} {:#?}", packet, frame);
+        let offset = self.uw_buffer.offset();
+        let (_, filled) = self.conn.build_message(packet, vec![frame], &mut self.uw_buffer)?;
+        self.uw_buffer.reset_offset(offset);
+        self.socket.send_to(filled, self.addr)?;
+        self.seq += 1;
+        Ok(())
     }
 
     fn build_packet<'a>(seq: u64, dcid: &'a Buf<'a>, typ: PacketType, pd_len: usize) -> QUICPacket<'a> {
         match typ {
             PacketType::Initial => QUICPacket::new_initial(seq, pd_len, dcid.as_ref()),
-            PacketType::Handshake => QUICPacket::default()
+            PacketType::Handshake => QUICPacket::default(),
+            _ => unreachable!()
         }
     }
 
@@ -113,14 +142,24 @@ impl QUICStreamS {
         Ok(())
     }
 
-    fn read_frames(&mut self) -> HlsResult<()> {
+    fn read_next_packet(&mut self, server: bool) -> HlsResult<()> {
         let len = self.socket.recv(&mut self.ur_buffer)?;
-        println!("{}", len);
-        let mut packet = self.conn.read(&self.ur_buffer[..len], false)?;
-        let frames=packet.take_frames();
-        println!("{:#?}", frames);
-        let mut is_content = false;
-        for frame in frames {
+        let mut reader = Reader::from_slice(&self.ur_buffer[..len]);
+        let mut packet = QUICPacket::from_reader(&mut reader)?;
+        if packet.flag().packet_type() == PacketType::Initial {
+            self.conn.make_initial_cipher(packet.dc_id(), server)?;
+        }
+        if self.dcid.as_ref() != packet.sc_id().as_ref() {
+            self.dcid = Buf::Vec(packet.sc_id().as_ref().to_vec());
+        }
+
+        if let Err(e) = self.conn.read_message(&mut packet, &mut reader) {
+            warn!("DecryptError: err={}; num={}; typ: {:?}", e, packet.num(), packet.flag().packet_type());
+            return Ok(());
+        }
+        let mut is_crypto = false;
+        for frame in packet.take_frames() {
+            println!("{:#?}", frame);
             match frame {
                 QUICFrame::Ack { largest_acknowledged, first_ack_range, .. } => {
                     let start = largest_acknowledged - first_ack_range;
@@ -130,32 +169,17 @@ impl QUICStreamS {
                 }
                 QUICFrame::ConnectionCloseTrp { reason, err_code, .. } => return Err(HlsError::Currently(format!("err: {:?}; reason: {}", err_code, reason))),
                 QUICFrame::Crypto { offset, value } => {
-                    is_content = true;
+                    is_crypto = true;
                     self.frame_buffer.write_at(offset, value)?;
                 }
                 QUICFrame::Ping => {}
                 _ => {}
             }
         }
-        // if is_content {
-        //     self.recv.push(packet.num());
-        //     let max_num = self.recv.iter().max().cloned().unwrap_or(packet.num());
-        //     self.largest_ack = max(max_num, self.largest_ack);
-        //     let min_num = self.recv.iter().min().cloned().unwrap_or(packet.num());
-        //     let sum = ((self.largest_ack + min_num) * (self.largest_ack - min_num + 1)) / 2;
-        //     let recv_sum = self.recv.iter().sum::<u64>();
-        //     let frame = QUICFrame::Ack {
-        //         largest_acknowledged: self.largest_ack,
-        //         ack_delay: 1,
-        //         ack_range_count: 0,
-        //         first_ack_range: if sum != recv_sum || sum == self.largest_ack { 0 } else { self.recv.len() as u64 },
-        //     };
-        //     let packet = QUICPacket::new_ack(&packet, frame.len());
-        //     let (offset, filled) = self.conn.build_message(packet, vec![frame], &mut self.uw_buffer)?;
-        //     self.socket.send_to(filled, self.addr)?;
-        //     // self.uw_buffer.
-        // }
-        println!("{:?}", self.sent);
+        if is_crypto {
+            let flag = *packet.flag();
+            self.send_ack(flag)?;
+        }
         Ok(())
     }
 }

@@ -10,6 +10,7 @@ pub enum PacketType {
     #[default]
     Initial = 0,
     Handshake = 2,
+    ShortHeader,
 }
 
 impl From<u8> for PacketType {
@@ -23,10 +24,11 @@ impl From<u8> for PacketType {
 }
 
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Copy, Clone)]
 pub struct QUICFlag {
     long_header: bool,
     fixed_bit: bool,
+    spin_bit: bool,
     packet_type: PacketType,
     reserved: u8,
     num_len: u8,
@@ -34,13 +36,20 @@ pub struct QUICFlag {
 
 impl QUICFlag {
     pub fn from_raw(v: u8) -> QUICFlag {
-        QUICFlag {
+        let mut flag = QUICFlag {
             long_header: v & 0x80 == 0x80,
             fixed_bit: v & 0x40 == 0x40,
-            packet_type: ((v & 0x30) >> 4).into(),
+            spin_bit: false,
+            packet_type: PacketType::ShortHeader,
             reserved: 0,
             num_len: 0,
+        };
+        if flag.long_header {
+            flag.packet_type = ((v & 0x30) >> 4).into();
+        } else {
+            flag.spin_bit = (v & 0x20) == 0x20;
         }
+        flag
     }
 
     fn decode(&mut self, v: u8) {
@@ -129,6 +138,7 @@ impl<'a> QUICPacket<'a> {
             flag: QUICFlag {
                 long_header: true,
                 fixed_bit: true,
+                spin_bit: false,
                 packet_type: PacketType::Initial,
                 reserved: 0,
                 num_len: num_len as u8,
@@ -142,22 +152,23 @@ impl<'a> QUICPacket<'a> {
         }
     }
 
-    pub fn new_ack(packet: &QUICPacket, pd_len: usize) -> Self {
-        let num_len = crate::quic::variant_len(packet.num as usize);
+    pub fn new_ack(flag: QUICFlag, dc_id: &'a [u8], num: u64, pd_len: usize) -> Self {
+        let num_len = crate::quic::variant_len(num as usize);
         let len = pd_len + num_len + 16;
         QUICPacket {
             flag: QUICFlag {
-                long_header: packet.flag.long_header,
+                long_header: flag.long_header,
                 fixed_bit: true,
-                packet_type: packet.flag.packet_type,
+                spin_bit: flag.spin_bit,
+                packet_type: flag.packet_type,
                 reserved: 0,
                 num_len: num_len as u8,
             },
             ver: 1,
             len,
-            num: packet.num,
+            num,
             padding: 0,
-            dc_id: Buf::Vec(packet.sc_id.to_vec()),
+            dc_id: Buf::Ref(dc_id),
             ..Default::default()
         }
     }
@@ -199,8 +210,10 @@ impl<'a> QUICPacket<'a> {
             writer.write_slice(self.dc_id.as_ref())?;
             writer.write_u8(self.sc_id.len() as u8)?;
             writer.write_slice(self.sc_id.as_ref())?;
-            crate::quic::write_variant(self.token.len(), &mut writer)?;
-            writer.write_slice(self.token.as_ref())?;
+            if self.flag.packet_type == PacketType::Initial {
+                crate::quic::write_variant(self.token.len(), &mut writer)?;
+                writer.write_slice(self.token.as_ref())?;
+            }
             crate::quic::write_variant(self.len, &mut writer)?;
             self.pn_offset = writer.len();
             match self.flag.num_len() {
@@ -284,6 +297,10 @@ impl<'a> QUICPacket<'a> {
 
     pub fn dc_id(&self) -> &Buf<'a> {
         &self.dc_id
+    }
+
+    pub fn sc_id(&self) -> &Buf<'a> {
+        &self.sc_id
     }
 
     pub fn num(&self) -> u64 {

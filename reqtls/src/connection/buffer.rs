@@ -1,4 +1,3 @@
-use std::{mem, slice};
 use std::ops::Range;
 use crate::{Buf, Buffer, BufferError, Reader, WriteExt};
 
@@ -19,8 +18,14 @@ impl QUICBuffer {
     }
 
     pub fn write_at(&mut self, offset: usize, buf: Buf<'_>) -> Result<(), BufferError> {
-        let offset = self.buffer.end() + offset;
+        if offset == 0 && self.remains.is_empty() {
+            assert_eq!(self.buffer.len(), 0);
+            self.buffer.reset();
+            self.current = 0..0;
+            self.remains.clear();
+        }
         self.buffer.write_slice_in(offset, buf.as_ref())?;
+        self.buffer.add_len(buf.len());
         let range = offset..offset + buf.len();
         if self.current.end == range.start {
             self.current.end += buf.len();
@@ -42,13 +47,7 @@ impl QUICBuffer {
             self.current.start -= range.len();
         }
         if self.current.start != self.current.end && self.remains.is_empty() {
-            let mut offset = mem::take(&mut self.current);
-            offset.start += self.buffer.end();
-            offset.end += self.buffer.end();
-            let ptr = self.buffer.raw_ptr();
-            let filled = unsafe { slice::from_raw_parts(ptr.add(offset.start), offset.len()) };
-            assert_eq!(self.current, self.buffer.offset());
-            Some(Reader::from_slice(filled))
+            Some(Reader::from_slice(self.buffer.filled()))
         } else { None }
     }
 
@@ -61,5 +60,10 @@ impl QUICBuffer {
         self.current = 0..0;
         self.remains.clear();
         self.buffer.reset();
+    }
+
+    pub fn use_empty(&mut self, size: usize) -> bool {
+        self.current.start += size;
+        self.buffer.used_empty(size)
     }
 }

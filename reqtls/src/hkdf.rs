@@ -128,7 +128,7 @@ mod tests {
         let cid = [0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08];
         let mut derived = DerivedKey::new([0; 32], [0; 32], TlsSession::default(), None, true);
         derived.init(&CipherSuite::TLS_AES_128_GCM_SHA256);
-        derived.make_quic_cipher_key(cid.as_ref()).unwrap();
+        derived.make_initial_quic_secret(cid.as_ref()).unwrap();
         let Key::QUIC {
             send_key,
             recv_key,

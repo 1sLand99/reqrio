@@ -22,7 +22,9 @@ pub trait WriteExt {
         if res == 1 { return Ok(()); };
         Err(BufferError::CapacityTooSmall {
             current: self.capacity(),
+            file: file!(),
             needed: self.capacity() + size,
+            line: line!(),
         })
     }
 
@@ -73,6 +75,15 @@ pub trait WriteExt {
     #[inline]
     fn write_ru32(&mut self, v: &u32) -> Result<(), BufferError> {
         self.write_u32_be(v.to_be())
+    }
+
+    fn write_u64_be(&mut self, v: u64) -> Result<(), BufferError> {
+        let res = unsafe { Buffer_write_u64(self.buffer_mut().0.as_mut_ptr(), &v) };
+        self.check_write(res, 8)
+    }
+    
+    fn write_u64(&mut self, v: u64) -> Result<(), BufferError> {
+        self.write_u64_be(v.to_be())
     }
 
     fn write_slice(&mut self, v: &[u8]) -> Result<(), BufferError> {

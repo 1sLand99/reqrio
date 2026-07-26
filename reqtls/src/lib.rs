@@ -306,7 +306,8 @@ pub use key::{SecretKey, TlsSession};
 pub use log::*;
 pub use message::{Alert, CertificateRequest, CertificateVerify, Certificates, ClientHello, Message,
                   ClientKeyExchange, MessageParsed, NamedCurve, ServerHello, ServerHelloDone,
-                  ServerKeyExchange, SessionTicket, TlsSessionTicket, PacketType, QUICPacket};
+                  ServerKeyExchange, SessionTicket, TlsSessionTicket, PacketType, QUICPacket,
+                  QUICFlag};
 pub use record::{RecordLayer, RecordType};
 pub use suite::{CipherSuite, KeyExchangeAlg};
 pub use url::{Addr, Param, Scheme, Uri, Url, UrlError};

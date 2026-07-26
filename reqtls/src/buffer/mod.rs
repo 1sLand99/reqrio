@@ -24,6 +24,7 @@ ffi::c_pointer_free!(BUFFER, Buffer_free);
 unsafe extern "C" {
     fn Buffer_new(capacity: usize) -> *mut BUFFER;
     fn Buffer_resize(buffer: *mut BUFFER, capacity: usize) -> c_int;
+    fn Buffer_reset_offset(buffer: *mut BUFFER, start: usize, end: usize);
     fn Buffer_from_ptr(ptr: *mut u8, capacity: usize) -> *mut BUFFER;
     fn Buffer_free(buffer: *mut BUFFER);
     fn Buffer_len(buffer: *const BUFFER) -> usize;
@@ -40,6 +41,7 @@ unsafe extern "C" {
     fn Buffer_write_u24(buffer: *mut BUFFER, val: &u24) -> i32;
     fn Buffer_write_u24_in(buffer: *mut BUFFER, place: usize, val: &u24) -> i32;
     fn Buffer_write_u32(buffer: *mut BUFFER, val: &u32) -> i32;
+    fn Buffer_write_u64(buffer: *mut BUFFER, val: &u64) -> i32;
     fn Buffer_write_slice(buffer: *mut BUFFER, ptr: *const u8, len: usize) -> i32;
     fn Buffer_write_slice_in(buffer: *mut BUFFER, place: usize, ptr: *const u8, len: usize) -> i32;
     fn Buffer_flush(buffer: *mut BUFFER, len: usize, sni: *const c_char, h2: bool) -> i32;
@@ -74,6 +76,10 @@ impl Buffer {
         Ok(())
     }
 
+    pub fn reset_offset(&mut self, offset: Range<usize>) {
+        unsafe { Buffer_reset_offset(self.0.as_mut_ptr(), offset.start, offset.end) };
+    }
+
     pub fn from_ptr(buf: &mut [u8]) -> Self {
         let buffer = unsafe { Buffer_from_ptr(buf.as_mut_ptr(), buf.len()) };
         Buffer(CPointer::new(buffer))
@@ -93,7 +99,7 @@ impl Buffer {
     pub fn raw_ptr(&self) -> *const u8 {
         unsafe { Buffer_pointer(self.0.as_ptr()) }
     }
-    
+
     pub fn raw_ptr_mut(&mut self) -> *mut u8 {
         unsafe { Buffer_pointer_mut(self.0.as_mut_ptr()) }
     }
@@ -126,6 +132,8 @@ impl Buffer {
             return Err(BufferError::CapacityTooSmall {
                 needed: need,
                 current: self.capacity(),
+                file: file!(),
+                line: line!(),
             });
         }
         Ok(())
@@ -296,7 +304,7 @@ mod test_buffer {
         buffer.used_empty(1);
         assert_eq!(buffer.filled(), [2, 3, 4, 5]);
         assert_eq!(buffer.unfilled().len(), 1019);
-        
+
         buffer.move_to(3..buffer.offset().end, 2).unwrap();
         assert_eq!(buffer.filled(), [2, 4, 5]);
         assert_eq!(buffer.offset(), 1..4);
