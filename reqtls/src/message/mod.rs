@@ -11,17 +11,17 @@ use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::suite::KeyExchangeAlg;
 use crate::{BufferError, HandShakeError, ReadExt, Reader, RecordType, Version, WriteExt};
-pub use alert::{Alert, AlertLevel};
+pub use alert::Alert;
 use certificate::CertificateStatus;
 pub use certificate::Certificates;
 pub use certificate::{CertificateRequest, CertificateVerify, CompressedCertificate};
 pub use client_hello::ClientHello;
 pub use encrypted_extension::EncryptedExtension;
 pub use key_exchange::{ClientKeyExchange, NamedCurve, ServerKeyExchange};
+pub use quic::*;
 pub use server_hello::{ServerHello, ServerHelloDone};
 pub use session_ticket::{SessionTicket, TlsSessionTicket};
 use std::fmt::{Debug, Formatter};
-pub use quic::*;
 
 pub struct Message<'a> {
     pub encoded: Buf<'a>,
