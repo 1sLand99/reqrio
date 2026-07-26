@@ -19,6 +19,7 @@ fn test_log() {
     set_max_level(LevelFilter::Debug);
 }
 fn main() {
+    #[cfg(feature = "log")]
     test_log();
     Buffer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
     let socket = UdpSocket::bind("0.0.0.0:0").unwrap();

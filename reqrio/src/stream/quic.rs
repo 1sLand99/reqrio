@@ -18,6 +18,8 @@ pub struct QUICStreamS {
     tw_buffer: Buffer,
     conn: QUICConnection,
     sent: HashMap<u64, Range<usize>>,
+    recv: Vec<u64>,
+    largest_ack: u64,
     addr: SocketAddr,
     seq: u64,
     dcid: Buf<'static>,
@@ -40,6 +42,8 @@ impl QUICStreamS {
             tw_buffer: Buffer::with_capacity(16438),
             conn: QUICConnection::new(session, key_log),
             sent: HashMap::new(),
+            recv: vec![],
+            largest_ack: 0,
             addr: remote_addr,
             seq: 1,
             dcid: Buf::Vec(rand::random::<[u8; 8]>().to_vec()),
@@ -112,9 +116,10 @@ impl QUICStreamS {
     fn read_frames(&mut self) -> HlsResult<()> {
         let len = self.socket.recv(&mut self.ur_buffer)?;
         println!("{}", len);
-        let frames = self.conn.read(&self.ur_buffer[..len], false)?;
+        let mut packet = self.conn.read(&self.ur_buffer[..len], false)?;
+        let frames=packet.take_frames();
         println!("{:#?}", frames);
-        let mut res = vec![];
+        let mut is_content = false;
         for frame in frames {
             match frame {
                 QUICFrame::Ack { largest_acknowledged, first_ack_range, .. } => {
@@ -124,11 +129,32 @@ impl QUICStreamS {
                     }
                 }
                 QUICFrame::ConnectionCloseTrp { reason, err_code, .. } => return Err(HlsError::Currently(format!("err: {:?}; reason: {}", err_code, reason))),
-                QUICFrame::Crypto { offset, value } => self.frame_buffer.write_at(offset, value)?,
+                QUICFrame::Crypto { offset, value } => {
+                    is_content = true;
+                    self.frame_buffer.write_at(offset, value)?;
+                }
                 QUICFrame::Ping => {}
-                _ => res.push(frame)
+                _ => {}
             }
         }
+        // if is_content {
+        //     self.recv.push(packet.num());
+        //     let max_num = self.recv.iter().max().cloned().unwrap_or(packet.num());
+        //     self.largest_ack = max(max_num, self.largest_ack);
+        //     let min_num = self.recv.iter().min().cloned().unwrap_or(packet.num());
+        //     let sum = ((self.largest_ack + min_num) * (self.largest_ack - min_num + 1)) / 2;
+        //     let recv_sum = self.recv.iter().sum::<u64>();
+        //     let frame = QUICFrame::Ack {
+        //         largest_acknowledged: self.largest_ack,
+        //         ack_delay: 1,
+        //         ack_range_count: 0,
+        //         first_ack_range: if sum != recv_sum || sum == self.largest_ack { 0 } else { self.recv.len() as u64 },
+        //     };
+        //     let packet = QUICPacket::new_ack(&packet, frame.len());
+        //     let (offset, filled) = self.conn.build_message(packet, vec![frame], &mut self.uw_buffer)?;
+        //     self.socket.send_to(filled, self.addr)?;
+        //     // self.uw_buffer.
+        // }
         println!("{:?}", self.sent);
         Ok(())
     }
