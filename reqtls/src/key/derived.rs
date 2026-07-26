@@ -19,12 +19,13 @@ pub(crate) struct DerivedKey {
     prk: Vec<u8>,
     session: TlsSession,
     key_log: Option<PathBuf>,
+    pub(crate) quic: bool,
 }
 
 impl DerivedKey {
     const ZERO: [u8; 64] = [0; 64];
     const INIT_SLAT: [u8; 20] = [56, 118, 44, 247, 245, 89, 52, 179, 77, 23, 154, 230, 164, 200, 12, 173, 204, 187, 127, 10];
-    pub fn new(client_random: [u8; 32], server_random: [u8; 32], session: TlsSession, key_log: Option<PathBuf>) -> Self {
+    pub fn new(client_random: [u8; 32], server_random: [u8; 32], session: TlsSession, key_log: Option<PathBuf>, quic: bool) -> Self {
         DerivedKey {
             prf: Prf::default(),
             hash: HashType::Sha256,
@@ -40,6 +41,7 @@ impl DerivedKey {
             prk: vec![],
             session,
             key_log,
+            quic,
         }
     }
 
@@ -138,61 +140,47 @@ impl DerivedKey {
     }
 
     pub fn make_tls13_cipher_key(&mut self) -> RlsResult<&KeyBlock> {
-        //client
-        let mut hkdf = Hkdf::from_prk(self.traffic_secret.client_traffic(), self.hash);
-        hkdf.hkdf("tls13 key", &[], self.key_block.client_key_mut())?;
-        hkdf.hkdf("tls13 iv", &[], self.key_block.client_iv_mut())?;
-        //server
-        let mut hkdf = Hkdf::from_prk(self.traffic_secret.server_traffic(), self.hash);
-        hkdf.hkdf("tls13 key", &[], self.key_block.server_key_mut())?;
-        hkdf.hkdf("tls13 iv", &[], self.key_block.server_iv_mut())?;
+        if !self.quic {
+            //client
+            let mut hkdf = Hkdf::from_prk(self.traffic_secret.client_traffic(), self.hash);
+            hkdf.hkdf("tls13 key", &[], self.key_block.client_key_mut())?;
+            hkdf.hkdf("tls13 iv", &[], self.key_block.client_iv_mut())?;
+            // hkdf.hkdf("tls13 quic hp",&[], self.key_block.client_hp_key_mut())?;
+            //server
+            let mut hkdf = Hkdf::from_prk(self.traffic_secret.server_traffic(), self.hash);
+            hkdf.hkdf("tls13 key", &[], self.key_block.server_key_mut())?;
+            hkdf.hkdf("tls13 iv", &[], self.key_block.server_iv_mut())?;
+            // hkdf.hkdf("tls13 quic hp", b"", self.key_block.server_hp_key_mut())?;
+        } else {
+            println!("{}-{:?}", 1111111111, self.hash);
+            let mut hkdf = Hkdf::from_prk(self.traffic_secret.client_traffic(), self.hash);
+            hkdf.hkdf("tls13 quic key", b"", self.key_block.client_key_mut())?;
+            hkdf.hkdf("tls13 quic iv", b"", self.key_block.client_iv_mut())?;
+            hkdf.hkdf("tls13 quic hp", b"", self.key_block.client_hp_key_mut())?;
+            let mut hkdf = Hkdf::from_prk(self.traffic_secret.server_traffic(), self.hash);
+            hkdf.hkdf("tls13 quic key", b"", self.key_block.server_key_mut())?;
+            hkdf.hkdf("tls13 quic iv", b"", self.key_block.server_iv_mut())?;
+            hkdf.hkdf("tls13 quic hp", b"", self.key_block.server_hp_key_mut())?;
+        }
+
         Ok(&self.key_block)
     }
 
-    fn make_quic_key(&mut self, server: bool) -> RlsResult<Key<'_>> {
-        let mut hkdf = Hkdf::from_prk(self.traffic_secret.client_traffic(), HashType::Sha256);
-        hkdf.hkdf("tls13 quic key", b"", self.key_block.client_key_mut())?;
-        hkdf.hkdf("tls13 quic iv", b"", self.key_block.client_iv_mut())?;
-        hkdf.hkdf("tls13 quic hp", b"", self.key_block.client_hp_key_mut())?;
-        let mut hkdf = Hkdf::from_prk(self.traffic_secret.server_traffic(), HashType::Sha256);
-        hkdf.hkdf("tls13 quic key", b"", self.key_block.server_key_mut())?;
-        hkdf.hkdf("tls13 quic iv", b"", self.key_block.server_iv_mut())?;
-        hkdf.hkdf("tls13 quic hp", b"", self.key_block.server_hp_key_mut())?;
-        Ok(match server {
-            true => Key::QUIC {
-                send_key: self.key_block.server_key(),
-                send_iv: self.key_block.server_iv(),
-                send_hp_key: self.key_block.server_hp_key(),
-                recv_key: self.key_block.client_key(),
-                recv_iv: self.key_block.client_iv(),
-                recv_hp_key: self.key_block.client_hp_key(),
-            },
-            false => Key::QUIC {
-                send_key: self.key_block.client_key(),
-                send_iv: self.key_block.client_iv(),
-                send_hp_key: self.key_block.client_hp_key(),
-                recv_key: self.key_block.server_key(),
-                recv_iv: self.key_block.server_iv(),
-                recv_hp_key: self.key_block.server_hp_key(),
-
-            }
-        })
-    }
-
-    pub fn make_quic_cipher_key(&mut self, cid: &[u8], server: bool) -> RlsResult<Key<'_>> {
+    pub fn make_quic_cipher_key(&mut self, cid: &[u8]) -> RlsResult<()> {
         let mut inti_hkdf = Hkdf::new(&Self::INIT_SLAT, cid, HashType::Sha256)?;
         inti_hkdf.hkdf("tls13 client in", b"", self.traffic_secret.client_traffic_mut())?;
         inti_hkdf.hkdf("tls13 server in", b"", self.traffic_secret.server_traffic_mut())?;
-        self.make_quic_key(server)
+        Ok(())
     }
 
 
     pub fn make_cipher_key(&mut self, version: &Version, server: bool) -> RlsResult<Key<'_>> {
+        let quic = self.quic;
         Ok(match *version {
             Version::TLS_1_2 => self.make_tls12_cipher_key()?,
             Version::TLS_1_3 => self.make_tls13_cipher_key()?,
             _ => return Err(HandShakeError::UnsupportedVersion(*version).into()),
-        }.get_side(version, server))
+        }.get_side(version, server, quic))
     }
 
 
@@ -227,4 +215,8 @@ impl DerivedKey {
     pub fn session(&self) -> &TlsSession { &self.session }
 
     pub fn session_mut(&mut self) -> &mut TlsSession { &mut self.session }
+
+    pub fn key_block(&self) -> &KeyBlock {
+        &self.key_block
+    }
 }
