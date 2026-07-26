@@ -376,7 +376,7 @@ impl Connection {
     }
 
 
-    pub fn make_message(&self, cty: RecordType, buffer: &mut [u8], payload: &[u8]) -> RlsResult<usize> {
+    pub fn make_message(&mut self, cty: RecordType, buffer: &mut [u8], payload: &[u8]) -> RlsResult<usize> {
         if buffer.len() < 5 + payload.len() { return Err(BufferError::CapacityTooSmall { needed: 5 + payload.len(), current: buffer.len() }.into()); }
         let buffer = CipherEncodeBuffer::new_tls(cty, buffer, payload, self.cipher_suite);
         self.send_cipher.encrypt(None, buffer)
