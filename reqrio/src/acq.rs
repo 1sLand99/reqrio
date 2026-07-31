@@ -298,6 +298,15 @@ impl AcReq {
                     self.stream.async_write(end_frame.to_bytes().as_ref()).await?;
                     self.buffer.move_to(frame_len..self.buffer.len(), 0)?;
                     continue;
+                } else if frame_type == FrameType::Settings {
+                    let frame = H2Frame::from_bytes(&self.buffer)?;
+                    let mut reader = Reader::from_slice(frame.payload());
+                    while let Ok(setting) = H2Setting::from_reader(&mut reader) {
+                        if let H2Setting::HeaderTableSize(size) = setting {
+                            self.hpack_coder.encoder().update_table_size(size as usize);
+                            self.hpack_coder.decoder().update_table_size(size as usize);
+                        }
+                    }
                 }
                 if self.handle_h2_res(frame_type, &mut response)? { return Ok(response); }
             }
