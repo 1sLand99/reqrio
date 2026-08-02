@@ -1,7 +1,7 @@
 use reqrio::*;
+use std::collections::HashMap;
 use std::fs;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket};
-use std::path::Path;
+use std::path::PathBuf;
 
 #[cfg(feature = "log")]
 const LOGER: Logger = Logger {
@@ -22,18 +22,22 @@ fn main() {
     #[cfg(feature = "log")]
     test_log();
     Buffer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
-    let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
-    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(23, 214, 95, 199), 443));
-    let config = ClientConfig {
-        sni: "img-s-msn-com.akamaized.net",
+    let mut h3_req =HTTP3StreamS::connect(ConnParam{
+        url: &"https://img-s-msn-com.akamaized.net".try_into().unwrap(),
+        proxy: &Proxy::Null,
+        timeout: &Default::default(),
+        fingerprint: &mut Default::default(),
         alpn: &ALPN::Http30,
-        fingerprint: &mut TlsFinger::Default,
-        client_cert: &mut vec![],
-        cert_key: &RsaKey::none(),
         verify: false,
-        ca_certs: &[],
-        key_log: Some(Path::new("2.log").to_path_buf()),
+        cert: &mut vec![],
+        key: &RsaKey::none(),
+        ca_cert: &vec![],
+        key_log: &Some(PathBuf::from("2.log")),
+        ech: false,
         session: &None,
-    };
-    let _stream = QUICStreamS::connect(socket, addr, config).unwrap();
+    }).unwrap();
+    let mut resps =HashMap::new();
+    loop {
+        h3_req.recv(&mut resps).unwrap();
+    }
 }

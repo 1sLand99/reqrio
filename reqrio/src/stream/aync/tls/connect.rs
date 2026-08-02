@@ -50,6 +50,9 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> Future for Connecting<'a, S> {
         };
         match stream {
             Handshake::Handshaking(mut stream) => {
+                if stream.conn.version() == &Version::TLS_1_3 {
+                    stream.conn.make_cipher(false)?;
+                }
                 stream.read_buffer.move_to(stream.read_buffer.offset(), 0)?;
                 stream.write_buffer.reset();
                 Poll::Ready(Ok(*stream))

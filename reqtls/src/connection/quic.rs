@@ -2,7 +2,7 @@ use crate::buffer::{CipherDecodeBuffer, CipherEncodeBuffer};
 use crate::error::RlsResult;
 use crate::extend::Aead;
 use crate::hash::HashError;
-use crate::message::{QUICFrame, PacketType, QUICPacket};
+use crate::message::{QUICFrame, QUICPacket};
 use crate::suite::iv::Iv;
 use crate::{Buf, Buffer, BufferError, Cipher, CipherSuite, CipherType, Connection, HashType, Reader, TlsSession, Version, WriteExt};
 #[cfg(feature = "log")]
@@ -52,7 +52,6 @@ impl From<Utf8Error> for QUICError {
 pub struct QUICConnection {
     recv_sample: Cipher,
     send_sample: Cipher,
-    buffer: Buffer,
     conn: Connection,
     recv_nums: Vec<u64>,
 }
@@ -63,7 +62,6 @@ impl QUICConnection {
             conn: Connection::new_client(session, key_log, true),
             recv_sample: Cipher::aes_128_ecb(),
             send_sample: Cipher::aes_128_ecb(),
-            buffer: Buffer::with_capacity(1500),
             recv_nums: vec![],
         }
     }
@@ -117,30 +115,24 @@ impl QUICConnection {
     }
 
     ///[rfc9001](https://datatracker.ietf.org/doc/html/rfc9001#name-header-protection-sample)
-    pub fn read_message<'a>(&'a mut self, packet: &mut QUICPacket<'a>, reader: &mut Reader<'a>) -> RlsResult<()> {
+    pub fn read_message<'a>(&mut self, packet: &mut QUICPacket<'a>, reader: &mut Reader<'a>, buffer: &mut [u8]) -> RlsResult<usize> {
         let sample_offset = packet.pn_offset + 4;
         let sample = &reader.inner()[sample_offset..sample_offset + 16];
         let mut mask = self.recv_sample.encrypt(sample)?;
         mask.truncate(5);
         packet.decode(&mask, reader)?;
-        if self.buffer.capacity() < packet.payload.len() {
+        if buffer.len() < packet.payload.len() {
             return Err(BufferError::CapacityTooSmall {
                 needed: packet.payload.len(),
-                current: self.buffer.capacity(),
+                current: buffer.len(),
                 file: file!(),
                 line: line!(),
             }.into());
         }
-        self.buffer.reset();
-        let buffer = CipherDecodeBuffer::from_quic(packet, self.buffer.unfilled())?;
+        let buffer = CipherDecodeBuffer::from_quic(packet, buffer)?;
         let len = self.conn.recv_cipher.decrypt(Some(packet.num), buffer)?;
-        self.buffer.add_len(len);
-        let mut reader = Reader::from_slice(self.buffer.filled());
-        while reader.unread_len() > 0 {
-            packet.push_frame(QUICFrame::from_reader(&mut reader)?)
-        }
         self.recv_nums.push(packet.num);
-        Ok(())
+        Ok(len)
     }
 
 
@@ -203,13 +195,16 @@ mod tests {
     use crate::connection::buffer::QUICBuffer;
     use crate::connection::quic::QUICConnection;
     use crate::message::QUICFrame;
-    use crate::{Buf, KeyExchangeAlg, Message, QUICPacket, Reader, RecordType, TlsSession, Version};
+    use crate::{Buf, Buffer, KeyExchangeAlg, Message, QUICPacket, Reader, RecordType, TlsSession, Version, WriteExt};
 
     fn decode(conn: &mut QUICConnection, origin: &[u8], buffer: &mut QUICBuffer) {
         let mut reader = Reader::from_slice(origin);
         let mut packet = QUICPacket::from_reader(&mut reader).unwrap();
-        conn.read_message(&mut packet, &mut reader).unwrap();
-        for frame in packet.take_frames() {
+        let mut rb = Buffer::with_capacity(1500);
+        let len = conn.read_message(&mut packet, &mut reader, rb.unfilled()).unwrap();
+        let mut reader = Reader::from_slice(&rb.unfilled()[..len]);
+        while reader.unread_len() > 0 {
+            let frame = QUICFrame::from_reader(&mut reader).unwrap();
             if let QUICFrame::Crypto { offset, value } = frame {
                 buffer.write_at(offset, value).unwrap();
             }

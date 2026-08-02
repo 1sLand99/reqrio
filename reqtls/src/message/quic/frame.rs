@@ -51,6 +51,28 @@ impl From<u16> for TransportError {
     }
 }
 
+#[derive(Debug)]
+pub struct QUICFrameFlag {
+    fin: bool,
+    len: bool,
+    offset: bool,
+}
+
+impl QUICFrameFlag {
+    pub fn fin(&self) -> bool {
+        self.fin
+    }
+}
+
+impl From<u64> for QUICFrameFlag {
+    fn from(value: u64) -> Self {
+        QUICFrameFlag {
+            fin: value & 1 == 1,
+            len: value & 0b10 == 0b10,
+            offset: value & 0b100 == 0b100,
+        }
+    }
+}
 
 #[repr(u64)]
 #[derive(Debug)]
@@ -70,8 +92,14 @@ pub enum QUICFrame<'a> {
         offset: usize,
         value: Buf<'a>,
     } = 0x06,
-    NewToken = 0x07,
-    Stream(u64),
+    NewToken(Buf<'a>) = 0x07,
+    Stream {
+        flag: QUICFrameFlag,
+        sid: u64,
+        offset: usize,
+        len: usize,
+        payload: Buf<'a>,
+    },
     MaxData = 0x10,
     MaxStreamData = 0x11,
     MaxStreamsBidi = 0x12,
@@ -94,7 +122,7 @@ pub enum QUICFrame<'a> {
 }
 
 impl<'a> QUICFrame<'a> {
-    pub(crate) fn from_reader(reader: &mut Reader<'a>) -> Result<QUICFrame<'a>, QUICError> {
+    pub fn from_reader(reader: &mut Reader<'a>) -> Result<QUICFrame<'a>, QUICError> {
         let typ = crate::quic::read_variant(reader)? as u64;
         match typ {
             0x00 => {
@@ -118,6 +146,23 @@ impl<'a> QUICFrame<'a> {
                     value: Buf::Ref(reader.read_slice(len)?),
                 })
             }
+            0x07 => {
+                let len = crate::quic::read_variant(reader)?;
+                Ok(QUICFrame::NewToken(Buf::Ref(reader.read_slice(len)?)))
+            }
+            0x08..0x10 => {
+                let flag: QUICFrameFlag = typ.into();
+                let sid = crate::quic::read_variant(reader)?;
+                let len = if flag.len { crate::quic::read_variant(reader)? } else { reader.unread_len() };
+                let offset = if flag.offset { crate::quic::read_variant(reader)? } else { 0 };
+                Ok(QUICFrame::Stream {
+                    flag,
+                    sid: sid as u64,
+                    len,
+                    offset,
+                    payload: Buf::Ref(reader.read_slice(reader.unread_len())?),
+                })
+            }
             0x1c => {
                 let err_code = crate::quic::read_variant(reader)? as u16;
                 let frame_typ = crate::quic::read_variant(reader)?;
@@ -128,7 +173,11 @@ impl<'a> QUICFrame<'a> {
                     reason: reader.read_str::<QUICError>(reason_len)?,
                 })
             }
-            _ => unreachable!()
+            0x1e => Ok(QUICFrame::HandshakeDone),
+            _ => {
+                println!("{:x?}", typ);
+                unreachable!()
+            }
         }
     }
 

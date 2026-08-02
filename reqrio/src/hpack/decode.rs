@@ -169,10 +169,31 @@ impl HPackDecode {
         Ok(())
     }
 
+    pub fn decode(&mut self, buf: &[u8]) -> HlsResult<Vec<HPackItem>> {
+        let mut buf = HPackDecodeBuf {
+            remain: mem::take(&mut self.remain),
+            buf,
+            read: 0,
+            used: 0,
+        };
+        let mut res = vec![];
+        loop {
+            if buf.is_empty() { break; }
+            match self.decode_next(&mut buf) {
+                Ok(item) => res.push(item),
+                Err(e) => if e.to_string() == "buffer too small" {
+                    self.remain = buf.into_vec();
+                    break;
+                }
+            }
+        }
+        Ok(res)
+    }
+
     pub fn update_table_size(&mut self, max_size: usize) {
         self.table.update_table_size(max_size);
     }
-    
+
     pub fn table_size(&self) -> &Arc<AtomicUsize> {
         self.table.max_size()
     }

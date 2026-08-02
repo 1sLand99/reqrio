@@ -1,6 +1,5 @@
 mod frame;
 
-use std::mem;
 use crate::{Buf, Buffer, BufferError, ReadExt, Reader, WriteExt};
 pub use frame::QUICFrame;
 
@@ -31,6 +30,7 @@ pub struct QUICFlag {
     spin_bit: bool,
     packet_type: PacketType,
     reserved: u8,
+    key_phase: bool,
     num_len: u8,
 }
 
@@ -42,6 +42,7 @@ impl QUICFlag {
             spin_bit: false,
             packet_type: PacketType::ShortHeader,
             reserved: 0,
+            key_phase: false,
             num_len: 0,
         };
         if flag.long_header {
@@ -53,7 +54,12 @@ impl QUICFlag {
     }
 
     fn decode(&mut self, v: u8) {
-        self.reserved = v & 0xc >> 2;
+        if self.long_header {
+            self.reserved = v & 0xc >> 2;
+        } else {
+            self.reserved = (v >> 3) & 3;
+            self.key_phase = v & 4 == 4;
+        }
         self.num_len = (v & 3) + 1;
     }
 
@@ -65,8 +71,18 @@ impl QUICFlag {
         if self.fixed_bit {
             v |= 0x40;
         }
-        v |= (self.packet_type as u8) << 4;
-        v |= self.reserved << 2;
+        if self.long_header {
+            v |= (self.packet_type as u8) << 4;
+            v |= self.reserved << 2;
+        } else {
+            if self.spin_bit {
+                v |= 0x20;
+            }
+            v |= self.reserved << 3;
+            if self.key_phase {
+                v |= 4;
+            }
+        }
         match self.num_len {
             1 => v |= 0b00,
             2 => v |= 0b01,
@@ -105,7 +121,6 @@ pub struct QUICPacket<'a> {
     pub(crate) hdr_raw: [u8; 30],
     pub(crate) hdr_len: usize,
     pub(crate) padding: usize,
-    pub(crate) frames: Vec<QUICFrame<'a>>,
 }
 
 impl<'a> Default for QUICPacket<'a> {
@@ -123,13 +138,12 @@ impl<'a> Default for QUICPacket<'a> {
             hdr_raw: [0; 30],
             hdr_len: 0,
             padding: 0,
-            frames: vec![],
         }
     }
 }
 
 impl<'a> QUICPacket<'a> {
-    pub fn new_initial(num: u64, pd_len: usize, dcid: &'a [u8]) -> Self {
+    pub fn new_long(pty: PacketType, num: u64, pd_len: usize, dcid: &'a [u8]) -> Self {
         let num_len = crate::quic::variant_len(num as usize);
         let (len, padding) = if pd_len + num_len + 16 >= 1232 {
             (pd_len + num_len + 16, 0)
@@ -139,8 +153,9 @@ impl<'a> QUICPacket<'a> {
                 long_header: true,
                 fixed_bit: true,
                 spin_bit: false,
-                packet_type: PacketType::Initial,
+                packet_type: pty,
                 reserved: 0,
+                key_phase: false,
                 num_len: num_len as u8,
             },
             ver: 1,
@@ -158,10 +173,11 @@ impl<'a> QUICPacket<'a> {
         QUICPacket {
             flag: QUICFlag {
                 long_header: flag.long_header,
-                fixed_bit: true,
-                spin_bit: flag.spin_bit,
+                fixed_bit: flag.fixed_bit,
+                spin_bit: false,
                 packet_type: flag.packet_type,
-                reserved: 0,
+                reserved: flag.reserved,
+                key_phase: flag.key_phase,
                 num_len: num_len as u8,
             },
             ver: 1,
@@ -215,18 +231,19 @@ impl<'a> QUICPacket<'a> {
                 writer.write_slice(self.token.as_ref())?;
             }
             crate::quic::write_variant(self.len, &mut writer)?;
-            self.pn_offset = writer.len();
-            match self.flag.num_len() {
-                1 => writer.write_u8(self.num as u8)?,
-                2 => writer.write_u16(self.num as u16)?,
-                4 => writer.write_u32(self.num as u32)?,
-                8 => writer.write_slice(&self.num.to_be_bytes())?,
-                _ => unreachable!()
-            }
-            self.hdr_len = writer.len();
         } else {
-            todo!()
+            writer.write_u8(self.flag.encode())?;
+            writer.write_slice(self.dc_id.as_ref())?;
         }
+        self.pn_offset = writer.len();
+        match self.flag.num_len() {
+            1 => writer.write_u8(self.num as u8)?,
+            2 => writer.write_u16(self.num as u16)?,
+            4 => writer.write_u32(self.num as u32)?,
+            8 => writer.write_slice(&self.num.to_be_bytes())?,
+            _ => unreachable!()
+        }
+        self.hdr_len = writer.len();
         Ok(())
     }
 
@@ -256,42 +273,40 @@ impl<'a> QUICPacket<'a> {
                 hdr_raw: reader.inner()[pos..pos + 30].try_into()?,
                 ..Default::default()
             })
-        } else { Ok(QUICPacket::default()) }
+        } else {
+            let mut hdr_raw = [0; 30];
+            hdr_raw[0..5].copy_from_slice(&reader.inner()[pos..pos + 5]);
+            Ok(QUICPacket {
+                flag,
+                len: reader.unread_len(),
+                pn_offset: reader.position() - pos,
+                hdr_raw,
+                ..Default::default()
+            })
+        }
     }
 
     pub fn decode(&mut self, mask: &[u8], reader: &mut Reader<'a>) -> Result<(), BufferError> {
         if self.flag.long_header {
             self.hdr_raw[0] ^= mask[0] & 0x0f;
-            self.flag.decode(self.hdr_raw[0]);
-            let pn_offset = self.pn_offset..self.pn_offset + self.flag.num_len();
-            self.hdr_raw[pn_offset].iter_mut().enumerate().for_each(|(i, x)| *x ^= mask[i + 1]);
-            self.hdr_len = self.pn_offset + self.flag.num_len();
-            let mut decode_reader = Reader::from_slice(&self.hdr_raw);
-            decode_reader.set_position(self.pn_offset);
-            self.num = match self.flag.num_len() {
-                1 => decode_reader.read_u8()? as u64,
-                2 => decode_reader.read_u16()? as u64,
-                3 => decode_reader.read_u24()? as u64,
-                4 => decode_reader.read_u32()? as u64,
-                _ => unreachable!()
-            };
-            reader.add_len(self.flag.num_len());
-            self.payload = Buf::Ref(reader.read_slice(self.len - self.flag.num_len())?);
         } else {
             self.hdr_raw[0] ^= mask[0] & 0x1f;
-            todo!()
-            // let mut decode_reader = Reader::from_slice(&self.hdr_raw);
-            // self.num = match self.flag.num_len() {
-            //     1 => decode_reader.read_u8()? as u64,
-            //     2 => decode_reader.read_u16()? as u64,
-            //     3 => decode_reader.read_u24()? as u64,
-            //     4 => decode_reader.read_u32()? as u64,
-            //     _ => unreachable!()
-            // };
-            // reader.add_len(self.flag.num_len());
-            // self.payload = Buf::Ref(reader.read_slice(self.len - self.flag.num_len())?);
         }
-
+        self.flag.decode(self.hdr_raw[0]);
+        let pn_offset = self.pn_offset..self.pn_offset + self.flag.num_len();
+        self.hdr_raw[pn_offset].iter_mut().enumerate().for_each(|(i, x)| *x ^= mask[i + 1]);
+        self.hdr_len = self.pn_offset + self.flag.num_len();
+        let mut decode_reader = Reader::from_slice(&self.hdr_raw);
+        decode_reader.set_position(self.pn_offset);
+        self.num = match self.flag.num_len() {
+            1 => decode_reader.read_u8()? as u64,
+            2 => decode_reader.read_u16()? as u64,
+            3 => decode_reader.read_u24()? as u64,
+            4 => decode_reader.read_u32()? as u64,
+            _ => unreachable!()
+        };
+        reader.add_len(self.flag.num_len());
+        self.payload = Buf::Ref(reader.read_slice(self.len - self.flag.num_len())?);
         Ok(())
     }
 
@@ -305,14 +320,6 @@ impl<'a> QUICPacket<'a> {
 
     pub fn num(&self) -> u64 {
         self.num
-    }
-
-    pub fn push_frame(&mut self, frame: QUICFrame<'a>) {
-        self.frames.push(frame);
-    }
-
-    pub fn take_frames(&mut self) -> Vec<QUICFrame<'a>> {
-        mem::take(&mut self.frames)
     }
 }
 

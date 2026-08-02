@@ -37,9 +37,8 @@ pub trait StreamHandle {
         let key_share = match config.alpn {
             ALPN::Http30 => match client_hello.key_share_mut().is_some() {
                 true => {
-
                     client_hello.key_share_mut()
-                },
+                }
                 false => return Err(HandShakeError::QUICMissingKeyShare.into()),
             }
             _ => client_hello.key_share_mut()
@@ -235,10 +234,9 @@ pub trait StreamHandle {
             }
             MessageParsed::Finished(_) => {
                 param.conn.verify_finish(message.encoded.as_ref(), true)?;
-                param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
+                if !param.conn.derived.quic { param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?; }
                 let len = param.conn.make_finish_message(param.write_buffer.unfilled(), false)?;
                 param.write_buffer.add_len(len);
-                param.conn.make_cipher(false)?;
                 *param.handshake_finish = true;
             }
             MessageParsed::EncryptedExtension(ee) => {

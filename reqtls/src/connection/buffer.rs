@@ -20,9 +20,7 @@ impl QUICBuffer {
     pub fn write_at(&mut self, offset: usize, buf: Buf<'_>) -> Result<(), BufferError> {
         if offset == 0 && self.remains.is_empty() {
             assert_eq!(self.buffer.len(), 0);
-            self.buffer.reset();
-            self.current = 0..0;
-            self.remains.clear();
+            self.reset();
         }
         self.buffer.write_slice_in(offset, buf.as_ref())?;
         self.buffer.add_len(buf.len());
@@ -46,6 +44,7 @@ impl QUICBuffer {
             let range = self.remains.remove(pos);
             self.current.start -= range.len();
         }
+        println!("flush: {:?} {:?}", self.current, self.remains);
         if self.current.start != self.current.end && self.remains.is_empty() {
             Some(Reader::from_slice(self.buffer.filled()))
         } else { None }
@@ -64,6 +63,10 @@ impl QUICBuffer {
 
     pub fn use_empty(&mut self, size: usize) -> bool {
         self.current.start += size;
-        self.buffer.used_empty(size)
+        let empty = self.buffer.used_empty(size);
+        if self.buffer.is_empty() && self.current.is_empty() {
+            self.reset();
+        }
+        empty
     }
 }

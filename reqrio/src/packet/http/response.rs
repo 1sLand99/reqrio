@@ -73,7 +73,7 @@ impl Response {
         }
     }
 
-    fn make_coding(&mut self) -> HlsResult<()> {
+    pub(crate) fn make_coding(&mut self) -> HlsResult<()> {
         let chunked = self.header.get_str("transfer-encoding").unwrap_or("").trim();
         let encoding = self.header.content_encoding().unwrap_or("").trim();
         #[cfg(feature = "log")]
@@ -150,7 +150,7 @@ impl Response {
                 self.raw.resize(self.raw.capacity() * 2)?;
             }
             self.raw.write_slice(raw)?;
-        }else {
+        } else {
             let mut buffer = mem::replace(&mut self.h2_buffer, Buffer::with_capacity(0));
             let ret = buffer.check_move(raw.len());
             if ret.is_err() || buffer.unfilled_len() < raw.len() {

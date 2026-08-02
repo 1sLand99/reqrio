@@ -41,7 +41,12 @@ impl<S: Read + Write> SyncStream<S> {
                 stream.stream.write_all(stream.write_buffer.filled())?;
                 stream.write_buffer.reset();
             }
-            if stream.handshake_finished { break; }
+            if stream.handshake_finished {
+                if stream.conn.version() == &Version::TLS_1_3 {
+                    stream.conn.make_cipher(false)?;
+                }
+                break;
+            }
         }
         Ok(stream)
     }

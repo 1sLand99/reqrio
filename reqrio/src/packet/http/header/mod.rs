@@ -148,6 +148,7 @@ impl Header {
         Some(self.keys.remove(pos).into_value())
     }
 
+    #[deprecated]
     pub fn as_h2c(&self) -> HlsResult<Vec<HeaderKey>> {
         let mut res = self.keys.clone();
         res.insert(0, HeaderKey::new(":method", HeaderValue::String(self.method.to_string())));

@@ -16,6 +16,7 @@ use std::sync::PoisonError;
 use tokio::time::error::Elapsed;
 use reqtls::cipher::CipherError;
 use reqtls::coder::CodingError;
+use reqtls::quic::QUICError;
 use crate::body::FormError;
 use crate::packet::HeaderError;
 use crate::time::TimeError;
@@ -217,6 +218,12 @@ impl From<CipherError> for HlsError {
 impl From<HeaderError> for HlsError {
     fn from(value: HeaderError) -> Self {
         HlsError::Header(value)
+    }
+}
+
+impl From<QUICError> for HlsError {
+    fn from(value: QUICError) -> Self {
+        HlsError::Rls(RlsError::Quic(value))
     }
 }
 

@@ -1,3 +1,12 @@
+mod sync_stream;
+
+mod proxy;
+mod ws;
+#[cfg(feature = "aync")]
+mod aync;
+mod quic;
+mod http3;
+
 use crate::*;
 #[cfg(feature = "aync")]
 pub use aync::TlsStream;
@@ -11,14 +20,7 @@ use std::path::{Path, PathBuf};
 pub use sync_stream::SyncStream;
 pub use ws::{WebSocket, WebSocketBuilder};
 pub use quic::QUICStreamS;
-
-mod sync_stream;
-
-mod proxy;
-mod ws;
-#[cfg(feature = "aync")]
-mod aync;
-mod quic;
+pub use http3::HTTP3StreamS;
 
 pub struct ConnParam<'a> {
     pub url: &'a Url,

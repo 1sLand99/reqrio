@@ -373,7 +373,12 @@ impl Connection {
         let finish = self.derived.make_finish(self.version, server, session_hash)?;
         if self.version == Version::TLS_1_3 { self.derived.make_application_traffic_secret(session_hash)?; }
         self.update_session(&finish)?;
-        self.make_message(RecordType::HandShake, buffer, &finish)
+        if self.derived.quic {
+            buffer[..finish.len()].copy_from_slice(finish.as_slice());
+            Ok(finish.len())
+        } else {
+            self.make_message(RecordType::HandShake, buffer, &finish)
+        }
     }
 
     pub fn verify_finish(&mut self, data: &[u8], server: bool) -> RlsResult<()> {
