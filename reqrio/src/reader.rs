@@ -4,54 +4,6 @@ use std::fmt::{Debug, Formatter};
 use std::io::{Cursor, Read};
 use std::ops::Deref;
 
-// pub struct Writer<'a> {
-//     buffer: &'a mut [u8],
-//     pos: usize,
-// }
-// impl<'a> Writer<'a> {
-//     pub fn new(buffer: &'a mut [u8]) -> Self {
-//         Self { buffer, pos: 0 }
-//     }
-// 
-//     pub fn filled(&self) -> &[u8] {
-//         &self.buffer[..self.pos]
-//     }
-// 
-//     pub fn unfilled_len(&self) -> usize {
-//         self.buffer.len() - self.pos
-//     }
-// 
-//     pub fn unfilled(&mut self) -> &mut [u8] {
-//         &mut self.buffer[self.pos..]
-//     }
-// 
-//     pub fn is_empty(&self) -> bool {
-//         self.pos >= self.buffer.len()
-//     }
-// }
-// 
-// impl<'a> WriteExt for Writer<'a> {
-//     fn as_ptr(&self) -> *const u8 {
-//         self.buffer.as_ptr()
-//     }
-// 
-//     fn as_mut_ptr(&mut self) -> *mut u8 {
-//         self.buffer.as_mut_ptr()
-//     }
-// 
-//     fn add_len(&mut self, len: usize) {
-//         self.pos += len
-//     }
-// 
-//     fn offset(&self) -> Range<usize> {
-//         0..self.pos
-//     }
-// 
-//     fn capacity(&self) -> usize {
-//         self.buffer.len()
-//     }
-// }
-
 pub struct RefReader<R> {
     bufs: Vec<Cursor<R>>,
     pos: usize,
@@ -113,11 +65,11 @@ impl<R: AsRef<[u8]>> ReadExt for RefReader<R> {
                     return Ok(buf.offset().end - start);
                 }
                 let len = reader.read(buf.unfilled())?;
-                if len == 0 {
+                buf.add_len(len);
+                if reader.position() as usize == reader.get_ref().as_ref().len() {
                     self.pos += 1;
                     break;
                 }
-                buf.add_len(len);
             }
         }
         self.wrote = true;
