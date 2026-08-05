@@ -52,7 +52,6 @@ impl<'a> ReadExt for H2HeaderReader<'a> {
         //有priority，payload长度需要frame.len-9
         buf.write_u24_in(offset.end, (buf.offset().end - offset.end - 9) as u24)?;
         self.wrote = true;
-        self.wrote = true;
         Ok(buf.offset().end - offset.end)
     }
 }

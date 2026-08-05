@@ -1,8 +1,8 @@
 use std::cmp::max;
 use crate::error::HlsResult;
-use crate::{warn, HlsError};
+use crate::HlsError;
 use reqtls::quic::*;
-use reqtls::{rand, Buf, Buffer, ClientConfig, Config, KeyExchangeAlg, Message, PacketType, QUICFlag, Reader, RecordType, StreamHandle, StreamParam, Version, WriteExt};
+use reqtls::*;
 use std::collections::HashMap;
 use std::io::Write;
 use std::mem;
@@ -122,7 +122,7 @@ impl QUICStreamS {
     fn build_packet<'a>(seq: u64, dcid: &'a Buf<'a>, typ: PacketType, pd_len: usize) -> QUICPacket<'a> {
         match typ {
             PacketType::Initial | PacketType::Handshake => QUICPacket::new_long(typ, seq, pd_len, dcid.as_ref()),
-            _ => unreachable!()
+            PacketType::ShortHeader => QUICPacket::new_short(typ, seq, pd_len, dcid.as_ref()),
         }
     }
 
@@ -157,7 +157,7 @@ impl QUICStreamS {
     }
 
     pub fn read_next_packet(&mut self, server: bool) -> HlsResult<Vec<QUICFrame<'_>>> {
-        let len = self.socket.recv(&mut self.ur_buffer).unwrap();
+        let len = self.socket.recv(&mut self.ur_buffer)?;
         let mut reader = Reader::from_slice(&self.ur_buffer[..len]);
         let mut packet = QUICPacket::from_reader(&mut reader)?;
         if packet.flag().packet_type() == PacketType::Initial {
@@ -169,8 +169,9 @@ impl QUICStreamS {
         let rb = self.tr_buffer.unfilled();
         let len = match self.conn.read_message(&mut packet, &mut reader, rb) {
             Ok(len) => len,
-            Err(e) => {
-                warn!("DecryptError: err={}; num={}; typ: {:?}", e, packet.num(), packet.flag().packet_type());
+            Err(_e) => {
+                #[cfg(feature = "log")]
+                warn!("DecryptError: err={}; num={}; typ: {:?}", _e, packet.num(), packet.flag().packet_type());
                 return Ok(vec![]);
             }
         };
@@ -181,7 +182,7 @@ impl QUICStreamS {
         while reader.unread_len() > 0 {
             let frame = QUICFrame::from_reader(&mut reader)?;
             println!("{:#?}", frame);
-            if matches!(frame,QUICFrame::Crypto{..}|QUICFrame::Stream {..}) { need_ack = true; }
+            if frame.need_ack() { need_ack = true; }
             match frame {
                 QUICFrame::Ack { largest_acknowledged, first_ack_range, .. } => {
                     let start = largest_acknowledged - first_ack_range;
@@ -209,15 +210,15 @@ impl QUICStreamS {
         }
         Ok(res)
     }
-}
 
-impl Write for QUICStreamS {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.write_buffer(PacketType::Initial, Some(buf))?;
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
+    pub fn write_stream(&mut self, stream: QUICFrame) -> HlsResult<()> {
+        let mut packet = Self::build_packet(self.seq, &self.dcid, PacketType::ShortHeader, stream.len());
+        packet.encode().unwrap();
+        println!("{:#?}", packet);
+        let (offset, encrypted) = self.conn.build_message(packet, vec![stream], &mut self.uw_buffer)?;
+        self.socket.send_to(encrypted, self.addr)?;
+        self.sent.insert(self.seq, offset);
+        self.seq += 1;
         Ok(())
     }
 }

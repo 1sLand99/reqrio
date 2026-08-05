@@ -16,6 +16,7 @@ use std::fmt::Display;
 use std::mem;
 pub use value::HeaderValue;
 pub use error::HeaderError;
+use crate::packet::http::header::reader::H3HeaderReader;
 
 mod value;
 mod key;
@@ -46,6 +47,48 @@ impl Default for Header {
 }
 
 impl Header {
+    pub fn new_req_h3() -> Self {
+        Header {
+            method: Method::GET,
+            uri: Uri::default(),
+            alpn: ALPN::Http30,
+            status: HttpStatus::None,
+            keys: vec![
+                //h2 order
+                HeaderKey::new_reserved("origin", ""),
+                HeaderKey::new_reserved("sec-ch-ua-platform", ""),
+                HeaderKey::new_reserved("user-agent", format!("reqrio/{}", env!("CARGO_PKG_VERSION"))),
+                HeaderKey::new_reserved("sec-ch-ua", ""),
+                HeaderKey::new_reserved("sec-ch-ua-mobile", ""),
+                HeaderKey::new_reserved("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"),
+                HeaderKey::new_reserved("sec-fetch-site", ""),
+                HeaderKey::new_reserved("sec-fetch-mode", ""),
+                HeaderKey::new_reserved("sec-fetch-user", ""),
+                HeaderKey::new_reserved("sec-fetch-dest", ""),
+                HeaderKey::new_reserved("referer", ""),
+                HeaderKey::new_reserved("accept-encoding", "gzip, deflate, br, zstd"),
+                HeaderKey::new_reserved("accept-language", "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6"),
+                HeaderKey::new_reserved("priority", ""),
+
+
+                //unknown or http
+                HeaderKey::new_reserved("cache-control", ""),
+                HeaderKey::new_reserved("sec-ch-ua-full-version", ""),
+                HeaderKey::new_reserved("sec-ch-ua-arch", ""),
+                HeaderKey::new_reserved("sec-ch-ua-platform-version", ""),
+                HeaderKey::new_reserved("sec-ch-ua-model", ""),
+                HeaderKey::new_reserved("sec-ch-ua-bitness", ""),
+                HeaderKey::new_reserved("sec-ch-ua-full-version-list", ""),
+                HeaderKey::new_reserved("upgrade-insecure-requests", ""),
+                HeaderKey::new_reserved("sec-fetch-storage-access", ""),
+                HeaderKey::new_reserved("cookie", HeaderValue::Cookies(CookieManager::new(vec![]))),
+                HeaderKey::new_reserved("content-encoding", ""),
+                HeaderKey::new_reserved("content-type", ""),
+                HeaderKey::new_reserved("authorization", ""),
+            ],
+        }
+    }
+
     pub fn new_req_h2() -> Self {
         Header {
             method: Method::GET,
@@ -65,7 +108,7 @@ impl Header {
                 HeaderKey::new_reserved("sec-ch-ua-bitness", ""),
                 HeaderKey::new_reserved("sec-ch-ua-full-version-list", ""),
                 HeaderKey::new_reserved("upgrade-insecure-requests", ""),
-                HeaderKey::new_reserved("user-agent", ""),
+                HeaderKey::new_reserved("user-agent", format!("reqrio/{}", env!("CARGO_PKG_VERSION"))),
                 HeaderKey::new_reserved("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"),
                 HeaderKey::new_reserved("origin", ""),
                 HeaderKey::new_reserved("sec-fetch-site", ""),
@@ -103,7 +146,7 @@ impl Header {
                 HeaderKey::new_reserved("sec-ch-ua-mobile", ""),
                 HeaderKey::new_reserved("sec-ch-ua-platform", ""),
                 HeaderKey::new_reserved("Upgrade-Insecure-Requests", ""),
-                HeaderKey::new_reserved("User-Agent", ""),
+                HeaderKey::new_reserved("User-Agent", format!("reqrio/{}", env!("CARGO_PKG_VERSION"))),
                 HeaderKey::new_reserved("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"),
                 HeaderKey::new_reserved("Sec-Fetch-Site", ""),
                 HeaderKey::new_reserved("Sec-Fetch-Mode", ""),
@@ -513,9 +556,8 @@ impl Header {
         }
     }
 
-    fn as_h2_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> H2HeaderReader<'a> {
+    fn gen_frame_keys<'a>(&'a self, param: &HeaderParam<'a>, ct: &'a ContentType) -> Vec<(StrCow<'a>, StrCow<'a>)> {
         let mut keys = vec![];
-        let uri = if param.url.uri().is_empty() { StrCow::Borrowed("/") } else { StrCow::Owned(param.url.uri().to_string()) };
         keys.push((StrCow::Borrowed(":method"), StrCow::Borrowed(self.method.spec())));
         if param.url.addr().port() == 443 || param.url.addr().port() == 80 {
             keys.push((StrCow::Borrowed(":authority"), StrCow::Borrowed(param.url.sni())));
@@ -523,6 +565,7 @@ impl Header {
             keys.push((StrCow::Borrowed(":authority"), StrCow::Owned(format!("{}:{}", param.url.sni(), param.url.addr().port()))));
         }
         keys.push((StrCow::Borrowed(":scheme"), StrCow::Borrowed(param.url.scheme().spec())));
+        let uri = if param.url.uri().is_empty() { StrCow::Borrowed("/") } else { StrCow::Owned(param.url.uri().to_string()) };
         for key in self.keys.iter() {
             if H2HeaderReader::skip_h2_key(key, ct, param.body_len) { continue; }
             let name = key.name_lower();
@@ -544,8 +587,12 @@ impl Header {
             }
         }
         keys.insert(3, (StrCow::Borrowed(":path"), uri));
+        keys
+    }
+
+    fn as_h2_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> H2HeaderReader<'a> {
         H2HeaderReader {
-            keys,
+            keys: self.gen_frame_keys(&param, ct),
             encoder: param.encoder,
             wrote: false,
             pos: 0,
@@ -556,9 +603,20 @@ impl Header {
         }
     }
 
+    fn as_h3_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> H3HeaderReader<'a> {
+        H3HeaderReader {
+            keys: self.gen_frame_keys(&param, ct),
+            encoder: param.encoder,
+            // priority: self.keys.iter().find(|x| x.name() == "priority")
+            //     .and_then(|x| x.value().as_string()).unwrap_or(""),
+            wrote: false,
+        }
+    }
+
     pub(crate) fn as_reader<'a>(&'a mut self, param: HeaderParam<'a>, ct: &'a ContentType) -> HeaderReader<'a> {
         match self.alpn {
             ALPN::Http20 => HeaderReader::H2(self.as_h2_reader(param, ct)),
+            ALPN::Http30 => HeaderReader::H3(self.as_h3_reader(param, ct)),
             _ => HeaderReader::H1(self.as_h1_reader(param, ct))
         }
     }

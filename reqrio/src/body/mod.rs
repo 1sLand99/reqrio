@@ -9,7 +9,7 @@ use crate::{Application, ContentType, Text};
 pub use ext::{BodyData, BodyExt};
 pub use multi_form::{FileForm, FormError, HttpFile};
 use reader::RawBodyReader;
-pub use reader::{H2BodyReader, H2FrameRBuf};
+pub use reader::{H2BodyReader, H2FrameRBuf, H3BodyReader};
 use reqrio_json::JsonValue;
 use reqtls::{hash, rand};
 #[cfg(feature = "serde")]
@@ -218,6 +218,7 @@ impl<'a> Body<'a> {
 pub(crate) enum BodyReader<'a> {
     HTTP1(RawBodyReader<'a>),
     HTTP2(H2BodyReader<'a>),
+    HTTP3(H3BodyReader<'a>),
 }
 
 impl<'a> ReadExt for BodyReader<'a> {
@@ -225,6 +226,7 @@ impl<'a> ReadExt for BodyReader<'a> {
         match self {
             BodyReader::HTTP1(h1) => h1.wrote(),
             BodyReader::HTTP2(h2) => h2.wrote(),
+            BodyReader::HTTP3(h3) => h3.wrote(),
         }
     }
 
@@ -232,13 +234,15 @@ impl<'a> ReadExt for BodyReader<'a> {
         match self {
             BodyReader::HTTP1(h1) => h1.len(),
             BodyReader::HTTP2(h2) => h2.len(),
+            BodyReader::HTTP3(h3) => h3.len(),
         }
     }
 
     fn read(&mut self, buf: &mut Buffer) -> HlsResult<usize> {
         match self {
             BodyReader::HTTP1(h1) => h1.read(buf),
-            BodyReader::HTTP2(h2) => h2.read(buf)
+            BodyReader::HTTP2(h2) => h2.read(buf),
+            BodyReader::HTTP3(h3) => h3.read(buf),
         }
     }
 }

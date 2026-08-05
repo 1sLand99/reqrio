@@ -1,7 +1,7 @@
 mod frame;
 
 use crate::{Buf, Buffer, BufferError, ReadExt, Reader, WriteExt};
-pub use frame::QUICFrame;
+pub use frame::{QUICFrame, QUICFrameFlag};
 
 
 #[derive(Default, Copy, Clone, Debug, PartialEq)]
@@ -162,6 +162,30 @@ impl<'a> QUICPacket<'a> {
             len,
             num,
             padding,
+            dc_id: Buf::Ref(dcid),
+            ..Default::default()
+        }
+    }
+
+    pub fn new_short(pty: PacketType, num: u64, pd_len: usize, dcid: &'a [u8]) -> Self {
+        let num_len = crate::quic::variant_len(num as usize);
+        // let (len, padding) = if pd_len + num_len + 16 >= 1232 {
+        //     (pd_len + num_len + 16, 0)
+        // } else { (1232, 1232 - pd_len - num_len - 16) };
+        QUICPacket {
+            flag: QUICFlag {
+                long_header: false,
+                fixed_bit: true,
+                spin_bit: false,
+                packet_type: pty,
+                reserved: 0,
+                key_phase: false,
+                num_len: num_len as u8,
+            },
+            ver: 1,
+            len: pd_len + num_len + 16,
+            num,
+            padding: 0,
             dc_id: Buf::Ref(dcid),
             ..Default::default()
         }

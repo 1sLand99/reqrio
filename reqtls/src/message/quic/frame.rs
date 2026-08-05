@@ -1,5 +1,5 @@
 use crate::connection::QUICError;
-use crate::{Buf, BufferError, ReadExt, Reader, WriteExt};
+use crate::{quic, Buf, BufferError, ReadExt, Reader, WriteExt};
 
 #[repr(u16)]
 #[allow(non_camel_case_types)]
@@ -59,8 +59,35 @@ pub struct QUICFrameFlag {
 }
 
 impl QUICFrameFlag {
+    pub fn new(offset: usize) -> QUICFrameFlag {
+        QUICFrameFlag {
+            fin: false,
+            len: true,
+            offset: offset != 0,
+        }
+    }
+
+    pub fn with_fin(mut self, fin: bool) -> Self {
+        self.fin = fin;
+        self
+    }
+
     pub fn fin(&self) -> bool {
         self.fin
+    }
+
+    pub fn encode(&self) -> u8 {
+        let mut v = 8;
+        if self.fin {
+            v |= 0b1;
+        }
+        if self.len {
+            v |= 0b10;
+        }
+        if self.offset {
+            v |= 0b100;
+        }
+        v
     }
 }
 
@@ -123,7 +150,7 @@ pub enum QUICFrame<'a> {
 
 impl<'a> QUICFrame<'a> {
     pub fn from_reader(reader: &mut Reader<'a>) -> Result<QUICFrame<'a>, QUICError> {
-        let typ = crate::quic::read_variant(reader)? as u64;
+        let typ = quic::read_variant(reader)? as u64;
         match typ {
             0x00 => {
                 let len = reader.find(|&x| x != 0).unwrap_or(reader.unread_len());
@@ -132,29 +159,29 @@ impl<'a> QUICFrame<'a> {
             }
             0x01 => Ok(QUICFrame::Ping),
             0x02 => Ok(QUICFrame::Ack {
-                largest_acknowledged: crate::quic::read_variant(reader)? as u64,
-                ack_delay: crate::quic::read_variant(reader)? as u64,
-                ack_range_count: crate::quic::read_variant(reader)? as u64,
-                first_ack_range: crate::quic::read_variant(reader)? as u64,
+                largest_acknowledged: quic::read_variant(reader)? as u64,
+                ack_delay: quic::read_variant(reader)? as u64,
+                ack_range_count: quic::read_variant(reader)? as u64,
+                first_ack_range: quic::read_variant(reader)? as u64,
 
             }),
             0x06 => {
-                let offset = crate::quic::read_variant(reader)?;
-                let len = crate::quic::read_variant(reader)?;
+                let offset = quic::read_variant(reader)?;
+                let len = quic::read_variant(reader)?;
                 Ok(QUICFrame::Crypto {
                     offset,
                     value: Buf::Ref(reader.read_slice(len)?),
                 })
             }
             0x07 => {
-                let len = crate::quic::read_variant(reader)?;
+                let len = quic::read_variant(reader)?;
                 Ok(QUICFrame::NewToken(Buf::Ref(reader.read_slice(len)?)))
             }
             0x08..0x10 => {
                 let flag: QUICFrameFlag = typ.into();
-                let sid = crate::quic::read_variant(reader)?;
-                let len = if flag.len { crate::quic::read_variant(reader)? } else { reader.unread_len() };
-                let offset = if flag.offset { crate::quic::read_variant(reader)? } else { 0 };
+                let sid = quic::read_variant(reader)?;
+                let len = if flag.len { quic::read_variant(reader)? } else { reader.unread_len() };
+                let offset = if flag.offset { quic::read_variant(reader)? } else { 0 };
                 Ok(QUICFrame::Stream {
                     flag,
                     sid: sid as u64,
@@ -164,9 +191,9 @@ impl<'a> QUICFrame<'a> {
                 })
             }
             0x1c => {
-                let err_code = crate::quic::read_variant(reader)? as u16;
-                let frame_typ = crate::quic::read_variant(reader)?;
-                let reason_len = crate::quic::read_variant(reader)?;
+                let err_code = quic::read_variant(reader)? as u16;
+                let frame_typ = quic::read_variant(reader)?;
+                let reason_len = quic::read_variant(reader)?;
                 Ok(QUICFrame::ConnectionCloseTrp {
                     err_code: err_code.into(),
                     frame_typ,
@@ -190,15 +217,25 @@ impl<'a> QUICFrame<'a> {
             QUICFrame::Padding(size) => *size,
             QUICFrame::Ping => 1,
             QUICFrame::Crypto { offset, value } => {
-                let offset_size = crate::quic::variant_len(*offset);
-                let value_size = crate::quic::variant_len(value.len());
+                let offset_size = quic::variant_len(*offset);
+                let value_size = quic::variant_len(value.len());
                 1 + offset_size + value_size + value.len()
             }
             QUICFrame::Ack { largest_acknowledged, ack_delay, ack_range_count, first_ack_range } => {
-                1 + crate::quic::variant_len(*largest_acknowledged as usize) +
-                    crate::quic::variant_len(*ack_delay as usize) +
-                    crate::quic::variant_len(*ack_range_count as usize) +
-                    crate::quic::variant_len(*first_ack_range as usize)
+                1 + quic::variant_len(*largest_acknowledged as usize) +
+                    quic::variant_len(*ack_delay as usize) +
+                    quic::variant_len(*ack_range_count as usize) +
+                    quic::variant_len(*first_ack_range as usize)
+            }
+            QUICFrame::Stream { flag, sid, offset, len, payload } => {
+                let mut res = 1 + quic::variant_len(*sid as usize);
+                if flag.offset {
+                    res += quic::variant_len(*offset);
+                }
+                if flag.len {
+                    res += quic::variant_len(*len);
+                }
+                res + payload.len()
             }
             _ => todo!()
         }
@@ -210,18 +247,44 @@ impl<'a> QUICFrame<'a> {
             QUICFrame::Ping => writer.write_u8(0x01),
             QUICFrame::Crypto { offset, value } => {
                 writer.write_u8(0x06)?;
-                crate::quic::write_variant(*offset, writer)?;
-                crate::quic::write_variant(value.len(), writer)?;
+                quic::write_variant(*offset, writer)?;
+                quic::write_variant(value.len(), writer)?;
                 writer.write_slice(value.as_ref())
             }
             QUICFrame::Ack { largest_acknowledged, ack_delay, ack_range_count, first_ack_range } => {
                 writer.write_u8(0x02)?;
-                crate::quic::write_variant(*largest_acknowledged as usize, writer)?;
-                crate::quic::write_variant(*ack_delay as usize, writer)?;
-                crate::quic::write_variant(*ack_range_count as usize, writer)?;
-                crate::quic::write_variant(*first_ack_range as usize, writer)
+                quic::write_variant(*largest_acknowledged as usize, writer)?;
+                quic::write_variant(*ack_delay as usize, writer)?;
+                quic::write_variant(*ack_range_count as usize, writer)?;
+                quic::write_variant(*first_ack_range as usize, writer)
+            }
+            QUICFrame::Stream {
+                flag,
+                sid,
+                offset,
+                len,
+                payload,
+            } => {
+                writer.write_u8(flag.encode())?;
+                quic::write_variant(*sid as usize, writer)?;
+                if flag.offset {
+                    quic::write_variant(*offset, writer)?;
+                }
+                if flag.len {
+                    quic::write_variant(*len, writer)?;
+                }
+                writer.write_slice(payload.as_ref())
             }
             _ => todo!()
         }
+    }
+
+    pub fn need_ack(&self) -> bool {
+        matches!(self,
+            QUICFrame::Crypto{..}|
+            QUICFrame::Stream {..}|
+            QUICFrame::NewToken(_)|
+            QUICFrame::HandshakeDone
+        )
     }
 }

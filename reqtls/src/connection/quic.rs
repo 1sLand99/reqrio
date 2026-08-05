@@ -164,7 +164,7 @@ impl QUICConnection {
 
 
     pub fn make_message<'a>(&mut self, buffer: &mut [u8], packet: &mut QUICPacket<'a>) -> RlsResult<()> {
-        let encode_buffer = CipherEncodeBuffer::new_quic(buffer, packet, &CipherSuite::TLS_AES_128_GCM_SHA256);
+        let encode_buffer = CipherEncodeBuffer::new_quic(buffer, packet, self.conn.cipher_suite);
         self.conn.send_cipher.encrypt(Some(packet.num), encode_buffer)?;
         let sample = &buffer[packet.pn_offset + 4..packet.pn_offset + 20];
         let mut mask = self.send_sample.encrypt(sample)?;

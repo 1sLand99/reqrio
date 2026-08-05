@@ -1,9 +1,11 @@
 use crate::error::HlsResult;
 use crate::hpack::{HPackCoding, HPackItem};
+use crate::packet::HeaderParam;
+use crate::request::RequestBuffer;
 use crate::stream::ConnParam;
-use crate::{HlsError, QUICStreamS, Response};
-use reqtls::quic::{QUICBuffer, QUICFrame};
-use reqtls::{quic, Buf, ClientConfig, ReadExt, Reader};
+use crate::{hex, Body, Fingerprint, Header, HlsError, QUICStreamS, Response};
+use reqtls::quic::{QUICBuffer, QUICFrame, QUICFrameFlag};
+use reqtls::{quic, Buf, Buffer, ClientConfig, QUICFlag, ReadExt, Reader, Url};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::net::UdpSocket;
@@ -108,17 +110,35 @@ pub struct HTTP3StreamS {
     stream_ids: HashMap<u64, StreamParam>,
     coder: HPackCoding,
     max_stream: u64,
+    sid: u32,
 }
 
 impl HTTP3StreamS {
     pub fn connect(conn: ConnParam) -> HlsResult<HTTP3StreamS> {
         let socket = UdpSocket::bind("0.0.0.0:0")?;
         let addr = conn.url.addr().socket_addr(false)?;
+        let mut quic = QUICStreamS::connect(socket, addr, ClientConfig::from(conn))?;
+        let setting_frame = QUICFrame::Stream {
+            flag: QUICFrameFlag::new(0),
+            sid: 2,
+            offset: 0,
+            len: 44,
+            payload: Buf::Vec(hex::decode("00041f018001000006800400000740643301c0000007c3b6e5b0c0000000f3c01c58c0000011d4c4c93c0154")?),
+        };
+        quic.write_stream(setting_frame)?;
+        quic.write_stream(QUICFrame::Stream {
+            flag: QUICFrameFlag::new(44),
+            sid: 2,
+            offset: 44,
+            len: 12,
+            payload: Buf::Vec(hex::decode("800f07000700753d312c2069")?),
+        })?;
         Ok(HTTP3StreamS {
-            quic: QUICStreamS::connect(socket, addr, ClientConfig::from(conn))?,
+            quic,
             stream_ids: Default::default(),
             coder: HPackCoding::new(65536),
             max_stream: 100,
+            sid: 0,
         })
     }
 
@@ -180,7 +200,33 @@ impl HTTP3StreamS {
         Ok(res)
     }
 
-    // pub fn send(&mut self, req: RequestBuffer) -> HlsResult<u64> {
-    // 
-    // }
+    pub fn send(&mut self, url: &Url, header: &mut Header, body: &Body<'_>, fingerprint: &Fingerprint) -> HlsResult<u64> {
+        let sid = self.sid;
+        self.sid += 4;
+        let mut request = RequestBuffer::new(header, body, HeaderParam {
+            url,
+            encoder: self.coder.encoder(),
+            stream_identifier: &sid,
+            body_len: 0,
+            priority: &fingerprint.h2().priority,
+            weight: &fingerprint.h2().weight,
+        })?;
+        let mut buffer = Buffer::with_capacity(4096);
+        let offset = 0;
+        loop {
+            buffer.reset();
+            let len = crate::reader::ReadExt::read(&mut request, &mut buffer)?;
+            println!("{}-{:?}", len, buffer.filled());
+            if len == 0 { break; }
+            let stream = QUICFrame::Stream {
+                flag: QUICFrameFlag::new(offset).with_fin(crate::reader::ReadExt::wrote(&request)),
+                sid: sid as u64,
+                offset,
+                len,
+                payload: Buf::Ref(buffer.filled()),
+            };
+            self.quic.write_stream(stream)?;
+        }
+        Ok(sid as u64)
+    }
 }

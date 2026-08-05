@@ -42,6 +42,11 @@ pub trait WriteExt {
         self.write_u16_be(v.to_be())
     }
 
+    fn write_u16_in(&mut self, place: usize, n: u16) -> Result<(), BufferError> {
+        self.write_slice_in(place, &n.to_be_bytes())?;
+        Ok(())
+    }
+
     fn write_u24_be(&mut self, v: u24) -> Result<(), BufferError> {
         let res = unsafe { Buffer_write_u24(self.buffer_mut().0.as_mut_ptr(), &v) };
         self.check_write(res, 3)
@@ -81,7 +86,7 @@ pub trait WriteExt {
         let res = unsafe { Buffer_write_u64(self.buffer_mut().0.as_mut_ptr(), &v) };
         self.check_write(res, 8)
     }
-    
+
     fn write_u64(&mut self, v: u64) -> Result<(), BufferError> {
         self.write_u64_be(v.to_be())
     }
