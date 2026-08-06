@@ -1,5 +1,5 @@
 use crate::error::HlsResult;
-use crate::hpack::HPackEncode;
+use crate::pack::HPackEncode;
 use crate::packet::H2EncodeFrame;
 use crate::reader::{ReadExt, StrCow};
 use crate::{ContentType, HeaderKey};
@@ -59,7 +59,7 @@ impl<'a> ReadExt for H2HeaderReader<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::hpack::HPackEncode;
+    use crate::pack::HPackEncode;
     use crate::packet::HeaderParam;
     use crate::reader::ReadExt;
     use crate::{Buffer, ContentType, Header, Method};

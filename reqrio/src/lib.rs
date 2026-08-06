@@ -262,13 +262,13 @@
 //!
 //! - **reqtls**: Underlying TLS and cryptographic engine
 //! - **reqrio-json**: Built-in JSON utilities
-//! - **hpack**: HTTP/2 header compression support
+//! - **pack**: HTTP/2 header compression support
 //!
 //! For more examples and advanced usage, visit the [GitHub repository](https://github.com/xllgl2017/reqrio)
 
 #[cfg(feature = "aync")]
 mod acq;
-pub mod hpack;
+pub mod pack;
 mod error;
 #[cfg(feature = "export")]
 mod export;

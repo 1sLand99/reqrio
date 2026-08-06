@@ -2,7 +2,7 @@ use crate::body::{Body, H2FrameRBuf};
 use crate::error::HlsResult;
 use crate::ext::{ReqExt, ReqParam};
 use crate::ext::{ReqGenExt, ReqPriExt};
-use crate::hpack::HPackCoding;
+use crate::pack::HPackCoding;
 use crate::json::JsonValue;
 use crate::packet::{FrameFlag, FrameType, H2Frame, HeaderParam};
 use crate::reader::ReadExt;

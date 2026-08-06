@@ -1,11 +1,11 @@
 use crate::error::HlsResult;
-use crate::hpack::{HPackCoding, HPackItem};
+use crate::pack::{HPackCoding, HPackItem};
 use crate::packet::HeaderParam;
 use crate::request::RequestBuffer;
 use crate::stream::ConnParam;
 use crate::{hex, Body, Fingerprint, Header, HlsError, QUICStreamS, Response};
 use reqtls::quic::{QUICBuffer, QUICFrame, QUICFrameFlag};
-use reqtls::{quic, Buf, Buffer, ClientConfig, QUICFlag, ReadExt, Reader, Url};
+use reqtls::{quic, Buf, Buffer, ClientConfig, ReadExt, Reader, Url};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::net::UdpSocket;

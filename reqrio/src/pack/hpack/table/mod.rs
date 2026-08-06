@@ -1,11 +1,11 @@
 use std::ops;
-use super::item::HPackItem;
-use crate::hpack::index::Index;
 use dynamic::DynamicTable;
 use r#static::STATIC_TABLE;
 use std::slice::Iter;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
+use super::super::item::HPackItem;
+use super::index::Index;
 
 mod r#static;
 mod dynamic;
@@ -98,7 +98,7 @@ impl ops::Index<usize> for Table {
 
 #[cfg(test)]
 mod tests {
-    use crate::hpack::table::Table;
+    use crate::pack::hpack::table::Table;
 
     #[test]
     fn test_hpack_table() {

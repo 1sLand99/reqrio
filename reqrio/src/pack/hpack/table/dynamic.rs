@@ -1,5 +1,5 @@
 use std::ops::Index;
-use crate::hpack::HPackItem;
+use crate::pack::HPackItem;
 use std::slice::Iter;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};

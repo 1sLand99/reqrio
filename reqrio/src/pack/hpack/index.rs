@@ -1,8 +1,8 @@
 use std::ops::AddAssign;
 use reqtls::{BufferError, WriteExt};
 use crate::error::HlsResult;
-use crate::hpack::decode::HPackDecodeBuf;
-use crate::hpack::HPackError;
+use super::decode::HPackDecodeBuf;
+use crate::pack::HPackError;
 
 pub enum Index {
     /// name-value均能在表内找到

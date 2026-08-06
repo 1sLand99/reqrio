@@ -36,7 +36,7 @@ async fn main() {
         // .with_proxy(Proxy::try_from("http: //222.186.129.68:15265").unwrap())
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::new_socks5("127.0.0.1",10279))
-        // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10279))
+        .with_proxy(Proxy::new_http_plain("127.0.0.1", 10280))
         // .connect("https://104.18.34.137".sni("whatnot.com")).await.unwrap()
         ;
     let headers = json::object! {

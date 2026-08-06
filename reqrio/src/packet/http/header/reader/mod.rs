@@ -3,7 +3,7 @@ mod h2;
 mod h3;
 
 use crate::error::HlsResult;
-use crate::hpack::HPackEncode;
+use crate::pack::HPackEncode;
 use crate::reader::ReadExt;
 pub(super) use h1::H1HeaderReader;
 pub(super) use h2::H2HeaderReader;

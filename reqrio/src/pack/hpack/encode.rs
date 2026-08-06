@@ -1,9 +1,9 @@
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
-use crate::hpack::index::Index;
-use crate::hpack::table::Table;
-use crate::hpack::{huffman, HPackItem};
+use crate::pack::{huffman, HPackItem};
 use reqtls::{BufferError, WriteExt};
+use super::index::Index;
+use super::table::Table;
 
 pub struct HPackEncode {
     table: Table,
@@ -97,9 +97,9 @@ impl HPackEncode {
 
 #[cfg(test)]
 mod tests {
-    use crate::hpack::encode::HPackEncode;
-    use crate::hpack::index::Index;
     use crate::Buffer;
+    use crate::pack::hpack::index::Index;
+    use crate::pack::HPackEncode;
 
     #[test]
     fn test_index_encode() {

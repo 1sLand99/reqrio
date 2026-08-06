@@ -1,6 +1,6 @@
 use crate::body::H2FrameRBuf;
 use crate::error::HlsResult;
-use crate::hpack::HPackCoding;
+use crate::pack::HPackCoding;
 use crate::packet::*;
 use crate::reader::ReadExt;
 use crate::stream::Stream;

@@ -1,12 +1,12 @@
-use super::error::HPackError;
 use super::index::Index;
 use super::table::Table;
 use crate::error::HlsResult;
-use crate::hpack::{huffman, HPackItem};
+use crate::pack::error::HPackError;
+use crate::pack::{huffman, HPackItem};
 use crate::Header;
 use std::mem;
-use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
+use std::sync::Arc;
 
 pub struct HPackDecodeBuf<'a> {
     remain: Vec<u8>,
@@ -202,8 +202,9 @@ impl HPackDecode {
 
 #[cfg(test)]
 mod tests {
-    use crate::hpack::decode::{HPackDecode, HPackDecodeBuf};
+    use crate::pack::HPackDecode;
     use crate::Header;
+    use crate::pack::hpack::decode::HPackDecodeBuf;
 
     #[test]
     fn test_index_integer_decode() {

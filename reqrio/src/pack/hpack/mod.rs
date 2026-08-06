@@ -1,15 +1,10 @@
-pub use error::HPackError;
-pub use item::HPackItem;
+pub use decode::HPackDecode;
 pub use encode::HPackEncode;
-pub use decode::{HPackDecode, HPackDecodeBuf};
 
 mod encode;
 mod decode;
-mod error;
-mod item;
 mod table;
 mod index;
-mod huffman;
 
 pub struct HPackCoding {
     decoder: HPackDecode,

@@ -1,6 +1,6 @@
 use reqtls::{Buffer, WriteExt};
 use crate::error::HlsResult;
-use crate::hpack::HPackEncode;
+use crate::pack::HPackEncode;
 use crate::reader::{ReadExt, StrCow};
 
 pub struct H3HeaderReader<'a> {
@@ -35,7 +35,7 @@ impl<'a> ReadExt for H3HeaderReader<'a> {
 mod tests {
     use reqtls::Buffer;
     use crate::{json, ContentType, Header};
-    use crate::hpack::HPackEncode;
+    use crate::pack::HPackEncode;
     use crate::packet::HeaderParam;
     use crate::reader::ReadExt;
 

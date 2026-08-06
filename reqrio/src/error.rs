@@ -1,5 +1,5 @@
 use crate::json::JsonError;
-use crate::hpack::HPackError;
+use crate::pack::HPackError;
 use reqtls::{hex, Alert, BufferError, RlsError, UrlError, ALPN};
 use std::array::TryFromSliceError;
 use std::convert::Infallible;

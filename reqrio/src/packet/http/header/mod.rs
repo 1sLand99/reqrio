@@ -2,7 +2,7 @@ use super::content_type::ContentType;
 use super::cookie::Cookie;
 use crate::cookie::CookieManager;
 use crate::error::{HlsError, HlsResult};
-use crate::hpack::HPackItem;
+use crate::pack::HPackItem;
 use crate::json::JsonValue;
 use crate::reader::{RefReader, StrCow};
 use crate::*;

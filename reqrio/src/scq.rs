@@ -1,6 +1,6 @@
 use crate::body::{Body, H2FrameRBuf};
 use crate::ext::{ReqParam, ReqPriExt};
-use crate::hpack::HPackCoding;
+use crate::pack::HPackCoding;
 use crate::packet::{FrameFlag, HeaderParam};
 use crate::reader::ReadExt;
 use crate::request::RequestBuffer;

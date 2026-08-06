@@ -1,5 +1,5 @@
 use std::sync::LazyLock;
-use super::super::super::hpack::HPackItem;
+use super::super::super::item::HPackItem;
 
 /// 静态表 rfc7541-Static Table Definition
 pub(crate) static STATIC_TABLE: LazyLock<[HPackItem; 61]> = LazyLock::new(|| [

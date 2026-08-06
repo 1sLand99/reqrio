@@ -4,7 +4,6 @@ use crate::HlsError;
 use reqtls::quic::*;
 use reqtls::*;
 use std::collections::HashMap;
-use std::io::Write;
 use std::mem;
 use std::net::{SocketAddr, UdpSocket};
 use std::ops::Range;
