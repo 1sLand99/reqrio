@@ -2,7 +2,7 @@ use super::index::Index;
 use super::table::Table;
 use crate::error::HlsResult;
 use crate::pack::error::HPackError;
-use crate::pack::{huffman, HPackItem};
+use crate::pack::{huffman, PackItem};
 use crate::Header;
 use std::mem;
 use std::sync::atomic::AtomicUsize;
@@ -109,21 +109,21 @@ impl HPackDecode {
         } else { Err(HPackError::InvalidLenIndex.into()) }
     }
 
-    pub fn decode_next(&mut self, buf: &mut HPackDecodeBuf<'_>) -> HlsResult<HPackItem> {
+    pub fn decode_next(&mut self, buf: &mut HPackDecodeBuf<'_>) -> HlsResult<PackItem> {
         let index = self.decode_index(buf)?;
         let res = match index {
             Index::Indexed(index) => Ok(self.table.get(index - 1).ok_or(HPackError::IndexedItemNone)?.clone()),
             Index::NoIndexAdd => {
                 let name = self.decode_string(buf)?;
                 let value = self.decode_string(buf)?;
-                let item = HPackItem::new(name, value);
+                let item = PackItem::new(name, value);
                 self.table.insert(item.clone());
                 Ok(item)
             }
             Index::NoIndexOnce | Index::NoIndexNever => {
                 let name = self.decode_string(buf)?;
                 let value = self.decode_string(buf)?;
-                let item = HPackItem::new(name, value);
+                let item = PackItem::new(name, value);
                 Ok(item)
             }
             Index::NameIndexedAdd(index) => {
@@ -141,7 +141,7 @@ impl HPackDecode {
             }
             Index::UpdateDynamicSize(index) => {
                 self.table.update_table_size(index);
-                Ok(HPackItem::new_table_size(index))
+                Ok(PackItem::new_table_size(index))
             }
             _ => Err(HPackError::InvalidIndexType(index.into_inner() as u8).into())
         };
@@ -169,7 +169,7 @@ impl HPackDecode {
         Ok(())
     }
 
-    pub fn decode(&mut self, buf: &[u8]) -> HlsResult<Vec<HPackItem>> {
+    pub fn decode(&mut self, buf: &[u8]) -> HlsResult<Vec<PackItem>> {
         let mut buf = HPackDecodeBuf {
             remain: mem::take(&mut self.remain),
             buf,

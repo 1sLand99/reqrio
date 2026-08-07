@@ -1,11 +1,11 @@
 use std::ops::Index;
-use crate::pack::HPackItem;
+use crate::pack::PackItem;
 use std::slice::Iter;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub struct DynamicTable {
-    values: Vec<HPackItem>,
+    values: Vec<PackItem>,
     max_size: Arc<AtomicUsize>,
     size: usize,
 }
@@ -31,7 +31,7 @@ impl DynamicTable {
     ///动态表插入时应位于最前端
     ///
     /// 文档文档rfc7541-4.4
-    pub fn insert(&mut self, item: HPackItem) {
+    pub fn insert(&mut self, item: PackItem) {
         self.size += item.item_size();
         self.values.insert(0, item);
         self.resize();
@@ -40,7 +40,7 @@ impl DynamicTable {
     /// 动态表的索引应该减去静态表的长度
     ///
     /// 文档文档rfc7541-2.3.3
-    pub fn get(&self, index: usize) -> Option<&HPackItem> {
+    pub fn get(&self, index: usize) -> Option<&PackItem> {
         let index = index - 61;
         self.values.get(index)
     }
@@ -66,13 +66,13 @@ impl DynamicTable {
         &self.max_size
     }
 
-    pub fn iter(&self) -> Iter<'_, HPackItem> {
+    pub fn iter(&self) -> Iter<'_, PackItem> {
         self.values.iter()
     }
 }
 
 impl Index<usize> for DynamicTable {
-    type Output = HPackItem;
+    type Output = PackItem;
     fn index(&self, index: usize) -> &Self::Output {
         &self.values[index]
     }

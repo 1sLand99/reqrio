@@ -1,5 +1,5 @@
 use crate::error::HlsResult;
-use crate::pack::{HPackCoding, HPackItem};
+use crate::pack::{HPackCoding, PackItem};
 use crate::packet::HeaderParam;
 use crate::request::RequestBuffer;
 use crate::stream::ConnParam;
@@ -80,8 +80,8 @@ impl<'a> H3Frame<'a> {
 #[derive(Debug)]
 pub enum H3Stream<'a> {
     Control(H3Frame<'a>) = 0x00,
-    QPackEncoder(Vec<HPackItem>) = 0x02,
-    QPackDecoder(Vec<HPackItem>) = 0x03,
+    QPackEncoder(Vec<PackItem>) = 0x02,
+    QPackDecoder(Vec<PackItem>) = 0x03,
     Frame(H3Frame<'a>),
 }
 

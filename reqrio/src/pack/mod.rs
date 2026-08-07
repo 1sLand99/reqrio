@@ -5,7 +5,7 @@ pub mod huffman;
 mod qpack;
 
 pub use hpack::{HPackCoding, HPackEncode, HPackDecode};
-pub use item::HPackItem;
+pub use item::PackItem;
 pub use error::HPackError;
 use reqtls::{ReadExt, Reader};
 use crate::error::HlsResult;

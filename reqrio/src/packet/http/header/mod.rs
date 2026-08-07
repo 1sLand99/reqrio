@@ -2,7 +2,7 @@ use super::content_type::ContentType;
 use super::cookie::Cookie;
 use crate::cookie::CookieManager;
 use crate::error::{HlsError, HlsResult};
-use crate::pack::HPackItem;
+use crate::pack::PackItem;
 use crate::json::JsonValue;
 use crate::reader::{RefReader, StrCow};
 use crate::*;
@@ -442,7 +442,7 @@ impl Header {
         Ok(header)
     }
 
-    pub fn push_pack_item(&mut self, item: &HPackItem) -> HlsResult<()> {
+    pub fn push_pack_item(&mut self, item: &PackItem) -> HlsResult<()> {
         self.insert(item.name(), item.value())?;
         match item.name() {
             ":method" => self.method = Method::try_from(item.value().to_uppercase())?,
@@ -453,7 +453,7 @@ impl Header {
         Ok(())
     }
 
-    pub fn parse_h2(packs: Vec<HPackItem>) -> HlsResult<Header> {
+    pub fn parse_h2(packs: Vec<PackItem>) -> HlsResult<Header> {
         let mut header = Header {
             alpn: ALPN::Http20,
             ..Header::default()

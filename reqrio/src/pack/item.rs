@@ -1,51 +1,53 @@
+use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 
+
 #[derive(Clone)]
-pub struct HPackItem {
-    name: String,
-    value: String,
+pub struct PackItem {
+    pub(crate) name: Cow<'static, str>,
+    pub(crate) value: Cow<'static, str>,
 }
 
 
-impl Display for HPackItem {
+impl Display for PackItem {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(format!("HPack(\"{}\",\"{}\")", self.name, self.value).as_str())
     }
 }
 
-impl Debug for HPackItem {
+impl Debug for PackItem {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.to_string().as_str())
     }
 }
 
-impl HPackItem {
-    pub fn new(name: impl ToString, value: impl ToString) -> HPackItem {
-        HPackItem {
-            name: name.to_string(),
-            value: value.to_string(),
+impl PackItem {
+    pub fn new(name: impl Into<Cow<'static, str>>, value: impl Into<Cow<'static, str>>) -> PackItem {
+        PackItem {
+            name: name.into(),
+            value: value.into(),
         }
     }
 
-    pub fn new_table_size(size: usize) -> HPackItem {
-        HPackItem {
-            name: "update-table-size".to_string(),
-            value: size.to_string(),
+    pub fn new_table_size(size: usize) -> PackItem {
+        PackItem {
+            name: Cow::Borrowed("update-table-size"),
+            value: Cow::Owned(size.to_string()),
         }
     }
 
     pub fn name_value(&self) -> String {
         format!("{}: {}", self.name, self.value)
     }
-    pub fn with_value(mut self, value: impl ToString) -> HPackItem {
-        self.value = value.to_string();
+    pub fn with_value(mut self, value: impl Into<Cow<'static, str>>) -> PackItem {
+        self.value = value.into();
         self
     }
-    pub fn set_name(&mut self, name: impl ToString) {
-        self.name = name.to_string();
+    pub fn set_name(&mut self, name: impl Into<Cow<'static, str>>) {
+        self.name = name.into();
     }
-    pub fn set_value(&mut self, value: impl ToString) {
-        self.value = value.to_string();
+    pub fn set_value(&mut self, value: impl Into<Cow<'static, str>>) {
+        self.value = value.into();
     }
     pub fn name(&self) -> &str { &self.name }
     pub fn value(&self) -> &str { &self.value }
@@ -57,3 +59,15 @@ impl HPackItem {
         self.name.len() + self.value.len() + 32
     }
 }
+
+
+macro_rules! pack_item {
+    ($name:expr, $value:expr) => {
+        PackItem {
+            name: Cow::Borrowed($name),
+            value: Cow::Borrowed($value),
+        }
+    };
+}
+
+pub(crate) use pack_item;

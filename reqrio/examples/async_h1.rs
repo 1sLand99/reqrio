@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::fs;
 use reqrio::*;
 
@@ -21,6 +22,16 @@ fn test_log() {
 async fn main() {
     #[cfg(feature = "log")]
     test_log();
+    let mut items = VecDeque::new();
+    items.push_back(1);
+    items.push_back(2);
+    items.push_back(3);
+    println!("{:?}", items);
+    items.pop_front();
+    println!("{:?}", items);
+    println!("{:?}", items.get(2));
+
+    return;
     let mut timeout = Timeout::longer();
     timeout.set_handle_times(1);
 

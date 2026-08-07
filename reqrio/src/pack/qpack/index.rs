@@ -72,7 +72,7 @@ pub enum Index {
     /// +---+---+-----------------------+
     ///```
     StreamCancellation(u64),
-    /// 插入计数增量
+    /// 已经收到并处理到第x个动态表插入
     ///```text
     ///  0   1   2   3   4   5   6   7
     /// +---+---+---+---+---+---+---+---+
@@ -97,7 +97,7 @@ pub enum Index {
     ///       Base = ReqInsertCount - DeltaBase - 1
     /// ```
     EncodedHead {
-        insert: usize,
+        request: usize,
         base: usize,
     },
     ///name-value均能在表内找到
@@ -189,7 +189,7 @@ impl Index {
                         base += insert;
                     } else { base -= insert - 1 }
                     return Ok(Index::EncodedHead {
-                        insert,
+                        request: insert,
                         base,
                     });
                 }
@@ -308,7 +308,7 @@ mod tests {
         let mut read = false;
         let mut reader = Reader::from_slice(&data);
         let index = Index::from_reader(QPackType::Stream, read, &mut reader).unwrap();
-        assert_eq!(index, Index::EncodedHead { insert: 0, base: 0 });
+        assert_eq!(index, Index::EncodedHead { request: 0, base: 0 });
         read = true;
         let index = Index::from_reader(QPackType::Stream, read, &mut reader).unwrap();
         assert_eq!(index, Index::NamedIndexed {

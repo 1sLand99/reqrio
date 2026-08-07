@@ -4,21 +4,21 @@ use r#static::STATIC_TABLE;
 use std::slice::Iter;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
-use super::super::item::HPackItem;
+use super::super::item::PackItem;
 use super::index::Index;
 
 mod r#static;
 mod dynamic;
 
 pub struct Table {
-    static_table: &'static [HPackItem],
+    static_table: &'static [PackItem; 61],
     pub(crate) dynamic_table: DynamicTable,
 }
 
 impl Default for Table {
     fn default() -> Self {
         Table {
-            static_table: STATIC_TABLE.as_ref(),
+            static_table: &STATIC_TABLE,
             dynamic_table: DynamicTable::default(),
         }
     }
@@ -27,19 +27,19 @@ impl Default for Table {
 impl Table {
     pub fn new(max_table_size: usize) -> Self {
         Table {
-            static_table: STATIC_TABLE.as_ref(),
+            static_table: &STATIC_TABLE,
             dynamic_table: DynamicTable::new_size(max_table_size),
         }
     }
 
-    pub fn get(&self, index: usize) -> Option<&HPackItem> {
+    pub fn get(&self, index: usize) -> Option<&PackItem> {
         match index {
             ..61 => self.static_table.get(index),
             _ => self.dynamic_table.get(index),
         }
     }
 
-    pub fn insert(&mut self, item: HPackItem) {
+    pub fn insert(&mut self, item: PackItem) {
         self.dynamic_table.insert(item);
     }
 
@@ -72,12 +72,12 @@ impl Table {
 }
 
 pub struct TableIterator<'a> {
-    static_inner: Iter<'a, HPackItem>,
-    dynamic_inner: Iter<'a, HPackItem>,
+    static_inner: Iter<'a, PackItem>,
+    dynamic_inner: Iter<'a, PackItem>,
 }
 
 impl<'a> Iterator for TableIterator<'a> {
-    type Item = &'a HPackItem;
+    type Item = &'a PackItem;
     fn next(&mut self) -> Option<Self::Item> {
         match self.static_inner.next() {
             None => self.dynamic_inner.next(),
@@ -87,7 +87,7 @@ impl<'a> Iterator for TableIterator<'a> {
 }
 
 impl ops::Index<usize> for Table {
-    type Output = HPackItem;
+    type Output = PackItem;
     fn index(&self, index: usize) -> &Self::Output {
         match index {
             ..61 => &self.static_table[index],

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
-use crate::pack::{huffman, HPackItem};
+use crate::pack::{huffman, PackItem};
 use reqtls::{BufferError, WriteExt};
 use super::index::Index;
 use super::table::Table;
@@ -61,7 +61,7 @@ impl HPackEncode {
                     self.encode_index(index, writer)?;
                     self.encode_string(name, writer)?;
                     self.encode_string(value, writer)?;
-                    let item = HPackItem::new(name, value);
+                    let item = PackItem::new(name.to_string(), value.to_string());
                     self.table.insert(item);
                     Ok(())
                 }
@@ -75,7 +75,7 @@ impl HPackEncode {
                     self.encode_index(&index, writer)?;
                     self.encode_string(value, writer)?;
                     if let Index::NameIndexedAdd(_) = index {
-                        let item = HPackItem::new(name, value);
+                        let item = PackItem::new(name.to_string(), value.to_string());
                         self.table.insert(item);
                     }
                     Ok(())
