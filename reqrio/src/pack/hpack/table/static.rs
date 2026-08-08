@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use super::super::super::item::{PackItem, pack_item};
 
 /// 静态表 rfc7541-Static Table Definition

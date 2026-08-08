@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use super::super::super::item::{PackItem, pack_item};
 
 /// 静态表 rfc9204-[Static Table](https://datatracker.ietf.org/doc/html/rfc9204#appendix-A)

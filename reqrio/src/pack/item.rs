@@ -63,9 +63,9 @@ impl PackItem {
 
 macro_rules! pack_item {
     ($name:expr, $value:expr) => {
-        PackItem {
-            name: Cow::Borrowed($name),
-            value: Cow::Borrowed($value),
+        super::PackItem {
+            name: std::borrow::Cow::Borrowed($name),
+            value: std::borrow::Cow::Borrowed($value),
         }
     };
 }

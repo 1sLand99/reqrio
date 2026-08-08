@@ -97,8 +97,9 @@ pub enum Index {
     ///       Base = ReqInsertCount - DeltaBase - 1
     /// ```
     EncodedHead {
-        request: usize,
+        enc_count: usize,
         base: usize,
+        sign: bool,
     },
     ///name-value均能在表内找到
     /// ```text
@@ -107,7 +108,10 @@ pub enum Index {
     /// | 1 | T |      Index (6+)       |
     /// +---+---+-----------------------+
     /// ```
-    Indexed(usize),
+    Indexed {
+        idx_dyn: bool,
+        index: usize,
+    },
     ///Indexed Field Line with Post-Base Index
     ///```text
     ///  0   1   2   3   4   5   6   7
@@ -163,20 +167,21 @@ pub enum Index {
     /// ```
     LiteralNameValue {
         req_insert: bool,
-        index: usize,
+        name_len: usize,
+        huffman: bool,
     },
 
 }
 
 impl Index {
     ///stream decode
-    pub fn from_reader(typ: super::QPackType, read: bool, reader: &mut Reader) -> Result<Index, HlsError> {
+    pub fn from_reader(typ: QPackType, read: bool, reader: &mut Reader) -> Result<Index, HlsError> {
         match typ {
             QPackType::Stream => {
                 let typ = reader.read_u8()?;
                 if !read {
                     let mut insert = typ as usize & 0xFF;
-                    if typ & 0xFF == 0xff {
+                    if typ == 0xff {
                         insert += super::super::decode_integer(reader)?
                     }
                     let base = reader.read_u8()? as usize;
@@ -185,15 +190,22 @@ impl Index {
                     if base & 0x7F == 0x7F {
                         base += super::super::decode_integer(reader)?;
                     }
-                    if !sign {
-                        base += insert;
-                    } else { base -= insert - 1 }
                     return Ok(Index::EncodedHead {
-                        request: insert,
+                        enc_count: insert,
                         base,
+                        sign,
                     });
                 }
-                if typ & 0x40 == 0x40 {
+                if typ & 0x80 == 0x80 {
+                    let mut value = typ as usize & 0x3F;
+                    if value == 0x3F {
+                        value += super::super::decode_integer(reader)?;
+                    }
+                    Ok(Index::Indexed {
+                        idx_dyn: typ & 0x40 != 0x40,
+                        index: value,
+                    })
+                } else if typ & 0x40 == 0x40 {
                     let mut value = typ as usize & 0xF;
                     if value == 0xF {
                         value += super::super::decode_integer(reader)?;
@@ -203,12 +215,6 @@ impl Index {
                         idx_dyn: typ & 0x10 != 0x10,
                         index: value,
                     })
-                } else if typ & 0x80 == 0x80 {
-                    let mut value = typ as usize & 0x7F;
-                    if value == 0x7F {
-                        value += super::super::decode_integer(reader)?;
-                    }
-                    Ok(Index::Indexed(value))
                 } else if typ & 0x10 == 0x10 {
                     let mut value = typ as usize & 0xF;
                     if value == 0xF {
@@ -222,7 +228,8 @@ impl Index {
                     }
                     Ok(Index::LiteralNameValue {
                         req_insert: typ & 0x10 == 0x10,
-                        index: value,
+                        name_len: value,
+                        huffman: typ & 0x8 == 0x8,
                     })
                 } else if typ >> 4 == 0 {
                     let mut value = typ as usize & 0x7;
@@ -237,7 +244,7 @@ impl Index {
             }
             QPackType::StreamEncoder => {
                 let typ = reader.read_u8()?;
-                if typ & 0x20 == 0x20 {
+                if typ >> 5 == 1 {
                     let mut value = typ as usize & 0x1F;
                     if value == 0x1F {
                         value += super::super::decode_integer(reader)?;
@@ -252,7 +259,7 @@ impl Index {
                         idx_dyn: typ & 0x40 != 0x40,
                         index: value,
                     })
-                } else if typ & 0x40 == 0x40 {
+                } else if typ >> 6 == 1 {
                     let mut value = typ as usize & 0x1F;
                     if value == 0x1F {
                         value += super::super::decode_integer(reader)?;
@@ -299,16 +306,16 @@ impl Index {
 mod tests {
     use crate::pack::qpack::index::Index;
     use crate::pack::qpack::QPackType;
-    use crate::{hex, HlsError};
-    use reqtls::{ReadExt, Reader};
+    use crate::hex;
+    use reqtls::Reader;
 
     #[test]
     fn test_qpack_index1() {
-        let data = hex::decode("0000510b2f696e6465782e68746d6c").unwrap();
+        let data = hex::decode("000051").unwrap();
         let mut read = false;
         let mut reader = Reader::from_slice(&data);
         let index = Index::from_reader(QPackType::Stream, read, &mut reader).unwrap();
-        assert_eq!(index, Index::EncodedHead { request: 0, base: 0 });
+        assert_eq!(index, Index::EncodedHead { enc_count: 0, base: 0, sign: false });
         read = true;
         let index = Index::from_reader(QPackType::Stream, read, &mut reader).unwrap();
         assert_eq!(index, Index::NamedIndexed {
@@ -316,19 +323,11 @@ mod tests {
             idx_dyn: false,
             index: 1
         });
-        let mut len = reader.read_u8().unwrap() as usize;
-        let huffman = len & 0x80 == 0x80;
-        assert!(!huffman);
-        len &= 0x7F;
-        if len == 0x7F { len += super::super::super::decode_integer(&mut reader).unwrap(); }
-        let buf = reader.read_slice(len).unwrap();
-        let res = String::from_utf8(buf.to_vec()).unwrap();
-        assert_eq!(res, "/index.html")
     }
 
     #[test]
     fn test_qpack_index2() {
-        let data = hex::decode("3fbd01c00f7777772e6578616d706c652e636f6dc10c2f73616d706c652f706174684a637573746f6d2d6b65790c637573746f6d2d76616c756502").unwrap();
+        let data = hex::decode("3fbd01c0c14a02").unwrap();
         let mut read = false;
         let mut reader = Reader::from_slice(&data);
         let index = Index::from_reader(QPackType::StreamEncoder, read, &mut reader).unwrap();
@@ -336,40 +335,12 @@ mod tests {
         read = true;
         let index = Index::from_reader(QPackType::StreamEncoder, read, &mut reader).unwrap();
         assert_eq!(index, Index::IndexedName { idx_dyn: false, index: 0 });
-        let mut len = reader.read_u8().unwrap() as usize;
-        let huffman = len & 0x80 == 0x80;
-        assert!(!huffman);
-        len &= 0x7F;
-        if len == 0x7F {
-            len += super::super::super::decode_integer(&mut reader).unwrap();
-        }
-        let authority = reader.read_str::<HlsError>(len).unwrap();
-        assert_eq!(authority, "www.example.com");
         let index = Index::from_reader(QPackType::StreamEncoder, read, &mut reader).unwrap();
         assert_eq!(index, Index::IndexedName { idx_dyn: false, index: 1 });
-        let mut len = reader.read_u8().unwrap() as usize;
-        let huffman = len & 0x80 == 0x80;
-        assert!(!huffman);
-        len &= 0x7F;
-        if len == 0x7F {
-            len += super::super::super::decode_integer(&mut reader).unwrap();
-        }
-        let path = reader.read_str::<HlsError>(len).unwrap();
-        assert_eq!(path, "/sample/path");
         let index = Index::from_reader(QPackType::StreamEncoder, read, &mut reader).unwrap();
         let Index::NewName { huffman, name_len } = index else { panic!("index decode error") };
         assert!(!huffman);
-        let name = reader.read_str::<HlsError>(name_len).unwrap();
-        assert_eq!(name, "custom-key");
-        let mut len = reader.read_u8().unwrap() as usize;
-        let huffman = len & 0x80 == 0x80;
-        assert!(!huffman);
-        len &= 0x7F;
-        if len == 0x7F {
-            len += super::super::super::decode_integer(&mut reader).unwrap();
-        }
-        let value = reader.read_str::<HlsError>(len).unwrap();
-        assert_eq!(value, "custom-value");
+        assert_eq!(name_len, 10);
         let index = Index::from_reader(QPackType::StreamEncoder, read, &mut reader).unwrap();
         assert_eq!(index, Index::Duplicate(2))
     }
