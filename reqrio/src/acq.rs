@@ -135,8 +135,10 @@ impl AcReq {
         self.header.set_method(method);
         let mut request = RequestBuffer::new(&mut self.header, body, HeaderParam {
             url,
-            encoder: self.hpack_coder.encoder(),
-            stream_identifier: &self.stream_id,
+            hpack_encoder: Some(self.hpack_coder.encoder()),
+            h_sid: &self.stream_id,
+            qpack_encoder: None,
+            q_sid: &0,
             body_len: 0,
             priority: &self.fingerprint.h2().priority,
             weight: &self.fingerprint.h2().weight,

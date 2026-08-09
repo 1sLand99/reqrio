@@ -114,7 +114,10 @@ pub enum QUICFrame<'a> {
     }= 0x02,
     AckEcn = 0x03,
     ResetStream = 0x04,
-    StopSending = 0x05,
+    StopSending {
+        sid: u64,
+        error_code: usize,
+    } = 0x05,
     Crypto {
         offset: usize,
         value: Buf<'a>,
@@ -150,44 +153,49 @@ pub enum QUICFrame<'a> {
 
 impl<'a> QUICFrame<'a> {
     pub fn from_reader(reader: &mut Reader<'a>) -> Result<QUICFrame<'a>, QUICError> {
-        let typ = quic::read_variant(reader)? as u64;
+        let typ = quic::read_variant(reader).unwrap() as u64;
         match typ {
             0x00 => {
                 let len = reader.find(|&x| x != 0).unwrap_or(reader.unread_len());
-                let value = Buf::Ref(reader.read_slice(len)?);
+                let value = Buf::Ref(reader.read_slice(len).unwrap());
                 Ok(QUICFrame::Padding(value.len()))
             }
             0x01 => Ok(QUICFrame::Ping),
             0x02 => Ok(QUICFrame::Ack {
-                largest_acknowledged: quic::read_variant(reader)? as u64,
-                ack_delay: quic::read_variant(reader)? as u64,
-                ack_range_count: quic::read_variant(reader)? as u64,
-                first_ack_range: quic::read_variant(reader)? as u64,
+                largest_acknowledged: quic::read_variant(reader).unwrap() as u64,
+                ack_delay: quic::read_variant(reader).unwrap() as u64,
+                ack_range_count: quic::read_variant(reader).unwrap() as u64,
+                first_ack_range: quic::read_variant(reader).unwrap() as u64,
 
             }),
+            0x5 => Ok(QUICFrame::StopSending {
+                sid: quic::read_variant(reader).unwrap() as u64,
+                error_code: quic::read_variant(reader).unwrap(),
+            }),
             0x06 => {
-                let offset = quic::read_variant(reader)?;
-                let len = quic::read_variant(reader)?;
+                let offset = quic::read_variant(reader).unwrap();
+                let len = quic::read_variant(reader).unwrap();
                 Ok(QUICFrame::Crypto {
                     offset,
-                    value: Buf::Ref(reader.read_slice(len)?),
+                    value: Buf::Ref(reader.read_slice(len).unwrap()),
                 })
             }
             0x07 => {
-                let len = quic::read_variant(reader)?;
-                Ok(QUICFrame::NewToken(Buf::Ref(reader.read_slice(len)?)))
+                let len = quic::read_variant(reader).unwrap();
+                Ok(QUICFrame::NewToken(Buf::Ref(reader.read_slice(len).unwrap())))
             }
             0x08..0x10 => {
+                println!("{:x?}", &reader.inner()[reader.position()..]);
                 let flag: QUICFrameFlag = typ.into();
-                let sid = quic::read_variant(reader)?;
-                let len = if flag.len { quic::read_variant(reader)? } else { reader.unread_len() };
-                let offset = if flag.offset { quic::read_variant(reader)? } else { 0 };
+                let sid = quic::read_variant(reader).unwrap();
+                let offset = if flag.offset { quic::read_variant(reader).unwrap() } else { 0 };
+                let len = if flag.len { quic::read_variant(reader).unwrap() } else { reader.unread_len() };
                 Ok(QUICFrame::Stream {
                     flag,
                     sid: sid as u64,
                     len,
                     offset,
-                    payload: Buf::Ref(reader.read_slice(reader.unread_len())?),
+                    payload: Buf::Ref(reader.read_slice(len).unwrap()),
                 })
             }
             0x1c => {
@@ -284,7 +292,8 @@ impl<'a> QUICFrame<'a> {
             QUICFrame::Crypto{..}|
             QUICFrame::Stream {..}|
             QUICFrame::NewToken(_)|
-            QUICFrame::HandshakeDone
+            QUICFrame::HandshakeDone|
+            QUICFrame::StopSending {..}
         )
     }
 }

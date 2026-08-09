@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use crate::pack::PackItem;
 use std::collections::{HashMap, VecDeque};
 use crate::error::HlsResult;
+use crate::pack::qpack::QPackType;
 use super::super::index::Index;
 
 pub struct DynamicTable {
@@ -68,22 +69,47 @@ impl DynamicTable {
         self.sec_reqs.remove(&sid);
     }
 
-    pub fn get_by_name_value(&mut self, name: &str, value: &str, sid: u64, refer: bool) -> Option<Index> {
-        for (index, item) in self.values.iter() {
+    pub fn get_by_name_value(&mut self, name: &str, value: &str, sid: &u64, refer: bool) -> Option<Index> {
+        for i in 0..self.values.len() {
+            let (index, item) = &self.values[self.values.len() - 1 - i];
             if item.name() == name && item.value() == value {
-                if refer { self.sec_reqs.entry(sid).or_default().push(*index); }
-                let index = Index::Indexed {
-                    index: *index,
-                    idx_dyn: true,
-                };
-                return Some(index);
+                if refer { self.sec_reqs.entry(*sid).or_default().push(*index); }
+                return Some(match *index >= self.increment {
+                    true => Index::PostBase(*index),
+                    false => Index::Indexed {
+                        index: *index,
+                        idx_dyn: true,
+                    }
+                });
             }
         }
         None
     }
 
-    pub fn iter(&self) -> impl Iterator<Item=&(usize, PackItem)> {
-        self.values.iter()
+    pub fn get_by_name(&self, name: &str, typ: QPackType) -> Option<(Index, &PackItem)> {
+        for i in 0..self.values.len() {
+            let (index, item) = &self.values[self.values.len() - 1 - i];
+            if item.name() != name { continue; }
+            return match typ {
+                QPackType::Stream => match *index >= self.increment {
+                    true => Some((Index::NamePostBase {
+                        index: *index,
+                        req_insert: false,
+                    }, item)),
+                    false => Some((Index::NamedIndexed {
+                        req_insert: false,
+                        idx_dyn: true,
+                        index: *index,
+                    }, item))
+                },
+                QPackType::StreamEncoder => Some((Index::IndexedName {
+                    idx_dyn: true,
+                    index: *index,
+                }, item)),
+                QPackType::StreamDecoder => unreachable!()
+            };
+        }
+        None
     }
 
     pub fn update_table_size(&mut self, max_size: usize) {
@@ -123,11 +149,17 @@ impl DynamicTable {
         self.insert(item, &0, false);
         Ok(())
     }
+
+    pub fn en_req_count(&self) -> usize {
+        if self.values.is_empty() { return 0; }
+        (self.values.len() % (2 * (self.max_size / 32))) + 1
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::pack::item::pack_item;
+    use crate::pack::PackItem;
     use crate::pack::qpack::table::dynamic::DynamicTable;
 
     #[test]
@@ -143,7 +175,10 @@ mod tests {
 
     #[test]
     fn test_req_insert_count() {
-        let table = DynamicTable::new(220);
+        let mut table = DynamicTable::new(220);
         assert_eq!(table.cal_req_count(3).unwrap(), 2);
+        table.insert(PackItem::new(":authority", "www.example.com"), &0, false);
+        table.insert(PackItem::new(":authority", "www.example.com"), &0, false);
+        assert_eq!(3, table.en_req_count())
     }
 }

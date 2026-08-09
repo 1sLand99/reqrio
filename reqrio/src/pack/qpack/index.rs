@@ -1,7 +1,6 @@
-use crate::pack::qpack::index::Index::{Increment, NamePostBase};
 use crate::pack::qpack::QPackType;
 use crate::HlsError;
-use reqtls::{ReadExt, Reader};
+use reqtls::{BufferError, ReadExt, Reader, WriteExt};
 
 #[derive(Debug)]
 #[cfg_attr(debug_assertions, derive(PartialEq))]
@@ -97,8 +96,8 @@ pub enum Index {
     ///       Base = ReqInsertCount - DeltaBase - 1
     /// ```
     EncodedHead {
-        enc_count: usize,
-        base: usize,
+        req_enc_count: usize,
+        delta_base: usize,
         sign: bool,
     },
     ///name-value均能在表内找到
@@ -191,8 +190,8 @@ impl Index {
                         base += super::super::decode_integer(reader)?;
                     }
                     return Ok(Index::EncodedHead {
-                        enc_count: insert,
-                        base,
+                        req_enc_count: insert,
+                        delta_base: base,
                         sign,
                     });
                 }
@@ -236,7 +235,7 @@ impl Index {
                     if value == 0x7 {
                         value += super::super::decode_integer(reader)?;
                     }
-                    Ok(NamePostBase {
+                    Ok(Index::NamePostBase {
                         req_insert: typ & 0x8 == 0x8,
                         index: value,
                     })
@@ -295,19 +294,136 @@ impl Index {
                     if value == 0x3F {
                         value += super::super::decode_integer(reader)?;
                     }
-                    Ok(Increment(value))
+                    Ok(Index::Increment(value))
                 } else { unreachable!() }
             }
         }
+    }
+
+    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
+        match self {
+            Index::DynamicTableCapacity(size) => {
+                let value = if size >= 0x1F { 0x1F } else { size };
+                writer.write_u8(value as u8 | 0x20)?;
+                if value == 0x1F { super::super::encode_integer(writer, size - value)?; }
+            }
+            Index::IndexedName {
+                idx_dyn,
+                index,
+            } => {
+                let value = if index >= 0x3F { 0x3F } else { index };
+                writer.write_u8(value as u8 | 0x80 | if !idx_dyn { 0x40 } else { 0 })?;
+                if value == 0x3F { super::super::encode_integer(writer, index - value)?; }
+            }
+            Index::NewName {
+                name_len,
+                huffman
+            } => {
+                let value = if name_len >= 0x1F { 0x1F } else { name_len };
+                writer.write_u8(value as u8 | 0x40 | if huffman { 0x20 } else { 0 })?;
+                if value == 0x1F { super::super::encode_integer(writer, name_len - value)?; }
+            }
+            Index::Duplicate(size) => {
+                let value = if size >= 0x1F { 0x1F } else { size };
+                writer.write_u8(value as u8)?;
+                if value == 0x1F { super::super::encode_integer(writer, size - value)?; }
+            }
+            Index::Acknowledgment(size) => {
+                let value = if size >= 0x7F { 0x7F } else { size };
+                writer.write_u8(value as u8 | 0x80)?;
+                if value == 0x7F { super::super::encode_integer(writer, (size - value) as usize)?; }
+            }
+            Index::StreamCancellation(size) => {
+                let value = if size >= 0x3F { 0x3F } else { size };
+                writer.write_u8(value as u8 | 0x40)?;
+                if value == 0x3F { super::super::encode_integer(writer, (size - value) as usize)?; }
+            }
+            Index::Increment(size) => {
+                let value = if size >= 0x3F { 0x3F } else { size };
+                writer.write_u8(value as u8)?;
+                if value == 0x3F { super::super::encode_integer(writer, size - value)?; }
+            }
+            Index::EncodedHead {
+                req_enc_count: enc_count,
+                delta_base: base,
+                sign
+            } => {
+                let value = if enc_count >= 0xFF { 0xFF } else { enc_count };
+                writer.write_u8(value as u8)?;
+                if value == 0xFF { super::super::encode_integer(writer, enc_count - value)?; }
+                let value = if base >= 0x7F { 0x7F } else { base };
+                writer.write_u8(value as u8 | if sign { 0x80 } else { 0 })?;
+                if value == 0x7F { super::super::encode_integer(writer, enc_count - value)?; }
+            }
+            Index::Indexed {
+                index,
+                idx_dyn,
+            } => {
+                let value = if index >= 0x3F { 0x3F } else { index };
+                writer.write_u8(value as u8 | 0x80 | if !idx_dyn { 0x40 } else { 0 })?;
+                if value == 0x3F { super::super::encode_integer(writer, index - value)?; }
+            }
+            Index::PostBase(size) => {
+                let value = if size >= 0xF { 0xF } else { size };
+                writer.write_u8(value as u8 | 0x10)?;
+                if value == 0xF { super::super::encode_integer(writer, size - value)?; }
+            }
+            Index::NamedIndexed {
+                req_insert,
+                idx_dyn,
+                index
+            } => {
+                let value = if index >= 0xF { 0xF } else { index };
+                writer.write_u8(value as u8 | 0x40 | if req_insert { 0x20 } else { 0 } | if !idx_dyn { 0x10 } else { 0 })?;
+                if value == 0xF { super::super::encode_integer(writer, index - value)?; }
+            }
+            Index::NamePostBase {
+                req_insert,
+                index
+            } => {
+                let value = if index >= 0x7 { 0x7 } else { index };
+                writer.write_u8(value as u8 | if req_insert { 0x80 } else { 0 })?;
+                if value == 0x7 { super::super::encode_integer(writer, index - value)?; }
+            }
+            Index::LiteralNameValue {
+                req_insert,
+                name_len,
+                huffman
+            } => {
+                let value = if name_len >= 0x7 { 0x7 } else { name_len };
+                writer.write_u8(value as u8 | 0x20 | if req_insert { 0x10 } else { 0 } | if huffman { 0x8 } else { 0 })?;
+                if value == 0x7 { super::super::encode_integer(writer, name_len - value)?; }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn with_base(mut self, base: usize) -> Self {
+        match &mut self {
+            Index::DynamicTableCapacity(_) => {}
+            Index::IndexedName { .. } => {}
+            Index::NewName { .. } => {}
+            Index::Duplicate(_) => {}
+            Index::Acknowledgment(_) => {}
+            Index::StreamCancellation(_) => {}
+            Index::Increment(_) => {}
+            Index::EncodedHead { .. } => {}
+            Index::Indexed { index, idx_dyn } => if *idx_dyn { *index = base - *index - 1 }
+            Index::PostBase(index) => *index -= base,
+            Index::NamedIndexed { .. } => {}
+            Index::NamePostBase { index, .. } => { *index -= base }
+            Index::LiteralNameValue { .. } => {}
+        }
+        self
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::hex;
     use crate::pack::qpack::index::Index;
     use crate::pack::qpack::QPackType;
-    use crate::hex;
-    use reqtls::Reader;
+    use reqtls::{Buffer, Reader};
 
     #[test]
     fn test_qpack_index1() {
@@ -315,7 +431,7 @@ mod tests {
         let mut read = false;
         let mut reader = Reader::from_slice(&data);
         let index = Index::from_reader(QPackType::Stream, read, &mut reader).unwrap();
-        assert_eq!(index, Index::EncodedHead { enc_count: 0, base: 0, sign: false });
+        assert_eq!(index, Index::EncodedHead { req_enc_count: 0, delta_base: 0, sign: false });
         read = true;
         let index = Index::from_reader(QPackType::Stream, read, &mut reader).unwrap();
         assert_eq!(index, Index::NamedIndexed {
@@ -355,5 +471,27 @@ mod tests {
         assert_eq!(index, Index::Increment(1));
         let index = Index::from_reader(QPackType::StreamDecoder, false, &mut reader).unwrap();
         assert_eq!(index, Index::Acknowledgment(4))
+    }
+
+    #[test]
+    fn test_qpack_encode1() {
+        let mut writer = Buffer::with_capacity(1024);
+        Index::StreamCancellation(8).write_to(&mut writer).unwrap();
+        Index::Increment(1).write_to(&mut writer).unwrap();
+        Index::Acknowledgment(4).write_to(&mut writer).unwrap();
+        assert_eq!("480184", hex::encode(writer.filled()));
+
+        writer.reset();
+        Index::DynamicTableCapacity(220).write_to(&mut writer).unwrap();
+        Index::IndexedName { idx_dyn: false, index: 0 }.write_to(&mut writer).unwrap();
+        Index::IndexedName { idx_dyn: false, index: 1 }.write_to(&mut writer).unwrap();
+        Index::NewName { huffman: false, name_len: 10 }.write_to(&mut writer).unwrap();
+        Index::Duplicate(2).write_to(&mut writer).unwrap();
+        assert_eq!(hex::encode(writer.filled()), "3fbd01c0c14a02");
+
+        writer.reset();
+        Index::EncodedHead { req_enc_count: 0, delta_base: 0, sign: false }.write_to(&mut writer).unwrap();
+        Index::NamedIndexed { req_insert: false, idx_dyn: false, index: 1 }.write_to(&mut writer).unwrap();
+        assert_eq!(hex::encode(writer.filled()), "000051");
     }
 }

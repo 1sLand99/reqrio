@@ -5,9 +5,10 @@ pub mod huffman;
 mod qpack;
 
 pub use hpack::{HPackCoding, HPackEncode, HPackDecode};
+pub use qpack::{QPackType, QPackEncode, QPackDecode};
 pub use item::PackItem;
 pub use error::HPackError;
-use reqtls::{ReadExt, Reader};
+use reqtls::{BufferError, ReadExt, Reader, WriteExt};
 use crate::error::HlsResult;
 
 fn decode_integer(buf: &mut Reader) -> HlsResult<usize> {
@@ -20,4 +21,12 @@ fn decode_integer(buf: &mut Reader) -> HlsResult<usize> {
         if byte >> 7 == 0 { break; }
     }
     Ok(res)
+}
+
+fn encode_integer<W: WriteExt>(writer: &mut W, mut value: usize) -> Result<(), BufferError> {
+    while value >= 128 {
+        writer.write_u8(0b1000_0000 | value as u8)?;
+        value >>= 7;
+    }
+    writer.write_u8(value as u8)
 }

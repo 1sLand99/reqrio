@@ -233,12 +233,14 @@ pub trait ReqGenExt: ReqExt {
         let param = self.req_param();
         let header_reader = param.header.as_reader(HeaderParam {
             url,
-            encoder: param.hpack_coder.encoder(),
-            stream_identifier: param.sid,
+            h_sid: param.sid,
+            hpack_encoder: Some(param.hpack_coder.encoder()),
+            q_sid: &0,
+            qpack_encoder: None,
             body_len: body_raw.len(),
             priority: &false,
             weight: &0,
-        }, body.context_type());
+        }, body.context_type())?;
         let mut header = Self::read_to_vec(header_reader)?;
         header.extend(body_raw);
         Ok(String::from_utf8_lossy(&header).to_string())

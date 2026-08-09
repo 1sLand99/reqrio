@@ -3,7 +3,7 @@ mod h2;
 mod h3;
 
 use crate::error::HlsResult;
-use crate::pack::HPackEncode;
+use crate::pack::{HPackEncode, QPackEncode};
 use crate::reader::ReadExt;
 pub(super) use h1::H1HeaderReader;
 pub(super) use h2::H2HeaderReader;
@@ -12,8 +12,10 @@ use reqtls::{Buffer, Url};
 
 pub struct HeaderParam<'a> {
     pub(crate) url: &'a Url,
-    pub(crate) encoder: &'a mut HPackEncode,
-    pub(crate) stream_identifier: &'a u32,
+    pub(crate) h_sid: &'a u32,
+    pub(crate) hpack_encoder: Option<&'a mut HPackEncode>,
+    pub(crate) q_sid: &'a u64,
+    pub(crate) qpack_encoder: Option<&'a mut QPackEncode>,
     pub(crate) body_len: usize,
     pub(crate) weight: &'a u8,
     pub(crate) priority: &'a bool,

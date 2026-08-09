@@ -590,35 +590,36 @@ impl Header {
         keys
     }
 
-    fn as_h2_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> H2HeaderReader<'a> {
-        H2HeaderReader {
+    fn as_h2_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> HlsResult<H2HeaderReader<'a>> {
+        Ok(H2HeaderReader {
             keys: self.gen_frame_keys(&param, ct),
-            encoder: param.encoder,
+            encoder: param.hpack_encoder.ok_or("missing hpack encoder")?,
             wrote: false,
             pos: 0,
             body_len: param.body_len,
-            stream_identifier: param.stream_identifier,
+            stream_identifier: param.h_sid,
             weight: param.weight,
             priority: param.priority,
-        }
+        })
     }
 
-    fn as_h3_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> H3HeaderReader<'a> {
-        H3HeaderReader {
+    fn as_h3_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> HlsResult<H3HeaderReader<'a>> {
+        Ok(H3HeaderReader {
             keys: self.gen_frame_keys(&param, ct),
-            encoder: param.encoder,
+            encoder: param.qpack_encoder.ok_or("missing qpack encoder")?,
             // priority: self.keys.iter().find(|x| x.name() == "priority")
             //     .and_then(|x| x.value().as_string()).unwrap_or(""),
             wrote: false,
-        }
+            sid: &param.q_sid,
+        })
     }
 
-    pub(crate) fn as_reader<'a>(&'a mut self, param: HeaderParam<'a>, ct: &'a ContentType) -> HeaderReader<'a> {
-        match self.alpn {
-            ALPN::Http20 => HeaderReader::H2(self.as_h2_reader(param, ct)),
-            ALPN::Http30 => HeaderReader::H3(self.as_h3_reader(param, ct)),
+    pub(crate) fn as_reader<'a>(&'a mut self, param: HeaderParam<'a>, ct: &'a ContentType) -> HlsResult<HeaderReader<'a>> {
+        Ok(match self.alpn {
+            ALPN::Http20 => HeaderReader::H2(self.as_h2_reader(param, ct)?),
+            ALPN::Http30 => HeaderReader::H3(self.as_h3_reader(param, ct)?),
             _ => HeaderReader::H1(self.as_h1_reader(param, ct))
-        }
+        })
     }
 
     pub(crate) fn add_key(&mut self, key: HeaderKey) {

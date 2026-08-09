@@ -32,39 +32,26 @@ impl Table {
         }
     }
 
-    pub fn get_by_name(&self, name: &str, typ: QPackType) -> Option<Index> {
+    pub fn get_by_name(&self, name: &str, typ: QPackType) -> Option<(Index, &PackItem)> {
         let static_index = self.static_table.iter().enumerate().find_map(|(index, item)| if item.name() == name {
             match typ {
-                QPackType::Stream => Some(Index::NamedIndexed {
+                QPackType::Stream => Some((Index::NamedIndexed {
                     req_insert: false,
                     idx_dyn: false,
                     index,
-                }),
-                QPackType::StreamEncoder => Some(Index::IndexedName {
+                }, item)),
+                QPackType::StreamEncoder => Some((Index::IndexedName {
                     idx_dyn: false,
                     index,
-                }),
+                }, item)),
                 QPackType::StreamDecoder => unreachable!()
             }
         } else { None });
         if static_index.is_some() { return static_index; }
-        self.dynamic_table.iter().find_map(|(index, item)| if item.name() == name {
-            match typ {
-                QPackType::Stream => Some(Index::NamedIndexed {
-                    req_insert: false,
-                    idx_dyn: true,
-                    index: *index,
-                }),
-                QPackType::StreamEncoder => Some(Index::IndexedName {
-                    idx_dyn: true,
-                    index: *index,
-                }),
-                QPackType::StreamDecoder => unreachable!()
-            }
-        } else { None })
+        self.dynamic_table.get_by_name(name, typ)
     }
 
-    pub fn get_by_name_value(&mut self, name: &str, value: &str, sid: u64, refer: bool) -> Option<Index> {
+    pub fn get_by_name_value(&mut self, name: &str, value: &str, sid: &u64, refer: bool) -> Option<Index> {
         let index = self.static_table.iter().enumerate().find_map(|(index, item)| if item.name() == name && item.value() == value {
             Some(Index::Indexed {
                 idx_dyn: false,
@@ -103,13 +90,13 @@ mod tests {
         assert_eq!(item.name, ":method");
         assert_eq!(item.value, "GET");
 
-        let index = table.get_by_name(":authority", QPackType::Stream).unwrap();
+        let (index, item) = table.get_by_name(":authority", QPackType::Stream).unwrap();
         assert_eq!(index, Index::NamedIndexed { req_insert: false, idx_dyn: false, index: 0 });
-        let Index::NamedIndexed { index, .. } = index else { unreachable!() };
-        let mut item = table.get(index, &0, false, true).unwrap().clone();
+        let mut item = item.clone();
         item.set_value("www.example.com");
         table.insert(item, &0, true);
-        let item = table.get_by_name_value(":authority", "www.example.com", 0, false).unwrap();
+        table.dynamic_table_mut().set_increment(1);
+        let item = table.get_by_name_value(":authority", "www.example.com", &0, false).unwrap();
         assert_eq!(item, Index::Indexed { idx_dyn: true, index: 0 });
 
         table.insert(pack_item!(":path","/sample/path"), &0, true);

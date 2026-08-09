@@ -55,7 +55,7 @@ impl QPackDecode {
 
     pub fn decode_next(&mut self, typ: QPackType, sid: &u64, reader: &mut Reader) -> HlsResult<Cow<'_, PackItem>> {
         let index = Index::from_reader(typ, self.sid_read.contains(sid), reader)?;
-        println!("{:?}", index);
+        // println!("{:?}", index);
         match index {
             Index::DynamicTableCapacity(size) => {
                 self.table.update_table_size(size);
@@ -91,7 +91,7 @@ impl QPackDecode {
                 self.table.dynamic_table_mut().set_increment(count);
                 Ok(Cow::Owned(PackItem::new("increment", sid.to_string())))
             }
-            Index::EncodedHead { enc_count, base, sign } => {
+            Index::EncodedHead { req_enc_count: enc_count, delta_base: base, sign } => {
                 let req_count = self.table.dynamic_table().cal_req_count(enc_count)?;
                 self.base = if !sign { base + req_count } else { req_count - base - 1 };
                 if self.table.dynamic_table().item_count() < req_count { return Err("blocked stream".into()); }
@@ -148,7 +148,7 @@ impl QPackDecode {
 
     pub fn decode_into(&mut self, buffer: &mut Buffer, resp: &mut Response, typ: QPackType, sid: &u64) -> HlsResult<()> {
         let mut reader = Reader::from_slice(buffer.filled());
-        loop {
+        while reader.unread_len() > 0 {
             let mut pos = reader.position();
             match self.decode_next(typ, sid, &mut reader) {
                 Ok(item) => {
@@ -167,6 +167,10 @@ impl QPackDecode {
         }
         buffer.used_empty(reader.position());
         Ok(())
+    }
+
+    pub fn update_table_size(&mut self, max_size: usize) {
+        self.table.update_table_size(max_size)
     }
 }
 

@@ -22,28 +22,20 @@ impl HPackEncode {
         }
     }
 
-    fn encode_integer<W: WriteExt>(&self, mut value: usize, writer: &mut W) -> Result<(), BufferError> {
-        while value >= 128 {
-            writer.write_u8(0b1000_0000 | value as u8)?;
-            value >>= 7;
-        }
-        writer.write_u8(value as u8)
-    }
-
     fn encode_index<W: WriteExt>(&self, index: impl AsRef<Index>, writer: &mut W) -> Result<(), BufferError> {
         let index = index.as_ref();
         let finish = index.write_to(writer)?;
         if finish { return Ok(()); }
-        self.encode_integer(index.remain(), writer)
+        super::super::encode_integer(writer, index.remain())
     }
 
-    fn encode_string<W: WriteExt>(&self, value: impl AsRef<[u8]>, writer: &mut W)-> Result<(), BufferError> {
+    fn encode_string<W: WriteExt>(&self, value: impl AsRef<[u8]>, writer: &mut W) -> Result<(), BufferError> {
         let huffman_encoded = huffman::encode(value.as_ref());
         let huffman = huffman_encoded.len() < value.as_ref().len();
         let value = if huffman { huffman_encoded.as_slice() } else { value.as_ref() };
         let index = Index::ValueLen { huffman, value: value.len() };
         let finish = index.write_to(writer)?;
-        if !finish { self.encode_integer(index.remain(), writer)?; }
+        if !finish { super::super::encode_integer(writer, index.remain())?; }
         writer.write_slice(value.as_ref())
     }
 

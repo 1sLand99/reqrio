@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use reqrio::*;
 use std::fs;
 use std::path::PathBuf;
@@ -56,9 +57,12 @@ fn main() {
         "Connection": "keep-alive",
     }).unwrap();
     let body: Body = None.into();
-    h3_req.send(&url, &mut header, &body, &fingerprint).unwrap();
-    // let mut resps = HashMap::new();
-    // loop {
-    //     h3_req.recv(&mut resps).unwrap();
-    // }
+    let sid = h3_req.send(&url, &mut header, &body, &fingerprint).unwrap();
+    let mut resps = HashMap::new();
+    resps.insert(sid, Response::new());
+    let resp = loop {
+        let mut sids = h3_req.recv(&mut resps).unwrap();
+        if sids.len() > 0 { break resps.remove(&sids.remove(0)); }
+    }.unwrap();
+    println!("{}", resp.raw_string())
 }

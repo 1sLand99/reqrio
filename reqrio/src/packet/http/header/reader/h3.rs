@@ -1,12 +1,13 @@
-use reqtls::{Buffer, WriteExt};
 use crate::error::HlsResult;
-use crate::pack::HPackEncode;
+use crate::pack::{QPackEncode, QPackType};
 use crate::reader::{ReadExt, StrCow};
+use reqtls::{Buffer, WriteExt};
 
 pub struct H3HeaderReader<'a> {
     pub(crate) keys: Vec<(StrCow<'a>, StrCow<'a>)>,
-    pub(crate) encoder: &'a mut HPackEncode,
+    pub(crate) encoder: &'a mut QPackEncode,
     pub(crate) wrote: bool,
+    pub(crate) sid: &'a u64,
 }
 
 impl<'a> ReadExt for H3HeaderReader<'a> {
@@ -20,8 +21,9 @@ impl<'a> ReadExt for H3HeaderReader<'a> {
         let offset = buf.offset();
         buf.write_u8(1)?;
         buf.write_u16(0)?;
+        self.encoder.encode_head(buf)?;
         for (key, value) in self.keys.iter() {
-            self.encoder.encode_one(key, value, buf)?;
+            self.encoder.encode_one(QPackType::Stream, key, value, self.sid, buf)?;
         }
         let len = buf.offset().end - offset.end - 3;
         assert!(len < 16384);
@@ -33,11 +35,11 @@ impl<'a> ReadExt for H3HeaderReader<'a> {
 
 #[cfg(test)]
 mod tests {
-    use reqtls::Buffer;
-    use crate::{json, ContentType, Header};
-    use crate::pack::HPackEncode;
+    use crate::pack::QPackEncode;
     use crate::packet::HeaderParam;
     use crate::reader::ReadExt;
+    use crate::{json, ContentType, Header};
+    use reqtls::Buffer;
 
     #[test]
     fn test_h3_reader() {
@@ -59,15 +61,17 @@ mod tests {
             "Connection": "keep-alive",
         }).unwrap();
         let url = "https://img-s-msn-com.akamaized.net".try_into().unwrap();
-        let mut encoder = HPackEncode::new(4096);
+        let mut encoder = QPackEncode::new(4096);
         let mut reader = header.as_h3_reader(HeaderParam {
             url: &url,
-            encoder: &mut encoder,
-            stream_identifier: &0,
+            qpack_encoder: Some(&mut encoder),
+            q_sid: &0,
+            hpack_encoder: None,
+            h_sid: &0,
             body_len: 0,
             weight: &0,
             priority: &false,
-        }, &ContentType::Null);
+        }, &ContentType::Null).unwrap();
         let mut buffer = Buffer::with_capacity(4096);
         let len = reader.read(&mut buffer).unwrap();
         println!("{}-{:?}", len, buffer.filled());

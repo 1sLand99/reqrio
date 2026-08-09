@@ -15,11 +15,11 @@ impl<'a> RequestBuffer<'a> {
     pub fn new(header: &'a mut Header, body: &'a Body, mut param: HeaderParam<'a>) -> HlsResult<RequestBuffer<'a>> {
         let body_reader = match header.alpn() {
             ALPN::Http30 => BodyReader::HTTP3(H3BodyReader::new_size(1024, body.as_reader()?)),
-            ALPN::Http20 => BodyReader::HTTP2(H2BodyReader::new_size(8192, body.as_reader()?, param.stream_identifier)),
+            ALPN::Http20 => BodyReader::HTTP2(H2BodyReader::new_size(8192, body.as_reader()?, param.h_sid)),
             _ => BodyReader::HTTP1(body.as_reader()?)
         };
         param.body_len = body_reader.len();
-        let header = header.as_reader(param, body.context_type());
+        let header = header.as_reader(param, body.context_type())?;
         Ok(RequestBuffer {
             hdr_reader: header,
             header_wrote: false,

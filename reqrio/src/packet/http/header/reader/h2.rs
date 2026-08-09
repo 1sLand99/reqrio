@@ -93,12 +93,14 @@ mod tests {
         let sid = 1;
         let mut reader = header.as_h2_reader(HeaderParam {
             url: &url,
-            encoder: &mut encoder,
-            stream_identifier: &sid,
+            hpack_encoder: Some(&mut encoder),
+            h_sid: &sid,
+            q_sid: &0,
+            qpack_encoder: None,
             body_len: 0,
             weight: &146,
             priority: &true,
-        }, &ContentType::Null);
+        }, &ContentType::Null).unwrap();
         let mut writer = Buffer::from_ptr(res.as_mut());
         let len = reader.read(&mut writer).unwrap();
         assert!(reader.wrote());
