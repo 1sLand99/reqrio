@@ -82,8 +82,8 @@ impl<'a> H3Frame<'a> {
 #[repr(u64)]
 #[derive(Debug)]
 pub enum H3Stream<'a> {
-    Control(H3Frame<'a>) = 0x00,
-    QPackEncoder(Vec<PackItem>) = 0x02,
+    Control = 0x00,
+    QPackEncoder = 0x02,
     QPackDecoder(Vec<PackItem>) = 0x03,
     Frame(H3Frame<'a>),
 }
@@ -97,9 +97,7 @@ impl<'a> H3Stream<'a> {
                     let item = decoder.decode_next(QPackType::StreamEncoder, &0, reader).unwrap();
                     println!("item: {:?}", item);
                 }
-                H3Stream::QPackEncoder(vec![])
-                //缓存数据
-                // H3Stream::QPackEncoder(decoder.decode(reader.read_slice(reader.unread_len()).unwrap()).unwrap())
+                H3Stream::QPackEncoder
             }
             Some(0x03) => H3Stream::QPackDecoder(vec![]),
             Some(_) => H3Stream::Frame(H3Frame::from_reader(reader).unwrap()),
@@ -136,14 +134,7 @@ impl HTTP3StreamS {
             len: 44,
             payload: Buf::Vec(hex::decode("00041f018001000006800400000740643301c0000007c3b6e5b0c0000000f3c01c58c0000011d4c4c93c0154").unwrap()),
         };
-        quic.write_stream(setting_frame).unwrap();
-        quic.write_stream(QUICFrame::Stream {
-            flag: QUICFrameFlag::new(44),
-            sid: 2,
-            offset: 44,
-            len: 12,
-            payload: Buf::Vec(hex::decode("800f07000700753d312c2069").unwrap()),
-        }).unwrap();
+        quic.write_stream(vec![setting_frame]).unwrap();
         Ok(HTTP3StreamS {
             quic,
             stream_ids: Default::default(),
@@ -170,7 +161,9 @@ impl HTTP3StreamS {
             };
             if flag.fin() { param.fin = true; }
             param.buffer.write_at(offset, payload).unwrap();
+            if flag.fin() && param.buffer.raw_buffer().is_empty() { return Ok(vec![sid]); }
             let Some(mut reader) = param.buffer.flush()else { continue };
+
             if sid & 0b10 == 0b10 && param.typ.is_none() {
                 param.typ = Some(quic::read_variant(&mut reader).unwrap());
             }
@@ -179,9 +172,9 @@ impl HTTP3StreamS {
                 let stream = H3Stream::from_quic_stream(param.typ, &mut reader, &mut self.decoder).unwrap();
                 println!("{:#?}", stream);
                 let frame = match stream {
-                    H3Stream::Control(frame) => frame,
+                    H3Stream::Control => continue,
                     H3Stream::Frame(frame) => frame,
-                    H3Stream::QPackEncoder(_) => continue,
+                    H3Stream::QPackEncoder => continue,
                     H3Stream::QPackDecoder(_) => continue,
                 };
                 match frame {
@@ -198,16 +191,16 @@ impl HTTP3StreamS {
                     //客户端忽略，服务端暂不处理
                     H3Frame::PriorityUpdate { .. } => {}
                     H3Frame::Headers(hdr) => {
-                        let response = responses.get_mut(&sid).ok_or("response not inited").unwrap();
+                        let response = responses.get_mut(&sid).ok_or("response not inited")?;
                         let mut buf = hdr.as_ref().to_vec();
                         let mut buffer = Buffer::from_ptr(buf.as_mut_slice());
                         buffer.add_len(buf.len());
-                        self.decoder.decode_into(&mut buffer, response, QPackType::Stream, &sid).unwrap();
-                        response.make_coding().unwrap();
+                        self.decoder.decode_into(&mut buffer, response.header_mut(), QPackType::Stream, &sid)?;
+                        response.make_coding()?;
                     }
                     H3Frame::Data(body) => {
-                        let response = responses.get_mut(&sid).ok_or("response not inited").unwrap();
-                        response.push_raw_slice(body.as_ref()).unwrap();
+                        let response = responses.get_mut(&sid).ok_or("response not inited")?;
+                        response.push_raw_slice(body.as_ref())?;
                     }
                     H3Frame::Reserved { .. } => {}
                 }
@@ -232,22 +225,31 @@ impl HTTP3StreamS {
             body_len: 0,
             priority: &fingerprint.h2().priority,
             weight: &fingerprint.h2().weight,
-        }).unwrap();
+        })?;
         let mut buffer = Buffer::with_capacity(4096);
         let offset = 0;
         loop {
             buffer.reset();
-            let len = crate::reader::ReadExt::read(&mut request, &mut buffer).unwrap();
-            println!("{}-{:?}", len, buffer.filled());
+            let len = crate::reader::ReadExt::read(&mut request, &mut buffer)?;
+            println!("{}-{}-{:?}", len, crate::reader::ReadExt::wrote(&request), buffer.filled());
             if len == 0 { break; }
             let stream = QUICFrame::Stream {
                 flag: QUICFrameFlag::new(offset).with_fin(crate::reader::ReadExt::wrote(&request)),
-                sid: sid as u64,
+                sid,
                 offset,
                 len,
                 payload: Buf::Ref(buffer.filled()),
             };
-            self.quic.write_stream(stream).unwrap();
+            let streams = if offset == 0 {
+                vec![QUICFrame::Stream {
+                    flag: QUICFrameFlag::new(44),
+                    sid: 2,
+                    offset: 44,
+                    len: 12,
+                    payload: Buf::Vec(hex::decode("800f07000700753d312c2069").unwrap()),
+                }, stream]
+            } else { vec![stream] };
+            self.quic.write_stream(streams)?;
         }
         Ok(sid)
     }

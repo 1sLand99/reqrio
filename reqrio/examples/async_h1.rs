@@ -22,16 +22,6 @@ fn test_log() {
 async fn main() {
     #[cfg(feature = "log")]
     test_log();
-    let mut items = VecDeque::new();
-    items.push_back(1);
-    items.push_back(2);
-    items.push_back(3);
-    println!("{:?}", items);
-    items.pop_front();
-    println!("{:?}", items);
-    println!("{:?}", items.get(2));
-
-    return;
     let mut timeout = Timeout::longer();
     timeout.set_handle_times(1);
 
@@ -101,8 +91,8 @@ async fn main() {
     // let url = Url::try_from("https://cn.bing.com/").unwrap();
     // let url = "https://113.108.215.122/xhr/front/trade/priority/rushPurchase/hot/branch/one".sni("h5.moutai519.com.cn").unwrap(); //
     // let url: Url = "https://www.bing.com".try_into().unwrap();
-    // let url: Url = "https://www.bing.com".try_into().unwrap();
-    let url = "https://shop.lululemon.com/help/orders/gift-card-balance";
+    let url: Url = "https://cn.bing.com".try_into().unwrap();
+    // let url = "https://shop.lululemon.com/help/orders/gift-card-balance";
     // req.re_conn(Some(&url)).await.unwrap();
     let resp = req.get(url, None).await.unwrap();
     // let resp = req.post(url.clone(), None).await.unwrap();

@@ -74,6 +74,7 @@ mod tests {
         }, &ContentType::Null).unwrap();
         let mut buffer = Buffer::with_capacity(4096);
         let len = reader.read(&mut buffer).unwrap();
-        println!("{}-{:?}", len, buffer.filled());
+        assert_eq!(len, 427);
+        assert!(reader.wrote())
     }
 }

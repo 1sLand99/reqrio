@@ -1,7 +1,7 @@
 mod frame;
 
 use crate::{Buf, Buffer, BufferError, ReadExt, Reader, WriteExt};
-pub use frame::{QUICFrame, QUICFrameFlag};
+pub use frame::{QUICFrame, QUICFrameFlag, AckRange};
 
 
 #[derive(Default, Copy, Clone, Debug, PartialEq)]
@@ -169,9 +169,6 @@ impl<'a> QUICPacket<'a> {
 
     pub fn new_short(pty: PacketType, num: u64, pd_len: usize, dcid: &'a [u8]) -> Self {
         let num_len = crate::quic::variant_len(num as usize);
-        // let (len, padding) = if pd_len + num_len + 16 >= 1232 {
-        //     (pd_len + num_len + 16, 0)
-        // } else { (1232, 1232 - pd_len - num_len - 16) };
         QUICPacket {
             flag: QUICFlag {
                 long_header: false,
@@ -218,7 +215,7 @@ impl<'a> QUICPacket<'a> {
     }
 
     pub fn len(&self) -> usize {
-        self.hdr_len + self.len
+        self.hdr_len + self.len - self.flag.num_len as usize
     }
 
     pub fn hdr_raw(&self) -> &[u8] {
@@ -318,6 +315,7 @@ impl<'a> QUICPacket<'a> {
         }
         self.flag.decode(self.hdr_raw[0]);
         let pn_offset = self.pn_offset..self.pn_offset + self.flag.num_len();
+        if pn_offset.end > self.hdr_raw.len() { return Err(BufferError::Insufficient); }
         self.hdr_raw[pn_offset].iter_mut().enumerate().for_each(|(i, x)| *x ^= mask[i + 1]);
         self.hdr_len = self.pn_offset + self.flag.num_len();
         let mut decode_reader = Reader::from_slice(&self.hdr_raw);

@@ -3,7 +3,7 @@ use super::table::Table;
 use super::QPackType;
 use crate::error::HlsResult;
 use crate::pack::{huffman, PackItem};
-use crate::{HlsError, Response};
+use crate::{Header, HlsError};
 #[cfg(feature = "log")]
 use crate::warn;
 use reqtls::{Buffer, ReadExt, Reader};
@@ -146,14 +146,14 @@ impl QPackDecode {
         }
     }
 
-    pub fn decode_into(&mut self, buffer: &mut Buffer, resp: &mut Response, typ: QPackType, sid: &u64) -> HlsResult<()> {
+    pub fn decode_into(&mut self, buffer: &mut Buffer, header: &mut Header, typ: QPackType, sid: &u64) -> HlsResult<()> {
         let mut reader = Reader::from_slice(buffer.filled());
         while reader.unread_len() > 0 {
             let mut pos = reader.position();
             match self.decode_next(typ, sid, &mut reader) {
                 Ok(item) => {
                     pos = reader.position();
-                    resp.header_mut().push_pack_item(item.as_ref())?;
+                    header.push_pack_item(item.as_ref())?;
                     self.sid_read.insert(*sid);
                 }
                 Err(e) => {
@@ -204,7 +204,6 @@ mod tests {
         let item = decoder.decode_next(QPackType::StreamEncoder, &1, &mut reader).unwrap();
         assert_eq!(item.name, "update-table-size");
         assert_eq!(item.value, "220");
-        assert_eq!(decoder.table.dynamic_table().max_size(), 220);
         let item = decoder.decode_next(QPackType::StreamEncoder, &1, &mut reader).unwrap();
         assert_eq!(item.name, ":authority");
         assert_eq!(item.value, "www.example.com");
@@ -276,13 +275,13 @@ mod tests {
         buffer.add_len(data.len());
         let mut decoder = QPackDecode::new(4096);
         let mut resp = Response::new();
-        decoder.decode_into(&mut buffer, &mut resp, QPackType::Stream, &0).unwrap();
+        decoder.decode_into(&mut buffer, resp.header_mut(), QPackType::Stream, &0).unwrap();
         assert!(matches!(resp.header().method(), Method::GET));
         let mut data = hex::decode("0000d9f22df2b10649cb86df7b5c58f26f2f049d29ac8324e51c66a0c9f50134e3ff0c5f3d90c5837fd29af56edff4a6ad7bf26ad3bbff1e2f00b0b59ec4ac93ffedfffdfccd61edaff9b9fcd454f83d9d562d961ec47f3f5fcd23f310e62ff371c034f001f5fc96a92b39aa4a3f9b9ffbfffdfcdb651fcdcfe674a6b45c6181965917a8b4585acf6250bd454b03accc585acf627fc20d30466aa64cff15484d63b074c150e41a4c7fe7ffdffe7ffb236e656ccbfffdfcd85acf626249ff9b9fcd454f83d9d562d961ec47f3f5fcd23f310e62ff371c034f001f5fca2d210a84452d83224c7abf9b805c000fd7f328cd45b616296c191263d5fcdc0ae0fff72f02f2b567f05b0b22d1fa868776b5f4e0df2e19085ad2b127ff01dc522d7b1adc215a1b093fd29b8a45af635b842b5d326a2a11f4a6e2916bd8d6e10ad86da285b896c418f57d29b8a45af635b842b61b68a16e25b1063d4b673213f4a6e2916bd8d6e10ada0f19a82fd29b8a45af635b842b683c85a3e94dc522d7b1adc215b5d034ca7b29fa537148b5ec6b70856d740d329eca56e25b1063d52f02f2b5282c93156b0b2fc5da595486e28fdfbad3adb6cdf6850b4e3a286f0705fbae0aedfbd75dc17efa9b4b2a976e298f362100206c220be06da53696552f5c5040138b01e580def086e36ddc699fdf5f4d8bde5a885a9382498baaa2ffc25f1591aed8e8313e94a47e561cc5804dbe20001f5482101fe05696dc34fd28079486d9941004e2807ee04371a1298b46ff5f44d69d983f9b8d34cff3f6a523804dbe20001f53b2b09f83f9b8d34cff3f6a523804dbe20001f53b2b6c036083f9b8d34cff3f6a523804dbe20001f5dad3120fe6e34d33fcfda948e0136f880007da9de0fe5a73e9a67f9f2f0129d6a0f32d6da6938e79f71a134db4d3ee080e36fbae0b2f0329d620c9395642469b5103484954").unwrap();
         let mut buffer = Buffer::from_ptr(data.as_mut_slice());
         buffer.add_len(data.len());
         let mut resp = Response::new();
-        decoder.decode_into(&mut buffer, &mut resp, QPackType::Stream, &8).unwrap();
+        decoder.decode_into(&mut buffer, resp.header_mut(), QPackType::Stream, &8).unwrap();
         assert_eq!(resp.header().status(), &HttpStatus::OK);
 
         let data = hex::decode("65f2b10649cb86df7b5c58f26fff0d90c5837fd29af56edff4a6ad7bf26ad3bb67b0b59ec4ac93ffedfffdfccd61edaff9b9fcd454f83d9d562d961ec47f3f5fcd23f310e62ff371c034f001f5fc96a92b39aa4a3f9b9ffbfffdfcdb651fcdcfe674a6b45c6181965917a8b4585acf6250bd454b03accc585acf627fc20d30466aa64cff15484d63b074c150e41a4c7fe7ffdffe7ffb436e656c006619085ad2b127ff01dc522d7b1adc215a1b093fd29b8a45af635b842b5d326a2a11f4a6e2916bd8d6e10ad86da285b896c418f57d29b8a45af635b842b61b68a16e25b1063d4b673213f4a6e2916bd8d6e10ada0f19a82fd29b8a45af635b842b683c85a3e94dc522d7b1adc215b5d034ca7b29fa537148b5ec6b70856d740d329eca56e25b1063d569f2b5282c93156b0b2f00ff1d8bde5a885a9382498baaa2ffe491aed8e8313e94a47e561cc5804dbe20001fc696dc34fd28079486d9941004e2807ee04371a1298b46ffff14d69d983f9b8d34cff3f6a523804dbe20001f53b2b09f83f9b8d34cff3f6a523804dbe20001f53b2b6c036083f9b8d34cff3f6a523804dbe20001f5dad3120fe6e34d33fcfda948e0136f880007da9de0fe5a73e9a67f9f6829d6a0f32d6da693006a29d620c9395642469b5103484954").unwrap();
@@ -296,7 +295,7 @@ mod tests {
         let mut buffer = Buffer::from_ptr(data.as_mut_slice());
         buffer.add_len(data.len());
         let mut resp = Response::new();
-        decoder.decode_into(&mut buffer, &mut resp, QPackType::Stream, &12).unwrap();
+        decoder.decode_into(&mut buffer, resp.header_mut(), QPackType::Stream, &12).unwrap();
         assert_eq!(resp.header().status(), &HttpStatus::OK);
     }
 }

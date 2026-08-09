@@ -4,7 +4,7 @@ use crate::extend::Aead;
 use crate::hash::HashError;
 use crate::message::{QUICFrame, QUICPacket};
 use crate::suite::iv::Iv;
-use crate::{Buf, Buffer, BufferError, Cipher, CipherSuite, CipherType, Connection, HashType, Reader, TlsSession, Version, WriteExt};
+use crate::{Buf, Buffer, BufferError, Cipher, CipherSuite, CipherType, Connection, HashType, PacketType, Reader, TlsSession, Version, WriteExt};
 #[cfg(feature = "log")]
 use log::trace;
 use std::error::Error;
@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use std::slice;
 use std::str::Utf8Error;
 use crate::key::Key;
+use crate::quic::QUICRange;
 
 #[derive(Debug)]
 pub enum QUICError {
@@ -49,11 +50,23 @@ impl From<Utf8Error> for QUICError {
     }
 }
 
+#[derive(Default)]
+struct QUICKey {
+    key: Vec<u8>,
+    iv: Vec<u8>,
+    hp: Vec<u8>,
+}
+
+
 pub struct QUICConnection {
     recv_sample: Cipher,
     send_sample: Cipher,
     conn: Connection,
-    recv_nums: Vec<u64>,
+    recv_nums: QUICRange,
+    init_key: QUICKey,
+    handshake_key: QUICKey,
+    app_key: QUICKey,
+    current: usize,
 }
 
 impl QUICConnection {
@@ -62,7 +75,11 @@ impl QUICConnection {
             conn: Connection::new_client(session, key_log, true),
             recv_sample: Cipher::aes_128_ecb(),
             send_sample: Cipher::aes_128_ecb(),
-            recv_nums: vec![],
+            recv_nums: QUICRange::default(),
+            init_key: QUICKey::default(),
+            handshake_key: QUICKey::default(),
+            app_key: QUICKey::default(),
+            current: 0,
         }
     }
 
@@ -88,6 +105,11 @@ impl QUICConnection {
         self.conn.recv_cipher.set_key(recv_key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
         self.conn.recv_cipher.set_iv(Iv::new(recv_iv, vec![]));
         self.recv_sample.set_secret_key(recv_hp_key, None);
+        self.init_key = QUICKey {
+            key: recv_key.to_vec(),
+            iv: recv_iv.to_vec(),
+            hp: recv_hp_key.to_vec(),
+        };
         Ok(())
     }
 
@@ -105,10 +127,34 @@ impl QUICConnection {
             true => {
                 self.send_sample.set_secret_key(self.conn.derived.key_block().server_hp_key(), None);
                 self.recv_sample.set_secret_key(self.conn.derived.key_block().client_hp_key(), None);
+                let key = QUICKey {
+                    key: self.conn.derived.key_block().client_key().to_vec(),
+                    iv: self.conn.derived.key_block().client_iv().to_vec(),
+                    hp: self.conn.derived.key_block().client_hp_key().to_vec(),
+                };
+                if self.handshake_key.key.is_empty() {
+                    self.current = 1;
+                    self.handshake_key = key
+                } else {
+                    self.current = 2;
+                    self.app_key = key
+                }
             }
             false => {
                 self.send_sample.set_secret_key(self.conn.derived.key_block().client_hp_key(), None);
                 self.recv_sample.set_secret_key(self.conn.derived.key_block().server_hp_key(), None);
+                let key = QUICKey {
+                    key: self.conn.derived.key_block().server_key().to_vec(),
+                    iv: self.conn.derived.key_block().server_iv().to_vec(),
+                    hp: self.conn.derived.key_block().server_hp_key().to_vec(),
+                };
+                if self.handshake_key.key.is_empty() {
+                    self.current = 1;
+                    self.handshake_key = key
+                } else {
+                    self.current = 2;
+                    self.app_key = key
+                }
             }
         }
         Ok(())
@@ -118,6 +164,29 @@ impl QUICConnection {
     pub fn read_message<'a>(&mut self, packet: &mut QUICPacket<'a>, reader: &mut Reader<'a>, buffer: &mut [u8]) -> RlsResult<usize> {
         let sample_offset = packet.pn_offset + 4;
         let sample = &reader.inner()[sample_offset..sample_offset + 16];
+        match (self.current, packet.flag.packet_type()) {
+            (0, PacketType::Initial) => {}
+            (_, PacketType::Initial) => {
+                self.recv_sample.set_secret_key(self.init_key.hp.as_slice(), None);
+                self.conn.recv_cipher.set_key(self.init_key.key.as_ref(), &[], &self.conn.cipher_suite.aead().unwrap(), self.conn.cipher_suite.hash())?;
+                self.conn.recv_cipher.set_iv(Iv::new(&self.init_key.iv, vec![]));
+                self.current = 0;
+            }
+            (1, PacketType::Handshake) => {}
+            (_, PacketType::Handshake) => {
+                self.recv_sample.set_secret_key(self.handshake_key.hp.as_slice(), None);
+                self.conn.recv_cipher.set_key(self.handshake_key.key.as_ref(), &[], &self.conn.cipher_suite.aead().unwrap(), self.conn.cipher_suite.hash())?;
+                self.conn.recv_cipher.set_iv(Iv::new(&self.handshake_key.iv, vec![]));
+                self.current = 1;
+            }
+            (2, PacketType::ShortHeader) => {}
+            (_, PacketType::ShortHeader) => {
+                self.recv_sample.set_secret_key(self.app_key.hp.as_slice(), None);
+                self.conn.recv_cipher.set_key(self.app_key.key.as_ref(), &[], &self.conn.cipher_suite.aead().unwrap(), self.conn.cipher_suite.hash())?;
+                self.conn.recv_cipher.set_iv(Iv::new(&self.app_key.iv, vec![]));
+                self.current = 2;
+            }
+        }
         let mut mask = self.recv_sample.encrypt(sample)?;
         mask.truncate(5);
         packet.decode(&mask, reader)?;
@@ -130,8 +199,10 @@ impl QUICConnection {
             }.into());
         }
         let buffer = CipherDecodeBuffer::from_quic(packet, buffer)?;
+
+
         let len = self.conn.recv_cipher.decrypt(Some(packet.num), buffer)?;
-        self.recv_nums.push(packet.num);
+        self.recv_nums.insert(packet.num);
         Ok(len)
     }
 
@@ -184,7 +255,7 @@ impl QUICConnection {
         &mut self.conn
     }
 
-    pub fn recv_nums(&self) -> &Vec<u64> {
+    pub fn recv_nums(&self) -> &QUICRange {
         &self.recv_nums
     }
 }

@@ -1,4 +1,3 @@
-use crate::body::H2FrameRBuf;
 use crate::error::HlsResult;
 use crate::pack::HPackCoding;
 use crate::packet::*;
@@ -87,7 +86,7 @@ pub trait ReqExt: ReqPriExt + Sized {
     }
     fn tls_session(&self) -> &Option<TlsSession>;
 
-    fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + 'static);
+    fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + Send + Sync+ 'static);
     fn set_fingerprint(&mut self, fingerprint: Fingerprint);
     fn with_fingerprint(mut self, fingerprint: Fingerprint) -> Self {
         self.set_fingerprint(fingerprint);

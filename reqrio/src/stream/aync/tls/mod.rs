@@ -226,7 +226,7 @@ pub struct TlsStreamA {
 }
 
 impl TlsStreamA {
-    pub async fn connect_timeout(param: ConnParam<'_>, tcp: ProxyStream<TcpStream>) -> HlsResult<TlsStreamA> {
+    pub async fn connect_timeout(param: &mut ConnParam<'_>, tcp: ProxyStream<TcpStream>) -> HlsResult<TlsStreamA> {
         let connect_timeout = param.timeout.connect();
         let read_timeout = param.timeout.read();
         let write_timeout = param.timeout.write();

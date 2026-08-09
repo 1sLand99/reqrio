@@ -1,5 +1,4 @@
 use crate::error::HlsResult;
-use crate::Buffer;
 pub use flag::FrameFlag;
 use reqtls::{u24, BufferError, ReadExt, Reader, WriteExt};
 pub use setting::H2Setting;
@@ -132,7 +131,7 @@ impl<'a> H2Frame<'a> {
             payload: &[],
         }
     }
-    
+
     pub fn from_reader(mut reader: Reader<'a>) -> HlsResult<H2Frame<'a>> {
         let len = reader.read_u24()?;
         let frame_type = FrameType::from_u8(reader.read_u8()?)?;

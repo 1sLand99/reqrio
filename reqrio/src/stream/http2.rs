@@ -3,7 +3,9 @@ use crate::pack::{HPackDecode, HPackEncode};
 use crate::packet::HeaderParam;
 use crate::reader::ReadExt;
 use crate::request::RequestBuffer;
-use crate::{warn, Body, Fingerprint, FrameFlag, FrameType, H2Frame, H2Setting, Header, Response};
+use crate::{Body, Fingerprint, FrameFlag, FrameType, H2Frame, H2Setting, Header, Response};
+#[cfg(feature = "log")]
+use crate::warn;
 use reqtls::{u24, Buffer, Reader, Url, WriteExt};
 use std::collections::HashMap;
 use crate::stream::Stream;
@@ -114,6 +116,7 @@ impl HTTP2StreamS {
                 }
                 FrameType::WindowUpdate => self.increment = u32::from_be_bytes(frame.payload().try_into()?),
                 _ => {
+                    #[cfg(feature = "log")]
                     warn!("ignore h2 frame-{:?}",frame.frame_type());
                 }
             }

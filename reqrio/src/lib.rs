@@ -285,7 +285,7 @@ mod time;
 #[cfg(feature = "log")]
 mod logger;
 
-pub type ReqCallback = Box<dyn FnMut(&[u8]) -> HlsResult<()>>;
+pub type ReqCallback = Box<dyn FnMut(&[u8]) -> HlsResult<()> + Send + Sync>;
 pub const HTTP_GAP: &[u8; 4] = b"\r\n\r\n";
 pub const CHUNK_END: [u8; 7] = [13, 10, 48, 13, 10, 13, 10];
 

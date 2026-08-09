@@ -20,8 +20,7 @@ impl QUICBuffer {
     pub fn write_at(&mut self, offset: usize, buf: Buf<'_>) -> Result<(), BufferError> {
         if offset == 0 {
             self.current = 0..0;
-            // assert_eq!(self.buffer.len(), 0);
-            self.reset();
+            if self.remains.is_empty() { self.reset() }
         }
         self.buffer.write_slice_in(offset, buf.as_ref())?;
         self.buffer.add_len(buf.len());
@@ -54,6 +53,10 @@ impl QUICBuffer {
     pub fn raw_buffer_mut(&mut self) -> &mut Buffer {
         assert_eq!(self.current, self.buffer.offset());
         &mut self.buffer
+    }
+
+    pub fn raw_buffer(&self) -> &Buffer {
+        &self.buffer
     }
 
     pub fn reset(&mut self) {

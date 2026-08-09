@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use crate::body::Body;
 use crate::ext::{ReqParam, ReqPriExt};
 use crate::stream::{ConnParam, HTTPStream, Stream};
@@ -12,7 +11,6 @@ pub struct ScReq {
     stream: HTTPStream,
     callback: Option<ReqCallback>,
     timeout: Timeout,
-    stream_id: u32,
     proxy: Proxy,
     fingerprint: Fingerprint,
     verify: bool,
@@ -36,7 +34,6 @@ impl Default for ScReq {
             stream: HTTPStream::NonConnection,
             callback: None,
             timeout: Timeout::default(),
-            stream_id: 0,
             proxy: Proxy::Null,
             fingerprint: Fingerprint::default(),
             verify: true,
@@ -338,7 +335,7 @@ impl ReqExt for ScReq {
         self.key = key;
     }
 
-    fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + 'static) {
+    fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + Send + Sync+ 'static) {
         self.callback = Some(Box::new(callback));
     }
 

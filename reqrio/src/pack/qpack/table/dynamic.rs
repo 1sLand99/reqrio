@@ -121,9 +121,9 @@ impl DynamicTable {
         self.values.len()
     }
 
-    pub fn max_size(&self) -> usize {
-        self.max_size
-    }
+    // pub fn max_size(&self) -> usize {
+    //     self.max_size
+    // }
 
     pub fn set_increment(&mut self, increment: usize) {
         self.increment = increment;

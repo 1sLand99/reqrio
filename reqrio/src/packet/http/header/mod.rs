@@ -473,7 +473,11 @@ impl Header {
     pub(crate) fn init_by_alpn(&mut self, alpn: ALPN) {
         if alpn == self.alpn { return; }
         self.alpn = alpn;
-        let keys = if let ALPN::Http20 = self.alpn { Header::new_req_h2().keys } else { Header::new_req_h1().keys };
+        let keys = match self.alpn {
+            ALPN::Http30 => Header::new_req_h3().keys,
+            ALPN::Http20 => Header::new_req_h2().keys,
+            _ => Header::new_req_h1().keys
+        };
         let keys = mem::replace(&mut self.keys, keys);
         for ok in keys {
             let nk = self.keys.iter_mut().find(|x| x.name_lower() == ok.name_lower());

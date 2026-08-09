@@ -386,7 +386,7 @@ impl ReqExt for AcReq {
         &self.tls_session
     }
 
-    fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + 'static) {
+    fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + Send + Sync + 'static) {
         self.callback = Some(Box::new(callback));
     }
 

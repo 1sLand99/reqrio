@@ -4,7 +4,7 @@ use crate::reader::ReadExt;
 use crate::request::RequestBuffer;
 use crate::stream::Stream;
 use crate::{Body, Fingerprint, Header, Response};
-use reqtls::{Buffer, Url, WriteExt};
+use reqtls::{Buffer, Url};
 use std::collections::HashMap;
 
 pub struct HTTP1StreamS {

@@ -23,6 +23,7 @@ fn main() {
     test_log();
     Buffer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
     let url = "https://img-s-msn-com.akamaized.net".try_into().unwrap();
+    // let url = "https://cn.bing.com".try_into().unwrap();
     let mut fingerprint = Fingerprint::default();
     let mut h3_req = HTTP3StreamS::connect(ConnParam {
         url: &url,

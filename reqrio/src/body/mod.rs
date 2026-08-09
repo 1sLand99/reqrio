@@ -9,7 +9,7 @@ use crate::{Application, ContentType, Text};
 pub use ext::{BodyData, BodyExt};
 pub use multi_form::{FileForm, FormError, HttpFile};
 use reader::RawBodyReader;
-pub use reader::{H2BodyReader, H2FrameRBuf, H3BodyReader};
+pub use reader::{H2BodyReader, H3BodyReader};
 use reqrio_json::JsonValue;
 use reqtls::{hash, rand};
 #[cfg(feature = "serde")]
