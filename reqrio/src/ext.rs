@@ -172,28 +172,28 @@ pub(crate) trait ReqPriExt {
     }
 
     fn handle_h2_res(&mut self, frame_type: FrameType, response: &mut Response) -> HlsResult<bool> {
-        if frame_type == FrameType::Goaway { return Err(HlsError::PeerClosedConnection); }
-        if frame_type == FrameType::RstStream { return Err(HlsError::RstStream); }
-        let param = self.req_param();
-        let frame = H2FrameRBuf::from_bytes(param.buffer.filled(), frame_type)?;
-        let res = match param.callback {
-            None => response.extend_frame(&frame, param.hpack_coder.decoder()),
-            Some(callback) => {
-                match frame.frame_type() {
-                    FrameType::Data => {
-                        callback(frame.payload())?;
-                        Ok(frame.is_end_frame())
-                    }
-                    FrameType::Headers => Ok(response.extend_frame(&frame, param.hpack_coder.decoder())?),
-                    _ => Ok(false),
-                }
-            }
-        };
-        if let Some(max_size) = response.header().max_table_size() {
-            param.hpack_coder.encoder().update_table_size(max_size);
-        }
-        param.buffer.move_to(frame.frame_len()..param.buffer.len(), 0)?;
-        res
+        // if frame_type == FrameType::RstStream || frame_type == FrameType::Goaway { return Err(frame_type.into()); }
+        // let param = self.req_param();
+        // let frame = H2FrameRBuf::from_bytes(param.buffer.filled(), frame_type)?;
+        // let res = match param.callback {
+        //     None => response.extend_frame(&frame, param.hpack_coder.decoder()),
+        //     Some(callback) => {
+        //         match frame.frame_type() {
+        //             FrameType::Data => {
+        //                 callback(frame.payload())?;
+        //                 Ok(frame.is_end_frame())
+        //             }
+        //             FrameType::Headers => Ok(response.extend_frame(&frame, param.hpack_coder.decoder())?),
+        //             _ => Ok(false),
+        //         }
+        //     }
+        // };
+        // if let Some(max_size) = response.header().max_table_size() {
+        //     param.hpack_coder.encoder().update_table_size(max_size);
+        // }
+        // param.buffer.move_to(frame.frame_len()..param.buffer.len(), 0)?;
+        // res
+        Ok(false)
     }
 
     fn update_cookie(&mut self, response: &Response) {

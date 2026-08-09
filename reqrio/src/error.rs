@@ -18,6 +18,7 @@ use reqtls::cipher::CipherError;
 use reqtls::coder::CodingError;
 use reqtls::quic::QUICError;
 use crate::body::FormError;
+use crate::FrameType;
 use crate::packet::HeaderError;
 use crate::time::TimeError;
 
@@ -31,7 +32,7 @@ pub enum HlsError {
     EncrypterNone,
     WsFrameTypeNone,
     DataTooShort,
-    RstStream,
+    H2(FrameType),
     UnsupportedAlpn(ALPN),
     Body(FormError),
     Rls(RlsError),
@@ -82,7 +83,7 @@ impl Display for HlsError {
             HlsError::Body(e) => write!(f, "Body({})", e),
             HlsError::Time(e) => write!(f, "Time({:?})", e),
             HlsError::UnsupportedAlpn(alpn) => write!(f, "UnsupportedAlpn({})", alpn),
-            HlsError::RstStream => f.write_str("RstStream"),
+            HlsError::H2(typ) => write!(f, "H2({:?})", typ),
             HlsError::Header(e) => write!(f, "Header({:?})", e),
         }
     }
@@ -224,6 +225,12 @@ impl From<HeaderError> for HlsError {
 impl From<QUICError> for HlsError {
     fn from(value: QUICError) -> Self {
         HlsError::Rls(RlsError::Quic(value))
+    }
+}
+
+impl From<FrameType> for HlsError {
+    fn from(value: FrameType) -> Self {
+        HlsError::H2(value)
     }
 }
 

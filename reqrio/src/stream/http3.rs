@@ -125,10 +125,10 @@ pub struct HTTP3StreamS {
 }
 
 impl HTTP3StreamS {
-    pub fn connect(conn: ConnParam) -> HlsResult<HTTP3StreamS> {
+    pub fn connect(mut conn: ConnParam) -> HlsResult<HTTP3StreamS> {
         let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
         let addr = conn.url.addr().socket_addr(false).unwrap();
-        let mut quic = QUICStreamS::connect(socket, addr, ClientConfig::from(conn)).unwrap();
+        let mut quic = QUICStreamS::connect(socket, addr, ClientConfig::from(&mut conn)).unwrap();
         let setting_frame = QUICFrame::Stream {
             flag: QUICFrameFlag::new(0),
             sid: 2,
@@ -220,7 +220,7 @@ impl HTTP3StreamS {
         Ok(res)
     }
 
-    pub fn send(&mut self, url: &Url, header: &mut Header, body: &Body<'_>, fingerprint: &Fingerprint) -> HlsResult<u64> {
+    pub fn send(&mut self, url: &Url, header: &Header, body: &Body<'_>, fingerprint: &Fingerprint) -> HlsResult<u64> {
         let sid = self.sid;
         self.sid += 4;
         let mut request = RequestBuffer::new(header, body, HeaderParam {

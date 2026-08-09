@@ -52,7 +52,6 @@ impl TlsCipher {
         let seq_num = if let Some(seq) = seq { seq } else { self.seq };
         let add = buffer.aad(seq_num)?;
         let nonce = buffer.nonce(&self.iv, seq_num);
-        println!("seq: {}; aad: {:?}; nonce: {:?}", seq_num, add, nonce);
         let len = self.crypto.decrypt(CryptDecodeParam {
             nonce: &nonce,
             iv: &nonce,

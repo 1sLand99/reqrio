@@ -369,7 +369,7 @@ impl Header {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.alpn.value().is_empty()
+        self.alpn.value().is_empty() && self.status == HttpStatus::None
     }
 
     pub fn content_encoding(&self) -> Option<&str> {
@@ -614,7 +614,7 @@ impl Header {
         })
     }
 
-    pub(crate) fn as_reader<'a>(&'a mut self, param: HeaderParam<'a>, ct: &'a ContentType) -> HlsResult<HeaderReader<'a>> {
+    pub(crate) fn as_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> HlsResult<HeaderReader<'a>> {
         Ok(match self.alpn {
             ALPN::Http20 => HeaderReader::H2(self.as_h2_reader(param, ct)?),
             ALPN::Http30 => HeaderReader::H3(self.as_h3_reader(param, ct)?),

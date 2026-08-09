@@ -12,7 +12,7 @@ pub struct RequestBuffer<'a> {
 }
 
 impl<'a> RequestBuffer<'a> {
-    pub fn new(header: &'a mut Header, body: &'a Body, mut param: HeaderParam<'a>) -> HlsResult<RequestBuffer<'a>> {
+    pub fn new(header: &'a Header, body: &'a Body, mut param: HeaderParam<'a>) -> HlsResult<RequestBuffer<'a>> {
         let body_reader = match header.alpn() {
             ALPN::Http30 => BodyReader::HTTP3(H3BodyReader::new_size(1024, body.as_reader()?)),
             ALPN::Http20 => BodyReader::HTTP2(H2BodyReader::new_size(8192, body.as_reader()?, param.h_sid)),

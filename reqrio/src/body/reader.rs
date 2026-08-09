@@ -37,6 +37,7 @@ impl<'a> ReadExt for RawBodyReader<'a> {
 }
 
 
+#[deprecated]
 pub struct H2FrameRBuf<'a> {
     pd_len: usize,
     frame_type: FrameType,

@@ -31,7 +31,7 @@ impl Display for BufferError {
                 current,
                 file,
                 line,
-            } => write!(f, "The required capacity is {}, but the actual capacity is {} at {}:{}.", needed, current, file, line),
+            } => write!(f, "The required capacity is {}, but the current capacity is {} at {}:{}.", needed, current, file, line),
             BufferError::Overflow { capacity, len, need } => write!(f, "The buffer capacity is {}, but write {} out of it.", capacity, len + need),
             BufferError::IndexOutBound { size, index } => write!(f, "The index {} out of bounds {} ", index, size),
             BufferError::RangeEdgeError(range) => write!(f, "The range is {:?} of Buffer is fail", range),

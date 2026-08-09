@@ -6,6 +6,8 @@ mod ws;
 mod aync;
 mod quic;
 mod http3;
+mod http2;
+mod http1;
 
 use crate::*;
 #[cfg(feature = "aync")]
@@ -15,12 +17,15 @@ use aync::{TcpStreamA, TimeoutRW, TlsStreamA};
 pub use proxy::Proxy;
 pub use proxy::ProxyStream;
 use std::{env, io};
-use std::io::Write;
+use std::collections::HashMap;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 pub use sync_stream::SyncStream;
 pub use ws::{WebSocket, WebSocketBuilder};
 pub use quic::QUICStreamS;
 pub use http3::HTTP3StreamS;
+use http1::HTTP1StreamS;
+use http2::HTTP2StreamS;
 
 pub struct ConnParam<'a> {
     pub url: &'a Url,
@@ -37,8 +42,8 @@ pub struct ConnParam<'a> {
     pub session: &'a Option<TlsSession>,
 }
 
-impl<'a> From<ConnParam<'a>> for ClientConfig<'a> {
-    fn from(param: ConnParam<'a>) -> Self {
+impl<'a, 'b: 'a> From<&'a mut ConnParam<'b>> for ClientConfig<'a> {
+    fn from(param: &'a mut ConnParam<'b>) -> Self {
         ClientConfig {
             sni: param.url.sni(),
             alpn: param.alpn,
@@ -52,6 +57,55 @@ impl<'a> From<ConnParam<'a>> for ClientConfig<'a> {
                 Err(_) => None
             }),
             session: param.session,
+        }
+    }
+}
+
+
+pub enum HTTPStream {
+    NonConnection,
+    SyncH1(HTTP1StreamS),
+    SyncH2(HTTP2StreamS),
+    SyncH3(HTTP3StreamS),
+}
+
+
+impl HTTPStream {
+    pub fn send(&mut self, url: &Url, header: &Header, body: &Body<'_>, fingerprint: &Fingerprint) -> HlsResult<u64> {
+        match self {
+            HTTPStream::NonConnection => Err("need connected before send".into()),
+            HTTPStream::SyncH1(h1) => h1.send(url, header, body, fingerprint),
+            HTTPStream::SyncH2(h2) => h2.send(url, header, body, fingerprint),
+            HTTPStream::SyncH3(h3) => h3.send(url, header, body, fingerprint),
+        }
+    }
+
+    pub fn recv(&mut self, responses: &mut HashMap<u64, Response>) -> HlsResult<Vec<u64>> {
+        match self {
+            HTTPStream::NonConnection => Err("need connected before recv".into()),
+            HTTPStream::SyncH1(h1) => h1.recv(responses),
+            HTTPStream::SyncH2(h2) => h2.recv(responses),
+            HTTPStream::SyncH3(h3) => h3.recv(responses),
+        }
+    }
+
+
+    pub fn sync_conn<'a, 'b: 'a>(&'a mut self, mut param: ConnParam<'b>) -> HlsResult<ALPN> {
+        let mut stream = Stream::NonConnection;
+        let alpn = stream.sync_conn(&mut param)?;
+        *self = match alpn {
+            ALPN::Http20 => HTTPStream::SyncH2(HTTP2StreamS::new(stream, param.fingerprint)?),
+            _ => HTTPStream::SyncH1(HTTP1StreamS::new(stream)),
+        };
+        Ok(alpn)
+    }
+
+    pub fn scheme(&self) -> Option<Scheme> {
+        match self {
+            HTTPStream::NonConnection => None,
+            HTTPStream::SyncH1(h1) => h1.stream().scheme(),
+            HTTPStream::SyncH2(h2) => h2.stream().scheme(),
+            HTTPStream::SyncH3(h3) => Some(Scheme::Https),
         }
     }
 }
@@ -143,7 +197,7 @@ impl Stream {
 }
 
 impl Stream {
-    pub fn sync_conn(&mut self, param: ConnParam) -> HlsResult<ALPN> {
+    pub fn sync_conn<'a, 'b: 'a>(&'a mut self, param: &'a mut ConnParam<'b>) -> HlsResult<ALPN> {
         let _ = self.sync_shutdown();
         let stream = ProxyStream::sync_connect(param.proxy, param.url.addr(), param.timeout, param.ech)?;
         match param.url.scheme() {

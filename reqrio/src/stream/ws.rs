@@ -52,8 +52,7 @@ impl<S: ReqExt> WebSocketBuilder<S> {
 }
 
 impl WebSocketBuilder<ScReq> {
-    pub fn build(mut self, url: &Url) -> HlsResult<WebSocket> {
-        self.0.re_conn(Some(url))?;
+    pub fn build(mut self, url: &str) -> HlsResult<WebSocket> {
         WebSocket::add_header(self.0.header_mut())?;
         Ok(WebSocket::new(WebSocket::connect_sync(self.0, url)?))
     }
@@ -116,21 +115,21 @@ impl WebSocket {
     }
 
 
-    fn connect_sync(mut req: ScReq, url: &Url) -> HlsResult<Stream> {
-        let resp = req.handle_io(Method::GET, url, &Body::none())?;
+    fn connect_sync(mut req: ScReq, url: &str) -> HlsResult<Stream> {
+        let resp = req.stream_io(Method::GET, url, &Body::none())?;
         let status = resp.header().status();
         if status != &HttpStatus::SwitchingProtocols { return Err(format!("Connect fail with code-{}", status).into()); }
         Ok(req.into_stream())
     }
 
     pub fn open(url: impl AsRef<str>) -> HlsResult<WebSocket> {
-        Self::sync_build().build(&Url::try_from(url.as_ref())?)
+        Self::sync_build().build(url.as_ref())
     }
 
     pub fn open_raw(url: impl AsRef<str>, context: impl AsRef<[u8]>) -> HlsResult<WebSocket> {
         let mut req = ScReq::new().with_timeout(Timeout::longer());
         req.req_param().buffer.write_slice(context.as_ref())?;
-        Ok(WebSocket::new(Self::connect_sync(req, &Url::try_from(url.as_ref())?)?))
+        Ok(WebSocket::new(Self::connect_sync(req, url.as_ref())?))
     }
 
 

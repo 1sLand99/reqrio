@@ -132,21 +132,18 @@ impl<'a> H2Frame<'a> {
             payload: &[],
         }
     }
-
-    pub fn from_bytes(buffer: &'a Buffer) -> HlsResult<H2Frame<'a>> {
-        if buffer.len() < 9 { return Err("byte not enough".into()); }
-        let mut reader = Reader::from_slice(buffer.filled());
+    
+    pub fn from_reader(mut reader: Reader<'a>) -> HlsResult<H2Frame<'a>> {
         let len = reader.read_u24()?;
-        // let len = u32::from_be_bytes([0, buffer[0], buffer[1], buffer[2]]) as usize;
         let frame_type = FrameType::from_u8(reader.read_u8()?)?;
         let flag = FrameFlag::from_u8(reader.read_u8()?);
         let mut stream_identifier = reader.read_u32()?;
         stream_identifier &= !2147483648;
         if reader.unread_len() < len as usize { return Err("byte not enough".into()); }
         let (dependency, weight, payload) = if flag.priority() {
-            (reader.read_u32()?, reader.read_u8()?, reader.read_reader(len as usize - 5)?)
+            (reader.read_u32()?, reader.read_u8()?, reader.read_slice(len as usize - 5)?)
         } else {
-            (0, 0, reader.read_reader(len as usize)?)
+            (0, 0, reader.read_slice(len as usize)?)
         };
         Ok(H2Frame {
             len,
@@ -155,7 +152,7 @@ impl<'a> H2Frame<'a> {
             stream_identifier,
             stream_dependency: dependency,
             weight,
-            payload: payload.into_inner(),
+            payload,
         })
     }
 
