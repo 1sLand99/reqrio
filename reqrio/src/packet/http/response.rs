@@ -55,7 +55,9 @@ impl Response {
                     let res = if reader.unread_len() == 0 && reader.position() != 0 {
                         coder.flush(&mut self.raw)
                     } else {
-                        coder.decompress(&mut reader, &mut self.raw)
+                        let mut res = coder.decompress(&mut reader, &mut self.raw);
+                        if coder.finish() { res = coder.flush(&mut self.raw); }
+                        res
                     };
                     match res {
                         Ok(_) => break,
@@ -150,7 +152,7 @@ impl Response {
                 self.raw.resize(self.raw.capacity() * 2)?;
             }
             self.raw.write_slice(raw)?;
-        }else {
+        } else {
             let mut buffer = mem::replace(&mut self.h2_buffer, Buffer::with_capacity(0));
             let ret = buffer.check_move(raw.len());
             if ret.is_err() || buffer.unfilled_len() < raw.len() {
