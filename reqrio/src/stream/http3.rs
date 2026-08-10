@@ -3,9 +3,9 @@ use crate::pack::{PackItem, QPackDecode, QPackEncode, QPackType};
 use crate::packet::HeaderParam;
 use crate::request::RequestBuffer;
 use crate::stream::ConnParam;
-use crate::{hex, Body, Fingerprint, Header, HlsError, QUICStreamS, Response};
+use crate::{hex, Body, Header, HlsError, QUICStreamS, Response};
 use reqtls::quic::{QUICBuffer, QUICFrame, QUICFrameFlag};
-use reqtls::{quic, Buf, Buffer, ClientConfig, ReadExt, Reader, Url, WriteExt};
+use reqtls::{quic, Buf, Buffer, ClientConfig, ReadExt, Reader, WriteExt};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::net::UdpSocket;
@@ -46,9 +46,9 @@ pub enum H3Frame<'a> {
 }
 impl<'a> H3Frame<'a> {
     pub fn from_reader(reader: &mut Reader<'a>) -> Result<H3Frame<'a>, HlsError> {
-        let typ = quic::read_variant(reader).unwrap() as u64;
-        let len = quic::read_variant(reader).unwrap();
-        let mut reader = reader.read_reader(len).unwrap();
+        let typ = quic::read_variant(reader)? as u64;
+        let len = quic::read_variant(reader)?;
+        let mut reader = reader.read_reader(len)?;
         match typ {
             0x0 => Ok(H3Frame::Data(Buf::Ref(reader.read_slice(len)?))),
             0x1 => Ok(H3Frame::Headers(Buf::Ref(reader.read_slice(len)?))),
@@ -61,18 +61,18 @@ impl<'a> H3Frame<'a> {
                 Ok(H3Frame::Settings(settings))
             }
             0xf0700 => {
-                let len = quic::read_variant(&mut reader).unwrap();
+                let len = quic::read_variant(&mut reader)?;
                 let pos = reader.position();
-                let stream_id = quic::read_variant(&mut reader).unwrap() as u64;
+                let stream_id = quic::read_variant(&mut reader)? as u64;
                 let sid_len = reader.position() - pos;
                 Ok(H3Frame::PriorityUpdate {
                     stream_id,
-                    value: reader.read_str::<HlsError>(len - sid_len).unwrap(),
+                    value: reader.read_str::<HlsError>(len - sid_len)?,
                 })
             }
             _ => Ok(H3Frame::Reserved {
                 typ,
-                payload: Buf::Ref(reader.read_slice(len).unwrap()),
+                payload: Buf::Ref(reader.read_slice(len)?),
             })
         }
     }
@@ -94,14 +94,14 @@ impl<'a> H3Stream<'a> {
             Some(0x02) => {
                 println!("{:x?}", reader.inner());
                 while reader.unread_len() > 0 {
-                    let item = decoder.decode_next(QPackType::StreamEncoder, &0, reader).unwrap();
+                    let item = decoder.decode_next(QPackType::StreamEncoder, &0, reader)?;
                     println!("item: {:?}", item);
                 }
                 H3Stream::QPackEncoder
             }
             Some(0x03) => H3Stream::QPackDecoder(vec![]),
-            Some(_) => H3Stream::Frame(H3Frame::from_reader(reader).unwrap()),
-            None => H3Stream::Frame(H3Frame::from_reader(reader).unwrap()),
+            Some(_) => H3Stream::Frame(H3Frame::from_reader(reader)?),
+            None => H3Stream::Frame(H3Frame::from_reader(reader)?),
         })
     }
 }
@@ -124,17 +124,17 @@ pub struct HTTP3StreamS {
 
 impl HTTP3StreamS {
     pub fn connect(mut conn: ConnParam) -> HlsResult<HTTP3StreamS> {
-        let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
-        let addr = conn.url.addr().socket_addr(false).unwrap();
-        let mut quic = QUICStreamS::connect(socket, addr, ClientConfig::from(&mut conn)).unwrap();
+        let socket = UdpSocket::bind("0.0.0.0:0")?;
+        let addr = conn.url.addr().socket_addr(false)?;
+        let mut quic = QUICStreamS::connect(socket, addr, ClientConfig::from(&mut conn))?;
         let setting_frame = QUICFrame::Stream {
             flag: QUICFrameFlag::new(0),
             sid: 2,
             offset: 0,
             len: 44,
-            payload: Buf::Vec(hex::decode("00041f018001000006800400000740643301c0000007c3b6e5b0c0000000f3c01c58c0000011d4c4c93c0154").unwrap()),
+            payload: Buf::Vec(hex::decode("00041f018001000006800400000740643301c0000007c3b6e5b0c0000000f3c01c58c0000011d4c4c93c0154")?),
         };
-        quic.write_stream(vec![setting_frame]).unwrap();
+        quic.write_stream(vec![setting_frame])?;
         Ok(HTTP3StreamS {
             quic,
             stream_ids: Default::default(),
@@ -147,7 +147,7 @@ impl HTTP3StreamS {
 
 
     pub fn recv(&mut self, responses: &mut HashMap<u64, Response>) -> HlsResult<Vec<u64>> {
-        let frames = self.quic.read_next_packet(false).unwrap();
+        let frames = self.quic.read_next_packet(false)?;
         let mut res = Vec::with_capacity(responses.len());
         for frame in frames {
             let QUICFrame::Stream { flag, sid, offset, payload, .. } = frame else { continue };
@@ -160,16 +160,16 @@ impl HTTP3StreamS {
                 })
             };
             if flag.fin() { param.fin = true; }
-            param.buffer.write_at(offset, payload).unwrap();
+            param.buffer.write_at(offset, payload)?;
             if flag.fin() && param.buffer.raw_buffer().is_empty() { return Ok(vec![sid]); }
             let Some(mut reader) = param.buffer.flush()else { continue };
 
             if sid & 0b10 == 0b10 && param.typ.is_none() {
-                param.typ = Some(quic::read_variant(&mut reader).unwrap());
+                param.typ = Some(quic::read_variant(&mut reader)?);
             }
             let mut pos = reader.position();
             while reader.unread_len() > 0 {
-                let stream = H3Stream::from_quic_stream(param.typ, &mut reader, &mut self.decoder).unwrap();
+                let stream = H3Stream::from_quic_stream(param.typ, &mut reader, &mut self.decoder)?;
                 println!("{:#?}", stream);
                 let frame = match stream {
                     H3Stream::Control => continue,
@@ -212,45 +212,42 @@ impl HTTP3StreamS {
         }
         Ok(res)
     }
+    fn send_inner<'a>(&'a mut self, header: &Header, body: &Body<'_>, mut param: HeaderParam<'a>) -> HlsResult<u64> {
+        param.q_sid = &self.sid;
+        param.qpack_encoder = Some(&mut self.encoder);
 
-    pub fn send(&mut self, url: &Url, header: &Header, body: &Body<'_>, fingerprint: &Fingerprint) -> HlsResult<u64> {
-        let sid = self.sid;
-        self.sid += 4;
-        let mut request = RequestBuffer::new(header, body, HeaderParam {
-            url,
-            h_sid: &0,
-            hpack_encoder: None,
-            q_sid: &sid,
-            qpack_encoder: Some(&mut self.encoder),
-            body_len: 0,
-            priority: &fingerprint.h2().priority,
-            weight: &fingerprint.h2().weight,
-        })?;
+        let mut request = RequestBuffer::new(header, body, param)?;
         let mut buffer = Buffer::with_capacity(4096);
         let offset = 0;
         loop {
             buffer.reset();
             let len = crate::reader::ReadExt::read(&mut request, &mut buffer)?;
-            println!("{}-{}-{:?}", len, crate::reader::ReadExt::wrote(&request), buffer.filled());
             if len == 0 { break; }
             let stream = QUICFrame::Stream {
                 flag: QUICFrameFlag::new(offset).with_fin(crate::reader::ReadExt::wrote(&request)),
-                sid,
+                sid: self.sid,
                 offset,
                 len,
                 payload: Buf::Ref(buffer.filled()),
             };
-            let streams = if offset == 0 {
+            let streams = if offset == 0 && let Some(priority) = header.get_str("priority") {
                 vec![QUICFrame::Stream {
                     flag: QUICFrameFlag::new(44),
                     sid: 2,
                     offset: 44,
-                    len: 12,
-                    payload: Buf::Vec(hex::decode("800f07000700753d312c2069").unwrap()),
+                    len: priority.len(),
+                    payload: Buf::Ref(priority.as_bytes()),
                 }, stream]
             } else { vec![stream] };
             self.quic.write_stream(streams)?;
         }
+        Ok(self.sid)
+    }
+
+
+    pub fn send(&mut self, header: &Header, body: &Body<'_>, param: HeaderParam<'_>) -> HlsResult<u64> {
+        let sid = self.send_inner(header, body, param)?;
+        self.sid += 4;
         Ok(sid)
     }
 }

@@ -15,7 +15,7 @@ use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::TcpStream;
 
 
-pub struct TlsStream<S> {
+pub struct TlsStreamA<S> {
     conn: Connection,
     stream: S,
     encrypted_channel: bool,
@@ -30,9 +30,9 @@ pub struct TlsStream<S> {
 }
 
 
-impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
+impl<S: AsyncRead + AsyncWrite + Unpin> TlsStreamA<S> {
     fn _connect(stream: S, conn: Connection, config: Config<'_>, buffer: Buffer) -> Connecting<'_, S> {
-        let stream = TlsStream {
+        let stream = TlsStreamA {
             stream,
             conn,
             encrypted_channel: false,
@@ -55,7 +55,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
     pub fn connect(stream: S, mut config: ClientConfig<'_>) -> Connecting<'_, S> {
         let session = config.session.as_ref().cloned().unwrap_or_else(Default::default);
         Connecting {
-            handshake: Handshake::Handshaking(Box::new(TlsStream {
+            handshake: Handshake::Handshaking(Box::new(TlsStreamA {
                 stream,
                 conn: Connection::new_client(session, mem::take(&mut config.key_log), false)
                     .with_verify(config.verify).with_mtls(!config.client_cert.is_empty()),
@@ -76,7 +76,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
 
     #[inline]
     pub fn accept(stream: S, config: ServerConfig<'_>) -> Connecting<'_, S> {
-        TlsStream::_connect(stream, Connection::default(), Config::Server(config), Buffer::default())
+        TlsStreamA::_connect(stream, Connection::default(), Config::Server(config), Buffer::default())
     }
 
     pub fn alpn(&self) -> Option<&ALPN> {
@@ -86,7 +86,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStream<S> {
     pub fn client_hello(&self) -> &[u8] { &self.client_hello }
 }
 
-impl<S> StreamHandle for TlsStream<S> {
+impl<S> StreamHandle for TlsStreamA<S> {
     #[inline]
     fn stream_param(&mut self) -> (&mut Buffer, StreamParam<'_>) {
         (&mut self.read_buffer, StreamParam {
@@ -99,13 +99,13 @@ impl<S> StreamHandle for TlsStream<S> {
     }
 }
 
-impl<S> TlsStream<S> {
+impl<S> TlsStreamA<S> {
     pub fn connection(&self) -> &Connection {
         &self.conn
     }
 }
 
-impl<S: AsyncRead + Unpin> TlsStream<S> {
+impl<S: AsyncRead + Unpin> TlsStreamA<S> {
     fn read_size(&mut self, max_size: usize, cx: &mut Context<'_>) -> Poll<HlsResult<()>> {
         while self.read_buffer.len() < max_size {
             self.read_buffer.check_move(max_size)?;
@@ -137,7 +137,7 @@ impl<S: AsyncRead + Unpin> TlsStream<S> {
     }
 }
 
-impl<S: AsyncWrite + Unpin> TlsStream<S> {
+impl<S: AsyncWrite + Unpin> TlsStreamA<S> {
     #[inline]
     fn write_buffer(&mut self, cx: &mut Context<'_>) -> Poll<HlsResult<()>> {
         loop {
@@ -155,7 +155,7 @@ impl<S: AsyncWrite + Unpin> TlsStream<S> {
     }
 }
 
-impl<S: AsyncRead + Unpin> AsyncRead for TlsStream<S> {
+impl<S: AsyncRead + Unpin> AsyncRead for TlsStreamA<S> {
     fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
         if self.shutdown_wrote { return Poll::Ready(Ok(())); }
         let stream = self.get_mut();
@@ -172,7 +172,7 @@ impl<S: AsyncRead + Unpin> AsyncRead for TlsStream<S> {
     }
 }
 
-impl<S: AsyncWrite + Unpin> AsyncWrite for TlsStream<S> {
+impl<S: AsyncWrite + Unpin> AsyncWrite for TlsStreamA<S> {
     fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize, Error>> {
         let stream = self.get_mut();
         let chucks = buf.chunks(16384).collect::<Vec<_>>();
@@ -219,20 +219,20 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for TlsStream<S> {
     }
 }
 
-pub struct TlsStreamA {
-    stream: TlsStream<ProxyStream<TcpStream>>,
+pub struct TlsStreamT {
+    stream: TlsStreamA<ProxyStream<TcpStream>>,
     read_timeout: Option<Duration>,
     write_timeout: Option<Duration>,
 }
 
-impl TlsStreamA {
-    pub async fn connect_timeout(param: &mut ConnParam<'_>, tcp: ProxyStream<TcpStream>) -> HlsResult<TlsStreamA> {
+impl TlsStreamT {
+    pub async fn connect_timeout(param: &mut ConnParam<'_>, tcp: ProxyStream<TcpStream>) -> HlsResult<TlsStreamT> {
         let connect_timeout = param.timeout.connect();
         let read_timeout = param.timeout.read();
         let write_timeout = param.timeout.write();
         let config = ClientConfig::from(param);
-        Ok(TlsStreamA {
-            stream: tokio::time::timeout(connect_timeout, TlsStream::connect(tcp, config)).await??,
+        Ok(TlsStreamT {
+            stream: tokio::time::timeout(connect_timeout, TlsStreamA::connect(tcp, config)).await??,
             read_timeout: Some(read_timeout),
             write_timeout: Some(write_timeout),
         })
@@ -242,11 +242,11 @@ impl TlsStreamA {
         self.stream.alpn()
     }
 
-    pub fn get_ref(&self) -> &TlsStream<ProxyStream<TcpStream>> { &self.stream }
+    pub fn get_ref(&self) -> &TlsStreamA<ProxyStream<TcpStream>> { &self.stream }
 }
 
-impl TimeoutRW<TlsStream<ProxyStream<TcpStream>>> for TlsStreamA {
-    fn stream(&mut self) -> &mut TlsStream<ProxyStream<TcpStream>> {
+impl TimeoutRW<TlsStreamA<ProxyStream<TcpStream>>> for TlsStreamT {
+    fn stream(&mut self) -> &mut TlsStreamA<ProxyStream<TcpStream>> {
         &mut self.stream
     }
 

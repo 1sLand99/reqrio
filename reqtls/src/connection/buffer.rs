@@ -44,7 +44,6 @@ impl QUICBuffer {
             let range = self.remains.remove(pos);
             self.current.start -= range.len();
         }
-        println!("flush: {:?} {:?}", self.current, self.remains);
         if self.current.start != self.current.end && self.remains.is_empty() {
             Some(Reader::from_slice(self.buffer.filled()))
         } else { None }

@@ -23,7 +23,7 @@ impl<'a> ReadExt for H3HeaderReader<'a> {
         buf.write_u16(0)?;
         self.encoder.encode_head(buf)?;
         for (key, value) in self.keys.iter() {
-            self.encoder.encode_one(QPackType::Stream, key, value, self.sid, buf)?;
+            self.encoder.encode_one(QPackType::Stream, key, value, &self.sid, buf)?;
         }
         let len = buf.offset().end - offset.end - 3;
         assert!(len < 16384);

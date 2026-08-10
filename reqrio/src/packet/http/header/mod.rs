@@ -614,7 +614,7 @@ impl Header {
             // priority: self.keys.iter().find(|x| x.name() == "priority")
             //     .and_then(|x| x.value().as_string()).unwrap_or(""),
             wrote: false,
-            sid: &param.q_sid,
+            sid: param.q_sid,
         })
     }
 

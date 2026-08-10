@@ -40,7 +40,7 @@ impl<'a> ReadExt for H2HeaderReader<'a> {
         let len: usize = self.keys.iter().map(|(k, v)| k.len() + v.len()).sum();
         if buf.unfilled_len() < 59 + len { return Ok(0); }
         let offset = buf.offset();
-        let mut header_frame = H2EncodeFrame::new_header(self.body_len, *self.stream_identifier);
+        let mut header_frame = H2EncodeFrame::new_header(self.body_len, self.stream_identifier);
         if *self.priority { header_frame.set_priority(*self.weight) }
         header_frame.write_to(buf)?;
         for (i, (key, value)) in self.keys.iter().enumerate() {

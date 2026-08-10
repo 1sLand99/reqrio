@@ -21,7 +21,7 @@ enum EncodePayload<'a> {
 pub struct H2EncodeFrame<'a> {
     frame_type: FrameType,
     frame_flag: FrameFlag,
-    stream_identifier: u32,
+    stream_identifier: &'a u32,
     stream_dependency: u32,
     weight: u8,
     payload: EncodePayload<'a>,
@@ -32,7 +32,7 @@ impl<'a> H2EncodeFrame<'a> {
         H2EncodeFrame {
             frame_type: FrameType::Settings,
             frame_flag: FrameFlag::default(),
-            stream_identifier: 0,
+            stream_identifier: &0,
             stream_dependency: 0,
             weight: 0,
             payload: EncodePayload::Setting(settings),
@@ -43,14 +43,14 @@ impl<'a> H2EncodeFrame<'a> {
         H2EncodeFrame {
             frame_type: FrameType::WindowUpdate,
             frame_flag: FrameFlag::default(),
-            stream_identifier: 0,
+            stream_identifier: &0,
             stream_dependency: 0,
             weight: 0,
             payload: EncodePayload::WindowUpdate(window_size),
         }
     }
 
-    pub fn new_header(body_len: usize, sid: u32) -> H2EncodeFrame<'a> {
+    pub fn new_header(body_len: usize, sid: &'a u32) -> H2EncodeFrame<'a> {
         let mut res = H2EncodeFrame {
             frame_type: FrameType::Headers,
             frame_flag: FrameFlag::EndHeader,
@@ -89,7 +89,7 @@ impl<'a> H2EncodeFrame<'a> {
         writer.write_u24(len)?;
         writer.write_u8(self.frame_type.to_u8())?;
         writer.write_u8(self.frame_flag.as_u8())?;
-        writer.write_u32(self.stream_identifier)?;
+        writer.write_ru32(self.stream_identifier)?;
         if self.frame_flag.priority() {
             writer.write_u32(self.stream_dependency | 2147483648)?;
             writer.write_u8(self.weight)?;

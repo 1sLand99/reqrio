@@ -131,11 +131,13 @@ impl<'a> From<HttpFile> for Body<'a> {
         }
     }
 }
+
 impl<'a> From<Option<()>> for Body<'a> {
     fn from(_: Option<()>) -> Self {
         Body::none()
     }
 }
+
 
 impl<'a> Body<'a> {
     pub fn new(body: BodyKind<'a>, ty: ContentType) -> Body<'a> {

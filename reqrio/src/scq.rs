@@ -1,15 +1,16 @@
 use crate::body::Body;
-use crate::ext::{ReqParam, ReqPriExt};
-use crate::stream::{ConnParam, HTTPStream, Stream};
+use crate::ext::{ReqPriExt, ReqUrl};
+use crate::packet::HeaderParam;
+use crate::stream::{ConnParam, HTTPStream};
 use crate::*;
 use json::JsonValue;
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 pub struct ScReq {
     header: Header,
     stream: HTTPStream,
-    callback: Option<ReqCallback>,
     timeout: Timeout,
     proxy: Proxy,
     fingerprint: Fingerprint,
@@ -32,7 +33,6 @@ impl Default for ScReq {
         ScReq {
             header: Header::default(),
             stream: HTTPStream::NonConnection,
-            callback: None,
             timeout: Timeout::default(),
             proxy: Proxy::Null,
             fingerprint: Fingerprint::default(),
@@ -51,6 +51,7 @@ impl Default for ScReq {
         }
     }
 }
+
 
 impl ScReq {
     pub fn new() -> ScReq {
@@ -113,28 +114,32 @@ impl ScReq {
         self.stream_io(Method::PATCH, url, &body.into())
     }
 
-    /// 发送一个请求，发送前务必确保链接已建立
-    pub fn send<'a>(&mut self, method: Method, url: &Url, body: impl Into<&'a Body<'a>>) -> HlsResult<u64> {
+    /// 发送一个请求
+    pub fn send<'a>(&mut self, method: Method, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<u64> {
+        let url = url.into().build()?;
         self.header.set_method(method);
-        self.set_url(&url)?;
-        let sid = self.stream.send(&url, &self.header, body.into(), &self.fingerprint)?;
+        self.set_url(url.as_ref())?;
+        let sid = self.stream.send_sync(&self.header, &body.into(), HeaderParam {
+            url: &url.as_ref(),
+            h_sid: &0,
+            hpack_encoder: None,
+            q_sid: &0,
+            qpack_encoder: None,
+            body_len: 0,
+            weight: &self.fingerprint.h2().weight,
+            priority: &self.fingerprint.h2().priority,
+        })?;
         self.responses.insert(sid, Response::new());
         Ok(sid)
     }
 
     pub fn recv(&mut self, sid: u64) -> HlsResult<Response> {
-        if self.recv_ids.remove(&sid) { return Ok(self.responses.remove(&sid).ok_or("missing response")?); }
-        let msid = self.responses.keys().map(|x| x).min().unwrap_or(&sid);
-        for _ in *msid..=sid {
-            loop {
-                let ids = self.stream.recv(&mut self.responses)?;
-                let is_empty = ids.is_empty();
-                ids.into_iter().for_each(|id| { self.recv_ids.insert(id); });
-                if self.recv_ids.remove(&sid) { return Ok(self.responses.remove(&sid).ok_or("missing response")?); }
-                if !is_empty { break; }
-            }
+        if self.recv_ids.remove(&sid) && let Some(resp) = self.get_resp(sid) { return Ok(resp); }
+        loop {
+            let ids = self.stream.recv_sync(&mut self.responses)?;
+            ids.into_iter().for_each(|id| { self.recv_ids.insert(id); });
+            if self.recv_ids.remove(&sid) && let Some(resp) = self.get_resp(sid) { return Ok(resp); }
         }
-        Err("recv target sid failed".into())
     }
 
 
@@ -144,11 +149,11 @@ impl ScReq {
         if self.auto_redirect && (300..400).contains(&code) {
             let location = resp.header().location().ok_or("missing location")?;
             let location = match location.starts_with("http") {
-                true => Url::try_from(location)?,
-                false => Url::try_from(format!("{}://{}{}", self.url.scheme(), self.url.addr(), location))?
+                true => Cow::Borrowed(location),
+                false => Cow::Owned(format!("{}://{}{}", self.url.scheme(), self.url.addr(), location))
             };
-            let sid = self.send(Method::GET, &location, &Body::none())?;
-            self.handle_recv(sid)?;
+            let sid = self.send(Method::GET, location.as_ref(), &Body::none())?;
+            return self.handle_recv(sid);
         }
         Ok(resp)
     }
@@ -200,7 +205,7 @@ impl ScReq {
                 ech: false,
                 session: &self.tls_session,
             };
-            match self.stream.sync_conn(param) {
+            match self.stream.conn_sync(param) {
                 Ok(alpn) => {
                     #[cfg(feature = "log")]
                     debug!("[AcReq] Connected | ALPN: {} | RemoteAddr: {}", alpn, url.unwrap_or(&self.url).addr());
@@ -261,28 +266,13 @@ impl ScReq {
     }
 }
 
-// impl ReqGenExt for ScReq {
-//     fn stream_mut(&mut self) -> &mut Stream {
-//         &mut self.stream
-//     }
-// }
-
 impl ReqPriExt for ScReq {
-    fn into_stream(self) -> Stream {
-        // self.stream
-        todo!()
+    fn header_mut(&mut self) -> &mut Header {
+        &mut self.header
     }
 
-    fn req_param(&mut self) -> ReqParam<'_> {
-        // ReqParam {
-        //     header: &mut self.header,
-        //     buffer: &mut self.buffer,
-        //     hpack_coder: &mut self.hpack_coder,
-        //     sid: &self.stream_id,
-        //     callback: &mut self.callback,
-        //
-        // }
-        todo!()
+    fn responses(&mut self) -> &mut HashMap<u64, Response> {
+        &mut self.responses
     }
 }
 
@@ -333,10 +323,6 @@ impl ReqExt for ScReq {
         self.certs = certs;
         self.ca_certs = ca.unwrap_or(vec![]);
         self.key = key;
-    }
-
-    fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + Send + Sync+ 'static) {
-        self.callback = Some(Box::new(callback));
     }
 
     fn set_fingerprint(&mut self, fingerprint: Fingerprint) {

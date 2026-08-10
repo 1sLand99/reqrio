@@ -1,7 +1,7 @@
 use std::fs;
 use std::io::{Read, Write};
 use std::net::TcpListener;
-use reqrio::SyncStream;
+use reqrio::TlsStreamS;
 use reqtls::{Certificate, RsaKey, ServerConfig, ALPN};
 
 #[tokio::main]
@@ -14,7 +14,7 @@ async fn main() {
     loop {
         let (stream, addr) = listen.accept().unwrap();
         println!("Accepted connection from {}", addr);
-        let tls_stream = SyncStream::accept(stream, ServerConfig {
+        let tls_stream = TlsStreamS::accept(stream, ServerConfig {
             alpn: &ALPN::Http20,
             ca: &mut Certificate::none(),
             server_cert: &mut certificates,

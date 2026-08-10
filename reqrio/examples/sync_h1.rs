@@ -104,7 +104,7 @@ fn main() {
     let t = Time::now();
     Buffer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
     let mut req = ScReq::new()
-        .with_alpn(ALPN::Http20)
+        .with_alpn(ALPN::Http30)
         .with_verify(true)
         .with_timeout(Timeout::new_same(1000, 1))
         .with_key_log("2.log")
@@ -134,9 +134,18 @@ fn main() {
     };
     req.set_headers_json(headers).unwrap();
     // let res = req.get("https://img-s-msn-com.akamaized.net", None).unwrap();
-    let res = req.get("https://ts3.tc.mm.bing.net/th/id/ODF.pnhuF5msYDWgeLYHsiLTig?w=32&h=32&qlt=95&pcl=fffffa&o=6&pid=1.2", None).unwrap();
+    let url = "https://ts3.tc.mm.bing.net/th/id/ODF.dsR0yzVOEBuWxCU9cjAM4Q?w=32&h=32&qlt=96&pcl=fffffa&o=6&pid=1.2";
+    let sid1 = req.send(Method::GET, url, None).unwrap();
+    let url = "https://ts3.tc.mm.bing.net/th/id/ODF.pnhuF5msYDWgeLYHsiLTig?w=32&h=32&qlt=95&pcl=fffffa&o=6&pid=1.2";
+    let sid2 = req.send(Method::GET, url, None).unwrap();
+
     // let res = req.get("https://docs.rs", None).unwrap();
-    println!("{}", res.raw_string());
+    // let res = req.get("https://www.rfc-editor.org/info/rfc9001/#section-5.8", None).unwrap();
+    // let res = req.get("https://www.bing.com", None).unwrap();
+    let res1=req.recv(sid1).unwrap();
+    println!("{}", res1.raw_string());
+    let res2=req.recv(sid2).unwrap();
+    println!("{}", res2.raw_string());
     println!("{}", Time::now().as_mills() - t.as_mills())
     // fs::write("data/coder/chunk_gzip.bin", res.raw_body()).unwrap();
     // println!("{} {:?}", res.raw_body().len(), res.raw_body());

@@ -4,7 +4,7 @@ use crate::*;
 use std::io;
 use std::io::{Read, Write};
 
-pub struct SyncStream<S> {
+pub struct TlsStreamS<S> {
     conn: Connection,
     stream: S,
     /// 是否握手完成
@@ -17,9 +17,9 @@ pub struct SyncStream<S> {
     write_buffer: Buffer,
 }
 
-impl<S: Read + Write> SyncStream<S> {
-    fn new(stream: S, conn: Connection, mut config: Config<'_>, buffer: Buffer) -> HlsResult<SyncStream<S>> {
-        let mut stream = SyncStream {
+impl<S: Read + Write> TlsStreamS<S> {
+    fn new(stream: S, conn: Connection, mut config: Config<'_>, buffer: Buffer) -> HlsResult<TlsStreamS<S>> {
+        let mut stream = TlsStreamS {
             stream,
             conn,
             handshake_finished: false,
@@ -50,15 +50,15 @@ impl<S: Read + Write> SyncStream<S> {
         }
         Ok(stream)
     }
-    pub fn connect(config: ClientConfig, stream: S) -> HlsResult<SyncStream<S>> {
+    pub fn connect(config: ClientConfig, stream: S) -> HlsResult<TlsStreamS<S>> {
         let session = config.session.as_ref().cloned().unwrap_or_default();
         let conn = Connection::new_client(session, config.key_log.clone(), false)
             .with_verify(config.verify).with_mtls(!config.client_cert.is_empty());
-        SyncStream::new(stream, conn, Config::Client(config), Buffer::default())
+        TlsStreamS::new(stream, conn, Config::Client(config), Buffer::default())
     }
 
-    pub fn accept(stream: S, config: ServerConfig<'_>) -> HlsResult<SyncStream<S>> {
-        SyncStream::new(stream, Connection::default(), Config::Server(config), Buffer::with_capacity(16437))
+    pub fn accept(stream: S, config: ServerConfig<'_>) -> HlsResult<TlsStreamS<S>> {
+        TlsStreamS::new(stream, Connection::default(), Config::Server(config), Buffer::with_capacity(16437))
     }
 
     pub fn shutdown(&mut self) -> HlsResult<()> {
@@ -78,7 +78,7 @@ impl<S: Read + Write> SyncStream<S> {
     }
 }
 
-impl<S: Read + Write> StreamHandle for SyncStream<S> {
+impl<S: Read + Write> StreamHandle for TlsStreamS<S> {
     fn stream_param(&mut self) -> (&mut Buffer, StreamParam<'_>) {
         (&mut self.read_buffer, StreamParam {
             handshake_finish: &mut self.handshake_finished,
@@ -90,7 +90,7 @@ impl<S: Read + Write> StreamHandle for SyncStream<S> {
     }
 }
 
-impl<S: Read> SyncStream<S> {
+impl<S: Read> TlsStreamS<S> {
     fn read_size(&mut self, max_size: usize) -> HlsResult<()> {
         while self.read_buffer.len() < max_size {
             self.read_buffer.check_move(max_size)?;
@@ -109,7 +109,7 @@ impl<S: Read> SyncStream<S> {
     }
 }
 
-impl<S: Read + Write> Read for SyncStream<S> {
+impl<S: Read + Write> Read for TlsStreamS<S> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         loop {
             let record_len = self.read_next_packet()?;
@@ -120,7 +120,7 @@ impl<S: Read + Write> Read for SyncStream<S> {
 }
 
 
-impl<S: Write> Write for SyncStream<S> {
+impl<S: Write> Write for TlsStreamS<S> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let mut sent = 0;
         for chunk in buf.chunks(16384) {

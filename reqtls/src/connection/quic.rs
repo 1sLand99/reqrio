@@ -4,7 +4,7 @@ use crate::extend::Aead;
 use crate::hash::HashError;
 use crate::message::{QUICFrame, QUICPacket};
 use crate::suite::iv::Iv;
-use crate::{Buf, Buffer, BufferError, Cipher, CipherSuite, CipherType, Connection, HashType, PacketType, Reader, TlsSession, Version, WriteExt};
+use crate::{Buf, Buffer, BufferError, Cipher, CipherSuite, CipherType, Connection, HashType, PacketType, Reader, RlsError, TlsSession, Version, WriteExt};
 #[cfg(feature = "log")]
 use log::trace;
 use std::error::Error;
@@ -167,22 +167,29 @@ impl QUICConnection {
         match (self.current, packet.flag.packet_type()) {
             (0, PacketType::Initial) => {}
             (_, PacketType::Initial) => {
+                let cipher_suite = CipherSuite::TLS_AES_128_GCM_SHA256;
+                let aead = cipher_suite.aead().ok_or(RlsError::AeadNone)?;
+                self.recv_sample = Cipher::new(CipherType::AES_128_ECB);
                 self.recv_sample.set_secret_key(self.init_key.hp.as_slice(), None);
-                self.conn.recv_cipher.set_key(self.init_key.key.as_ref(), &[], &self.conn.cipher_suite.aead().unwrap(), self.conn.cipher_suite.hash())?;
+                self.conn.recv_cipher.set_key(self.init_key.key.as_ref(), &[], &aead, cipher_suite.hash())?;
                 self.conn.recv_cipher.set_iv(Iv::new(&self.init_key.iv, vec![]));
                 self.current = 0;
             }
             (1, PacketType::Handshake) => {}
             (_, PacketType::Handshake) => {
+                let cipher_suite = self.conn.cipher_suite;
+                let aead = cipher_suite.aead().ok_or(RlsError::AeadNone)?;
                 self.recv_sample.set_secret_key(self.handshake_key.hp.as_slice(), None);
-                self.conn.recv_cipher.set_key(self.handshake_key.key.as_ref(), &[], &self.conn.cipher_suite.aead().unwrap(), self.conn.cipher_suite.hash())?;
+                self.conn.recv_cipher.set_key(self.handshake_key.key.as_ref(), &[], &aead, cipher_suite.hash())?;
                 self.conn.recv_cipher.set_iv(Iv::new(&self.handshake_key.iv, vec![]));
                 self.current = 1;
             }
             (2, PacketType::ShortHeader) => {}
             (_, PacketType::ShortHeader) => {
+                let cipher_suite = self.conn.cipher_suite;
+                let aead = cipher_suite.aead().ok_or(RlsError::AeadNone)?;
                 self.recv_sample.set_secret_key(self.app_key.hp.as_slice(), None);
-                self.conn.recv_cipher.set_key(self.app_key.key.as_ref(), &[], &self.conn.cipher_suite.aead().unwrap(), self.conn.cipher_suite.hash())?;
+                self.conn.recv_cipher.set_key(self.app_key.key.as_ref(), &[], &aead, cipher_suite.hash())?;
                 self.conn.recv_cipher.set_iv(Iv::new(&self.app_key.iv, vec![]));
                 self.current = 2;
             }

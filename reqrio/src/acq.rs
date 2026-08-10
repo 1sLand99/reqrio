@@ -1,28 +1,23 @@
-use crate::body::{Body, H2FrameRBuf};
+use crate::body::Body;
 use crate::error::HlsResult;
-use crate::ext::{ReqExt, ReqParam};
-use crate::ext::{ReqGenExt, ReqPriExt};
-use crate::pack::HPackCoding;
+use crate::ext::ReqPriExt;
+use crate::ext::{ReqExt, ReqUrl};
 use crate::json::JsonValue;
-use crate::packet::{FrameFlag, FrameType, H2Frame, HeaderParam};
-use crate::reader::ReadExt;
-use crate::request::RequestBuffer;
-use crate::stream::{ConnParam, Proxy, Stream};
+use crate::packet::HeaderParam;
+use crate::stream::{ConnParam, HTTPStream, Proxy};
 use crate::*;
+use std::borrow::Cow;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 pub struct AcReq {
     header: Header,
-    stream: Stream,
+    stream: HTTPStream,
     timeout: Timeout,
-    callback: Option<ReqCallback>,
-    stream_id: u32,
     proxy: Proxy,
     fingerprint: Fingerprint,
     verify: bool,
     auto_redirect: bool,
-    buffer: Buffer,
-    hpack_coder: HPackCoding,
     certs: Vec<Certificate>,
     key: RsaKey,
     ca_certs: Vec<Certificate>,
@@ -31,22 +26,20 @@ pub struct AcReq {
     url: Url,
     tls_session: Option<TlsSession>,
     ignore_order: bool,
+    responses: HashMap<u64, Response>,
+    recv_ids: HashSet<u64>,
 }
 
 impl Default for AcReq {
     fn default() -> Self {
         AcReq {
             header: Header::default(),
-            stream: Stream::NonConnection,
+            stream: HTTPStream::NonConnection,
             timeout: Timeout::default(),
-            callback: None,
-            stream_id: 0,
             proxy: Proxy::Null,
             fingerprint: Fingerprint::default(),
             verify: true,
             auto_redirect: true,
-            buffer: Buffer::with_capacity(32826),
-            hpack_coder: HPackCoding::new(4096),
             certs: vec![],
             key: RsaKey::none(),
             ca_certs: vec![],
@@ -55,6 +48,8 @@ impl Default for AcReq {
             url: Default::default(),
             tls_session: None,
             ignore_order: false,
+            responses: HashMap::with_capacity(100),
+            recv_ids: HashSet::new(),
         }
     }
 }
@@ -68,114 +63,110 @@ impl AcReq {
     where
         HlsError: From<E>,
     {
-        self.stream_io(Method::GET, &mut url.try_into()?, &body.into()).await
+        self.stream_io(Method::GET, url, &body.into()).await
     }
 
     pub async fn post<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.stream_io(Method::POST, &mut url.try_into()?, &body.into()).await
+        self.stream_io(Method::POST, url, &body.into()).await
     }
 
     pub async fn put<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.stream_io(Method::PUT, &mut url.try_into()?, &body.into()).await
+        self.stream_io(Method::PUT, url, &body.into()).await
     }
 
     pub async fn options<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.stream_io(Method::OPTIONS, &mut url.try_into()?, &body.into()).await
+        self.stream_io(Method::OPTIONS, url, &body.into()).await
     }
 
     pub async fn delete<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.stream_io(Method::DELETE, &mut url.try_into()?, &body.into()).await
+        self.stream_io(Method::DELETE, url, &body.into()).await
     }
 
     pub async fn head<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.stream_io(Method::HEAD, &mut url.try_into()?, &body.into()).await
+        self.stream_io(Method::HEAD, url, &body.into()).await
     }
 
     pub async fn trace<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.stream_io(Method::TRACE, &mut url.try_into()?, &body.into()).await
+        self.stream_io(Method::TRACE, url, &body.into()).await
     }
 
     pub async fn patch<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
     where
         HlsError: From<E>,
     {
-        self.stream_io(Method::PATCH, &mut url.try_into()?, &body.into()).await
+        self.stream_io(Method::PATCH, url, &body.into()).await
     }
 
-    pub async fn h1_io(&mut self) -> HlsResult<Response> {
-        let mut response = Response::new();
-        let mut read_len = 0;
-        loop {
-            self.buffer.check_move(16384)?; //保证拥有一个record的大小
-            self.stream.async_read(&mut self.buffer).await?;
-            if self.handle_h1_res(&mut response, &mut read_len)? { break; }
-        }
-        Ok(response)
-    }
-
-    pub async fn send(&mut self, method: Method, url: &Url, body: &Body<'_>) -> HlsResult<u32> {
+    pub async fn send<'a>(&mut self, method: Method, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<u64> {
+        let url = url.into().build()?;
         self.header.set_method(method);
-        let mut request = RequestBuffer::new(&mut self.header, body, HeaderParam {
-            url,
-            hpack_encoder: Some(self.hpack_coder.encoder()),
-            h_sid: &self.stream_id,
+        self.set_url(url.as_ref()).await?;
+        let sid = self.stream.send_async(&mut self.header, &body.into(), HeaderParam {
+            url: url.as_ref(),
+            hpack_encoder: None,
+            h_sid: &0,
             qpack_encoder: None,
             q_sid: &0,
             body_len: 0,
             priority: &self.fingerprint.h2().priority,
             weight: &self.fingerprint.h2().weight,
-        })?;
-        loop {
-            self.buffer.reset();
-            let len = request.read(&mut self.buffer)?;
-            if len == 0 { break; }
-            self.stream.async_write(self.buffer.filled()).await?;
-        }
-        let sid = self.stream_id;
-        if let ALPN::Http20 = self.header.alpn() { self.stream_id += 2; }
+        }).await?;
+        self.responses.insert(sid, Response::new());
         Ok(sid)
     }
 
-    pub async fn recv(&mut self) -> HlsResult<Response> {
-        let response = match self.header.alpn() {
-            ALPN::Http20 => self.h2c_io().await,
-            _ => self.h1_io().await
-        }?;
-        self.update_cookie(&response);
-        self.callback = None;
-
-        if self.tls_session.is_none() { self.tls_session = self.stream.tls_session().cloned(); }
-        Ok(response)
+    pub async fn recv(&mut self, sid: u64) -> HlsResult<Response> {
+        if self.recv_ids.remove(&sid) && let Some(resp) = self.get_resp(sid) { return Ok(resp); }
+        loop {
+            let ids = self.stream.recv_async(&mut self.responses).await?;
+            ids.into_iter().for_each(|id| { self.recv_ids.insert(id); });
+            if self.recv_ids.remove(&sid) && let Some(resp) = self.get_resp(sid) { return Ok(resp); }
+        }
     }
 
-    pub(crate) async fn handle_io(&mut self, method: Method, url: &Url, body: &Body<'_>) -> HlsResult<Response> {
-        self.send(method, url, body).await?;
-        self.recv().await
+    async fn handle_recv(&mut self, sid: u64) -> HlsResult<Response> {
+        let resp = self.recv(sid).await?;
+        let code = resp.header().status().code();
+        if self.auto_redirect && (300..400).contains(&code) {
+            let location = resp.header().location().ok_or("missing location")?;
+            let location = match location.starts_with("http") {
+                false => Cow::Owned(format!("{}://{}{}", self.url.scheme(), self.url.addr(), location)),
+                true => Cow::Borrowed(location),
+            };
+            let sid = self.send(Method::GET, location.as_ref(), &Body::none()).await?;
+            return Box::pin(self.handle_recv(sid)).await;
+        }
+        Ok(resp)
     }
 
-    pub async fn stream_io(&mut self, method: Method, url: &mut Url, body: &Body<'_>) -> HlsResult<Response> {
-        self.set_url(url).await?;
+    pub async fn stream_io<'a, U>(&mut self, method: Method, url: U, body: impl Into<Body<'a>>) -> HlsResult<Response>
+    where
+        U: TryInto<Url>,
+        HlsError: From<U::Error>,
+    {
+        let url = url.try_into()?;
+        let body = body.into();
         for i in 1..=self.timeout.handle_times() {
-            let res = tokio::time::timeout(self.timeout.handle(), self.handle_io(method, url, body)).await;
-            self.buffer.reset();
+            let sid = self.send(method, &url, &body).await?;
+            let res = tokio::time::timeout(self.timeout.handle(), self.handle_recv(sid)).await;
             match res {
                 Err(_) => if i >= self.timeout.handle_times() { return Err(HlsError::Time(TimeError::HandleTimeout)) }
                 Ok(Err(e)) => if i >= self.timeout.handle_times() {
@@ -183,19 +174,7 @@ impl AcReq {
                 } else if self.timeout.is_peer_closed(e.to_string()) {
                     self.re_conn(None).await?;
                 },
-                Ok(Ok(resp)) => {
-                    let code = resp.header().status().code();
-                    return if self.auto_redirect && (300..400).contains(&code) {
-                        let location = resp.header().location().ok_or("missing location")?;
-                        match location.starts_with("http") {
-                            true => *url = Url::try_from(location)?,
-                            false => url.set_uri(location)?,
-                        }
-                        Box::pin(self.stream_io(Method::GET, url, &Body::none())).await
-                    } else {
-                        Ok(resp)
-                    };
-                }
+                Ok(Ok(resp)) => return Ok(resp)
             }
         }
         Err("stream io error".into())
@@ -211,7 +190,6 @@ impl AcReq {
     }
 
     pub async fn re_conn(&mut self, url: Option<&Url>) -> HlsResult<()> {
-        self.buffer.reset();
         for i in 1..=self.timeout.connect_times() {
             let param = ConnParam {
                 url: url.unwrap_or(&self.url),
@@ -227,7 +205,7 @@ impl AcReq {
                 ech: false,
                 session: &self.tls_session,
             };
-            let res = tokio::time::timeout(self.timeout.connect(), self.stream.async_conn(param)).await;
+            let res = tokio::time::timeout(self.timeout.connect(), self.stream.conn_async(param)).await;
             match res {
                 Err(_) => if i >= self.timeout.handle_times() { return Err(HlsError::Time(TimeError::ConnectTimeout)) }
                 Ok(Err(e)) => if i >= self.timeout.handle_times() { return Err(e) }
@@ -236,7 +214,6 @@ impl AcReq {
                     debug!("[AcReq] Connected | ALPN: {} | RemoteAddr: {}", alpn, url.unwrap_or(&self.url).addr());
                     self.tls_session = None;
                     if !self.ignore_order { self.header.init_by_alpn(alpn); }
-                    if self.header.alpn() == &ALPN::Http20 { self.handle_h2_setting().await?; }
                     if let Some(url) = url {
                         self.url = url.clone();
                     }
@@ -255,77 +232,41 @@ impl AcReq {
         Ok(())
     }
 
-    pub async fn send_check<E>(&mut self, method: Method, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
+    pub async fn send_check<'a, U>(&mut self, method: Method, url: U, body: impl Into<Body<'a>>) -> HlsResult<Response>
     where
-        HlsError: From<E>,
+        U: TryInto<Url> + Clone,
+        HlsError: From<U::Error>,
     {
-        let mut url = url.try_into()?;
-        let response = self.stream_io(method, &mut url, &body.into()).await?;
-        self.check_status(&url, &response)?;
+        let response = self.stream_io(method, url.clone(), &body.into()).await?;
+        self.check_status(&url.try_into()?, &response)?;
         Ok(response)
     }
 
-    pub async fn send_check_json<E>(&mut self, method: Method, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>,
-                                    k: impl AsRef<str>, v: impl ToString, e: Vec<impl AsRef<str>>) -> HlsResult<JsonValue>
+    pub async fn send_check_json<'a, U>(
+        &mut self,
+        method: Method,
+        url: U,
+        body: impl Into<Body<'a>>,
+        k: impl AsRef<str>,
+        v: impl ToString,
+        e: Vec<impl AsRef<str>>,
+    ) -> HlsResult<JsonValue>
     where
-        HlsError: From<E>,
+        U: TryInto<Url> + Clone,
+        HlsError: From<U::Error>,
     {
         let response = self.send_check(method, url, body).await?;
         self.check_res(response, k, v, e)
     }
 }
 
-impl AcReq {
-    pub async fn handle_h2_setting(&mut self) -> HlsResult<()> {
-        self.stream_id = 0;
-        self.buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")?;
-        self.fingerprint.h2().build_setting().write_to(&mut self.buffer)?;
-        self.hpack_coder = HPackCoding::new(65536);
-        self.fingerprint.h2().build_window_update().write_to(&mut self.buffer)?;
-        self.stream.async_write(self.buffer.filled()).await?;
-        self.buffer.reset();
-        self.stream_id += 1;
-        Ok(())
-    }
-
-    pub async fn h2c_io(&mut self) -> HlsResult<Response> {
-        let mut response = Response::new();
-        loop {
-            self.stream.async_read(&mut self.buffer).await?;
-            while let Ok((frame_type, frame_flag, frame_len)) = H2FrameRBuf::buffer_enough(&self.buffer) {
-                if frame_type == FrameType::Settings && frame_flag.end_stream() {
-                    let mut end_frame = H2Frame::none_frame();
-                    end_frame.set_frame_type(FrameType::Settings);
-                    end_frame.set_flag(FrameFlag::EndStream);
-                    self.stream.async_write(end_frame.to_bytes().as_ref()).await?;
-                    self.buffer.move_to(frame_len..self.buffer.len(), 0)?;
-                    continue;
-                }
-                if self.handle_h2_res(frame_type, &mut response)? { return Ok(response); }
-            }
-        }
-    }
-}
-
-impl ReqGenExt for AcReq {
-    fn stream_mut(&mut self) -> &mut Stream {
-        &mut self.stream
-    }
-}
-
 impl ReqPriExt for AcReq {
-    fn into_stream(self) -> Stream {
-        self.stream
+    fn header_mut(&mut self) -> &mut Header {
+        &mut self.header
     }
 
-    fn req_param(&mut self) -> ReqParam<'_> {
-        ReqParam {
-            header: &mut self.header,
-            buffer: &mut self.buffer,
-            hpack_coder: &mut self.hpack_coder,
-            callback: &mut self.callback,
-            sid: &self.stream_id,
-        }
+    fn responses(&mut self) -> &mut HashMap<u64, Response> {
+        &mut self.responses
     }
 }
 
@@ -386,17 +327,13 @@ impl ReqExt for AcReq {
         &self.tls_session
     }
 
-    fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + Send + Sync + 'static) {
-        self.callback = Some(Box::new(callback));
-    }
-
     fn set_fingerprint(&mut self, fingerprint: Fingerprint) {
         self.fingerprint = fingerprint;
     }
 
     fn set_header_keys(&mut self, headers: Vec<HeaderKey>, keep_sort: bool) -> HlsResult<()> {
-        self.ignore_order = keep_sort;
         self.header.set_by_keys(headers, keep_sort)?;
+        self.ignore_order = keep_sort;
         Ok(())
     }
 }
