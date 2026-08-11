@@ -25,7 +25,7 @@ impl<S: Read + Write> TlsStreamS<S> {
             handshake_finished: false,
             encrypted_channel: false,
             hello_retrying: false,
-            read_buffer: Buffer::with_capacity(16438),
+            read_buffer: Buffer::with_capacity(16469),
             write_buffer: buffer,
         };
         if let Config::Client(ref mut config) = config {

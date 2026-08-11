@@ -200,7 +200,7 @@ impl<'a> ReadExt for H3BodyReader<'a> {
                 self.wrote = self.body.wrote();
                 self.wrote_hdr = false
             }
-            if buf.unfilled_len() == 0 { break; }
+            if buf.unfilled_len() == 0 { return Ok(buf.offset().end - start); }
         }
         self.wrote = true;
         Ok(buf.offset().end - start)
