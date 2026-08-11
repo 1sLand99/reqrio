@@ -58,6 +58,12 @@ impl Default for Buffer {
     }
 }
 
+impl Debug for Buffer {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "{}", hex::encode(self.filled()))
+    }
+}
+
 impl Buffer {
     pub fn with_capacity(capacity: usize) -> Self {
         let buffer = unsafe { Buffer_new(capacity) };
@@ -94,6 +100,11 @@ impl Buffer {
     pub fn filled(&self) -> &[u8] {
         let offset = self.offset();
         unsafe { slice::from_raw_parts(self.filled_ptr(), offset.len()) }
+    }
+
+    pub fn filled_mut(&mut self) -> &mut [u8] {
+        let offset = self.offset();
+        unsafe { slice::from_raw_parts_mut(self.raw_ptr_mut().add(offset.start), offset.len()) }
     }
 
     pub fn raw_ptr(&self) -> *const u8 {

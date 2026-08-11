@@ -1,5 +1,5 @@
 use crate::error::RlsResult;
-use crate::{BufferError, ReadExt, Reader, RlsError, WriteExt};
+use crate::{BufferError, ReadExt, Reader, WriteExt};
 
 #[derive(Debug, Clone, Copy)]
 pub enum NameType {
@@ -39,7 +39,7 @@ impl<'a> ServerName<'a> {
         res.list_len = reader.read_u16()?;
         res.name_type = NameType::from_u8(reader.read_u8()?).ok_or("ServerName Unknown")?;
         res.len = reader.read_u16()?;
-        res.value = reader.read_str::<RlsError>(res.len as usize)?;
+        res.value = reader.read_str(res.len as usize)?;
         Ok(res)
     }
 

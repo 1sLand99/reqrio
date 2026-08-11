@@ -5,7 +5,7 @@ use crate::request::RequestBuffer;
 use crate::stream::ConnParam;
 use crate::{hex, Body, Header, HlsError, QUICStreamS, Response};
 use reqtls::quic::{QUICBuffer, QUICFrame, QUICFrameFlag};
-use reqtls::{quic, Buf, Buffer, ClientConfig, ReadExt, Reader, WriteExt};
+use reqtls::{quic, Buf, Buffer, BufferError, ClientConfig, ReadExt, Reader, RlsError, WriteExt};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::net::UdpSocket;
@@ -20,7 +20,7 @@ impl H3Setting {
     pub const MAX_TABLE_CAPACITY: u64 = 0x01;
     pub const BLOCKED_STREAMS: u64 = 0x07;
 
-    pub fn from_reader(reader: &mut Reader) -> Result<H3Setting, HlsError> {
+    pub fn from_reader(reader: &mut Reader) -> Result<H3Setting, BufferError> {
         Ok(H3Setting {
             flag: quic::read_variant(reader)? as u64,
             value: quic::read_variant(reader)? as u64,
@@ -45,9 +45,10 @@ pub enum H3Frame<'a> {
     },
 }
 impl<'a> H3Frame<'a> {
-    pub fn from_reader(reader: &mut Reader<'a>) -> Result<H3Frame<'a>, HlsError> {
+    pub fn from_reader(reader: &mut Reader<'a>) -> Result<H3Frame<'a>, BufferError> {
         let typ = quic::read_variant(reader)? as u64;
         let len = quic::read_variant(reader)?;
+        if reader.unread_len() < len { return Err(BufferError::Insufficient.into()); }
         let mut reader = reader.read_reader(len)?;
         match typ {
             0x0 => Ok(H3Frame::Data(Buf::Ref(reader.read_slice(len)?))),
@@ -67,7 +68,7 @@ impl<'a> H3Frame<'a> {
                 let sid_len = reader.position() - pos;
                 Ok(H3Frame::PriorityUpdate {
                     stream_id,
-                    value: reader.read_str::<HlsError>(len - sid_len)?,
+                    value: reader.read_str(len - sid_len)?,
                 })
             }
             _ => Ok(H3Frame::Reserved {
@@ -92,7 +93,6 @@ impl<'a> H3Stream<'a> {
     pub fn from_quic_stream(typ: Option<usize>, reader: &mut Reader<'a>, decoder: &mut QPackDecode) -> Result<H3Stream<'a>, HlsError> {
         Ok(match typ {
             Some(0x02) => {
-                println!("{:x?}", reader.inner());
                 while reader.unread_len() > 0 {
                     let item = decoder.decode_next(QPackType::StreamEncoder, &0, reader)?;
                     println!("item: {:?}", item);
@@ -126,7 +126,7 @@ impl HTTP3StreamS {
     pub fn connect(mut conn: ConnParam) -> HlsResult<HTTP3StreamS> {
         let socket = UdpSocket::bind("0.0.0.0:0")?;
         let addr = conn.url.addr().socket_addr(false)?;
-        let mut quic = QUICStreamS::connect(socket, addr, ClientConfig::from(&mut conn))?;
+        let mut quic = QUICStreamS::connect(socket, addr, ClientConfig::from(&mut conn)).unwrap();
         let setting_frame = QUICFrame::Stream {
             flag: QUICFrameFlag::new(0),
             sid: 2,
@@ -147,15 +147,16 @@ impl HTTP3StreamS {
 
 
     pub fn recv(&mut self, responses: &mut HashMap<u64, Response>) -> HlsResult<Vec<u64>> {
-        let frames = self.quic.read_next_packet(false)?;
+        let frames = self.quic.read_next_packet(false).unwrap();
         let mut res = Vec::with_capacity(responses.len());
         for frame in frames {
+            println!("{:#?}", frame);
             let QUICFrame::Stream { flag, sid, offset, payload, .. } = frame else { continue };
             let param = match self.stream_ids.entry(sid) {
                 Entry::Occupied(v) => v.into_mut(),
                 Entry::Vacant(v) => v.insert(StreamParam {
                     typ: None,
-                    buffer: QUICBuffer::with_capacity(if sid & 0b10 == 0b10 { 1024 } else { 8192 }),
+                    buffer: QUICBuffer::with_capacity(if sid & 0b10 == 0b10 { 1024 } else { 200 * 1024 }),
                     fin: false,
                 })
             };
@@ -169,7 +170,11 @@ impl HTTP3StreamS {
             }
             let mut pos = reader.position();
             while reader.unread_len() > 0 {
-                let stream = H3Stream::from_quic_stream(param.typ, &mut reader, &mut self.decoder)?;
+                let stream = match H3Stream::from_quic_stream(param.typ, &mut reader, &mut self.decoder) {
+                    Ok(stream) => stream,
+                    Err(HlsError::Rls(RlsError::Buffer(BufferError::Insufficient))) => break,
+                    Err(e) => return Err(e)
+                };
                 println!("{:#?}", stream);
                 let frame = match stream {
                     H3Stream::Control => continue,

@@ -110,7 +110,7 @@ impl Connection {
         let len = self.session_bytes.len();
         self.session_bytes.copy_within(cl..len, session_hash.len() + 4);
         unsafe { self.session_bytes.set_len(session_hash.len() + 4 + len - cl); }
-        self.cipher_suite = &CipherSuite::UNKNOWN;
+        // self.cipher_suite = &CipherSuite::UNKNOWN;
         self.hasher = Hasher::default();
         self.update_session(client_hello)
     }

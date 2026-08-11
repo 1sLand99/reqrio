@@ -227,7 +227,6 @@ impl<'a> QUICFrame<'a> {
                 Ok(QUICFrame::NewToken(Buf::Ref(reader.read_slice(len).unwrap())))
             }
             0x08..0x10 => {
-                println!("{:x?}", &reader.inner()[reader.position()..]);
                 let flag: QUICFrameFlag = typ.into();
                 let sid = quic::read_variant(reader).unwrap();
                 let offset = if flag.offset { quic::read_variant(reader).unwrap() } else { 0 };
@@ -258,7 +257,7 @@ impl<'a> QUICFrame<'a> {
                 Ok(QUICFrame::ConnectionCloseTrp {
                     err_code: err_code.into(),
                     frame_typ,
-                    reason: reader.read_str::<QUICError>(reason_len)?,
+                    reason: reader.read_str(reason_len)?,
                 })
             }
             0x1e => Ok(QUICFrame::HandshakeDone),

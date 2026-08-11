@@ -70,9 +70,9 @@ pub struct QUICConnection {
 }
 
 impl QUICConnection {
-    pub fn new(session: TlsSession, key_log: Option<PathBuf>) -> QUICConnection {
+    pub fn new(session: TlsSession, key_log: Option<PathBuf>, verify: bool) -> QUICConnection {
         QUICConnection {
-            conn: Connection::new_client(session, key_log, true),
+            conn: Connection::new_client(session, key_log, true).with_verify(verify),
             recv_sample: Cipher::aes_128_ecb(),
             send_sample: Cipher::aes_128_ecb(),
             recv_nums: QUICRange::default(),
@@ -85,8 +85,9 @@ impl QUICConnection {
 
 
     /// [rfc9001 5.2](https://datatracker.ietf.org/doc/html/rfc9001#name-initial-secrets)
-    pub fn make_initial_cipher(&mut self, cid: &Buf<'_>, server: bool) -> RlsResult<()> {
-        if !self.conn.recv_cipher.is_null() && !self.conn.send_cipher.is_null() { return Ok(()); }
+    pub fn make_initial_cipher(&mut self, cid: &Buf<'_>, server: bool, force: bool) -> RlsResult<()> {
+        if !self.conn.recv_cipher.is_null() && !self.conn.send_cipher.is_null() & !force { return Ok(()); }
+        println!("11111");
         self.conn.derived.init(&CipherSuite::TLS_AES_128_GCM_SHA256);
         #[cfg(feature = "log")]
         trace!("[QUIC] MakeCipher dcid={:?}", cid);
@@ -110,11 +111,13 @@ impl QUICConnection {
             iv: recv_iv.to_vec(),
             hp: recv_hp_key.to_vec(),
         };
+        self.current = 0;
         Ok(())
     }
 
     ///update sample cipher
     pub fn make_sample_cipher(&mut self, server: bool) -> RlsResult<()> {
+        println!("{:?}", self.conn.cipher_suite);
         let cipher = match self.conn.cipher_suite.cipher() {
             CipherType::AES_128_GCM => CipherType::AES_128_ECB,
             CipherType::AES_256_GCM => CipherType::AES_256_ECB,
@@ -193,6 +196,7 @@ impl QUICConnection {
                 self.conn.recv_cipher.set_iv(Iv::new(&self.app_key.iv, vec![]));
                 self.current = 2;
             }
+            _ => return Err("invalid packet type".into())
         }
         let mut mask = self.recv_sample.encrypt(sample)?;
         mask.truncate(5);
@@ -215,6 +219,7 @@ impl QUICConnection {
 
 
     pub fn build_message(&mut self, mut packet: QUICPacket, mut frames: Vec<QUICFrame<'_>>, buffer: &mut Buffer) -> RlsResult<(Range<usize>, &[u8])> {
+        println!("send: {}", packet.num);
         if packet.padding_size() != 0 {
             frames.push(QUICFrame::Padding(packet.padding_size()));
         }
@@ -291,9 +296,9 @@ mod tests {
 
     #[test]
     fn test_quic_read() {
-        let mut conn = QUICConnection::new(TlsSession::default(), None);
+        let mut conn = QUICConnection::new(TlsSession::default(), None, true);
         let cid = Buf::Vec(hex::decode("5826e10f9e47274a").unwrap());
-        conn.make_initial_cipher(&cid, true).unwrap();
+        conn.make_initial_cipher(&cid, true, false).unwrap();
         let mut buffer = QUICBuffer::default();
         let raw = hex::decode("cd00000001085826e10f9e47274a000044d0993ab805680e67b4ea7ae47bc5e56b20d8db153d61b499345f4866e3a0132fc87837f6306c971d0d6d6fdf05c48400d650e7de4a63bbc120056e8d9db3ae75c9132d33e6be90a660dc9b0761af9aa5c559d8ffd8970ce50962000097fc4ca9ddc77b791986574e0126fd2edbd9ca847d44d0bd07f24acd47e36a40c29bb47df3dc67db936417c321f666f752c9614f661da188b6fd08bd4a9fb7b2953d359e56808190d504ab0a716af80a0d3fe8888260e4b47d0a0eeae4180eb8faa737d58f3dd61002439bb72b96cf2ce31abe9e532461c47bcf7140d0999f62dd689aa60c287725f5d459b9342ed75f2b43c8328fd7f67c59bd45aceca52800e131a86c4fd25cf60c6f3fc28ab8bae30bf0842522fccf6bd9a74caf90726d667512a90c0235a55b0a991767195c36dcadd569c67aecad1209e9015f867b52789ba0667c30c9500ccc10cc8cebef6263cd74a051f39ece3468274ec53f0604f207d8ee631cad74d185e262c3133f9af955e7d4bb432069940e1e0159e15ab476ed22f3382efc51450fb28d38370e0626a9070f26be69a7cd40a5e71523b7df30186e87a8de2034974eefaebb5ed8216cec13898bcadba5cf9141b4da2161662302176af658b6aef4e5f1d2a026d69d2f9dffaad2cf79b5f4a7b3aead97ad1fe59b195270ef98aa30ac6022dfc6c33afeb87dd0129e701d7b19f7ccd83e7141bfe15ccd28b2b83fcd39577170e72176220b182f0956b4b7fe22d802491a8403dad869116dded38535edc4450d86e3aa77fe8bc6dde380d3bd3f694b2ef27879c48eb00dbf480aaf798b18e7853b841e519a439511b6e90d870b957b051ac6817947060fac8d6add3218d0af1ccbe36193361b8949b820c30b554e9ca66a48903fc5db703b0c893c761abe0603dbebeb616bc39623848536335c491ab002e5f65990577c33d6ac47433dff60c189470135c07576543ecf1ecb90e6db893489a751df1502891d9b484b1995d322f4da7bdf062f50b5aa9d28d0f4b64fdc2e21778d9ce2944a9bfe2e1eaadac0a79b0026452ecb76b9abc94f6c79f5d9ebc36f9d5294d8ea9d4219b06c1c3dfa8101f36494c32f4b814719408c7bafeaaa66c86bb119b95dda3058a59609c284ed10ef4f5338a50da530583b3e93b8a64929a206b9b4ed1b542726abe4d63e5e9bcd869ffeff32d3e88eb44140149e0d3488a6a70351042f6ff4cb5f501e10178ce2b3a9e34d397918d6cbb8a41dbea0c9cdafa8a033db3335180539e115e8b4a66f5fc3638a9d0f95cedcfb2188aaff600e32a6ed418d01f89cf83ed92e0bef3dbd3e520c7e4811519edb437cc202ea83e089dd21e65cc726f509830ce6cc43b9055525e2e92d1b7859681172f6c89b9e9034d1880f7a9b879959ed493bd28cfc65b669498339b31c4728a06de924710f8a81b9a16dc9d45873ae200285ef71ff6f07a5ee30f93d04ac47a2f40676dce6d45b32aedc8abc0216e4c20a53821f74114a51bb1a79e77c972aab80e52ae2a0724979961d70c653003a07b03e062550cf8feddde9285066632a6b5932d4812e2473c362e0bc08e4246dd151e6aba41fb6cc80038f8a1c869cfff0f3de9d809446eae5a680185d87c0a1cc9875cc144ea31a4bd02af8eb6bb5315749def35756565400ae1cf6e470c6fb06a8927b8f2c8ccef65dd7cfdf8a3eef96f284018d823e25c4bf27137d0104f32358c8c975072d8f24b7d429232fe6").unwrap();
         decode(&mut conn, &raw, &mut buffer);
@@ -305,9 +310,9 @@ mod tests {
         assert!(message.is_ok());
         println!("{:#?}", message);
 
-        let mut conn = QUICConnection::new(TlsSession::default(), None);
+        let mut conn = QUICConnection::new(TlsSession::default(), None, true);
         let cid = Buf::Vec(hex::decode("5826e10f9e47274a").unwrap());
-        conn.make_initial_cipher(&cid, false).unwrap();
+        conn.make_initial_cipher(&cid, false, false).unwrap();
         buffer.reset();
         let raw = hex::decode("c900000001000818c8588d0880882d004016b3948a9a3e9b16341cb4b0b03d2b36554573afe3f81f").unwrap();
         decode(&mut conn, &raw, &mut buffer);

@@ -6,7 +6,6 @@ use log::warn;
 use std::ffi::CString;
 use std::ops::Range;
 use std::slice;
-use std::str::Utf8Error;
 
 #[allow(non_camel_case_types)]
 pub type u24 = u32;
@@ -230,9 +229,7 @@ pub trait ReadExt<'a> {
         Ok(unsafe { slice::from_raw_parts(ptr, len) })
     }
 
-    fn read_str<E>(&mut self, len: usize) -> Result<&'a str, E>
-    where
-        E: From<BufferError> + From<Utf8Error>,
+    fn read_str(&mut self, len: usize) -> Result<&'a str, BufferError>
     {
         let slice = self.read_slice(len)?;
         Ok(std::str::from_utf8(slice)?)

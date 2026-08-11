@@ -23,7 +23,7 @@ impl<'b, 'a: 'b> Domain<'a> {
                 }
                 _ => {
                     let len = reader.read_u8()? as usize;
-                    let item = reader.read_str::<DNSError>(len)?;
+                    let item = reader.read_str(len)?;
                     if reader.position() > pos {
                         pos += 1 + item.len();
                     }

@@ -9,9 +9,8 @@ pub use qpack::{QPackType, QPackEncode, QPackDecode};
 pub use item::PackItem;
 pub use error::HPackError;
 use reqtls::{BufferError, ReadExt, Reader, WriteExt};
-use crate::error::HlsResult;
 
-fn decode_integer(buf: &mut Reader) -> HlsResult<usize> {
+fn decode_integer(buf: &mut Reader) -> Result<usize, BufferError> {
     let mut res = 0;
     let mut shift = 0;
     loop {

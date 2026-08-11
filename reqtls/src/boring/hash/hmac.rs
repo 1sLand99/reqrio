@@ -117,6 +117,6 @@ mod tests {
     fn test_hmac() {
         let mut hmac = Hmac::new("test", HashType::Sha256).unwrap();
         hmac.update("sdf").unwrap();
-        println!("{:?}", hmac.finalize().unwrap());
+        assert_eq!(hmac.finalize().unwrap(), [46, 10, 163, 88, 247, 49, 205, 241, 36, 183, 31, 251, 41, 30, 250, 112, 102, 212, 10, 5, 160, 216, 253, 169, 25, 107, 69, 152, 44, 211, 155, 23]);
     }
 }

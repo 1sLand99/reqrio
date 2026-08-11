@@ -170,7 +170,6 @@ mod tests {
         assert_eq!(table.index, 1);
         let item = table.index(0, &0, true);
         assert!(item.is_some());
-        println!("{:?}", table.sec_reqs);
     }
 
     #[test]

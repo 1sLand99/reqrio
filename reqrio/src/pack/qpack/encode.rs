@@ -53,7 +53,6 @@ impl QPackEncode {
         let name = name.as_ref();
         let value = value.as_ref();
         let item = self.table.get_by_name_value(name, value, sid, true);
-        println!("{:?}", item);
         match item {
             None => match self.table.get_by_name(name, typ) {
                 Some((index, item)) => {

@@ -2,6 +2,7 @@ use std::array::TryFromSliceError;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
+use std::str::Utf8Error;
 
 #[derive(Debug)]
 pub enum BufferError {
@@ -20,6 +21,7 @@ pub enum BufferError {
     Nullptr,
     ResizeFail { current: usize, new: usize },
     SliceConvertError(TryFromSliceError),
+    Utf8Error(Utf8Error),
 }
 
 impl Display for BufferError {
@@ -39,6 +41,7 @@ impl Display for BufferError {
             BufferError::ResizeFail { current, new } => write!(f, "resize to {} fail from {}", new, current),
             BufferError::InvalidQUICVariant => write!(f, "Invalid variant"),
             BufferError::SliceConvertError(er) => write!(f, "SliceConvertError({})", er),
+            BufferError::Utf8Error(e) => write!(f, "Utf8Error({})", e),
         }
     }
 }
@@ -48,5 +51,11 @@ impl Error for BufferError {}
 impl From<TryFromSliceError> for BufferError {
     fn from(value: TryFromSliceError) -> Self {
         BufferError::SliceConvertError(value)
+    }
+}
+
+impl From<Utf8Error> for BufferError {
+    fn from(value: Utf8Error) -> Self {
+        BufferError::Utf8Error(value)
     }
 }

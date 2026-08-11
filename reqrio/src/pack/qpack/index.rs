@@ -1,5 +1,4 @@
 use crate::pack::qpack::QPackType;
-use crate::HlsError;
 use reqtls::{BufferError, ReadExt, Reader, WriteExt};
 
 #[derive(Debug)]
@@ -174,7 +173,7 @@ pub enum Index {
 
 impl Index {
     ///stream decode
-    pub fn from_reader(typ: QPackType, read: bool, reader: &mut Reader) -> Result<Index, HlsError> {
+    pub fn from_reader(typ: QPackType, read: bool, reader: &mut Reader) -> Result<Index, BufferError> {
         match typ {
             QPackType::Stream => {
                 let typ = reader.read_u8()?;

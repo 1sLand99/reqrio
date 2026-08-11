@@ -18,11 +18,11 @@ pub struct QUICStreamS {
     tw_buffer: Buffer,
     conn: QUICConnection,
     sent: HashMap<u64, Range<usize>>,
-    largest_ack: u64,
 
     addr: SocketAddr,
     seq: u64,
     dcid: Buf<'static>,
+    token: Buf<'static>,
 
     handshake_finish: bool,
     encrypted_channel: bool,
@@ -33,7 +33,6 @@ pub struct QUICStreamS {
 struct QUICAck<'a> {
     flag: QUICFlag,
     conn: &'a mut QUICConnection,
-    largest_ack: &'a mut u64,
     uw_buffer: &'a mut Buffer,
     dcid: &'a Buf<'static>,
     seq: &'a mut u64,
@@ -42,7 +41,7 @@ struct QUICAck<'a> {
 
 impl<'a> QUICAck<'a> {
     pub fn build(&mut self) -> HlsResult<&[u8]> {
-        println!("{:?} {}", self.conn.recv_nums(), self.largest_ack);
+        // println!("{:?} {}", self.conn.recv_nums(), self.largest_ack);
         let max_range = self.conn.recv_nums().max_range().ok_or("call recv first")?;
         let mut ack_range = Vec::with_capacity(self.conn.recv_nums().count() - 1);
         let remain = self.conn.recv_nums().count() - 1;
@@ -57,11 +56,11 @@ impl<'a> QUICAck<'a> {
         let frame = QUICFrame::Ack {
             largest_acknowledged: max_range.end,
             ack_delay: 1,
-            ack_range_count: self.conn.recv_nums().count() - 1,
+            ack_range_count: 0, //self.conn.recv_nums().count() - 1,
             first_ack_range: max_range.end - max_range.start,
-            ack_range,
+            ack_range: vec![],
         };
-        println!("send_ack={:#?}", frame);
+        // println!("send_ack={:#?}", frame);
         let packet = QUICPacket::new_ack(self.flag, self.dcid.as_ref(), *self.seq, frame.len());
         let offset = self.uw_buffer.offset();
         let (_, filled) = self.conn.build_message(packet, vec![frame], self.uw_buffer)?;
@@ -83,23 +82,33 @@ impl QUICStreamS {
             frame_buffer: QUICBuffer::with_capacity(16438),
             tr_buffer: Buffer::with_capacity(1500),
             tw_buffer: Buffer::with_capacity(16438),
-            conn: QUICConnection::new(session, key_log),
+            conn: QUICConnection::new(session, key_log, config.verify),
             sent: HashMap::new(),
-            largest_ack: 0,
             addr: remote_addr,
             seq: 1,
             dcid: Buf::Vec(rand::random::<[u8; 8]>().to_vec()),
+            token: Buf::Ref(&[]),
             handshake_finish: false,
             encrypted_channel: false,
             hello_retrying: false,
         };
-        stream.conn.make_initial_cipher(&stream.dcid, false)?;
+        stream.conn.make_initial_cipher(&stream.dcid, false, false)?;
         stream.handle_client_hello(&mut config)?;
         stream.tw_buffer.used_empty(5);
         stream.write_buffer(PacketType::Initial, None)?;
         let mut config = Config::Client(config);
         while !stream.handshake_finish {
-            stream.read_next_packet(false)?;
+            if let Err(e) = stream.read_next_packet(false) {
+                if e.to_string().contains("quic retry") {
+                    stream.tw_buffer.reset();
+                    stream.conn.make_initial_cipher(&stream.dcid, false, true)?;
+                    stream.handle_client_hello(config.client_mut().ok_or("missing client config")?)?;
+                    stream.tw_buffer.used_empty(5);
+                    stream.write_buffer(PacketType::Initial, None)?;
+                    continue;
+                }
+                return Err(e);
+            };
             let Some(mut reader) = stream.frame_buffer.flush()else { continue };
             let mut read_len = 0;
             while let Ok(message) = Message::from_reader(&mut reader, &RecordType::HandShake, KeyExchangeAlg::NULL, &Version::TLS_1_3) {
@@ -113,13 +122,18 @@ impl QUICStreamS {
                     write_buffer: &mut stream.tw_buffer,
                     conn: stream.conn.tls_conn(),
                 }, Some(&mut config), message).unwrap();
-                if is_server_hello {
+                if is_server_hello && !stream.hello_retrying {
                     stream.conn.make_sample_cipher(false)?;
                 }
             }
             stream.frame_buffer.read_size(read_len);
             if !stream.tw_buffer.is_empty() {
-                stream.write_buffer(PacketType::Handshake, None)?;
+                if stream.hello_retrying {
+                    stream.tw_buffer.used_empty(5);
+                    println!("{:#?}", Message::from_reader(&mut Reader::from_slice(stream.tw_buffer.filled()), &RecordType::HandShake, KeyExchangeAlg::NULL, &Version::TLS_1_3));
+                }
+                println!("{:?}", stream.tw_buffer.filled());
+                stream.write_buffer(if stream.hello_retrying { PacketType::Initial } else { PacketType::Handshake }, None)?;
             }
         }
         stream.conn.tls_conn().make_cipher(false)?;
@@ -127,10 +141,11 @@ impl QUICStreamS {
         Ok(stream)
     }
 
-    fn build_packet<'a>(seq: u64, dcid: &'a Buf<'a>, typ: PacketType, pd_len: usize) -> QUICPacket<'a> {
+    fn build_packet<'a>(seq: u64, dcid: &'a Buf<'a>, token: &'a Buf<'a>, typ: PacketType, pd_len: usize) -> QUICPacket<'a> {
         match typ {
-            PacketType::Initial | PacketType::Handshake => QUICPacket::new_long(typ, seq, pd_len, dcid.as_ref()),
+            PacketType::Initial | PacketType::Handshake => QUICPacket::new_long(typ, seq, pd_len, dcid.as_ref(), token),
             PacketType::ShortHeader => QUICPacket::new_short(typ, seq, pd_len, dcid.as_ref()),
+            PacketType::Retry => unreachable!(),
         }
     }
 
@@ -138,6 +153,7 @@ impl QUICStreamS {
         let mut frames = vec![QUICFrame::Ping];
         let mut pd_len = 1;
         let buf = if let Some(buf) = buf { buf } else { self.tw_buffer.filled() };
+        println!("{:?}", buf);
         for (i, chunk) in buf.chunks(350).enumerate() {
             let frame = QUICFrame::Crypto {
                 offset: i * 350,
@@ -146,7 +162,7 @@ impl QUICStreamS {
             pd_len += frame.len();
             frames.push(frame);
             if pd_len + 350 >= 1210 {
-                let packet = Self::build_packet(self.seq, &self.dcid, typ, mem::take(&mut pd_len));
+                let packet = Self::build_packet(self.seq, &self.dcid, &self.token, typ, mem::take(&mut pd_len));
                 let (offset, filled) = self.conn.build_message(packet, mem::take(&mut frames), &mut self.uw_buffer)?;
                 self.socket.send_to(filled, self.addr).unwrap();
                 self.sent.insert(self.seq, offset);
@@ -154,7 +170,7 @@ impl QUICStreamS {
             }
         }
         if !frames.is_empty() {
-            let packet = Self::build_packet(self.seq, &self.dcid, typ, mem::take(&mut pd_len));
+            let packet = Self::build_packet(self.seq, &self.dcid, &self.token, typ, mem::take(&mut pd_len));
             let (offset, filled) = self.conn.build_message(packet, mem::take(&mut frames), &mut self.uw_buffer)?;
             self.socket.send_to(filled, self.addr).unwrap();
             self.sent.insert(self.seq, offset);
@@ -165,7 +181,7 @@ impl QUICStreamS {
     }
 
     pub fn read_next_packet(&mut self, server: bool) -> HlsResult<Vec<QUICFrame<'_>>> {
-        if self.ur_buffer.is_empty() {
+        if self.ur_buffer.is_empty() || self.ur_buffer.filled()[0] == 0 {
             self.ur_buffer.reset();
             let len = self.socket.recv(self.ur_buffer.unfilled()).unwrap();
             if len == 0 { return Err(HlsError::PeerClosedConnection); }
@@ -173,8 +189,15 @@ impl QUICStreamS {
         }
         let mut reader = Reader::from_slice(self.ur_buffer.filled());
         let mut packet = QUICPacket::from_reader(&mut reader).unwrap();
+        // println!("{:#?}", packet);
         if packet.flag().packet_type() == PacketType::Initial {
-            self.conn.make_initial_cipher(packet.dc_id(), server).unwrap();
+            self.conn.make_initial_cipher(packet.dc_id(), server, false).unwrap();
+        } else if packet.flag().packet_type() == PacketType::Retry {
+            println!("{:#?}", packet);
+            self.token = Buf::Vec(packet.token().to_vec());
+            self.dcid = Buf::Vec(packet.sc_id().to_vec());
+            self.ur_buffer.reset();
+            return Err("quic retry".into());
         }
         if self.dcid.as_ref() != packet.sc_id().as_ref() && !packet.sc_id().as_ref().is_empty() {
             self.dcid = Buf::Vec(packet.sc_id().as_ref().to_vec());
@@ -183,6 +206,7 @@ impl QUICStreamS {
         let len = match self.conn.read_message(&mut packet, &mut reader, rb) {
             Ok(len) => len,
             Err(_e) => {
+                // println!("{:#?}", packet);
                 #[cfg(feature = "log")]
                 warn!("DecryptError: err={}; num={}; typ: {:?}", _e, packet.num(), packet.flag().packet_type());
                 self.ur_buffer.reset();
@@ -195,7 +219,7 @@ impl QUICStreamS {
         let mut need_ack = false;
         while reader.unread_len() > 0 {
             let frame = QUICFrame::from_reader(&mut reader).unwrap();
-            println!("{:#?}", frame);
+            // println!("{:#?}", frame);
             if frame.need_ack() { need_ack = true; }
             match frame {
                 QUICFrame::Ack { largest_acknowledged, first_ack_range, .. } => {
@@ -215,7 +239,6 @@ impl QUICStreamS {
             let mut ack = QUICAck {
                 flag: *packet.flag(),
                 conn: &mut self.conn,
-                largest_ack: &mut self.largest_ack,
                 uw_buffer: &mut self.uw_buffer,
                 dcid: &self.dcid,
                 seq: &mut self.seq,
@@ -228,7 +251,7 @@ impl QUICStreamS {
 
     pub fn write_stream(&mut self, streams: Vec<QUICFrame>) -> HlsResult<()> {
         let pd_len = streams.iter().map(|s| s.len()).sum::<usize>();
-        let mut packet = Self::build_packet(self.seq, &self.dcid, PacketType::ShortHeader, pd_len);
+        let mut packet = Self::build_packet(self.seq, &self.dcid, &self.token, PacketType::ShortHeader, pd_len);
         packet.encode()?;
         let (offset, encrypted) = self.conn.build_message(packet, streams, &mut self.uw_buffer).unwrap();
         self.socket.send_to(encrypted, self.addr)?;

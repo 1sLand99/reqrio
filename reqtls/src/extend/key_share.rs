@@ -56,7 +56,6 @@ pub struct KeyShare<'a> {
 
 impl<'a> KeyShare<'a> {
     pub fn from_reader(mut reader: Reader<'a>, server: bool) -> RlsResult<KeyShare<'a>> {
-        // println!("{:x?}", bytes);
         if !server { reader.read_u16()?; }
         let mut entries = Vec::with_capacity(reader.unread_len());
         while reader.unread_len() > 0 {

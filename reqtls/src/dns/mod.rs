@@ -85,7 +85,7 @@ impl<'b, 'a: 'b> SvcParam<'a> {
                 SvcType::ALPN => {
                     let len = reader.read_u8()? as usize;
                     value_len -= 1 + len;
-                    SvcParamValue::ALPN(reader.read_str::<DNSError>(len)?)
+                    SvcParamValue::ALPN(reader.read_str(len)?)
                 }
                 SvcType::IPV4 => {
                     value_len -= 4;

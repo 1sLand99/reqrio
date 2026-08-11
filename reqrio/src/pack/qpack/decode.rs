@@ -3,9 +3,9 @@ use super::table::Table;
 use super::QPackType;
 use crate::error::HlsResult;
 use crate::pack::{huffman, PackItem};
-use crate::{Header, HlsError};
 #[cfg(feature = "log")]
 use crate::warn;
+use crate::Header;
 use reqtls::{Buffer, ReadExt, Reader};
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -34,14 +34,14 @@ impl QPackDecode {
         }
         match huffman {
             true => Ok(String::from_utf8(huffman::decode(reader.read_slice(len)?)?)?),
-            false => Ok(reader.read_str::<HlsError>(len)?.to_string())
+            false => Ok(reader.read_str(len)?.to_string())
         }
     }
 
     fn decode_new_item(&mut self, name_len: usize, huffman: bool, sid: &u64, req_insert: bool, reader: &mut Reader) -> HlsResult<Cow<'_, PackItem>> {
         let name = match huffman {
             true => String::from_utf8(huffman::decode(reader.read_slice(name_len)?)?)?,
-            false => reader.read_str::<HlsError>(name_len)?.to_string()
+            false => reader.read_str(name_len)?.to_string()
         };
         let value = self.decode_literal(reader)?;
         let item = PackItem::new(name, value);
@@ -55,7 +55,6 @@ impl QPackDecode {
 
     pub fn decode_next(&mut self, typ: QPackType, sid: &u64, reader: &mut Reader) -> HlsResult<Cow<'_, PackItem>> {
         let index = Index::from_reader(typ, self.sid_read.contains(sid), reader)?;
-        // println!("{:?}", index);
         match index {
             Index::DynamicTableCapacity(size) => {
                 self.table.update_table_size(size);
@@ -176,9 +175,9 @@ impl QPackDecode {
 
 #[cfg(test)]
 mod tests {
-    use crate::{hex, HttpStatus, Method, Response};
     use crate::pack::qpack::decode::QPackDecode;
     use crate::pack::qpack::QPackType;
+    use crate::{hex, HttpStatus, Method, Response};
     use reqtls::{Buffer, Reader, WriteExt};
 
     #[test]
@@ -217,7 +216,6 @@ mod tests {
         assert_eq!(item.name, "duplicate");
         assert_eq!(item.value, "0");
         assert_eq!(decoder.table.dynamic_table().item_count(), 4);
-        // println!("{:?}", item);
 
 
         let data = hex::decode("03811011").unwrap();

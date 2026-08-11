@@ -78,7 +78,7 @@ impl<'a> CipherEncodeBuffer<'a> {
     }
 
     pub(crate) fn new_quic(buffer: &'a mut [u8], packet: &QUICPacket, suite: &'static CipherSuite) -> CipherEncodeBuffer<'a> {
-        let (head, payload) = buffer.split_at_mut(packet.hdr_len);
+        let (head, payload) = buffer.split_at_mut(packet.hdr_len());
         CipherEncodeBuffer {
             suite,
             head,
