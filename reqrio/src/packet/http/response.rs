@@ -53,7 +53,9 @@ impl Response {
                     let res = if reader.unread_len() == 0 && reader.position() != 0 {
                         coder.flush(&mut self.raw)
                     } else {
-                        coder.decompress(&mut reader, &mut self.raw)
+                        let mut res = coder.decompress(&mut reader, &mut self.raw);
+                        if coder.finish() { res = coder.flush(&mut self.raw); }
+                        res
                     };
                     match res {
                         Ok(_) => break,
