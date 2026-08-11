@@ -14,7 +14,7 @@ const LOGER: Logger = Logger {
 #[cfg(feature = "log")]
 fn test_log() {
     set_logger(&LOGER).unwrap();
-    set_max_level(LevelFilter::Debug);
+    set_max_level(LevelFilter::Trace);
 }
 
 const REVERSED: [u16; 15] = [0x0a0a, 0x1a1a, 0x2a2a, 0x3a3a, 0x4a4a, 0x5a5a, 0x6a6a, 0x7a7a, 0x8a8a, 0x9a9a, 0xaaaa, 0xbaba, 0xcaca, 0xeaea, 0xfafa];

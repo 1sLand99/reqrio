@@ -97,8 +97,6 @@ impl DeflateStream {
 
 impl<W: WriteExt> StreamDecode<W> for DeflateStream {
     fn decompress(&mut self, reader: &mut Reader<'_>, out: &mut W) -> Result<(), CodingError> {
-        #[cfg(feature = "log")]
-        trace!("gzip: {:?}", &reader.inner()[reader.position()..]);
         let mut unread_len = reader.unread_len();
         let mut out_len = out.unfilled_len();
         let state = unsafe {

@@ -5,7 +5,7 @@ use crate::reader::ReadExt;
 use crate::request::RequestBuffer;
 use crate::{Body, Fingerprint, FrameFlag, FrameType, H2Frame, H2Setting, Header, Response};
 #[cfg(feature = "log")]
-use crate::{warn, debug};
+use crate::{warn, trace};
 use reqtls::{u24, Buffer, Reader, WriteExt};
 use std::collections::HashMap;
 use crate::stream::Stream;
@@ -40,17 +40,23 @@ impl HTTP2StreamS {
         })
     }
 
+    fn flush(stream: &mut Stream, buffer: &mut Buffer) -> HlsResult<()> {
+        if buffer.is_empty() { return Ok(()); }
+        stream.sync_write(buffer.filled())?;
+        buffer.reset();
+        Ok(())
+    }
+
     fn send_inner<'a>(&'a mut self, header: &Header, body: &Body<'_>, mut param: HeaderParam<'a>) -> HlsResult<u64> {
         param.hpack_encoder = Some(&mut self.encoder);
         param.h_sid = &self.sid;
         let mut request = RequestBuffer::new(header, body, param)?;
+        self.write_buffer.reset();
         loop {
-            self.write_buffer.reset();
             let len = request.read(&mut self.write_buffer)?;
             if len == 0 { break; }
-            self.stream.sync_write(self.write_buffer.filled())?;
+            Self::flush(&mut self.stream, &mut self.write_buffer)?;
         }
-        self.write_buffer.reset();
         Ok(self.sid as u64)
     }
 
@@ -81,7 +87,7 @@ impl HTTP2StreamS {
     pub fn recv(&mut self, responses: &mut HashMap<u64, Response>) -> HlsResult<Vec<u64>> {
         let frame_size = self.read_next_frame()?;
         let res = self.handle_frame(frame_size, responses);
-        if !self.write_buffer.is_empty() { self.stream.sync_write(self.write_buffer.filled())?; }
+        Self::flush(&mut self.stream, &mut self.write_buffer)?;
         if self.read_buffer.used_empty(frame_size) { self.read_buffer.reset(); };
         res
     }
@@ -120,7 +126,7 @@ trait H2Handle {
         let sid = frame.stream_identifier() as u64;
         let mut res = vec![];
         #[cfg(feature = "log")]
-        debug!("{}-{:?}-{:?}-{:?}", sid, frame.frame_type(), frame.flag().end_stream(), responses.keys());
+        trace!("[HTTP2] recv frame: sid: {}; typ={:?}; fin={}; keys={:?}", sid, frame.frame_type(), frame.flag().end_stream(), responses.keys());
         match frame.frame_type() {
             FrameType::Data => {
                 let resp = responses.get_mut(&sid).ok_or("resp not inited")?;
@@ -191,18 +197,23 @@ impl HTTP2StreamA {
             increment: 0,
         })
     }
+    async fn flush(stream: &mut Stream, buffer: &mut Buffer) -> HlsResult<()> {
+        if buffer.is_empty() { return Ok(()); }
+        stream.async_write(buffer.filled()).await?;
+        buffer.reset();
+        Ok(())
+    }
 
     pub async fn send_inner(&mut self, header: &Header, body: &Body<'_>, mut param: HeaderParam<'_>) -> HlsResult<u64> {
         param.hpack_encoder = Some(&mut self.encoder);
         param.h_sid = &self.sid;
         let mut request = RequestBuffer::new(header, body, param)?;
+        self.write_buffer.reset();
         loop {
-            self.write_buffer.reset();
             let len = request.read(&mut self.write_buffer)?;
             if len == 0 { break; }
-            self.stream.async_write(self.write_buffer.filled()).await?;
+            Self::flush(&mut self.stream, &mut self.write_buffer).await?;
         }
-        self.write_buffer.reset();
         Ok(self.sid as u64)
     }
 
@@ -233,7 +244,7 @@ impl HTTP2StreamA {
     pub async fn recv(&mut self, responses: &mut HashMap<u64, Response>) -> HlsResult<Vec<u64>> {
         let frame_size = self.read_next_frame().await?;
         let res = self.handle_frame(frame_size, responses);
-        if !self.write_buffer.is_empty() { self.stream.async_write(self.write_buffer.filled()).await?; }
+        Self::flush(&mut self.stream, &mut self.write_buffer).await?;
         if self.read_buffer.used_empty(frame_size) { self.read_buffer.reset(); };
         res
     }
