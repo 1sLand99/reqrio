@@ -1,5 +1,5 @@
+use crate::{Buffer, BufferError, Reader, WriteExt};
 use std::ops::Range;
-use crate::{Buf, Buffer, BufferError, Reader, WriteExt};
 
 #[derive(Default)]
 pub struct QUICBuffer {
@@ -17,12 +17,12 @@ impl QUICBuffer {
         }
     }
 
-    pub fn write_at(&mut self, offset: usize, buf: Buf<'_>) -> Result<(), BufferError> {
+    pub fn write_at(&mut self, offset: usize, buf: &[u8]) -> Result<(), BufferError> {
         if offset == 0 {
             self.current = 0..0;
             if self.remains.is_empty() { self.reset() }
         }
-        self.buffer.write_slice_in(offset, buf.as_ref())?;
+        self.buffer.write_slice_in(offset, buf)?;
         self.buffer.add_len(buf.len());
         let range = offset..offset + buf.len();
         if self.current.end == range.start {

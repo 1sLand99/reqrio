@@ -1,56 +1,19 @@
 use crate::buffer::{CipherDecodeBuffer, CipherEncodeBuffer};
 use crate::error::RlsResult;
 use crate::extend::Aead;
-use crate::hash::HashError;
+use crate::key::Key;
 use crate::message::{QUICFrame, QUICPacket};
+use crate::quic::QUICRange;
 use crate::suite::iv::Iv;
 use crate::{Buf, Buffer, BufferError, Cipher, CipherSuite, CipherType, Connection, HashType, PacketType, Reader, RlsError, TlsSession, Version, WriteExt};
 #[cfg(feature = "log")]
 use log::trace;
-use std::error::Error;
-use std::fmt::{Display, Formatter};
 use std::ops::Range;
 use std::path::PathBuf;
 use std::slice;
-use std::str::Utf8Error;
-use crate::key::Key;
-use crate::quic::QUICRange;
 
-#[derive(Debug)]
-pub enum QUICError {
-    InvalidVariant,
-    Buffer(BufferError),
-    Hash(HashError),
-    Utf8(Utf8Error),
-}
 
-impl Error for QUICError {}
-
-impl Display for QUICError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl From<BufferError> for QUICError {
-    fn from(e: BufferError) -> Self {
-        QUICError::Buffer(e)
-    }
-}
-
-impl From<HashError> for QUICError {
-    fn from(e: HashError) -> Self {
-        QUICError::Hash(e)
-    }
-}
-
-impl From<Utf8Error> for QUICError {
-    fn from(e: Utf8Error) -> Self {
-        QUICError::Utf8(e)
-    }
-}
-
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct QUICKey {
     key: Vec<u8>,
     iv: Vec<u8>,
@@ -83,11 +46,14 @@ impl QUICConnection {
         }
     }
 
+    pub fn quic_retry(&mut self, session: TlsSession, key_log: Option<PathBuf>, verify: bool) {
+        self.conn = Connection::new_client(session, key_log, true).with_verify(verify);
+    }
+
 
     /// [rfc9001 5.2](https://datatracker.ietf.org/doc/html/rfc9001#name-initial-secrets)
     pub fn make_initial_cipher(&mut self, cid: &Buf<'_>, server: bool, force: bool) -> RlsResult<()> {
         if !self.conn.recv_cipher.is_null() && !self.conn.send_cipher.is_null() & !force { return Ok(()); }
-        println!("11111");
         self.conn.derived.init(&CipherSuite::TLS_AES_128_GCM_SHA256);
         #[cfg(feature = "log")]
         trace!("[QUIC] MakeCipher dcid={:?}", cid);
@@ -117,13 +83,8 @@ impl QUICConnection {
 
     ///update sample cipher
     pub fn make_sample_cipher(&mut self, server: bool) -> RlsResult<()> {
-        println!("{:?}", self.conn.cipher_suite);
-        let cipher = match self.conn.cipher_suite.cipher() {
-            CipherType::AES_128_GCM => CipherType::AES_128_ECB,
-            CipherType::AES_256_GCM => CipherType::AES_256_ECB,
-            CipherType::CHACHA20_POLY1305 => CipherType::CHACHA20_POLY1305,
-            _ => unreachable!()
-        };
+        println!("{:?}-{}", self.conn.cipher_suite, self.current);
+        let cipher = self.get_cipher(self.conn.cipher_suite.cipher());
         self.send_sample = Cipher::new(cipher);
         self.recv_sample = Cipher::new(cipher);
         match server {
@@ -160,7 +121,17 @@ impl QUICConnection {
                 }
             }
         }
+        println!("{:?}", self.handshake_key);
         Ok(())
+    }
+
+    fn get_cipher(&self, cipher: CipherType) -> CipherType {
+        match cipher {
+            CipherType::AES_128_GCM => CipherType::AES_128_ECB,
+            CipherType::AES_256_GCM => CipherType::AES_256_ECB,
+            CipherType::CHACHA20_POLY1305 => CipherType::CHACHA20_POLY1305,
+            _ => unreachable!()
+        }
     }
 
     ///[rfc9001](https://datatracker.ietf.org/doc/html/rfc9001#name-header-protection-sample)
@@ -182,6 +153,7 @@ impl QUICConnection {
             (_, PacketType::Handshake) => {
                 let cipher_suite = self.conn.cipher_suite;
                 let aead = cipher_suite.aead().ok_or(RlsError::AeadNone)?;
+                self.recv_sample = Cipher::new(self.get_cipher(cipher_suite.cipher()));
                 self.recv_sample.set_secret_key(self.handshake_key.hp.as_slice(), None);
                 self.conn.recv_cipher.set_key(self.handshake_key.key.as_ref(), &[], &aead, cipher_suite.hash())?;
                 self.conn.recv_cipher.set_iv(Iv::new(&self.handshake_key.iv, vec![]));
@@ -189,8 +161,10 @@ impl QUICConnection {
             }
             (2, PacketType::ShortHeader) => {}
             (_, PacketType::ShortHeader) => {
+                if self.app_key.hp.is_empty() { return Err("secret not derived".into()); }
                 let cipher_suite = self.conn.cipher_suite;
                 let aead = cipher_suite.aead().ok_or(RlsError::AeadNone)?;
+                self.recv_sample = Cipher::new(self.get_cipher(cipher_suite.cipher()));
                 self.recv_sample.set_secret_key(self.app_key.hp.as_slice(), None);
                 self.conn.recv_cipher.set_key(self.app_key.key.as_ref(), &[], &aead, cipher_suite.hash())?;
                 self.conn.recv_cipher.set_iv(Iv::new(&self.app_key.iv, vec![]));
@@ -198,7 +172,7 @@ impl QUICConnection {
             }
             _ => return Err("invalid packet type".into())
         }
-        let mut mask = self.recv_sample.encrypt(sample)?;
+        let mut mask = self.recv_sample.encrypt(sample).unwrap();
         mask.truncate(5);
         packet.decode(&mask, reader)?;
         if buffer.len() < packet.payload.len() {
@@ -219,7 +193,6 @@ impl QUICConnection {
 
 
     pub fn build_message(&mut self, mut packet: QUICPacket, mut frames: Vec<QUICFrame<'_>>, buffer: &mut Buffer) -> RlsResult<(Range<usize>, &[u8])> {
-        println!("send: {}", packet.num);
         if packet.padding_size() != 0 {
             frames.push(QUICFrame::Padding(packet.padding_size()));
         }
@@ -270,6 +243,10 @@ impl QUICConnection {
     pub fn recv_nums(&self) -> &QUICRange {
         &self.recv_nums
     }
+
+    pub fn recv_nums_mut(&mut self) -> &mut QUICRange {
+        &mut self.recv_nums
+    }
 }
 
 
@@ -289,7 +266,7 @@ mod tests {
         while reader.unread_len() > 0 {
             let frame = QUICFrame::from_reader(&mut reader).unwrap();
             if let QUICFrame::Crypto { offset, value } = frame {
-                buffer.write_at(offset, value).unwrap();
+                buffer.write_at(offset, value.as_ref()).unwrap();
             }
         }
     }

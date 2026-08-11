@@ -37,6 +37,35 @@ pub struct QUICFlag {
 }
 
 impl QUICFlag {
+    pub fn new_long(typ: PacketType) -> Self {
+        QUICFlag {
+            long_header: true,
+            fixed_bit: false,
+            spin_bit: false,
+            packet_type: typ,
+            reserved: 0,
+            key_phase: false,
+            num_len: 0,
+        }
+    }
+
+    pub fn new_short(typ: PacketType) -> Self {
+        QUICFlag {
+            long_header: false,
+            fixed_bit: true,
+            spin_bit: false,
+            packet_type: typ,
+            reserved: 0,
+            key_phase: false,
+            num_len: 0,
+        }
+    }
+
+    pub fn with_fixed_bit(mut self, fix_bit: bool) -> Self {
+        self.fixed_bit = fix_bit;
+        self
+    }
+
     pub fn from_raw(v: u8) -> QUICFlag {
         let mut flag = QUICFlag {
             long_header: v & 0x80 == 0x80,

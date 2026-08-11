@@ -10,7 +10,7 @@ pub use item::PackItem;
 pub use error::HPackError;
 use reqtls::{BufferError, ReadExt, Reader, WriteExt};
 
-fn decode_integer(buf: &mut Reader) -> Result<usize, BufferError> {
+pub fn decode_integer(buf: &mut Reader) -> Result<usize, BufferError> {
     let mut res = 0;
     let mut shift = 0;
     loop {
@@ -22,7 +22,7 @@ fn decode_integer(buf: &mut Reader) -> Result<usize, BufferError> {
     Ok(res)
 }
 
-fn encode_integer<W: WriteExt>(writer: &mut W, mut value: usize) -> Result<(), BufferError> {
+pub fn encode_integer<W: WriteExt>(writer: &mut W, mut value: usize) -> Result<(), BufferError> {
     while value >= 128 {
         writer.write_u8(0b1000_0000 | value as u8)?;
         value >>= 7;

@@ -1,5 +1,5 @@
-use crate::connection::QUICError;
-use crate::{quic, Buf, BufferError, ReadExt, Reader, WriteExt};
+use crate::{Buf, BufferError, ReadExt, Reader, WriteExt};
+use crate::quic::{self, QUICError};
 
 #[repr(u16)]
 #[allow(non_camel_case_types)]
@@ -226,7 +226,7 @@ impl<'a> QUICFrame<'a> {
                 let len = quic::read_variant(reader).unwrap();
                 Ok(QUICFrame::NewToken(Buf::Ref(reader.read_slice(len).unwrap())))
             }
-            0x08..0x10 => {
+            0x08..=0x10 => {
                 let flag: QUICFrameFlag = typ.into();
                 let sid = quic::read_variant(reader).unwrap();
                 let offset = if flag.offset { quic::read_variant(reader).unwrap() } else { 0 };

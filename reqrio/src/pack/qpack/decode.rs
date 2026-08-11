@@ -64,7 +64,7 @@ impl QPackDecode {
                 idx_dyn,
                 index
             } => {
-                let index = if idx_dyn { self.base - index - 1 } else { index };
+                // let index = if idx_dyn { self.base - index - 1 } else { index };
                 let mut item = self.table.get(index, sid, idx_dyn, false).ok_or("indexed name fail")?.clone();
                 let value = self.decode_literal(reader)?;
                 item.set_value(value);

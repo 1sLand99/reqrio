@@ -1,8 +1,11 @@
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 pub use super::message::{AckRange, QUICFrame, QUICFrameFlag, QUICPacket};
-pub use crate::connection::{QUICBuffer, QUICConnection, QUICError};
+pub use crate::connection::{QUICBuffer, QUICConnection};
 use crate::{BufferError, ReadExt, Reader, WriteExt};
 use std::ops::Range;
-
+use std::str::Utf8Error;
+use crate::boring::HashError;
 
 pub fn read_variant(reader: &mut Reader) -> Result<usize, BufferError> {
     if reader.unread_len() == 0 { return Err(BufferError::Insufficient); }
@@ -83,6 +86,10 @@ impl QUICRange {
         let max = self.0.iter().map(|r| r.end).max()?;
         self.0.iter().find(|r| r.end == max)
     }
+    
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
 
     pub fn count(&self) -> usize {
         self.0.len()
@@ -96,6 +103,41 @@ impl QUICRange {
         self.0.push(max)
     }
 }
+
+#[derive(Debug)]
+pub enum QUICError {
+    InvalidVariant,
+    Buffer(BufferError),
+    Hash(HashError),
+    Utf8(Utf8Error),
+}
+
+impl Error for QUICError {}
+
+impl Display for QUICError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl From<BufferError> for QUICError {
+    fn from(e: BufferError) -> Self {
+        QUICError::Buffer(e)
+    }
+}
+
+impl From<HashError> for QUICError {
+    fn from(e: HashError) -> Self {
+        QUICError::Hash(e)
+    }
+}
+
+impl From<Utf8Error> for QUICError {
+    fn from(e: Utf8Error) -> Self {
+        QUICError::Utf8(e)
+    }
+}
+
 
 
 #[cfg(test)]

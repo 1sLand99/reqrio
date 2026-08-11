@@ -21,7 +21,7 @@ use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 use std::sync::PoisonError;
 use std::time::SystemTimeError;
-use crate::connection::QUICError;
+use crate::quic::QUICError;
 
 #[derive(Debug)]
 pub enum RlsError {

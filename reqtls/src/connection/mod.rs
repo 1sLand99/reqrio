@@ -13,13 +13,13 @@ use crate::error::{HandShakeError, RlsResult};
 use crate::key::{DerivedKey, Key, SecretKey, TlsSession};
 use crate::message::{CompressedCertificate, EncryptedExtension, HandshakeType};
 use crate::*;
+pub use buffer::QUICBuffer;
 #[cfg(feature = "log")]
 use log::debug;
+pub use quic::QUICConnection;
 use std::collections::HashMap;
 use std::mem;
 use std::path::PathBuf;
-pub use quic::{QUICError, QUICConnection};
-pub use buffer::QUICBuffer;
 
 pub struct Connection {
     pub(crate) recv_cipher: TlsCipher,
@@ -415,7 +415,7 @@ impl Connection {
     }
 
     pub fn update_session(&mut self, data: impl AsRef<[u8]>) -> RlsResult<()> {
-        // println!("{} {:x?}", data.as_ref().len(), data.as_ref());
+        // println!("update session: {} {:x?}", data.as_ref().len(), data.as_ref());
         if self.mtls_enable || !self.hasher.inited() {
             self.session_bytes.extend_from_slice(data.as_ref());
         }

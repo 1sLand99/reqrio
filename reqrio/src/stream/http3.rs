@@ -1,11 +1,13 @@
 use crate::error::HlsResult;
-use crate::pack::{PackItem, QPackDecode, QPackEncode, QPackType};
+use crate::pack::{QPackDecode, QPackEncode, QPackType};
 use crate::packet::HeaderParam;
 use crate::request::RequestBuffer;
 use crate::stream::ConnParam;
-use crate::{hex, Body, Header, HlsError, QUICStreamS, Response};
+#[cfg(feature = "log")]
+use crate::debug;
+use crate::{Body, Header, HlsError, QUICStreamS, Response};
 use reqtls::quic::{QUICBuffer, QUICFrame, QUICFrameFlag};
-use reqtls::{quic, Buf, Buffer, BufferError, ClientConfig, ReadExt, Reader, RlsError, WriteExt};
+use reqtls::{quic, Buf, Buffer, BufferError, ClientConfig, PacketType, QUICFlag, ReadExt, Reader, RlsError, WriteExt};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::net::UdpSocket;
@@ -15,16 +17,31 @@ pub struct H3Setting {
     flag: u64,
     value: u64,
 }
-
+#[allow(non_upper_case_globals)]
 impl H3Setting {
-    pub const MAX_TABLE_CAPACITY: u64 = 0x01;
-    pub const BLOCKED_STREAMS: u64 = 0x07;
+    pub const MaxTableCapacity: u64 = 0x01;
+    pub const MaxFieldSectionSize: u64 = 0x06;
+    pub const BlockedStreams: u64 = 0x07;
+    pub const EnableDatagram: u64 = 0x33;
+
+    pub fn new(flag: u64, value: u64) -> H3Setting {
+        H3Setting { flag, value }
+    }
 
     pub fn from_reader(reader: &mut Reader) -> Result<H3Setting, BufferError> {
         Ok(H3Setting {
             flag: quic::read_variant(reader)? as u64,
             value: quic::read_variant(reader)? as u64,
         })
+    }
+
+    pub fn len(&self) -> usize {
+        quic::variant_len(self.flag as usize) + quic::variant_len(self.value as usize)
+    }
+
+    pub fn write_to<W: WriteExt>(&self, writer: &mut W) -> Result<(), BufferError> {
+        quic::write_variant(self.flag as usize, writer)?;
+        quic::write_variant(self.value as usize, writer)
     }
 }
 
@@ -62,7 +79,6 @@ impl<'a> H3Frame<'a> {
                 Ok(H3Frame::Settings(settings))
             }
             0xf0700 => {
-                let len = quic::read_variant(&mut reader)?;
                 let pos = reader.position();
                 let stream_id = quic::read_variant(&mut reader)? as u64;
                 let sid_len = reader.position() - pos;
@@ -77,37 +93,101 @@ impl<'a> H3Frame<'a> {
             })
         }
     }
+
+    pub fn write_to<W: WriteExt>(&self, writer: &mut W) -> Result<(), BufferError> {
+        match self {
+            H3Frame::Data(data) => {
+                quic::write_variant(0x0, writer)?;
+                quic::write_variant(data.len(), writer)?;
+                writer.write_slice(data.as_ref())
+            }
+            H3Frame::Settings(settings) => {
+                quic::write_variant(0x4, writer)?;
+                let len = settings.iter().map(|x| x.len()).sum::<usize>();
+                quic::write_variant(len, writer)?;
+                for setting in settings {
+                    setting.write_to(writer)?;
+                }
+                Ok(())
+            }
+            H3Frame::PriorityUpdate {
+                stream_id,
+                value
+            } => {
+                quic::write_variant(0xf0700, writer)?;
+                let len = quic::variant_len(*stream_id as usize) + value.len();
+                quic::write_variant(len, writer)?;
+                quic::write_variant(*stream_id as usize, writer)?;
+                writer.write_slice(value.as_ref())
+            }
+            H3Frame::Headers(hdr) => {
+                quic::write_variant(0x1, writer)?;
+                quic::write_variant(hdr.len(), writer)?;
+                writer.write_slice(hdr.as_ref())
+            }
+            H3Frame::Reserved { typ, payload } => {
+                quic::write_variant(*typ as usize, writer)?;
+                quic::write_variant(payload.len(), writer)?;
+                writer.write_slice(payload.as_ref())
+            }
+        }
+    }
+
+    pub fn encode(&self, offset: usize) -> Result<Vec<u8>, BufferError> {
+        let mut res = vec![0; 100];
+        let mut writer = Buffer::from_ptr(res.as_mut_slice());
+        if offset == 0 { writer.write_u8(0)?; }
+        self.write_to(&mut writer)?;
+        unsafe { res.set_len(writer.len()) };
+        Ok(res)
+    }
 }
 
-
-#[repr(u64)]
 #[derive(Debug)]
-pub enum H3Stream<'a> {
+pub enum H3Stream {
     Control = 0x00,
     QPackEncoder = 0x02,
-    QPackDecoder(Vec<PackItem>) = 0x03,
-    Frame(H3Frame<'a>),
+    QPackDecoder = 0x03,
+    BidirectionalStream,
 }
 
-impl<'a> H3Stream<'a> {
-    pub fn from_quic_stream(typ: Option<usize>, reader: &mut Reader<'a>, decoder: &mut QPackDecode) -> Result<H3Stream<'a>, HlsError> {
-        Ok(match typ {
-            Some(0x02) => {
+impl From<usize> for H3Stream {
+    fn from(val: usize) -> H3Stream {
+        match val {
+            0x00 => H3Stream::Control,
+            0x02 => H3Stream::QPackEncoder,
+            0x03 => H3Stream::QPackDecoder,
+            _ => H3Stream::BidirectionalStream
+        }
+    }
+}
+
+impl H3Stream {
+    pub fn handle_stream<'a>(&self, reader: &mut Reader<'a>, decoder: &mut QPackDecode) -> Result<H3Frame<'a>, HlsError> {
+        match self {
+            H3Stream::QPackEncoder => {
                 while reader.unread_len() > 0 {
-                    let item = decoder.decode_next(QPackType::StreamEncoder, &0, reader)?;
-                    println!("item: {:?}", item);
+                    let pos = reader.position();
+                    match decoder.decode_next(QPackType::StreamEncoder, &0, reader) {
+                        Ok(item) => println!("item: {:?}", item),
+                        // Err(HlsError::Rls(RlsError::Buffer(BufferError::IndexOutBound {..}))) => return Err(BufferError::Insufficient.into()),
+                        Err(e) => {
+                            println!("{}", e);
+                            reader.set_position(pos);
+                            return Err(BufferError::Insufficient.into());
+                        }
+                    }
                 }
-                H3Stream::QPackEncoder
+                Ok(H3Frame::Reserved { typ: 0, payload: Buf::Ref(&[]) })
             }
-            Some(0x03) => H3Stream::QPackDecoder(vec![]),
-            Some(_) => H3Stream::Frame(H3Frame::from_reader(reader)?),
-            None => H3Stream::Frame(H3Frame::from_reader(reader)?),
-        })
+            H3Stream::QPackDecoder => Ok(H3Frame::Reserved { typ: 0, payload: Buf::Ref(&[]) }),
+            _ => Ok(H3Frame::from_reader(reader)?)
+        }
     }
 }
 
 struct StreamParam {
-    typ: Option<usize>,
+    typ: H3Stream,
     buffer: QUICBuffer,
     fin: bool,
 }
@@ -127,12 +207,26 @@ impl HTTP3StreamS {
         let socket = UdpSocket::bind("0.0.0.0:0")?;
         let addr = conn.url.addr().socket_addr(false)?;
         let mut quic = QUICStreamS::connect(socket, addr, ClientConfig::from(&mut conn)).unwrap();
+        let mut writer = Buffer::with_capacity(100);
+        writer.write_u8(0)?;
+        H3Frame::Settings(vec![
+            H3Setting::new(H3Setting::MaxTableCapacity, 65536),
+            H3Setting::new(H3Setting::MaxFieldSectionSize, 262144),
+            H3Setting::new(H3Setting::BlockedStreams, 100),
+            H3Setting::new(H3Setting::EnableDatagram, 1),
+            H3Setting::new(0x7c3b6e5b0, 4089453656)
+        ]).write_to(&mut writer)?;
+        H3Frame::Reserved {
+            typ: 0x11d4c4c93c,
+            payload: Buf::Ref(&[0x54]),
+        }.write_to(&mut writer)?;
+
         let setting_frame = QUICFrame::Stream {
             flag: QUICFrameFlag::new(0),
             sid: 2,
             offset: 0,
-            len: 44,
-            payload: Buf::Vec(hex::decode("00041f018001000006800400000740643301c0000007c3b6e5b0c0000000f3c01c58c0000011d4c4c93c0154")?),
+            len: writer.len(),
+            payload: Buf::Ref(writer.filled()),
         };
         quic.write_stream(vec![setting_frame])?;
         Ok(HTTP3StreamS {
@@ -150,46 +244,40 @@ impl HTTP3StreamS {
         let frames = self.quic.read_next_packet(false).unwrap();
         let mut res = Vec::with_capacity(responses.len());
         for frame in frames {
-            println!("{:#?}", frame);
             let QUICFrame::Stream { flag, sid, offset, payload, .. } = frame else { continue };
             let param = match self.stream_ids.entry(sid) {
                 Entry::Occupied(v) => v.into_mut(),
                 Entry::Vacant(v) => v.insert(StreamParam {
-                    typ: None,
-                    buffer: QUICBuffer::with_capacity(if sid & 0b10 == 0b10 { 1024 } else { 200 * 1024 }),
+                    typ: H3Stream::BidirectionalStream,
+                    buffer: QUICBuffer::with_capacity(if sid & 0b10 == 0b10 { 4096 } else { 200 * 1024 }),
                     fin: false,
                 })
             };
             if flag.fin() { param.fin = true; }
-            param.buffer.write_at(offset, payload)?;
+            param.buffer.write_at(offset, payload.as_ref())?;
             if flag.fin() && param.buffer.raw_buffer().is_empty() { return Ok(vec![sid]); }
             let Some(mut reader) = param.buffer.flush()else { continue };
 
-            if sid & 0b10 == 0b10 && param.typ.is_none() {
-                param.typ = Some(quic::read_variant(&mut reader)?);
+            if sid & 0b10 == 0b10 && offset == 0 {
+                param.typ = quic::read_variant(&mut reader)?.into();
             }
+            #[cfg(feature = "log")]
+            debug!("[HTTP3] recv quic: typ={:?}; sid={}; offset={}; payload={}; fin={}",param.typ, sid, offset, payload.len(), flag.fin());
             let mut pos = reader.position();
             while reader.unread_len() > 0 {
-                let stream = match H3Stream::from_quic_stream(param.typ, &mut reader, &mut self.decoder) {
-                    Ok(stream) => stream,
+                let frame = match param.typ.handle_stream(&mut reader, &mut self.decoder) {
+                    Ok(frame) => frame,
                     Err(HlsError::Rls(RlsError::Buffer(BufferError::Insufficient))) => break,
                     Err(e) => return Err(e)
-                };
-                println!("{:#?}", stream);
-                let frame = match stream {
-                    H3Stream::Control => continue,
-                    H3Stream::Frame(frame) => frame,
-                    H3Stream::QPackEncoder => continue,
-                    H3Stream::QPackDecoder(_) => continue,
                 };
                 match frame {
                     H3Frame::Settings(settings) => for setting in settings {
                         match setting.flag {
-                            H3Setting::MAX_TABLE_CAPACITY => {
+                            H3Setting::MaxTableCapacity => {
                                 self.encoder.update_table_size(setting.value as usize);
                                 self.decoder.update_table_size(setting.value as usize);
                             }
-                            H3Setting::BLOCKED_STREAMS => self.max_stream = setting.value,
+                            H3Setting::BlockedStreams => self.max_stream = setting.value,
                             _ => {}
                         }
                     }
@@ -212,15 +300,14 @@ impl HTTP3StreamS {
                 pos = reader.position();
             }
             let empty = param.buffer.read_size(pos);
-            println!("{} {}", param.fin, empty);
             if param.fin && empty { res.push(sid); }
         }
+        self.quic.send_ack(QUICFlag::new_short(PacketType::ShortHeader))?;
         Ok(res)
     }
     fn send_inner<'a>(&'a mut self, header: &Header, body: &Body<'_>, mut param: HeaderParam<'a>) -> HlsResult<u64> {
         param.q_sid = &self.sid;
         param.qpack_encoder = Some(&mut self.encoder);
-
         let mut request = RequestBuffer::new(header, body, param)?;
         let mut buffer = Buffer::with_capacity(4096);
         let offset = 0;
@@ -236,12 +323,16 @@ impl HTTP3StreamS {
                 payload: Buf::Ref(buffer.filled()),
             };
             let streams = if offset == 0 && let Some(priority) = header.get_str("priority") {
+                let frame = H3Frame::PriorityUpdate {
+                    stream_id: self.sid,
+                    value: priority,
+                };
                 vec![QUICFrame::Stream {
                     flag: QUICFrameFlag::new(44),
                     sid: 2,
-                    offset: 44,
-                    len: priority.len(),
-                    payload: Buf::Ref(priority.as_bytes()),
+                    offset: 44 + self.sid as usize * 12,
+                    len: 12,
+                    payload: Buf::Vec(frame.encode(44)?),
                 }, stream]
             } else { vec![stream] };
             self.quic.write_stream(streams)?;
