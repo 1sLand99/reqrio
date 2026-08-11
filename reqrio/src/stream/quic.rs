@@ -75,11 +75,11 @@ impl<'a> QUICAck<'a> {
 }
 
 impl QUICStreamS {
-    pub fn connect(socket: UdpSocket, remote_addr: SocketAddr, mut config: ClientConfig<'_>) -> HlsResult<QUICStreamS> {
+    pub fn connect(socket: UdpSocket, remote_addr: SocketAddr, config: ClientConfig<'_>) -> HlsResult<QUICStreamS> {
         socket.set_read_timeout(Some(Duration::from_millis(3000)))?;
         let session = config.session.clone().unwrap_or_default();
         let key_log = config.key_log.clone();
-        let mut stream = QUICStreamS {
+        QUICStreamS {
             socket,
             ur_buffer: Buffer::with_capacity(1500),
             uw_buffer: Buffer::with_capacity(15000),
@@ -96,57 +96,60 @@ impl QUICStreamS {
             encrypted_channel: false,
             hello_retrying: false,
             crypto_offset: 0,
-        };
-        stream.conn.make_initial_cipher(&stream.dcid, false, false)?;
-        stream.handle_client_hello(&mut config)?;
-        stream.tw_buffer.used_empty(5);
-        stream.write_buffer(PacketType::Initial, None)?;
+        }.handshake(config)
+    }
+
+    fn handshake(mut self, mut config: ClientConfig) -> HlsResult<QUICStreamS> {
+        self.conn.make_initial_cipher(&self.dcid, false, false)?;
+        self.handle_client_hello(&mut config)?;
+        self.tw_buffer.used_empty(5);
+        self.write_buffer(PacketType::Initial, None)?;
         let mut config = Config::Client(config);
-        while !stream.handshake_finish {
-            if let Err(e) = stream.read_next_packet(false) {
+        while !self.handshake_finish {
+            if let Err(e) = self.read_next_packet(false) {
                 if e.to_string().contains("quic retry") {
                     // stream.tw_buffer.reset();
                     let config = config.client_mut().ok_or("missing client config")?;
-                    stream.crypto_offset = 0;
-                    stream.conn.quic_retry(config.session.clone().unwrap_or_default(), config.key_log.clone(), config.verify);
-                    assert!(stream.tw_buffer.is_empty());
-                    stream.conn.make_initial_cipher(&stream.dcid, false, true)?;
-                    stream.handle_client_hello(config)?;
-                    stream.tw_buffer.used_empty(5);
-                    stream.write_buffer(PacketType::Initial, None)?;
+                    self.crypto_offset = 0;
+                    self.conn.quic_retry(config.session.clone().unwrap_or_default(), config.key_log.clone(), config.verify);
+                    assert!(self.tw_buffer.is_empty());
+                    self.conn.make_initial_cipher(&self.dcid, false, true)?;
+                    self.handle_client_hello(config)?;
+                    self.tw_buffer.used_empty(5);
+                    self.write_buffer(PacketType::Initial, None)?;
                     continue;
                 }
                 return Err(e);
             };
-            stream.send_ack(QUICFlag::new_long(PacketType::Handshake))?;
-            let Some(mut reader) = stream.frame_buffer.flush()else { continue };
+            self.send_ack(QUICFlag::new_long(PacketType::Handshake))?;
+            let Some(mut reader) = self.frame_buffer.flush()else { continue };
             let mut read_len = 0;
             while let Ok(message) = Message::from_reader(&mut reader, &RecordType::HandShake, KeyExchangeAlg::NULL, &Version::TLS_1_3) {
                 // println!("{:#?}", message);
                 read_len += message.encoded.len();
                 let is_server_hello = message.parsed.server().is_some();
                 QUICStreamS::handle_handshake(&mut StreamParam {
-                    handshake_finish: &mut stream.handshake_finish,
-                    encrypted_channel: &mut stream.encrypted_channel,
-                    hello_retrying: &mut stream.hello_retrying,
-                    write_buffer: &mut stream.tw_buffer,
-                    conn: stream.conn.tls_conn(),
+                    handshake_finish: &mut self.handshake_finish,
+                    encrypted_channel: &mut self.encrypted_channel,
+                    hello_retrying: &mut self.hello_retrying,
+                    write_buffer: &mut self.tw_buffer,
+                    conn: self.conn.tls_conn(),
                 }, Some(&mut config), message).unwrap();
-                if is_server_hello && !stream.hello_retrying {
-                    stream.conn.make_sample_cipher(false)?;
+                if is_server_hello && !self.hello_retrying {
+                    self.conn.make_sample_cipher(false)?;
                 }
             }
-            stream.frame_buffer.read_size(read_len);
-            if !stream.tw_buffer.is_empty() {
-                stream.send_ack(QUICFlag::new_long(PacketType::Handshake))?;
-                if stream.hello_retrying { stream.tw_buffer.used_empty(5); } else { stream.crypto_offset = 0; }
-                println!("{}-{:?}", stream.crypto_offset, stream.tw_buffer.filled());
-                stream.write_buffer(if stream.hello_retrying { PacketType::Initial } else { PacketType::Handshake }, None)?;
+            self.frame_buffer.read_size(read_len);
+            if !self.tw_buffer.is_empty() {
+                self.send_ack(QUICFlag::new_long(PacketType::Handshake))?;
+                if self.hello_retrying { self.tw_buffer.used_empty(5); } else { self.crypto_offset = 0; }
+                println!("{}-{:?}", self.crypto_offset, self.tw_buffer.filled());
+                self.write_buffer(if self.hello_retrying { PacketType::Initial } else { PacketType::Handshake }, None)?;
             }
         }
-        stream.conn.tls_conn().make_cipher(false)?;
-        stream.conn.make_sample_cipher(false).unwrap();
-        Ok(stream)
+        self.conn.tls_conn().make_cipher(false)?;
+        self.conn.make_sample_cipher(false).unwrap();
+        Ok(self)
     }
 
     fn build_packet<'a>(seq: u64, dcid: &'a Buf<'a>, token: &'a Buf<'a>, typ: PacketType, pd_len: usize) -> QUICPacket<'a> {
@@ -205,17 +208,15 @@ impl QUICStreamS {
     pub fn read_next_packet(&mut self, server: bool) -> HlsResult<Vec<QUICFrame<'_>>> {
         if self.ur_buffer.is_empty() || self.ur_buffer.filled()[0] == 0 {
             self.ur_buffer.reset();
-            let len = self.socket.recv(self.ur_buffer.unfilled()).unwrap();
+            let len = self.socket.recv(self.ur_buffer.unfilled())?;
             if len == 0 { return Err(HlsError::PeerClosedConnection); }
             self.ur_buffer.add_len(len);
         }
         let mut reader = Reader::from_slice(self.ur_buffer.filled());
         let mut packet = QUICPacket::from_reader(&mut reader).unwrap();
-        // println!("{:#?}", packet);
         if packet.flag().packet_type() == PacketType::Initial {
             self.conn.make_initial_cipher(packet.dc_id(), server, false).unwrap();
         } else if packet.flag().packet_type() == PacketType::Retry {
-            println!("{:#?}", packet);
             self.token = Buf::Vec(packet.token().to_vec());
             self.dcid = Buf::Vec(packet.sc_id().to_vec());
             self.ur_buffer.reset();
@@ -228,7 +229,6 @@ impl QUICStreamS {
         let len = match self.conn.read_message(&mut packet, &mut reader, rb) {
             Ok(len) => len,
             Err(_e) => {
-                // println!("{:#?}", packet);
                 #[cfg(feature = "log")]
                 warn!("DecryptError: err={}; num={}; typ: {:?}", _e, packet.num(), packet.flag().packet_type());
                 self.ur_buffer.reset();
@@ -259,7 +259,7 @@ impl QUICStreamS {
     }
 
     pub fn write_stream(&mut self, streams: Vec<QUICFrame>) -> HlsResult<()> {
-        self.send_ack(QUICFlag::new_long(PacketType::ShortHeader))?;
+        self.send_ack(QUICFlag::new_short(PacketType::ShortHeader))?;
         let pd_len = streams.iter().map(|s| s.len()).sum::<usize>();
         let mut packet = Self::build_packet(self.seq, &self.dcid, &self.token, PacketType::ShortHeader, pd_len);
         packet.encode()?;

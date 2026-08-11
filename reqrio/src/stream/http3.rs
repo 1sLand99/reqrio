@@ -245,7 +245,7 @@ impl HTTP3StreamS {
 
 
     pub fn recv(&mut self, responses: &mut HashMap<u64, Response>) -> HlsResult<Vec<u64>> {
-        let frames = self.quic.read_next_packet(false).unwrap();
+        let frames = self.quic.read_next_packet(false)?;
         let mut res = Vec::with_capacity(responses.len());
         for frame in frames {
             let QUICFrame::Stream { flag, sid, offset, payload, .. } = frame else { continue };
@@ -314,32 +314,38 @@ impl HTTP3StreamS {
         param.qpack_encoder = Some(&mut self.encoder);
         let mut request = RequestBuffer::new(header, body, param)?;
         let mut buffer = Buffer::with_capacity(4096);
-        let offset = 0;
+        let mut offset = 0;
         loop {
             buffer.reset();
             let len = crate::reader::ReadExt::read(&mut request, &mut buffer)?;
+            println!("readsize;{}", len);
             if len == 0 { break; }
-            let stream = QUICFrame::Stream {
-                flag: QUICFrameFlag::new(offset).with_fin(crate::reader::ReadExt::wrote(&request)),
-                sid: self.sid,
-                offset,
-                len,
-                payload: Buf::Ref(buffer.filled()),
-            };
-            let streams = if offset == 0 && let Some(priority) = header.get_str("priority") {
-                let frame = H3Frame::PriorityUpdate {
-                    stream_id: self.sid,
-                    value: priority,
+            let chunks = buffer.filled().chunks(1100);
+            let chunk_count = chunks.clone().count();
+            for (i, chunk) in chunks.into_iter().enumerate() {
+                let stream = QUICFrame::Stream {
+                    flag: QUICFrameFlag::new(offset).with_fin(crate::reader::ReadExt::wrote(&request) && i + 1 == chunk_count),
+                    sid: self.sid,
+                    offset,
+                    len: chunk.len(),
+                    payload: Buf::Ref(chunk),
                 };
-                vec![QUICFrame::Stream {
-                    flag: QUICFrameFlag::new(44),
-                    sid: 2,
-                    offset: 44 + self.sid as usize * 12,
-                    len: 12,
-                    payload: Buf::Vec(frame.encode(44)?),
-                }, stream]
-            } else { vec![stream] };
-            self.quic.write_stream(streams)?;
+                let streams = if offset == 0 && let Some(priority) = header.get_str("priority") {
+                    let frame = H3Frame::PriorityUpdate {
+                        stream_id: self.sid,
+                        value: priority,
+                    };
+                    vec![QUICFrame::Stream {
+                        flag: QUICFrameFlag::new(44),
+                        sid: 2,
+                        offset: 44 + (self.sid as usize / 4) * 12,
+                        len: 12,
+                        payload: Buf::Vec(frame.encode(44)?),
+                    }, stream]
+                } else { vec![stream] };
+                self.quic.write_stream(streams)?;
+                offset += chunk.len();
+            }
         }
         Ok(self.sid)
     }

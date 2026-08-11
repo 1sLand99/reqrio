@@ -167,6 +167,7 @@ impl ScReq {
         let body = body.into();
         for i in 1..=self.timeout.handle_times() {
             let sid = self.send(method, &url, &body)?;
+            println!("ssss={}", sid);
             let res = self.handle_recv(sid);
             match res {
                 Ok(res) => return Ok(res),
@@ -274,7 +275,7 @@ impl ReqPriExt for ScReq {
     fn into_stream(self) -> HlsResult<Stream> {
         self.stream.into_stream()
     }
-    
+
     fn header_mut(&mut self) -> &mut Header {
         &mut self.header
     }
@@ -282,8 +283,6 @@ impl ReqPriExt for ScReq {
     fn responses(&mut self) -> &mut HashMap<u64, Response> {
         &mut self.responses
     }
-    
-    
 }
 
 impl ReqExt for ScReq {

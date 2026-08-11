@@ -156,7 +156,7 @@ pub enum QUICFrame<'a> {
     },
     MaxData = 0x10,
     MaxStreamData = 0x11,
-    MaxStreamsBidi = 0x12,
+    MaxStreamsBidi(u64) = 0x12,
     MaxStreamsUni = 0x13,
     DataBlocked = 0x14,
     StreamDataBlocked = 0x15,
@@ -239,6 +239,7 @@ impl<'a> QUICFrame<'a> {
                     payload: Buf::Ref(reader.read_slice(len).unwrap()),
                 })
             }
+            0x12 => Ok(QUICFrame::MaxStreamsBidi(quic::read_variant(reader)? as u64)),
             0x18 => {
                 let seq = quic::read_variant(reader)? as u64;
                 let retire = quic::read_variant(reader)? as u64;

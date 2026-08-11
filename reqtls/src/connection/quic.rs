@@ -151,6 +151,7 @@ impl QUICConnection {
             }
             (1, PacketType::Handshake) => {}
             (_, PacketType::Handshake) => {
+                if self.app_key.hp.is_empty() { return Err("secret not derived".into()); }
                 let cipher_suite = self.conn.cipher_suite;
                 let aead = cipher_suite.aead().ok_or(RlsError::AeadNone)?;
                 self.recv_sample = Cipher::new(self.get_cipher(cipher_suite.cipher()));

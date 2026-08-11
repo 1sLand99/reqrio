@@ -184,8 +184,8 @@ pub trait StreamHandle {
         trace!("[HandleHandshake] message: {:?}]", message);
         match message.parsed {
             MessageParsed::ServerHello(server_hello) => {
-                param.conn.update_session(message.encoded.as_ref())?;
-                let hello_retry = Self::handle_server_hello(param, server_hello)?;
+                param.conn.update_session(message.encoded.as_ref()).unwrap();
+                let hello_retry = Self::handle_server_hello(param, server_hello).unwrap();
                 if hello_retry { return Ok(()); }
             }
             MessageParsed::Certificate(v) => {

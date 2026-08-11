@@ -1,4 +1,6 @@
 use std::fs;
+use std::thread::sleep;
+use std::time::Duration;
 use reqrio::*;
 
 #[cfg(feature = "log")]
@@ -104,11 +106,11 @@ fn main() {
     let t = Time::now();
     Buffer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
     let mut req = ScReq::new()
-        .with_alpn(ALPN::Http11)
+        .with_alpn(ALPN::Http30)
         .with_verify(true)
         .with_timeout(Timeout::new_same(1000, 1))
         .with_key_log("2.log")
-        .with_fingerprint(random_fingerprint("h5.moutai519.com.cn").unwrap())
+        // .with_fingerprint(random_fingerprint("h5.moutai519.com.cn").unwrap())
         // .with_proxy(Proxy::try_from("http://36.150.202.148:10951").unwrap())
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::try_from("http://127.0.0.1:10280").unwrap())
@@ -141,13 +143,18 @@ fn main() {
 
     // let res1 = req.get("https://docs.rs", None).unwrap();
     // let res1 = req.get("https://www.rfc-editor.org/info/rfc9001/#section-5.8", None).unwrap();
-    let res1 = req.get("https://cn.bing.com", None).unwrap();
+    let sid1 = req.send(Method::GET, "https://cn.bing.com", None).unwrap();
+
+    // sleep(Duration::from_secs(5));
+    let sid2 = req.send(Method::GET, "https://cn.bing.com/?scope=web&FORM=SUPEDD&pc=U531", None).unwrap();
     // let res1 = req.get("https://m.sogou.com", None).unwrap();
     // let res1 = req.get("https://www.wireshark.org/download.html", None).unwrap();
-    // let res1 = req.recv(sid1).unwrap();
-    println!("{}", res1.raw_string());
-    // let res2=req.recv(sid2).unwrap();
+
     // println!("{}", res2.raw_string());
+    let res2 = req.recv(sid2).unwrap();
+    let res1 = req.recv(sid1).unwrap();
+    println!("{}", res1.raw_string());
+    println!("{}", res2.raw_string());
     println!("{}", Time::now().as_mills() - t.as_mills())
     // fs::write("data/coder/chunk_gzip.bin", res.raw_body()).unwrap();
     // println!("{} {:?}", res.raw_body().len(), res.raw_body());
