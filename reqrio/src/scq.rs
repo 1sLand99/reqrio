@@ -1,7 +1,7 @@
 use crate::body::Body;
 use crate::ext::{ReqPriExt, ReqUrl};
 use crate::packet::HeaderParam;
-use crate::stream::{ConnParam, HTTPStream};
+use crate::stream::{ConnParam, HTTPStream, Stream};
 use crate::*;
 use json::JsonValue;
 use std::borrow::Cow;
@@ -267,6 +267,14 @@ impl ScReq {
 }
 
 impl ReqPriExt for ScReq {
+    fn http_stream_mut(&mut self) -> &mut HTTPStream {
+        &mut self.stream
+    }
+
+    fn into_stream(self) -> HlsResult<Stream> {
+        self.stream.into_stream()
+    }
+    
     fn header_mut(&mut self) -> &mut Header {
         &mut self.header
     }
@@ -274,6 +282,8 @@ impl ReqPriExt for ScReq {
     fn responses(&mut self) -> &mut HashMap<u64, Response> {
         &mut self.responses
     }
+    
+    
 }
 
 impl ReqExt for ScReq {

@@ -350,4 +350,8 @@ impl HTTP3StreamS {
         self.sid += 4;
         Ok(sid)
     }
+
+    pub fn shutdown_sync(&mut self) -> HlsResult<()> {
+        Ok(())
+    }
 }

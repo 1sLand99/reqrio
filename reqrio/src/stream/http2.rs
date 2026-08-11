@@ -95,6 +95,14 @@ impl HTTP2StreamS {
     pub fn stream(&self) -> &Stream {
         &self.stream
     }
+    
+    pub fn stream_mut(&mut self) -> &mut Stream {
+        &mut self.stream
+    }
+    
+    pub fn into_stream(self) -> Stream {
+        self.stream
+    }
 }
 
 impl H2Handle for HTTP2StreamS {
@@ -251,6 +259,14 @@ impl HTTP2StreamA {
 
     pub fn stream(&self) -> &Stream {
         &self.stream
+    }
+
+    pub fn stream_mut(&mut self) -> &mut Stream {
+        &mut self.stream
+    }
+
+    pub fn into_stream(self) -> Stream {
+        self.stream
     }
 }
 

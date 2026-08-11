@@ -1,7 +1,7 @@
 mod sync_stream;
 
 mod proxy;
-// mod ws;
+mod ws;
 #[cfg(feature = "aync")]
 mod aync;
 mod quic;
@@ -30,7 +30,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::{env, io};
 pub use sync_stream::TlsStreamS;
-// pub use ws::{WebSocket, WebSocketBuilder};
+pub use ws::{WebSocket, WebSocketBuilder};
 
 pub struct ConnParam<'a> {
     pub url: &'a Url,
@@ -91,6 +91,32 @@ impl HTTPStream {
             HTTPStream::AsyncH2(h2) => h2.stream().scheme(),
         }
     }
+
+    pub fn into_stream(self) -> HlsResult<Stream> {
+        match self {
+            HTTPStream::NonConnection => Err("connect first".into()),
+            HTTPStream::SyncH1(h1) => Ok(h1.into_stream()),
+            HTTPStream::SyncH2(h2) => Ok(h2.into_stream()),
+            HTTPStream::SyncH3(_) => Err("use `QUICStreamS`".into()),
+            #[cfg(feature = "aync")]
+            HTTPStream::AsyncH1(h1) => Ok(h1.into_stream()),
+            #[cfg(feature = "aync")]
+            HTTPStream::AsyncH2(h2) => Ok(h2.into_stream()),
+        }
+    }
+
+    pub fn stream_mut(&mut self) -> HlsResult<&mut Stream> {
+        match self {
+            HTTPStream::NonConnection => Err("connect first".into()),
+            HTTPStream::SyncH1(h1) => Ok(h1.stream_mut()),
+            HTTPStream::SyncH2(h2) => Ok(h2.stream_mut()),
+            HTTPStream::SyncH3(_) => Err("use `QUICStreamS`".into()),
+            #[cfg(feature = "aync")]
+            HTTPStream::AsyncH1(h1) => Ok(h1.stream_mut()),
+            #[cfg(feature = "aync")]
+            HTTPStream::AsyncH2(h2) => Ok(h2.stream_mut()),
+        }
+    }
 }
 
 
@@ -117,7 +143,6 @@ impl HTTPStream {
         }
     }
 
-
     pub fn conn_sync<'a, 'b: 'a>(&'a mut self, mut param: ConnParam<'b>) -> HlsResult<ALPN> {
         match param.alpn {
             ALPN::Http30 => {
@@ -133,6 +158,18 @@ impl HTTPStream {
                 };
                 Ok(alpn)
             }
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn shutdown_sync(&mut self) -> HlsResult<()> {
+        match self {
+            HTTPStream::NonConnection => Err("need connected before send".into()),
+            HTTPStream::SyncH1(h1) => h1.stream_mut().sync_shutdown(),
+            HTTPStream::SyncH2(h2) => h2.stream_mut().sync_shutdown(),
+            HTTPStream::SyncH3(h3) => h3.shutdown_sync(),
+            #[cfg(feature = "aync")]
+            _ => Err("invalid sync stream".into()),
         }
     }
 }

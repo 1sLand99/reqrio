@@ -1,7 +1,7 @@
 use crate::error::HlsResult;
 use crate::packet::*;
 use crate::reader::ReadExt;
-use crate::stream::Stream;
+use crate::stream::{HTTPStream, Stream};
 use crate::*;
 use json::JsonValue;
 use std::collections::HashMap;
@@ -84,7 +84,7 @@ pub trait ReqExt: ReqPriExt + Sized {
         self
     }
     fn set_headers(&mut self, mut headers: Header, keep_cookie: bool) {
-        let header=ReqExt::header_mut(self);
+        let header = ReqExt::header_mut(self);
         if keep_cookie {
             let cks = header.cookies().unwrap_or(&[]).to_vec();
             headers.set_cookies(cks);
@@ -93,7 +93,7 @@ pub trait ReqExt: ReqPriExt + Sized {
     }
 
     fn set_headers_json(&mut self, headers: JsonValue) -> HlsResult<()> {
-        let header=ReqExt::header_mut(self);
+        let header = ReqExt::header_mut(self);
         header.set_by_json(headers)
     }
 
@@ -123,6 +123,8 @@ pub trait ReqExt: ReqPriExt + Sized {
 pub(crate) trait ReqPriExt {
     fn header_mut(&mut self) -> &mut Header;
     fn responses(&mut self) -> &mut HashMap<u64, Response>;
+    fn into_stream(self) -> HlsResult<Stream>;
+    fn http_stream_mut(&mut self) -> &mut HTTPStream;
     fn read_to_vec<T: ReadExt>(mut reader: T) -> HlsResult<Vec<u8>> {
         let mut res = vec![0; reader.len()];
         let mut buffer = Buffer::from_ptr(&mut res);

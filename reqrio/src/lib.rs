@@ -305,7 +305,7 @@ pub use reqtls::*;
 pub use scq::ScReq;
 #[cfg(feature = "aync")]
 pub use stream::TlsStreamA;
-pub use stream::{Proxy, ProxyStream, TlsStreamS, QUICStreamS, HTTP3StreamS, ConnParam};
+pub use stream::{Proxy, ProxyStream, TlsStreamS, QUICStreamS, HTTP3StreamS, ConnParam, WebSocket, WebSocketBuilder};
 pub use time::{Time, TimeError, Timeout};
 #[cfg(feature = "tokio")]
 pub use tokio;

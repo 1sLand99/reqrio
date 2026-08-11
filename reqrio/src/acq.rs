@@ -4,7 +4,7 @@ use crate::ext::ReqPriExt;
 use crate::ext::{ReqExt, ReqUrl};
 use crate::json::JsonValue;
 use crate::packet::HeaderParam;
-use crate::stream::{ConnParam, HTTPStream, Proxy};
+use crate::stream::{ConnParam, HTTPStream, Proxy, Stream};
 use crate::*;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
@@ -267,6 +267,14 @@ impl ReqPriExt for AcReq {
 
     fn responses(&mut self) -> &mut HashMap<u64, Response> {
         &mut self.responses
+    }
+
+    fn into_stream(self) -> HlsResult<Stream> {
+        self.stream.into_stream()
+    }
+
+    fn http_stream_mut(&mut self) -> &mut HTTPStream {
+        &mut self.stream
     }
 }
 
