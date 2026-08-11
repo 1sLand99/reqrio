@@ -166,15 +166,19 @@ impl H3Stream {
     pub fn handle_stream<'a>(&self, reader: &mut Reader<'a>, decoder: &mut QPackDecode) -> Result<H3Frame<'a>, HlsError> {
         match self {
             H3Stream::QPackEncoder => {
+                let mut items = 0;
                 while reader.unread_len() > 0 {
                     let pos = reader.position();
                     match decoder.decode_next(QPackType::StreamEncoder, &0, reader) {
-                        Ok(item) => println!("item: {:?}", item),
+                        Ok(item) => {
+                            items += 1;
+                            println!("item: {:?}", item);
+                        }
                         // Err(HlsError::Rls(RlsError::Buffer(BufferError::IndexOutBound {..}))) => return Err(BufferError::Insufficient.into()),
                         Err(e) => {
                             println!("{}", e);
                             reader.set_position(pos);
-                            return Err(BufferError::Insufficient.into());
+                            if items == 0 { return Err(BufferError::Insufficient.into()); } else { break; }
                         }
                     }
                 }

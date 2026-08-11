@@ -119,6 +119,7 @@ trait H2Handle {
         let frame = H2Frame::from_reader(reader)?;
         let sid = frame.stream_identifier() as u64;
         let mut res = vec![];
+        #[cfg(feature = "log")]
         debug!("{}-{:?}-{:?}-{:?}", sid, frame.frame_type(), frame.flag().end_stream(), responses.keys());
         match frame.frame_type() {
             FrameType::Data => {
