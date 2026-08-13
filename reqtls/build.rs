@@ -41,7 +41,7 @@ impl Target {
 }
 
 
-const TARGETS: &[Target] = &[
+const TARGETS: [Target; 4] = [
     Target {
         name: "windows",
         env: "msvc",
@@ -115,5 +115,7 @@ fn main() {
         println!("cargo:rustc-link-lib=dylib=zap");
         fs::copy(lib_path.join(target.bcrypto_name()), target_dir.join(target.bcrypto_name())).unwrap();
         fs::copy(lib_path.join(target.zap_name()), target_dir.join(target.zap_name())).unwrap();
+        fs::copy(lib_path.join(target.bcrypto_name()), target_dir.join("deps").join(target.bcrypto_name())).unwrap();
+        fs::copy(lib_path.join(target.zap_name()), target_dir.join("deps").join(target.zap_name())).unwrap();
     }
 }
