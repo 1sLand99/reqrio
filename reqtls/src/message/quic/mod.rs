@@ -1,7 +1,7 @@
 mod frame;
 
 use crate::{u24, Buf, Buffer, BufferError, ReadExt, Reader, WriteExt};
-pub use frame::{QUICFrame, QUICFrameFlag, AckRange};
+pub use frame::{QUICFrame, QUICFrameFlag, AckRange, TrpErrKind};
 
 
 #[derive(Default, Copy, Clone, Debug, PartialEq)]
@@ -399,11 +399,4 @@ impl<'a> QUICPacket<'a> {
     pub fn token(&self) -> &Buf<'a> {
         &self.token
     }
-}
-
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_en_payload() {}
 }

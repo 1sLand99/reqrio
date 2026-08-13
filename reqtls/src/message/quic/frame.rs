@@ -4,7 +4,7 @@ use crate::quic::{self, QUICError};
 #[repr(u16)]
 #[allow(non_camel_case_types)]
 #[derive(Debug)]
-pub enum TransportError {
+pub enum TrpErrKind {
     NO_ERROR = 0x00,
     INTERNAL_ERROR = 0x01,
     CONNECTION_REFUSED = 0x02,
@@ -26,27 +26,27 @@ pub enum TransportError {
     CRYPTO_ERROR(u16),
 }
 
-impl From<u16> for TransportError {
+impl From<u16> for TrpErrKind {
     fn from(value: u16) -> Self {
         match value {
-            0x00 => TransportError::NO_ERROR,
-            0x01 => TransportError::INTERNAL_ERROR,
-            0x02 => TransportError::CONNECTION_REFUSED,
-            0x03 => TransportError::FLOW_CONTROL_ERROR,
-            0x04 => TransportError::STREAM_LIMIT_ERROR,
-            0x05 => TransportError::STREAM_STATE_ERROR,
-            0x06 => TransportError::FINAL_SIZE_ERROR,
-            0x07 => TransportError::FRAME_ENCODING_ERROR,
-            0x08 => TransportError::TRANSPORT_PARAMETER_ERROR,
-            0x09 => TransportError::CONNECTION_ID_LIMIT_ERROR,
-            0x0a => TransportError::PROTOCOL_VIOLATION,
-            0x0b => TransportError::INVALID_TOKEN,
-            0x0c => TransportError::APPLICATION_ERROR,
-            0x0d => TransportError::CRYPTO_BUFFER_EXCEEDED,
-            0x0e => TransportError::KEY_UPDATE_ERROR,
-            0x0f => TransportError::AEAD_LIMIT_REACHED,
-            0x10 => TransportError::NO_VIABLE_PATH,
-            _ => TransportError::CRYPTO_ERROR(value),
+            0x00 => TrpErrKind::NO_ERROR,
+            0x01 => TrpErrKind::INTERNAL_ERROR,
+            0x02 => TrpErrKind::CONNECTION_REFUSED,
+            0x03 => TrpErrKind::FLOW_CONTROL_ERROR,
+            0x04 => TrpErrKind::STREAM_LIMIT_ERROR,
+            0x05 => TrpErrKind::STREAM_STATE_ERROR,
+            0x06 => TrpErrKind::FINAL_SIZE_ERROR,
+            0x07 => TrpErrKind::FRAME_ENCODING_ERROR,
+            0x08 => TrpErrKind::TRANSPORT_PARAMETER_ERROR,
+            0x09 => TrpErrKind::CONNECTION_ID_LIMIT_ERROR,
+            0x0a => TrpErrKind::PROTOCOL_VIOLATION,
+            0x0b => TrpErrKind::INVALID_TOKEN,
+            0x0c => TrpErrKind::APPLICATION_ERROR,
+            0x0d => TrpErrKind::CRYPTO_BUFFER_EXCEEDED,
+            0x0e => TrpErrKind::KEY_UPDATE_ERROR,
+            0x0f => TrpErrKind::AEAD_LIMIT_REACHED,
+            0x10 => TrpErrKind::NO_VIABLE_PATH,
+            _ => TrpErrKind::CRYPTO_ERROR(value),
         }
     }
 }
@@ -126,27 +126,79 @@ impl AckRange {
 
 #[repr(u64)]
 #[derive(Debug)]
-pub enum QUICFrame<'a> {
-    Padding(usize) = 0x00,
+#[allow(dead_code)]
+pub enum QUICFrameType {
+    Padding = 0x00,
     Ping = 0x01,
+    Ack = 0x02,
+    AckEcn = 0x03,
+    ResetStream = 0x04,
+    StopSending = 0x05,
+    Crypto = 0x06,
+    NewToken = 0x07,
+    Stream(u64),
+    MaxData = 0x10,
+    MaxStreamData = 0x11,
+    MaxStreamsBidi = 0x12,
+    MaxStreamsUni = 0x13,
+    DataBlocked = 0x14,
+    StreamDataBlocked = 0x15,
+    StreamsBlockedBidi = 0x16,
+    StreamsBlockedUnu = 0x17,
+    NewConnectionId = 0x18,
+    RetireConnectionId = 0x19,
+    PathChallenge = 0x1a,
+    PathResponse = 0x1b,
+    ConnectionCloseTrp = 0x1c,
+    ConnectionCloseApp = 0x1d,
+    HandshakeDone = 0x1e,
+}
+
+impl From<u64> for QUICFrameType {
+    fn from(typ: u64) -> Self {
+        match typ {
+            0x00 => QUICFrameType::Padding,
+            0x01 => QUICFrameType::Ping,
+            0x02 => QUICFrameType::Ack,
+            0x5 => QUICFrameType::StopSending,
+            0x06 => QUICFrameType::Crypto,
+            0x07 => QUICFrameType::NewToken,
+            0x08..=0x10 => QUICFrameType::Stream(typ),
+            0x12 => QUICFrameType::MaxStreamsBidi,
+            0x18 => QUICFrameType::NewConnectionId,
+            0x1c => QUICFrameType::ConnectionCloseTrp,
+            0x1e => QUICFrameType::HandshakeDone,
+            _ => {
+                println!("{:x?}", typ);
+                unreachable!()
+            }
+        }
+    }
+}
+
+#[repr(u64)]
+#[derive(Debug)]
+pub enum QUICFrame<'a> {
+    Padding(usize),
+    Ping,
     Ack {
         largest_acknowledged: u64,
         ack_delay: u64,
         ack_range_count: usize,
         first_ack_range: u64,
         ack_range: Vec<AckRange>,
-    }= 0x02,
-    AckEcn = 0x03,
-    ResetStream = 0x04,
+    },
+    AckEcn,
+    ResetStream,
     StopSending {
         sid: u64,
         error_code: usize,
-    } = 0x05,
+    },
     Crypto {
         offset: usize,
         value: Buf<'a>,
-    } = 0x06,
-    NewToken(Buf<'a>) = 0x07,
+    },
+    NewToken(Buf<'a>),
     Stream {
         flag: QUICFrameFlag,
         sid: u64,
@@ -154,43 +206,43 @@ pub enum QUICFrame<'a> {
         len: usize,
         payload: Buf<'a>,
     },
-    MaxData = 0x10,
-    MaxStreamData = 0x11,
-    MaxStreamsBidi(u64) = 0x12,
-    MaxStreamsUni = 0x13,
-    DataBlocked = 0x14,
-    StreamDataBlocked = 0x15,
-    StreamsBlockedBidi = 0x16,
-    StreamsBlockedUnu = 0x17,
+    MaxData,
+    MaxStreamData,
+    MaxStreamsBidi(u64),
+    MaxStreamsUni,
+    DataBlocked,
+    StreamDataBlocked,
+    StreamsBlockedBidi,
+    StreamsBlockedUnu,
     NewConnectionId {
         seq: u64,
         retire: u64,
         cid: Buf<'a>,
         reset_token: Buf<'a>,
-    } = 0x18,
-    RetireConnectionId = 0x19,
-    PathChallenge = 0x1a,
-    PathResponse = 0x1b,
+    },
+    RetireConnectionId,
+    PathChallenge,
+    PathResponse,
     ConnectionCloseTrp {
-        err_code: TransportError,
+        err_code: TrpErrKind,
         frame_typ: usize,
         reason: &'a str,
-    }= 0x1c,
-    ConnectionCloseApp = 0x1d,
-    HandshakeDone = 0x1e,
+    },
+    ConnectionCloseApp,
+    HandshakeDone,
 }
 
 impl<'a> QUICFrame<'a> {
     pub fn from_reader(reader: &mut Reader<'a>) -> Result<QUICFrame<'a>, QUICError> {
-        let typ = quic::read_variant(reader).unwrap() as u64;
+        let typ: QUICFrameType = (quic::read_variant(reader)? as u64).into();
         match typ {
-            0x00 => {
+            QUICFrameType::Padding => {
                 let len = reader.find(|&x| x != 0).unwrap_or(reader.unread_len());
                 let value = Buf::Ref(reader.read_slice(len).unwrap());
                 Ok(QUICFrame::Padding(value.len()))
             }
-            0x01 => Ok(QUICFrame::Ping),
-            0x02 => {
+            QUICFrameType::Ping => Ok(QUICFrame::Ping),
+            QUICFrameType::Ack => {
                 let largest_acknowledged = quic::read_variant(reader)? as u64;
                 let ack_delay = quic::read_variant(reader)? as u64;
                 let ack_range_count = quic::read_variant(reader)?;
@@ -210,27 +262,27 @@ impl<'a> QUICFrame<'a> {
                     ack_range,
                 })
             }
-            0x5 => Ok(QUICFrame::StopSending {
-                sid: quic::read_variant(reader).unwrap() as u64,
-                error_code: quic::read_variant(reader).unwrap(),
+            QUICFrameType::StopSending => Ok(QUICFrame::StopSending {
+                sid: quic::read_variant(reader)? as u64,
+                error_code: quic::read_variant(reader)?,
             }),
-            0x06 => {
-                let offset = quic::read_variant(reader).unwrap();
-                let len = quic::read_variant(reader).unwrap();
+            QUICFrameType::Crypto => {
+                let offset = quic::read_variant(reader)?;
+                let len = quic::read_variant(reader)?;
                 Ok(QUICFrame::Crypto {
                     offset,
                     value: Buf::Ref(reader.read_slice(len).unwrap()),
                 })
             }
-            0x07 => {
-                let len = quic::read_variant(reader).unwrap();
-                Ok(QUICFrame::NewToken(Buf::Ref(reader.read_slice(len).unwrap())))
+            QUICFrameType::NewToken => {
+                let len = quic::read_variant(reader)?;
+                Ok(QUICFrame::NewToken(Buf::Ref(reader.read_slice(len)?)))
             }
-            0x08..=0x10 => {
+            QUICFrameType::Stream(typ) => {
                 let flag: QUICFrameFlag = typ.into();
-                let sid = quic::read_variant(reader).unwrap();
-                let offset = if flag.offset { quic::read_variant(reader).unwrap() } else { 0 };
-                let len = if flag.len { quic::read_variant(reader).unwrap() } else { reader.unread_len() };
+                let sid = quic::read_variant(reader)?;
+                let offset = if flag.offset { quic::read_variant(reader)? } else { 0 };
+                let len = if flag.len { quic::read_variant(reader)? } else { reader.unread_len() };
                 Ok(QUICFrame::Stream {
                     flag,
                     sid: sid as u64,
@@ -239,8 +291,8 @@ impl<'a> QUICFrame<'a> {
                     payload: Buf::Ref(reader.read_slice(len).unwrap()),
                 })
             }
-            0x12 => Ok(QUICFrame::MaxStreamsBidi(quic::read_variant(reader)? as u64)),
-            0x18 => {
+            QUICFrameType::MaxStreamsBidi => Ok(QUICFrame::MaxStreamsBidi(quic::read_variant(reader)? as u64)),
+            QUICFrameType::NewConnectionId => {
                 let seq = quic::read_variant(reader)? as u64;
                 let retire = quic::read_variant(reader)? as u64;
                 let len = reader.read_u8()? as usize;
@@ -251,7 +303,7 @@ impl<'a> QUICFrame<'a> {
                     reset_token: Buf::Ref(reader.read_slice(16)?),
                 })
             }
-            0x1c => {
+            QUICFrameType::ConnectionCloseTrp => {
                 let err_code = quic::read_variant(reader)? as u16;
                 let frame_typ = quic::read_variant(reader)?;
                 let reason_len = quic::read_variant(reader)?;
@@ -261,10 +313,9 @@ impl<'a> QUICFrame<'a> {
                     reason: reader.read_str(reason_len)?,
                 })
             }
-            0x1e => Ok(QUICFrame::HandshakeDone),
+            QUICFrameType::HandshakeDone => Ok(QUICFrame::HandshakeDone),
             _ => {
-                println!("{:x?}", typ);
-                unreachable!()
+                unimplemented!("{:?}", typ)
             }
         }
     }
@@ -291,7 +342,7 @@ impl<'a> QUICFrame<'a> {
             } => {
                 1 + quic::variant_len(*largest_acknowledged as usize) +
                     quic::variant_len(*ack_delay as usize) +
-                    quic::variant_len(*ack_range_count as usize) +
+                    quic::variant_len(*ack_range_count) +
                     quic::variant_len(*first_ack_range as usize) +
                     ack_range.iter().map(|x| x.len()).sum::<usize>()
             }
@@ -329,7 +380,7 @@ impl<'a> QUICFrame<'a> {
                 writer.write_u8(0x02)?;
                 quic::write_variant(*largest_acknowledged as usize, writer)?;
                 quic::write_variant(*ack_delay as usize, writer)?;
-                quic::write_variant(*ack_range_count as usize, writer)?;
+                quic::write_variant(*ack_range_count, writer)?;
                 quic::write_variant(*first_ack_range as usize, writer)?;
                 for ack in ack_range {
                     ack.write_to(writer)?;
@@ -363,7 +414,8 @@ impl<'a> QUICFrame<'a> {
             QUICFrame::Stream {..}|
             QUICFrame::NewToken(_)|
             QUICFrame::HandshakeDone|
-            QUICFrame::StopSending {..}
+            QUICFrame::StopSending {..}|
+            QUICFrame::MaxStreamsBidi(_),
         )
     }
 }

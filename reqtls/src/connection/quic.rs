@@ -46,14 +46,13 @@ impl QUICConnection {
         }
     }
 
-    pub fn quic_retry(&mut self, session: TlsSession, key_log: Option<PathBuf>, verify: bool) {
-        self.conn = Connection::new_client(session, key_log, true).with_verify(verify);
-    }
 
 
     /// [rfc9001 5.2](https://datatracker.ietf.org/doc/html/rfc9001#name-initial-secrets)
     pub fn make_initial_cipher(&mut self, cid: &Buf<'_>, server: bool, force: bool) -> RlsResult<()> {
         if !self.conn.recv_cipher.is_null() && !self.conn.send_cipher.is_null() & !force { return Ok(()); }
+        //清空现有的handshake bytes
+        self.conn.session_bytes.clear();
         self.conn.derived.init(&CipherSuite::TLS_AES_128_GCM_SHA256);
         #[cfg(feature = "log")]
         trace!("[QUIC] MakeCipher dcid={:?}", cid);
@@ -151,7 +150,7 @@ impl QUICConnection {
             }
             (1, PacketType::Handshake) => {}
             (_, PacketType::Handshake) => {
-                if self.app_key.hp.is_empty() { return Err("secret not derived".into()); }
+                if self.handshake_key.hp.is_empty() { return Err("secret not derived".into()); }
                 let cipher_suite = self.conn.cipher_suite;
                 let aead = cipher_suite.aead().ok_or(RlsError::AeadNone)?;
                 self.recv_sample = Cipher::new(self.get_cipher(cipher_suite.cipher()));
@@ -286,7 +285,6 @@ mod tests {
         let mut reader = buffer.flush().unwrap();
         let message = Message::from_reader(&mut reader, &RecordType::HandShake, KeyExchangeAlg::NULL, &Version::TLS_1_3);
         assert!(message.is_ok());
-        println!("{:#?}", message);
 
         let mut conn = QUICConnection::new(TlsSession::default(), None, true);
         let cid = Buf::Vec(hex::decode("5826e10f9e47274a").unwrap());
@@ -304,6 +302,5 @@ mod tests {
         let mut reader = buffer.flush().unwrap();
         let message = Message::from_reader(&mut reader, &RecordType::HandShake, KeyExchangeAlg::NULL, &Version::TLS_1_3);
         assert!(message.is_ok());
-        println!("{:#?}", message);
     }
 }

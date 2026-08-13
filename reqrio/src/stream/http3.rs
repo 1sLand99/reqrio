@@ -1,10 +1,10 @@
+#[cfg(feature = "log")]
+use crate::debug;
 use crate::error::HlsResult;
 use crate::pack::{QPackDecode, QPackEncode, QPackType};
 use crate::packet::HeaderParam;
 use crate::request::RequestBuffer;
 use crate::stream::ConnParam;
-#[cfg(feature = "log")]
-use crate::debug;
 use crate::{Body, Header, HlsError, QUICStreamS, Response};
 use reqtls::quic::{QUICBuffer, QUICFrame, QUICFrameFlag};
 use reqtls::{quic, Buf, Buffer, BufferError, ClientConfig, PacketType, QUICFlag, ReadExt, Reader, RlsError, WriteExt};
@@ -65,7 +65,7 @@ impl<'a> H3Frame<'a> {
     pub fn from_reader(reader: &mut Reader<'a>) -> Result<H3Frame<'a>, BufferError> {
         let typ = quic::read_variant(reader)? as u64;
         let len = quic::read_variant(reader)?;
-        if reader.unread_len() < len { return Err(BufferError::Insufficient.into()); }
+        if reader.unread_len() < len { return Err(BufferError::Insufficient); }
         let mut reader = reader.read_reader(len)?;
         match typ {
             0x0 => Ok(H3Frame::Data(Buf::Ref(reader.read_slice(len)?))),
@@ -166,25 +166,14 @@ impl H3Stream {
     pub fn handle_stream<'a>(&self, reader: &mut Reader<'a>, decoder: &mut QPackDecode) -> Result<H3Frame<'a>, HlsError> {
         match self {
             H3Stream::QPackEncoder => {
-                let mut items = 0;
-                while reader.unread_len() > 0 {
-                    let pos = reader.position();
-                    match decoder.decode_next(QPackType::StreamEncoder, &0, reader) {
-                        Ok(item) => {
-                            items += 1;
-                            println!("item: {:?}", item);
-                        }
-                        // Err(HlsError::Rls(RlsError::Buffer(BufferError::IndexOutBound {..}))) => return Err(BufferError::Insufficient.into()),
-                        Err(e) => {
-                            println!("{}", e);
-                            reader.set_position(pos);
-                            if items == 0 { return Err(BufferError::Insufficient.into()); } else { break; }
-                        }
-                    }
-                }
+                let item = decoder.decode_next(QPackType::StreamEncoder, &0, reader)?;
+                println!("{:?}", item);
                 Ok(H3Frame::Reserved { typ: 0, payload: Buf::Ref(&[]) })
             }
-            H3Stream::QPackDecoder => Ok(H3Frame::Reserved { typ: 0, payload: Buf::Ref(&[]) }),
+            H3Stream::QPackDecoder => {
+                decoder.decode_next(QPackType::StreamDecoder, &0, reader)?;
+                Ok(H3Frame::Reserved { typ: 0, payload: Buf::Ref(&[]) })
+            }
             _ => Ok(H3Frame::from_reader(reader)?)
         }
     }
@@ -272,6 +261,7 @@ impl HTTP3StreamS {
                 let frame = match param.typ.handle_stream(&mut reader, &mut self.decoder) {
                     Ok(frame) => frame,
                     Err(HlsError::Rls(RlsError::Buffer(BufferError::Insufficient))) => break,
+                    Err(HlsError::Rls(RlsError::Buffer(BufferError::IndexOutBound { .. }))) => break,
                     Err(e) => return Err(e)
                 };
                 match frame {
@@ -318,7 +308,6 @@ impl HTTP3StreamS {
         loop {
             buffer.reset();
             let len = crate::reader::ReadExt::read(&mut request, &mut buffer)?;
-            println!("readsize;{}", len);
             if len == 0 { break; }
             let chunks = buffer.filled().chunks(1100);
             let chunk_count = chunks.clone().count();

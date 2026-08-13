@@ -20,7 +20,6 @@ fn test_log() {
 async fn main() {
     #[cfg(feature = "log")]
     test_log();
-
     let t = Time::now();
     let mut timeout = Timeout::longer();
     timeout.set_handle_times(1);

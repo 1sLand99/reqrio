@@ -1,11 +1,9 @@
-use std::error::Error;
-use std::fmt::{Display, Formatter};
+use std::cmp::max;
 pub use super::message::{AckRange, QUICFrame, QUICFrameFlag, QUICPacket};
 pub use crate::connection::{QUICBuffer, QUICConnection};
 use crate::{BufferError, ReadExt, Reader, WriteExt};
 use std::ops::Range;
-use std::str::Utf8Error;
-use crate::boring::HashError;
+pub use crate::error::QUICError;
 
 pub fn read_variant(reader: &mut Reader) -> Result<usize, BufferError> {
     if reader.unread_len() == 0 { return Err(BufferError::Insufficient); }
@@ -42,102 +40,79 @@ pub fn write_variant<W: WriteExt>(val: usize, writer: &mut W) -> Result<(), Buff
 
 
 #[derive(Debug)]
-pub struct QUICRange(Vec<Range<u64>>);
+pub struct QUICRange {
+    ranges: Vec<Range<u64>>,
+    largest: u64,
+    sent_largest: u64,
+}
 
 impl Default for QUICRange {
     fn default() -> Self {
-        QUICRange(Vec::with_capacity(1024))
+        QUICRange {
+            ranges: Vec::with_capacity(100),
+            largest: 0,
+            sent_largest: 0,
+        }
     }
 }
 
 impl QUICRange {
     pub fn insert(&mut self, num: u64) {
-        let pos = self.0.iter_mut().position(|r| r.start == num + 1 || r.end + 1 == num);
+        let pos = self.ranges.iter_mut().position(|r| r.start == num + 1 || r.end + 1 == num);
         if let Some(pos) = pos {
-            let range = &mut self.0[pos];
+            let range = &mut self.ranges[pos];
             if range.start == num + 1 {
                 range.start = num;
-                let opos = self.0.iter_mut().position(|r| r.end + 1 == num);
+                let opos = self.ranges.iter_mut().position(|r| r.end + 1 == num);
                 if let Some(opos) = opos {
-                    self.0[opos].end = self.0[pos].end;
-                    self.0.remove(pos);
+                    self.ranges[opos].end = self.ranges[pos].end;
+                    self.ranges.remove(pos);
                 }
             } else {
                 range.end = num;
-                let opos = self.0.iter().position(|r| num + 1 == r.start);
+                let opos = self.ranges.iter().position(|r| num + 1 == r.start);
                 if let Some(opos) = opos {
-                    self.0[pos].end = self.0[opos].end;
-                    self.0.remove(opos);
+                    self.ranges[pos].end = self.ranges[opos].end;
+                    self.ranges.remove(opos);
                 }
             }
-        } else { self.0.push(num..num) }
+        } else { self.ranges.push(num..num) }
+        self.largest = max(self.largest, num)
     }
 
     pub fn sort(&mut self) {
-        self.0.sort_by_key(|a| a.start);
+        self.ranges.sort_by_key(|a| a.start);
     }
 
     pub fn get(&self, index: usize) -> &Range<u64> {
-        &self.0[index]
+        &self.ranges[index]
     }
 
 
     pub fn max_range(&self) -> Option<&Range<u64>> {
-        let max = self.0.iter().map(|r| r.end).max()?;
-        self.0.iter().find(|r| r.end == max)
+        self.ranges.iter().find(|r| r.end == self.largest)
     }
-    
+
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.ranges.is_empty() || self.largest == self.sent_largest
     }
 
     pub fn count(&self) -> usize {
-        self.0.len()
+        self.ranges.len()
     }
 
     pub fn clear(&mut self) {
         let max = if let Some(max) = self.max_range() {
             max.end..max.end
         } else { 0..0 };
-        self.0.clear();
-        self.0.push(max)
+        self.ranges.clear();
+        self.ranges.push(max)
+    }
+
+    pub fn reset_sent_largest(&mut self) {
+        self.sent_largest = self.largest;
     }
 }
-
-#[derive(Debug)]
-pub enum QUICError {
-    InvalidVariant,
-    Buffer(BufferError),
-    Hash(HashError),
-    Utf8(Utf8Error),
-}
-
-impl Error for QUICError {}
-
-impl Display for QUICError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl From<BufferError> for QUICError {
-    fn from(e: BufferError) -> Self {
-        QUICError::Buffer(e)
-    }
-}
-
-impl From<HashError> for QUICError {
-    fn from(e: HashError) -> Self {
-        QUICError::Hash(e)
-    }
-}
-
-impl From<Utf8Error> for QUICError {
-    fn from(e: Utf8Error) -> Self {
-        QUICError::Utf8(e)
-    }
-}
-
 
 
 #[cfg(test)]
@@ -146,22 +121,22 @@ mod test {
 
     #[test]
     fn test_quic_range() {
-        let mut range = QUICRange(vec![]);
+        let mut range = QUICRange::default();
         for i in [14, 17, 18, 0, 1, 2, 3, 4, 5, 6, 7] {
             range.insert(i);
         }
         range.sort();
-        assert_eq!(range.0, vec![0..7, 14..14, 17..18]);
+        assert_eq!(range.ranges, vec![0..7, 14..14, 17..18]);
         range.insert(15);
         range.insert(16);
-        assert_eq!(range.0, vec![0..7, 14..18]);
+        assert_eq!(range.ranges, vec![0..7, 14..18]);
         range.insert(13);
         range.insert(12);
         range.insert(11);
         range.insert(10);
         range.insert(9);
         range.insert(8);
-        assert_eq!(range.0, vec![0..18]);
+        assert_eq!(range.ranges, vec![0..18]);
     }
 }
 

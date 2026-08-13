@@ -40,6 +40,7 @@ pub enum HlsError {
     Time(TimeError),
     Header(HeaderError),
     Currently(String),
+    QUIC(QUICError),
 }
 
 impl From<&str> for HlsError {
@@ -85,6 +86,7 @@ impl Display for HlsError {
             HlsError::UnsupportedAlpn(alpn) => write!(f, "UnsupportedAlpn({})", alpn),
             HlsError::H2(typ) => write!(f, "H2({:?})", typ),
             HlsError::Header(e) => write!(f, "Header({:?})", e),
+            HlsError::QUIC(e) => write!(f, "QUIC({:?})", e),
         }
     }
 }
@@ -224,7 +226,10 @@ impl From<HeaderError> for HlsError {
 
 impl From<QUICError> for HlsError {
     fn from(value: QUICError) -> Self {
-        HlsError::Rls(RlsError::Quic(value))
+        match value {
+            QUICError::Rls(rls) => HlsError::Rls(rls),
+            _ => HlsError::QUIC(value),
+        }
     }
 }
 

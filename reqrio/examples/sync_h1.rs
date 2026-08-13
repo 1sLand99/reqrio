@@ -1,6 +1,4 @@
 use std::fs;
-use std::thread::sleep;
-use std::time::Duration;
 use reqrio::*;
 
 #[cfg(feature = "log")]
@@ -146,15 +144,17 @@ fn main() {
     let sid1 = req.send(Method::GET, "https://cn.bing.com", None).unwrap();
 
     // sleep(Duration::from_secs(5));
-    let sid2 = req.send(Method::GET, "https://cn.bing.com/?scope=web&FORM=SUPEDD&pc=U531", None).unwrap();
+    // let sid2 = req.send(Method::GET, "https://cn.bing.com/?scope=web&FORM=SUPEDD&pc=U531", None).unwrap();
     // let res1 = req.get("https://m.sogou.com", None).unwrap();
     // let res1 = req.get("https://www.wireshark.org/download.html", None).unwrap();
 
     // println!("{}", res2.raw_string());
-    let res2 = req.recv(sid2).unwrap();
+    // let res2 = req.recv(sid2).unwrap();
     let res1 = req.recv(sid1).unwrap();
     println!("{}", res1.raw_string());
-    println!("{}", res2.raw_string());
+    // let res2=req.get("https://docs.rs/fluidattacks-blends/0.7.0/fluidattacks_blends/",None).unwrap();
+    // println!("{}", res2.raw_string());
+    // println!("{}", res2.raw_string());
     println!("{}", Time::now().as_mills() - t.as_mills())
     // fs::write("data/coder/chunk_gzip.bin", res.raw_body()).unwrap();
     // println!("{} {:?}", res.raw_body().len(), res.raw_body());
