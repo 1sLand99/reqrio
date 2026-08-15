@@ -278,7 +278,7 @@ impl HTTP3StreamS {
                     //客户端忽略，服务端暂不处理
                     H3Frame::PriorityUpdate { .. } => {}
                     H3Frame::Headers(hdr) => {
-                        let response = responses.get_mut(&sid).ok_or("response not inited")?;
+                        let Some(response) = responses.get_mut(&sid) else { continue };
                         let mut buf = hdr.as_ref().to_vec();
                         let mut buffer = Buffer::from_ptr(buf.as_mut_slice());
                         buffer.add_len(buf.len());
@@ -286,7 +286,7 @@ impl HTTP3StreamS {
                         response.make_coding()?;
                     }
                     H3Frame::Data(body) => {
-                        let response = responses.get_mut(&sid).ok_or("response not inited")?;
+                        let Some(response) = responses.get_mut(&sid) else { continue };
                         response.push_raw_slice(body.as_ref())?;
                     }
                     H3Frame::Reserved { .. } => {}

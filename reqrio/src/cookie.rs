@@ -18,6 +18,8 @@ impl CookieManager {
     }
 
     pub fn inner(&self) -> &Vec<Cookie> { &self.0 }
+    
+    pub fn inner_mut(&mut self) -> &mut Vec<Cookie> { &mut self.0 }
 
     pub fn into_inner(self) -> Vec<Cookie> { self.0 }
 

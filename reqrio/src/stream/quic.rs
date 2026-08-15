@@ -249,9 +249,10 @@ impl QUICStreamS {
                 }
                 QUICFrame::ConnectionCloseTrp { reason, err_code, .. } => return Err(QUICError::TransportError { reason: reason.to_string(), err_code }),
                 QUICFrame::Crypto { offset, value } => self.frame_buffer.write_at(offset, value.as_ref()).unwrap(),
-                QUICFrame::Ping => {}
+                QUICFrame::Ping | QUICFrame::Padding(_) | QUICFrame::HandshakeDone | QUICFrame::NewConnectionId { .. }
+                | QUICFrame::MaxStreamsBidi(_) | QUICFrame::MaxStreamData { .. } | QUICFrame::NewToken(_) => {}
                 QUICFrame::Stream { .. } => res.push(frame),
-                _ => {}
+                _ => unreachable!()
             }
         }
         self.ur_buffer.used_empty(packet.len());
@@ -265,6 +266,7 @@ impl QUICStreamS {
         packet.encode()?;
         let (offset, encrypted) = self.conn.build_message(packet, streams, &mut self.uw_buffer).unwrap();
         self.socket.send_to(encrypted, self.addr)?;
+        self.uw_buffer.reset();
         self.sent.insert(self.seq, offset);
         self.seq += 1;
         Ok(())

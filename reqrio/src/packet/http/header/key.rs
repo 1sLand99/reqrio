@@ -48,6 +48,13 @@ impl HeaderKey {
         }
     }
 
+    pub fn cookies_mut(&mut self) -> Option<&mut [Cookie]> {
+        match self.value {
+            HeaderValue::Cookies(ref mut cookies) => Some(cookies.inner_mut()),
+            _ => None,
+        }
+    }
+
     pub fn name(&self) -> &str { &self.name }
 
     pub fn name_lower(&self) -> String { self.name.to_lowercase() }

@@ -164,6 +164,7 @@ impl From<u64> for QUICFrameType {
             0x06 => QUICFrameType::Crypto,
             0x07 => QUICFrameType::NewToken,
             0x08..=0x10 => QUICFrameType::Stream(typ),
+            0x11 => QUICFrameType::MaxStreamData,
             0x12 => QUICFrameType::MaxStreamsBidi,
             0x18 => QUICFrameType::NewConnectionId,
             0x1c => QUICFrameType::ConnectionCloseTrp,
@@ -207,7 +208,10 @@ pub enum QUICFrame<'a> {
         payload: Buf<'a>,
     },
     MaxData,
-    MaxStreamData,
+    MaxStreamData {
+        sid: u64,
+        data: usize,
+    },
     MaxStreamsBidi(u64),
     MaxStreamsUni,
     DataBlocked,
@@ -314,6 +318,14 @@ impl<'a> QUICFrame<'a> {
                 })
             }
             QUICFrameType::HandshakeDone => Ok(QUICFrame::HandshakeDone),
+            QUICFrameType::MaxStreamData => {
+                println!("{:?}", &reader.inner()[reader.position()..]);
+                let sid = quic::read_variant(reader)?;
+                Ok(QUICFrame::MaxStreamData {
+                    sid: sid as u64,
+                    data: quic::read_variant(reader)?,
+                })
+            }
             _ => {
                 unimplemented!("{:?}", typ)
             }

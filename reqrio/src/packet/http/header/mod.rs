@@ -359,6 +359,14 @@ impl Header {
         );
         header?.cookies()
     }
+    
+    pub fn cookies_mut(&mut self) -> Option<&mut [Cookie]> {
+        let header = self.keys.iter_mut().find(|x|
+        x.name().eq_ignore_ascii_case("cookie")
+            || x.name().eq_ignore_ascii_case("set-cookie")
+        );
+        header?.cookies_mut()
+    }
 
     pub fn method(&self) -> &Method { &self.method }
 
