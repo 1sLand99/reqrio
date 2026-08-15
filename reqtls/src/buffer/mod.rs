@@ -168,6 +168,14 @@ pub enum Buf<'a> {
 }
 
 impl<'a> Buf<'a> {
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Buf::Ptr(v) => v.is_null(),
+            Buf::Ref(v) => v.is_empty(),
+            Buf::Vec(v) => v.is_empty(),
+        }
+    }
+
     pub fn len(&self) -> usize {
         match self {
             Buf::Ptr(v) => v.len,
@@ -303,9 +311,94 @@ impl<'a> ReadExt<'a> for Reader<'a> {
 }
 
 
+pub struct QUICBuffer {
+    start_mapping: usize,
+    raw: Buffer,
+    remain_offsets: Vec<Range<usize>>,
+}
+
+impl QUICBuffer {
+    pub fn with_capacity(capacity: usize) -> Self {
+        QUICBuffer {
+            start_mapping: 0,
+            raw: Buffer::with_capacity(capacity),
+            remain_offsets: vec![],
+        }
+    }
+
+    pub fn write_at(&mut self, offset: usize, buf: &[u8]) -> Result<(), BufferError> {
+        //已经接收并处理
+        if offset < self.start_mapping { return Ok(()); }
+        let abs_offset = offset - self.start_mapping;
+        if self.raw.end() == abs_offset {
+            //刚好处于上一个offset
+            let len = self.raw.write_slice_in(abs_offset, buf)?;
+            let mut offset = self.raw.offset();
+            offset.end += len;
+            self.raw.reset_offset(offset);
+        } else if self.raw.end() < abs_offset {
+            //前面还有一个(多个)包未读取
+            let len = self.raw.write_slice_in(abs_offset, buf)?;
+            let mut off = self.raw.offset();
+            let remain = off.end..abs_offset;
+            off.end = abs_offset + len;
+            self.raw.reset_offset(off);
+            self.remain_offsets.push(remain);
+        } else {
+            let r = abs_offset..abs_offset + buf.len();
+            let pos = self.remain_offsets.iter().position(|x| r.start >= x.start && r.end <= x.end);
+            let Some(pos) = pos else { return Ok(()); };
+            self.raw.write_slice_in(abs_offset, buf)?;
+            let remain = &mut self.remain_offsets[pos];
+            if r.start == remain.start && r.end < remain.end {
+                remain.start += r.len();
+            } else if r.start > remain.start && r.end == remain.end {
+                remain.end -= r.len();
+            } else if r.start > remain.start && r.end < remain.end {
+                let remain = self.remain_offsets.remove(pos);
+                self.remain_offsets.push(remain.start..r.start);
+                self.remain_offsets.push(r.end..remain.end);
+            } else if &r == remain {
+                self.remain_offsets.remove(pos);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn is_empty(&self) -> bool { self.raw.is_empty() }
+
+    pub fn len(&self) -> usize {
+        self.raw.len() - self.remain_offsets.iter().map(|x| x.len()).sum::<usize>()
+    }
+
+    pub fn reset(&mut self) {
+        self.raw.reset();
+        self.remain_offsets.clear();
+        self.start_mapping = 0;
+    }
+
+    pub fn flush(&mut self, size: usize) {
+        self.raw.used_empty(size);
+        if !self.raw.is_empty() { return; }
+        self.start_mapping += size;
+        self.raw.reset();
+    }
+
+
+    pub fn read_reader(&self) -> Result<Reader<'_>, BufferError> {
+        if !self.remain_offsets.is_empty() { return Err(BufferError::Insufficient); }
+        Ok(Reader::from_slice(self.raw.filled()))
+    }
+
+    pub fn as_raw(&self) -> &Buffer {
+        &self.raw
+    }
+}
+
 #[cfg(test)]
 mod test_buffer {
-    use crate::{Buffer, WriteExt};
+    use crate::{Buffer, ReadExt, WriteExt};
+    use crate::buffer::QUICBuffer;
 
     #[test]
     fn buffer_test() {
@@ -331,5 +424,69 @@ mod test_buffer {
         let mut buffer = Buffer::from_ptr(data.as_mut_slice());
         buffer.write_slice(&[1, 2, 3, 4, 5]).unwrap();
         assert_eq!(buffer.filled(), [1, 2, 3, 4, 5]);
+    }
+
+
+    #[test]
+    fn quic_buffer_test() {
+        let mut buffer = QUICBuffer::with_capacity(100);
+        buffer.write_at(56, &[1; 20]).unwrap();
+        assert!(buffer.read_reader().is_err());
+        buffer.write_at(76, &[2; 20]).unwrap();
+        assert!(buffer.read_reader().is_err());
+        buffer.write_at(20, &[3; 20]).unwrap();
+        assert!(buffer.read_reader().is_err());
+        buffer.write_at(40, &[4; 16]).unwrap();
+        assert!(buffer.read_reader().is_err());
+        buffer.write_at(0, &[5; 20]).unwrap();
+        assert!(buffer.read_reader().is_ok());
+        buffer.write_at(0, &[6; 20]).unwrap();
+        assert_eq!(buffer.len(), 96);
+
+        let mut reader = buffer.read_reader().unwrap();
+        let filled = reader.read_slice(reader.unread_len()).unwrap();
+        let mut raw = vec![5; 20];
+        raw.extend([3; 20]);
+        raw.extend([4; 16]);
+        raw.extend([1; 20]);
+        raw.extend([2; 20]);
+        assert_eq!(filled, raw);
+
+        buffer.flush(reader.position());
+        assert_eq!(buffer.start_mapping, 96);
+        buffer.write_at(100, &[1; 20]).unwrap();
+        buffer.write_at(96, &[2; 4]).unwrap();
+
+        let mut reader = buffer.read_reader().unwrap();
+
+        let filled = reader.read_slice(reader.unread_len()).unwrap();
+        let mut raw = vec![2; 4];
+        raw.extend([1; 20]);
+        assert_eq!(filled, raw);
+        buffer.flush(reader.position());
+        assert_eq!(buffer.start_mapping, 120);
+
+
+        buffer.write_at(176, &[1; 20]).unwrap();
+        assert!(buffer.read_reader().is_err());
+        buffer.write_at(196, &[2; 20]).unwrap();
+        assert!(buffer.read_reader().is_err());
+        buffer.write_at(140, &[3; 20]).unwrap();
+        assert!(buffer.read_reader().is_err());
+        buffer.write_at(160, &[4; 16]).unwrap();
+        assert!(buffer.read_reader().is_err());
+        buffer.write_at(120, &[5; 20]).unwrap();
+        assert!(buffer.read_reader().is_ok());
+        buffer.write_at(120, &[6; 20]).unwrap();
+        assert_eq!(buffer.len(), 96);
+
+        let mut reader = buffer.read_reader().unwrap();
+        let filled = reader.read_slice(reader.unread_len()).unwrap();
+        let mut raw = vec![5; 20];
+        raw.extend([3; 20]);
+        raw.extend([4; 16]);
+        raw.extend([1; 20]);
+        raw.extend([2; 20]);
+        assert_eq!(filled, raw);
     }
 }

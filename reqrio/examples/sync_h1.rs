@@ -104,7 +104,7 @@ fn main() {
     let t = Time::now();
     Buffer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
     let mut req = ScReq::new()
-        .with_alpn(ALPN::Http30)
+        .with_alpn(ALPN::Http20)
         .with_verify(true)
         .with_timeout(Timeout::new_same(1000, 1))
         .with_key_log("2.log")
@@ -139,8 +139,8 @@ fn main() {
     // let url = "https://ts3.tc.mm.bing.net/th/id/ODF.pnhuF5msYDWgeLYHsiLTig?w=32&h=32&qlt=95&pcl=fffffa&o=6&pid=1.2";
     // let sid2 = req.send(Method::GET, url, None).unwrap();
 
-    let res1 = req.get("https://docs.rs", None).unwrap();
-    // let res1 = req.get("https://www.rfc-editor.org/info/rfc9001/#section-5.8", None).unwrap();
+    // let res1 = req.get("https://docs.rs", None).unwrap();
+    let res1 = req.get("https://www.rfc-editor.org/info/rfc9001/#section-5.8", None).unwrap();
     // let sid1 = req.send(Method::GET, "https://cn.bing.com/search?q=http%3A%2F%2Fwww.oiedrani.com%2Farticle%2F996e199002.html", None).unwrap();
 
 

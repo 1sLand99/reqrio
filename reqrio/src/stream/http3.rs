@@ -6,8 +6,8 @@ use crate::packet::HeaderParam;
 use crate::request::RequestBuffer;
 use crate::stream::ConnParam;
 use crate::{Body, Header, HlsError, QUICStreamS, Response};
-use reqtls::quic::{QUICBuffer, QUICFrame, QUICFrameFlag};
-use reqtls::{quic, Buf, Buffer, BufferError, ClientConfig, PacketType, QUICFlag, ReadExt, Reader, RlsError, WriteExt};
+use reqtls::quic::{QUICFrame, QUICFrameFlag};
+use reqtls::{quic, Buf, Buffer, BufferError, ClientConfig, PacketType, QUICBuffer, QUICFlag, ReadExt, Reader, RlsError, WriteExt};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::net::UdpSocket;
@@ -248,8 +248,8 @@ impl HTTP3StreamS {
             };
             if flag.fin() { param.fin = true; }
             param.buffer.write_at(offset, payload.as_ref())?;
-            if flag.fin() && param.buffer.raw_buffer().is_empty() { return Ok(vec![sid]); }
-            let Some(mut reader) = param.buffer.flush()else { continue };
+            if flag.fin() && param.buffer.is_empty() { return Ok(vec![sid]); }
+            let Ok(mut reader) = param.buffer.read_reader()else { continue };
 
             if sid & 0b10 == 0b10 && offset == 0 {
                 param.typ = quic::read_variant(&mut reader)?.into();
@@ -293,8 +293,8 @@ impl HTTP3StreamS {
                 }
                 pos = reader.position();
             }
-            let empty = param.buffer.read_size(pos);
-            if param.fin && empty { res.push(sid); }
+            param.buffer.flush(pos);
+            if param.fin && param.buffer.is_empty() { res.push(sid); }
         }
         self.quic.send_ack(QUICFlag::new_short(PacketType::ShortHeader))?;
         Ok(res)

@@ -1,5 +1,5 @@
 mod quic;
-mod buffer;
+// mod buffer;
 
 use super::bytes::Bytes;
 use super::record::{RecordLayer, RecordType};
@@ -13,7 +13,7 @@ use crate::error::{HandShakeError, RlsResult};
 use crate::key::{DerivedKey, Key, SecretKey, TlsSession};
 use crate::message::{CompressedCertificate, EncryptedExtension, HandshakeType};
 use crate::*;
-pub use buffer::QUICBuffer;
+// pub use buffer::QUICBuffer;
 #[cfg(feature = "log")]
 use log::debug;
 pub use quic::QUICConnection;

@@ -37,6 +37,7 @@ impl<S: Read + Write> TlsStreamS<S> {
         loop {
             let record_len = stream.read_next_packet()?;
             stream.handle_record(record_len, Some(&mut config), app_buffer.unfilled())?;
+            stream.read_buffer.used_empty(record_len);
             if !stream.write_buffer.is_empty() {
                 stream.stream.write_all(stream.write_buffer.filled())?;
                 stream.write_buffer.reset();
@@ -79,7 +80,7 @@ impl<S: Read + Write> TlsStreamS<S> {
 }
 
 impl<S: Read + Write> StreamHandle for TlsStreamS<S> {
-    fn stream_param(&mut self) -> (&mut Buffer, StreamParam<'_>) {
+    fn stream_param(&mut self) -> (&Buffer, StreamParam<'_>) {
         (&mut self.read_buffer, StreamParam {
             handshake_finish: &mut self.handshake_finished,
             encrypted_channel: &mut self.encrypted_channel,
@@ -114,6 +115,7 @@ impl<S: Read + Write> Read for TlsStreamS<S> {
         loop {
             let record_len = self.read_next_packet()?;
             let size = self.handle_record(record_len, None, buf)?;
+            self.read_buffer.used_empty(record_len);
             if size > 0 { return Ok(size); }
         };
     }

@@ -32,7 +32,7 @@ async fn main() {
         .with_auto_redirect(false)
         // .with_proxy(Proxy::Null)
         .with_verify(false)
-        .with_alpn(ALPN::Http30)
+        .with_alpn(ALPN::Http11)
         // .with_proxy(Proxy::try_from("http: //222.186.129.68:15265").unwrap())
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::new_socks5("127.0.0.1",10279))

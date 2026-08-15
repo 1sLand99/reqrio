@@ -17,7 +17,7 @@ pub struct StreamParam<'a> {
 pub trait StreamHandle {
     const CHANGE_CIPHER_SPEC: [u8; 6] = [20, 3, 3, 0, 1, 1];
 
-    fn stream_param(&mut self) -> (&mut Buffer, StreamParam<'_>);
+    fn stream_param(&mut self) -> (&Buffer, StreamParam<'_>);
 
     fn handle_client_hello(&mut self, config: &mut ClientConfig) -> RlsResult<()> {
         let (_, param) = self.stream_param();
@@ -184,8 +184,8 @@ pub trait StreamHandle {
         trace!("[HandleHandshake] message: {:?}]", message);
         match message.parsed {
             MessageParsed::ServerHello(server_hello) => {
-                param.conn.update_session(message.encoded.as_ref()).unwrap();
-                let hello_retry = Self::handle_server_hello(param, server_hello).unwrap();
+                param.conn.update_session(message.encoded.as_ref())?;
+                let hello_retry = Self::handle_server_hello(param, server_hello)?;
                 if hello_retry { return Ok(()); }
             }
             MessageParsed::Certificate(v) => {
@@ -298,7 +298,7 @@ pub trait StreamHandle {
                 return self.handle_by_application(record_len, config, app_buf);
             }
         }
-        read_buffer.used_empty(record_len);
+        // read_buffer.used_empty(record_len);
         Ok(0)
     }
 
@@ -328,7 +328,7 @@ pub trait StreamHandle {
             }
             _ => param.conn.read_message(&read_buffer.filled()[..record_len], app_buf)?
         };
-        read_buffer.used_empty(record_len);
+        // read_buffer.used_empty(record_len);
         Ok(len)
     }
 }

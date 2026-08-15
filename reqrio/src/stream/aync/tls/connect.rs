@@ -47,6 +47,7 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> Future for Connecting<'a, S> {
                 Poll::Pending => return Poll::Pending,
             };
             stream.handle_record(record_len, Some(&mut connector.config), buffer.unfilled())?;
+            stream.read_buffer.used_empty(record_len);
         };
         match stream {
             Handshake::Handshaking(mut stream) => {

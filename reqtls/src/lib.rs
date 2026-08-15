@@ -289,7 +289,7 @@ pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, 
                  certificate::KeyIdentifier, certificate::KeyUsage, certificate::SubjectAltName, cipher, hash,
                  hmac, AlgorithmSigner, Cipher, CipherType, PKey, PKeyCtx, Padding, RsaCipher,
                  RsaKey, RsaPadding, SignatureAlgorithm};
-pub use buffer::{u24, Buf, Buffer, BufferError, ReadExt, Reader, WriteExt};
+pub use buffer::{u24, Buf, Buffer, BufferError, ReadExt, Reader, WriteExt, QUICBuffer};
 pub use bytes::Bytes;
 pub use config::{ClientConfig, Config, ServerConfig};
 pub use connection::Connection;

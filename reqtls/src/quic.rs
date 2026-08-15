@@ -1,9 +1,9 @@
-use std::cmp::max;
 pub use super::message::{AckRange, QUICFrame, QUICFrameFlag, QUICPacket};
-pub use crate::connection::{QUICBuffer, QUICConnection};
-use crate::{BufferError, ReadExt, Reader, WriteExt};
-use std::ops::Range;
+pub use crate::connection::QUICConnection;
 pub use crate::error::QUICError;
+use crate::{BufferError, ReadExt, Reader, WriteExt};
+use std::cmp::max;
+use std::ops::Range;
 
 pub fn read_variant(reader: &mut Reader) -> Result<usize, BufferError> {
     if reader.unread_len() == 0 { return Err(BufferError::Insufficient); }

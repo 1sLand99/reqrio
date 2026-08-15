@@ -88,8 +88,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TlsStreamA<S> {
 
 impl<S> StreamHandle for TlsStreamA<S> {
     #[inline]
-    fn stream_param(&mut self) -> (&mut Buffer, StreamParam<'_>) {
-        (&mut self.read_buffer, StreamParam {
+    fn stream_param(&mut self) -> (&Buffer, StreamParam<'_>) {
+        (&self.read_buffer, StreamParam {
             handshake_finish: &mut self.handshake_finished,
             encrypted_channel: &mut self.encrypted_channel,
             hello_retrying: &mut self.hello_retrying,
@@ -165,6 +165,7 @@ impl<S: AsyncRead + Unpin> AsyncRead for TlsStreamA<S> {
                 Poll::Pending => return Poll::Pending,
             };
             let len = stream.handle_record(record_len, None, buf.initialized_mut())?;
+            stream.read_buffer.used_empty(record_len);
             if len == 0 { continue; }
             buf.set_filled(len);
             return Poll::Ready(Ok(()));

@@ -120,7 +120,7 @@ impl QUICStreamS {
                 Ok(_) => {}
             }
             self.send_ack(QUICFlag::new_long(PacketType::Handshake))?;
-            let Some(mut reader) = self.frame_buffer.flush()else { continue };
+            let Ok(mut reader) = self.frame_buffer.read_reader()else { continue };
             let mut read_len = 0;
             while let Ok(message) = Message::from_reader(&mut reader, &RecordType::HandShake, KeyExchangeAlg::NULL, &Version::TLS_1_3) {
                 // println!("{:#?}", message);
@@ -137,7 +137,7 @@ impl QUICStreamS {
                     self.conn.make_sample_cipher(false)?;
                 }
             }
-            self.frame_buffer.read_size(read_len);
+            self.frame_buffer.flush(read_len);
             if !self.tw_buffer.is_empty() {
                 self.send_ack(QUICFlag::new_long(PacketType::Handshake))?;
                 if self.hello_retrying { self.tw_buffer.used_empty(5); } else { self.crypto_offset = 0; }
@@ -275,8 +275,8 @@ impl QUICStreamS {
 
 
 impl StreamHandle for QUICStreamS {
-    fn stream_param(&mut self) -> (&mut Buffer, StreamParam<'_>) {
-        (self.frame_buffer.raw_buffer_mut(), StreamParam {
+    fn stream_param(&mut self) -> (&Buffer, StreamParam<'_>) {
+        (self.frame_buffer.as_raw(), StreamParam {
             handshake_finish: &mut self.handshake_finish,
             encrypted_channel: &mut self.encrypted_channel,
             hello_retrying: &mut self.hello_retrying,
