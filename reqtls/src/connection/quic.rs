@@ -1,48 +1,35 @@
 use crate::buffer::{CipherDecodeBuffer, CipherEncodeBuffer};
 use crate::error::RlsResult;
-use crate::extend::Aead;
-use crate::key::Key;
 use crate::message::{QUICFrame, QUICPacket};
 use crate::quic::QUICRange;
 use crate::suite::iv::Iv;
-use crate::{Buf, Buffer, BufferError, Cipher, CipherSuite, CipherType, Connection, HashType, PacketType, Reader, RlsError, TlsSession, Version, WriteExt};
+use crate::{Buf, Buffer, BufferError, Cipher, CipherSuite, CipherType, Connection, PacketType, Reader, RlsError, TlsSession, Version, WriteExt};
 #[cfg(feature = "log")]
 use log::trace;
 use std::ops::Range;
 use std::path::PathBuf;
 use std::slice;
-
-
-#[derive(Default, Debug)]
-struct QUICKey {
-    key: Vec<u8>,
-    iv: Vec<u8>,
-    hp: Vec<u8>,
-}
-
+use crate::key::KeyType;
 
 pub struct QUICConnection {
     recv_sample: Cipher,
     send_sample: Cipher,
     conn: Connection,
     recv_nums: QUICRange,
-    init_key: QUICKey,
-    handshake_key: QUICKey,
-    app_key: QUICKey,
-    current: usize,
+    current: KeyType,
 }
 
 impl QUICConnection {
     pub fn new(session: TlsSession, key_log: Option<PathBuf>, verify: bool) -> QUICConnection {
+        let mut conn = Connection::new_client(session, key_log, true).with_verify(verify);
+        conn.cipher_suite = &CipherSuite::TLS_AES_128_GCM_SHA256;
+        conn.version = Version::TLS_1_3;
         QUICConnection {
-            conn: Connection::new_client(session, key_log, true).with_verify(verify),
+            conn,
             recv_sample: Cipher::aes_128_ecb(),
             send_sample: Cipher::aes_128_ecb(),
             recv_nums: QUICRange::default(),
-            init_key: QUICKey::default(),
-            handshake_key: QUICKey::default(),
-            app_key: QUICKey::default(),
-            current: 0,
+            current: KeyType::Initial,
         }
     }
 
@@ -56,70 +43,23 @@ impl QUICConnection {
         #[cfg(feature = "log")]
         trace!("[QUIC] MakeCipher dcid={:?}", cid);
         self.conn.derived.make_initial_quic_secret(cid.as_ref())?;
-        let Key::QUIC {
-            send_key,
-            recv_key,
-            send_iv,
-            recv_iv,
-            send_hp_key,
-            recv_hp_key,
-        } = self.conn.derived.make_cipher_key(&Version::TLS_1_3, server)?else { unreachable!() };
-        self.conn.send_cipher.set_key(send_key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
-        self.conn.send_cipher.set_iv(Iv::new(send_iv, vec![]));
-        self.send_sample.set_secret_key(send_hp_key, None);
-        self.conn.recv_cipher.set_key(recv_key, &[], &Aead::AES_128_GCM, HashType::Sha256)?;
-        self.conn.recv_cipher.set_iv(Iv::new(recv_iv, vec![]));
-        self.recv_sample.set_secret_key(recv_hp_key, None);
-        self.init_key = QUICKey {
-            key: recv_key.to_vec(),
-            iv: recv_iv.to_vec(),
-            hp: recv_hp_key.to_vec(),
-        };
-        self.current = 0;
+        self.conn.derived_key_cipher(KeyType::Initial)?;
+        let shk = self.conn.derived.key_block().send_hp_key(KeyType::Initial, server);
+        self.send_sample.set_secret_key(shk, None);
+        let rhk = self.conn.derived.key_block().recv_hp_key(KeyType::Initial, server);
+        self.recv_sample.set_secret_key(rhk, None);
         Ok(())
     }
 
     ///update sample cipher
-    pub fn make_sample_cipher(&mut self, server: bool) -> RlsResult<()> {
-        println!("{:?}-{}", self.conn.cipher_suite, self.current);
+    pub fn make_sample_cipher(&mut self, server: bool, typ: KeyType) -> RlsResult<()> {
+        println!("{:?}-{:?}", self.conn.cipher_suite, self.current);
         let cipher = self.get_cipher(self.conn.cipher_suite.cipher());
         self.send_sample = Cipher::new(cipher);
         self.recv_sample = Cipher::new(cipher);
-        match server {
-            true => {
-                self.send_sample.set_secret_key(self.conn.derived.key_block().server_hp_key(), None);
-                self.recv_sample.set_secret_key(self.conn.derived.key_block().client_hp_key(), None);
-                let key = QUICKey {
-                    key: self.conn.derived.key_block().client_key().to_vec(),
-                    iv: self.conn.derived.key_block().client_iv().to_vec(),
-                    hp: self.conn.derived.key_block().client_hp_key().to_vec(),
-                };
-                if self.handshake_key.key.is_empty() {
-                    self.current = 1;
-                    self.handshake_key = key
-                } else {
-                    self.current = 2;
-                    self.app_key = key
-                }
-            }
-            false => {
-                self.send_sample.set_secret_key(self.conn.derived.key_block().client_hp_key(), None);
-                self.recv_sample.set_secret_key(self.conn.derived.key_block().server_hp_key(), None);
-                let key = QUICKey {
-                    key: self.conn.derived.key_block().server_key().to_vec(),
-                    iv: self.conn.derived.key_block().server_iv().to_vec(),
-                    hp: self.conn.derived.key_block().server_hp_key().to_vec(),
-                };
-                if self.handshake_key.key.is_empty() {
-                    self.current = 1;
-                    self.handshake_key = key
-                } else {
-                    self.current = 2;
-                    self.app_key = key
-                }
-            }
-        }
-        println!("{:?}", self.handshake_key);
+        self.send_sample.set_secret_key(self.conn.derived.key_block().send_hp_key(typ, server), None);
+        self.recv_sample.set_secret_key(self.conn.derived.key_block().recv_hp_key(typ, server), None);
+        self.current = typ;
         Ok(())
     }
 
@@ -132,45 +72,33 @@ impl QUICConnection {
         }
     }
 
+    fn init_cipher(&mut self, suite: Option<&'static CipherSuite>, typ: KeyType) -> RlsResult<()> {
+        if self.current == typ { return Ok(()); }
+        let suite = suite.unwrap_or(self.conn.cipher_suite);
+        let aead = suite.aead().ok_or(RlsError::AeadNone)?;
+        self.recv_sample = Cipher::new(self.get_cipher(suite.cipher()));
+        let rhk = self.conn.derived.key_block().recv_key(typ, false);
+        self.recv_sample.set_secret_key(rhk, None);
+        let rk = self.conn.derived.key_block().recv_key(typ, false);
+        self.conn.recv_cipher.set_key(rk, &[], &aead, suite.hash())?;
+        let ri = self.conn.derived.key_block().recv_iv(typ, false);
+        self.conn.recv_cipher.set_iv(Iv::new(ri, vec![]));
+        self.current = typ;
+        Ok(())
+    }
+
     ///[rfc9001](https://datatracker.ietf.org/doc/html/rfc9001#name-header-protection-sample)
     pub fn read_message<'a>(&mut self, packet: &mut QUICPacket<'a>, reader: &mut Reader<'a>, buffer: &mut [u8]) -> RlsResult<usize> {
         let sample_offset = packet.pn_offset + 4;
         let sample = &reader.inner()[sample_offset..sample_offset + 16];
-        match (self.current, packet.flag.packet_type()) {
-            (0, PacketType::Initial) => {}
-            (_, PacketType::Initial) => {
-                let cipher_suite = CipherSuite::TLS_AES_128_GCM_SHA256;
-                let aead = cipher_suite.aead().ok_or(RlsError::AeadNone)?;
-                self.recv_sample = Cipher::new(CipherType::AES_128_ECB);
-                self.recv_sample.set_secret_key(self.init_key.hp.as_slice(), None);
-                self.conn.recv_cipher.set_key(self.init_key.key.as_ref(), &[], &aead, cipher_suite.hash())?;
-                self.conn.recv_cipher.set_iv(Iv::new(&self.init_key.iv, vec![]));
-                self.current = 0;
-            }
-            (1, PacketType::Handshake) => {}
-            (_, PacketType::Handshake) => {
-                if self.handshake_key.hp.is_empty() { return Err("secret not derived".into()); }
-                let cipher_suite = self.conn.cipher_suite;
-                let aead = cipher_suite.aead().ok_or(RlsError::AeadNone)?;
-                self.recv_sample = Cipher::new(self.get_cipher(cipher_suite.cipher()));
-                self.recv_sample.set_secret_key(self.handshake_key.hp.as_slice(), None);
-                self.conn.recv_cipher.set_key(self.handshake_key.key.as_ref(), &[], &aead, cipher_suite.hash())?;
-                self.conn.recv_cipher.set_iv(Iv::new(&self.handshake_key.iv, vec![]));
-                self.current = 1;
-            }
-            (2, PacketType::ShortHeader) => {}
-            (_, PacketType::ShortHeader) => {
-                if self.app_key.hp.is_empty() { return Err("secret not derived".into()); }
-                let cipher_suite = self.conn.cipher_suite;
-                let aead = cipher_suite.aead().ok_or(RlsError::AeadNone)?;
-                self.recv_sample = Cipher::new(self.get_cipher(cipher_suite.cipher()));
-                self.recv_sample.set_secret_key(self.app_key.hp.as_slice(), None);
-                self.conn.recv_cipher.set_key(self.app_key.key.as_ref(), &[], &aead, cipher_suite.hash())?;
-                self.conn.recv_cipher.set_iv(Iv::new(&self.app_key.iv, vec![]));
-                self.current = 2;
-            }
-            _ => return Err("invalid packet type".into())
-        }
+        let suite = if packet.flag.packet_type() == PacketType::Initial { Some(&CipherSuite::TLS_AES_128_GCM_SHA256) } else { None };
+        let typ = match packet.flag.packet_type() {
+            PacketType::Initial => KeyType::Initial,
+            PacketType::Handshake => KeyType::Handshake,
+            PacketType::Retry => return Err("conn quic retry".into()),
+            PacketType::ShortHeader => KeyType::Application
+        };
+        self.init_cipher(suite, typ)?;
         let mut mask = self.recv_sample.encrypt(sample).unwrap();
         mask.truncate(5);
         packet.decode(&mask, reader)?;

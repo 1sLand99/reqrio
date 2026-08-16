@@ -301,7 +301,7 @@ pub use finger::*;
 pub use hash::{HashType, Hasher, Hmac};
 pub use hex;
 pub use hkdf::Hkdf;
-pub use key::{SecretKey, TlsSession};
+pub use key::{SecretKey, TlsSession, KeyType};
 #[cfg(feature = "log")]
 pub use log::*;
 pub use message::{Alert, CertificateRequest, CertificateVerify, Certificates, ClientHello, Message,

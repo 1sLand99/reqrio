@@ -141,17 +141,18 @@ fn main() {
 
     // let res1 = req.get("https://docs.rs", None).unwrap();
     // let res1 = req.get("https://www.rfc-editor.org/info/rfc9001/#section-5.8", None).unwrap();
-    let sid1 = req.send(Method::GET, "https://cn.bing.com/search?q=http%3A%2F%2Fwww.oiedrani.com%2Farticle%2F996e199002.html", None).unwrap();
+    // let sid1 = req.send(Method::GET, "https://cn.bing.com/search?q=http%3A%2F%2Fwww.oiedrani.com%2Farticle%2F996e199002.html", None).unwrap();
 
 
     // sleep(Duration::from_secs(5));
     // let sid2 = req.send(Method::GET, "https://cn.bing.com/?scope=web&FORM=SUPEDD&pc=U531", None).unwrap();
-    // let res1 = req.get("https://m.sogou.com", None).unwrap();
+    let res1 = req.get("https://docs.rs", None).unwrap();
+    // let res1 = req.get("https://www.baidu.com", None).unwrap();
     // let res1 = req.get("https://www.wireshark.org/download.html", None).unwrap();
 
     // println!("{}", res2.raw_string());
 
-    let res1 = req.recv(sid1).unwrap();
+    // let res1 = req.recv(sid1).unwrap();
     println!("{}", res1.raw_string());
 
     // let sid2 = req.send(Method::GET, "https://cn.bing.com/search?q=3516541635&rdr=1&rdrig=4B500EC883E54B3881736EA98E8C2AF4", None).unwrap();

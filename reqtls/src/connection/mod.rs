@@ -1,5 +1,4 @@
 mod quic;
-// mod buffer;
 
 use super::bytes::Bytes;
 use super::record::{RecordLayer, RecordType};
@@ -10,10 +9,9 @@ use super::version::Version;
 use crate::boring::{certificate, AlgorithmSigner};
 use crate::buffer::{Buf, CipherDecodeBuffer, CipherEncodeBuffer};
 use crate::error::{HandShakeError, RlsResult};
-use crate::key::{DerivedKey, Key, SecretKey, TlsSession};
+use crate::key::{DerivedKey, KeyType, SecretKey, TlsSession};
 use crate::message::{CompressedCertificate, EncryptedExtension, HandshakeType};
 use crate::*;
-// pub use buffer::QUICBuffer;
 #[cfg(feature = "log")]
 use log::debug;
 pub use quic::QUICConnection;
@@ -110,7 +108,6 @@ impl Connection {
         let len = self.session_bytes.len();
         self.session_bytes.copy_within(cl..len, session_hash.len() + 4);
         unsafe { self.session_bytes.set_len(session_hash.len() + 4 + len - cl); }
-        // self.cipher_suite = &CipherSuite::UNKNOWN;
         self.hasher = Hasher::default();
         self.update_session(client_hello)
     }
@@ -137,28 +134,27 @@ impl Connection {
             let mut secret_key = self.secret_keys.remove(key_entry.name_curve()).ok_or("secret not inited")?;
             let share_secret = secret_key.diffie_hellman(key_entry.exchange_key().as_ref())?;
             self.derived.make_handshake_traffic_secret(share_secret, self.hasher.current_hash()?)?;
-            let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
-            let mac_hash = self.cipher_suite.mac_hash();
-            let key = self.derived.make_cipher_key(&self.version, false)?;
             #[cfg(feature = "log")]
-            info!("[ParsedServerHello] KeyShare={:?}; pubkey={}; key={}",key_entry.name_curve(), key_entry.exchange_key().len(), key);
-            match key {
-                Key::TLS13 { send_key, send_iv, recv_key, recv_iv } => {
-                    self.send_cipher.set_key(send_key, &[], &aead, mac_hash)?;
-                    self.send_cipher.set_iv(Iv::new(send_iv, vec![]));
-                    self.recv_cipher.set_key(recv_key, &[], &aead, mac_hash)?;
-                    self.recv_cipher.set_iv(Iv::new(recv_iv, vec![]));
-                }
-                Key::QUIC { send_key, send_iv, recv_key, recv_iv, .. } => {
-                    self.send_cipher.set_key(send_key, &[], &aead, mac_hash)?;
-                    self.send_cipher.set_iv(Iv::new(send_iv, vec![]));
-                    self.recv_cipher.set_key(recv_key, &[], &aead, mac_hash)?;
-                    self.recv_cipher.set_iv(Iv::new(recv_iv, vec![]));
-                }
-                _ => {}
-            }
+            info!("[ParsedServerHello] KeyShare={:?}; pubkey={}",key_entry.name_curve(), key_entry.exchange_key().len());
+            self.derived_key_cipher(KeyType::Handshake)?;
+
         }
         Ok(false)
+    }
+
+    pub(crate) fn derived_key_cipher(&mut self, typ: KeyType) -> RlsResult<()> {
+        let key = self.derived.make_cipher_key(&self.version, typ)?;
+        let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
+        let mac_hasher = self.cipher_suite.mac_hash();
+        let sk = key.send_key(typ, self.server);
+        let smk = key.send_mac_key(self.server);
+        self.send_cipher.set_key(sk, smk, &aead, mac_hasher)?;
+        self.send_cipher.set_iv(Iv::new(key.send_iv(typ, false), key.explicit().to_vec()));
+        let rk = key.recv_key(typ, self.server);
+        let rmk = key.recv_mac_key(self.server);
+        self.recv_cipher.set_key(rk, rmk, &aead, mac_hasher)?;
+        self.recv_cipher.set_iv(Iv::new(key.recv_iv(typ, false), vec![]));
+        Ok(())
     }
 
     pub fn set_by_encrypted_extension(&mut self, encrypted: &EncryptedExtension) {
@@ -283,49 +279,7 @@ impl Connection {
             let share_secret = secret_key.diffie_hellman(self.exchange_pub_key.as_ref())?;
             self.derived.make_master(Version::TLS_1_2, share_secret, self.hasher.current_hash()?)?;
         }
-        let key = self.derived.make_cipher_key(&self.version, self.server)?;
-
-        let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
-        let hasher = self.cipher_suite.mac_hash();
-        match key {
-            Key::TLS12 {
-                send_mac,
-                recv_mac,
-                send_key,
-                recv_key,
-                send_iv,
-                recv_iv,
-                explicit
-            } => {
-                self.send_cipher.set_key(send_key, send_mac, &aead, hasher)?;
-                self.send_cipher.set_iv(Iv::new(send_iv, explicit.to_vec()));
-                self.recv_cipher.set_key(recv_key, recv_mac, &aead, hasher)?;
-                self.recv_cipher.set_iv(Iv::new(recv_iv, vec![]));
-            }
-            Key::TLS13 {
-                send_key,
-                send_iv,
-                recv_key,
-                recv_iv
-            } => {
-                self.send_cipher.set_key(send_key, &[], &aead, hasher)?;
-                self.send_cipher.set_iv(Iv::new(send_iv, vec![]));
-                self.recv_cipher.set_key(recv_key, &[], &aead, hasher)?;
-                self.recv_cipher.set_iv(Iv::new(recv_iv, vec![]));
-            }
-            Key::QUIC {
-                send_key,
-                send_iv,
-                recv_key,
-                recv_iv,
-                ..
-            } => {
-                self.send_cipher.set_key(send_key, &[], &aead, hasher)?;
-                self.send_cipher.set_iv(Iv::new(send_iv, vec![]));
-                self.recv_cipher.set_key(recv_key, &[], &aead, hasher)?;
-                self.recv_cipher.set_iv(Iv::new(recv_iv, vec![]));
-            }
-        }
+        self.derived_key_cipher(KeyType::Application)?;
         Ok(())
     }
 

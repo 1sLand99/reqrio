@@ -377,11 +377,13 @@ impl MapBuffer {
         self.start_mapping = 0;
     }
 
-    pub fn flush(&mut self, size: usize) {
+    pub fn flush(&mut self, size: usize) -> Result<(), BufferError> {
         self.raw.used_empty(size);
-        if !self.raw.is_empty() { return; }
-        self.start_mapping += size;
-        self.raw.reset();
+        if self.remain_offsets.is_empty() {
+            self.start_mapping += size;
+            self.raw.move_to(self.raw.offset(), 0)?;
+        }
+        Ok(())
     }
 
 
@@ -481,12 +483,14 @@ mod test_buffer {
         assert_eq!(buffer.len(), 96);
 
         let mut reader = buffer.read_reader().unwrap();
-        let filled = reader.read_slice(reader.unread_len()).unwrap();
+        reader.read_slice(50).unwrap();
         let mut raw = vec![5; 20];
         raw.extend([3; 20]);
         raw.extend([4; 16]);
         raw.extend([1; 20]);
         raw.extend([2; 20]);
-        assert_eq!(filled, raw);
+        assert_eq!(reader.inner(), raw);
+        buffer.flush(reader.position()).unwrap();
+        println!("{} {:?} {:?}", buffer.start_mapping, buffer.remain_offsets, buffer.raw.offset());
     }
 }

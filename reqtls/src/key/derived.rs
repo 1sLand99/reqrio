@@ -1,5 +1,5 @@
-use super::block::{KeyBlock, TlsSession};
-use super::{Key, TrafficSecret};
+use super::block::{KeyBlock, KeyType, TlsSession};
+use super::TrafficSecret;
 use crate::error::RlsResult;
 use crate::hkdf::Hkdf;
 use crate::prf::Prf;
@@ -37,7 +37,7 @@ impl DerivedKey {
                 server_traffic: [0; 48],
                 size: 32,
             },
-            key_block: KeyBlock::default(),
+            key_block: KeyBlock::Uninitialed,
             prk: vec![],
             session,
             key_log,
@@ -50,7 +50,7 @@ impl DerivedKey {
         self.prf = Prf::from_hasher(suite.hash());
         self.hash = suite.hash();
         self.traffic_secret.size = self.hash.hash_size();
-        self.key_block.init(suite);
+        self.key_block.init(self.quic, suite);
     }
 
     ///gen tls 1.2 master secret key
@@ -139,25 +139,25 @@ impl DerivedKey {
         Ok(&self.key_block)
     }
 
-    pub fn make_tls13_cipher_key(&mut self) -> RlsResult<&KeyBlock> {
+    pub fn make_tls13_cipher_key(&mut self, typ: KeyType) -> RlsResult<&KeyBlock> {
         if !self.quic {
             //client
             let mut hkdf = Hkdf::from_prk(self.traffic_secret.client_traffic(), self.hash);
-            hkdf.hkdf("tls13 key", &[], self.key_block.client_key_mut())?;
-            hkdf.hkdf("tls13 iv", &[], self.key_block.client_iv_mut())?;
+            hkdf.hkdf("tls13 key", &[], self.key_block.client_key_mut(typ))?;
+            hkdf.hkdf("tls13 iv", &[], self.key_block.client_iv_mut(typ))?;
             //server
             let mut hkdf = Hkdf::from_prk(self.traffic_secret.server_traffic(), self.hash);
-            hkdf.hkdf("tls13 key", &[], self.key_block.server_key_mut())?;
-            hkdf.hkdf("tls13 iv", &[], self.key_block.server_iv_mut())?;
+            hkdf.hkdf("tls13 key", &[], self.key_block.server_key_mut(typ))?;
+            hkdf.hkdf("tls13 iv", &[], self.key_block.server_iv_mut(typ))?;
         } else {
             let mut hkdf = Hkdf::from_prk(self.traffic_secret.client_traffic(), self.hash);
-            hkdf.hkdf("tls13 quic key", b"", self.key_block.client_key_mut())?;
-            hkdf.hkdf("tls13 quic iv", b"", self.key_block.client_iv_mut())?;
-            hkdf.hkdf("tls13 quic hp", b"", self.key_block.client_hp_key_mut())?;
+            hkdf.hkdf("tls13 quic key", b"", self.key_block.client_key_mut(typ))?;
+            hkdf.hkdf("tls13 quic iv", b"", self.key_block.client_iv_mut(typ))?;
+            hkdf.hkdf("tls13 quic hp", b"", self.key_block.client_hp_key_mut(typ))?;
             let mut hkdf = Hkdf::from_prk(self.traffic_secret.server_traffic(), self.hash);
-            hkdf.hkdf("tls13 quic key", b"", self.key_block.server_key_mut())?;
-            hkdf.hkdf("tls13 quic iv", b"", self.key_block.server_iv_mut())?;
-            hkdf.hkdf("tls13 quic hp", b"", self.key_block.server_hp_key_mut())?;
+            hkdf.hkdf("tls13 quic key", b"", self.key_block.server_key_mut(typ))?;
+            hkdf.hkdf("tls13 quic iv", b"", self.key_block.server_iv_mut(typ))?;
+            hkdf.hkdf("tls13 quic hp", b"", self.key_block.server_hp_key_mut(typ))?;
         }
 
         Ok(&self.key_block)
@@ -171,13 +171,12 @@ impl DerivedKey {
     }
 
 
-    pub fn make_cipher_key(&mut self, version: &Version, server: bool) -> RlsResult<Key<'_>> {
-        let quic = self.quic;
+    pub fn make_cipher_key(&mut self, version: &Version, typ: KeyType) -> RlsResult<&KeyBlock> {
         Ok(match *version {
             Version::TLS_1_2 => self.make_tls12_cipher_key()?,
-            Version::TLS_1_3 => self.make_tls13_cipher_key()?,
+            Version::TLS_1_3 => self.make_tls13_cipher_key(typ)?,
             _ => return Err(HandShakeError::UnsupportedVersion(*version).into()),
-        }.get_side(version, server, quic))
+        })
     }
 
 

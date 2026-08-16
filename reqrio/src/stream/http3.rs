@@ -242,7 +242,7 @@ impl HTTP3StreamS {
                 Entry::Occupied(v) => v.into_mut(),
                 Entry::Vacant(v) => v.insert(StreamParam {
                     typ: H3Stream::BidirectionalStream,
-                    buffer: MapBuffer::with_capacity(if sid & 0b10 == 0b10 { 4096 } else { 200 * 1024 }),
+                    buffer: MapBuffer::with_capacity(if sid & 0b10 == 0b10 { 4096 } else { 4096 }),
                     fin: false,
                 })
             };
@@ -293,7 +293,7 @@ impl HTTP3StreamS {
                 }
                 pos = reader.position();
             }
-            param.buffer.flush(pos);
+            param.buffer.flush(pos)?;
             if param.fin && param.buffer.is_empty() { res.push(sid); }
         }
         self.quic.send_ack(QUICFlag::new_short(PacketType::ShortHeader))?;

@@ -120,12 +120,12 @@ impl QUICStreamS {
                 conn: self.conn.tls_conn(),
             }, Some(config), message).unwrap();
             if is_server_hello && !self.hello_retrying {
-                self.conn.make_sample_cipher(false)?;
+                self.conn.make_sample_cipher(false, KeyType::Handshake)?;
                 self.frame_buffer.reset();
                 return Ok(());
             }
         }
-        self.frame_buffer.flush(read_len);
+        self.frame_buffer.flush(read_len)?;
         Ok(())
     }
 
@@ -154,7 +154,7 @@ impl QUICStreamS {
         }
         self.conn.recv_nums_mut().clear();
         self.conn.tls_conn().make_cipher(false)?;
-        self.conn.make_sample_cipher(false).unwrap();
+        self.conn.make_sample_cipher(false, KeyType::Application).unwrap();
         Ok(self)
     }
 
