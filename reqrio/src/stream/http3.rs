@@ -7,7 +7,7 @@ use crate::request::RequestBuffer;
 use crate::stream::ConnParam;
 use crate::{Body, Header, HlsError, QUICStreamS, Response};
 use reqtls::quic::{QUICFrame, QUICFrameFlag};
-use reqtls::{quic, Buf, Buffer, BufferError, ClientConfig, PacketType, QUICBuffer, QUICFlag, ReadExt, Reader, RlsError, WriteExt};
+use reqtls::{quic, Buf, Buffer, BufferError, ClientConfig, PacketType, MapBuffer, QUICFlag, ReadExt, Reader, RlsError, WriteExt};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::net::UdpSocket;
@@ -181,7 +181,7 @@ impl H3Stream {
 
 struct StreamParam {
     typ: H3Stream,
-    buffer: QUICBuffer,
+    buffer: MapBuffer,
     fin: bool,
 }
 
@@ -242,7 +242,7 @@ impl HTTP3StreamS {
                 Entry::Occupied(v) => v.into_mut(),
                 Entry::Vacant(v) => v.insert(StreamParam {
                     typ: H3Stream::BidirectionalStream,
-                    buffer: QUICBuffer::with_capacity(if sid & 0b10 == 0b10 { 4096 } else { 200 * 1024 }),
+                    buffer: MapBuffer::with_capacity(if sid & 0b10 == 0b10 { 4096 } else { 200 * 1024 }),
                     fin: false,
                 })
             };

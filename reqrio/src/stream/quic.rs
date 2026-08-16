@@ -12,7 +12,7 @@ pub struct QUICStreamS {
     ur_buffer: Buffer,
     uw_buffer: Buffer,
 
-    frame_buffer: QUICBuffer,
+    frame_buffer: MapBuffer,
     tr_buffer: Buffer,
     tw_buffer: Buffer,
     conn: QUICConnection,
@@ -81,7 +81,7 @@ impl QUICStreamS {
             socket,
             ur_buffer: Buffer::with_capacity(1500),
             uw_buffer: Buffer::with_capacity(15000),
-            frame_buffer: QUICBuffer::with_capacity(16438),
+            frame_buffer: MapBuffer::with_capacity(16438),
             tr_buffer: Buffer::with_capacity(1500),
             tw_buffer: Buffer::with_capacity(16438),
             conn: QUICConnection::new(session, key_log, config.verify),
@@ -105,6 +105,30 @@ impl QUICStreamS {
         self.write_buffer(PacketType::Initial, None)
     }
 
+    fn handle_message(&mut self, config: &mut Config) -> Result<(), QUICError> {
+        let Ok(mut reader) = self.frame_buffer.read_reader()else { return Ok(()) };
+        let mut read_len = 0;
+        while let Ok(message) = Message::from_reader(&mut reader, &RecordType::HandShake, KeyExchangeAlg::NULL, &Version::TLS_1_3) {
+            // println!("{:#?}", message);
+            read_len += message.encoded.len();
+            let is_server_hello = message.parsed.server().is_some();
+            QUICStreamS::handle_handshake(&mut StreamParam {
+                handshake_finish: &mut self.handshake_finish,
+                encrypted_channel: &mut self.encrypted_channel,
+                hello_retrying: &mut self.hello_retrying,
+                write_buffer: &mut self.tw_buffer,
+                conn: self.conn.tls_conn(),
+            }, Some(config), message).unwrap();
+            if is_server_hello && !self.hello_retrying {
+                self.conn.make_sample_cipher(false)?;
+                self.frame_buffer.reset();
+                return Ok(());
+            }
+        }
+        self.frame_buffer.flush(read_len);
+        Ok(())
+    }
+
     fn handshake(mut self, mut config: ClientConfig) -> Result<QUICStreamS, QUICError> {
         self.send_client_hello(&mut config, false)?;
         let mut config = Config::Client(config);
@@ -112,6 +136,7 @@ impl QUICStreamS {
             match self.read_next_packet(false) {
                 Err(QUICError::InitialRetry) => {
                     self.crypto_offset = 0;
+                    self.frame_buffer.reset();
                     let config = config.client_mut().ok_or("missing client config")?;
                     self.send_client_hello(config, true)?;
                     continue;
@@ -120,28 +145,10 @@ impl QUICStreamS {
                 Ok(_) => {}
             }
             self.send_ack(QUICFlag::new_long(PacketType::Handshake))?;
-            let Ok(mut reader) = self.frame_buffer.read_reader()else { continue };
-            let mut read_len = 0;
-            while let Ok(message) = Message::from_reader(&mut reader, &RecordType::HandShake, KeyExchangeAlg::NULL, &Version::TLS_1_3) {
-                // println!("{:#?}", message);
-                read_len += message.encoded.len();
-                let is_server_hello = message.parsed.server().is_some();
-                QUICStreamS::handle_handshake(&mut StreamParam {
-                    handshake_finish: &mut self.handshake_finish,
-                    encrypted_channel: &mut self.encrypted_channel,
-                    hello_retrying: &mut self.hello_retrying,
-                    write_buffer: &mut self.tw_buffer,
-                    conn: self.conn.tls_conn(),
-                }, Some(&mut config), message).unwrap();
-                if is_server_hello && !self.hello_retrying {
-                    self.conn.make_sample_cipher(false)?;
-                }
-            }
-            self.frame_buffer.flush(read_len);
+            self.handle_message(&mut config)?;
             if !self.tw_buffer.is_empty() {
                 self.send_ack(QUICFlag::new_long(PacketType::Handshake))?;
                 if self.hello_retrying { self.tw_buffer.used_empty(5); } else { self.crypto_offset = 0; }
-                println!("{}-{:?}", self.crypto_offset, self.tw_buffer.filled());
                 self.write_buffer(if self.hello_retrying { PacketType::Initial } else { PacketType::Handshake }, None)?;
             }
         }

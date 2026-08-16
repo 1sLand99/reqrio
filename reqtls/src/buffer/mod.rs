@@ -311,15 +311,15 @@ impl<'a> ReadExt<'a> for Reader<'a> {
 }
 
 
-pub struct QUICBuffer {
+pub struct MapBuffer {
     start_mapping: usize,
     raw: Buffer,
     remain_offsets: Vec<Range<usize>>,
 }
 
-impl QUICBuffer {
+impl MapBuffer {
     pub fn with_capacity(capacity: usize) -> Self {
-        QUICBuffer {
+        MapBuffer {
             start_mapping: 0,
             raw: Buffer::with_capacity(capacity),
             remain_offsets: vec![],
@@ -398,7 +398,7 @@ impl QUICBuffer {
 #[cfg(test)]
 mod test_buffer {
     use crate::{Buffer, ReadExt, WriteExt};
-    use crate::buffer::QUICBuffer;
+    use crate::buffer::MapBuffer;
 
     #[test]
     fn buffer_test() {
@@ -429,7 +429,7 @@ mod test_buffer {
 
     #[test]
     fn quic_buffer_test() {
-        let mut buffer = QUICBuffer::with_capacity(100);
+        let mut buffer = MapBuffer::with_capacity(100);
         buffer.write_at(56, &[1; 20]).unwrap();
         assert!(buffer.read_reader().is_err());
         buffer.write_at(76, &[2; 20]).unwrap();
