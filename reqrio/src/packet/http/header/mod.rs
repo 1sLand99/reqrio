@@ -359,11 +359,11 @@ impl Header {
         );
         header?.cookies()
     }
-    
+
     pub fn cookies_mut(&mut self) -> Option<&mut [Cookie]> {
         let header = self.keys.iter_mut().find(|x|
-        x.name().eq_ignore_ascii_case("cookie")
-            || x.name().eq_ignore_ascii_case("set-cookie")
+            x.name().eq_ignore_ascii_case("cookie")
+                || x.name().eq_ignore_ascii_case("set-cookie")
         );
         header?.cookies_mut()
     }
@@ -579,7 +579,7 @@ impl Header {
         keys.push((StrCow::Borrowed(":scheme"), StrCow::Borrowed(param.url.scheme().spec())));
         let uri = if param.url.uri().is_empty() { StrCow::Borrowed("/") } else { StrCow::Owned(param.url.uri().to_string()) };
         for key in self.keys.iter() {
-            if H2HeaderReader::skip_h2_key(key, ct, param.body_len) { continue; }
+            if H2HeaderReader::skip_h2_key(key, ct, param.body_len, &self.method) { continue; }
             let name = key.name_lower();
             if name == "content-type" {
                 match ct.spec() {

@@ -3,7 +3,7 @@ use crate::pack::{HPackDecode, HPackEncode};
 use crate::packet::HeaderParam;
 use crate::reader::ReadExt;
 use crate::request::RequestBuffer;
-use crate::{Body, Fingerprint, FrameFlag, FrameType, H2Frame, H2Setting, Header, Response};
+use crate::{Body, Fingerprint, FrameFlag, FrameType, H2Frame, H2Setting, Header, HeaderValue, Response};
 #[cfg(feature = "log")]
 use crate::{warn, trace};
 use reqtls::{u24, Buffer, Reader, WriteExt};
@@ -95,11 +95,11 @@ impl HTTP2StreamS {
     pub fn stream(&self) -> &Stream {
         &self.stream
     }
-    
+
     pub fn stream_mut(&mut self) -> &mut Stream {
         &mut self.stream
     }
-    
+
     pub fn into_stream(self) -> Stream {
         self.stream
     }
@@ -144,6 +144,11 @@ trait H2Handle {
             FrameType::Headers => {
                 let resp = responses.get_mut(&sid).ok_or("resp not inited")?;
                 param.decoder.decode_into(frame.payload(), resp.header_mut())?;
+                if let Some(size) = resp.header().get("update-table-size") && let HeaderValue::Number(size) = size {
+                    println!("11111111111111111111111");
+                    param.encoder.update_table_size(*size);
+                    param.decoder.update_table_size(*size);
+                }
                 if frame.flag().end_header() { resp.make_coding()?; }
                 if frame.flag().end_stream() { res.push(sid); }
             }
@@ -152,6 +157,7 @@ trait H2Handle {
                 let mut reader = Reader::from_slice(frame.payload());
                 while let Ok(setting) = H2Setting::from_reader(&mut reader) {
                     if let H2Setting::HeaderTableSize(size) = setting {
+                        println!("{:?}", setting);
                         param.encoder.update_table_size(size as usize);
                         param.decoder.update_table_size(size as usize);
                     }

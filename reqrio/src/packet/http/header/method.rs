@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 use crate::error::HlsError;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "export", repr(C))]
 pub enum Method {
     GET = 0,

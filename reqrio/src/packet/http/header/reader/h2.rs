@@ -2,7 +2,7 @@ use crate::error::HlsResult;
 use crate::pack::HPackEncode;
 use crate::packet::H2EncodeFrame;
 use crate::reader::{ReadExt, StrCow};
-use crate::{ContentType, HeaderKey};
+use crate::{ContentType, HeaderKey, Method};
 use reqtls::{u24, Buffer, WriteExt};
 
 pub(crate) struct H2HeaderReader<'a> {
@@ -18,11 +18,11 @@ pub(crate) struct H2HeaderReader<'a> {
 
 impl<'a> H2HeaderReader<'a> {
     const INVALID_KEYS: [&'static str; 4] = ["connection", "host", "transfer-encoding", "upgrade"];
-    pub(crate) fn skip_h2_key(key: &HeaderKey, ct: &ContentType, body: usize) -> bool {
+    pub(crate) fn skip_h2_key(key: &HeaderKey, ct: &ContentType, body: usize, method: &Method) -> bool {
         let is_ct = key.name().eq_ignore_ascii_case("content-type");
         if is_ct && !matches!(ct,ContentType::Null) { return false; }
         let is_len = key.name().eq_ignore_ascii_case("content-length");
-        if is_len && body == 0 { return true; }
+        if is_len && body == 0 && method == &Method::GET { return true; }
         H2HeaderReader::INVALID_KEYS.contains(&key.name_lower().as_str()) || (key.value().is_empty() && key.is_reserved())
     }
 }
