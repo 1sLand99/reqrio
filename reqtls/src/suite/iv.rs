@@ -7,10 +7,10 @@ pub struct Iv {
 }
 
 impl Iv {
-    pub fn new(fix_iv: &[u8], explicit: Vec<u8>) -> Iv {
+    pub fn new(fix_iv: &[u8], explicit: impl Into<Vec<u8>>) -> Iv {
         Iv {
             fix_iv: fix_iv.to_vec(),
-            explicit: explicit.to_vec(),
+            explicit: explicit.into(),
         }
     }
 

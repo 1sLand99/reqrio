@@ -414,24 +414,10 @@ impl KeyBlock {
         }
     }
 
-    pub fn recv_key(&self, typ: KeyType, server: bool) -> &[u8] {
-        match server {
-            true => self.client_key(typ),
-            false => self.server_key(typ)
-        }
-    }
-
     pub fn send_iv(&self, typ: KeyType, server: bool) -> &[u8] {
         match server {
             true => self.server_iv(typ),
             false => self.client_iv(typ)
-        }
-    }
-
-    pub fn recv_iv(&self, typ: KeyType, server: bool) -> &[u8] {
-        match server {
-            true => self.client_iv(typ),
-            false => self.server_iv(typ)
         }
     }
 
@@ -442,6 +428,29 @@ impl KeyBlock {
         }
     }
 
+    pub fn send_mac_key(&self, server: bool) -> &[u8] {
+        match server {
+            true => self.server_mac_key(),
+            false => self.client_mac_key()
+        }
+    }
+
+    pub fn recv_key(&self, typ: KeyType, server: bool) -> &[u8] {
+        match server {
+            true => self.client_key(typ),
+            false => self.server_key(typ)
+        }
+    }
+
+    pub fn recv_iv(&self, typ: KeyType, server: bool) -> &[u8] {
+        match server {
+            true => self.client_iv(typ),
+            false => self.server_iv(typ)
+        }
+    }
+
+
+
     pub fn recv_hp_key(&self, typ: KeyType, server: bool) -> &[u8] {
         match server {
             true => self.client_hp_key(typ),
@@ -449,12 +458,7 @@ impl KeyBlock {
         }
     }
 
-    pub fn send_mac_key(&self, server: bool) -> &[u8] {
-        match server {
-            true => self.server_mac_key(),
-            false => self.client_mac_key()
-        }
-    }
+
 
     pub fn recv_mac_key(&self, server: bool) -> &[u8] {
         match server {

@@ -12,8 +12,6 @@ use crate::error::{HandShakeError, RlsResult};
 use crate::key::{DerivedKey, KeyType, SecretKey, TlsSession};
 use crate::message::{CompressedCertificate, EncryptedExtension, HandshakeType};
 use crate::*;
-#[cfg(feature = "log")]
-use log::debug;
 pub use quic::QUICConnection;
 use std::collections::HashMap;
 use std::mem;
@@ -137,23 +135,22 @@ impl Connection {
             #[cfg(feature = "log")]
             info!("[ParsedServerHello] KeyShare={:?}; pubkey={}",key_entry.name_curve(), key_entry.exchange_key().len());
             self.derived_key_cipher(KeyType::Handshake)?;
-
         }
         Ok(false)
     }
 
     pub(crate) fn derived_key_cipher(&mut self, typ: KeyType) -> RlsResult<()> {
+        #[cfg(feature = "log")]
+        trace!("[DerivedCipher] type={:?}; cipher={:?}; mac={:?}",typ,self.cipher_suite.cipher(),self.cipher_suite.mac_hash());
         let key = self.derived.make_cipher_key(&self.version, typ)?;
-        let aead = self.cipher_suite.aead().ok_or(RlsError::AeadNone)?;
-        let mac_hasher = self.cipher_suite.mac_hash();
         let sk = key.send_key(typ, self.server);
         let smk = key.send_mac_key(self.server);
-        self.send_cipher.set_key(sk, smk, &aead, mac_hasher)?;
-        self.send_cipher.set_iv(Iv::new(key.send_iv(typ, false), key.explicit().to_vec()));
+        self.send_cipher.set_key(sk, smk, self.cipher_suite)?;
+        self.send_cipher.set_iv(Iv::new(key.send_iv(typ, self.server), key.explicit()));
         let rk = key.recv_key(typ, self.server);
         let rmk = key.recv_mac_key(self.server);
-        self.recv_cipher.set_key(rk, rmk, &aead, mac_hasher)?;
-        self.recv_cipher.set_iv(Iv::new(key.recv_iv(typ, false), vec![]));
+        self.recv_cipher.set_key(rk, rmk, self.cipher_suite)?;
+        self.recv_cipher.set_iv(Iv::new(key.recv_iv(typ, self.server), vec![]));
         Ok(())
     }
 

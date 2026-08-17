@@ -14,7 +14,6 @@ pub use curve::EvpCurve;
 
 use crate::boring::CryptEncodeParam;
 use crate::cipher::CipherError;
-use crate::extend::Aead;
 use crate::hash::Hmac;
 pub use error::EvpError;
 pub use pkey::PKey;
@@ -64,14 +63,8 @@ pub struct CipherCrypto {
 }
 
 impl CipherCrypto {
-    pub fn new(aead: &Aead, key: Vec<u8>, mac: Vec<u8>, hash: HashType) -> RlsResult<CipherCrypto> {
-        let cipher = match aead {
-            Aead::AES_128_CBC_SHA => Cipher::aes_128_cbc(),
-            Aead::AES_256_CBC_SHA => Cipher::aes_256_cbc(),
-            Aead::AES_128_CBC_SHA256 => Cipher::aes_128_cbc(),
-            Aead::AES_256_CBC_SHA384 => Cipher::aes_256_cbc(),
-            _ => return Err("not suite, but in suite".into())
-        }.with_secret_key(key, None);
+    pub fn new(cipher: CipherType, key: Vec<u8>, mac: Vec<u8>, hash: HashType) -> RlsResult<CipherCrypto> {
+        let cipher = Cipher::new(cipher).with_secret_key(key, None);
         Ok(CipherCrypto {
             mac_key: mac,
             cipher,
@@ -148,7 +141,7 @@ mod tests {
         record_buffer.add_explicit_iv(&iv);
 
 
-        let crypto = CipherCrypto::new(&suite.aead().unwrap(), key.to_vec(), mac_key.to_vec(), suite.mac_hash()).unwrap();
+        let crypto = CipherCrypto::new(suite.cipher(), key.to_vec(), mac_key.to_vec(), suite.mac_hash()).unwrap();
         crypto.encrypt(CryptEncodeParam {
             nonce: &[0; 12],
             iv: &iv,

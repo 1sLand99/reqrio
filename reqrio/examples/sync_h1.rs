@@ -104,7 +104,7 @@ fn main() {
     let t = Time::now();
     Buffer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
     let mut req = ScReq::new()
-        .with_alpn(ALPN::Http30)
+        .with_alpn(ALPN::Http20)
         .with_verify(true)
         .with_timeout(Timeout::new_same(1000, 1))
         .with_key_log("2.log")

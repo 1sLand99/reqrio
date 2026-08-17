@@ -234,7 +234,7 @@ impl HTTP3StreamS {
 
 
     pub fn recv(&mut self, responses: &mut HashMap<u64, Response>) -> HlsResult<Vec<u64>> {
-        let frames = self.quic.read_next_packet(false)?;
+        let frames = self.quic.read_next_packet()?;
         let mut res = Vec::with_capacity(responses.len());
         for frame in frames {
             let QUICFrame::Stream { flag, sid, offset, payload, .. } = frame else { continue };

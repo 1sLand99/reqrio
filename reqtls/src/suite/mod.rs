@@ -413,7 +413,7 @@ impl CipherSuite {
     };
     pub const TLS_RSA_WITH_AES_256_CBC_SHA: CipherSuite = CipherSuite {
         value: 0x0035,
-        cipher: CipherType::AES_128_CBC,
+        cipher: CipherType::AES_256_CBC,
         exchange: KeyExchangeAlg::RSA,
         mac: HashType::Sha1,
         hash: HashType::Sha256,

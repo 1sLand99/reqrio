@@ -99,7 +99,7 @@ impl QUICStreamS {
 
     fn send_client_hello(&mut self, config: &mut ClientConfig, force: bool) -> Result<(), QUICError> {
         self.tw_buffer.reset();
-        self.conn.make_initial_cipher(&self.dcid, false, force)?;
+        self.conn.make_initial_cipher(&self.dcid, force)?;
         self.handle_client_hello(config)?;
         self.tw_buffer.used_empty(5);
         self.write_buffer(PacketType::Initial, None)
@@ -120,7 +120,7 @@ impl QUICStreamS {
                 conn: self.conn.tls_conn(),
             }, Some(config), message).unwrap();
             if is_server_hello && !self.hello_retrying {
-                self.conn.make_sample_cipher(false, KeyType::Handshake)?;
+                self.conn.make_sample_cipher(KeyType::Handshake)?;
                 self.frame_buffer.reset();
                 return Ok(());
             }
@@ -133,7 +133,7 @@ impl QUICStreamS {
         self.send_client_hello(&mut config, false)?;
         let mut config = Config::Client(config);
         while !self.handshake_finish {
-            match self.read_next_packet(false) {
+            match self.read_next_packet() {
                 Err(QUICError::InitialRetry) => {
                     self.crypto_offset = 0;
                     self.frame_buffer.reset();
@@ -154,7 +154,7 @@ impl QUICStreamS {
         }
         self.conn.recv_nums_mut().clear();
         self.conn.tls_conn().make_cipher(false)?;
-        self.conn.make_sample_cipher(false, KeyType::Application).unwrap();
+        self.conn.make_sample_cipher(KeyType::Application).unwrap();
         Ok(self)
     }
 
@@ -212,7 +212,7 @@ impl QUICStreamS {
         Ok(())
     }
 
-    pub fn read_next_packet(&mut self, server: bool) -> Result<Vec<QUICFrame<'_>>, QUICError> {
+    pub fn read_next_packet(&mut self) -> Result<Vec<QUICFrame<'_>>, QUICError> {
         if self.ur_buffer.is_empty() || self.ur_buffer.filled()[0] == 0 {
             self.ur_buffer.reset();
             let len = self.socket.recv(self.ur_buffer.unfilled())?;
@@ -222,7 +222,7 @@ impl QUICStreamS {
         let mut reader = Reader::from_slice(self.ur_buffer.filled());
         let mut packet = QUICPacket::from_reader(&mut reader).unwrap();
         if packet.flag().packet_type() == PacketType::Initial {
-            self.conn.make_initial_cipher(packet.dc_id(), server, false).unwrap();
+            self.conn.make_initial_cipher(packet.dc_id(), false).unwrap();
         } else if packet.flag().packet_type() == PacketType::Retry {
             self.token = Buf::Vec(packet.token().to_vec());
             self.dcid = Buf::Vec(packet.sc_id().to_vec());

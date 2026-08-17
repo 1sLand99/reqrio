@@ -1,9 +1,8 @@
 use crate::boring::{CryptDecodeParam, CryptEncodeParam, Crypto};
 use crate::buffer::{CipherDecodeBuffer, CipherEncodeBuffer};
 use crate::error::RlsResult;
-use crate::extend::Aead;
 use crate::suite::iv::Iv;
-use crate::HashType;
+use crate::CipherSuite;
 
 pub struct TlsCipher {
     crypto: Crypto,
@@ -21,8 +20,8 @@ impl TlsCipher {
         }
     }
 
-    pub fn set_key(&mut self, key: &[u8], mac_key: &[u8], aead: &Aead, hash: HashType) -> RlsResult<()> {
-        self.crypto = Crypto::from_aead(key, mac_key, aead, hash)?;
+    pub fn set_key(&mut self, key: &[u8], mac_key: &[u8], suite: &'static CipherSuite) -> RlsResult<()> {
+        self.crypto = Crypto::from_aead(key, mac_key, suite)?;
         self.seq = 0;
         Ok(())
     }
@@ -72,9 +71,7 @@ impl TlsCipher {
 
 #[cfg(test)]
 mod tests {
-    use crate::boring::HashType;
     use crate::buffer::{CipherDecodeBuffer, CipherEncodeBuffer};
-    use crate::extend::Aead;
     use crate::suite::cipher::TlsCipher;
     use crate::suite::iv::Iv;
     use crate::{CipherSuite, RecordType};
@@ -85,9 +82,8 @@ mod tests {
         let key_bs = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];
         let ivv = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];
         let mac_key = [0; 20];
-        let aead = Aead::AES_256_CBC_SHA;
         let suite = &CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA;
-        cipher.set_key(&key_bs, &mac_key, &aead, HashType::Sha1).unwrap();
+        cipher.set_key(&key_bs, &mac_key, suite).unwrap();
         let iv = Iv::new(&ivv, [].to_vec());
         cipher.set_iv(iv);
         let mut buffer = [0u8; 1024];
@@ -109,8 +105,7 @@ mod tests {
         let key = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];
         let iv = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4];
         let suite = &CipherSuite::TLS_AES_128_GCM_SHA256;
-        let aead = suite.aead().unwrap();
-        cipher.set_key(&key, &[], &aead, HashType::Sha1).unwrap();
+        cipher.set_key(&key, &[], suite).unwrap();
         cipher.set_iv(Iv::new(&iv, Vec::new()));
         let mut buffer = [0u8; 1024];
         let payload = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 34, 3, 3, 3];

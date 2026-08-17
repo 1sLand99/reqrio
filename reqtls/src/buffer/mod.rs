@@ -454,7 +454,7 @@ mod test_buffer {
         raw.extend([2; 20]);
         assert_eq!(filled, raw);
 
-        buffer.flush(reader.position());
+        buffer.flush(reader.position()).unwrap();
         assert_eq!(buffer.start_mapping, 96);
         buffer.write_at(100, &[1; 20]).unwrap();
         buffer.write_at(96, &[2; 4]).unwrap();
@@ -465,7 +465,7 @@ mod test_buffer {
         let mut raw = vec![2; 4];
         raw.extend([1; 20]);
         assert_eq!(filled, raw);
-        buffer.flush(reader.position());
+        buffer.flush(reader.position()).unwrap();
         assert_eq!(buffer.start_mapping, 120);
 
 
