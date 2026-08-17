@@ -13,6 +13,7 @@ pub enum Method {
     TRACE = 6,
     CONNECT = 7,
     PATCH = 8,
+    QUERY = 9,
 }
 
 impl Method {
@@ -27,6 +28,7 @@ impl Method {
             Method::TRACE => "TRACE",
             Method::CONNECT => "CONNECT",
             Method::PATCH => "PATCH",
+            Method::QUERY => "QUERY",
         }
     }
 }
@@ -64,6 +66,7 @@ impl TryFrom<&[u8]> for Method {
             b"CONNECT" => Ok(Method::CONNECT),
             b"TRACE" => Ok(Method::TRACE),
             b"PATCH" => Ok(Method::PATCH),
+            b"QUERY" => Ok(Method::QUERY),
             _ => Err("Invalid HTTP method".into())
         }
     }

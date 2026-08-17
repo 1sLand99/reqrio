@@ -114,6 +114,13 @@ impl ScReq {
         self.stream_io(Method::PATCH, url, &body.into())
     }
 
+    pub async fn query<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
+    where
+        HlsError: From<E>,
+    {
+        self.stream_io(Method::QUERY, url, &body.into())
+    }
+
     /// 发送一个请求
     pub fn send<'a>(&mut self, method: Method, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<u64> {
         let url = url.into().build()?;
