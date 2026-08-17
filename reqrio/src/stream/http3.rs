@@ -7,8 +7,7 @@ use crate::request::RequestBuffer;
 use crate::stream::ConnParam;
 use crate::{Body, Header, HlsError, QUICStreamS, Response};
 use reqtls::quic::{QUICFrame, QUICFrameFlag};
-use reqtls::{quic, Buf, Buffer, BufferError, ClientConfig, PacketType, MapBuffer, QUICFlag, ReadExt, Reader, RlsError, WriteExt};
-use std::collections::hash_map::Entry;
+use reqtls::{quic, Buf, Buffer, BufferError, ClientConfig, PacketType, QUICFlag, ReadExt, Reader, RlsError, WriteExt};
 use std::collections::HashMap;
 use std::net::UdpSocket;
 
@@ -181,7 +180,6 @@ impl H3Stream {
 
 struct StreamParam {
     typ: H3Stream,
-    buffer: MapBuffer,
     fin: bool,
 }
 
@@ -218,7 +216,6 @@ impl HTTP3StreamS {
             flag: QUICFrameFlag::new(0),
             sid: 2,
             offset: 0,
-            len: writer.len(),
             payload: Buf::Ref(writer.filled()),
         };
         quic.write_stream(vec![setting_frame])?;
@@ -234,28 +231,25 @@ impl HTTP3StreamS {
 
 
     pub fn recv(&mut self, responses: &mut HashMap<u64, Response>) -> HlsResult<Vec<u64>> {
-        let frames = self.quic.read_next_packet()?;
-        let mut res = Vec::with_capacity(responses.len());
-        for frame in frames {
-            let QUICFrame::Stream { flag, sid, offset, payload, .. } = frame else { continue };
-            let param = match self.stream_ids.entry(sid) {
-                Entry::Occupied(v) => v.into_mut(),
-                Entry::Vacant(v) => v.insert(StreamParam {
-                    typ: H3Stream::BidirectionalStream,
-                    buffer: MapBuffer::with_capacity(if sid & 0b10 == 0b10 { 4096 } else { 4096 }),
-                    fin: false,
-                })
-            };
-            if flag.fin() { param.fin = true; }
-            param.buffer.write_at(offset, payload.as_ref())?;
-            if flag.fin() && param.buffer.is_empty() { return Ok(vec![sid]); }
-            let Ok(mut reader) = param.buffer.read_reader()else { continue };
-
-            if sid & 0b10 == 0b10 && offset == 0 {
+        let mut res = vec![];
+        let (fins, pd_buffer) = self.quic.read_next_packet()?;
+        for (sid, buffer) in pd_buffer {
+            let param = self.stream_ids.entry(*sid).or_insert_with(|| StreamParam {
+                typ: H3Stream::BidirectionalStream,
+                fin: false,
+            });
+            param.fin = fins.contains(sid);
+            if param.fin && buffer.as_raw().is_empty() {
+                res.push(*sid);
+                continue;
+            }
+            let Ok(mut reader) = buffer.read_reader() else { continue; };
+            if reader.unread_len() == 0 { continue; };
+            if sid & 0b10 == 0b10 && buffer.offset() == 0 {
                 param.typ = quic::read_variant(&mut reader)?.into();
             }
             #[cfg(feature = "log")]
-            debug!("[HTTP3] recv quic: typ={:?}; sid={}; offset={}; payload={}; fin={}",param.typ, sid, offset, payload.len(), flag.fin());
+            debug!("[HTTP3] recv quic: typ={:?}; sid={}; fin={}",param.typ, sid,  param.fin);
             let mut pos = reader.position();
             while reader.unread_len() > 0 {
                 let frame = match param.typ.handle_stream(&mut reader, &mut self.decoder) {
@@ -264,6 +258,7 @@ impl HTTP3StreamS {
                     Err(HlsError::Rls(RlsError::Buffer(BufferError::IndexOutBound { .. }))) => break,
                     Err(e) => return Err(e)
                 };
+                println!("{:#?}", frame);
                 match frame {
                     H3Frame::Settings(settings) => for setting in settings {
                         match setting.flag {
@@ -293,9 +288,33 @@ impl HTTP3StreamS {
                 }
                 pos = reader.position();
             }
-            param.buffer.flush(pos)?;
-            if param.fin && param.buffer.is_empty() { res.push(sid); }
+            buffer.flush(pos)?;
+            if param.fin && buffer.as_raw().is_empty() { res.push(*sid); }
         }
+
+
+        // let frames = self.quic.read_next_packet()?;
+        // let mut res = Vec::with_capacity(responses.len());
+        // for frame in frames {
+        //     let QUICFrame::Stream { flag, sid, offset, payload, .. } = frame else { continue };
+        //     let param = match self.stream_ids.entry(sid) {
+        //         Entry::Occupied(v) => v.into_mut(),
+        //         Entry::Vacant(v) => v.insert(StreamParam {
+        //             typ: H3Stream::BidirectionalStream,
+        //             buffer: MapBuffer::with_capacity(if sid & 0b10 == 0b10 { 4096 } else { 4096 }),
+        //             fin: false,
+        //         })
+        //     };
+        //     if flag.fin() { param.fin = true; }
+        //     param.buffer.write_at(offset, payload.as_ref())?;
+        //     if flag.fin() && param.buffer.is_empty() { return Ok(vec![sid]); }
+        //     let Ok(mut reader) = param.buffer.read_reader()else { continue };
+        //
+        //     if sid & 0b10 == 0b10 && offset == 0 {
+        //         param.typ = quic::read_variant(&mut reader)?.into();
+        //     }
+        //
+        // }
         self.quic.send_ack(QUICFlag::new_short(PacketType::ShortHeader))?;
         Ok(res)
     }
@@ -316,7 +335,6 @@ impl HTTP3StreamS {
                     flag: QUICFrameFlag::new(offset).with_fin(crate::reader::ReadExt::wrote(&request) && i + 1 == chunk_count),
                     sid: self.sid,
                     offset,
-                    len: chunk.len(),
                     payload: Buf::Ref(chunk),
                 };
                 let streams = if offset == 0 && let Some(priority) = header.get_str("priority") {
@@ -328,7 +346,6 @@ impl HTTP3StreamS {
                         flag: QUICFrameFlag::new(44),
                         sid: 2,
                         offset: 44 + (self.sid as usize / 4) * 12,
-                        len: 12,
                         payload: Buf::Vec(frame.encode(44)?),
                     }, stream]
                 } else { vec![stream] };

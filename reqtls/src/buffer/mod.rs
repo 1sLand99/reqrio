@@ -125,6 +125,11 @@ impl Buffer {
         unsafe { slice::from_raw_parts(ptr.add(place), len) }
     }
 
+    pub fn slice(&self, range: Range<usize>) -> &[u8] {
+        let ptr = unsafe { Buffer_pointer(self.0.as_ptr()) };
+        unsafe { slice::from_raw_parts(ptr.add(range.start), range.len()) }
+    }
+
     pub fn used_empty(&mut self, size: usize) -> bool {
         unsafe { Buffer_used_empty(self.0.as_mut_ptr(), size) }
     }
@@ -327,6 +332,7 @@ impl MapBuffer {
     }
 
     pub fn write_at(&mut self, offset: usize, buf: &[u8]) -> Result<(), BufferError> {
+        println!("off={}; len={}; map={}; remains={:?} {:?}", offset, buf.len(), self.start_mapping, self.remain_offsets, self.raw.offset());
         //已经接收并处理
         if offset < self.start_mapping { return Ok(()); }
         let abs_offset = offset - self.start_mapping;
@@ -394,6 +400,10 @@ impl MapBuffer {
 
     pub fn as_raw(&self) -> &Buffer {
         &self.raw
+    }
+
+    pub fn offset(&self) -> usize {
+        self.start_mapping
     }
 }
 

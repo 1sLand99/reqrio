@@ -1,5 +1,6 @@
 mod frame;
 
+use std::cmp::Ordering;
 use crate::{u24, Buf, Buffer, BufferError, ReadExt, Reader, WriteExt};
 pub use frame::{QUICFrame, QUICFrameFlag, AckRange, TrpErrKind};
 
@@ -21,6 +22,39 @@ impl From<u8> for PacketType {
             3 => PacketType::Retry,
             _ => unreachable!(),
         }
+    }
+}
+
+impl PartialOrd for PacketType {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self, other) {
+            (PacketType::Initial, PacketType::Initial) => Some(Ordering::Equal),
+            (PacketType::Initial, PacketType::Handshake) => Some(Ordering::Less),
+            (PacketType::Initial, PacketType::ShortHeader) => Some(Ordering::Less),
+            (PacketType::Handshake, PacketType::Initial) => Some(Ordering::Greater),
+            (PacketType::Handshake, PacketType::Handshake) => Some(Ordering::Equal),
+            (PacketType::Handshake, PacketType::ShortHeader) => Some(Ordering::Less),
+            (PacketType::ShortHeader, PacketType::Initial) => Some(Ordering::Greater),
+            (PacketType::ShortHeader, PacketType::Handshake) => Some(Ordering::Greater),
+            (PacketType::ShortHeader, PacketType::ShortHeader) => Some(Ordering::Equal),
+            _ => None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::PacketType;
+
+    #[test]
+    fn test_packet_type() {
+        assert!(PacketType::Initial == PacketType::Initial);
+        assert!(PacketType::Handshake == PacketType::Handshake);
+        assert!(PacketType::Retry == PacketType::Retry);
+        assert!(PacketType::Initial < PacketType::Handshake);
+        assert!(PacketType::Initial < PacketType::ShortHeader);
+        assert!(PacketType::Handshake < PacketType::ShortHeader);
+        assert!(PacketType::Handshake > PacketType::Initial);
     }
 }
 

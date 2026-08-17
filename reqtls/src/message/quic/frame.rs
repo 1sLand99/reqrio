@@ -204,7 +204,6 @@ pub enum QUICFrame<'a> {
         flag: QUICFrameFlag,
         sid: u64,
         offset: usize,
-        len: usize,
         payload: Buf<'a>,
     },
     MaxData,
@@ -290,7 +289,7 @@ impl<'a> QUICFrame<'a> {
                 Ok(QUICFrame::Stream {
                     flag,
                     sid: sid as u64,
-                    len,
+                    // len,
                     offset,
                     payload: Buf::Ref(reader.read_slice(len).unwrap()),
                 })
@@ -358,13 +357,13 @@ impl<'a> QUICFrame<'a> {
                     quic::variant_len(*first_ack_range as usize) +
                     ack_range.iter().map(|x| x.len()).sum::<usize>()
             }
-            QUICFrame::Stream { flag, sid, offset, len, payload } => {
+            QUICFrame::Stream { flag, sid, offset, payload } => {
                 let mut res = 1 + quic::variant_len(*sid as usize);
                 if flag.offset {
                     res += quic::variant_len(*offset);
                 }
                 if flag.len {
-                    res += quic::variant_len(*len);
+                    res += quic::variant_len(payload.len());
                 }
                 res + payload.len()
             }
@@ -403,7 +402,6 @@ impl<'a> QUICFrame<'a> {
                 flag,
                 sid,
                 offset,
-                len,
                 payload,
             } => {
                 writer.write_u8(flag.encode())?;
@@ -412,7 +410,7 @@ impl<'a> QUICFrame<'a> {
                     quic::write_variant(*offset, writer)?;
                 }
                 if flag.len {
-                    quic::write_variant(*len, writer)?;
+                    quic::write_variant(payload.len(), writer)?;
                 }
                 writer.write_slice(payload.as_ref())
             }

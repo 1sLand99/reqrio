@@ -46,11 +46,11 @@ impl DerivedKey {
     }
 
 
-    pub fn init(&mut self, suite: &'static CipherSuite) {
+    pub fn init(&mut self, typ: KeyType, suite: &'static CipherSuite) {
         self.prf = Prf::from_hasher(suite.hash());
         self.hash = suite.hash();
         self.traffic_secret.size = self.hash.hash_size();
-        self.key_block.init(self.quic, suite);
+        self.key_block.init(self.quic, typ, suite);
     }
 
     ///gen tls 1.2 master secret key

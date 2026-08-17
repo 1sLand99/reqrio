@@ -123,7 +123,7 @@ impl Connection {
         #[cfg(feature = "log")]
         info!("[ParsedServerHello] Version: {:?} | CipherSuite: {} | Hasher: {:?} | AEAD: {:?}",
             self.version, self.cipher_suite.spec(), self.cipher_suite.hash(), self.cipher_suite.aead());
-        self.derived.init(self.cipher_suite);
+        self.derived.init(KeyType::Handshake, self.cipher_suite);
         self.derived.set_server_random(server_hello.random.as_ref().try_into()?);
         self.derived.set_ems(server_hello.use_ems());
         if Version::TLS_1_3 == self.version {

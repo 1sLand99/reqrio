@@ -39,7 +39,7 @@ impl QUICConnection {
         if !self.conn.recv_cipher.is_null() && !self.conn.send_cipher.is_null() & !force { return Ok(()); }
         //清空现有的handshake bytes
         self.conn.session_bytes.clear();
-        self.conn.derived.init(&CipherSuite::TLS_AES_128_GCM_SHA256);
+        self.conn.derived.init(KeyType::Initial, &CipherSuite::TLS_AES_128_GCM_SHA256);
         #[cfg(feature = "log")]
         trace!("[QUIC] MakeCipher dcid={:?}", cid);
         self.conn.derived.make_initial_quic_secret(cid.as_ref())?;
@@ -74,8 +74,9 @@ impl QUICConnection {
     fn init_cipher(&mut self, suite: Option<&'static CipherSuite>, typ: KeyType) -> RlsResult<()> {
         if self.current == typ { return Ok(()); }
         let suite = suite.unwrap_or(self.conn.cipher_suite);
+        println!("{:?}>>{:?}; suite={:?}", self.current, typ, suite);
         self.recv_sample = Cipher::new(self.get_cipher(suite.cipher()));
-        let rhk = self.conn.derived.key_block().recv_key(typ, self.conn.server);
+        let rhk = self.conn.derived.key_block().recv_hp_key(typ, self.conn.server);
         self.recv_sample.set_secret_key(rhk, None);
         let rk = self.conn.derived.key_block().recv_key(typ, self.conn.server);
         self.conn.recv_cipher.set_key(rk, &[], suite)?;
@@ -97,9 +98,10 @@ impl QUICConnection {
             PacketType::ShortHeader => KeyType::Application
         };
         self.init_cipher(suite, typ)?;
-        let mut mask = self.recv_sample.encrypt(sample).unwrap();
+        let mut mask = self.recv_sample.encrypt(sample)?;
         mask.truncate(5);
-        packet.decode(&mask, reader)?;
+        packet.decode(&mask, reader).unwrap();
+        // println!("{:#?}", packet);
         if buffer.len() < packet.payload.len() {
             return Err(BufferError::CapacityTooSmall {
                 needed: packet.payload.len(),
@@ -111,7 +113,7 @@ impl QUICConnection {
         let buffer = CipherDecodeBuffer::from_quic(packet, buffer)?;
 
 
-        let len = self.conn.recv_cipher.decrypt(Some(packet.num), buffer)?;
+        let len = self.conn.recv_cipher.decrypt(Some(packet.num), buffer).unwrap();
         self.recv_nums.insert(packet.num);
         Ok(len)
     }

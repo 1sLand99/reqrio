@@ -164,16 +164,36 @@ impl Debug for KeyBlock {
 }
 
 impl KeyBlock {
-    pub fn init(&mut self, quic: bool, suite: &'static CipherSuite) {
-        match (quic, *suite.version) {
-            (false, Version::TLS_1_2) => *self = KeyBlock::Tls12(Tls12Key::new(suite)),
-            (false, Version::TLS_1_3) => *self = KeyBlock::Tls13(Tls13Key::new(suite)),
-            (true, _) => *self = KeyBlock::QUIC {
-                initial: Box::new(QUICKey::new(suite)),
-                handshake: Box::new(QUICKey::new(suite)),
-                application: Box::new(QUICKey::new(suite)),
-            },
-            (_, _) => unreachable!()
+    pub fn init(&mut self, quic: bool, typ: KeyType, suite: &'static CipherSuite) {
+        match (quic, typ, *suite.version) {
+            (false, _, Version::TLS_1_2) => {
+                debug_assert!(matches!(self, KeyBlock::Uninitialed));
+                *self = KeyBlock::Tls12(Tls12Key::new(suite))
+            }
+            (false, _, Version::TLS_1_3) => {
+                debug_assert!(matches!(self, KeyBlock::Uninitialed));
+                *self = KeyBlock::Tls13(Tls13Key::new(suite))
+            }
+            (true, KeyType::Initial, _) => {
+                debug_assert!(matches!(self, KeyBlock::Uninitialed));
+                *self = KeyBlock::QUIC {
+                    initial: Box::new(QUICKey::new(suite)),
+                    handshake: Box::new(QUICKey::new(suite)),
+                    application: Box::new(QUICKey::new(suite)),
+                }
+            }
+            (true, KeyType::Handshake, _) => {
+                assert!(matches!(self, KeyBlock::QUIC {..}));
+                if let KeyBlock::QUIC { handshake, application, .. } = self {
+                    handshake.key_size = suite.key_size;
+                    handshake.iv_size = suite.fix_iv_size;
+                    handshake.hp_key_size = suite.key_size;
+                    application.key_size = suite.key_size;
+                    application.iv_size = suite.fix_iv_size;
+                    application.hp_key_size = suite.key_size;
+                }
+            }
+            (_, _, _) => unreachable!()
         }
     }
 
@@ -450,14 +470,12 @@ impl KeyBlock {
     }
 
 
-
     pub fn recv_hp_key(&self, typ: KeyType, server: bool) -> &[u8] {
         match server {
             true => self.client_hp_key(typ),
             false => self.server_hp_key(typ)
         }
     }
-
 
 
     pub fn recv_mac_key(&self, server: bool) -> &[u8] {

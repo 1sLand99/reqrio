@@ -17,6 +17,7 @@ pub enum QUICError {
         reason: String,
         err_code: TrpErrKind,
     },
+    BufferNotInited,
 }
 
 impl Error for QUICError {}
