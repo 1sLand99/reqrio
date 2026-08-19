@@ -1,3 +1,4 @@
+use std::ops::Range;
 use crate::{Buf, BufferError, ReadExt, Reader, WriteExt};
 use crate::quic::{self, QUICError};
 
@@ -198,6 +199,7 @@ pub enum QUICFrame<'a> {
     Crypto {
         offset: usize,
         value: Buf<'a>,
+        buf_pos: Range<usize>,
     },
     NewToken(Buf<'a>),
     Stream {
@@ -205,6 +207,7 @@ pub enum QUICFrame<'a> {
         sid: u64,
         offset: usize,
         payload: Buf<'a>,
+        buf_pos: Range<usize>,
     },
     MaxData,
     MaxStreamData {
@@ -272,9 +275,11 @@ impl<'a> QUICFrame<'a> {
             QUICFrameType::Crypto => {
                 let offset = quic::read_variant(reader)?;
                 let len = quic::read_variant(reader)?;
+                let pos = reader.position()..reader.position() + len;
                 Ok(QUICFrame::Crypto {
                     offset,
-                    value: Buf::Ref(reader.read_slice(len).unwrap()),
+                    value: Buf::Ref(reader.read_slice(len)?),
+                    buf_pos: pos,
                 })
             }
             QUICFrameType::NewToken => {
@@ -286,12 +291,14 @@ impl<'a> QUICFrame<'a> {
                 let sid = quic::read_variant(reader)?;
                 let offset = if flag.offset { quic::read_variant(reader)? } else { 0 };
                 let len = if flag.len { quic::read_variant(reader)? } else { reader.unread_len() };
+                let pos = reader.position()..reader.position() + len;
                 Ok(QUICFrame::Stream {
                     flag,
                     sid: sid as u64,
                     // len,
                     offset,
-                    payload: Buf::Ref(reader.read_slice(len).unwrap()),
+                    payload: Buf::Ref(reader.read_slice(len)?),
+                    buf_pos: pos,
                 })
             }
             QUICFrameType::MaxStreamsBidi => Ok(QUICFrame::MaxStreamsBidi(quic::read_variant(reader)? as u64)),
@@ -339,7 +346,7 @@ impl<'a> QUICFrame<'a> {
         match self {
             QUICFrame::Padding(size) => *size,
             QUICFrame::Ping => 1,
-            QUICFrame::Crypto { offset, value } => {
+            QUICFrame::Crypto { offset, value, .. } => {
                 let offset_size = quic::variant_len(*offset);
                 let value_size = quic::variant_len(value.len());
                 1 + offset_size + value_size + value.len()
@@ -357,7 +364,7 @@ impl<'a> QUICFrame<'a> {
                     quic::variant_len(*first_ack_range as usize) +
                     ack_range.iter().map(|x| x.len()).sum::<usize>()
             }
-            QUICFrame::Stream { flag, sid, offset, payload } => {
+            QUICFrame::Stream { flag, sid, offset, payload, .. } => {
                 let mut res = 1 + quic::variant_len(*sid as usize);
                 if flag.offset {
                     res += quic::variant_len(*offset);
@@ -375,7 +382,7 @@ impl<'a> QUICFrame<'a> {
         match self {
             QUICFrame::Padding(size) => writer.write_slice(&vec![0; *size]),
             QUICFrame::Ping => writer.write_u8(0x01),
-            QUICFrame::Crypto { offset, value } => {
+            QUICFrame::Crypto { offset, value, .. } => {
                 writer.write_u8(0x06)?;
                 quic::write_variant(*offset, writer)?;
                 quic::write_variant(value.len(), writer)?;
@@ -403,6 +410,7 @@ impl<'a> QUICFrame<'a> {
                 sid,
                 offset,
                 payload,
+                ..
             } => {
                 writer.write_u8(flag.encode())?;
                 quic::write_variant(*sid as usize, writer)?;

@@ -7,7 +7,7 @@ mod qpack;
 pub use hpack::{HPackCoding, HPackEncode, HPackDecode};
 pub use qpack::{QPackType, QPackEncode, QPackDecode};
 pub use item::PackItem;
-pub use error::HPackError;
+pub use error::PackError;
 use reqtls::{BufferError, ReadExt, Reader, WriteExt};
 
 pub fn decode_integer(buf: &mut Reader) -> Result<usize, BufferError> {

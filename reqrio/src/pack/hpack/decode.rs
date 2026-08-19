@@ -1,7 +1,7 @@
 use super::index::Index;
 use super::table::Table;
 use crate::error::HlsResult;
-use crate::pack::error::HPackError;
+use crate::pack::error::PackError;
 use crate::pack::{huffman, PackItem};
 use crate::Header;
 use std::mem;
@@ -42,7 +42,7 @@ impl<'a> HPackDecodeBuf<'a> {
     }
 
     pub fn read_size(&mut self, size: usize) -> HlsResult<Vec<u8>> {
-        if self.remain.len() + self.buf.len() - self.read < size { return Err(HPackError::BufferTooSmall.into()); };
+        if self.remain.len() + self.buf.len() - self.read < size { return Err(PackError::BufferTooSmall.into()); };
         let res = match self.read >= self.remain.len() {
             true => self.buf[self.read - self.remain.len()..self.read - self.remain.len() + size].to_vec(),
             false => [&self.remain[self.read..], &self.buf[..self.read + size - self.remain.len()]].concat()
@@ -83,7 +83,7 @@ impl HPackDecode {
         let mut res = 0;
         let mut shift = 0;
         loop {
-            let byte = buf.read().ok_or(HPackError::BufferTooSmall)?;
+            let byte = buf.read().ok_or(PackError::BufferTooSmall)?;
             res |= ((byte & 0b0111_1111) as usize) << shift;
             shift += 7;
             if byte >> 7 == 0 { break; }
@@ -106,13 +106,13 @@ impl HPackDecode {
                 true => Ok(String::from_utf8(huffman::decode(value)?)?),
                 false => Ok(String::from_utf8(value)?)
             }
-        } else { Err(HPackError::InvalidLenIndex.into()) }
+        } else { Err(PackError::InvalidLenIndex.into()) }
     }
 
     pub fn decode_next(&mut self, buf: &mut HPackDecodeBuf<'_>) -> HlsResult<PackItem> {
         let index = self.decode_index(buf)?;
         let res = match index {
-            Index::Indexed(index) => Ok(self.table.get(index - 1).ok_or(HPackError::IndexedItemNone)?.clone()),
+            Index::Indexed(index) => Ok(self.table.get(index - 1).ok_or(PackError::IndexedItemNone)?.clone()),
             Index::NoIndexAdd => {
                 let name = self.decode_string(buf)?;
                 let value = self.decode_string(buf)?;
@@ -127,14 +127,14 @@ impl HPackDecode {
                 Ok(item)
             }
             Index::NameIndexedAdd(index) => {
-                let mut item = self.table.get(index - 1).ok_or(HPackError::NameIndexedItemNone)?.clone();
+                let mut item = self.table.get(index - 1).ok_or(PackError::NameIndexedItemNone)?.clone();
                 let value = self.decode_string(buf)?;
                 item.set_value(value);
                 self.table.insert(item.clone());
                 Ok(item)
             }
             Index::NameIndexedOnce(index) | Index::NameIndexedNever(index) => {
-                let mut item = self.table.get(index - 1).ok_or(HPackError::NameIndexedItemNone)?.clone();
+                let mut item = self.table.get(index - 1).ok_or(PackError::NameIndexedItemNone)?.clone();
                 let value = self.decode_string(buf)?;
                 item.set_value(value);
                 Ok(item)
@@ -143,7 +143,7 @@ impl HPackDecode {
                 self.table.update_table_size(index);
                 Ok(PackItem::new_table_size(index))
             }
-            _ => Err(HPackError::InvalidIndexType(index.into_inner() as u8).into())
+            _ => Err(PackError::InvalidIndexType(index.into_inner() as u8).into())
         };
         buf.flush();
         res

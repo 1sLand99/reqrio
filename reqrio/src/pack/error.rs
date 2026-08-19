@@ -2,32 +2,23 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
-pub enum HPackError {
+pub enum PackError {
     BufferTooSmall,
     InvalidIndexType(u8),
     InvalidLenIndex,
     IndexedItemNone,
     NameIndexedItemNone,
-
     InvalidPrefix,
     IntegerOverflow,
+    BlockedStream(usize),
     Currently(String),
 }
 
-impl Display for HPackError {
+impl Display for PackError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            HPackError::BufferTooSmall => write!(f, "buffer too small"),
-            HPackError::InvalidIndexType(v) => write!(f, "invalid index type: {:0b}", v),
-            HPackError::InvalidLenIndex => write!(f, "invalid length index"),
-            HPackError::IndexedItemNone => write!(f, "index item none"),
-            HPackError::NameIndexedItemNone => write!(f, "name index item none"),
-            HPackError::InvalidPrefix => write!(f, "invalid prefix"),
-            HPackError::IntegerOverflow => write!(f, "integer overflow"),
-            HPackError::Currently(e) => write!(f, "{}", e),
-        }
+        write!(f, "{:?}", self)
     }
 }
 
-impl Error for HPackError {}
+impl Error for PackError {}
 

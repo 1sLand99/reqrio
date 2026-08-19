@@ -9,17 +9,33 @@ use std::net::{SocketAddr, UdpSocket};
 use std::ops::Range;
 use std::time::Duration;
 use std::mem;
+use crate::HlsError;
+
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+pub(crate) enum QId {
+    HId,
+    AId(u64),
+}
+
+#[derive(Debug)]
+pub(crate) struct Queue {
+    pub(crate) bid: u64,
+    pub(crate) fin: bool,
+    pub(crate) offset: usize,
+    pub(crate) pos: Range<usize>,
+}
+
 
 pub struct QUICStreamS {
     socket: UdpSocket,
     ur_buffer: Buffer,
-    ud_buffer: [u8; 1500],
+    tr_last_offset: usize,
+    tr_buffer: Buffer,
     uw_buffer: Buffer,
 
     tw_buffer: Buffer,
     conn: QUICConnection,
     sent_num: HashMap<u64, Range<usize>>,
-    pd_buffer: HashMap<u64, MapBuffer>,
 
     addr: SocketAddr,
     seq: u64,
@@ -33,37 +49,42 @@ pub struct QUICStreamS {
 
     packet_offsets: Vec<(PacketType, Range<usize>)>,
     current: PacketType,
+    idle_buffer: Vec<(u64, Buffer)>,
+
+    buffer_size: u64,
+    task_buffer: HashMap<u64, (Buffer, usize)>,
+    buffer_queues: HashMap<QId, Vec<Queue>>,
+
 }
 
-struct QUICParams<'a> {
+pub(crate) struct QUICParams<'a> {
     dcid: &'a mut Buf<'static>,
     token: &'a mut Buf<'static>,
     conn: &'a mut QUICConnection,
     ur_buffer: &'a mut Buffer,
-    ud_buffer: &'a mut [u8; 1500],
-    pd_buffer: &'a mut HashMap<u64, MapBuffer>,
     sent_num: &'a mut HashMap<u64, Range<usize>>,
     packet_offsets: &'a mut Vec<(PacketType, Range<usize>)>,
-    handshake_finish: &'a bool,
+    buffer_size: &'a mut u64,
+    task_buffer: &'a mut HashMap<u64, (Buffer, usize)>,
+    buffer_queues: &'a mut HashMap<QId, Vec<Queue>>,
+    idle_buffer: &'a mut Vec<(u64, Buffer)>,
 }
 
 
 impl QUICStreamS {
-    pub fn connect(socket: UdpSocket, remote_addr: SocketAddr, config: ClientConfig<'_>) -> Result<QUICStreamS, QUICError> {
+    pub fn connect(socket: UdpSocket, remote_addr: SocketAddr, config: ClientConfig<'_>) -> HlsResult<QUICStreamS> {
         socket.set_read_timeout(Some(Duration::from_millis(3000)))?;
         let session = config.session.clone().unwrap_or_default();
         let key_log = config.key_log.clone();
-        let mut pd_buffer = HashMap::new();
-        pd_buffer.insert(0, MapBuffer::with_capacity(6000));
         QUICStreamS {
             socket,
             ur_buffer: Buffer::with_capacity(6000),
-            ud_buffer: [0; 1500],
+            tr_last_offset: 0,
+            tr_buffer: Buffer::with_capacity(8192),
             uw_buffer: Buffer::with_capacity(15000),
             tw_buffer: Buffer::with_capacity(16438),
             conn: QUICConnection::new(session, key_log, config.verify),
             sent_num: HashMap::new(),
-            pd_buffer,
             addr: remote_addr,
             seq: 1,
             dcid: Buf::Vec(rand::random::<[u8; 8]>().to_vec()),
@@ -74,6 +95,10 @@ impl QUICStreamS {
             crypto_offset: 0,
             packet_offsets: vec![],
             current: PacketType::Initial,
+            idle_buffer: vec![],
+            buffer_size: 0,
+            task_buffer: Default::default(),
+            buffer_queues: Default::default(),
         }.handshake(config)
     }
 
@@ -86,11 +111,9 @@ impl QUICStreamS {
     }
 
     fn handle_message(&mut self, config: &mut Config) -> Result<(), QUICError> {
-        let buffer = self.pd_buffer.get_mut(&0).ok_or(QUICError::BufferNotInited)?;
-        let Ok(mut reader) = buffer.read_reader() else { return Ok(()) };
+        let mut reader = Reader::from_slice(self.tr_buffer.filled());
         let mut read_len = 0;
         while let Ok(message) = Message::from_reader(&mut reader, &RecordType::HandShake, KeyExchangeAlg::NULL, &Version::TLS_1_3) {
-            // println!("{:#?}", message);
             read_len += message.encoded.len();
             let is_server_hello = message.parsed.server().is_some();
             QUICStreamS::handle_handshake(&mut StreamParam {
@@ -103,22 +126,23 @@ impl QUICStreamS {
             if is_server_hello && !self.hello_retrying {
                 self.conn.make_sample_cipher(KeyType::Handshake)?;
                 self.current = PacketType::Handshake;
-                buffer.reset();
+                self.tr_buffer.reset();
+                self.tr_last_offset = 0;
                 return Ok(());
             }
         }
-        buffer.flush(read_len)?;
+        self.tr_buffer.used_empty(read_len);
         Ok(())
     }
 
-    fn handshake(mut self, mut config: ClientConfig) -> Result<QUICStreamS, QUICError> {
+    fn handshake(mut self, mut config: ClientConfig) -> HlsResult<QUICStreamS> {
         self.send_client_hello(&mut config, false)?;
         let mut config = Config::Client(config);
         while !self.handshake_finish {
             match self.read_next_packet() {
                 Err(QUICError::InitialRetry) => {
                     self.crypto_offset = 0;
-                    if let Some(b) = self.pd_buffer.get_mut(&0) { b.reset() }
+                    self.tr_last_offset = 0;
                     self.ur_buffer.reset();
                     self.packet_offsets.clear();
                     self.current = PacketType::Initial;
@@ -126,10 +150,10 @@ impl QUICStreamS {
                     self.send_client_hello(config, true)?;
                     continue;
                 }
-                Err(e) => return Err(e),
+                Err(e) => return Err(HlsError::QUIC(e)),
                 Ok(_) => {}
             };
-
+            self.handle_queues(|_, _, _| Ok(None))?;
             self.send_ack(QUICFlag::new_long(PacketType::Handshake))?;
             self.handle_message(&mut config)?;
             if !self.tw_buffer.is_empty() {
@@ -142,7 +166,8 @@ impl QUICStreamS {
         self.conn.tls_conn().make_cipher(false)?;
         self.conn.make_sample_cipher(KeyType::Application)?;
         self.current = PacketType::ShortHeader;
-        if let Some(buffer) = self.pd_buffer.get_mut(&0) { buffer.reset(); }
+        self.tr_buffer.reset();
+        self.tr_last_offset = 0;
         Ok(self)
     }
 
@@ -176,6 +201,7 @@ impl QUICStreamS {
             let frame = QUICFrame::Crypto {
                 offset: self.crypto_offset,
                 value: Buf::Ref(chunk),
+                buf_pos: 0..0,
             };
             pd_len += frame.len();
             self.crypto_offset += chunk.len();
@@ -199,7 +225,7 @@ impl QUICStreamS {
         Ok(())
     }
 
-    pub fn read_next_packet(&mut self) -> Result<(Vec<u64>, &mut HashMap<u64, MapBuffer>), QUICError> {
+    pub fn read_next_packet(&mut self) -> Result<(), QUICError> {
         println!("{:?} {:?}", self.packet_offsets, self.current);
         if self.packet_offsets.is_empty() { self.ur_buffer.reset(); }
         let pos = self.packet_offsets.iter().position(|&(typ, _)| typ <= self.current);
@@ -212,6 +238,7 @@ impl QUICStreamS {
                 let off = start..start + len;
                 let flag = QUICFlag::from_raw(unfilled[0]);
                 self.ur_buffer.add_len(len);
+                #[cfg(feature = "log")]
                 trace!("read flag={:?}; cur={:?}; {}", flag.packet_type(), self.current, flag.packet_type() > self.current);
                 if flag.packet_type() > self.current {
                     self.packet_offsets.push((flag.packet_type(), off));
@@ -220,20 +247,71 @@ impl QUICStreamS {
                 break off;
             }
         };
-        Ok((QUICStreamS::handle_packet(QUICParams {
+        QUICStreamS::handle_packet(QUICParams {
             dcid: &mut self.dcid,
             token: &mut self.token,
             conn: &mut self.conn,
             ur_buffer: &mut self.ur_buffer,
-            ud_buffer: &mut self.ud_buffer,
-            pd_buffer: &mut self.pd_buffer,
             sent_num: &mut self.sent_num,
             packet_offsets: &mut self.packet_offsets,
-            handshake_finish: &self.handshake_finish,
-        }, off)?, &mut self.pd_buffer))
+            buffer_size: &mut self.buffer_size,
+            task_buffer: &mut self.task_buffer,
+            buffer_queues: &mut self.buffer_queues,
+            idle_buffer: &mut self.idle_buffer,
+        }, off)?;
+
+        Ok(())
     }
 
-    fn handle_packet(mut params: QUICParams, mut off: Range<usize>) -> Result<Vec<u64>, QUICError> {
+    pub(crate) fn handle_queues<F>(&mut self, mut worker: F) -> HlsResult<()>
+    where
+        F: FnMut(&u64, &mut Vec<Queue>, &HashMap<u64, (Buffer, usize)>) -> HlsResult<Option<u64>>,
+    {
+        let mut keys = Vec::with_capacity(self.buffer_queues.keys().len());
+        for (qid, queues) in &mut self.buffer_queues {
+            while !queues.is_empty() {
+                let bid = match qid {
+                    QId::AId(sid) => worker(sid, queues, &self.task_buffer)?,
+                    QId::HId => {
+                        let pos = queues.iter().position(|x| x.offset == self.tr_last_offset);
+                        let Some(pos) = pos else { break };
+                        let queue = queues.remove(pos);
+                        let (buffer, _) = &self.task_buffer[&queue.bid];
+                        self.tr_buffer.check_move(queue.pos.len())?;
+                        if self.tr_buffer.unfilled_len() < queue.pos.len() {
+                            #[cfg(all(debug_assertions, feature = "log"))]
+                            warn!("[QUIC] resize buffer = {}", self.tr_buffer.capacity()*2);
+                            self.tr_buffer.resize(queue.pos.len() - self.tr_buffer.unfilled_len())?;
+                        }
+                        self.tr_last_offset += queue.pos.len();
+                        self.tr_buffer.write_slice(buffer.slice(queue.pos))?;
+                        Some(queue.bid)
+                    }
+                };
+                let Some(bid) = bid else { break };
+                QUICStreamS::free_buffer(&mut self.task_buffer, &mut self.idle_buffer, bid)?;
+            }
+            if queues.is_empty() { keys.push(*qid) }
+        }
+        for key in keys {
+            self.buffer_queues.remove(&key);
+        }
+        Ok(())
+    }
+
+    fn free_buffer(task_buffer: &mut HashMap<u64, (Buffer, usize)>, idle_buffer: &mut Vec<(u64, Buffer)>, bid: u64) -> Result<(), QUICError> {
+        if task_buffer[&bid].1 <= 1 {
+            if let Some((mut buffer, _)) = task_buffer.remove(&bid) {
+                buffer.reset();
+                idle_buffer.push((bid, buffer))
+            }
+        } else if let Some((_, buf_ref)) = task_buffer.get_mut(&bid) {
+            *buf_ref -= 1;
+        }
+        Ok(())
+    }
+
+    fn handle_packet(params: QUICParams, mut off: Range<usize>) -> Result<QUICParams, QUICError> {
         let mut reader = Reader::from_slice(params.ur_buffer.slice(off.clone()));
         let mut packet = QUICPacket::from_reader(&mut reader)?;
         if packet.flag().packet_type() == PacketType::Initial {
@@ -246,7 +324,13 @@ impl QUICStreamS {
         if params.dcid.as_ref() != packet.sc_id().as_ref() && !packet.sc_id().as_ref().is_empty() {
             *params.dcid = Buf::Vec(packet.sc_id().as_ref().to_vec());
         }
-        let len = params.conn.read_message(&mut packet, &mut reader, params.ud_buffer).unwrap();
+        let (bid, mut idle_buffer) = if params.idle_buffer.is_empty() {
+            let bid = *params.buffer_size;
+            *params.buffer_size = bid + 1;
+            (bid, Buffer::with_capacity(1500))
+        } else { params.idle_buffer.remove(0) };
+        let len = params.conn.read_message(&mut packet, &mut reader, idle_buffer.unfilled()).unwrap();
+        idle_buffer.add_len(len);
         assert_eq!(packet.len(), reader.position());
         let zero_len = reader.find(|&b| b != 0).unwrap_or(reader.unread_len());
         println!("1111111111={}-{:?}", zero_len, &reader.inner()[reader.position()..]);
@@ -256,12 +340,12 @@ impl QUICStreamS {
             let flag = QUICFlag::from_raw(reader.inner()[reader.position()]);
             params.packet_offsets.insert(0, (flag.packet_type(), off));
         }
-        QUICStreamS::handle_frames(&mut params, len)
+        QUICStreamS::handle_frames(params, bid, idle_buffer)
     }
 
-    fn handle_frames(params: &mut QUICParams, decrypted_len: usize) -> Result<Vec<u64>, QUICError> {
-        let mut res = vec![];
-        let mut reader = Reader::from_slice(&params.ud_buffer[..decrypted_len]);
+    fn handle_frames(params: QUICParams, bid: u64, buffer: Buffer) -> Result<QUICParams, QUICError> {
+        let mut reader = Reader::from_slice(buffer.filled());
+        let mut buf_ref = 0;
         while reader.unread_len() > 0 {
             let frame = QUICFrame::from_reader(&mut reader).unwrap();
             match frame {
@@ -272,17 +356,29 @@ impl QUICStreamS {
                     }
                 }
                 QUICFrame::ConnectionCloseTrp { reason, err_code, .. } => return Err(QUICError::TransportError { reason: reason.to_string(), err_code }),
-                QUICFrame::Crypto { offset, value } => {
-                    trace!("[QUIC Frame] off={}; pd={}; hf={}", offset, value.len(), params.handshake_finish);
-                    if *params.handshake_finish { continue; }
-                    let buffer = params.pd_buffer.entry(0).or_insert_with(|| MapBuffer::with_capacity(6000));
-                    buffer.write_at(offset, value.as_ref())?
+                QUICFrame::Crypto { offset, value, buf_pos } => {
+                    #[cfg(feature = "log")]
+                    trace!("[QUIC Frame] off={}; pd={}; pos={:?};", offset, value.len(), buf_pos);
+                    let queues = params.buffer_queues.entry(QId::HId).or_insert_with(|| Vec::with_capacity(30));
+                    queues.push(Queue {
+                        bid,
+                        fin: false,
+                        offset,
+                        pos: buf_pos,
+                    });
+                    buf_ref += 1;
                 }
-                QUICFrame::Stream { flag, sid, offset, payload } => {
-                    trace!("[QUIC Frame] fin={}; sid={}; off={}; pd={}", flag.fin(), sid, offset, payload.len());
-                    let buffer = params.pd_buffer.entry(sid).or_insert_with(|| MapBuffer::with_capacity(3072));
-                    buffer.write_at(offset, payload.as_ref())?;
-                    if flag.fin() { res.push(sid); }
+                QUICFrame::Stream { flag, sid, offset, payload, buf_pos } => {
+                    #[cfg(feature = "log")]
+                    trace!("[QUIC Frame] fin={}; sid={}; off={}; pd={}; pos={:?}", flag.fin(), sid, offset, payload.len(), buf_pos);
+                    let queues = params.buffer_queues.entry(QId::AId(sid)).or_insert_with(|| Vec::with_capacity(30));
+                    queues.push(Queue {
+                        bid,
+                        fin: flag.fin(),
+                        offset,
+                        pos: buf_pos,
+                    });
+                    buf_ref += 1;
                 }
                 QUICFrame::Ping |
                 QUICFrame::Padding(_) |
@@ -294,7 +390,8 @@ impl QUICStreamS {
                 _ => unreachable!()
             }
         }
-        Ok(res)
+        if buf_ref != 0 { params.task_buffer.insert(bid, (buffer, buf_ref)); }
+        Ok(params)
     }
 
     pub fn write_stream(&mut self, streams: Vec<QUICFrame>) -> HlsResult<()> {
@@ -314,7 +411,7 @@ impl QUICStreamS {
 
 impl StreamHandle for QUICStreamS {
     fn stream_param(&mut self) -> (&Buffer, StreamParam<'_>) {
-        (self.pd_buffer[&0].as_raw(), StreamParam {
+        (&self.tr_buffer, StreamParam {
             handshake_finish: &mut self.handshake_finish,
             encrypted_channel: &mut self.encrypted_channel,
             hello_retrying: &mut self.hello_retrying,

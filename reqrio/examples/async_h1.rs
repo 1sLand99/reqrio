@@ -24,22 +24,7 @@ async fn main() {
     let mut timeout = Timeout::longer();
     timeout.set_handle_times(1);
 
-    let mut req = AcReq::new()
-        // .with_fingerprint(fingerprint)
-        .with_timeout(timeout)
-        .with_verify(true)
-        .with_key_log("2.log")
-        .with_auto_redirect(false)
-        // .with_proxy(Proxy::Null)
-        .with_verify(false)
-        .with_alpn(ALPN::Http11)
-        // .with_proxy(Proxy::try_from("http: //222.186.129.68:15265").unwrap())
-        // .with_mtls(certs, key)
-        // .with_proxy(Proxy::new_socks5("127.0.0.1",10279))
-        // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10280))
-        // .connect("https://104.18.34.137".sni("whatnot.com")).await.unwrap()
-        ;
-    let headers = json::object! {
+    let mut headers = json::object! {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
         "Accept": "*/*",
         "Sec-Fetch-Site": "none",
@@ -54,19 +39,59 @@ async fn main() {
         "Accept-Encoding": "gzip,deflate,br,zstd",
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
+        "content-length": "0"
         // "cookie":"_EDGE_V=1; MUIDB=184C10AD397866DF1A1607B038566708; MUID=184C10AD397866DF1A1607B038566708; _UR=QS=0&TQS=0&Pn=0; BFBUSR=BFBHP=0; MUIDB=184C10AD397866DF1A1607B038566708; SRCHD=AF,AF,AF,AF,AF,AF,AF,AF,AF,AF,AF,AF,AF,AF,AF&AF=NOFORM; SRCHUID=V=2&GUID=EB7B9E5DE58F4D5690F6904732C24C7B&dmnchg=1; USRLOC=HS&ELOC=LAT=23.384721755981445|LON=113.44195556640625|N=%E7%99%BD%E4%BA%91%E5%8C%BA%EF%BC%8C%E5%B9%BF%E4%B8%9C%E7%9C%81|ELT=4|&HS=1; _RwBf=r&r&r&r&r=0&ilt=10&ihpd=5&ispd=3&rc=12&rb=0&rg=200&pc=12&mtu=0&rbb=0&clo=0&v=8&l=2026-03-15T07:00:00.0000000Z&lft=0001-01-01T00:00:00.0000000&aof=0&ard=0001-01-01T00:00:00.0000000&rwdbt=0&rwflt=0&rwaul2=0&g=&o=2&p=&c=&t=0&s=0001-01-01T00:00:00.0000000+00:00&ts=2026-03-15T14:03:35.7211444+00:00&rwred=0&wls=&wlb=&wle=&ccp=&cpt=&lka=0&lkt=0&aad=0&TH=&cid=0&gb=; SRCHUSR=DOB&DS&DS&DS&DS&DS=1&DOB=20260315; _EDGE_S=SID=357AA105805E678827ACB618817066E6; _SS=SID=357AA105805E678827ACB618817066E6; _HPVN=CS=eyJQbiI6eyJDbiI6MSwiU3QiOjAsIlFzIjowLCJQcm9kIjoiUCJ9LCJTYyI6eyJDbiI6MSwiU3QiOjAsIlFzIjowLCJQcm9kIjoiSCJ9LCJReiI6eyJDbiI6MSwiU3QiOjAsIlFzIjowLCJQcm9kIjoiVCJ9LCJBcCI6dHJ1ZSwiTXV0ZSI6dHJ1ZSwiTGFkIjoiMjAyNi0wMy0xNVQwMDowMDowMFoiLCJJb3RkIjowLCJHd2IiOjAsIlRucyI6MCwiRGZ0IjpudWxsLCJNdnMiOjAsIkZsdCI6MCwiSW1wIjozMCwiVG9ibiI6MH0=; SRCHHPGUSR=SRCHLANG&SRCHLANG&SRCHLANG&SRCHLANG&SRCHLANG&SRCHLANG&SRCHLANG&SRCHLANG&SRCHLANG&V&SRCHLANG&SRCHLANG&SRCHLANG&V&SRCHLANG&SRCHLANG=zh-Hans&PREFCOL=0&BRW=NOTP&BRH=M&CW=150&CH=769&SCW=150&SCH=769&DPR=1.0&UTC=480&HV=1773588648&HVE=CfDJ8HAK7eZCYw5BifHFeUHnkJGC6_lT8f9GeruXx8zjPXuk-5GHkofYMoFErMkT8CTKKKsSt5O2HyGmjLyCEXbEREUmwCd8ZBlYMLSDZu1wZ-EI1LDuyIiI1tkP6Usyicm601qX3aJVYqVWUBn-t6h0ZWLiftm4aS627xFj1fE5PD-85i7BWTkhqG0uvaYzuSgB2A&BZA=0&PRVCW=150&PRVCH=769&B=0&EXLTT=7&V=CfDJ8HAK7eZCYw5BifHFeUHnkJGijeRjCoaCMaAnmznMvdEg2GXY8647Wb-7wnHNpePKXRO6KRQ_0cQc-onivd35uV-p-4g0MB0V_Z1ZpW-QSJe9zbPUG-Ks-kQMjzEl6GlLo6N0ciP51vkQdR-P-lCUH58&PR=1"
     };
-    req.set_headers_json(headers).unwrap();
-    let url = "https://ts3.tc.mm.bing.net/th/id/ODF.dsR0yzVOEBuWxCU9cjAM4Q?w=32&h=32&qlt=96&pcl=fffffa&o=6&pid=1.2";
-    let sid1 = req.send(Method::GET, url, None).await.unwrap();
-    let url = "https://ts3.tc.mm.bing.net/th/id/ODF.pnhuF5msYDWgeLYHsiLTig?w=32&h=32&qlt=95&pcl=fffffa&o=6&pid=1.2";
-    let sid2 = req.send(Method::GET, url, None).await.unwrap();
+    let mut tls = json::object! {
+        "id": 144,
+        "typ": "VIP",
+        "tls_finger": "16030107120100070e0303faf22de89f4672f79a363ed9950e2b2b807cc41731b8e20bbf6de690a8f6daeb2005d7f96eb8631dc9040260d188ce0f049902feac7c5acd167a0a6edb207b051400200a0a130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035010006a5aaaa000044cd00050003026832002300000010000e000c02683208687474702f312e31000d0012001004030804040105030805050108060601003304ef04edbaba00010011ec04c0afcc467841082d14b0c095b652f67e1960abf3cbca1b378390a35262758baf901347265621f097ac26b4fac500d91891a4521d39643e542b7aedc5ce916a7fc8e618e0e397beb07d880a8fc780c922221aab206f4cba6411391da586c3e861847a7c82ca12783b67038e011eb274065bc90585233619098335934ed276695d11c0aed026f6e0bb1c29508408771fd50dbfb747faa60d53d63a8a66c8aa89824fc89b9b94ca958a2ed1b28d4660553260b6762a5309e94208a28793a8650288478218b22e1174f524a4a091568f9424dee609d7885197eac3e15800a8e41ac4e852cdb6ad210a3fd9256959901254f7cce9a83441554e5136c81025467b4602c2e6583a8a354226c88737c5c10b5496290d1ad12ee8266ddcd59838f268bf34a55fb09fb1390d3ac02a05ba40d352554290972d01ae300b8a7aba19c543c4dea594aacbc19659b42965ca3d8c048cd22689dac43dab33cfeb40c4768798da4ccfa9c281e243aa0cc663a05fdb646e63528c345456004351f682077a47328bcb791fcc9d99086f653a6c80d06f8a681e26160a39057905968926182f04ea906a7c8af1178dc8c233abc5bff671ba37976fea324b82272e775658346a89538c9152947c6cd4b08b584ee50c93c48c5dd9bcc97c5c95b2f77d58205b489433b3d2b14fb81f2ed367f0285b4fe15f8d11060124b01ff79c09b0c6f154421358cf56bbb2e3162ab79205e6883a77267f747bb50089a819bc041c8baa94a61355c881fcfc4470968602892517820bdb2379749c4b195c7fac395a015041d0a11f3b177140aa824d33a57ab709b4aa1bb3cab56566af99f25a16a34bd2a992c40b599db05726021be4b88e28021914633a627abe0e703b847a6d42c2960d9200f8c91f85511ab5734dda48012d5267e74cc844f58a8513607c4471eaa001ac533955714660871cb5347ee53914941075d6385d7ca07d112c049bd1bfc202c6295103298a9ebc3a59df172779a9a517422b7476632ccb4061d07fefc1a1aaaa81baf86cc0e97e6d370c3ed265a649735e75741ab81b28d10c14c3312a808bbf8534357c141e166b17ea096aa4750d2071b4fac4cc43aa2e26a4173926e4348698a55e21bbb73477b528527c077a0f2eab5cdb71513ef9021d41297616a6279b57ed832c5bca0531bc353ae9a1d7930ed1da1151b76ef5f9ab69047cae8786fd02bbc668b056f83035bb84195a7a7bc155f2247566bba1f1296ebfec7560b94d13e240c55b721140218833889461560b261841d4358458b02d547f283a0f093668344057d69373ec0c5d3e700106dc0efe6b2826408df413243b4c551d5ba1c31b7fa1a53cd8d71c107431af31478d10689a734c1ca6357b5b8533861334f26ec6313c3a6c58b9b7b6138cbc6eb448712a9d97d16d4c89ac21e14acecc680ce695c23b5002ac98ff1a7735d69ee854bb745454905abb92175355923094438d26ba937e07395b90c872710f94419bef60a858899bc9744d0e129457e26fa990ba8bdb3f87712fe31a15902093ca6a0898d48356946e93f13c2627bfed1185cf087288478dc0113c0bb35e3fd93675a872ce00178f3bbc3106600b3bcb298670a806bd2a2ac4e01240e5a2c8bf5f9c41c0b6ad89d82b4f93b2421c6e5ddbf6b66ccf3e7285005f2b881a55dff1b54374cc5c94f84754588b1719fbd956a0fe79a3f9cdfebc44001d00202f9589897f661b2055798fc08a4e4402b9c84d8cff9fdd5a9b4943f9d4492f72000500050100000000000b0002010000120000fe0d011a0000010001c800208762f2fb60545a90018cb4f4df491e779555ca038a21a2f756a8ddc4ed627d6600f0e6f206542cf4b238f4b07fcf5b47cca984368ee6519ac3a6206974f6434962a6c72048c75d1020a05d0bd29b7288ec8304b52df1c21772d7bdb3e9b1fc719450e7d452d6c1937c20ab4baa13e1440ccf1e205a740080995618126ff204ad82f0008527460a5016fd5b2f141f2385e9005c2732296778d2ade2e471716d39f5976f09bd3413342c820ffd253d593fd9860015c6f2f48d2746790e01a7ecdc64ce3d5ef52e0d8b6e20808120aa2897c8e41a877fce4a54dcc7668845e12c475712bee7d61ce5d779640216ffa0fbfed56351c4f19b3d9bce7fd16fabe0c5b83838f3c1de8e0db2a51c890ba98afc7f7f0800170000000a000c000ababa11ec001d00170018ff01000100002d00020101001b0003020002002b000706baba030403030000000e000c0000093338686d7a672e636ebaba0001001603030046100000424104ff635373fbbfbc37444a2026372f57fd06c5205bacfe32b61261a9d29bf1fca57f91ef22cb2ba46af8cf9ae7c3123f56634099af297dcd30835cd81664005fb9140303000101",
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+        "sec_ch_ua": "\"Google Chrome\";v=\"137\", \"Chromium\";v=\"137\", \"Not/A)Brand\";v=\"24\"",
+        "sec_ch_ua_mobile": "?0",
+        "sec_ch_ua_platform": "\"Windows\"",
+        // "sec_ch_ua_bitness": "\"64\"",
+        // "sec_ch_ua_arch": "\"x86\"",
+        // "sec_ch_ua_full_version": "\"137.0.7151.69\"",
+        // "sec_ch_ua_full_version_list": "\"Google Chrome\";v=\"137.0.7151.69\", \"Chromium\";v=\"137.0.7151.69\", \"Not/A)Brand\";v=\"24.0.0.0\"",
+        // "sec_ch_ua_model": "\"\"",
+        // "sec_ch_ua_platform_version": "\"10.0.0\""
+      };
+    tls.remove("id");
+    tls.remove("typ");
+    let d = tls.remove("tls_finger").dump();
+    // let mut fingerprint = Fingerprint::from_hex_all(d, fs::read_to_string("TOKEN").unwrap()).unwrap();
+    // fingerprint.h2_mut().window_size = 15663105;
+    headers.update_by(tls).unwrap();
+    let mut req = AcReq::new()
+        // .with_fingerprint(fingerprint)
+        .with_timeout(timeout)
+        .with_verify(true)
+        .with_key_log("2.log")
+        .with_auto_redirect(false)
+        // .with_proxy(Proxy::Null)
+        .with_verify(false)
+        .with_alpn(ALPN::Http20)
+        .with_header_json(headers).unwrap()
+        // .with_proxy(Proxy::try_from("http: //222.186.129.68:15265").unwrap())
+        // .with_mtls(certs, key)
+        // .with_proxy(Proxy::new_socks5("127.0.0.1",10279))
+        .with_proxy(Proxy::new_http_plain("127.0.0.1", 10280))
+        // .connect("https://104.18.34.137".sni("whatnot.com")).await.unwrap()
+        ;
 
-    let res1 = req.recv(sid2).await.unwrap();
+    let url = "https://www.dickssportinggoods.com/p/2026-topps-flagship-football-mega-box-26topufang4p4ib5vqjhq/26topufang4p4ib5vqjhq";
+    // let url = "https://ts3.tc.mm.bing.net/th/id/ODF.dsR0yzVOEBuWxCU9cjAM4Q?w=32&h=32&qlt=96&pcl=fffffa&o=6&pid=1.2";
+    let sid1 = req.send(Method::GET, url, None).await.unwrap();
+    // let url = "https://ts3.tc.mm.bing.net/th/id/ODF.pnhuF5msYDWgeLYHsiLTig?w=32&h=32&qlt=95&pcl=fffffa&o=6&pid=1.2";
+    // let sid2 = req.send(Method::POST, url, None).await.unwrap();
+
+    let res1 = req.recv(sid1).await.unwrap();
+    // let res1 = req.get(url, None).await.unwrap();
     println!("{}", res1.raw_string());
-    let res2 = req.recv(sid1).await.unwrap();
-    println!("{}", res2.raw_string());
-    println!("{}", Time::now().as_mills() - t.as_mills())
+    // let res2 = req.recv(sid1).await.unwrap();
+    // println!("{}", res2.raw_string());
+    // println!("{}", Time::now().as_mills() - t.as_mills())
 
     // req.set_url("https://shopee.tw/").await.unwrap();
     // req.set_json(data);

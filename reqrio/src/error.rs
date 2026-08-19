@@ -1,5 +1,5 @@
 use crate::json::JsonError;
-use crate::pack::HPackError;
+use crate::pack::PackError;
 use reqtls::{hex, Alert, BufferError, RlsError, UrlError, ALPN};
 use std::array::TryFromSliceError;
 use std::convert::Infallible;
@@ -36,7 +36,7 @@ pub enum HlsError {
     UnsupportedAlpn(ALPN),
     Body(FormError),
     Rls(RlsError),
-    HPack(HPackError),
+    HPack(PackError),
     Time(TimeError),
     Header(HeaderError),
     Currently(String),
@@ -109,8 +109,8 @@ impl From<Infallible> for HlsError {
     }
 }
 
-impl From<HPackError> for HlsError {
-    fn from(value: HPackError) -> Self {
+impl From<PackError> for HlsError {
+    fn from(value: PackError) -> Self {
         HlsError::HPack(value)
     }
 }

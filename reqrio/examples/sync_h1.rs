@@ -149,6 +149,7 @@ fn main() {
     let res1 = req.get("https://docs.rs", None).unwrap();
     // let res1 = req.get("https://www.baidu.com", None).unwrap();
     // let res1 = req.get("https://www.wireshark.org/download.html", None).unwrap();
+    // let res1 = req.get("https://www.dickssportinggoods.com/p/2026-topps-flagship-football-mega-box-26topufang4p4ib5vqjhq/26topufang4p4ib5vqjhq", None).unwrap();
 
     // println!("{}", res2.raw_string());
 

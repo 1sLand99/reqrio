@@ -19,7 +19,11 @@ pub enum BufferError {
     IndexOutBound { size: usize, index: usize },
     RangeEdgeError(Range<usize>),
     Nullptr,
-    ResizeFail { current: usize, new: usize },
+    ResizeFail {
+        current: usize,
+        at_least: usize,
+        new: usize,
+    },
     SliceConvertError(TryFromSliceError),
     Utf8Error(Utf8Error),
 }
@@ -38,7 +42,7 @@ impl Display for BufferError {
             BufferError::IndexOutBound { size, index } => write!(f, "The index {} out of bounds {} ", index, size),
             BufferError::RangeEdgeError(range) => write!(f, "The range is {:?} of Buffer is fail", range),
             BufferError::Nullptr => write!(f, "Nullptr"),
-            BufferError::ResizeFail { current, new } => write!(f, "resize to {} fail from {}", new, current),
+            BufferError::ResizeFail { current, new, at_least } => write!(f, "resize to {} fail from {}, need: {}", new, current, at_least),
             BufferError::InvalidQUICVariant => write!(f, "Invalid variant"),
             BufferError::SliceConvertError(er) => write!(f, "SliceConvertError({})", er),
             BufferError::Utf8Error(e) => write!(f, "Utf8Error({})", e),
