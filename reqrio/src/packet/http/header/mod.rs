@@ -97,7 +97,9 @@ impl Header {
             status: HttpStatus::None,
             keys: vec![
                 //h2 order
+                HeaderKey::new_reserved("pragma",""),
                 HeaderKey::new_reserved("cache-control", ""),
+                HeaderKey::new_reserved("ect", ""),
                 HeaderKey::new_reserved("sec-ch-ua", ""),
                 HeaderKey::new_reserved("sec-ch-ua-mobile", ""),
                 HeaderKey::new_reserved("sec-ch-ua-full-version", ""),
@@ -107,6 +109,7 @@ impl Header {
                 HeaderKey::new_reserved("sec-ch-ua-model", ""),
                 HeaderKey::new_reserved("sec-ch-ua-bitness", ""),
                 HeaderKey::new_reserved("sec-ch-ua-full-version-list", ""),
+                HeaderKey::new_reserved("sec-ch-prefers-color-scheme", ""),
                 HeaderKey::new_reserved("upgrade-insecure-requests", ""),
                 HeaderKey::new_reserved("user-agent", format!("reqrio/{}", env!("CARGO_PKG_VERSION"))),
                 HeaderKey::new_reserved("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"),
