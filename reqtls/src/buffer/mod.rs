@@ -3,6 +3,7 @@ mod decode;
 mod ext;
 mod error;
 
+use std::cmp::max;
 use crate::ffi;
 use crate::ffi::CPointer;
 pub use decode::CipherDecodeBuffer;
@@ -71,15 +72,24 @@ impl Buffer {
         Buffer(CPointer::new(buffer))
     }
 
-    pub fn resize(&mut self, capacity: usize) -> Result<(), BufferError> {
+    pub fn resize(&mut self, at_least: usize) -> Result<(), BufferError> {
+        let mut capacity = self.capacity() * 2;
+        while capacity < at_least { capacity *= 2; }
         let ret = unsafe { Buffer_resize(self.0.as_mut_ptr(), capacity) };
         if ret != 1 {
             return Err(BufferError::ResizeFail {
                 current: self.capacity(),
+                at_least,
                 new: capacity,
             });
         }
         Ok(())
+    }
+
+    pub fn truncate(&mut self, size: usize) {
+        let start = self.start();
+        let end = max(size - self.end(), start);
+        self.reset_offset(start..end)
     }
 
     pub fn reset_offset(&mut self, offset: Range<usize>) {
@@ -277,6 +287,7 @@ impl<'a> Reader<'a> {
     pub fn inner(&self) -> &'a [u8] { self.buf }
 
     pub fn find<P: FnMut(&u8) -> bool>(&self, predicate: P) -> Option<usize> {
+        // self.buf[self.pos..].iter().position(predicate).map(|x| x + self.pos);
         self.buf[self.pos..].iter().position(predicate)
     }
 }
@@ -332,7 +343,8 @@ impl MapBuffer {
     }
 
     pub fn write_at(&mut self, offset: usize, buf: &[u8]) -> Result<(), BufferError> {
-        println!("off={}; len={}; map={}; remains={:?} {:?}", offset, buf.len(), self.start_mapping, self.remain_offsets, self.raw.offset());
+        println!("off={}; len={}; map={}; remains={:?} {:?}; ab_off={}", offset, buf.len(), self.start_mapping, self.remain_offsets, self.raw.offset(),
+                 if offset >= self.start_mapping { offset - self.start_mapping } else { usize::MAX });
         //已经接收并处理
         if offset < self.start_mapping { return Ok(()); }
         let abs_offset = offset - self.start_mapping;

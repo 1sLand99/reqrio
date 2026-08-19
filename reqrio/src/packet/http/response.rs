@@ -30,22 +30,26 @@ impl Response {
         Response::default()
     }
 
+    fn write_buffer(buffer: &mut Buffer, buf: &[u8]) -> Result<usize, BufferError> {
+        loop {
+            match buffer.write_slice(buf) {
+                Ok(_) => break,
+                Err(BufferError::CapacityTooSmall { .. }) => {
+                    let size = buf.len() - buffer.unfilled_len();
+                    buffer.resize(size)?
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(buf.len())
+    }
+
     pub(crate) fn extend_body(&mut self, buf: &[u8]) -> HlsResult<(bool, usize)> {
         match self.coder {
             None => {
-                let len = self.header.content_length().unwrap_or(0);
+                let len = self.header.content_length().unwrap_or(self.raw.len() + buf.len());
                 let read_len = if self.raw.len() + buf.len() >= len { len - self.raw.len() } else { buf.len() };
-                loop {
-                    match self.raw.write_slice(&buf[..read_len]) {
-                        Ok(_) => break,
-                        Err(BufferError::CapacityTooSmall { .. }) => {
-                            self.raw.resize(self.raw.capacity() * 2)?;
-                        }
-                        Err(e) => return Err(e.into()),
-                    }
-                }
-                // buffer.used_empty(read_len);
-                Ok((self.raw.len() >= len, read_len))
+                Ok((self.raw.len() >= len, Response::write_buffer(&mut self.raw, &buf[..read_len])?))
             }
             Some(ref mut coder) => {
                 let mut reader = Reader::from_slice(buf);
@@ -66,7 +70,6 @@ impl Response {
                     }
                 };
                 self.read_size += reader.position();
-                // buffer.used_empty(reader.position());
                 let len = self.header.content_length().unwrap_or(0);
                 Ok((coder.finish() || (len != 0 && self.read_size >= len), reader.position()))
             }
@@ -121,46 +124,18 @@ impl Response {
         Ok(finish)
     }
 
-    // pub fn extend_frame(&mut self, frame: &H2Frame, decoder: &mut HPackDecode) -> HlsResult<bool> {
-    //     let ended = frame.is_end_frame();
-    //     match frame.frame_type() {
-    //         FrameType::Data => {
-    //             let mut buffer = mem::replace(&mut self.h2_buffer, Buffer::with_capacity(0));
-    //             let ret = buffer.check_move(frame.payload().len());
-    //             if ret.is_err() || buffer.unfilled_len() < frame.payload().len() {
-    //                 buffer.resize(buffer.capacity() * 2 + frame.payload().len())?;
-    //             }
-    //             buffer.write_slice(frame.payload())?;
-    //             self.extend_body(&mut buffer)?;
-    //             drop(mem::replace(&mut self.h2_buffer, buffer));
-    //         }
-    //         FrameType::Headers => {
-    //             decoder.decode_into(frame.payload(), &mut self.header)?;
-    //             self.make_coding()?;
-    //         }
-    //         _ => {}
-    //     }
-    //     Ok(ended)
-    // }
-
-    pub fn push_raw_slice(&mut self, raw: &[u8]) -> HlsResult<bool> {
+    pub fn push_raw_slice(&mut self, raw: &[u8]) -> HlsResult<()> {
         if self.header.is_empty() {
-            if self.raw.unfilled_len() < raw.len() {
-                self.raw.resize(self.raw.capacity() * 2)?;
-            }
-            self.raw.write_slice(raw)?;
-            Ok(false)
+            Response::write_buffer(&mut self.h2_buffer, raw)?;
+            Ok(())
         } else {
             let mut buffer = mem::replace(&mut self.h2_buffer, Buffer::with_capacity(0));
-            let ret = buffer.check_move(raw.len());
-            if ret.is_err() || buffer.unfilled_len() < raw.len() {
-                buffer.resize(buffer.capacity() * 2 + raw.len())?;
-            }
-            buffer.write_slice(raw)?;
-            let (finish, size) = self.extend_body(buffer.filled())?;
+            let _ = buffer.check_move(raw.len());
+            Response::write_buffer(&mut buffer, raw)?;
+            let (_, size) = self.extend_body(buffer.filled())?;
             buffer.used_empty(size);
             drop(mem::replace(&mut self.h2_buffer, buffer));
-            Ok(finish)
+            Ok(())
         }
     }
 
