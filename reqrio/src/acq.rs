@@ -120,6 +120,13 @@ impl AcReq {
         self.stream_io(Method::PATCH, &mut url.try_into()?, &body.into()).await
     }
 
+    pub async fn query<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
+    where
+        HlsError: From<E>,
+    {
+        self.stream_io(Method::QUERY, &mut url.try_into()?, &body.into()).await
+    }
+
     pub async fn h1_io(&mut self) -> HlsResult<Response> {
         let mut response = Response::new();
         let mut read_len = 0;

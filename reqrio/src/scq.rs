@@ -118,6 +118,13 @@ impl ScReq {
         self.stream_io(Method::PATCH, &mut url.try_into()?, &body.into())
     }
 
+    pub fn query<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
+    where
+        HlsError: From<E>,
+    {
+        self.stream_io(Method::QUERY, &mut url.try_into()?, &body.into())
+    }
+
     pub fn h1_io(&mut self) -> HlsResult<Response> {
         let mut response = Response::new();
         let mut read_len = 0;
