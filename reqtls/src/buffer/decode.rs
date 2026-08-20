@@ -1,5 +1,6 @@
 use crate::error::RlsResult;
 use crate::{BufferError, CipherSuite, CipherType, Version};
+#[cfg(feature = "quic")]
 use crate::message::QUICPacket;
 use crate::suite::iv::Iv;
 
@@ -35,6 +36,7 @@ impl<'a> CipherDecodeBuffer<'a> {
         })
     }
 
+    #[cfg(feature = "quic")]
     pub fn from_quic(packet: &'a QUICPacket, decoded: &'a mut [u8]) -> RlsResult<Self> {
         Ok(CipherDecodeBuffer {
             head: packet.hdr_raw(),

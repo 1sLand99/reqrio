@@ -24,6 +24,7 @@ pub(crate) struct DerivedKey {
 
 impl DerivedKey {
     const ZERO: [u8; 64] = [0; 64];
+    #[cfg(feature = "quic")]
     const INIT_SLAT: [u8; 20] = [56, 118, 44, 247, 245, 89, 52, 179, 77, 23, 154, 230, 164, 200, 12, 173, 204, 187, 127, 10];
     pub fn new(client_random: [u8; 32], server_random: [u8; 32], session: TlsSession, key_log: Option<PathBuf>, quic: bool) -> Self {
         DerivedKey {
@@ -150,19 +151,23 @@ impl DerivedKey {
             hkdf.hkdf("tls13 key", &[], self.key_block.server_key_mut(typ))?;
             hkdf.hkdf("tls13 iv", &[], self.key_block.server_iv_mut(typ))?;
         } else {
-            let mut hkdf = Hkdf::from_prk(self.traffic_secret.client_traffic(), self.hash);
-            hkdf.hkdf("tls13 quic key", b"", self.key_block.client_key_mut(typ))?;
-            hkdf.hkdf("tls13 quic iv", b"", self.key_block.client_iv_mut(typ))?;
-            hkdf.hkdf("tls13 quic hp", b"", self.key_block.client_hp_key_mut(typ))?;
-            let mut hkdf = Hkdf::from_prk(self.traffic_secret.server_traffic(), self.hash);
-            hkdf.hkdf("tls13 quic key", b"", self.key_block.server_key_mut(typ))?;
-            hkdf.hkdf("tls13 quic iv", b"", self.key_block.server_iv_mut(typ))?;
-            hkdf.hkdf("tls13 quic hp", b"", self.key_block.server_hp_key_mut(typ))?;
+            #[cfg(feature = "quic")]
+            {
+                let mut hkdf = Hkdf::from_prk(self.traffic_secret.client_traffic(), self.hash);
+                hkdf.hkdf("tls13 quic key", b"", self.key_block.client_key_mut(typ))?;
+                hkdf.hkdf("tls13 quic iv", b"", self.key_block.client_iv_mut(typ))?;
+                hkdf.hkdf("tls13 quic hp", b"", self.key_block.client_hp_key_mut(typ))?;
+                let mut hkdf = Hkdf::from_prk(self.traffic_secret.server_traffic(), self.hash);
+                hkdf.hkdf("tls13 quic key", b"", self.key_block.server_key_mut(typ))?;
+                hkdf.hkdf("tls13 quic iv", b"", self.key_block.server_iv_mut(typ))?;
+                hkdf.hkdf("tls13 quic hp", b"", self.key_block.server_hp_key_mut(typ))?;
+            }
         }
 
         Ok(&self.key_block)
     }
-
+    
+    #[cfg(feature = "quic")]
     pub fn make_initial_quic_secret(&mut self, cid: &[u8]) -> RlsResult<()> {
         let mut inti_hkdf = Hkdf::new(&Self::INIT_SLAT, cid, HashType::Sha256)?;
         inti_hkdf.hkdf("tls13 client in", b"", self.traffic_secret.client_traffic_mut())?;
@@ -212,6 +217,7 @@ impl DerivedKey {
 
     pub fn session_mut(&mut self) -> &mut TlsSession { &mut self.session }
 
+    #[cfg(feature = "quic")]
     pub fn key_block(&self) -> &KeyBlock {
         &self.key_block
     }

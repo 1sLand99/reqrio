@@ -4,7 +4,9 @@ mod proxy;
 mod ws;
 #[cfg(feature = "aync")]
 mod aync;
+#[cfg(feature = "quic")]
 mod quic;
+#[cfg(feature = "quic")]
 mod http3;
 mod http2;
 mod http1;
@@ -21,9 +23,11 @@ use http1::HTTP1StreamA;
 #[cfg(feature = "aync")]
 use http2::HTTP2StreamA;
 use http2::HTTP2StreamS;
+#[cfg(feature = "quic")]
 pub use http3::HTTP3StreamS;
 pub use proxy::Proxy;
 pub use proxy::ProxyStream;
+#[cfg(feature = "quic")]
 pub use quic::QUICStreamS;
 use std::collections::HashMap;
 use std::io::Write;
@@ -71,6 +75,7 @@ pub enum HTTPStream {
     NonConnection,
     SyncH1(HTTP1StreamS),
     SyncH2(HTTP2StreamS),
+    #[cfg(feature = "quic")]
     SyncH3(HTTP3StreamS),
     #[cfg(feature = "aync")]
     AsyncH1(HTTP1StreamA),
@@ -84,6 +89,7 @@ impl HTTPStream {
             HTTPStream::NonConnection => None,
             HTTPStream::SyncH1(h1) => h1.stream().scheme(),
             HTTPStream::SyncH2(h2) => h2.stream().scheme(),
+            #[cfg(feature = "quic")]
             HTTPStream::SyncH3(_) => Some(Scheme::Https),
             #[cfg(feature = "aync")]
             HTTPStream::AsyncH1(h1) => h1.stream().scheme(),
@@ -97,6 +103,7 @@ impl HTTPStream {
             HTTPStream::NonConnection => Err("connect first".into()),
             HTTPStream::SyncH1(h1) => Ok(h1.into_stream()),
             HTTPStream::SyncH2(h2) => Ok(h2.into_stream()),
+            #[cfg(feature = "quic")]
             HTTPStream::SyncH3(_) => Err("use `QUICStreamS`".into()),
             #[cfg(feature = "aync")]
             HTTPStream::AsyncH1(h1) => Ok(h1.into_stream()),
@@ -110,6 +117,7 @@ impl HTTPStream {
             HTTPStream::NonConnection => Err("connect first".into()),
             HTTPStream::SyncH1(h1) => Ok(h1.stream_mut()),
             HTTPStream::SyncH2(h2) => Ok(h2.stream_mut()),
+            #[cfg(feature = "quic")]
             HTTPStream::SyncH3(_) => Err("use `QUICStreamS`".into()),
             #[cfg(feature = "aync")]
             HTTPStream::AsyncH1(h1) => Ok(h1.stream_mut()),
@@ -126,6 +134,7 @@ impl HTTPStream {
             HTTPStream::NonConnection => Err("need connected before send".into()),
             HTTPStream::SyncH1(h1) => h1.send(header, body, param),
             HTTPStream::SyncH2(h2) => h2.send(header, body, param),
+            #[cfg(feature = "quic")]
             HTTPStream::SyncH3(h3) => h3.send(header, body, param),
             #[cfg(feature = "aync")]
             _ => Err("invalid sync stream".into()),
@@ -137,6 +146,7 @@ impl HTTPStream {
             HTTPStream::NonConnection => Err("need connected before recv".into()),
             HTTPStream::SyncH1(h1) => h1.recv(responses),
             HTTPStream::SyncH2(h2) => h2.recv(responses),
+            #[cfg(feature = "quic")]
             HTTPStream::SyncH3(h3) => h3.recv(responses),
             #[cfg(feature = "aync")]
             _ => Err("invalid sync stream".into()),
@@ -145,6 +155,7 @@ impl HTTPStream {
 
     pub fn conn_sync<'a, 'b: 'a>(&'a mut self, mut param: ConnParam<'b>) -> HlsResult<ALPN> {
         match param.alpn {
+            #[cfg(feature = "quic")]
             ALPN::Http30 => {
                 *self = HTTPStream::SyncH3(HTTP3StreamS::connect(param)?);
                 Ok(ALPN::Http30)
@@ -167,6 +178,7 @@ impl HTTPStream {
             HTTPStream::NonConnection => Err("need connected before send".into()),
             HTTPStream::SyncH1(h1) => h1.stream_mut().sync_shutdown(),
             HTTPStream::SyncH2(h2) => h2.stream_mut().sync_shutdown(),
+            #[cfg(feature = "quic")]
             HTTPStream::SyncH3(h3) => h3.shutdown_sync(),
             #[cfg(feature = "aync")]
             _ => Err("invalid sync stream".into()),
@@ -196,6 +208,7 @@ impl HTTPStream {
 
     pub async fn conn_async<'a, 'b: 'a>(&'a mut self, mut param: ConnParam<'b>) -> HlsResult<ALPN> {
         match param.alpn {
+            #[cfg(feature = "quic")]
             ALPN::Http30 => {
                 // *self = HTTPStream::SyncH3(HTTP3StreamS::connect(param)?);
                 Ok(ALPN::Http30)

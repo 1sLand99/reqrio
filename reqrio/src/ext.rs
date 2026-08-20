@@ -181,7 +181,9 @@ pub trait ReqGenExt: ReqExt {
             url,
             h_sid: &0,
             hpack_encoder: None,
+            #[cfg(feature = "quic")]
             q_sid: &0,
+            #[cfg(feature = "quic")]
             qpack_encoder: None,
             body_len: body_raw.len(),
             priority: &false,

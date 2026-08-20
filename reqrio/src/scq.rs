@@ -130,7 +130,9 @@ impl ScReq {
             url: url.as_ref(),
             h_sid: &0,
             hpack_encoder: None,
+            #[cfg(feature = "quic")]
             q_sid: &0,
+            #[cfg(feature = "quic")]
             qpack_encoder: None,
             body_len: 0,
             weight: &self.fingerprint.h2().weight,

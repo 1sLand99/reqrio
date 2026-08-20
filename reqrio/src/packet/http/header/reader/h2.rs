@@ -95,7 +95,9 @@ mod tests {
             url: &url,
             hpack_encoder: Some(&mut encoder),
             h_sid: &sid,
+            #[cfg(feature = "quic")]
             q_sid: &0,
+            #[cfg(feature = "quic")]
             qpack_encoder: None,
             body_len: 0,
             weight: &146,

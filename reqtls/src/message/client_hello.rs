@@ -6,8 +6,10 @@ use crate::boring::hash;
 use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
-use crate::extend::{ExtensionType, ExtensionValue, Parameter, ServerName};
-use crate::{u24, BufferError, HandShakeError, KeyShare, ReadExt, Reader, SupportVersions, WriteExt, ALPN};
+use crate::extend::{ExtensionType, ExtensionValue, ServerName};
+#[cfg(feature = "quic")]
+use crate::extend::Parameter;
+use crate::*;
 use std::mem;
 
 #[derive(Debug)]
@@ -299,6 +301,7 @@ impl<'a> ClientHello<'a> {
         }
     }
 
+    #[cfg(feature = "quic")]
     pub fn build_quic(&mut self) -> RlsResult<()> {
         if self.key_share_mut().is_none() { return Err(HandShakeError::QUICMissingKeyShare.into()); };
         let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::SupportedVersions);

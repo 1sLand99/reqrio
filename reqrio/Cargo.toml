@@ -23,6 +23,7 @@ aync = ["tokio", "pin-project-lite"]
 export = ["reqtls/export"]
 staticlink = ["reqtls/static_link"]
 log = ["reqtls/log"]
+quic = ["reqtls/quic"]
 
 #[dev-dependencies]
 #reqwest = { version = "0.11", features = ["blocking"] }

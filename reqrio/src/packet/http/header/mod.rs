@@ -16,6 +16,7 @@ use std::fmt::Display;
 use std::mem;
 pub use value::HeaderValue;
 pub use error::HeaderError;
+#[cfg(feature = "quic")]
 use crate::packet::http::header::reader::H3HeaderReader;
 
 mod value;
@@ -47,6 +48,7 @@ impl Default for Header {
 }
 
 impl Header {
+    #[cfg(feature = "quic")]
     pub fn new_req_h3() -> Self {
         Header {
             method: Method::GET,
@@ -485,6 +487,7 @@ impl Header {
         if alpn == self.alpn { return; }
         self.alpn = alpn;
         let keys = match self.alpn {
+            #[cfg(feature = "quic")]
             ALPN::Http30 => Header::new_req_h3().keys,
             ALPN::Http20 => Header::new_req_h2().keys,
             _ => Header::new_req_h1().keys
@@ -618,6 +621,7 @@ impl Header {
         })
     }
 
+    #[cfg(feature = "quic")]
     fn as_h3_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> HlsResult<H3HeaderReader<'a>> {
         Ok(H3HeaderReader {
             keys: self.gen_frame_keys(&param, ct),
@@ -632,6 +636,7 @@ impl Header {
     pub(crate) fn as_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> HlsResult<HeaderReader<'a>> {
         Ok(match self.alpn {
             ALPN::Http20 => HeaderReader::H2(self.as_h2_reader(param, ct)?),
+            #[cfg(feature = "quic")]
             ALPN::Http30 => HeaderReader::H3(self.as_h3_reader(param, ct)?),
             _ => HeaderReader::H1(self.as_h1_reader(param, ct))
         })

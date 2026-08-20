@@ -35,6 +35,7 @@ pub trait StreamHandle {
         };
         let mut secrets = HashMap::new();
         let key_share = match config.alpn {
+            #[cfg(feature = "quic")]
             ALPN::Http30 => match client_hello.key_share_mut().is_some() {
                 true => {
                     client_hello.key_share_mut()
@@ -58,7 +59,7 @@ pub trait StreamHandle {
                 }
             }
         }
-
+        #[cfg(feature = "quic")]
         if config.alpn == &ALPN::Http30 { client_hello.build_quic()?; }
         let mut record = RecordLayer::handshake();
         record.messages = vec![client_hello.into()];

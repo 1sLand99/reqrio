@@ -131,7 +131,9 @@ impl AcReq {
             url: url.as_ref(),
             hpack_encoder: None,
             h_sid: &0,
+            #[cfg(feature = "quic")]
             qpack_encoder: None,
+            #[cfg(feature = "quic")]
             q_sid: &0,
             body_len: 0,
             priority: &self.fingerprint.h2().priority,

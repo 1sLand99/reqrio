@@ -281,6 +281,7 @@ mod hkdf;
 mod key;
 mod finger;
 mod ext;
+#[cfg(feature = "quic")]
 pub mod quic;
 
 pub use alpn::ALPN;
@@ -306,8 +307,9 @@ pub use key::{SecretKey, TlsSession, KeyType};
 pub use log::*;
 pub use message::{Alert, CertificateRequest, CertificateVerify, Certificates, ClientHello, Message,
                   ClientKeyExchange, MessageParsed, NamedCurve, ServerHello, ServerHelloDone,
-                  ServerKeyExchange, SessionTicket, TlsSessionTicket, PacketType, QUICPacket,
-                  QUICFlag};
+                  ServerKeyExchange, SessionTicket, TlsSessionTicket};
+#[cfg(feature = "quic")]
+pub use message::{PacketType, QUICPacket, QUICFlag};
 pub use record::{RecordLayer, RecordType};
 pub use suite::{CipherSuite, KeyExchangeAlg};
 pub use url::{Addr, Param, Scheme, Uri, Url, UrlError};

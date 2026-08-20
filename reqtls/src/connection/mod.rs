@@ -1,3 +1,4 @@
+#[cfg(feature = "quic")]
 mod quic;
 
 use super::bytes::Bytes;
@@ -12,6 +13,7 @@ use crate::error::{HandShakeError, RlsResult};
 use crate::key::{DerivedKey, KeyType, SecretKey, TlsSession};
 use crate::message::{CompressedCertificate, EncryptedExtension, HandshakeType};
 use crate::*;
+#[cfg(feature = "quic")]
 pub use quic::QUICConnection;
 use std::collections::HashMap;
 use std::mem;

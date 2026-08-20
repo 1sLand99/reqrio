@@ -1,5 +1,6 @@
 use crate::{CipherSuite, RecordType, Version};
 use std::ops::Range;
+#[cfg(feature = "quic")]
 use crate::message::QUICPacket;
 
 pub struct PayloadEncodeBuffer<'a> {
@@ -24,6 +25,7 @@ impl<'a> PayloadEncodeBuffer<'a> {
         }
     }
 
+    #[cfg(feature = "quic")]
     pub fn new_quic(buffer: &'a mut [u8], pd_len: usize) -> PayloadEncodeBuffer<'a> {
         PayloadEncodeBuffer {
             encoded: buffer,
@@ -77,6 +79,7 @@ impl<'a> CipherEncodeBuffer<'a> {
         }
     }
 
+    #[cfg(feature = "quic")]
     pub(crate) fn new_quic(buffer: &'a mut [u8], packet: &QUICPacket, suite: &'static CipherSuite) -> CipherEncodeBuffer<'a> {
         let (head, payload) = buffer.split_at_mut(packet.hdr_len());
         CipherEncodeBuffer {

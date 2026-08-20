@@ -104,7 +104,7 @@ fn main() {
     let t = Time::now();
     Buffer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
     let mut req = ScReq::new()
-        .with_alpn(ALPN::Http30)
+        .with_alpn(ALPN::Http20)
         .with_verify(true)
         .with_timeout(Timeout::new_same(1000, 1))
         .with_key_log("2.log")
@@ -146,9 +146,9 @@ fn main() {
 
     // sleep(Duration::from_secs(5));
     // let sid2 = req.send(Method::GET, "https://cn.bing.com/?scope=web&FORM=SUPEDD&pc=U531", None).unwrap();
-    let res1 = req.get("https://docs.rs", None).unwrap();
+    // let res1 = req.get("https://docs.rs", None).unwrap();
     // let res1 = req.get("https://www.baidu.com", None).unwrap();
-    // let res1 = req.get("https://www.wireshark.org/download.html", None).unwrap();
+    let res1 = req.get("https://www.wireshark.org/download.html", None).unwrap();
     // let res1 = req.get("https://www.dickssportinggoods.com/p/2026-topps-flagship-football-mega-box-26topufang4p4ib5vqjhq/26topufang4p4ib5vqjhq", None).unwrap();
 
     // println!("{}", res2.raw_string());

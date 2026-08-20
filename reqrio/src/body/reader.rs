@@ -2,6 +2,7 @@ use crate::body::multi_form::HttpFileReader;
 use crate::error::HlsResult;
 use crate::reader::{ReadExt, RefReader, StrCow};
 use crate::*;
+#[cfg(feature = "quic")]
 use std::cmp::min;
 
 pub enum RawBodyReader<'a> {
@@ -144,7 +145,7 @@ impl<'a> ReadExt for H2BodyReader<'a> {
     }
 }
 
-
+#[cfg(feature = "quic")]
 pub struct H3BodyReader<'a> {
     body: RawBodyReader<'a>,
     frame_size: usize,
@@ -156,6 +157,7 @@ pub struct H3BodyReader<'a> {
     wrote: bool,
 }
 
+#[cfg(feature = "quic")]
 impl<'a> H3BodyReader<'a> {
     pub fn new_size(buffer_size: usize, body: RawBodyReader<'a>) -> H3BodyReader<'a> {
         let body_len = body.len();
@@ -172,6 +174,7 @@ impl<'a> H3BodyReader<'a> {
     }
 }
 
+#[cfg(feature = "quic")]
 impl<'a> ReadExt for H3BodyReader<'a> {
     fn wrote(&self) -> bool { self.wrote }
     fn len(&self) -> usize { (1 + self.len_size) * self.buf_num + self.body.len() }
@@ -209,8 +212,9 @@ impl<'a> ReadExt for H3BodyReader<'a> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "quic")]
     use crate::body::reader::{H3BodyReader, RawBodyReader};
-    use crate::reader::{ReadExt, RefReader};
+    use crate::reader::*;
     use crate::{json, Body, BodyData};
     use reqtls::Buffer;
 
@@ -247,6 +251,7 @@ mod tests {
         assert_eq!(&res[..len], b"12345,2345fdgf");
     }
 
+    #[cfg(feature = "quic")]
     #[test]
     fn test_h3_reader() {
         let data = (0..100).collect::<Vec<_>>();

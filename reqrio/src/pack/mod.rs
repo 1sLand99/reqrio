@@ -2,9 +2,11 @@ mod hpack;
 mod item;
 mod error;
 pub mod huffman;
+#[cfg(feature = "quic")]
 mod qpack;
 
 pub use hpack::{HPackCoding, HPackEncode, HPackDecode};
+#[cfg(feature = "quic")]
 pub use qpack::{QPackType, QPackEncode, QPackDecode};
 pub use item::PackItem;
 pub use error::PackError;

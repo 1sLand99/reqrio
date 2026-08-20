@@ -119,7 +119,9 @@ pub(crate) struct QUICKey {
     client_iv: [u8; 16],
     server_iv: [u8; 16],
     iv_size: usize,
+    #[cfg(feature = "quic")]
     client_hp_key: [u8; 32],
+    #[cfg(feature = "quic")]
     server_hp_key: [u8; 32],
     hp_key_size: usize,
 }
@@ -133,7 +135,9 @@ impl QUICKey {
             client_iv: [0; 16],
             server_iv: [0; 16],
             iv_size: suite.fix_iv_size,
+            #[cfg(feature = "quic")]
             client_hp_key: [0; 32],
+            #[cfg(feature = "quic")]
             server_hp_key: [0; 32],
             hp_key_size: suite.key_size,
         }
@@ -366,7 +370,7 @@ impl KeyBlock {
             &mut key.explicit[..key.explicit_len],
         ]
     }
-
+    #[cfg(feature = "quic")]
     pub fn client_hp_key(&self, typ: KeyType) -> &[u8] {
         match self {
             KeyBlock::QUIC {
@@ -381,7 +385,7 @@ impl KeyBlock {
             _ => unreachable!()
         }
     }
-
+    #[cfg(feature = "quic")]
     pub fn client_hp_key_mut(&mut self, typ: KeyType) -> &mut [u8] {
         match self {
             KeyBlock::QUIC {
@@ -396,7 +400,7 @@ impl KeyBlock {
             _ => unreachable!()
         }
     }
-
+    #[cfg(feature = "quic")]
     pub fn server_hp_key(&self, typ: KeyType) -> &[u8] {
         match self {
             KeyBlock::QUIC {
@@ -411,7 +415,7 @@ impl KeyBlock {
             _ => unreachable!()
         }
     }
-
+    #[cfg(feature = "quic")]
     pub fn server_hp_key_mut(&mut self, typ: KeyType) -> &mut [u8] {
         match self {
             KeyBlock::QUIC {
@@ -440,7 +444,7 @@ impl KeyBlock {
             false => self.client_iv(typ)
         }
     }
-
+    #[cfg(feature = "quic")]
     pub fn send_hp_key(&self, typ: KeyType, server: bool) -> &[u8] {
         match server {
             true => self.server_hp_key(typ),
@@ -469,7 +473,7 @@ impl KeyBlock {
         }
     }
 
-
+    #[cfg(feature = "quic")]
     pub fn recv_hp_key(&self, typ: KeyType, server: bool) -> &[u8] {
         match server {
             true => self.client_hp_key(typ),

@@ -5,6 +5,7 @@ mod key_exchange;
 mod session_ticket;
 mod alert;
 mod encrypted_extension;
+#[cfg(feature = "quic")]
 mod quic;
 
 use crate::buffer::Buf;
@@ -18,6 +19,7 @@ pub use certificate::{CertificateRequest, CertificateVerify, CompressedCertifica
 pub use client_hello::ClientHello;
 pub use encrypted_extension::EncryptedExtension;
 pub use key_exchange::{ClientKeyExchange, NamedCurve, ServerKeyExchange};
+#[cfg(feature = "quic")]
 pub use quic::*;
 pub use server_hello::{ServerHello, ServerHelloDone};
 pub use session_ticket::{SessionTicket, TlsSessionTicket};

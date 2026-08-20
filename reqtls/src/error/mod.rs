@@ -1,4 +1,5 @@
 mod handshake;
+#[cfg(feature = "quic")]
 mod quic;
 
 use crate::boring::{EcError, EvpError, MLKEMError, PKeyError};
@@ -22,6 +23,7 @@ use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 use std::sync::PoisonError;
 use std::time::SystemTimeError;
+#[cfg(feature = "quic")]
 pub use quic::QUICError;
 
 #[derive(Debug)]

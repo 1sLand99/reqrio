@@ -16,6 +16,7 @@ use std::sync::PoisonError;
 use tokio::time::error::Elapsed;
 use reqtls::cipher::CipherError;
 use reqtls::coder::CodingError;
+#[cfg(feature = "quic")]
 use reqtls::quic::QUICError;
 use crate::body::FormError;
 use crate::FrameType;
@@ -40,6 +41,7 @@ pub enum HlsError {
     Time(TimeError),
     Header(HeaderError),
     Currently(String),
+    #[cfg(feature = "quic")]
     QUIC(QUICError),
 }
 
@@ -86,6 +88,7 @@ impl Display for HlsError {
             HlsError::UnsupportedAlpn(alpn) => write!(f, "UnsupportedAlpn({})", alpn),
             HlsError::H2(typ) => write!(f, "H2({:?})", typ),
             HlsError::Header(e) => write!(f, "Header({:?})", e),
+            #[cfg(feature = "quic")]
             HlsError::QUIC(e) => write!(f, "QUIC({:?})", e),
         }
     }
@@ -224,6 +227,7 @@ impl From<HeaderError> for HlsError {
     }
 }
 
+#[cfg(feature = "quic")]
 impl From<QUICError> for HlsError {
     fn from(value: QUICError) -> Self {
         match value {

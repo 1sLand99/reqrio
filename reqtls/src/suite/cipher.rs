@@ -63,6 +63,7 @@ impl TlsCipher {
         Ok(len)
     }
 
+    #[cfg(feature = "quic")]
     pub fn is_null(&self) -> bool {
         matches!(self.crypto, Crypto::None)
     }

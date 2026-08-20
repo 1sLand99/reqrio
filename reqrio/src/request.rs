@@ -1,4 +1,4 @@
-use crate::body::{Body, BodyReader, H2BodyReader, H3BodyReader};
+use crate::body::*;
 use crate::error::HlsResult;
 use crate::packet::{HeaderParam, HeaderReader};
 use crate::reader::ReadExt;
@@ -14,6 +14,7 @@ pub struct RequestBuffer<'a> {
 impl<'a> RequestBuffer<'a> {
     pub fn new(header: &'a Header, body: &'a Body, mut param: HeaderParam<'a>) -> HlsResult<RequestBuffer<'a>> {
         let body_reader = match header.alpn() {
+            #[cfg(feature = "quic")]
             ALPN::Http30 => BodyReader::HTTP3(H3BodyReader::new_size(1024, body.as_reader()?)),
             ALPN::Http20 => BodyReader::HTTP2(H2BodyReader::new_size(8192, body.as_reader()?, param.h_sid)),
             _ => BodyReader::HTTP1(body.as_reader()?)

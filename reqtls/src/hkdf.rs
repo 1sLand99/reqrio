@@ -72,9 +72,8 @@ impl<'a> Hkdf<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::hkdf::Hkdf;
     use crate::key::{DerivedKey, KeyType};
-    use crate::{Cipher, CipherSuite, HashType, TlsSession, Version};
+    use crate::*;
 
     #[test]
     fn test_hkdf() {
@@ -116,6 +115,7 @@ mod tests {
         assert_eq!(key.recv_iv(KeyType::Handshake, false), [202, 214, 80, 222, 184, 70, 216, 66, 195, 156, 43, 112])
     }
 
+    #[cfg(feature = "quic")]
     #[test]
     fn test_quic() {
         let cid = [0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08];

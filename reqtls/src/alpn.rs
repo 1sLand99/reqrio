@@ -4,6 +4,7 @@ use crate::{BufferError, ReadExt, Reader, WriteExt};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ALPN {
+    #[cfg(feature = "quic")]
     Http30,
     Http20,
     Http11,
@@ -17,6 +18,7 @@ impl ALPN {
             b"http/1.0" => ALPN::Http10,
             b"http/1.1" => ALPN::Http11,
             b"h2" => ALPN::Http20,
+            #[cfg(feature = "quic")]
             b"h3" => ALPN::Http30,
             _ => ALPN::Custom(opt.to_vec()),
         }
@@ -27,6 +29,7 @@ impl ALPN {
             ALPN::Http10 => "http/1.0",
             ALPN::Http11 => "http/1.1",
             ALPN::Http20 => "h2",
+            #[cfg(feature = "quic")]
             ALPN::Http30 => "h3",
             ALPN::Custom(v) => unsafe { std::str::from_utf8_unchecked(v.as_slice()) }
         }
@@ -54,6 +57,7 @@ impl ALPN {
 impl Display for ALPN {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            #[cfg(feature = "quic")]
             ALPN::Http30 => write!(f, "HTTP/3.0"),
             ALPN::Http20 => write!(f, "HTTP/2.0"),
             ALPN::Http11 => write!(f, "HTTP/1.1"),
