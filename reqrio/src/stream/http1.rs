@@ -55,11 +55,11 @@ impl HTTP1StreamS {
     pub fn stream(&self) -> &Stream {
         &self.stream
     }
-    
-    pub fn stream_mut(&mut self)->&mut Stream {
+
+    pub fn stream_mut(&mut self) -> &mut Stream {
         &mut self.stream
     }
-    
+
     pub fn into_stream(self) -> Stream {
         self.stream
     }

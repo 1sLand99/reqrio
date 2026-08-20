@@ -15,6 +15,15 @@ pub extern "C" fn Response_status_code(resp: *const Response, err: *mut *mut c_c
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
+pub extern "C" fn Response_sid(resp: *const Response, err: *mut *mut c_char) -> u64 {
+    check_run(move || {
+        let resp = unsafe { resp.as_ref() }.ok_or(HlsError::NullPointer)?;
+        Ok(resp.sid)
+    }, |e| handle_err1(e, err, 0))
+}
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
 pub extern "C" fn Response_bytes(resp: *const Response, len: &mut usize, err: *mut *mut c_char) -> *const u8 {
     check_run(move || {
         let resp = unsafe { resp.as_ref() }.ok_or(HlsError::NullPointer)?;

@@ -116,7 +116,7 @@ impl WebSocket {
 
     fn connect_sync(mut req: ScReq, url: &Url, raw: Option<&[u8]>) -> HlsResult<Stream> {
         let resp = match raw {
-            None => req.stream_io(Method::GET, url.clone(), &Body::none())?,
+            None => req.do_http(Method::GET, url.clone(), Body::none())?,
             Some(raw) => {
                 req.set_url(url)?;
                 req.http_stream_mut().stream_mut()?.sync_write(raw)?;
@@ -168,7 +168,7 @@ impl WebSocket {
 
     async fn connect_async(mut req: AcReq, url: &str, raw: Option<&[u8]>) -> HlsResult<Stream> {
         let resp = match raw {
-            None => req.stream_io(Method::GET, url, &Body::none()).await?,
+            None => req.do_http(Method::GET, url, &Body::none()).await?,
             Some(raw) => {
                 let url = Url::try_from(url)?;
                 req.set_url(&url).await?;

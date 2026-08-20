@@ -6,8 +6,10 @@ use reqtls::coder::{BrotliDecoder, ChunkDecoder, CodingError, DeflateStream, Str
 use std::str::Utf8Error;
 
 pub struct Response {
+    #[cfg(feature = "export")]
+    pub(crate) sid: u64,
     header: Header,
-    raw: Buffer,
+    pub(crate) raw: Buffer,
     coder: Option<Box<dyn StreamDecode<Buffer> + Send + Sync>>,
     read_size: usize,
     h2_buffer: Buffer,
@@ -16,6 +18,8 @@ pub struct Response {
 impl Default for Response {
     fn default() -> Self {
         Response {
+            #[cfg(feature = "export")]
+            sid: 0,
             header: Header::default(),
             raw: Buffer::with_capacity(8192),
             coder: None,
@@ -28,6 +32,18 @@ impl Default for Response {
 impl Response {
     pub fn new() -> Response {
         Response::default()
+    }
+
+    #[cfg(feature = "export")]
+    pub(crate) fn new_header(header: Header) -> Response {
+        Response {
+            sid: 0,
+            header,
+            raw: Buffer::with_capacity(0),
+            coder: None,
+            read_size: 0,
+            h2_buffer: Buffer::with_capacity(0),
+        }
     }
 
     fn write_buffer(buffer: &mut Buffer, buf: &[u8]) -> Result<usize, BufferError> {
@@ -44,12 +60,14 @@ impl Response {
         Ok(buf.len())
     }
 
-    pub(crate) fn extend_body(&mut self, buf: &[u8]) -> HlsResult<(bool, usize)> {
+    pub(crate) fn extend_body(&mut self, buf: &[u8]) -> HlsResult<(usize, bool)> {
         match self.coder {
             None => {
                 let len = self.header.content_length().unwrap_or(self.raw.len() + buf.len());
                 let read_len = if self.raw.len() + buf.len() >= len { len - self.raw.len() } else { buf.len() };
-                Ok((self.raw.len() >= len, Response::write_buffer(&mut self.raw, &buf[..read_len])?))
+                let read_size = Response::write_buffer(&mut self.raw, &buf[..read_len])?;
+                self.read_size += read_size;
+                Ok((read_size, self.read_size >= len))
             }
             Some(ref mut coder) => {
                 let mut reader = Reader::from_slice(buf);
@@ -71,7 +89,7 @@ impl Response {
                 };
                 self.read_size += reader.position();
                 let len = self.header.content_length().unwrap_or(0);
-                Ok((coder.finish() || (len != 0 && self.read_size >= len), reader.position()))
+                Ok((reader.position(), coder.finish() || (len != 0 && self.read_size >= len)))
             }
         }
     }
@@ -119,7 +137,7 @@ impl Response {
             buffer.used_empty(pos + HTTP_GAP.len());
             self.make_coding()?;
         }
-        let (finish, size) = self.extend_body(buffer.filled())?;
+        let (size, finish) = self.extend_body(buffer.filled())?;
         buffer.used_empty(size);
         Ok(finish)
     }
@@ -132,7 +150,7 @@ impl Response {
             let mut buffer = mem::replace(&mut self.h2_buffer, Buffer::with_capacity(0));
             let _ = buffer.check_move(raw.len());
             Response::write_buffer(&mut buffer, raw)?;
-            let (_, size) = self.extend_body(buffer.filled())?;
+            let (size, _) = self.extend_body(buffer.filled())?;
             buffer.used_empty(size);
             drop(mem::replace(&mut self.h2_buffer, buffer));
             Ok(())
@@ -156,6 +174,7 @@ impl Response {
         header += "\r\n\r\n";
         header + body
     }
+
 
     pub fn json(self) -> HlsResult<JsonValue> {
         Ok(json::from_bytes(self.raw.filled())?)

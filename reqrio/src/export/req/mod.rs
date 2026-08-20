@@ -4,14 +4,12 @@ mod body;
 
 use crate::export::{check_run, handle_err1, handle_err2};
 use crate::time::Timeout;
-use crate::{json, Body, Cookie, HlsError, Method, Proxy, ReqExt, Response, ScReq, ALPN, Url, HeaderKey};
+use crate::*;
 use crate::Fingerprint;
 use std::ffi::{c_char, CStr, CString};
 use std::ops::{Deref};
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::ptr::null_mut;
-#[cfg(feature = "log")]
-use crate::{logger::Logger, set_logger, set_max_level, LevelFilter};
+use std::ptr::{null, null_mut};
 use crate::ext::ReqPriExt;
 
 #[cfg(feature = "log")]
@@ -188,11 +186,12 @@ pub extern "system" fn ScReq_add_cookie(req: *mut ScReq, name: *const c_char, va
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub unsafe extern "C" fn ScReq_stream_io(
+pub unsafe extern "C" fn ScReq_do_http(
     req: *mut ScReq,
     method: Method,
     url: *mut Url,
     body: *mut Body<'static>,
+    stream: bool,
     err: *mut *mut c_char,
 ) -> *mut Response {
     catch_unwind(AssertUnwindSafe(|| {
@@ -200,11 +199,37 @@ pub unsafe extern "C" fn ScReq_stream_io(
             let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
             let url = unsafe { Box::from_raw(url) };
             let body = unsafe { Box::from_raw(body) };
-            let resp = req.stream_io(method, *url, body.deref())?;
+            let resp = match stream {
+                true => {
+                    let (sid, header) = req.send_stream(method, *url, *body)?;
+                    let mut resp = Response::new_header(header.clone());
+                    resp.sid = sid;
+                    resp
+                }
+                false => req.do_http(method, *url, body.deref())?
+            };
             Ok(Box::into_raw(Box::new(resp)))
         }, |e| handle_err1(e, err, null_mut()))
     })).unwrap_or_else(|_| handle_err1("程序panic", err, null_mut()))
 }
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_recv_stream(req: *mut ScReq, sid: u64, len: *mut usize, err: *mut *mut c_char) -> *const u8 {
+    catch_unwind(AssertUnwindSafe(move || {
+        check_run(move || {
+            let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
+            match req.next_chunk(sid)? {
+                Some(chunk) => {
+                    unsafe { *len = chunk.len(); }
+                    Ok(chunk.as_ptr())
+                }
+                None => Ok(null())
+            }
+        }, |e| handle_err1(e, err, null()))
+    })).unwrap_or_else(|_| handle_err1("程序崩溃", err, null()))
+}
+
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
 pub extern "system" fn ScReq_reconnect(req: *mut ScReq) -> *mut c_char {

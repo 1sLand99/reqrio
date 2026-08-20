@@ -3,10 +3,7 @@ use super::table::Table;
 use super::QPackType;
 use crate::error::HlsResult;
 use crate::pack::{huffman, PackError, PackItem};
-#[cfg(feature = "log")]
-use crate::warn;
-use crate::{Header, HlsError};
-use reqtls::{ReadExt, Reader};
+use crate::*;
 use std::borrow::Cow;
 use std::collections::HashSet;
 
@@ -156,9 +153,9 @@ impl QPackDecode {
                     self.sid_read.insert(*sid);
                 }
                 Err(HlsError::HPack(PackError::BlockedStream(req))) => return Err(PackError::BlockedStream(req).into()),
-                Err(e) => {
+                Err(_e) => {
                     #[cfg(feature = "log")]
-                    warn!("[QPackDecode] {}",e);
+                    warn!("[QPackDecode] {}",_e);
                     reader.set_position(pos);
                     break;
                 }
