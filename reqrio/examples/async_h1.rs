@@ -76,19 +76,28 @@ async fn main() {
         // .with_proxy(Proxy::try_from("http: //222.186.129.68:15265").unwrap())
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::new_socks5("127.0.0.1",10279))
-        .with_proxy(Proxy::new_http_plain("127.0.0.1", 10280))
+        // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10280))
         // .connect("https://104.18.34.137".sni("whatnot.com")).await.unwrap()
         ;
+    // let res = req.get("https://fk1.moutai519.com.cn/bangcle/api/v1/1/1", None).await.unwrap().json().unwrap();
+    // let res = req.post("http://127.0.0.1:8000/upload_wac", res).await.unwrap();
+    // println!("{}", res.raw_string());
+    let res = req.post("http://127.0.0.1:8000/generate", json::object! {
+        "ua": "Mozilla/5.0 (Linux; Android 12; 2201123C Build/SKQ1.211006.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/123",
+        "body":{},
+        "uid": "5656"
+    }).await.unwrap();
+    println!("{}", res.json().unwrap().pretty());
 
-    let url = "https://www.dickssportinggoods.com/p/2026-topps-flagship-football-mega-box-26topufang4p4ib5vqjhq/26topufang4p4ib5vqjhq";
+    // let url = "https://www.dickssportinggoods.com/p/2026-topps-flagship-football-mega-box-26topufang4p4ib5vqjhq/26topufang4p4ib5vqjhq";
     // let url = "https://ts3.tc.mm.bing.net/th/id/ODF.dsR0yzVOEBuWxCU9cjAM4Q?w=32&h=32&qlt=96&pcl=fffffa&o=6&pid=1.2";
-    let sid1 = req.send(Method::GET, url, None).await.unwrap();
+    // let sid1 = req.send(Method::GET, url, None).await.unwrap();
     // let url = "https://ts3.tc.mm.bing.net/th/id/ODF.pnhuF5msYDWgeLYHsiLTig?w=32&h=32&qlt=95&pcl=fffffa&o=6&pid=1.2";
     // let sid2 = req.send(Method::POST, url, None).await.unwrap();
 
-    let res1 = req.recv(sid1).await.unwrap();
+    // let res1 = req.recv(sid1).await.unwrap();
     // let res1 = req.get(url, None).await.unwrap();
-    println!("{}", res1.raw_string());
+    // println!("{}", res1.raw_string());
     // let res2 = req.recv(sid1).await.unwrap();
     // println!("{}", res2.raw_string());
     // println!("{}", Time::now().as_mills() - t.as_mills())

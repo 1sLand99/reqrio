@@ -352,6 +352,22 @@ impl<'a> ClientHello<'a> {
         if self.cipher_suites.contains(&CipherSuite::TLS_CHACHA20_POLY1305_SHA256) {
             suites.push(CipherSuite::TLS_CHACHA20_POLY1305_SHA256);
         }
+        let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::EcPointFormats);
+        if let Some(pos) = pos {
+            self.extensions.remove(pos);
+        }
+        let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::ExtendMasterSecret);
+        if let Some(pos) = pos {
+            self.extensions.remove(pos);
+        }
+        let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::SessionTicket);
+        if let Some(pos) = pos {
+            self.extensions.remove(pos);
+        }
+        let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::EncryptedClientHello);
+        if let Some(pos) = pos {
+            self.extensions.remove(pos);
+        }
         self.cipher_suites = suites;
         self.session_id = Buf::Ref(&[]);
         Ok(())
