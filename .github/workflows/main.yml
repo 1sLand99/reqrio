@@ -49,7 +49,7 @@ jobs:
           cargo test --features aync,serde -- --test-threads=1
           cargo build --package reqrio --features export,staticlink
       - name: Copy dylib to bindings
-        run: cp target/${{ matrix.target.outdir }}/${{ matrix.target.file }} bindings/python/reqrio/
+        run: cp target/${{ matrix.outdir }}/${{ matrix.file }} bindings/python/reqrio/
       - name: Set python path env
         run: echo "PYTHONPATH=${{ github.workspace }}/bindings/python" >> $env:GITHUB_ENV
       - name: Run Python FFI Test
