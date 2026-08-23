@@ -12,23 +12,23 @@ env:
 
 jobs:
   build-check:
-    name: build-natives (${{ matrix.artifact }})
+    name: ${{ matrix.artifact }}
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact: native-linux
+            artifact: x86_64-linux-gnu
             outdir: release
             file: libreqrio.so
           - os: windows-latest
-            artifact: native-windows
+            artifact: x86_64-windows-msvc
             outdir: release
             file: reqrio.dll
-          - os: windows-2022
-            artifact: go-windows-gnu
-            outdir: x86_64-pc-windows-gnu/release
-            file: reqrio.dll
-          - os: macos-latest
+#          - os: windows-2022
+#            artifact: go-windows-gnu
+#            outdir: x86_64-pc-windows-gnu/release
+#            file: reqrio.dll
+          - os: aarch64-macos
             artifact: macos-aarch64
             outdir: release
             file: reqrio.dylib
