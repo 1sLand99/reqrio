@@ -6,10 +6,10 @@ readme = "README.md"
 description = "A tls lib"
 license-file = "../LICENSE-APACHE"
 repository = "https://github.com/xllgl2017/reqrio/tree/main/reqtls"
+build = "build/mod.rs"
 
 [dependencies]
 hex = "0.4"
-getrandom = "0.4"
 bytemuck = "1.25"
 urlencoding = "2.1"
 log = { version = "0.4", default-features = false, optional = true }

@@ -198,7 +198,7 @@ impl ScReq {
                 true => Cow::Borrowed(location),
                 false => Cow::Owned(format!("{}://{}{}", self.url.scheme(), self.url.addr(), location))
             };
-            let sid = self.send(Method::GET, location.as_ref(), &Body::none())?;
+            let sid = self.send(Method::GET, location.as_ref(), Body::none())?;
             return self.handle_recv(sid);
         }
         Ok(resp)
@@ -289,7 +289,7 @@ impl ScReq {
         U: TryInto<Url> + Clone,
         HlsError: From<U::Error>,
     {
-        let response = self.do_http(method, url.clone(), &body.into())?;
+        let response = self.do_http(method, url.clone(), body.into())?;
         self.check_status(&url.try_into()?, &response)?;
         Ok(response)
     }
@@ -313,20 +313,20 @@ impl ScReq {
 }
 
 impl ReqPriExt for ScReq {
-    fn http_stream_mut(&mut self) -> &mut HTTPStream {
-        &mut self.stream
-    }
-
-    fn into_stream(self) -> HlsResult<Stream> {
-        self.stream.into_stream()
-    }
-
     fn header_mut(&mut self) -> &mut Header {
         &mut self.header
     }
 
     fn responses(&mut self) -> &mut HashMap<u64, Response> {
         &mut self.responses
+    }
+
+    fn into_stream(self) -> HlsResult<Stream> {
+        self.stream.into_stream()
+    }
+
+    fn http_stream_mut(&mut self) -> &mut HTTPStream {
+        &mut self.stream
     }
 }
 
@@ -379,16 +379,16 @@ impl ReqExt for ScReq {
         self.key = key;
     }
 
-    fn set_fingerprint(&mut self, fingerprint: Fingerprint) {
-        self.fingerprint = fingerprint;
-    }
-
     fn set_tls_session(&mut self, tls_session: Option<TlsSession>) {
         self.tls_session = tls_session;
     }
 
     fn tls_session(&self) -> &Option<TlsSession> {
         &self.tls_session
+    }
+
+    fn set_fingerprint(&mut self, fingerprint: Fingerprint) {
+        self.fingerprint = fingerprint;
     }
     fn set_header_keys(&mut self, headers: Vec<HeaderKey>, keep_sort: bool) -> HlsResult<()> {
         self.ignore_order = keep_sort;

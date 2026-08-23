@@ -1,6 +1,8 @@
 use std::fmt::Debug;
 use crate::*;
-use crate::packet::{H2EncodeFrame, H3Frame, H3Setting};
+use crate::packet::{H2EncodeFrame};
+#[cfg(feature = "quic")]
+use crate::packet::{H3Frame, H3Setting};
 
 #[derive(Debug)]
 pub struct H2Finger {
@@ -53,12 +55,14 @@ impl H2Finger {
     }
 }
 
+#[cfg(feature = "quic")]
 ///h3帧，仅用于握手后`setting stream`
 #[derive(Debug)]
 pub struct H3Finger {
     pub frames: Vec<H3Frame<'static>>,
 }
 
+#[cfg(feature = "quic")]
 impl Default for H3Finger {
     fn default() -> Self {
         H3Finger {
@@ -83,6 +87,7 @@ impl Default for H3Finger {
 pub struct Fingerprint {
     tls: TlsFinger,
     h2: H2Finger,
+    #[cfg(feature = "quic")]
     h3: H3Finger,
     legal_subscript: i32,
 }
@@ -100,6 +105,7 @@ impl Fingerprint {
                 weight: 0,
                 priority: false,
             },
+            #[cfg(feature = "quic")]
             h3: H3Finger {
                 frames: vec![]
             },
@@ -111,11 +117,13 @@ impl Fingerprint {
         Ok(Fingerprint {
             tls,
             h2,
+            #[cfg(feature = "quic")]
             h3: H3Finger::default(),
             legal_subscript: Buffer::check_subscription(token)?,
         })
     }
 
+    #[cfg(feature = "quic")]
     pub fn new_h3(tls: TlsFinger, h3: H3Finger, token: impl AsRef<str>) -> HlsResult<Self> {
         Ok(Fingerprint {
             tls,
@@ -149,10 +157,12 @@ impl Fingerprint {
 
     pub fn tls_mut(&mut self) -> &mut TlsFinger { &mut self.tls }
 
+    #[cfg(feature = "quic")]
     pub fn h3(&self) -> &H3Finger {
         &self.h3
     }
 
+    #[cfg(feature = "quic")]
     pub fn h3_mut(&mut self) -> &mut H3Finger {
         &mut self.h3
     }
@@ -208,6 +218,7 @@ impl Default for Fingerprint {
         Fingerprint {
             tls: TlsFinger::Default,
             h2: H2Finger::default(),
+            #[cfg(feature = "quic")]
             h3: H3Finger::default(),
             legal_subscript: -2,
         }

@@ -16,10 +16,22 @@ fn test_log() {
     set_max_level(LevelFilter::Debug);
 }
 
+unsafe extern "C" {
+    fn RAND_bytes(buf: *mut u8, len: usize) -> i32;
+}
+
 #[tokio::main]
 async fn main() {
     #[cfg(feature = "log")]
     test_log();
+    let mut buf = [0; 32];
+    let ret = unsafe { RAND_bytes(buf.as_mut_ptr(), buf.len()) };
+    println!("{}", ret);
+
+    println!("{:?}", buf);
+
+    return;
+
     let t = Time::now();
     let mut timeout = Timeout::longer();
     timeout.set_handle_times(1);
