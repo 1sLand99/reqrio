@@ -18,19 +18,19 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact: x86_64-linux-gnu
-            outdir: release
+            outdir: debug
             file: libreqrio.so
           - os: windows-latest
             artifact: x86_64-windows-msvc
-            outdir: release
+            outdir: debug
             file: reqrio.dll
 #          - os: windows-2022
 #            artifact: go-windows-gnu
-#            outdir: x86_64-pc-windows-gnu/release
+#            outdir: x86_64-pc-windows-gnu/debug
 #            file: reqrio.dll
-          - os: aarch64-macos
+          - os: macos-latest
             artifact: macos-aarch64
-            outdir: release
+            outdir: debug
             file: reqrio.dylib
     runs-on: ${{ matrix.os }}
     env:
@@ -46,7 +46,7 @@ jobs:
           cache-on-failure: true
       - name: build and test
         run: |
-          cargo test --features aync,serde -- --test-threads=1
+          cargo test --features aync,serde,staticlink -- --test-threads=1
           cargo build --package reqrio --features export,staticlink
       - name: Copy dylib to bindings
         run: cp target/${{ matrix.outdir }}/${{ matrix.file }} bindings/python/reqrio/
