@@ -120,7 +120,7 @@ fn main() {
     println!("cargo:rustc-link-search={}", target_dir.join("reqrio").display());
     println!("cargo:rustc-link-lib={}=bcrypto", typ.link());
     println!("cargo:rustc-link-lib={}=zap", typ.link());
-    if env=="gnu" {
+    if env == "gnu" || env.is_empty() {
         println!("cargo:rustc-link-lib=dylib=stdc++");
     }
     if check_lib(target_dir, &typ, &version).unwrap_or(false) {

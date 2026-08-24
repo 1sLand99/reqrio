@@ -35,6 +35,8 @@ use std::path::{Path, PathBuf};
 use std::{env, io};
 pub use sync_stream::TlsStreamS;
 pub use ws::{WebSocket, WebSocketBuilder};
+#[cfg(all(feature = "quic", feature = "aync"))]
+use crate::stream::http3::HTTP3StreamA;
 
 pub struct ConnParam<'a> {
     pub url: &'a Url,
@@ -81,6 +83,8 @@ pub enum HTTPStream {
     AsyncH1(HTTP1StreamA),
     #[cfg(feature = "aync")]
     AsyncH2(HTTP2StreamA),
+    #[cfg(all(feature = "aync", feature = "quic"))]
+    AsyncH3(HTTP3StreamA),
 }
 
 impl HTTPStream {
@@ -95,6 +99,8 @@ impl HTTPStream {
             HTTPStream::AsyncH1(h1) => h1.stream().scheme(),
             #[cfg(feature = "aync")]
             HTTPStream::AsyncH2(h2) => h2.stream().scheme(),
+            #[cfg(all(feature = "aync", feature = "quic"))]
+            HTTPStream::AsyncH3(_) => Some(Scheme::Https),
         }
     }
 
@@ -109,6 +115,8 @@ impl HTTPStream {
             HTTPStream::AsyncH1(h1) => Ok(h1.into_stream()),
             #[cfg(feature = "aync")]
             HTTPStream::AsyncH2(h2) => Ok(h2.into_stream()),
+            #[cfg(all(feature = "aync", feature = "quic"))]
+            HTTPStream::AsyncH3(_) => Err("use `HTTPStreamA`".into()),
         }
     }
 
@@ -123,6 +131,8 @@ impl HTTPStream {
             HTTPStream::AsyncH1(h1) => Ok(h1.stream_mut()),
             #[cfg(feature = "aync")]
             HTTPStream::AsyncH2(h2) => Ok(h2.stream_mut()),
+            #[cfg(all(feature = "aync", feature = "quic"))]
+            HTTPStream::AsyncH3(_) => Err("use `HTTPStreamA`".into()),
         }
     }
 }
@@ -157,7 +167,8 @@ impl HTTPStream {
         match param.alpn {
             #[cfg(feature = "quic")]
             ALPN::Http30 => {
-                *self = HTTPStream::SyncH3(HTTP3StreamS::connect(param)?);
+                let socket = std::net::UdpSocket::bind("0.0.0.0:0")?;
+                *self = HTTPStream::SyncH3(HTTP3StreamS::connect(socket, param)?);
                 Ok(ALPN::Http30)
             }
             _ => {
@@ -193,6 +204,8 @@ impl HTTPStream {
             HTTPStream::NonConnection => Err("need connected before send".into()),
             HTTPStream::AsyncH1(h1) => h1.send(header, body, param).await,
             HTTPStream::AsyncH2(h2) => h2.send(header, body, param).await,
+            #[cfg(feature = "quic")]
+            HTTPStream::AsyncH3(h3) => h3.send(header, body, param).await,
             _ => Err("invalid async stream".into()),
         }
     }
@@ -202,6 +215,8 @@ impl HTTPStream {
             HTTPStream::NonConnection => Err("need connected before send".into()),
             HTTPStream::AsyncH1(h1) => h1.recv(responses).await,
             HTTPStream::AsyncH2(h2) => h2.recv(responses).await,
+            #[cfg(feature = "quic")]
+            HTTPStream::AsyncH3(h3) => h3.recv(responses).await,
             _ => Err("invalid async stream".into()),
         }
     }
@@ -210,7 +225,8 @@ impl HTTPStream {
         match param.alpn {
             #[cfg(feature = "quic")]
             ALPN::Http30 => {
-                // *self = HTTPStream::SyncH3(HTTP3StreamS::connect(param)?);
+                let socket = tokio::net::UdpSocket::bind("0.0.0.0:0").await?;
+                *self = HTTPStream::AsyncH3(HTTP3StreamA::connect(socket, param).await?);
                 Ok(ALPN::Http30)
             }
             _ => {
