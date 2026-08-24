@@ -14,6 +14,7 @@ jobs:
   build-check:
     name: ${{ matrix.artifact }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -51,7 +52,8 @@ jobs:
       - name: Copy dylib to bindings
         run: cp target/${{ matrix.outdir }}/${{ matrix.file }} bindings/python/reqrio/
       - name: Set python path env
-        run: echo "PYTHONPATH=${{ github.workspace }}/bindings/python" >> $env:GITHUB_ENV
+        shell: bash
+        run: echo "PYTHONPATH=${{ github.workspace }}/bindings/python" >> "$GITHUB_ENV"
       - name: Run Python FFI Test
         run: |
           python bindings/python/tests/test_session.py
