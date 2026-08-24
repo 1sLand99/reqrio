@@ -1,5 +1,7 @@
 use crate::error::RlsResult;
 use crate::{BufferError, CipherSuite, CipherType, Version};
+#[cfg(feature = "quic")]
+use crate::message::QUICPacket;
 use crate::suite::iv::Iv;
 
 pub struct PayloadDecodeBuffer<'a> {
@@ -8,29 +10,44 @@ pub struct PayloadDecodeBuffer<'a> {
 }
 
 
-pub struct RecordDecodeBuffer<'a> {
+pub struct CipherDecodeBuffer<'a> {
     suite: &'static CipherSuite,
+    quic: bool,
     head: &'a [u8],
     payload: PayloadDecodeBuffer<'a>,
 }
 
-impl<'a> RecordDecodeBuffer<'a> {
+impl<'a> CipherDecodeBuffer<'a> {
     pub fn from_buffer(origin: &'a [u8], decoded: &'a mut [u8], suite: &'static CipherSuite) -> RlsResult<Self> {
         if decoded.len() < origin.len() - 5 {
             return Err(BufferError::CapacityTooSmall {
                 current: decoded.len(),
+                file: file!(),
                 needed: origin.len(),
+                line: line!(),
             }.into());
         }
         let (head, origin) = origin.split_at(5);
-        Ok(RecordDecodeBuffer {
+        Ok(CipherDecodeBuffer {
             suite,
+            quic: false,
             head,
             payload: PayloadDecodeBuffer { origin, decoded },
         })
     }
 
+    #[cfg(feature = "quic")]
+    pub fn from_quic(packet: &'a QUICPacket, decoded: &'a mut [u8]) -> RlsResult<Self> {
+        Ok(CipherDecodeBuffer {
+            head: packet.hdr_raw(),
+            suite: &CipherSuite::TLS_AES_128_GCM_SHA256,
+            payload: PayloadDecodeBuffer { origin: packet.payload.as_ref(), decoded },
+            quic: true,
+        })
+    }
+
     pub fn aad(&self, seq: u64) -> RlsResult<Vec<u8>> {
+        if self.quic { return Ok(self.head.to_vec()); }
         match *self.suite.version {
             Version::TLS_1_3 => Ok(self.tls13_aad()),
             Version::TLS_1_2 => Ok(self.tls12_aad(seq)),

@@ -16,6 +16,7 @@ impl HttpStatus {
     pub const PartialContent: HttpStatus = HttpStatus(206);
     pub const Move: HttpStatus = HttpStatus(301);
     pub const Found: HttpStatus = HttpStatus(302);
+    pub const SeeOther: HttpStatus = HttpStatus(303);
     pub const NotModified: HttpStatus = HttpStatus(304);
     pub const TemporaryRedirect: HttpStatus = HttpStatus(307);
     pub const PermanentRedirect: HttpStatus = HttpStatus(308);

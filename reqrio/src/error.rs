@@ -1,5 +1,5 @@
 use crate::json::JsonError;
-use crate::hpack::HPackError;
+use crate::pack::PackError;
 use reqtls::{hex, Alert, BufferError, RlsError, UrlError, ALPN};
 use std::array::TryFromSliceError;
 use std::convert::Infallible;
@@ -16,7 +16,10 @@ use std::sync::PoisonError;
 use tokio::time::error::Elapsed;
 use reqtls::cipher::CipherError;
 use reqtls::coder::CodingError;
+#[cfg(feature = "quic")]
+use reqtls::quic::QUICError;
 use crate::body::FormError;
+use crate::FrameType;
 use crate::packet::HeaderError;
 use crate::time::TimeError;
 
@@ -30,14 +33,16 @@ pub enum HlsError {
     EncrypterNone,
     WsFrameTypeNone,
     DataTooShort,
-    RstStream,
+    H2(FrameType),
     UnsupportedAlpn(ALPN),
     Body(FormError),
     Rls(RlsError),
-    HPack(HPackError),
+    HPack(PackError),
     Time(TimeError),
     Header(HeaderError),
     Currently(String),
+    #[cfg(feature = "quic")]
+    QUIC(QUICError),
 }
 
 impl From<&str> for HlsError {
@@ -81,8 +86,10 @@ impl Display for HlsError {
             HlsError::Body(e) => write!(f, "Body({})", e),
             HlsError::Time(e) => write!(f, "Time({:?})", e),
             HlsError::UnsupportedAlpn(alpn) => write!(f, "UnsupportedAlpn({})", alpn),
-            HlsError::RstStream => f.write_str("RstStream"),
+            HlsError::H2(typ) => write!(f, "H2({:?})", typ),
             HlsError::Header(e) => write!(f, "Header({:?})", e),
+            #[cfg(feature = "quic")]
+            HlsError::QUIC(e) => write!(f, "QUIC({:?})", e),
         }
     }
 }
@@ -105,8 +112,8 @@ impl From<Infallible> for HlsError {
     }
 }
 
-impl From<HPackError> for HlsError {
-    fn from(value: HPackError) -> Self {
+impl From<PackError> for HlsError {
+    fn from(value: PackError) -> Self {
         HlsError::HPack(value)
     }
 }
@@ -217,6 +224,22 @@ impl From<CipherError> for HlsError {
 impl From<HeaderError> for HlsError {
     fn from(value: HeaderError) -> Self {
         HlsError::Header(value)
+    }
+}
+
+#[cfg(feature = "quic")]
+impl From<QUICError> for HlsError {
+    fn from(value: QUICError) -> Self {
+        match value {
+            QUICError::Rls(rls) => HlsError::Rls(rls),
+            _ => HlsError::QUIC(value),
+        }
+    }
+}
+
+impl From<FrameType> for HlsError {
+    fn from(value: FrameType) -> Self {
+        HlsError::H2(value)
     }
 }
 

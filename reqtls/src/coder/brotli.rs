@@ -107,6 +107,8 @@ impl<W: WriteExt> StreamDecode<W> for BrotliDecoder {
                     return Err(BufferError::CapacityTooSmall {
                         needed: out.len() + unread_len,
                         current: out.len(),
+                        file: file!(),
+                        line: line!(),
                     }.into());
                 }
             }

@@ -71,10 +71,10 @@
 //!     "p1": 1,
 //!     "p2": "??34//11<<><"
 //! };
-//! 
+//!
 //! // Send GET request with query parameters
 //! let mut res = reqrio::get("https://www.baidu.com".params(params), None).unwrap();
-//! 
+//!
 //! // Access response headers
 //! let header = res.header();
 //!
@@ -92,7 +92,7 @@
 //!     "field1": "value1",
 //!     "field2": "value2"
 //! };
-//! 
+//!
 //! let resp = reqrio::post(url, data.form()).unwrap();
 //! # }
 //! ```
@@ -106,7 +106,7 @@
 //!     "field1": "value1",
 //!     "field2": "value2"
 //! };
-//! 
+//!
 //! let resp = reqrio::post(url, data).unwrap();
 //! # }
 //! ```
@@ -121,7 +121,7 @@
 //!     field1: String,
 //!     field2: bool,
 //! }
-//! 
+//!
 //! let url = "https://www.baidu.com/api";
 //! let resp = reqrio::post(
 //!     url,
@@ -145,7 +145,7 @@
 //!     "Accept-Language": "en-US,en;q=0.9",
 //!     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
 //! };
-//! 
+//!
 //! let mut session = ScReq::new()
 //!     .with_alpn(ALPN::Http20)                    // Use HTTP/2.0 for modern sites
 //!     .with_header_json(headers)?                 // Set browser-compatible headers
@@ -166,12 +166,12 @@
 //! # use reqrio::*;
 //! # fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! let url = Url::try_from("wss://stream.example.com/events")?;
-//! 
+//!
 //! let mut ws = WebSocket::sync_build()
 //!     .with_origin("https://example.com")?
 //!     .with_user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")?
 //!     .build(&url)?;
-//! 
+//!
 //! // Read frames in a loop
 //! loop {
 //!     let frame = ws.read_frame()?;
@@ -236,14 +236,14 @@
 //! ```rust,no_run
 //! # use reqrio::*;
 //! let mut req = ScReq::new();
-//! 
+//!
 //! // Load client certificate and key
 //! let certs = Certificate::from_pem_file("client.pem")?;
 //! let key = RsaKey::from_pri_pem_file("client.key")?;
-//! 
+//!
 //! // Add custom CA certificates
 //! let ca_certs = Certificate::from_pem_file("ca-bundle.pem")?;
-//! 
+//!
 //! // Set them in the request engine
 //! // req.with_certs(certs).with_key(key).with_ca_certs(ca_certs);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
@@ -262,13 +262,13 @@
 //!
 //! - **reqtls**: Underlying TLS and cryptographic engine
 //! - **reqrio-json**: Built-in JSON utilities
-//! - **hpack**: HTTP/2 header compression support
+//! - **pack**: HTTP/2 header compression support
 //!
 //! For more examples and advanced usage, visit the [GitHub repository](https://github.com/xllgl2017/reqrio)
 
 #[cfg(feature = "aync")]
 mod acq;
-pub mod hpack;
+pub mod pack;
 mod error;
 #[cfg(feature = "export")]
 mod export;
@@ -285,7 +285,7 @@ mod time;
 #[cfg(feature = "log")]
 mod logger;
 
-pub type ReqCallback = Box<dyn FnMut(&[u8]) -> HlsResult<()>>;
+pub type ReqCallback = Box<dyn FnMut(&[u8]) -> HlsResult<()> + Send + Sync>;
 pub const HTTP_GAP: &[u8; 4] = b"\r\n\r\n";
 pub const CHUNK_END: [u8; 7] = [13, 10, 48, 13, 10, 13, 10];
 
@@ -304,8 +304,10 @@ pub use reqrio_json as json;
 pub use reqtls::*;
 pub use scq::ScReq;
 #[cfg(feature = "aync")]
-pub use stream::TlsStream;
-pub use stream::{Proxy, ProxyStream, SyncStream, WebSocket, WebSocketBuilder};
+pub use stream::TlsStreamA;
+pub use stream::{Proxy, ProxyStream, TlsStreamS, ConnParam, WebSocket, WebSocketBuilder};
+#[cfg(feature = "quic")]
+pub use stream::{QUICStreamS,HTTP3StreamS};
 pub use time::{Time, TimeError, Timeout};
 #[cfg(feature = "tokio")]
 pub use tokio;

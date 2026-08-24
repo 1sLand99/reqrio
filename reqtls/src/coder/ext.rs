@@ -33,7 +33,9 @@ impl StreamEncode for () {
         if out.len() < data.len() {
             return Err(BufferError::CapacityTooSmall {
                 current: out.len(),
+                file: file!(),
                 needed: data.len(),
+                line: line!(),
             }.into());
         }
         out[..data.len()].copy_from_slice(data);

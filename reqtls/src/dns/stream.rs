@@ -105,7 +105,7 @@ impl DNSStream {
         #[cfg(target_os = "windows")]
         return Self::get_dns_win();
         #[cfg(all(not(target_os = "linux"), not(target_os = "windows")))]
-        return Ok(vec![SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 8080)]);
+        return Ok(vec![SocketAddr::new(IpAddr::V4(std::net::Ipv4Addr::new(8, 8, 8, 8)), 8080)]);
     }
 
     #[cfg(target_os = "linux")]

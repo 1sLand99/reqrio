@@ -14,7 +14,6 @@ pub use curve::EvpCurve;
 
 use crate::boring::CryptEncodeParam;
 use crate::cipher::CipherError;
-use crate::extend::Aead;
 use crate::hash::Hmac;
 pub use error::EvpError;
 pub use pkey::PKey;
@@ -64,14 +63,8 @@ pub struct CipherCrypto {
 }
 
 impl CipherCrypto {
-    pub fn new(aead: &Aead, key: Vec<u8>, mac: Vec<u8>, hash: HashType) -> RlsResult<CipherCrypto> {
-        let cipher = match aead {
-            Aead::AES_128_CBC_SHA => Cipher::aes_128_cbc(),
-            Aead::AES_256_CBC_SHA => Cipher::aes_256_cbc(),
-            Aead::AES_128_CBC_SHA256 => Cipher::aes_128_cbc(),
-            Aead::AES_256_CBC_SHA384 => Cipher::aes_256_cbc(),
-            _ => return Err("not suite, but in suite".into())
-        }.with_secret_key(key, None);
+    pub fn new(cipher: CipherType, key: Vec<u8>, mac: Vec<u8>, hash: HashType) -> RlsResult<CipherCrypto> {
+        let cipher = Cipher::new(cipher).with_secret_key(key, None);
         Ok(CipherCrypto {
             mac_key: mac,
             cipher,
@@ -136,7 +129,7 @@ impl CipherCrypto {
 mod tests {
     use crate::boring::evp::CipherCrypto;
     use crate::boring::{CryptDecodeParam, CryptEncodeParam};
-    use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
+    use crate::buffer::{CipherDecodeBuffer, CipherEncodeBuffer};
     use crate::{CipherSuite, RecordType};
 
     fn test_cipher_tls(suite: &'static CipherSuite, key: &[u8], en: &[u8]) {
@@ -144,9 +137,11 @@ mod tests {
         let payload = [1, 2, 3, 4, 5, 61, 2, 3, 4, 5, 6, 7, 8, 9, 23, 23];
         let mac_key = vec![12; suite.mac_key_size];
         let mut buffer = [0; 1024];
-        let mut record_buffer = RecordEncodeBuffer::new(RecordType::HandShake, &mut buffer, &payload, suite);
+        let mut record_buffer = CipherEncodeBuffer::new_tls(RecordType::HandShake, &mut buffer, &payload, suite);
         record_buffer.add_explicit_iv(&iv);
-        let crypto = CipherCrypto::new(&suite.aead().unwrap(), key.to_vec(), mac_key.to_vec(), suite.mac_hash()).unwrap();
+
+
+        let crypto = CipherCrypto::new(suite.cipher(), key.to_vec(), mac_key.to_vec(), suite.mac_hash()).unwrap();
         crypto.encrypt(CryptEncodeParam {
             nonce: &[0; 12],
             iv: &iv,
@@ -157,8 +152,9 @@ mod tests {
         let len = record_buffer.record_len();
         assert_eq!(&buffer[..len], en);
 
+
         let mut decoded_buffer = vec![0; 1024];
-        let mut record_buffer = RecordDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, suite).unwrap();
+        let mut record_buffer = CipherDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, suite).unwrap();
         let len = crypto.decrypt(CryptDecodeParam {
             nonce: &[0; 12],
             iv: &iv,
@@ -174,6 +170,7 @@ mod tests {
         let key = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8].to_vec();
         test_cipher_tls(&CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, &key, &[22, 3, 3, 0, 64, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 225, 181, 85, 149, 189, 100, 192, 39, 33, 30, 205, 22, 123, 49, 172, 97, 106, 123, 166, 131, 129, 167, 149, 187, 174, 174, 240, 122, 9, 87, 56, 140, 117, 152, 228, 72, 33, 112, 254, 70, 101, 122, 70, 56, 86, 138, 18, 134]);
         test_cipher_tls(&CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256, &key, &[22, 3, 3, 0, 80, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 225, 181, 85, 149, 189, 100, 192, 39, 33, 30, 205, 22, 123, 49, 172, 97, 150, 39, 188, 217, 227, 123, 176, 202, 171, 118, 173, 133, 177, 212, 23, 239, 79, 83, 238, 222, 83, 155, 116, 15, 213, 225, 52, 26, 134, 201, 207, 232, 194, 72, 163, 90, 108, 33, 90, 207, 135, 156, 79, 245, 245, 89, 69, 218]);
+
 
         let key = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8].to_vec();
         test_cipher_tls(&CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA, &key, &[22, 3, 3, 0, 64, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 14, 154, 194, 131, 254, 83, 135, 224, 182, 116, 28, 102, 151, 64, 116, 65, 233, 40, 102, 87, 64, 5, 139, 184, 61, 216, 62, 94, 54, 212, 193, 146, 8, 193, 18, 124, 254, 208, 135, 126, 57, 190, 219, 84, 217, 103, 135, 96]);

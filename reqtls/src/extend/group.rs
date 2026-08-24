@@ -46,6 +46,10 @@ impl SupportedGroups {
         self.values.push(group)
     }
 
+    pub fn values_mut(&mut self) -> &mut Vec<NamedCurve> {
+        &mut self.values
+    }
+    
     pub fn values(&self) -> &Vec<NamedCurve> { &self.values }
 
 

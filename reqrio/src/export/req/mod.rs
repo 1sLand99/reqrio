@@ -4,14 +4,13 @@ mod body;
 
 use crate::export::{check_run, handle_err1, handle_err2};
 use crate::time::Timeout;
-use crate::{json, Body, Cookie, HlsError, Method, Proxy, ReqExt, ReqGenExt, Response, ScReq, ALPN, Url, HeaderKey};
+use crate::*;
 use crate::Fingerprint;
 use std::ffi::{c_char, CStr, CString};
-use std::ops::{Deref, DerefMut};
+use std::ops::{Deref};
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::ptr::null_mut;
-#[cfg(feature = "log")]
-use crate::{logger::Logger, set_logger, set_max_level, LevelFilter};
+use std::ptr::{null, null_mut};
+use crate::ext::ReqPriExt;
 
 #[cfg(feature = "log")]
 const LOGER: Logger = Logger {
@@ -65,7 +64,7 @@ pub extern "system" fn ScReq_add_header(req: *mut ScReq, key: *const c_char, val
         let name = unsafe { CStr::from_ptr(key) }.to_str()?;
         let value = unsafe { CStr::from_ptr(value) }.to_str()?;
         let key = HeaderKey::new(name, value).with_reserved(reversed);
-        req.header_mut().add_key(key);
+        ReqExt::header_mut(req).add_key(key);
         Ok(null_mut())
     }, handle_err2)
 }
@@ -166,7 +165,7 @@ pub extern "system" fn ScReq_set_cookie(req: *mut ScReq, cookie: *const c_char) 
     check_run(move || {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let cookie = unsafe { CStr::from_ptr(cookie) }.to_str()?;
-        req.header_mut().set_cookie(cookie)?;
+        ReqExt::header_mut(req).set_cookie(cookie)?;
         Ok(null_mut())
     }, handle_err2)
 }
@@ -179,7 +178,7 @@ pub extern "system" fn ScReq_add_cookie(req: *mut ScReq, name: *const c_char, va
         let name = unsafe { CStr::from_ptr(name) }.to_str()?;
         let value = unsafe { CStr::from_ptr(value) }.to_str()?;
         let cookie = Cookie::new_cookie(name, value);
-        req.header_mut().add_cookie(cookie);
+        ReqExt::header_mut(req).add_cookie(cookie);
         Ok(null_mut())
     }, handle_err2)
 }
@@ -187,23 +186,50 @@ pub extern "system" fn ScReq_add_cookie(req: *mut ScReq, name: *const c_char, va
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub unsafe extern "C" fn ScReq_stream_io(
+pub unsafe extern "C" fn ScReq_do_http(
     req: *mut ScReq,
     method: Method,
     url: *mut Url,
     body: *mut Body<'static>,
+    stream: bool,
     err: *mut *mut c_char,
 ) -> *mut Response {
     catch_unwind(AssertUnwindSafe(|| {
         check_run(move || {
             let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
-            let mut url = unsafe { Box::from_raw(url) };
+            let url = unsafe { Box::from_raw(url) };
             let body = unsafe { Box::from_raw(body) };
-            let resp = req.stream_io(method, url.deref_mut(), body.deref())?;
+            let resp = match stream {
+                true => {
+                    let (sid, header) = req.send_stream(method, *url, *body)?;
+                    let mut resp = Response::new_header(header.clone());
+                    resp.sid = sid;
+                    resp
+                }
+                false => req.do_http(method, *url, body.deref())?
+            };
             Ok(Box::into_raw(Box::new(resp)))
         }, |e| handle_err1(e, err, null_mut()))
     })).unwrap_or_else(|_| handle_err1("程序panic", err, null_mut()))
 }
+
+#[unsafe(no_mangle)]
+#[allow(non_snake_case)]
+pub extern "system" fn ScReq_recv_stream(req: *mut ScReq, sid: u64, len: *mut usize, err: *mut *mut c_char) -> *const u8 {
+    catch_unwind(AssertUnwindSafe(move || {
+        check_run(move || {
+            let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
+            match req.next_chunk(sid)? {
+                Some(chunk) => {
+                    unsafe { *len = chunk.len(); }
+                    Ok(chunk.as_ptr())
+                }
+                None => Ok(null())
+            }
+        }, |e| handle_err1(e, err, null()))
+    })).unwrap_or_else(|_| handle_err1("程序崩溃", err, null()))
+}
+
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
 pub extern "system" fn ScReq_reconnect(req: *mut ScReq) -> *mut c_char {
@@ -237,7 +263,7 @@ pub extern "system" fn ScReq_connect(req: *mut ScReq, url: *const c_char, sni: *
 pub extern "C" fn ScReq_close_stream(req: *mut ScReq) -> *mut c_char {
     check_run(move || {
         let req = unsafe { req.as_mut() }.ok_or(HlsError::NullPointer)?;
-        let _ = req.stream_mut().sync_shutdown();
+        let _ = req.http_stream_mut().shutdown_sync();
         Ok(null_mut())
     }, handle_err2)
 }
@@ -248,7 +274,7 @@ pub extern "C" fn ScReq_close_stream(req: *mut ScReq) -> *mut c_char {
 pub extern "C" fn ScReq_drop(req: *mut ScReq) {
     if req.is_null() { return; }
     let mut req = unsafe { Box::from_raw(req) };
-    let _ = req.stream_mut().sync_shutdown();
+    let _ = req.http_stream_mut().shutdown_sync();
     drop(req);
 }
 
@@ -257,22 +283,6 @@ pub extern "C" fn ScReq_drop(req: *mut ScReq) {
 pub extern "system" fn char_free(ptr: *mut c_char) {
     if ptr.is_null() { return; }
     unsafe { let _ = CString::from_raw(ptr); }
-}
-
-pub type Callback = extern "C" fn(*const c_char, u32);
-
-
-#[unsafe(no_mangle)]
-#[allow(non_snake_case)]
-pub extern "C" fn ScReq_set_callback(req: *mut ScReq, callback: Callback) -> *mut c_char {
-    check_run(move || {
-        let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
-        req.set_callback(move |bs| {
-            callback(bs.as_ptr() as *const c_char, bs.len() as u32);
-            Ok(())
-        });
-        Ok(null_mut())
-    }, handle_err2)
 }
 
 

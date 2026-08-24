@@ -84,7 +84,7 @@ impl<W: WriteExt, C: StreamDecode<W>> StreamDecode<W> for ChunkDecoder<W, C> {
 #[cfg(test)]
 mod chunk_tests {
     use crate::coder::chunk::ChunkDecoder;
-    use crate::coder::{BrotliDecoder, CodingError, DeflateStream, StreamDecode};
+    use crate::coder::{BrotliDecoder, DeflateStream, StreamDecode};
     use crate::{Buffer, ReadExt, Reader};
     use std::fs;
 
@@ -127,13 +127,13 @@ mod chunk_tests {
             match decoder.decompress(&mut reader, &mut decompressed) {
                 Ok(_) => {}
                 Err(e) => {
-                    println!("{} {} {:?}", e.to_string(), reader.unread_len(), &reader.inner()[reader.position()..]);
-                    decompressed.resize(8192 * 2);
+                    println!("{} {} {:?}", e, reader.unread_len(), &reader.inner()[reader.position()..]);
+                    decompressed.resize(8192 * 2).unwrap();
                     match decoder.decompress(&mut reader, &mut decompressed) {
                         Ok(_) => {}
                         Err(e) => {
-                            println!("{} {} {:?}", e.to_string(), reader.unread_len(), &reader.inner()[reader.position()..]);
-                            decompressed.resize(8192 * 4);
+                            println!("{} {} {:?}", e, reader.unread_len(), &reader.inner()[reader.position()..]);
+                            decompressed.resize(8192 * 4).unwrap();
                             decoder.decompress(&mut reader, &mut decompressed).unwrap();
                             decoder.flush(&mut decompressed).unwrap();
                         }

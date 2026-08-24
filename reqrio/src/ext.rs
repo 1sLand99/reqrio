@@ -1,20 +1,11 @@
-use crate::body::H2FrameRBuf;
 use crate::error::HlsResult;
-use crate::hpack::HPackCoding;
 use crate::packet::*;
 use crate::reader::ReadExt;
-use crate::stream::Stream;
+use crate::stream::{HTTPStream, Stream};
 use crate::*;
 use json::JsonValue;
+use std::collections::HashMap;
 use std::path::Path;
-
-pub(crate) struct ReqParam<'a> {
-    pub(crate) header: &'a mut Header,
-    pub(crate) buffer: &'a mut Buffer,
-    pub(crate) hpack_coder: &'a mut HPackCoding,
-    pub(crate) sid: &'a u32,
-    pub(crate) callback: &'a mut Option<ReqCallback>,
-}
 
 #[allow(private_bounds)]
 pub trait ReqExt: ReqPriExt + Sized {
@@ -87,22 +78,23 @@ pub trait ReqExt: ReqPriExt + Sized {
     }
     fn tls_session(&self) -> &Option<TlsSession>;
 
-    fn set_callback(&mut self, callback: impl FnMut(&[u8]) -> HlsResult<()> + 'static);
     fn set_fingerprint(&mut self, fingerprint: Fingerprint);
     fn with_fingerprint(mut self, fingerprint: Fingerprint) -> Self {
         self.set_fingerprint(fingerprint);
         self
     }
     fn set_headers(&mut self, mut headers: Header, keep_cookie: bool) {
+        let header = ReqExt::header_mut(self);
         if keep_cookie {
-            let cks = self.header_mut().cookies().unwrap_or(&[]).to_vec();
+            let cks = header.cookies().unwrap_or(&[]).to_vec();
             headers.set_cookies(cks);
         }
-        *self.header_mut() = headers;
+        *header = headers;
     }
 
     fn set_headers_json(&mut self, headers: JsonValue) -> HlsResult<()> {
-        self.header_mut().set_by_json(headers)
+        let header = ReqExt::header_mut(self);
+        header.set_by_json(headers)
     }
 
     fn with_header_json(mut self, data: JsonValue) -> HlsResult<Self> {
@@ -111,11 +103,11 @@ pub trait ReqExt: ReqPriExt + Sized {
     }
 
     fn insert_header(&mut self, k: impl AsRef<str>, v: impl ToString) -> HlsResult<()> {
-        self.header_mut().insert(k, v)
+        ReqExt::header_mut(self).insert(k, v)
     }
 
     fn remove_header(&mut self, k: impl AsRef<str>) -> Option<HeaderValue> {
-        self.header_mut().remove(k)
+        ReqExt::header_mut(self).remove(k)
     }
 
 
@@ -129,9 +121,10 @@ pub trait ReqExt: ReqPriExt + Sized {
 }
 
 pub(crate) trait ReqPriExt {
-    fn into_stream(self) -> Stream;
-    fn req_param(&mut self) -> ReqParam<'_>;
-
+    fn header_mut(&mut self) -> &mut Header;
+    fn responses(&mut self) -> &mut HashMap<u64, Response>;
+    fn into_stream(self) -> HlsResult<Stream>;
+    fn http_stream_mut(&mut self) -> &mut HTTPStream;
     fn read_to_vec<T: ReadExt>(mut reader: T) -> HlsResult<Vec<u8>> {
         let mut res = vec![0; reader.len()];
         let mut buffer = Buffer::from_ptr(&mut res);
@@ -144,63 +137,17 @@ pub(crate) trait ReqPriExt {
         Ok(res)
     }
 
-    fn handle_h1_res(&mut self, response: &mut Response, rd: &mut usize) -> HlsResult<bool> {
-        let param = self.req_param();
-        match param.callback {
-            None => response.extend_buffer(param.buffer),
-            Some(callback) => {
-                if response.header().is_empty() {
-                    response.extend_buffer(param.buffer)?;
-                    if !response.header().is_empty() {
-                        // callback(response.raw_body())?;
-                        // *rd += response.raw_body().len();
-                        // response.clear_raw();
-                    }
-                } else {
-                    callback(param.buffer.filled())?;
-                    *rd += param.buffer.filled().len();
-                }
-                if response.header().is_empty() { return Ok(false); }
-                let finish = match response.header().content_length() {
-                    None => param.buffer.filled().ends_with(&CHUNK_END),
-                    Some(len) => *rd >= len
-                };
-                param.buffer.reset();
-                Ok(finish)
-            }
-        }
-    }
-
-    fn handle_h2_res(&mut self, frame_type: FrameType, response: &mut Response) -> HlsResult<bool> {
-        if frame_type == FrameType::Goaway { return Err(HlsError::PeerClosedConnection); }
-        if frame_type == FrameType::RstStream { return Err(HlsError::RstStream); }
-        let param = self.req_param();
-        let frame = H2FrameRBuf::from_bytes(param.buffer.filled(), frame_type)?;
-        let res = match param.callback {
-            None => response.extend_frame(&frame, param.hpack_coder.decoder()),
-            Some(callback) => {
-                match frame.frame_type() {
-                    FrameType::Data => {
-                        callback(frame.payload())?;
-                        Ok(frame.is_end_frame())
-                    }
-                    FrameType::Headers => Ok(response.extend_frame(&frame, param.hpack_coder.decoder())?),
-                    _ => Ok(false),
-                }
-            }
-        };
-        if let Some(max_size) = response.header().max_table_size() {
-            param.hpack_coder.encoder().update_table_size(max_size);
-        }
-        param.buffer.move_to(frame.frame_len()..param.buffer.len(), 0)?;
-        res
+    fn get_resp(&mut self, sid: u64) -> Option<Response> {
+        let resp = self.responses().remove(&sid);
+        if let Some(resp) = &resp { self.update_cookie(resp) };
+        resp
     }
 
     fn update_cookie(&mut self, response: &Response) {
         let Some(cookies) = response.header().cookies()else { return; };
         for cookie in cookies {
             if cookie.name() == "" && cookie.value() == "" { continue; }
-            self.req_param().header.add_cookie(cookie.clone());
+            self.header_mut().add_cookie(cookie.clone());
         }
     }
 
@@ -230,15 +177,18 @@ pub trait ReqGenExt: ReqExt {
     /// * H2严禁使用，否则影响hpack编码
     fn h1_raw_string(&mut self, url: &Url, body: &Body<'_>) -> HlsResult<String> {
         let body_raw = body.to_vec()?;
-        let param = self.req_param();
-        let header_reader = param.header.as_reader(HeaderParam {
+        let header_reader = ReqExt::header_mut(self).as_reader(HeaderParam {
             url,
-            encoder: param.hpack_coder.encoder(),
-            stream_identifier: param.sid,
+            h_sid: &0,
+            hpack_encoder: None,
+            #[cfg(feature = "quic")]
+            q_sid: &0,
+            #[cfg(feature = "quic")]
+            qpack_encoder: None,
             body_len: body_raw.len(),
             priority: &false,
             weight: &0,
-        }, body.context_type());
+        }, body.context_type())?;
         let mut header = Self::read_to_vec(header_reader)?;
         header.extend(body_raw);
         Ok(String::from_utf8_lossy(&header).to_string())
@@ -274,5 +224,64 @@ impl UrlExt for String {
 
     fn sni(&self, sni: impl Into<String>) -> Result<Url, UrlError> {
         Ok(Url::try_from(self)?.with_domain(sni))
+    }
+}
+
+pub enum ReqUrl<'a> {
+    Own(Url),
+    Ref(&'a Url),
+    Str(&'a str),
+    String(String),
+    Res(Result<Url, UrlError>),
+}
+
+impl<'a> ReqUrl<'a> {
+    pub fn build(self) -> HlsResult<Self> {
+        Ok(match self {
+            ReqUrl::Str(url) => ReqUrl::Own(Url::try_from(url)?),
+            ReqUrl::String(url) => ReqUrl::Own(Url::try_from(url.as_str())?),
+            ReqUrl::Res(url) => ReqUrl::Own(url?),
+            _ => self
+        })
+    }
+}
+
+impl<'a> AsRef<Url> for ReqUrl<'a> {
+    fn as_ref(&self) -> &Url {
+        match self {
+            ReqUrl::Own(url) => url,
+            ReqUrl::Ref(url) => url,
+            _ => unreachable!()
+        }
+    }
+}
+
+impl<'a> From<Url> for ReqUrl<'a> {
+    fn from(url: Url) -> Self {
+        ReqUrl::Own(url)
+    }
+}
+
+impl<'a> From<&'a Url> for ReqUrl<'a> {
+    fn from(url: &'a Url) -> Self {
+        ReqUrl::Ref(url)
+    }
+}
+
+impl<'a> From<&'a str> for ReqUrl<'a> {
+    fn from(url: &'a str) -> Self {
+        ReqUrl::Str(url)
+    }
+}
+
+impl<'a> From<String> for ReqUrl<'a> {
+    fn from(url: String) -> Self {
+        ReqUrl::String(url)
+    }
+}
+
+impl<'a> From<Result<Url, UrlError>> for ReqUrl<'a> {
+    fn from(value: Result<Url, UrlError>) -> Self {
+        ReqUrl::Res(value)
     }
 }

@@ -140,6 +140,8 @@ jobs:
           - { os: windows-latest, artifact: native-windows, rust_target: "",                    outdir: release,                       file: reqrio.dll }
           - { os: windows-2022,   artifact: go-windows-gnu, rust_target: x86_64-pc-windows-gnu, outdir: x86_64-pc-windows-gnu/release, file: reqrio.dll }
     runs-on: ${{ matrix.target.os }}
+    env:
+      REQRIO_TOKEN: ${{ secrets.REQRIO_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -172,9 +174,9 @@ jobs:
             # windows-gnu: bds.cpp 的 std::filesystem / codecvt 符号只在静态
             # libstdc++.a 里、DLL 不导出，追加静态 stdc++（排在最后解析残留引用）
             export RUSTFLAGS="-Clink-arg=-Wl,-Bstatic -Clink-arg=-lstdc++ -Clink-arg=-Wl,-Bdynamic"
-            cargo build --package reqrio --release --features export --target "${{ matrix.target.rust_target }}"
+            cargo build --package reqrio --release --features export,staticlink --target "${{ matrix.target.rust_target }}"
           else
-            cargo build --package reqrio --release --features export
+            cargo build --package reqrio --release --features export,staticlink
           fi
 
       - name: Upload native lib

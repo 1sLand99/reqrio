@@ -97,8 +97,6 @@ impl DeflateStream {
 
 impl<W: WriteExt> StreamDecode<W> for DeflateStream {
     fn decompress(&mut self, reader: &mut Reader<'_>, out: &mut W) -> Result<(), CodingError> {
-        #[cfg(feature = "log")]
-        trace!("gzip: {:?}", &reader.inner()[reader.position()..]);
         let mut unread_len = reader.unread_len();
         let mut out_len = out.unfilled_len();
         let state = unsafe {
@@ -118,7 +116,9 @@ impl<W: WriteExt> StreamDecode<W> for DeflateStream {
         if matches!(state,DeflateState::BUF_ERROR) {
             return Err(CodingError::Buffer(BufferError::CapacityTooSmall {
                 current: out.capacity(),
+                file: file!(),
                 needed: out.capacity() + reader.size() * 2,
+                line: line!(),
             }));
         } else if !matches!(state, DeflateState::OK|DeflateState::STREAM_END) {
             return Err(CodingError::DeflateError(state));

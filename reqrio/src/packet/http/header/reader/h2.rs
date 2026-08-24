@@ -1,8 +1,8 @@
 use crate::error::HlsResult;
-use crate::hpack::HPackEncode;
+use crate::pack::HPackEncode;
 use crate::packet::H2EncodeFrame;
 use crate::reader::{ReadExt, StrCow};
-use crate::{ContentType, HeaderKey};
+use crate::{ContentType, HeaderKey, Method};
 use reqtls::{u24, Buffer, WriteExt};
 
 pub(crate) struct H2HeaderReader<'a> {
@@ -18,11 +18,11 @@ pub(crate) struct H2HeaderReader<'a> {
 
 impl<'a> H2HeaderReader<'a> {
     const INVALID_KEYS: [&'static str; 4] = ["connection", "host", "transfer-encoding", "upgrade"];
-    pub(crate) fn skip_h2_key(key: &HeaderKey, ct: &ContentType, body: usize) -> bool {
+    pub(crate) fn skip_h2_key(key: &HeaderKey, ct: &ContentType, body: usize, method: &Method) -> bool {
         let is_ct = key.name().eq_ignore_ascii_case("content-type");
         if is_ct && !matches!(ct,ContentType::Null) { return false; }
         let is_len = key.name().eq_ignore_ascii_case("content-length");
-        if is_len && body == 0 { return true; }
+        if is_len && body == 0 && method == &Method::GET { return true; }
         H2HeaderReader::INVALID_KEYS.contains(&key.name_lower().as_str()) || (key.value().is_empty() && key.is_reserved())
     }
 }
@@ -40,7 +40,7 @@ impl<'a> ReadExt for H2HeaderReader<'a> {
         let len: usize = self.keys.iter().map(|(k, v)| k.len() + v.len()).sum();
         if buf.unfilled_len() < 59 + len { return Ok(0); }
         let offset = buf.offset();
-        let mut header_frame = H2EncodeFrame::new_header(self.body_len, *self.stream_identifier);
+        let mut header_frame = H2EncodeFrame::new_header(self.body_len, self.stream_identifier);
         if *self.priority { header_frame.set_priority(*self.weight) }
         header_frame.write_to(buf)?;
         for (i, (key, value)) in self.keys.iter().enumerate() {
@@ -52,7 +52,6 @@ impl<'a> ReadExt for H2HeaderReader<'a> {
         //有priority，payload长度需要frame.len-9
         buf.write_u24_in(offset.end, (buf.offset().end - offset.end - 9) as u24)?;
         self.wrote = true;
-        self.wrote = true;
         Ok(buf.offset().end - offset.end)
     }
 }
@@ -60,7 +59,7 @@ impl<'a> ReadExt for H2HeaderReader<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::hpack::HPackEncode;
+    use crate::pack::HPackEncode;
     use crate::packet::HeaderParam;
     use crate::reader::ReadExt;
     use crate::{Buffer, ContentType, Header, Method};
@@ -94,12 +93,16 @@ mod tests {
         let sid = 1;
         let mut reader = header.as_h2_reader(HeaderParam {
             url: &url,
-            encoder: &mut encoder,
-            stream_identifier: &sid,
+            hpack_encoder: Some(&mut encoder),
+            h_sid: &sid,
+            #[cfg(feature = "quic")]
+            q_sid: &0,
+            #[cfg(feature = "quic")]
+            qpack_encoder: None,
             body_len: 0,
             weight: &146,
             priority: &true,
-        }, &ContentType::Null);
+        }, &ContentType::Null).unwrap();
         let mut writer = Buffer::from_ptr(res.as_mut());
         let len = reader.read(&mut writer).unwrap();
         assert!(reader.wrote());

@@ -89,7 +89,7 @@ impl EchContent {
         }
         let max_name_len = reader.read_u8()?;
         let name_len = reader.read_u8()?;
-        let name = reader.read_str::<DNSError>(name_len as usize)?;
+        let name = reader.read_str(name_len as usize)?;
         let ext_len = reader.read_u16()?;
         Ok(EchContent {
             config_id,

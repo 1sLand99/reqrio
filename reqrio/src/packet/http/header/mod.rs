@@ -2,7 +2,7 @@ use super::content_type::ContentType;
 use super::cookie::Cookie;
 use crate::cookie::CookieManager;
 use crate::error::{HlsError, HlsResult};
-use crate::hpack::HPackItem;
+use crate::pack::PackItem;
 use crate::json::JsonValue;
 use crate::reader::{RefReader, StrCow};
 use crate::*;
@@ -16,6 +16,8 @@ use std::fmt::Display;
 use std::mem;
 pub use value::HeaderValue;
 pub use error::HeaderError;
+#[cfg(feature = "quic")]
+use crate::packet::http::header::reader::H3HeaderReader;
 
 mod value;
 mod key;
@@ -46,6 +48,49 @@ impl Default for Header {
 }
 
 impl Header {
+    #[cfg(feature = "quic")]
+    pub fn new_req_h3() -> Self {
+        Header {
+            method: Method::GET,
+            uri: Uri::default(),
+            alpn: ALPN::Http30,
+            status: HttpStatus::None,
+            keys: vec![
+                //h2 order
+                HeaderKey::new_reserved("origin", ""),
+                HeaderKey::new_reserved("sec-ch-ua-platform", ""),
+                HeaderKey::new_reserved("user-agent", format!("reqrio/{}", env!("CARGO_PKG_VERSION"))),
+                HeaderKey::new_reserved("sec-ch-ua", ""),
+                HeaderKey::new_reserved("sec-ch-ua-mobile", ""),
+                HeaderKey::new_reserved("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"),
+                HeaderKey::new_reserved("sec-fetch-site", ""),
+                HeaderKey::new_reserved("sec-fetch-mode", ""),
+                HeaderKey::new_reserved("sec-fetch-user", ""),
+                HeaderKey::new_reserved("sec-fetch-dest", ""),
+                HeaderKey::new_reserved("referer", ""),
+                HeaderKey::new_reserved("accept-encoding", "gzip, deflate, br, zstd"),
+                HeaderKey::new_reserved("accept-language", "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6"),
+                HeaderKey::new_reserved("priority", ""),
+
+
+                //unknown or http
+                HeaderKey::new_reserved("cache-control", ""),
+                HeaderKey::new_reserved("sec-ch-ua-full-version", ""),
+                HeaderKey::new_reserved("sec-ch-ua-arch", ""),
+                HeaderKey::new_reserved("sec-ch-ua-platform-version", ""),
+                HeaderKey::new_reserved("sec-ch-ua-model", ""),
+                HeaderKey::new_reserved("sec-ch-ua-bitness", ""),
+                HeaderKey::new_reserved("sec-ch-ua-full-version-list", ""),
+                HeaderKey::new_reserved("upgrade-insecure-requests", ""),
+                HeaderKey::new_reserved("sec-fetch-storage-access", ""),
+                HeaderKey::new_reserved("cookie", HeaderValue::Cookies(CookieManager::new(vec![]))),
+                HeaderKey::new_reserved("content-encoding", ""),
+                HeaderKey::new_reserved("content-type", ""),
+                HeaderKey::new_reserved("authorization", ""),
+            ],
+        }
+    }
+
     pub fn new_req_h2() -> Self {
         Header {
             method: Method::GET,
@@ -54,7 +99,9 @@ impl Header {
             status: HttpStatus::None,
             keys: vec![
                 //h2 order
+                HeaderKey::new_reserved("pragma",""),
                 HeaderKey::new_reserved("cache-control", ""),
+                HeaderKey::new_reserved("ect", ""),
                 HeaderKey::new_reserved("sec-ch-ua", ""),
                 HeaderKey::new_reserved("sec-ch-ua-mobile", ""),
                 HeaderKey::new_reserved("sec-ch-ua-full-version", ""),
@@ -64,8 +111,9 @@ impl Header {
                 HeaderKey::new_reserved("sec-ch-ua-model", ""),
                 HeaderKey::new_reserved("sec-ch-ua-bitness", ""),
                 HeaderKey::new_reserved("sec-ch-ua-full-version-list", ""),
+                HeaderKey::new_reserved("sec-ch-prefers-color-scheme", ""),
                 HeaderKey::new_reserved("upgrade-insecure-requests", ""),
-                HeaderKey::new_reserved("user-agent", ""),
+                HeaderKey::new_reserved("user-agent", format!("reqrio/{}", env!("CARGO_PKG_VERSION"))),
                 HeaderKey::new_reserved("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"),
                 HeaderKey::new_reserved("origin", ""),
                 HeaderKey::new_reserved("sec-fetch-site", ""),
@@ -103,7 +151,7 @@ impl Header {
                 HeaderKey::new_reserved("sec-ch-ua-mobile", ""),
                 HeaderKey::new_reserved("sec-ch-ua-platform", ""),
                 HeaderKey::new_reserved("Upgrade-Insecure-Requests", ""),
-                HeaderKey::new_reserved("User-Agent", ""),
+                HeaderKey::new_reserved("User-Agent", format!("reqrio/{}", env!("CARGO_PKG_VERSION"))),
                 HeaderKey::new_reserved("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"),
                 HeaderKey::new_reserved("Sec-Fetch-Site", ""),
                 HeaderKey::new_reserved("Sec-Fetch-Mode", ""),
@@ -148,6 +196,7 @@ impl Header {
         Some(self.keys.remove(pos).into_value())
     }
 
+    #[deprecated]
     pub fn as_h2c(&self) -> HlsResult<Vec<HeaderKey>> {
         let mut res = self.keys.clone();
         res.insert(0, HeaderKey::new(":method", HeaderValue::String(self.method.to_string())));
@@ -316,6 +365,14 @@ impl Header {
         header?.cookies()
     }
 
+    pub fn cookies_mut(&mut self) -> Option<&mut [Cookie]> {
+        let header = self.keys.iter_mut().find(|x|
+            x.name().eq_ignore_ascii_case("cookie")
+                || x.name().eq_ignore_ascii_case("set-cookie")
+        );
+        header?.cookies_mut()
+    }
+
     pub fn method(&self) -> &Method { &self.method }
 
     pub fn alpn(&self) -> &ALPN { &self.alpn }
@@ -325,7 +382,7 @@ impl Header {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.alpn.value().is_empty()
+        self.alpn.value().is_empty() && self.status == HttpStatus::None
     }
 
     pub fn content_encoding(&self) -> Option<&str> {
@@ -398,7 +455,7 @@ impl Header {
         Ok(header)
     }
 
-    pub fn push_pack_item(&mut self, item: &HPackItem) -> HlsResult<()> {
+    pub fn push_pack_item(&mut self, item: &PackItem) -> HlsResult<()> {
         self.insert(item.name(), item.value())?;
         match item.name() {
             ":method" => self.method = Method::try_from(item.value().to_uppercase())?,
@@ -409,7 +466,7 @@ impl Header {
         Ok(())
     }
 
-    pub fn parse_h2(packs: Vec<HPackItem>) -> HlsResult<Header> {
+    pub fn parse_h2(packs: Vec<PackItem>) -> HlsResult<Header> {
         let mut header = Header {
             alpn: ALPN::Http20,
             ..Header::default()
@@ -429,7 +486,12 @@ impl Header {
     pub(crate) fn init_by_alpn(&mut self, alpn: ALPN) {
         if alpn == self.alpn { return; }
         self.alpn = alpn;
-        let keys = if let ALPN::Http20 = self.alpn { Header::new_req_h2().keys } else { Header::new_req_h1().keys };
+        let keys = match self.alpn {
+            #[cfg(feature = "quic")]
+            ALPN::Http30 => Header::new_req_h3().keys,
+            ALPN::Http20 => Header::new_req_h2().keys,
+            _ => Header::new_req_h1().keys
+        };
         let keys = mem::replace(&mut self.keys, keys);
         for ok in keys {
             let nk = self.keys.iter_mut().find(|x| x.name_lower() == ok.name_lower());
@@ -512,9 +574,8 @@ impl Header {
         }
     }
 
-    fn as_h2_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> H2HeaderReader<'a> {
+    fn gen_frame_keys<'a>(&'a self, param: &HeaderParam<'a>, ct: &'a ContentType) -> Vec<(StrCow<'a>, StrCow<'a>)> {
         let mut keys = vec![];
-        let uri = if param.url.uri().is_empty() { StrCow::Borrowed("/") } else { StrCow::Owned(param.url.uri().to_string()) };
         keys.push((StrCow::Borrowed(":method"), StrCow::Borrowed(self.method.spec())));
         if param.url.addr().port() == 443 || param.url.addr().port() == 80 {
             keys.push((StrCow::Borrowed(":authority"), StrCow::Borrowed(param.url.sni())));
@@ -522,8 +583,9 @@ impl Header {
             keys.push((StrCow::Borrowed(":authority"), StrCow::Owned(format!("{}:{}", param.url.sni(), param.url.addr().port()))));
         }
         keys.push((StrCow::Borrowed(":scheme"), StrCow::Borrowed(param.url.scheme().spec())));
+        let uri = if param.url.uri().is_empty() { StrCow::Borrowed("/") } else { StrCow::Owned(param.url.uri().to_string()) };
         for key in self.keys.iter() {
-            if H2HeaderReader::skip_h2_key(key, ct, param.body_len) { continue; }
+            if H2HeaderReader::skip_h2_key(key, ct, param.body_len, &self.method) { continue; }
             let name = key.name_lower();
             if name == "content-type" {
                 match ct.spec() {
@@ -543,23 +605,41 @@ impl Header {
             }
         }
         keys.insert(3, (StrCow::Borrowed(":path"), uri));
-        H2HeaderReader {
-            keys,
-            encoder: param.encoder,
+        keys
+    }
+
+    fn as_h2_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> HlsResult<H2HeaderReader<'a>> {
+        Ok(H2HeaderReader {
+            keys: self.gen_frame_keys(&param, ct),
+            encoder: param.hpack_encoder.ok_or("missing hpack encoder")?,
             wrote: false,
             pos: 0,
             body_len: param.body_len,
-            stream_identifier: param.stream_identifier,
+            stream_identifier: param.h_sid,
             weight: param.weight,
             priority: param.priority,
-        }
+        })
     }
 
-    pub(crate) fn as_reader<'a>(&'a mut self, param: HeaderParam<'a>, ct: &'a ContentType) -> HeaderReader<'a> {
-        match self.alpn {
-            ALPN::Http20 => HeaderReader::H2(self.as_h2_reader(param, ct)),
+    #[cfg(feature = "quic")]
+    fn as_h3_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> HlsResult<H3HeaderReader<'a>> {
+        Ok(H3HeaderReader {
+            keys: self.gen_frame_keys(&param, ct),
+            encoder: param.qpack_encoder.ok_or("missing qpack encoder")?,
+            // priority: self.keys.iter().find(|x| x.name() == "priority")
+            //     .and_then(|x| x.value().as_string()).unwrap_or(""),
+            wrote: false,
+            sid: param.q_sid,
+        })
+    }
+
+    pub(crate) fn as_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> HlsResult<HeaderReader<'a>> {
+        Ok(match self.alpn {
+            ALPN::Http20 => HeaderReader::H2(self.as_h2_reader(param, ct)?),
+            #[cfg(feature = "quic")]
+            ALPN::Http30 => HeaderReader::H3(self.as_h3_reader(param, ct)?),
             _ => HeaderReader::H1(self.as_h1_reader(param, ct))
-        }
+        })
     }
 
     pub(crate) fn add_key(&mut self, key: HeaderKey) {

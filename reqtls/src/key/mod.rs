@@ -2,14 +2,13 @@ mod block;
 mod derived;
 
 use crate::boring::{EcCurve, EvpCurve, Hybrid};
+use crate::buffer::Buf;
 use crate::bytes::Bytes;
 use crate::error::RlsResult;
 use crate::{rand, NamedCurve, RlsError};
-use crate::buffer::Buf;
 
-pub(crate) use block::Key;
+pub use block::{TlsSession, KeyType};
 pub(crate) use derived::DerivedKey;
-pub use block::TlsSession;
 
 pub struct TrafficSecret {
     client_traffic: [u8; 48],

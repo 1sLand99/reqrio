@@ -1,6 +1,8 @@
 use std::fmt::Debug;
 use crate::*;
-use crate::packet::H2EncodeFrame;
+use crate::packet::{H2EncodeFrame};
+#[cfg(feature = "quic")]
+use crate::packet::{H3Frame, H3Setting};
 
 #[derive(Debug)]
 pub struct H2Finger {
@@ -12,6 +14,22 @@ pub struct H2Finger {
     pub weight: u8,
     ///priority
     pub priority: bool,
+}
+
+impl Default for H2Finger {
+    fn default() -> Self {
+        H2Finger {
+            setting: vec![
+                H2Setting::HeaderTableSize(65536),
+                H2Setting::EnablePush(0),
+                H2Setting::InitialWindowSize(6291456),
+                H2Setting::MaxHeaderListSize(242144)
+            ],
+            window_size: 2147418112,
+            weight: 147,
+            priority: true,
+        }
+    }
 }
 
 impl H2Finger {
@@ -37,10 +55,40 @@ impl H2Finger {
     }
 }
 
+#[cfg(feature = "quic")]
+///h3帧，仅用于握手后`setting stream`
+#[derive(Debug)]
+pub struct H3Finger {
+    pub frames: Vec<H3Frame<'static>>,
+}
+
+#[cfg(feature = "quic")]
+impl Default for H3Finger {
+    fn default() -> Self {
+        H3Finger {
+            frames: vec![
+                H3Frame::Settings(vec![
+                    H3Setting::new(H3Setting::MaxTableCapacity, 65536),
+                    H3Setting::new(H3Setting::MaxFieldSectionSize, 262144),
+                    H3Setting::new(H3Setting::BlockedStreams, 100),
+                    H3Setting::new(H3Setting::EnableDatagram, 1),
+                    H3Setting::new(0x7c3b6e5b0, 4089453656)
+                ]),
+                H3Frame::Reserved {
+                    typ: 0x11d4c4c93c,
+                    payload: Buf::Ref(&[0x54]),
+                }
+            ]
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Fingerprint {
     tls: TlsFinger,
     h2: H2Finger,
+    #[cfg(feature = "quic")]
+    h3: H3Finger,
     legal_subscript: i32,
 }
 
@@ -57,14 +105,30 @@ impl Fingerprint {
                 weight: 0,
                 priority: false,
             },
+            #[cfg(feature = "quic")]
+            h3: H3Finger {
+                frames: vec![]
+            },
             legal_subscript: Buffer::check_subscription(token).unwrap_or(-2),
         }
     }
 
-    pub fn new(tls: TlsFinger, h2: H2Finger, token: impl AsRef<str>) -> HlsResult<Self> {
+    pub fn new_h2(tls: TlsFinger, h2: H2Finger, token: impl AsRef<str>) -> HlsResult<Self> {
         Ok(Fingerprint {
             tls,
             h2,
+            #[cfg(feature = "quic")]
+            h3: H3Finger::default(),
+            legal_subscript: Buffer::check_subscription(token)?,
+        })
+    }
+
+    #[cfg(feature = "quic")]
+    pub fn new_h3(tls: TlsFinger, h3: H3Finger, token: impl AsRef<str>) -> HlsResult<Self> {
+        Ok(Fingerprint {
+            tls,
+            h2: H2Finger::default(),
+            h3,
             legal_subscript: Buffer::check_subscription(token)?,
         })
     }
@@ -92,6 +156,16 @@ impl Fingerprint {
     pub fn tls(&self) -> &TlsFinger { &self.tls }
 
     pub fn tls_mut(&mut self) -> &mut TlsFinger { &mut self.tls }
+
+    #[cfg(feature = "quic")]
+    pub fn h3(&self) -> &H3Finger {
+        &self.h3
+    }
+
+    #[cfg(feature = "quic")]
+    pub fn h3_mut(&mut self) -> &mut H3Finger {
+        &mut self.h3
+    }
 }
 
 impl Fingerprint {
@@ -111,7 +185,7 @@ impl Fingerprint {
         })
     }
 
-    pub fn from_hex_all(hex_str: impl AsRef<str>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {
+    pub fn from_hex(hex_str: impl AsRef<str>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {
         let mut client_hello = hex::decode(hex_str.as_ref())?;
         let len = u16::from_be_bytes([client_hello[3], client_hello[4]]) as usize + 5;
         let _ = client_hello.split_off(len);
@@ -143,17 +217,9 @@ impl Default for Fingerprint {
     fn default() -> Fingerprint {
         Fingerprint {
             tls: TlsFinger::Default,
-            h2: H2Finger {
-                setting: vec![
-                    H2Setting::HeaderTableSize(65536),
-                    H2Setting::EnablePush(0),
-                    H2Setting::InitialWindowSize(6291456),
-                    H2Setting::MaxHeaderListSize(242144)
-                ],
-                window_size: 2147418112,
-                weight: 147,
-                priority: true,
-            },
+            h2: H2Finger::default(),
+            #[cfg(feature = "quic")]
+            h3: H3Finger::default(),
             legal_subscript: -2,
         }
     }

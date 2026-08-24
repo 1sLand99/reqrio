@@ -7,7 +7,7 @@ use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite};
 
 pub(super) enum Handshake<S> {
-    Handshaking(Box<TlsStream<S>>),
+    Handshaking(Box<TlsStreamA<S>>),
     Finished,
 }
 
@@ -20,7 +20,7 @@ pub struct Connecting<'a, S> {
 
 
 impl<'a, S: AsyncRead + AsyncWrite + Unpin> Future for Connecting<'a, S> {
-    type Output = HlsResult<TlsStream<S>>;
+    type Output = HlsResult<TlsStreamA<S>>;
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let connector = self.get_mut();
         let stream = match connector.handshake {
@@ -47,9 +47,13 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> Future for Connecting<'a, S> {
                 Poll::Pending => return Poll::Pending,
             };
             stream.handle_record(record_len, Some(&mut connector.config), buffer.unfilled())?;
+            stream.read_buffer.used_empty(record_len);
         };
         match stream {
             Handshake::Handshaking(mut stream) => {
+                if stream.conn.version() == &Version::TLS_1_3 {
+                    stream.conn.make_cipher(false)?;
+                }
                 stream.read_buffer.move_to(stream.read_buffer.offset(), 0)?;
                 stream.write_buffer.reset();
                 Poll::Ready(Ok(*stream))

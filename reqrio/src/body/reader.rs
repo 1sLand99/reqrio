@@ -2,6 +2,8 @@ use crate::body::multi_form::HttpFileReader;
 use crate::error::HlsResult;
 use crate::reader::{ReadExt, RefReader, StrCow};
 use crate::*;
+#[cfg(feature = "quic")]
+use std::cmp::min;
 
 pub enum RawBodyReader<'a> {
     Data(RefReader<StrCow<'a>>),
@@ -32,67 +34,6 @@ impl<'a> ReadExt for RawBodyReader<'a> {
             RawBodyReader::Bytes(bytes) => bytes.read(buf),
             RawBodyReader::File(file) => file.read(buf),
         }
-    }
-}
-
-
-pub struct H2FrameRBuf<'a> {
-    pd_len: usize,
-    frame_type: FrameType,
-    frame_flag: FrameFlag,
-    payload: &'a [u8],
-}
-
-
-impl<'a> H2FrameRBuf<'a> {
-    pub fn from_bytes(bytes: &'a [u8], frame_type: FrameType) -> HlsResult<H2FrameRBuf<'a>> {
-        if bytes.len() < 5 { return Err(BufferError::Insufficient.into()); }
-        let pd_len = u32::from_be_bytes([0, bytes[0], bytes[1], bytes[2]]) as usize;
-        let frame_flag = FrameFlag::from_u8(bytes[4]);
-        let (frame_len, _) = match frame_flag.priority() {
-            true => (pd_len + 14, &bytes[9..14]),
-            false => (pd_len + 9, &bytes[0..0])
-        };
-        if bytes.len() < frame_len { return Err(BufferError::Insufficient.into()); }
-        let payload = if frame_flag.priority() { &bytes[14..frame_len] } else { &bytes[9..frame_len] };
-        Ok(H2FrameRBuf {
-            pd_len,
-            frame_type,
-            frame_flag,
-            payload,
-        })
-    }
-
-    pub fn buffer_enough(buffer: &Buffer) -> HlsResult<(FrameType, FrameFlag, usize)> {
-        let filled = buffer.filled();
-        if filled.len() < 5 { return Err(BufferError::Insufficient.into()); }
-        let pd_len = u32::from_be_bytes([0, filled[0], filled[1], filled[2]]) as usize;
-        let frame_flag = FrameFlag::from_u8(filled[4]);
-        let frame_len = if frame_flag.priority() { pd_len + 14 } else { pd_len + 9 };
-        if filled.len() < frame_len { return Err(BufferError::Insufficient.into()); }
-        let frame_type = FrameType::from_u8(filled[3])?;
-        Ok((frame_type, frame_flag, frame_len))
-    }
-
-    pub fn frame_len(&self) -> usize {
-        if self.frame_flag.priority() { self.pd_len + 14 } else { self.pd_len + 9 }
-    }
-
-    pub fn is_end_frame(&self) -> bool {
-        self.frame_flag.end_stream() &&
-            (self.frame_type == FrameType::Data || self.frame_type == FrameType::Headers)
-    }
-
-    pub fn frame_type(&self) -> &FrameType {
-        &self.frame_type
-    }
-
-    pub fn payload(&self) -> &'a [u8] {
-        self.payload
-    }
-
-    pub fn frame_flag(&self) -> &FrameFlag {
-        &self.frame_flag
     }
 }
 
@@ -193,7 +134,7 @@ impl<'a> ReadExt for H2BodyReader<'a> {
             if buf.unfilled_len() < frame.pd_len as usize { return Ok(buf.offset().end - start); }
             let want = frame.pd_len as usize - self.frame_wrote;
             let end = if buf.unfilled().len() < want { buf.unfilled_len() } else { want };
-            let mut render=Buffer::from_ptr(&mut buf.unfilled()[..end]);
+            let mut render = Buffer::from_ptr(&mut buf.unfilled()[..end]);
             let len = self.body.read(&mut render)?;
             buf.add_len(len);
             assert_eq!(len, want);
@@ -204,11 +145,78 @@ impl<'a> ReadExt for H2BodyReader<'a> {
     }
 }
 
+#[cfg(feature = "quic")]
+pub struct H3BodyReader<'a> {
+    body: RawBodyReader<'a>,
+    frame_size: usize,
+    buf_num: usize,
+    len_size: usize,
+    pos: usize,
+    current: usize,
+    wrote_hdr: bool,
+    wrote: bool,
+}
+
+#[cfg(feature = "quic")]
+impl<'a> H3BodyReader<'a> {
+    pub fn new_size(buffer_size: usize, body: RawBodyReader<'a>) -> H3BodyReader<'a> {
+        let body_len = body.len();
+        H3BodyReader {
+            buf_num: if body_len.is_multiple_of(buffer_size) { body_len / buffer_size } else { body_len / buffer_size + 1 },
+            body,
+            len_size: quic::variant_len(buffer_size),
+            pos: 0,
+            current: 0,
+            wrote_hdr: false,
+            wrote: false,
+            frame_size: buffer_size,
+        }
+    }
+}
+
+#[cfg(feature = "quic")]
+impl<'a> ReadExt for H3BodyReader<'a> {
+    fn wrote(&self) -> bool { self.wrote }
+    fn len(&self) -> usize { (1 + self.len_size) * self.buf_num + self.body.len() }
+    fn read(&mut self, buf: &mut Buffer) -> HlsResult<usize> {
+        let start = buf.offset().end;
+        for i in 0..self.buf_num {
+            if i < self.current { continue; }
+            if !self.wrote_hdr {
+                if buf.unfilled_len() < 1 + self.len_size { return Ok(buf.offset().end - start); }
+                let mut len = self.frame_size;
+                if self.current == self.buf_num - 1 && !self.body.len().is_multiple_of(self.frame_size) {
+                    len = self.body.len() % self.frame_size
+                }
+                buf.write_u8(0)?;
+                buf.write_u16(len as u16 | 0x4000)?;
+                self.wrote_hdr = true
+            }
+            let size = min(self.frame_size - self.pos, buf.unfilled_len());
+            let unfilled = &mut buf.unfilled()[..size];
+            let mut reader = Buffer::from_ptr(unfilled);
+            self.pos += self.body.read(&mut reader)?;
+            buf.add_len(reader.len());
+            if self.pos == self.frame_size || self.body.wrote() {
+                self.current += 1;
+                self.pos = 0;
+                self.wrote = self.body.wrote();
+                self.wrote_hdr = false
+            }
+            if buf.unfilled_len() == 0 { return Ok(buf.offset().end - start); }
+        }
+        self.wrote = true;
+        Ok(buf.offset().end - start)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use reqtls::Buffer;
-    use crate::reader::ReadExt;
+    #[cfg(feature = "quic")]
+    use crate::body::reader::{H3BodyReader, RawBodyReader};
+    use crate::reader::*;
     use crate::{json, Body, BodyData};
+    use reqtls::Buffer;
 
     #[test]
     fn test_h1_reader() {
@@ -220,7 +228,7 @@ mod tests {
         let body = data.form();
         let mut body_reader = body.as_reader().unwrap();
         let mut res = vec![0; 1024];
-        let mut writer =Buffer::from_ptr(res.as_mut());
+        let mut writer = Buffer::from_ptr(res.as_mut());
         let len = body_reader.read(&mut writer).unwrap();
         assert_eq!(&res[..len], b"a=1&b=%E6%94%B6%E5%88%B0%E5%8F%8D%E9%A6%88&v=%7B%22k%22%3A1%2C%22b%22%3Atrue%7D");
         let body = Body::from(data);
@@ -241,5 +249,22 @@ mod tests {
         writer.reset();
         let len = body_reader.read(&mut writer).unwrap();
         assert_eq!(&res[..len], b"12345,2345fdgf");
+    }
+
+    #[cfg(feature = "quic")]
+    #[test]
+    fn test_h3_reader() {
+        let data = (0..100).collect::<Vec<_>>();
+        let body = RawBodyReader::Bytes(RefReader::new_buf(&data));
+        let mut reader = H3BodyReader::new_size(50, body);
+        let mut writer = Buffer::with_capacity(40);
+        let len = reader.read(&mut writer).unwrap();
+        assert_eq!(writer.filled(), [0, 64, 50, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36]);
+        assert_eq!(len, 40);
+        writer.reset();
+        let len = reader.read(&mut writer).unwrap();
+        assert_eq!(len, 40);
+        assert_eq!(writer.filled(), [37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 0, 64, 50, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73]);
+        assert!(!reader.wrote());
     }
 }

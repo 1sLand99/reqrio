@@ -11,6 +11,8 @@ mod certificate;
 mod psk_key;
 mod pre_share_key;
 pub mod ech;
+#[cfg(feature = "quic")]
+mod quic;
 
 use crate::buffer::Buf;
 use crate::error::RlsResult;
@@ -31,6 +33,8 @@ pub use server_name::ServerName;
 pub use status::StatusRequest;
 use std::fmt::{Debug, Formatter};
 pub use version::SupportVersions;
+#[cfg(feature = "quic")]
+pub use quic::Parameter;
 
 #[derive(PartialEq, Clone, Copy)]
 pub struct ExtensionType(u16);
@@ -70,6 +74,7 @@ impl ExtensionType {
     pub const ApplicationSetting: u16 = 0x44cd;
     pub const PreSharedKey: u16 = 0x29;
     pub const ApplicationSettingOld: u16 = 0x4469;
+    pub const QUICTrpParameters: u16 = 0x0039;
 
     pub const EXTENSIONS: [u16; 21] = [0x0, 0x5, 0xa, 0xb, 0xd, 0x10, 0x12, 0x15, 0x16, 0x17, 0x23, 0x1b, 0x2b, 0x2d, 0x31, 0x33, 0xff01, 0xfe0d, 0x44cd, 0x29, 0x4469];
 
@@ -91,6 +96,7 @@ impl ExtensionType {
             0x2d => "PskKeyExchangeMode",
             0x31 => "PostHandshakeAuth",
             0x33 => "KeyShare",
+            0x39 => "QUICTrpParameters",
             0xff01 => "RenegotiationInfo",
             0xfe0d => "EncryptedClientHello",
             0x44cd => "ApplicationSetting",
@@ -161,11 +167,13 @@ pub enum ExtensionValue<'a> {
     SignedCertificateTimestamp,
     PreSharedKey(PreSharedKey<'a>),
     Padding(usize),
+    #[cfg(feature = "quic")]
+    QUICTrpParameters(Vec<Parameter<'a>>),
     Unknown(Buf<'a>),
 }
 
 impl<'a> ExtensionValue<'a> {
-    pub fn from_reader(t: &ExtensionType, reader: Reader<'a>, server: bool) -> RlsResult<Self> {
+    pub fn from_reader(t: &ExtensionType, mut reader: Reader<'a>, server: bool) -> RlsResult<Self> {
         match t.0 {
             ExtensionType::ServerName => Ok(ExtensionValue::ServerName(ServerName::from_reader(reader)?)),
             ExtensionType::StatusRequest => Ok(ExtensionValue::StatusRequest(StatusRequest::from_reader(reader)?)),
@@ -193,6 +201,14 @@ impl<'a> ExtensionValue<'a> {
             ExtensionType::PreSharedKey => Ok(ExtensionValue::PreSharedKey(PreSharedKey::from_reader(reader)?)),
             ExtensionType::ApplicationSettingOld => Ok(ExtensionValue::ApplicationSetting(ALPS::from_reader(reader)?)),
             ExtensionType::Padding => Ok(ExtensionValue::Padding(reader.unread_len())),
+            #[cfg(feature = "quic")]
+            ExtensionType::QUICTrpParameters => {
+                let mut res = vec![];
+                while reader.unread_len() > 0 {
+                    res.push(Parameter::from_reader(&mut reader)?);
+                }
+                Ok(ExtensionValue::QUICTrpParameters(res))
+            }
             _ => Ok(ExtensionValue::Unknown(Buf::Ref(reader.into_inner())))
         }
     }
@@ -220,6 +236,8 @@ impl<'a> ExtensionValue<'a> {
             ExtensionValue::PreSharedKey(v) => v.len(),
             ExtensionValue::Unknown(v) => v.len(),
             ExtensionValue::Padding(v) => *v,
+            #[cfg(feature = "quic")]
+            ExtensionValue::QUICTrpParameters(v) => v.iter().map(|x|x.len()).sum::<usize>(),
         }
     }
 
@@ -246,6 +264,13 @@ impl<'a> ExtensionValue<'a> {
             ExtensionValue::PreSharedKey(v) => v.write_to(writer),
             ExtensionValue::ApplicationSettingOld(v) => v.write_to(writer),
             ExtensionValue::Padding(size) => writer.write_slice(&vec![0u8; size]),
+            #[cfg(feature = "quic")]
+            ExtensionValue::QUICTrpParameters(values) => {
+                for value in values {
+                    value.write_to(writer)?;
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -274,6 +299,8 @@ impl<'a> Debug for ExtensionValue<'a> {
             ExtensionValue::PreSharedKey(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
             ExtensionValue::Unknown(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
             ExtensionValue::Padding(size) => write!(f, "Padding({})", size),
+            #[cfg(feature = "quic")]
+            ExtensionValue::QUICTrpParameters(values) => if f.alternate() { write!(f, "{:#?}", values) } else { write!(f, "{:?}", values) },
         }
     }
 }
@@ -498,7 +525,7 @@ impl<'a> Extension<'a> {
     }
 
     pub fn value(&self) -> &ExtensionValue<'_> { &self.value }
-    
+
     pub fn value_mut(&mut self) -> &mut ExtensionValue<'a> { &mut self.value }
 
     pub fn into_value(self) -> ExtensionValue<'a> { self.value }

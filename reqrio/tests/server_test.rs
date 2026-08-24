@@ -53,7 +53,7 @@ fn aync_server(ca: &[u8], cert: &[u8], key: &[u8]) {
     rt.spawn(async move {
         let listen = tokio::net::TcpListener::bind("0.0.0.0:7877").await.unwrap();
         let (stream, _) = listen.accept().await.unwrap();
-        let mut tls_stream = TlsStream::accept(stream, ServerConfig {
+        let mut tls_stream = TlsStreamA::accept(stream, ServerConfig {
             alpn: &ALPN::Http11,
             ca: &mut Certificate::none(),
             server_cert: &mut cert,
@@ -85,7 +85,7 @@ fn sync_server(ca: &[u8], cert: &[u8], key: &[u8]) {
     std::thread::spawn(move || {
         let listen = TcpListener::bind("0.0.0.0:7878").unwrap();
         let (stream, _) = listen.accept().unwrap();
-        let mut tls_stream = SyncStream::accept(stream, ServerConfig {
+        let mut tls_stream = TlsStreamS::accept(stream, ServerConfig {
             alpn: &ALPN::Http11,
             ca: &mut Certificate::none(),
             server_cert: &mut cert,

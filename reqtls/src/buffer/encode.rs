@@ -1,13 +1,16 @@
 use crate::{CipherSuite, RecordType, Version};
 use std::ops::Range;
+#[cfg(feature = "quic")]
+use crate::message::QUICPacket;
 
 pub struct PayloadEncodeBuffer<'a> {
-    payload: &'a mut [u8],
+    encoded: &'a mut [u8],
     plain_offset: Range<usize>,
     encode_offset: Range<usize>,
 }
+
 impl<'a> PayloadEncodeBuffer<'a> {
-    pub fn new(suite: &'static CipherSuite, ct: &RecordType, buffer: &'a mut [u8], origin: &[u8]) -> PayloadEncodeBuffer<'a> {
+    pub fn new_tls(suite: &'static CipherSuite, ct: &RecordType, buffer: &'a mut [u8], origin: &'a [u8]) -> PayloadEncodeBuffer<'a> {
         let mut plain_offset = suite.trans_iv_len..suite.trans_iv_len + origin.len();
         buffer[plain_offset.clone()].copy_from_slice(origin);
         if suite.version == &Version::TLS_1_3 {
@@ -15,41 +18,51 @@ impl<'a> PayloadEncodeBuffer<'a> {
             plain_offset.end += 1
         }
         PayloadEncodeBuffer {
-            payload: buffer,
+            encoded: buffer,
             encode_offset: suite.trans_iv_len..suite.trans_iv_len + plain_offset.len() + 16,
             plain_offset,
 
         }
     }
 
+    #[cfg(feature = "quic")]
+    pub fn new_quic(buffer: &'a mut [u8], pd_len: usize) -> PayloadEncodeBuffer<'a> {
+        PayloadEncodeBuffer {
+            encoded: buffer,
+            plain_offset: 0..pd_len - 16,
+            encode_offset: 0..pd_len,
+        }
+    }
+
     fn add_explicit_iv(&mut self, suite: &'static CipherSuite, iv: &[u8]) {
         match suite.trans_iv_len {
-            8 => self.payload[..8].copy_from_slice(&iv[4..]),
-            16 => self.payload[..16].copy_from_slice(&iv[..16]),
+            8 => self.encoded[..8].copy_from_slice(&iv[4..]),
+            16 => self.encoded[..16].copy_from_slice(&iv[..16]),
             0 => {}
             _ => panic!("unsupported suite specification"),
         }
     }
 
     pub fn origin_payload(&self) -> &[u8] {
-        &self.payload[self.plain_offset.clone()]
+        &self.encoded[self.plain_offset.clone()]
     }
 
     pub fn encoded_payload(&mut self) -> &mut [u8] {
-        &mut self.payload[self.encode_offset.clone()]
+        &mut self.encoded[self.encode_offset.clone()]
     }
 }
 
-pub struct RecordEncodeBuffer<'a> {
+pub struct CipherEncodeBuffer<'a> {
     suite: &'static CipherSuite,
     head: &'a mut [u8],
     record_len: usize,
     payload: PayloadEncodeBuffer<'a>,
+    quic: bool,
 }
 
 
-impl<'a> RecordEncodeBuffer<'a> {
-    pub(crate) fn new(rt: RecordType, buffer: &'a mut [u8], origin: &'a [u8], suite: &'static CipherSuite) -> RecordEncodeBuffer<'a> {
+impl<'a> CipherEncodeBuffer<'a> {
+    pub(crate) fn new_tls(rt: RecordType, buffer: &'a mut [u8], origin: &'a [u8], suite: &'static CipherSuite) -> CipherEncodeBuffer<'a> {
         let (head, payload) = buffer.split_at_mut(5);
         head[0] = match *suite.version {
             Version::TLS_1_3 => 23,
@@ -57,11 +70,24 @@ impl<'a> RecordEncodeBuffer<'a> {
         };
         head[1] = 3;
         head[2] = 3;
-        RecordEncodeBuffer {
+        CipherEncodeBuffer {
             suite,
             head,
             record_len: 0,
-            payload: PayloadEncodeBuffer::new(suite, &rt, payload, origin),
+            payload: PayloadEncodeBuffer::new_tls(suite, &rt, payload, origin),
+            quic: false,
+        }
+    }
+
+    #[cfg(feature = "quic")]
+    pub(crate) fn new_quic(buffer: &'a mut [u8], packet: &QUICPacket, suite: &'static CipherSuite) -> CipherEncodeBuffer<'a> {
+        let (head, payload) = buffer.split_at_mut(packet.hdr_len());
+        CipherEncodeBuffer {
+            suite,
+            head,
+            record_len: 0,
+            payload: PayloadEncodeBuffer::new_quic(payload, packet.pd_len() - packet.flag.num_len()),
+            quic: true,
         }
     }
 
@@ -74,6 +100,7 @@ impl<'a> RecordEncodeBuffer<'a> {
     }
 
     pub fn set_encrypted_len(&mut self, len: usize) {
+        if self.quic { return; }
         let len = self.suite.trans_iv_len + len;
         self.record_len = len + 5;
         self.head[3..5].copy_from_slice(&(len as u16).to_be_bytes());
@@ -82,6 +109,7 @@ impl<'a> RecordEncodeBuffer<'a> {
     pub fn head(&self) -> &[u8] { self.head }
 
     pub fn aad(&self, seq: u64) -> Vec<u8> {
+        if self.quic { return self.head.to_vec(); }
         match *self.suite.version {
             Version::TLS_1_3 => self.tls13_aad(),
             _ => self.tls12_aad(seq)
@@ -112,7 +140,7 @@ impl<'a> RecordEncodeBuffer<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::buffer::RecordEncodeBuffer;
+    use crate::buffer::CipherEncodeBuffer;
     use crate::{CipherSuite, RecordType};
 
     #[test]
@@ -122,7 +150,7 @@ mod tests {
         let record_type = RecordType::ApplicationData;
 
         let suite = &CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256;
-        let mut encode = RecordEncodeBuffer::new(record_type, &mut buffer, &payload, suite);
+        let mut encode = CipherEncodeBuffer::new_tls(record_type, &mut buffer, &payload, suite);
         encode.add_explicit_iv(&[14; 12]);
         assert_eq!(encode.head(), [record_type.as_u8(), 3, 3, 0, 0]);
         assert_eq!(encode.payload.origin_payload(), payload);
@@ -133,14 +161,14 @@ mod tests {
 
         let suite = &CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256;
         let mut buffer = [0; 1024];
-        let mut encode = RecordEncodeBuffer::new(record_type, &mut buffer, &payload, suite);
+        let mut encode = CipherEncodeBuffer::new_tls(record_type, &mut buffer, &payload, suite);
         assert_eq!(encode.head(), [record_type.as_u8(), 3, 3, 0, 0]);
         assert_eq!(encode.payload.origin_payload(), payload);
         assert_eq!(encode.payload.encoded_payload(), pd);
 
         let suite = &CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA;
         let mut buffer = [0; 1024];
-        let mut encode = RecordEncodeBuffer::new(record_type, &mut buffer, &payload, suite);
+        let mut encode = CipherEncodeBuffer::new_tls(record_type, &mut buffer, &payload, suite);
         encode.add_explicit_iv(&[77; 16]);
         assert_eq!(encode.head(), [record_type.as_u8(), 3, 3, 0, 0]);
         assert_eq!(encode.payload.origin_payload(), payload);
@@ -154,7 +182,7 @@ mod tests {
         let record_type = RecordType::HandShake;
 
         let suite = &CipherSuite::TLS_AES_128_GCM_SHA256;
-        let mut encode = RecordEncodeBuffer::new(record_type, &mut buffer, &payload, suite);
+        let mut encode = CipherEncodeBuffer::new_tls(record_type, &mut buffer, &payload, suite);
         encode.add_explicit_iv(&[14; 12]);
         assert_eq!(encode.head(), [23, 3, 3, 0, 0]);
         let mut pd = Vec::with_capacity(suite.trans_iv_len + payload.len() + 16);
@@ -167,7 +195,7 @@ mod tests {
 
         let suite = &CipherSuite::TLS_CHACHA20_POLY1305_SHA256;
         let mut buffer = [0; 1024];
-        let mut encode = RecordEncodeBuffer::new(record_type, &mut buffer, &payload, suite);
+        let mut encode = CipherEncodeBuffer::new_tls(record_type, &mut buffer, &payload, suite);
         assert_eq!(encode.head(), [23, 3, 3, 0, 0]);
         pd = pd[..pd.len() - 16].to_vec();
         assert_eq!(encode.payload.origin_payload(), pd);

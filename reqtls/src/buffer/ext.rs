@@ -6,7 +6,6 @@ use log::warn;
 use std::ffi::CString;
 use std::ops::Range;
 use std::slice;
-use std::str::Utf8Error;
 
 #[allow(non_camel_case_types)]
 pub type u24 = u32;
@@ -22,7 +21,9 @@ pub trait WriteExt {
         if res == 1 { return Ok(()); };
         Err(BufferError::CapacityTooSmall {
             current: self.capacity(),
+            file: file!(),
             needed: self.capacity() + size,
+            line: line!(),
         })
     }
 
@@ -38,6 +39,11 @@ pub trait WriteExt {
     #[inline]
     fn write_u16(&mut self, v: u16) -> Result<(), BufferError> {
         self.write_u16_be(v.to_be())
+    }
+
+    fn write_u16_in(&mut self, place: usize, n: u16) -> Result<(), BufferError> {
+        self.write_slice_in(place, &n.to_be_bytes())?;
+        Ok(())
     }
 
     fn write_u24_be(&mut self, v: u24) -> Result<(), BufferError> {
@@ -73,6 +79,15 @@ pub trait WriteExt {
     #[inline]
     fn write_ru32(&mut self, v: &u32) -> Result<(), BufferError> {
         self.write_u32_be(v.to_be())
+    }
+
+    fn write_u64_be(&mut self, v: u64) -> Result<(), BufferError> {
+        let res = unsafe { Buffer_write_u64(self.buffer_mut().0.as_mut_ptr(), &v) };
+        self.check_write(res, 8)
+    }
+
+    fn write_u64(&mut self, v: u64) -> Result<(), BufferError> {
+        self.write_u64_be(v.to_be())
     }
 
     fn write_slice(&mut self, v: &[u8]) -> Result<(), BufferError> {
@@ -190,6 +205,14 @@ pub trait ReadExt<'a> {
         Ok(res)
     }
 
+    fn read_u64(&mut self) -> Result<u64, BufferError> {
+        self.check(8)?;
+        let ptr = self.unread_ptr() as *const u64;
+        let res = unsafe { ptr.read_unaligned() }.to_be();
+        self.add_len(8);
+        Ok(res)
+    }
+
     fn read_u24(&mut self) -> Result<u24, BufferError> {
         self.check(3)?;
         let ptr = self.unread_ptr() as *const u24;
@@ -206,9 +229,7 @@ pub trait ReadExt<'a> {
         Ok(unsafe { slice::from_raw_parts(ptr, len) })
     }
 
-    fn read_str<E>(&mut self, len: usize) -> Result<&'a str, E>
-    where
-        E: From<BufferError> + From<Utf8Error>,
+    fn read_str(&mut self, len: usize) -> Result<&'a str, BufferError>
     {
         let slice = self.read_slice(len)?;
         Ok(std::str::from_utf8(slice)?)

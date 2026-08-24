@@ -17,7 +17,7 @@ pub struct StreamParam<'a> {
 pub trait StreamHandle {
     const CHANGE_CIPHER_SPEC: [u8; 6] = [20, 3, 3, 0, 1, 1];
 
-    fn stream_param(&mut self) -> (&mut Buffer, StreamParam<'_>);
+    fn stream_param(&mut self) -> (&Buffer, StreamParam<'_>);
 
     fn handle_client_hello(&mut self, config: &mut ClientConfig) -> RlsResult<()> {
         let (_, param) = self.stream_param();
@@ -34,7 +34,17 @@ pub trait StreamHandle {
             client_hello.remove_padding();
         };
         let mut secrets = HashMap::new();
-        match client_hello.key_share_mut() {
+        let key_share = match config.alpn {
+            #[cfg(feature = "quic")]
+            ALPN::Http30 => match client_hello.key_share_mut().is_some() {
+                true => {
+                    client_hello.key_share_mut()
+                }
+                false => return Err(HandShakeError::QUICMissingKeyShare.into()),
+            }
+            _ => client_hello.key_share_mut()
+        };
+        match key_share {
             None => client_hello.remove_tls13(),
             Some(key_share) => {
                 key_share.key_entries().iter().for_each(|key| {
@@ -49,6 +59,8 @@ pub trait StreamHandle {
                 }
             }
         }
+        #[cfg(feature = "quic")]
+        if config.alpn == &ALPN::Http30 { client_hello.build_quic()?; }
         let mut record = RecordLayer::handshake();
         record.messages = vec![client_hello.into()];
         record.version = Version::TLS_1_0;
@@ -223,10 +235,9 @@ pub trait StreamHandle {
             }
             MessageParsed::Finished(_) => {
                 param.conn.verify_finish(message.encoded.as_ref(), true)?;
-                param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
+                if !param.conn.derived.quic { param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?; }
                 let len = param.conn.make_finish_message(param.write_buffer.unfilled(), false)?;
                 param.write_buffer.add_len(len);
-                param.conn.make_cipher(false)?;
                 *param.handshake_finish = true;
             }
             MessageParsed::EncryptedExtension(ee) => {
@@ -288,7 +299,7 @@ pub trait StreamHandle {
                 return self.handle_by_application(record_len, config, app_buf);
             }
         }
-        read_buffer.used_empty(record_len);
+        // read_buffer.used_empty(record_len);
         Ok(0)
     }
 
@@ -318,7 +329,7 @@ pub trait StreamHandle {
             }
             _ => param.conn.read_message(&read_buffer.filled()[..record_len], app_buf)?
         };
-        read_buffer.used_empty(record_len);
+        // read_buffer.used_empty(record_len);
         Ok(len)
     }
 }

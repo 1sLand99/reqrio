@@ -11,8 +11,29 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-latest
+  build-check:
+    name: ${{ matrix.artifact }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: x86_64-linux-gnu
+            outdir: debug
+            file: libreqrio.so
+          - os: windows-latest
+            artifact: x86_64-windows-msvc
+            outdir: debug
+            file: reqrio.dll
+#          - os: windows-2022
+#            artifact: go-windows-gnu
+#            outdir: x86_64-pc-windows-gnu/debug
+#            file: reqrio.dll
+          - os: macos-latest
+            artifact: macos-aarch64
+            outdir: debug
+            file: libreqrio.dylib
+    runs-on: ${{ matrix.os }}
     env:
       REQRIO_TOKEN: ${{ secrets.REQRIO_TOKEN }}
     steps:
@@ -21,64 +42,36 @@ jobs:
           submodules: recursive
       - uses: Swatinem/rust-cache@v2
         with:
-          key: |
-            ${{ runner.os }}-cargo-${{ github.ref }}-${{ hashFiles('**/Cargo.lock') }}
-            ${{ runner.os }}-cargo-${{ github.ref }}-
-            ${{ runner.os }}-cargo-
-          cache-on-failure: true
           prefix-key: |
             ${{ runner.os }}-cargo-
+          cache-on-failure: true
       - name: build and test
         run: |
-          cargo test --features aync,serde -- --test-threads=1
-          cargo build --package reqrio --features export
-      - name: Copy So
-        run: |
-          cp target/debug/libreqrio.so bindings/python/reqrio/
-      - name: Set PYTHONPATH
-        run: echo "PYTHONPATH=${{ github.workspace }}/bindings/python" >> $GITHUB_ENV
+          cargo test --features aync,serde,staticlink,quic -- --test-threads=1
+          cargo build --package reqrio --features export,staticlink,quic
+      - name: Copy dylib to bindings
+        run: cp target/${{ matrix.outdir }}/${{ matrix.file }} bindings/python/reqrio/
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+      - name: Set python path env
+        shell: bash
+        run: echo "PYTHONPATH=${{ github.workspace }}/bindings/python" >> "$GITHUB_ENV"
       - name: Run Python FFI Test
         run: |
           python bindings/python/tests/test_session.py
           python bindings/python/tests/test_cipher.py
-#      - name: Run Go FFI Test
-#        env:
-#          LD_LIBRARY_PATH: ${{ github.workspace }}/reqrio-go
-#        run: |
-#          cp target/release/libreqrio.so reqrio-go/
-#          echo "CGO-ENABLED=1 " >> $GITHUB_ENV
-#          cd reqrio-go&&go run main.go
 
-  build-windows:
-    runs-on: windows-latest
-    env:
-      REQRIO_TOKEN: ${{ secrets.REQRIO_TOKEN }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: |
-            ${{ runner.os }}-cargo-${{ github.ref }}-${{ hashFiles('**/Cargo.lock') }}
-            ${{ runner.os }}-cargo-${{ github.ref }}-
-            ${{ runner.os }}-cargo-
-          cache-on-failure: true
-          prefix-key: |
-            ${{ runner.os }}-cargo-
-      - name: build-msvc
-        run: |
-          cargo test --features aync,serde -- --test-threads=1
-          cargo build --package reqrio --features export
-      - name: Copy DLL
-        run: |
-          copy target\\debug\\reqrio.dll bindings\\python\\reqrio\\
-      - name: Set PYTHONPATH
-        run: echo "PYTHONPATH=${{ github.workspace }}\\bindings\\python" >> $env:GITHUB_ENV
-      - name: Run Python FFI Test
-        run: |
-          python bindings/python/tests/test_session.py
-          python bindings/python/tests/test_cipher.py
+  #      - name: Run Go FFI Test
+  #        env:
+  #          LD_LIBRARY_PATH: ${{ github.workspace }}/reqrio-go
+  #        run: |
+  #          cp target/release/libreqrio.so reqrio-go/
+  #          echo "CGO-ENABLED=1 " >> $GITHUB_ENV
+  #          cd reqrio-go&&go run main.go
+
+
 #      - name: build-gnu
 #        run: cargo build --package reqrio --release --features export --target x86_64-pc-windows-gnu
 #      - uses: actions/setup-go@v5

@@ -79,8 +79,12 @@ mod tests {
         let sid = 0;
         let mut reader = header.as_h1_reader(HeaderParam {
             url: &url,
-            encoder: &mut encoder,
-            stream_identifier: &sid,
+            hpack_encoder: Some(&mut encoder),
+            h_sid: &sid,
+            #[cfg(feature = "quic")]
+            qpack_encoder: None,
+            #[cfg(feature = "quic")]
+            q_sid: &0,
             body_len: 0,
             weight: &0,
             priority: &false,

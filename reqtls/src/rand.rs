@@ -1,5 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 use std::cell::RefCell;
+use std::ffi::c_int;
 use std::rc::Rc;
 
 pub struct Random {
@@ -8,12 +9,16 @@ pub struct Random {
     index: usize,
 }
 
+unsafe extern "C" {
+    fn RAND_bytes(buf: *mut u8, len: usize) -> c_int;
+}
+
 impl Random {
     #[inline(always)]
     fn new() -> Self {
         let mut seed = [0u8; 32];
-        getrandom::fill(&mut seed).expect("OS RNG failed");
-
+        let ret = unsafe { RAND_bytes(seed.as_mut_ptr(), seed.len()) };
+        if ret != 1 { panic!("OS RNG failed") }
         let mut state = [0u32; 16];
 
         // ChaCha constants
@@ -238,6 +243,5 @@ mod tests {
         assert_ne!(r2, r3);
         assert_ne!(r2, r4);
         assert_ne!(r3, r4);
-
     }
 }

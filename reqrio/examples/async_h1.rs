@@ -17,30 +17,21 @@ fn test_log() {
     set_max_level(LevelFilter::Debug);
 }
 
+unsafe extern "C" {
+    fn RAND_bytes(buf: *mut u8, len: usize) -> i32;
+}
+
 #[tokio::main]
 async fn main() {
     #[cfg(feature = "log")]
     test_log();
+    Buffer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
 
+    let t = Time::now();
     let mut timeout = Timeout::longer();
     timeout.set_handle_times(1);
 
-    let mut req = AcReq::new()
-        // .with_fingerprint(fingerprint)
-        .with_timeout(timeout)
-        .with_verify(true)
-        .with_key_log("2.log")
-        .with_auto_redirect(false)
-        // .with_proxy(Proxy::Null)
-        .with_verify(false)
-        .with_alpn(ALPN::Http20)
-        // .with_proxy(Proxy::try_from("http: //222.186.129.68:15265").unwrap())
-        // .with_mtls(certs, key)
-        // .with_proxy(Proxy::new_socks5("127.0.0.1",10279))
-        // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10279))
-        // .connect("https://104.18.34.137".sni("whatnot.com")).await.unwrap()
-        ;
-    let headers = json::object! {
+    let mut headers = json::object! {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
         "Accept": "*/*",
         "Sec-Fetch-Site": "none",
@@ -55,49 +46,75 @@ async fn main() {
         "Accept-Encoding": "gzip,deflate,br,zstd",
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
-        "Content-length": "12"
+        "content-length": "0"
         // "cookie":"_EDGE_V=1; MUIDB=184C10AD397866DF1A1607B038566708; MUID=184C10AD397866DF1A1607B038566708; _UR=QS=0&TQS=0&Pn=0; BFBUSR=BFBHP=0; MUIDB=184C10AD397866DF1A1607B038566708; SRCHD=AF,AF,AF,AF,AF,AF,AF,AF,AF,AF,AF,AF,AF,AF,AF&AF=NOFORM; SRCHUID=V=2&GUID=EB7B9E5DE58F4D5690F6904732C24C7B&dmnchg=1; USRLOC=HS&ELOC=LAT=23.384721755981445|LON=113.44195556640625|N=%E7%99%BD%E4%BA%91%E5%8C%BA%EF%BC%8C%E5%B9%BF%E4%B8%9C%E7%9C%81|ELT=4|&HS=1; _RwBf=r&r&r&r&r=0&ilt=10&ihpd=5&ispd=3&rc=12&rb=0&rg=200&pc=12&mtu=0&rbb=0&clo=0&v=8&l=2026-03-15T07:00:00.0000000Z&lft=0001-01-01T00:00:00.0000000&aof=0&ard=0001-01-01T00:00:00.0000000&rwdbt=0&rwflt=0&rwaul2=0&g=&o=2&p=&c=&t=0&s=0001-01-01T00:00:00.0000000+00:00&ts=2026-03-15T14:03:35.7211444+00:00&rwred=0&wls=&wlb=&wle=&ccp=&cpt=&lka=0&lkt=0&aad=0&TH=&cid=0&gb=; SRCHUSR=DOB&DS&DS&DS&DS&DS=1&DOB=20260315; _EDGE_S=SID=357AA105805E678827ACB618817066E6; _SS=SID=357AA105805E678827ACB618817066E6; _HPVN=CS=eyJQbiI6eyJDbiI6MSwiU3QiOjAsIlFzIjowLCJQcm9kIjoiUCJ9LCJTYyI6eyJDbiI6MSwiU3QiOjAsIlFzIjowLCJQcm9kIjoiSCJ9LCJReiI6eyJDbiI6MSwiU3QiOjAsIlFzIjowLCJQcm9kIjoiVCJ9LCJBcCI6dHJ1ZSwiTXV0ZSI6dHJ1ZSwiTGFkIjoiMjAyNi0wMy0xNVQwMDowMDowMFoiLCJJb3RkIjowLCJHd2IiOjAsIlRucyI6MCwiRGZ0IjpudWxsLCJNdnMiOjAsIkZsdCI6MCwiSW1wIjozMCwiVG9ibiI6MH0=; SRCHHPGUSR=SRCHLANG&SRCHLANG&SRCHLANG&SRCHLANG&SRCHLANG&SRCHLANG&SRCHLANG&SRCHLANG&SRCHLANG&V&SRCHLANG&SRCHLANG&SRCHLANG&V&SRCHLANG&SRCHLANG=zh-Hans&PREFCOL=0&BRW=NOTP&BRH=M&CW=150&CH=769&SCW=150&SCH=769&DPR=1.0&UTC=480&HV=1773588648&HVE=CfDJ8HAK7eZCYw5BifHFeUHnkJGC6_lT8f9GeruXx8zjPXuk-5GHkofYMoFErMkT8CTKKKsSt5O2HyGmjLyCEXbEREUmwCd8ZBlYMLSDZu1wZ-EI1LDuyIiI1tkP6Usyicm601qX3aJVYqVWUBn-t6h0ZWLiftm4aS627xFj1fE5PD-85i7BWTkhqG0uvaYzuSgB2A&BZA=0&PRVCW=150&PRVCH=769&B=0&EXLTT=7&V=CfDJ8HAK7eZCYw5BifHFeUHnkJGijeRjCoaCMaAnmznMvdEg2GXY8647Wb-7wnHNpePKXRO6KRQ_0cQc-onivd35uV-p-4g0MB0V_Z1ZpW-QSJe9zbPUG-Ks-kQMjzEl6GlLo6N0ciP51vkQdR-P-lCUH58&PR=1"
     };
-    req.set_headers_json(headers).unwrap();
-    // let data = json::object! {
-    //     "body":"spLabel=false&clueLabel=false&id=24055967626&spTitle=pre_data6&productNameSupplement=&description=&picContent=&spPicContentSwitch=1&shippingTimeX=-&skus=%5B%7B%22id%22%3A44382959111%2C%22spec%22%3A%22455%22%2C%22price%22%3A10%2C%22unit%22%3A%22%E4%BB%BD%22%2C%22stock%22%3A1%2C%22weight%22%3A0%2C%22weightUnit%22%3A%22%E5%85%8B%28g%29%22%2C%22ladderPrice%22%3A0%2C%22ladderNum%22%3A1%2C%22upcCode%22%3A%22211102884294%22%2C%22upc%22%3A%22211102884294%22%2C%22sourceFoodCode%22%3A%22a2640479882013848866%22%2C%22skuCode%22%3A%22a2640479882013848866%22%2C%22shelfNum%22%3A%22%22%2C%22minOrderCount%22%3A1%2C%22skuAttrs%22%3A%5B%5D%2C%22oriPrice%22%3A0%2C%22skipUpcImg%22%3A%22%22%2C%22commonProperty%22%3Anull%7D%5D&attrList=%5B%5D&picture=http%3A%2F%2Fp0.meituan.net%2Fscproduct%2F18a930e5f9b95f8fcedd9ee4ff220cd3148954.jpg&labels=%5B%7B%22group_id%22%3A43%2C%22sub_attr%22%3A0%7D%5D&isSp=0&categoryId=400000364&categoryPath=200001013%2C200001014%2C400000364&releaseType=0&tagList=%5B%7B%22tagId%22%3A1377205822%2C%22tagName%22%3A%22%E6%9C%AA%E5%88%86%E7%B1%BB%22%7D%5D&limitSale=%7B%22limitSale%22%3Afalse%2C%22begin%22%3A%22%22%2C%22end%22%3A%22%22%2C%22type%22%3A1%2C%22frequency%22%3A1%2C%22count%22%3A0%7D&categoryAttrMap=%7B%221200000003%22%3A%7B%22attrId%22%3A1200000003%2C%22attrName%22%3A%22%E5%89%82%E5%9E%8B%22%2C%22attrType%22%3A3%2C%22inputType%22%3A1%2C%22sequence%22%3A9%2C%22isRequired%22%3A0%2C%22valueList%22%3A%5B%5D%7D%2C%221200000005%22%3A%7B%22attrId%22%3A1200000005%2C%22attrName%22%3A%22%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9%22%2C%22attrType%22%3A3%2C%22inputType%22%3A3%2C%22sequence%22%3A16%2C%22isRequired%22%3A0%2C%22valueList%22%3A%5B%7B%22value%22%3A%22%22%2C%22valueIdPath%22%3A%22%22%2C%22valuePath%22%3A%22%22%2C%22selected%22%3A1%7D%5D%7D%2C%221200000011%22%3A%7B%22attrId%22%3A1200000011%2C%22attrName%22%3A%22%E9%80%82%E5%AE%9C%E4%BA%BA%E7%BE%A4%22%2C%22attrType%22%3A3%2C%22inputType%22%3A3%2C%22sequence%22%3A12%2C%22isRequired%22%3A0%2C%22valueList%22%3A%5B%7B%22value%22%3A%22%22%2C%22valueIdPath%22%3A%22%22%2C%22valuePath%22%3A%22%22%2C%22selected%22%3A1%7D%5D%7D%2C%221200000012%22%3A%7B%22attrId%22%3A1200000012%2C%22attrName%22%3A%22%E6%88%90%E5%88%86%22%2C%22attrType%22%3A3%2C%22inputType%22%3A3%2C%22sequence%22%3A7%2C%22isRequired%22%3A0%2C%22valueList%22%3A%5B%7B%22value%22%3A%22%22%2C%22valueIdPath%22%3A%22%22%2C%22valuePath%22%3A%22%22%2C%22selected%22%3A1%7D%5D%7D%2C%221200000014%22%3A%7B%22attrId%22%3A1200000014%2C%22attrName%22%3A%22%E8%B4%AE%E8%97%8F%22%2C%22attrType%22%3A3%2C%22inputType%22%3A3%2C%22sequence%22%3A14%2C%22isRequired%22%3A1%2C%22valueList%22%3A%5B%7B%22value%22%3A%22%E5%B7%B2%22%2C%22valueIdPath%22%3A%22%22%2C%22valuePath%22%3A%22%22%2C%22selected%22%3A1%7D%5D%7D%2C%221200000015%22%3A%7B%22attrId%22%3A1200000015%2C%22attrName%22%3A%22%E6%B8%A9%E9%A6%A8%E6%8F%90%E7%A4%BA%22%2C%22attrType%22%3A3%2C%22inputType%22%3A3%2C%22sequence%22%3A19%2C%22isRequired%22%3A0%2C%22valueList%22%3A%5B%7B%22value%22%3A%221.%E2%80%9C%E5%9B%BD%E5%AE%B6%E8%8D%AF%E7%9B%91%E5%B1%80%E6%8F%90%E7%A4%BA%E6%82%A8%EF%BC%9A%E8%AF%B7%E6%AD%A3%E7%A1%AE%E8%AE%A4%E8%AF%86%E5%8C%96%E5%A6%86%E5%93%81%E5%8A%9F%E6%95%88%EF%BC%8C%E5%8C%96%E5%A6%86%E5%93%81%E4%B8%8D%E8%83%BD%E6%9B%BF%E4%BB%A3%E8%8D%AF%E5%93%81%EF%BC%8C%E4%B8%8D%E8%83%BD%E6%B2%BB%E7%96%97%E7%9A%AE%E8%82%A4%E7%97%85%E7%AD%89%E7%96%BE%E7%97%85%E2%80%9D%EF%BC%8C%E6%8F%90%E9%86%92%E5%B9%BF%E5%A4%A7%E6%B6%88%E8%B4%B9%E8%80%85%E9%98%B2%E8%8C%83%E5%8C%96%E5%A6%86%E5%93%81%E6%B6%88%E8%B4%B9%E9%A3%8E%E9%99%A9%EF%BC%9B2.%E7%94%B1%E4%BA%8E%E5%8E%82%E5%AE%B6%E4%B8%8D%E5%AE%9A%E6%9C%9F%E6%9B%B4%E6%8D%A2%E4%BA%A7%E5%93%81%E5%8C%85%E8%A3%85%EF%BC%8C%E5%A6%82%E9%81%87%E6%96%B0%E5%8C%85%E8%A3%85%E4%B8%8A%E5%B8%82%E5%8F%AF%E8%83%BD%E5%AD%98%E5%9C%A8%E6%9B%B4%E6%96%B0%E6%BB%9E%E5%90%8E%EF%BC%8C%E8%AF%B7%E4%BB%A5%E6%94%B6%E5%88%B0%E7%9A%84%E5%AE%9E%E8%B4%A7%E5%8C%85%E8%A3%85%E4%B8%BA%E5%87%86%EF%BC%81%22%2C%22valueIdPath%22%3A%22%22%2C%22valuePath%22%3A%22%22%2C%22selected%22%3A1%7D%5D%7D%2C%221200000017%22%3A%7B%22attrId%22%3A1200000017%2C%22attrName%22%3A%22%E7%94%A8%E6%B3%95%E7%94%A8%E9%87%8F%22%2C%22attrType%22%3A3%2C%22inputType%22%3A3%2C%22sequence%22%3A13%2C%22isRequired%22%3A1%2C%22valueList%22%3A%5B%7B%22value%22%3A%22%E5%B7%B2%22%2C%22valueIdPath%22%3A%22%22%2C%22valuePath%22%3A%22%22%2C%22selected%22%3A1%7D%5D%7D%2C%221200000018%22%3A%7B%22attrId%22%3A1200000018%2C%22attrName%22%3A%22%E7%94%9F%E4%BA%A7%E4%BC%81%E4%B8%9A%22%2C%22attrType%22%3A3%2C%22inputType%22%3A3%2C%22sequence%22%3A5%2C%22isRequired%22%3A1%2C%22valueList%22%3A%5B%7B%22value%22%3A%22%E5%B7%B2%22%2C%22valueIdPath%22%3A%22%22%2C%22valuePath%22%3A%22%22%2C%22selected%22%3A1%7D%5D%7D%2C%221200000073%22%3A%7B%22attrId%22%3A1200000073%2C%22attrName%22%3A%22%E9%80%82%E7%94%A8%E8%8C%83%E5%9B%B4%22%2C%22attrType%22%3A3%2C%22inputType%22%3A3%2C%22sequence%22%3A11%2C%22isRequired%22%3A0%2C%22valueList%22%3A%5B%7B%22value%22%3A%22%22%2C%22valueIdPath%22%3A%22%22%2C%22valuePath%22%3A%22%22%2C%22selected%22%3A1%7D%5D%7D%2C%221200000080%22%3A%7B%22attrId%22%3A1200000080%2C%22attrName%22%3A%22%E6%9C%89%E6%95%88%E6%9C%9F%22%2C%22attrType%22%3A3%2C%22inputType%22%3A3%2C%22sequence%22%3A15%2C%22isRequired%22%3A1%2C%22valueList%22%3A%5B%7B%22value%22%3A%22%E5%B7%B2%22%2C%22valueIdPath%22%3A%22%22%2C%22valuePath%22%3A%22%22%2C%22selected%22%3A1%7D%5D%7D%2C%221200000085%22%3A%7B%22attrId%22%3A1200000085%2C%22attrName%22%3A%22%E4%BA%A7%E5%9C%B0%E7%B1%BB%E5%9E%8B%22%2C%22attrType%22%3A3%2C%22inputType%22%3A1%2C%22sequence%22%3A6%2C%22isRequired%22%3A1%2C%22valueList%22%3A%5B%7B%22valueId%22%3A1300000003%2C%22value%22%3A%22%E5%9B%BD%E4%BA%A7%22%2C%22valueIdPath%22%3A%221300000003%22%2C%22valuePath%22%3A%221%22%2C%22sequence%22%3A1%2C%22selected%22%3A1%7D%5D%7D%2C%221200000086%22%3A%7B%22attrId%22%3A1200000086%2C%22attrName%22%3A%22%E6%89%B9%E5%87%86%E6%96%87%E5%8F%B7%22%2C%22attrType%22%3A1%2C%22inputType%22%3A3%2C%22sequence%22%3A4%2C%22isRequired%22%3A1%2C%22valueList%22%3A%5B%7B%22value%22%3A%22%E5%B7%B2%22%2C%22valueIdPath%22%3A%22%22%2C%22valuePath%22%3A%22%22%2C%22selected%22%3A1%7D%5D%7D%2C%221200000088%22%3A%7B%22attrId%22%3A1200000088%2C%22attrName%22%3A%22%E5%93%81%E7%89%8C%22%2C%22attrType%22%3A1%2C%22inputType%22%3A1%2C%22sequence%22%3A2%2C%22isRequired%22%3A0%2C%22valueList%22%3A%5B%5D%7D%2C%221200000159%22%3A%7B%22attrId%22%3A1200000159%2C%22attrName%22%3A%22%E4%BA%A7%E5%93%81%E5%90%8D%E7%A7%B0%22%2C%22attrType%22%3A1%2C%22inputType%22%3A3%2C%22sequence%22%3A1%2C%22isRequired%22%3A1%2C%22valueList%22%3A%5B%7B%22value%22%3A%22%E5%B7%B2%22%2C%22valueIdPath%22%3A%22%22%2C%22valuePath%22%3A%22%22%2C%22selected%22%3A1%7D%5D%7D%2C%221200000251%22%3A%7B%22attrId%22%3A1200000251%2C%22attrName%22%3A%22%E4%BA%A7%E5%93%81%E5%8A%9F%E6%95%88%22%2C%22attrType%22%3A3%2C%22inputType%22%3A3%2C%22sequence%22%3A10%2C%22isRequired%22%3A0%2C%22valueList%22%3A%5B%7B%22value%22%3A%22%22%2C%22valueIdPath%22%3A%22%22%2C%22valuePath%22%3A%22%22%2C%22selected%22%3A1%7D%5D%7D%2C%221200004423%22%3A%7B%22attrId%22%3A1200004423%2C%22attrName%22%3A%22%E5%95%86%E6%A0%87%22%2C%22attrType%22%3A1%2C%22inputType%22%3A1%2C%22sequence%22%3A3%2C%22isRequired%22%3A0%2C%22valueList%22%3A%5B%5D%7D%2C%221200004527%22%3A%7B%22attrId%22%3A1200004527%2C%22attrName%22%3A%22%E5%84%BF%E7%AB%A5%E5%8C%96%E5%A6%86%E5%93%81%22%2C%22attrType%22%3A3%2C%22inputType%22%3A1%2C%22sequence%22%3A18%2C%22isRequired%22%3A0%2C%22valueList%22%3A%5B%5D%7D%2C%221200189598%22%3A%7B%22attrId%22%3A1200189598%2C%22attrName%22%3A%22%E6%89%A7%E8%A1%8C%E6%A0%87%E5%87%86%E6%96%87%E5%8F%B7%22%2C%22attrType%22%3A3%2C%22inputType%22%3A3%2C%22sequence%22%3A18%2C%22isRequired%22%3A0%2C%22valueList%22%3A%5B%7B%22value%22%3A%22%22%2C%22valueIdPath%22%3A%22%22%2C%22valuePath%22%3A%22%22%2C%22selected%22%3A1%7D%5D%7D%7D&spuSaleAttrMap=%7B%7D&upcImage=&sellStatus=1&marketingPicture=&marketingPicList=&industryPics=%5B%7B%22type%22%3A1%2C%22quoteSwitch%22%3A0%7D%2C%7B%22type%22%3A2%2C%22quoteSwitch%22%3A0%7D%5D&wmPoiId=31309015&skipAudit=false&validType=0&missingRequiredInfo=false&auditStatus=0&useSuggestCategory=false&auditScene=0&saveType=1&auditSource=1&spVideoStatus=0&checkActivitySkuModify=true&hsCodeId=",
-    //     "method":"POST",
-    //     "cookie":r#"_lxsdk_cuid=1999098642bc8-03c78c52e8aedd-76574611-384000-1999098642c4; _lxsdk=1999098642bc8-03c78c52e8aedd-76574611-384000-1999098642c4; e_b_id_352126=4b43997da8f5f5aa8082a019a6cdf04e; uuid_update=true; acctId=267433045; token=0cpJblTnhR5bQFB_39b9g2SSwbXnyTWLAniQgW--LYfs*; brandId=-1; wmPoiId=31309015; isOfflineSelfOpen=2; city_id=0; isChain=0; existBrandPoi=true; ignore_set_router_proxy=false; region_id=0; region_version=0; newCategory=true; bsid=EyePQTksNOTzBax0Jj0WXN7afqoa0oHmoMBZsTRn1yHXGkItD0ShP6FUcrSeokuN3CQGi7ftajaZxvQ9Vmoqdw; device_uuid=!b0cfb761-8530-4aad-9d72-7f85b01606ed; _gw_ab_call_37616_150=TRUE; _gw_ab_37616_150=851; logistics_support=1; cityId=440100; provinceId=440000; city_location_id=610100; location_id=610103; account_businesstype=1; single_poi_businesstype=1; accountAllPoiBusinessType=1; acct_id=267433045; acct_name=mt838377du; poi_id=31309015; account_second_type=200; poi_first_category_id=22; poi_second_category_id=4012; pushToken=0cpJblTnhR5bQFB_39b9g2SSwbXnyTWLAniQgW--LYfs*; isNewCome=1; set_info={"wmPoiId":31309015,"region_id":"1000610100","region_version":1766133001}; pharmacistAccount=0; wpush_server_url=wss://wpush.meituan.com; shopCategory=medicine; com.sankuai.yiyao.shangjia.main_strategy=; cacheTimeMark=2026-01-18; WEBDFPID=z8yy33552xwy586vz4x1x5xw0y1832z98000901270247958w8y12yy6-1768794670395-1759067529980SMCUUEKa12a6b8169ee7736639f3ec62dbf984b1665; utm_source_rg=AM%2566AyTyT%25284; yy-epassport-accessToken=EyePQTksNOTzBax0Jj0WXN7afqoa0oHmoMBZsTRn1yHXGkItD0ShP6FUcrSeokuN3CQGi7ftajaZxvQ9Vmoqdw; com.sankuai.yiyao.eproduct.manager_strategy=; logan_session_token=zjnxg3h69dimc8jf1c59; _lxsdk_s=19bcf3a66bb-504-7a4-cd5%7C%7C201"#,
-    //     "url":"https://yiyao.meituan.com/reuse/health/product/retail/w/uniSave?yodaReady=h5&csecplatform=4&csecversion=4.2.0",
-    //     "type":"hs1.6"
-    // };
-    // req.header_mut().set_authorization("Upy9fDyueOXiEbON0vRXimw/tlHO5QHs+IV75wUbSzZngY0oLn1wJpQ00TnW1Cihu1UUnDUvVg4y9FggZe9nlMYfUxbwWBKP27EmkCEmyrxnrlc5inWEeK3OXKwUhhfc").unwrap();
-    // let url = "https://testapi.xllgl.top:3453/v1/api/mtgsig";
-    // req.set_url(url).await.unwrap();
-    // req.set_json(data);
-    // let res = req.post().await.unwrap().text().unwrap();
-    // println!("{}",res);
-    // let data = json::object! {
-    //   "alpn": "http/1.1",
-    //   "body": "",
-    //   "headers": {
-    //     "Accept": "*/*",
-    //     "Accept-Encoding": "gzip, deflate, br, zstd",
-    //     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-    //     "Cache-Control": "no-cache",
-    //     "Connection": "keep-alive",
-    //     // "Content-Type": "application/x-www-form-urlencoded",
-    //     "Pragma": "no-cache",
-    //     // "Referer": "http://xxxxxx",
-    //     "Sec-Fetch-Dest": "empty",
-    //     "Sec-Fetch-Mode": "cors",
-    //     "Sec-Fetch-Site": "same-origin",
-    //   },
-    //   "method": "GET",
-    //   "tls": "Chrome-linux-135",
-    //   "url": "https://m.baidu.com"
-    // };
+    let mut tls = json::object! {
+        "id": 144,
+        "typ": "VIP",
+        "tls_finger": "16030107120100070e0303faf22de89f4672f79a363ed9950e2b2b807cc41731b8e20bbf6de690a8f6daeb2005d7f96eb8631dc9040260d188ce0f049902feac7c5acd167a0a6edb207b051400200a0a130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035010006a5aaaa000044cd00050003026832002300000010000e000c02683208687474702f312e31000d0012001004030804040105030805050108060601003304ef04edbaba00010011ec04c0afcc467841082d14b0c095b652f67e1960abf3cbca1b378390a35262758baf901347265621f097ac26b4fac500d91891a4521d39643e542b7aedc5ce916a7fc8e618e0e397beb07d880a8fc780c922221aab206f4cba6411391da586c3e861847a7c82ca12783b67038e011eb274065bc90585233619098335934ed276695d11c0aed026f6e0bb1c29508408771fd50dbfb747faa60d53d63a8a66c8aa89824fc89b9b94ca958a2ed1b28d4660553260b6762a5309e94208a28793a8650288478218b22e1174f524a4a091568f9424dee609d7885197eac3e15800a8e41ac4e852cdb6ad210a3fd9256959901254f7cce9a83441554e5136c81025467b4602c2e6583a8a354226c88737c5c10b5496290d1ad12ee8266ddcd59838f268bf34a55fb09fb1390d3ac02a05ba40d352554290972d01ae300b8a7aba19c543c4dea594aacbc19659b42965ca3d8c048cd22689dac43dab33cfeb40c4768798da4ccfa9c281e243aa0cc663a05fdb646e63528c345456004351f682077a47328bcb791fcc9d99086f653a6c80d06f8a681e26160a39057905968926182f04ea906a7c8af1178dc8c233abc5bff671ba37976fea324b82272e775658346a89538c9152947c6cd4b08b584ee50c93c48c5dd9bcc97c5c95b2f77d58205b489433b3d2b14fb81f2ed367f0285b4fe15f8d11060124b01ff79c09b0c6f154421358cf56bbb2e3162ab79205e6883a77267f747bb50089a819bc041c8baa94a61355c881fcfc4470968602892517820bdb2379749c4b195c7fac395a015041d0a11f3b177140aa824d33a57ab709b4aa1bb3cab56566af99f25a16a34bd2a992c40b599db05726021be4b88e28021914633a627abe0e703b847a6d42c2960d9200f8c91f85511ab5734dda48012d5267e74cc844f58a8513607c4471eaa001ac533955714660871cb5347ee53914941075d6385d7ca07d112c049bd1bfc202c6295103298a9ebc3a59df172779a9a517422b7476632ccb4061d07fefc1a1aaaa81baf86cc0e97e6d370c3ed265a649735e75741ab81b28d10c14c3312a808bbf8534357c141e166b17ea096aa4750d2071b4fac4cc43aa2e26a4173926e4348698a55e21bbb73477b528527c077a0f2eab5cdb71513ef9021d41297616a6279b57ed832c5bca0531bc353ae9a1d7930ed1da1151b76ef5f9ab69047cae8786fd02bbc668b056f83035bb84195a7a7bc155f2247566bba1f1296ebfec7560b94d13e240c55b721140218833889461560b261841d4358458b02d547f283a0f093668344057d69373ec0c5d3e700106dc0efe6b2826408df413243b4c551d5ba1c31b7fa1a53cd8d71c107431af31478d10689a734c1ca6357b5b8533861334f26ec6313c3a6c58b9b7b6138cbc6eb448712a9d97d16d4c89ac21e14acecc680ce695c23b5002ac98ff1a7735d69ee854bb745454905abb92175355923094438d26ba937e07395b90c872710f94419bef60a858899bc9744d0e129457e26fa990ba8bdb3f87712fe31a15902093ca6a0898d48356946e93f13c2627bfed1185cf087288478dc0113c0bb35e3fd93675a872ce00178f3bbc3106600b3bcb298670a806bd2a2ac4e01240e5a2c8bf5f9c41c0b6ad89d82b4f93b2421c6e5ddbf6b66ccf3e7285005f2b881a55dff1b54374cc5c94f84754588b1719fbd956a0fe79a3f9cdfebc44001d00202f9589897f661b2055798fc08a4e4402b9c84d8cff9fdd5a9b4943f9d4492f72000500050100000000000b0002010000120000fe0d011a0000010001c800208762f2fb60545a90018cb4f4df491e779555ca038a21a2f756a8ddc4ed627d6600f0e6f206542cf4b238f4b07fcf5b47cca984368ee6519ac3a6206974f6434962a6c72048c75d1020a05d0bd29b7288ec8304b52df1c21772d7bdb3e9b1fc719450e7d452d6c1937c20ab4baa13e1440ccf1e205a740080995618126ff204ad82f0008527460a5016fd5b2f141f2385e9005c2732296778d2ade2e471716d39f5976f09bd3413342c820ffd253d593fd9860015c6f2f48d2746790e01a7ecdc64ce3d5ef52e0d8b6e20808120aa2897c8e41a877fce4a54dcc7668845e12c475712bee7d61ce5d779640216ffa0fbfed56351c4f19b3d9bce7fd16fabe0c5b83838f3c1de8e0db2a51c890ba98afc7f7f0800170000000a000c000ababa11ec001d00170018ff01000100002d00020101001b0003020002002b000706baba030403030000000e000c0000093338686d7a672e636ebaba0001001603030046100000424104ff635373fbbfbc37444a2026372f57fd06c5205bacfe32b61261a9d29bf1fca57f91ef22cb2ba46af8cf9ae7c3123f56634099af297dcd30835cd81664005fb9140303000101",
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+        "sec_ch_ua": "\"Google Chrome\";v=\"137\", \"Chromium\";v=\"137\", \"Not/A)Brand\";v=\"24\"",
+        "sec_ch_ua_mobile": "?0",
+        "sec_ch_ua_platform": "\"Windows\"",
+        // "sec_ch_ua_bitness": "\"64\"",
+        // "sec_ch_ua_arch": "\"x86\"",
+        // "sec_ch_ua_full_version": "\"137.0.7151.69\"",
+        // "sec_ch_ua_full_version_list": "\"Google Chrome\";v=\"137.0.7151.69\", \"Chromium\";v=\"137.0.7151.69\", \"Not/A)Brand\";v=\"24.0.0.0\"",
+        // "sec_ch_ua_model": "\"\"",
+        // "sec_ch_ua_platform_version": "\"10.0.0\""
+      };
+    tls.remove("id");
+    tls.remove("typ");
+    let d = tls.remove("tls_finger").dump();
+    // let mut fingerprint = Fingerprint::from_hex_all(d, fs::read_to_string("TOKEN").unwrap()).unwrap();
+    // fingerprint.h2_mut().window_size = 15663105;
+    headers.update_by(tls).unwrap();
+    let mut req = AcReq::new()
+        // .with_fingerprint(fingerprint)
+        .with_timeout(timeout)
+        .with_verify(true)
+        .with_key_log("2.log")
+        .with_auto_redirect(false)
+        // .with_proxy(Proxy::Null)
+        .with_verify(false)
+        .with_alpn(ALPN::Http30)
+        .with_header_json(headers).unwrap()
+        // .with_proxy(Proxy::try_from("http: //222.186.129.68:15265").unwrap())
+        // .with_mtls(certs, key)
+        // .with_proxy(Proxy::new_socks5("127.0.0.1",10279))
+        // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10280))
+        // .connect("https://104.18.34.137".sni("whatnot.com")).await.unwrap()
+        ;
+    // let res = req.post("http://127.0.0.1:8000/log", json::object! {"on": false}).await.unwrap();
+    // let res = req.get("https://fk1.moutai519.com.cn/bangcle/api/v1/1/1", None).await.unwrap().json().unwrap();
+    // let res = req.post("http://127.0.0.1:8000/upload_wac", res).await.unwrap();
+    // println!("{}", res.raw_string());
+    // let res = req.post("http://127.0.0.1:8000/generate", json::object! {
+    //     "ua": "Mozilla/5.0 (Linux; Android 12; 2201123C Build/SKQ1.211006.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/123",
+    //     "body":{},
+    //     "uid": "5656"
+    // }).await.unwrap();
+    // println!("{}", res.json().unwrap().pretty());
+    // return;
+
+    // let url = "https://www.dickssportinggoods.com/p/2026-topps-flagship-football-mega-box-26topufang4p4ib5vqjhq/26topufang4p4ib5vqjhq";
+    let url = "https://ts3.tc.mm.bing.net/th/id/ODF.dsR0yzVOEBuWxCU9cjAM4Q?w=32&h=32&qlt=96&pcl=fffffa&o=6&pid=1.2";
+    let sid1 = req.send(Method::GET, url, None).await.unwrap();
+    // let url = "https://ts3.tc.mm.bing.net/th/id/ODF.pnhuF5msYDWgeLYHsiLTig?w=32&h=32&qlt=95&pcl=fffffa&o=6&pid=1.2";
+    // let sid2 = req.send(Method::POST, url, None).await.unwrap();
+
+    let res1 = req.recv(sid1).await.unwrap();
+    // let res1 = req.get(url, None).await.unwrap();
+    println!("{}", res1.raw_string());
+    // let res2 = req.recv(sid1).await.unwrap();
+    // println!("{}", res2.raw_string());
+    // println!("{}", Time::now().as_mills() - t.as_mills())
+
     // req.set_url("https://shopee.tw/").await.unwrap();
-    // req.set_url("https://127.0.0.1:3453/v1/api/tlsReq").await.unwrap();
     // req.set_json(data);
     // req.set_auto_redirect(false);
     // req.set_url("http://zwfw.hubei.gov.cn/web/user/uias_login.do?appCode=hbzwfw&gotoUrl=http%3A%2F%2Fzwfw.hubei.gov.cn%2Fwebview%2Fgrkj%2Fwelcome.html&p01=").await.unwrap();
-    // req.set_url("https://127.0.0.1:7878").await.unwrap();
     // req.set_url("https://www.jetstar.com").await.unwrap();
     // req.set_url("https://m1.pxb7.com/api/search/h5/product/selectSearchPageList").await.unwrap();
     // req.set_url("https://www.link114.cn/").await.unwrap();
@@ -114,28 +131,17 @@ async fn main() {
     // req.set_url("https://tls.123408.xyz/api/clean").await.unwrap();
     // req.set_url("https://mcs-mimp-web.sf-express.com/mcs-mimp/sendValidCode").await.unwrap()
     // req.set_url("https://jetstar.com").await.unwrap();
-    // req.set_url("https://127.0.0.1:8000").await.unwrap();
-    // req.set_auto_redirect(false);
     // req.set_url("https://oauth.hubei.gov.cn:8443/").await.unwrap();
-    req.set_auto_redirect(false);
     // let res = req.get("https://dns.alidns.com/resolve?name=crypto.cloudflare.com&type=HTTPS", None).await.unwrap();
     // let res=req.get("https://www.link114.cn/",None).await.unwrap();
     // let res = req.get("https://www.bing.com".params(json::object! {}), vec![0u8; 0].ty(Application::Json)).await.unwrap();
     // let res = req.get("https://117.89.181.21".sni("m.sogou.com"), None).await.unwrap();
     // let url = Url::try_from("https://cn.bing.com/").unwrap();
     // let url = "https://113.108.215.122/xhr/front/trade/priority/rushPurchase/hot/branch/one".sni("h5.moutai519.com.cn").unwrap(); //
-    // let url = "https://www.baidu.com".try_into().unwrap();
     // let url: Url = "https://www.bing.com".try_into().unwrap();
-    let url = "https://www.hapag-lloyd.cn/solutions/web-chat/js/floatingbtn.js";
-    // req.re_conn(Some(&url)).await.unwrap();
-    // let resp = req.post(url.clone(), None).await.unwrap();
-    // let resp = req.post(url.clone(), None).await.unwrap();
-    let resp = req.get(url, None).await.unwrap();
-    println!("{} {}", resp.header(), resp.as_bytes().len());
-    // req.re_conn(None).await.unwrap();
-    // let resp = req.get(url, None).await.unwrap();
-    // println!("{}", resp.header());
-    // println!("{}", resp.as_text().unwrap());
+    // let url: Url = "https://cn.bing.com".try_into().unwrap();
+    // let url = "https://shop.lululemon.com/help/orders/gift-card-balance";
+
 
     // println!("{} {}", res1.header(), res2.header());
     // let res = req.get("https://m.sogou.com", None).await.unwrap();
@@ -146,39 +152,6 @@ async fn main() {
     // req.re_conn(None).await.unwrap();
     // let res = req.get("https://aswbe.ana.co.jp/webapps/reservation/flight-search", None).await.unwrap();
     // let res = req.send("https://oauth.hubei.gov.cn:8443/", None).await.unwrap();
-    // let res = req.get("https://104.18.34.137".sni("whatnot.com"), None).await.unwrap();
-    // let res = req.get("https://150.139.229.223".sni("h5.moutai519.com.cn"), None).await.unwrap();
-    // loop {
-
-    //     println!("{}", res.header().status());
-    //
-    // }
-
-    // let res=req.get("https://h5.moutai519.com.cn",None).await.unwrap();
-    // let res = req.get("https://m.baidu.com", None).await.unwrap();
-    // println!("{}", res.json().unwrap().pretty())
-    // println!("{:#?}", req.header().cookies());
-    // println!("{}",res.text().unwrap());
-    // req.set_url("https://m.so.com").await.unwrap();
-    // req.set_url("https://im.jinritemai.com/").await.unwrap();
-    // req.set_auto_redirect(false);
-    // req.set_url("https://cn.bing.com/AS/Suggestions?pt=page.home&qry=&csr=1&pths=1&zis=1&pf=1&cvid=AFEA02EAF9E449A99970476597AE6CED").await.unwrap();
-    // req.set_text("sfssdfsfsdfdf");
-    // println!("{:?}",String::from_utf8(fs::read("/home/xl/1/ca.crt").unwrap()).unwrap());
-    // let data = json::object! {"test_key":"test_value"};
-    // let file = HttpFile::new_bytes_data(data, fs::read("/home/xl/1/ca.crt").unwrap());
-    // req.set_files(file).unwrap();
-    // req.set_data(data);
-    // println!("{}", req.h1_raw_string().unwrap());
-    // let res = req.get().await.unwrap();
-    // println!("{} {:#?}", res.header().status(), req.header().cookies());
-    // let params = json::object! {
-    //     format:"{\\json",
-    //     ecount:20,
-    //     efirst:0
-    // };
-    // let url = "https://cn.bing.com/hp/api/v1/carousel".to_string();
-    // // println!("{}", url);
     // let res = req.get(url.params(params), None).await.unwrap();
     // req.set_url("https://cn.bing.com/notifications/render?bnptrigger=%7B%22PartnerId%22%3A%22HomePage%22%2C%22IID%22%3A%22Bnp%22%2C%22Attributes%22%3A%7B%22RawRequestURL%22%3A%22%2F%22%7D%7D&IG=AFEA02EAF9E449A99970476597AE6CED&IID=Bnp").await.unwrap();
     // let res = req.get().await.unwrap();

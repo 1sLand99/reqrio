@@ -70,7 +70,9 @@ impl<W: WriteExt> StreamDecode<W> for ZstdDecoder {
         if out.unfilled_len() == 0 {
             return Err(CodingError::Buffer(BufferError::CapacityTooSmall {
                 current: out.capacity(),
+                file: file!(),
                 needed: out.capacity() + 1024,
+                line: line!(),
             }));
         }
         Ok(())

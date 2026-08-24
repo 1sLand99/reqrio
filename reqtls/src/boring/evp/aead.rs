@@ -46,8 +46,8 @@ unsafe extern "C" {
 pub struct AeadCtx(CPointer<AEAD_CTX>);
 
 impl AeadCtx {
-    pub fn new(aead: &Aead, key: &[u8], tag_len: i32) -> RlsResult<AeadCtx> {
-        let ctx = unsafe { AEAD_CTX_new(*aead, key.as_ptr(), key.len(), tag_len as usize) };
+    pub fn new(aead: Aead, key: &[u8], tag_len: i32) -> RlsResult<AeadCtx> {
+        let ctx = unsafe { AEAD_CTX_new(aead, key.as_ptr(), key.len(), tag_len as usize) };
         let ctx = CPointer::new_checked(ctx, RlsError::AeadCryptError)?;
         Ok(AeadCtx(ctx))
     }
@@ -99,16 +99,16 @@ mod aead_tests {
     use std::{env, fs};
     use crate::boring::bindings::EVP_AEAD_DEFAULT_TAG_LENGTH;
     use crate::boring::{AeadCtx, CryptDecodeParam, CryptEncodeParam};
-    use crate::buffer::{RecordDecodeBuffer, RecordEncodeBuffer};
+    use crate::buffer::{CipherDecodeBuffer, CipherEncodeBuffer};
     use crate::{Buffer, CipherSuite, RecordType, Version, WriteExt};
 
     fn test_aead(suite: &'static CipherSuite, key: &[u8], size: usize, en: &[u8]) {
         let aead = suite.aead().unwrap();
-        let ctx = AeadCtx::new(&aead, key, EVP_AEAD_DEFAULT_TAG_LENGTH).unwrap();
+        let ctx = AeadCtx::new(aead, key, EVP_AEAD_DEFAULT_TAG_LENGTH).unwrap();
         let payload = [1, 2, 3, 4, 5, 61, 2, 3, 4, 5, 6, 7, 8, 9, 23, 23];
         let iv = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4];
         let mut buffer = [0; 1024];
-        let mut record_buffer = RecordEncodeBuffer::new(RecordType::HandShake, &mut buffer, &payload, suite);
+        let mut record_buffer = CipherEncodeBuffer::new_tls(RecordType::HandShake, &mut buffer, &payload, suite);
         record_buffer.add_explicit_iv(&iv);
         let aad = record_buffer.aad(0);
         ctx.seal(CryptEncodeParam {
@@ -122,7 +122,7 @@ mod aead_tests {
         assert_eq!(len, size);
         assert_eq!(&buffer[..len], en);
         let mut decoded_buffer = vec![0; 1024];
-        let mut record_buffer = RecordDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, suite).unwrap();
+        let mut record_buffer = CipherDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, suite).unwrap();
         let aad = record_buffer.aad(0).unwrap();
         let mut len = ctx.open(CryptDecodeParam {
             nonce: &[0; 12],

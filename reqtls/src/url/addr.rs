@@ -64,8 +64,7 @@ impl Addr {
             Err(_) => {
                 let mut cache = if ech {
                     let mut stream = DNSStream::new()?;
-                    let cache = stream.get_dns_https(&self.host)?;
-                    cache
+                    stream.get_dns_https(&self.host)?
                 } else { DNSCache::new_addrs(vec![]) };
                 if cache.addrs().is_empty() {
                     let addrs = format!("{}:{}", self.host, self.port).to_socket_addrs()?.map(|x| x.ip()).collect();

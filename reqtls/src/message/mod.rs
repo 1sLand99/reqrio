@@ -5,18 +5,22 @@ mod key_exchange;
 mod session_ticket;
 mod alert;
 mod encrypted_extension;
+#[cfg(feature = "quic")]
+mod quic;
 
 use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::suite::KeyExchangeAlg;
 use crate::{BufferError, HandShakeError, ReadExt, Reader, RecordType, Version, WriteExt};
-pub use alert::{Alert, AlertLevel};
+pub use alert::Alert;
 use certificate::CertificateStatus;
 pub use certificate::Certificates;
 pub use certificate::{CertificateRequest, CertificateVerify, CompressedCertificate};
 pub use client_hello::ClientHello;
 pub use encrypted_extension::EncryptedExtension;
 pub use key_exchange::{ClientKeyExchange, NamedCurve, ServerKeyExchange};
+#[cfg(feature = "quic")]
+pub use quic::*;
 pub use server_hello::{ServerHello, ServerHelloDone};
 pub use session_ticket::{SessionTicket, TlsSessionTicket};
 use std::fmt::{Debug, Formatter};
@@ -249,7 +253,7 @@ impl<'a> Debug for MessageParsed<'a> {
             MessageParsed::CertificateVerify(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) }
             MessageParsed::Alert(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) }
             MessageParsed::CipherSpec => write!(f, "CipherSpec"),
-            MessageParsed::Finished(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) }
+            MessageParsed::Finished(v) => if f.alternate() { writeln!(f, "Finished({:#?})", v) } else { writeln!(f, "Finished({:?})", v) }
             MessageParsed::EncryptedExtension(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) }
         }
     }

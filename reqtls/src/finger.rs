@@ -5,6 +5,8 @@ use crate::extend::alps::ALPS;
 use crate::extend::formats::EcPointFormats;
 use crate::extend::group::SupportedGroups;
 use crate::extend::{CompressCertificate, Extension as E, ExtensionValue as EV, PskKey, PskMode};
+#[cfg(feature = "quic")]
+use crate::extend::Parameter;
 use crate::*;
 use std::fmt::Debug;
 
@@ -19,6 +21,8 @@ pub enum ExtensionValue {
     Bytes(Bytes),
     Algorithms(Vec<SignatureAlgorithm>),
     EcPointFormats(Vec<EcPointFormat>),
+    #[cfg(feature = "quic")]
+    QUICParameters(Vec<Parameter<'static>>),
 }
 
 
@@ -35,6 +39,8 @@ impl Debug for ExtensionValue {
             ExtensionValue::Bytes(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
             ExtensionValue::Algorithms(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
             ExtensionValue::EcPointFormats(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
+            #[cfg(feature = "quic")]
+            ExtensionValue::QUICParameters(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
         }
     }
 }
@@ -135,6 +141,8 @@ impl Extension {
                 E::new(self.type_, EV::ApplicationSettingOld(value))
             }
             (ExtensionType::SessionTicket, ExtensionValue::Bytes(bs)) => E::new(self.type_, EV::SessionTicket(Buf::Ref(bs.as_ref()))),
+            #[cfg(feature = "quic")]
+            (ExtensionType::QUICTrpParameters, ExtensionValue::QUICParameters(values)) => E::new(self.type_, EV::QUICTrpParameters(values.clone())),
             (_, ExtensionValue::Bytes(bs)) => E::new(self.type_, EV::Unknown(Buf::Ref(bs.as_ref()))),
             (_, _) => E::from_type(self.type_)
         }
