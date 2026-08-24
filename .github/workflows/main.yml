@@ -31,7 +31,7 @@ jobs:
           - os: macos-latest
             artifact: macos-aarch64
             outdir: debug
-            file: reqrio.dylib
+            file: libreqrio.dylib
     runs-on: ${{ matrix.os }}
     env:
       REQRIO_TOKEN: ${{ secrets.REQRIO_TOKEN }}
