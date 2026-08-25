@@ -283,6 +283,7 @@ mod finger;
 mod ext;
 #[cfg(feature = "quic")]
 pub mod quic;
+mod gm_sm;
 
 pub use alpn::ALPN;
 pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner,
@@ -314,6 +315,7 @@ pub use record::{RecordLayer, RecordType};
 pub use suite::{CipherSuite, KeyExchangeAlg};
 pub use url::{Addr, Param, Scheme, Uri, Url, UrlError};
 pub use version::Version;
+pub use gm_sm::*;
 
 
 pub const REVERSED: [u16; 16] = [0x0a0a, 0x1a1a, 0x2a2a, 0x3a3a, 0x4a4a, 0x5a5a, 0x6a6a, 0x7a7a, 0x8a8a, 0x9a9a, 0xaaaa, 0xbaba, 0xcaca, 0xdada, 0xeaea, 0xfafa];
