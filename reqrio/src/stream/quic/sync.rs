@@ -92,7 +92,7 @@ impl QUICStreamS {
                 hello_retrying: &mut self.hello_retrying,
                 write_buffer: &mut self.tw_buffer,
                 conn: self.conn.tls_conn(),
-            }, Some(config), message).unwrap();
+            }, Some(config), message, Version::TLS_1_3).unwrap();
             if is_server_hello && !self.hello_retrying {
                 self.conn.make_sample_cipher(KeyType::Handshake)?;
                 self.current = PacketType::Handshake;

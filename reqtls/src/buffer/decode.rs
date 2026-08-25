@@ -19,7 +19,7 @@ pub struct CipherDecodeBuffer<'a> {
 
 impl<'a> CipherDecodeBuffer<'a> {
     pub fn from_buffer(origin: &'a [u8], decoded: &'a mut [u8], suite: &'static CipherSuite) -> RlsResult<Self> {
-        if decoded.len() < origin.len() - 5 {
+        if decoded.len() < origin.len() - 5 - suite.trans_iv_len {
             return Err(BufferError::CapacityTooSmall {
                 current: decoded.len(),
                 file: file!(),
@@ -50,7 +50,7 @@ impl<'a> CipherDecodeBuffer<'a> {
         if self.quic { return Ok(self.head.to_vec()); }
         match *self.suite.version {
             Version::TLS_1_3 => Ok(self.tls13_aad()),
-            Version::TLS_1_2 => Ok(self.tls12_aad(seq)),
+            Version::TLS_1_2 | Version::TLCP => Ok(self.tls12_aad(seq)),
             _ => Err("Unsupported version".into()),
         }
     }
@@ -96,7 +96,9 @@ impl<'a> CipherDecodeBuffer<'a> {
                 _ => iv.decrypting_iv(Some(self.explicit_iv())).into_owned()
             },
             CipherType::CHACHA20_POLY1305 => iv.as_array(seq, Some(self.explicit_iv())),
-            CipherType::AES_128_CBC | CipherType::AES_256_CBC => iv.decrypting_iv(Some(self.explicit_iv())).into_owned(),
+            CipherType::AES_128_CBC |
+            CipherType::AES_256_CBC |
+            CipherType::SM4_CBC => iv.decrypting_iv(Some(self.explicit_iv())).into_owned(),
             _ => panic!("gen iv failed"),
         }
     }

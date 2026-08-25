@@ -112,14 +112,14 @@ impl Connection {
         self.update_session(client_hello)
     }
 
-    pub fn set_by_server_hello(&mut self, server_hello: &ServerHello) -> RlsResult<bool> {
+    pub fn set_by_server_hello(&mut self, server_hello: &ServerHello, version: Version) -> RlsResult<bool> {
         self.alpn = server_hello.alpn();
         self.derived.session_mut().set_session_id(server_hello.session_id.as_ref());
         self.cipher_suite = server_hello.cipher_suite;
         self.hasher.init(self.cipher_suite.hash())?;
         if let Some(version) = server_hello.supported_version() {
             self.version = *version;
-        }
+        } else { self.version = version; }
         if server_hello.random().as_ref() == Self::HRR_MAGIC { return Ok(true); }
         self.hasher.update(&self.session_bytes)?;
         #[cfg(feature = "log")]
@@ -143,7 +143,8 @@ impl Connection {
 
     pub(crate) fn derived_key_cipher(&mut self, typ: KeyType) -> RlsResult<()> {
         #[cfg(feature = "log")]
-        trace!("[DerivedCipher] type={:?}; cipher={:?}; mac={:?}",typ,self.cipher_suite.cipher(),self.cipher_suite.mac_hash());
+        trace!("[DerivedCipher] type={:?}; cipher={:?}; mac={:?}; veriosn={:?}",
+            typ,self.cipher_suite.cipher(),self.cipher_suite.mac_hash(),self.version);
         let key = self.derived.make_cipher_key(&self.version, typ)?;
         let sk = key.send_key(typ, self.server);
         let smk = key.send_mac_key(self.server);
@@ -261,19 +262,27 @@ impl Connection {
 
     pub fn pub_share_key(&mut self) -> RlsResult<Buf<'_>> {
         match self.secret_key {
+            Some(SecretKey::PreMasterSecret(ref bs)) => {
+                debug_assert_eq!(self.version, Version::TLCP);
+                println!("{} {:?}", bs.len(), bs);
+                let key = Sm2Key::from_pub_key(hex::decode("04e1f65ec7eeadcf5f54c1a22bbebfb0c52ce4074bc286deb5ae4e3599977e7bfbb0f64075995aeefdb5dbf78554f674b7b891bdfb8d8389f9edfea7feeed162bf").unwrap()).unwrap();
+                let pubkey = key.encrypt_premaster(bs.as_ref()).unwrap();
+                Ok(Buf::Vec(pubkey))
+            }
+            Some(ref key) => key.pub_key(),
             None => {
-                let key = SecretKey::new_pre_master_secret()?;
+                debug_assert_eq!(self.version, Version::TLS_1_2);
+                let key = SecretKey::new_pre_master_secret(&self.version)?;
                 let rsa = RsaCipher::new(self.certificates[0].pub_key()?)?;
                 let pub_key = Buf::Vec(rsa.encrypt(key.pub_key()?.as_ref())?);
                 self.secret_key = Some(key);
                 Ok(pub_key)
             }
-            Some(ref key) => key.pub_key(),
         }
     }
 
     pub fn make_cipher(&mut self, recover: bool) -> RlsResult<()> {
-        if let Version::TLS_1_2 = self.version && !recover {
+        if matches!(self.version, Version::TLS_1_2|Version::TLCP) && !recover {
             let secret_key = self.secret_key.as_mut().ok_or("Invalid secret key")?;
             let share_secret = secret_key.diffie_hellman(self.exchange_pub_key.as_ref())?;
             self.derived.make_master(Version::TLS_1_2, share_secret, self.hasher.current_hash()?)?;
@@ -293,7 +302,7 @@ impl Connection {
         //server hello
         let mut server_hello = ServerHello::from_client_hello(client_hello, alpn)?;
         server_hello.set_random(random);
-        self.set_by_server_hello(&server_hello)?;
+        self.set_by_server_hello(&server_hello, Version::TLS_1_2)?;
         record.messages.push(Message::new_parsed(MessageParsed::ServerHello(server_hello)));
         //certificate
         let mut certificates = Certificates::default();
@@ -388,9 +397,9 @@ impl Connection {
         let signer = AlgorithmSigner::new_sign(key.pkey(), &self.mtls_hash)?;
         let sign = signer.sign(mem::take(&mut self.session_bytes))?;
         cert_verify.set_sign(&sign);
-        let mut record = RecordLayer::handshake();
+        let mut record = RecordLayer::handshake(self.version);
         record.messages.push(Message::new_parsed(MessageParsed::CertificateVerify(cert_verify)));
-        record.write_to(writer, 1)
+        record.write_to(writer, KeyExchangeAlg::NULL)
     }
 
     pub fn set_secret_keys(&mut self, keys: HashMap<NamedCurve, SecretKey>) {

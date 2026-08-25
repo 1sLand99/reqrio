@@ -118,5 +118,12 @@ mod tests {
         let mut hmac = Hmac::new("test", HashType::Sha256).unwrap();
         hmac.update("sdf").unwrap();
         assert_eq!(hmac.finalize().unwrap(), [46, 10, 163, 88, 247, 49, 205, 241, 36, 183, 31, 251, 41, 30, 250, 112, 102, 212, 10, 5, 160, 216, 253, 169, 25, 107, 69, 152, 44, 211, 155, 23]);
+
+
+        let mut hmac = Hmac::new("1233", HashType::Sm3).unwrap();
+        hmac.update("123").unwrap();
+        hmac.update("43545").unwrap();
+        hmac.update("4545").unwrap();
+        assert_eq!(hmac.finalize().unwrap(), [97, 138, 163, 85, 66, 32, 118, 183, 129, 105, 183, 218, 198, 110, 29, 240, 21, 160, 122, 97, 114, 176, 125, 248, 94, 158, 192, 217, 156, 230, 141, 27]);
     }
 }

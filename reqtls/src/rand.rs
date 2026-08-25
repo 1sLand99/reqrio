@@ -140,6 +140,11 @@ pub fn random<T: RandomValue>() -> T {
     T::random(&mut rng)
 }
 
+pub fn fill(buf: &mut [u8]) {
+    let mut rng = CryptRand::default();
+    rng.fill_bytes(buf);
+}
+
 thread_local! {
     static RANDOM: Rc<RefCell<Random>> = Rc::new(RefCell::new(Random::new()));
 }

@@ -64,6 +64,7 @@ pub struct CipherCrypto {
 
 impl CipherCrypto {
     pub fn new(cipher: CipherType, key: Vec<u8>, mac: Vec<u8>, hash: HashType) -> RlsResult<CipherCrypto> {
+        println!("{:?} {:?} {:?} {:?}", cipher, key, mac, hash);
         let cipher = Cipher::new(cipher).with_secret_key(key, None);
         Ok(CipherCrypto {
             mac_key: mac,
@@ -79,6 +80,7 @@ impl CipherCrypto {
     ///```
     pub fn encrypt(&self, param: CryptEncodeParam) -> RlsResult<()> {
         self.cipher.init_cipher(param.iv, 1)?;
+        println!("encrypt={} key={:?} {:?}", self.mac_key.len(), self.mac_key, self.hash);
         let mut hmac = Hmac::new(&self.mac_key, self.hash)?;
         hmac.update(param.seq.to_be_bytes())?;
         hmac.update(&param.buffer.head()[..3])?;

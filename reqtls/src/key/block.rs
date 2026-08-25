@@ -170,7 +170,7 @@ impl Debug for KeyBlock {
 impl KeyBlock {
     pub fn init(&mut self, quic: bool, typ: KeyType, suite: &'static CipherSuite) {
         match (quic, typ, *suite.version) {
-            (false, _, Version::TLS_1_2) => {
+            (false, _, Version::TLS_1_2 | Version::TLCP) => {
                 debug_assert!(matches!(self, KeyBlock::Uninitialed));
                 *self = KeyBlock::Tls12(Tls12Key::new(suite))
             }

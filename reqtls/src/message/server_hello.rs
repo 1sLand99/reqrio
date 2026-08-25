@@ -51,6 +51,7 @@ impl<'a> ServerHello<'a> {
         let suite = reader.read_u16()?;
         res.cipher_suite = CipherSuite::find(suite).ok_or(HandShakeError::UnknownCipherSuite(suite))?;
         res.compress_method = reader.read_u8()?;
+        if res.version == Version::TLCP { return Ok(res); }
         res.extend_len = reader.read_u16()?;
         res.extensions = Extension::from_reader(reader.read_reader(res.extend_len as usize)?, true)?;
         Ok(res)

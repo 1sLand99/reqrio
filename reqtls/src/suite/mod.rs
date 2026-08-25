@@ -20,6 +20,7 @@ pub enum KeyExchangeAlg {
     DH_DSS,
     DH_RSA,
     RSA,
+    ECC
 }
 
 #[derive(Copy, Clone)]
@@ -485,10 +486,10 @@ impl CipherSuite {
         spec: "TLS_SM4_GCM_SM3",
     };
 
-    pub const TLS_ECDHE_SM4_CBC_SM3: CipherSuite = CipherSuite {
+    pub const ECC_SM4_CBC_SM3: CipherSuite = CipherSuite {
         value: 0xe013,
         cipher: CipherType::SM4_CBC,
-        exchange: KeyExchangeAlg::ECDHE_ECDSA,
+        exchange: KeyExchangeAlg::ECC,
         mac: HashType::Sm3,
         hash: HashType::Sm3,
         key_size: 16,
@@ -496,8 +497,8 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 16,
         mac_key_size: 32,
-        version: &Version::TLS_1_2,
-        spec: "TLS_ECDHE_SM4_CBC_SM3",
+        version: &Version::TLCP,
+        spec: "ECC_SM4_CBC_SM3",
     };
 
     pub const TLS_EMPTY_RENEGOTIATION_INFO_SCSV: CipherSuite = CipherSuite {
@@ -530,7 +531,7 @@ impl CipherSuite {
         version: &Version::TLS_1_0,
     };
 
-    pub const ALL: [CipherSuite; 31] = [
+    pub const ALL: [CipherSuite; 32] = [
         CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
         CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
         CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
@@ -571,6 +572,8 @@ impl CipherSuite {
         CipherSuite::TLS_AES_256_GCM_SHA384,
         CipherSuite::TLS_CHACHA20_POLY1305_SHA256,
         CipherSuite::TLS_EMPTY_RENEGOTIATION_INFO_SCSV,
+
+        CipherSuite::ECC_SM4_CBC_SM3
     ];
 
     pub fn spec(&self) -> &str {

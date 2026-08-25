@@ -5,7 +5,7 @@ use crate::boring::{EcCurve, EvpCurve, Hybrid};
 use crate::buffer::Buf;
 use crate::bytes::Bytes;
 use crate::error::RlsResult;
-use crate::{rand, NamedCurve, RlsError};
+use crate::{rand, NamedCurve, RlsError, Version};
 
 pub use block::{TlsSession, KeyType};
 pub(crate) use derived::DerivedKey;
@@ -45,10 +45,15 @@ pub enum SecretKey {
 }
 
 impl SecretKey {
-    pub fn new_pre_master_secret() -> RlsResult<SecretKey> {
-        let mut master_secret = vec![3, 3];
-        master_secret.extend(rand::random::<[u8; 46]>());
-        Ok(SecretKey::PreMasterSecret(Bytes::new(master_secret)))
+    pub fn new_pre_master_secret(version: &Version) -> RlsResult<SecretKey> {
+        let mut premaster_secret = vec![0; 48];
+        premaster_secret[0..2].copy_from_slice(version.as_u16().to_be_bytes().as_ref());
+        rand::fill(&mut premaster_secret[2..]);
+
+
+        // let mut master_secret = vec![3, 3];
+        // master_secret.extend(rand::random::<[u8; 46]>());
+        Ok(SecretKey::PreMasterSecret(Bytes::new(premaster_secret)))
     }
 
     pub fn new(name_cure: &NamedCurve) -> RlsResult<SecretKey> {
@@ -59,6 +64,7 @@ impl SecretKey {
             NamedCurve::SecP521r1 => Ok(SecretKey::Ec(EcCurve::new_p521()?)),
             NamedCurve::X25519MLKEM768 => Ok(SecretKey::Hybrid(Box::new(Hybrid::new_x25519_768()?))),
             NamedCurve::SecP256r1MLKEM768 => Ok(SecretKey::Hybrid(Box::new(Hybrid::new_p256r1_768()?))),
+            NamedCurve::ECC_SM2 => Ok(SecretKey::new_pre_master_secret(&Version::TLCP)?),
             _ => Err(format!("Unsupported name curve-{:?}", name_cure).into()),
         }
     }

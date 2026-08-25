@@ -64,12 +64,24 @@ pub struct CipherEncodeBuffer<'a> {
 impl<'a> CipherEncodeBuffer<'a> {
     pub(crate) fn new_tls(rt: RecordType, buffer: &'a mut [u8], origin: &'a [u8], suite: &'static CipherSuite) -> CipherEncodeBuffer<'a> {
         let (head, payload) = buffer.split_at_mut(5);
-        head[0] = match *suite.version {
-            Version::TLS_1_3 => 23,
-            _ => rt.as_u8()
+        match *suite.version {
+            Version::TLS_1_3 => {
+                head[0] = 23;
+                head[1] = 3;
+                head[2] = 3;
+            }
+            Version::TLS_1_2 => {
+                head[0] = rt.as_u8();
+                head[1] = 3;
+                head[2] = 3;
+            }
+            Version::TLCP=>{
+                head[0] = rt.as_u8();
+                head[1] = 1;
+                head[2] = 1;
+            }
+            _ => unreachable!(),
         };
-        head[1] = 3;
-        head[2] = 3;
         CipherEncodeBuffer {
             suite,
             head,

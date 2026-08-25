@@ -1,5 +1,5 @@
-use std::fs;
 use reqrio::*;
+use std::fs;
 
 #[cfg(feature = "log")]
 const LOGER: Logger = Logger {
@@ -14,18 +14,19 @@ const LOGER: Logger = Logger {
 #[cfg(feature = "log")]
 fn test_log() {
     set_logger(&LOGER).unwrap();
-    set_max_level(LevelFilter::Debug);
+    set_max_level(LevelFilter::Trace);
 }
 
-unsafe extern "C" {
-    fn RAND_bytes(buf: *mut u8, len: usize) -> i32;
-}
 
 #[tokio::main]
 async fn main() {
     #[cfg(feature = "log")]
     test_log();
     Buffer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
+    let fingerprint = Fingerprint::from_hex(
+        "160101006e0100006a0101c7ec7194d530ff19db95632fa75e775e6a19b321f7d72dadc3610d1e28406b78208eb49beda186277455c7595ac2042ae09b8e7df712fff6bdb40085d390a875b60002e0130100001f6a6a000000000012001000000d746573742e676d73736c2e636efafa000100",
+        fs::read_to_string("TOKEN").unwrap(),
+    ).unwrap();
 
     let t = Time::now();
     let mut timeout = Timeout::longer();
@@ -64,21 +65,21 @@ async fn main() {
         // "sec_ch_ua_model": "\"\"",
         // "sec_ch_ua_platform_version": "\"10.0.0\""
       };
-    tls.remove("id");
-    tls.remove("typ");
-    let d = tls.remove("tls_finger").dump();
+    // tls.remove("id");
+    // tls.remove("typ");
+    // let d = tls.remove("tls_finger").dump();
     // let mut fingerprint = Fingerprint::from_hex_all(d, fs::read_to_string("TOKEN").unwrap()).unwrap();
     // fingerprint.h2_mut().window_size = 15663105;
-    headers.update_by(tls).unwrap();
+    // headers.update_by(tls).unwrap();
     let mut req = AcReq::new()
-        // .with_fingerprint(fingerprint)
+        .with_fingerprint(fingerprint)
         .with_timeout(timeout)
         .with_verify(true)
         .with_key_log("2.log")
         .with_auto_redirect(false)
         // .with_proxy(Proxy::Null)
         .with_verify(false)
-        .with_alpn(ALPN::Http30)
+        .with_alpn(ALPN::Http20)
         .with_header_json(headers).unwrap()
         // .with_proxy(Proxy::try_from("http: //222.186.129.68:15265").unwrap())
         // .with_mtls(certs, key)
@@ -97,16 +98,20 @@ async fn main() {
     // }).await.unwrap();
     // println!("{}", res.json().unwrap().pretty());
     // return;
+    // req.connect("https://test.gmssl.cn/").await.unwrap();
+    let res = req.get("https://test.gmssl.cn/", None).await.unwrap();
+    println!("{}", res.raw_string());
+
 
     // let url = "https://www.dickssportinggoods.com/p/2026-topps-flagship-football-mega-box-26topufang4p4ib5vqjhq/26topufang4p4ib5vqjhq";
-    let url = "https://ts3.tc.mm.bing.net/th/id/ODF.dsR0yzVOEBuWxCU9cjAM4Q?w=32&h=32&qlt=96&pcl=fffffa&o=6&pid=1.2";
-    let sid1 = req.send(Method::GET, url, None).await.unwrap();
+    // let url = "https://ts3.tc.mm.bing.net/th/id/ODF.dsR0yzVOEBuWxCU9cjAM4Q?w=32&h=32&qlt=96&pcl=fffffa&o=6&pid=1.2";
+    // let sid1 = req.send(Method::GET, url, None).await.unwrap();
     // let url = "https://ts3.tc.mm.bing.net/th/id/ODF.pnhuF5msYDWgeLYHsiLTig?w=32&h=32&qlt=95&pcl=fffffa&o=6&pid=1.2";
     // let sid2 = req.send(Method::POST, url, None).await.unwrap();
 
-    let res1 = req.recv(sid1).await.unwrap();
+    // let res1 = req.recv(sid1).await.unwrap();
     // let res1 = req.get(url, None).await.unwrap();
-    println!("{}", res1.raw_string());
+    // println!("{}", res1.raw_string());
     // let res2 = req.recv(sid1).await.unwrap();
     // println!("{}", res2.raw_string());
     // println!("{}", Time::now().as_mills() - t.as_mills())

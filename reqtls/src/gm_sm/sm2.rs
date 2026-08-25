@@ -61,6 +61,14 @@ unsafe extern "C" {
         out: *mut u8,
         out_len: *mut usize,
     ) -> c_int;
+
+    fn SM2_KEY_encrypt_premaster(
+        key: *const SM2_KEY,
+        pms: *const u8,
+        pms_len: usize,
+        out: *mut u8,
+        out_len: *mut usize,
+    ) -> c_int;
 }
 
 pub struct Sm2Key(CPointer<SM2_KEY>);
@@ -188,11 +196,29 @@ impl Sm2Key {
         }.ok(SmError::Sm2GetKeyFailed)?;
         Ok(key)
     }
+
+    pub fn encrypt_premaster(&self, pms: impl AsRef<[u8]>) -> Result<Vec<u8>, SmError> {
+        let mut out = vec![0; 160];
+        let mut out_len = out.len();
+        let pms = pms.as_ref();
+        unsafe {
+            SM2_KEY_encrypt_premaster(
+                self.0.as_mut_ptr(),
+                pms.as_ptr(),
+                pms.len(),
+                out.as_mut_ptr(),
+                &mut out_len,
+            )
+        }.ok(SmError::Sm2EncryptError)?;
+        out.truncate(out_len);
+        Ok(out)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::gm_sm::sm2::{Sm2Key, Sm2Model};
+    use crate::rand;
 
     #[test]
     fn sm2_test() {
@@ -204,6 +230,7 @@ mod tests {
         let pri_key = [19, 238, 7, 135, 31, 63, 80, 40, 250, 184, 86, 234, 236, 32, 132, 117, 46, 85, 104, 181, 74, 170, 152, 62, 92, 250, 163, 111, 118, 123, 50, 139];
         let key = Sm2Key::from_pri_key(pri_key).unwrap();
         key.sign(None::<&str>, "123").unwrap();
+        assert_eq!(key.pub_key(false).unwrap(), pub_key);
         assert!(key.encrypt(Sm2Model::C1C2C3, false, "123").is_ok());
         assert!(key.encrypt(Sm2Model::C1C2C3, true, "123").is_ok());
 
@@ -216,9 +243,16 @@ mod tests {
         let en = [3, 127, 168, 41, 34, 225, 58, 137, 135, 102, 201, 209, 197, 101, 14, 117, 11, 136, 249, 19, 78, 33, 119, 166, 153, 18, 14, 126, 239, 129, 138, 212, 72, 197, 253, 98, 59, 57, 16, 209, 103, 42, 200, 233, 22, 101, 9, 99, 249, 87, 5, 58, 244, 138, 71, 138, 255, 228, 152, 44, 113, 115, 6, 147, 174, 183, 24, 110];
         assert_eq!(key.decrypt(Sm2Model::C1C2C3, en).unwrap(), b"123");
 
-        println!("{:?}", key.pub_key(true).unwrap());
 
         let key = Sm2Key::from_pub_key([2, 165, 139, 156, 242, 170, 161, 246, 2, 255, 48, 131, 192, 157, 249, 167, 37, 157, 10, 54, 206, 74, 0, 3, 65, 193, 75, 15, 229, 96, 238, 69, 134]);
         assert!(key.is_ok());
+
+        let key = Sm2Key::from_pub_key(pub_key).unwrap();
+        let mut pms = [0; 48];
+        pms[0] = 1;
+        pms[1] = 1;
+        rand::fill(&mut pms[2..]);
+        let pre_master = key.encrypt_premaster(pms).unwrap();
+        println!("pre_master: {:?}", pre_master);
     }
 }
