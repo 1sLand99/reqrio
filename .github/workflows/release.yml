@@ -139,6 +139,7 @@ jobs:
           - { os: ubuntu-latest,  artifact: native-linux,   rust_target: "",                    outdir: release,                       file: libreqrio.so }
           - { os: windows-latest, artifact: native-windows, rust_target: "",                    outdir: release,                       file: reqrio.dll }
           - { os: windows-2022,   artifact: go-windows-gnu, rust_target: x86_64-pc-windows-gnu, outdir: x86_64-pc-windows-gnu/release, file: reqrio.dll }
+          - { os: macos-latest,   artifact: native-macos,   rust_target: "",                    outdir: release,                       file: libreqrio.dylib }
     runs-on: ${{ matrix.target.os }}
     env:
       REQRIO_TOKEN: ${{ secrets.REQRIO_TOKEN }}
@@ -247,6 +248,13 @@ jobs:
             cp natives/reqrio.dll bindings/nodejs/ 
             cp natives/reqrio.dll bindings/qt/ 
             cp natives/reqrio.dll bindings/go/ 
+          fi
+          if [ -f natives/libreqrio.dylib ]; then
+            cp natives/libreqrio.dylib bindings/python/reqrio/ 
+            cp natives/libreqrio.dylib bindings/java/src/main/resources/ 
+            cp natives/libreqrio.dylib bindings/nodejs/ 
+            cp natives/libreqrio.dylib bindings/qt/ 
+            cp natives/libreqrio.dylib bindings/go/ 
           fi
           if ls natives/*.lib 1> /dev/null 2>&1; then
             cp natives/reqrio.dll.lib bindings/qt/reqrio.lib
