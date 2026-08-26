@@ -1,5 +1,4 @@
 use reqrio::*;
-use std::os::raw::c_int;
 use std::fs;
 
 #[cfg(feature = "log")]

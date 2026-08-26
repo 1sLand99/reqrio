@@ -157,9 +157,11 @@ pub trait RandomValue {
 impl RandomValue for f32 {
     #[inline(always)]
     fn random(rng: &mut CryptRand) -> f32 {
-        let mut res = 0.0;
-        rng.fill_bytes(bytemuck::bytes_of_mut(&mut res));
-        res
+        let mut bytes = [0u8; 4];
+        rng.fill_bytes(&mut bytes);
+        let n = u32::from_le_bytes(bytes);
+        let r = n as f32 / u32::MAX as f32;
+        0.001 + r * (1.0 - 0.001)
     }
 }
 
@@ -184,9 +186,11 @@ impl RandomValue for u16 {
 impl RandomValue for f64 {
     #[inline(always)]
     fn random(rng: &mut CryptRand) -> f64 {
-        let mut res = 0.0;
-        rng.fill_bytes(bytemuck::bytes_of_mut(&mut res));
-        res
+        let mut bytes = [0u8; 8];
+        rng.fill_bytes(&mut bytes);
+        let n = u64::from_le_bytes(bytes);
+        let r = n as f64 / u64::MAX as f64;
+        0.001 + r * (1.0 - 0.001)
     }
 }
 
