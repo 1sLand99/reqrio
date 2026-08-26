@@ -1,4 +1,5 @@
 use reqrio::*;
+use std::os::raw::c_int;
 use std::fs;
 
 #[cfg(feature = "log")]
@@ -71,6 +72,7 @@ async fn main() {
     // let mut fingerprint = Fingerprint::from_hex_all(d, fs::read_to_string("TOKEN").unwrap()).unwrap();
     // fingerprint.h2_mut().window_size = 15663105;
     // headers.update_by(tls).unwrap();
+    let cert = Certificate::from_der(hex::decode("308201cd30820170a00302010202060172a730a372300c06082a811ccf5501837505003049310b300906035504061302434e310e300c060355040a1305474d53534c3110300e060355040b1307504b492f534d32311830160603550403130f526f6f74434120666f7220546573743022180f32303135313233313136303030305a180f32303335313233303136303030305a3049310b300906035504061302434e310e300c060355040a1305474d53534c3110300e060355040b1307504b492f534d32311830160603550403130f526f6f74434120666f7220546573743059301306072a8648ce3d020106082a811ccf5501822d03420004e3f9aa5894bf9d7565d9efe98565764919b70915750df85b33cfa86e99ec9664fe2a104af6374f9a65dc28ff6d5fb76df6ca8d233cbcddb1c281dbad734905d2a33e303c30190603551d0e041204109c69ec0fba1a39c5afe824ebb29c1204300f0603551d130101ff040530030101ff300e0603551d0f0101ff0404030200c6300c06082a811ccf5501837505000349003046022100849d6e41950874be6b0e2f14a85d873fef3b3efb05b215cd6d9c11c4351e04970221008d4bc2eea29f5aee7e5661cec796ba55f07084dfddb9bf6395f58355c5590507").unwrap()).unwrap();
     let mut req = AcReq::new()
         .with_fingerprint(fingerprint)
         .with_timeout(timeout)
@@ -78,9 +80,10 @@ async fn main() {
         .with_key_log("2.log")
         .with_auto_redirect(false)
         // .with_proxy(Proxy::Null)
-        .with_verify(false)
+        .with_verify(true)
         .with_alpn(ALPN::Http20)
         .with_header_json(headers).unwrap()
+        .with_mtls(vec![], RsaKey::none(), Some(vec![cert]))
         // .with_proxy(Proxy::try_from("http: //222.186.129.68:15265").unwrap())
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::new_socks5("127.0.0.1",10279))
@@ -100,7 +103,7 @@ async fn main() {
     // return;
     // req.connect("https://test.gmssl.cn/").await.unwrap();
     let res = req.get("https://test.gmssl.cn/", None).await.unwrap();
-    println!("{}", res.raw_string());
+    // println!("{}", res.raw_string());
 
 
     // let url = "https://www.dickssportinggoods.com/p/2026-topps-flagship-football-mega-box-26topufang4p4ib5vqjhq/26topufang4p4ib5vqjhq";

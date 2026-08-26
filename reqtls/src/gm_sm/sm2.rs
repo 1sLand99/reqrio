@@ -69,12 +69,30 @@ unsafe extern "C" {
         out: *mut u8,
         out_len: *mut usize,
     ) -> c_int;
+
+    fn SM2_KEY_verify_asn(
+        key: *const SM2_KEY,
+        id: *const u8,
+        id_len: usize,
+        data: *const u8,
+        data_len: usize,
+        sign: *const u8,
+        sign_len: usize,
+    ) -> c_int;
 }
 
 pub struct Sm2Key(CPointer<SM2_KEY>);
 
 impl Sm2Key {
     const DEFAULT_ID: &[u8; 16] = b"1234567812345678";
+    pub fn none() -> Sm2Key {
+        Sm2Key(CPointer::nullptr())
+    }
+    
+    pub fn is_null(&self) -> bool {
+        self.0.is_null()
+    }
+
     fn new() -> Result<Sm2Key, SmError> {
         let key = unsafe { SM2_KEY_new() };
         let key = CPointer::new_checked(key, SmError::Sm2KeyNew)?;
@@ -101,8 +119,8 @@ impl Sm2Key {
         Ok(key)
     }
 
-    pub fn verify(&self, id: Option<impl AsRef<[u8]>>, msg: impl AsRef<[u8]>, sign: impl AsRef<[u8]>) -> Result<(), SmError> {
-        let id = id.as_ref().map(|d| d.as_ref()).unwrap_or(Self::DEFAULT_ID);
+    pub fn verify(&self, id: Option<&'static str>, msg: impl AsRef<[u8]>, sign: impl AsRef<[u8]>) -> Result<(), SmError> {
+        let id = id.as_ref().map(|d| d.as_bytes()).unwrap_or(Self::DEFAULT_ID);
         let msg = msg.as_ref();
         let sign = sign.as_ref();
         let r = &sign[0..32];
@@ -117,8 +135,24 @@ impl Sm2Key {
                 r.as_ptr(),
                 s.as_ptr(),
             )
-        }.ok(SmError::Sm2VerifyFailed)?;
-        Ok(())
+        }.ok(SmError::Sm2VerifyFailed)
+    }
+
+
+    pub fn verify_asn1(&self, data: impl AsRef<[u8]>, sign: impl AsRef<[u8]>) -> Result<(), SmError> {
+        let data = data.as_ref();
+        let sign = sign.as_ref();
+        unsafe {
+            SM2_KEY_verify_asn(
+                self.0.as_mut_ptr(),
+                Self::DEFAULT_ID.as_ptr(),
+                Self::DEFAULT_ID.len(),
+                data.as_ptr(),
+                data.len(),
+                sign.as_ptr(),
+                sign.len(),
+            )
+        }.ok(SmError::Sm2VerifyFailed)
     }
 
     pub fn sign(&self, id: Option<impl AsRef<[u8]>>, msg: impl AsRef<[u8]>) -> Result<[u8; 64], SmError> {
@@ -229,7 +263,7 @@ mod tests {
 
         let pri_key = [19, 238, 7, 135, 31, 63, 80, 40, 250, 184, 86, 234, 236, 32, 132, 117, 46, 85, 104, 181, 74, 170, 152, 62, 92, 250, 163, 111, 118, 123, 50, 139];
         let key = Sm2Key::from_pri_key(pri_key).unwrap();
-        key.sign(None::<&str>, "123").unwrap();
+        println!("{:?}", key.sign(None::<&str>, "123").unwrap());
         assert_eq!(key.pub_key(false).unwrap(), pub_key);
         assert!(key.encrypt(Sm2Model::C1C2C3, false, "123").is_ok());
         assert!(key.encrypt(Sm2Model::C1C2C3, true, "123").is_ok());

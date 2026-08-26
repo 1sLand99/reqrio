@@ -241,6 +241,11 @@ impl BufPtr {
         }
     }
 
+    pub fn disable_auto_free(mut self) -> Self {
+        self.ptr.disable_auto_free();
+        self
+    }
+
     pub fn is_null(&self) -> bool { self.ptr.is_null() }
 
     pub fn ptr_mut(&mut self) -> &mut *mut u8 { self.ptr.as_mut() }

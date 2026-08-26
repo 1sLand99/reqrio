@@ -642,4 +642,12 @@ unsafe extern "C" {
         out_critical: *mut c_int,
         out_idx: *mut c_int,
     ) -> *mut c_void;
+
+    pub(crate) fn X509_sm2_pub_key(
+        cert: *const u8,
+        cert_len: usize,
+        pubkey: *mut *mut u8,
+        pubkey_len: *mut usize,
+        key_usage: *mut u16,
+    ) -> c_int;
 }
