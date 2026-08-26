@@ -1,3 +1,61 @@
+# reqrio-v0.4.0
+
+`v0.4.0` 将 reqrio 的传输能力扩展到 HTTP/3 和 QUIC，并补充了面向国密场景的 TLCP、SM2 支持。
+
+## ✨ 新特性
+
+### 🌊 HTTP/3 与 QUIC
+
+- 新增 QUIC 传输层，实现连接、握手、加密数据包、ACK、流控和流管理。
+- 新增 HTTP/3 请求与响应处理，支持同步和异步请求流程。
+- 新增 QPACK 编解码及静态表、动态表和索引管理。
+- `ScReq` 支持通过 `quic` feature 发起 HTTP/3 请求。
+- 新增 `H3Finger`，用于配置 HTTP/3 指纹。
+- 增加 `QUERY` 请求方法，以及对无序流、`HelloRetry`、`Retry` 数据包和 HTTP/3 响应头的处理。
+
+启用 HTTP/3/QUIC 相关能力时，请开启 `quic` feature：
+
+```toml
+reqrio = { version = "0.4.0", features = ["quic"] }
+```
+
+### 🔐 TLCP 与国密算法
+
+- 支持 TLCP 服务端证书校验。
+- 新增 `Sm2Key`，支持 SM2 加密、解密、签名和验签。
+- 支持 `ECC_SM4_CBC_SM3` 密码套件。
+- 完善 SM2、证书和签名相关的底层接口与错误处理。
+
+### 🧩 HTTPStream 与请求处理
+
+- 抽离并完善 `HTTPStream`，统一 HTTP/1.1、HTTP/2 和 HTTP/3 的流处理结构。
+- `HTTPStream` 支持异步使用。
+- 支持连续调用 `send` 发送多个请求，再通过请求 ID 调用 `recv` 获取对应响应：
+
+```rust
+use reqrio::{Body, Method, ScReq};
+
+let mut req = ScReq::new().connect("https://example.com")?;
+let sid1 = req.send(Method::GET, "https://example.com/first", Body::none())?;
+let sid2 = req.send(Method::GET, "https://example.com/second", Body::none())?;
+
+let first = req.recv(sid1)?;
+let second = req.recv(sid2)?;
+println!("{} {}", first.header().status().code(), second.header().status().code());
+```
+
+- 改进 HTTP/2 请求头和 `content-length` 处理。
+- 修复响应体在缺少 `content-length` 时的扩展问题。
+- 修复流读取、缓冲区扩容、分块解码和 WebSocket 相关问题。
+
+## 🛠️ 工程与平台
+
+- 重构 reqtls 构建流程，将构建逻辑拆分为独立模块。
+- 改进 QUIC feature 的 CI 检查和发布流程。
+- 增加 macOS 构建支持并修复相关 CI 问题。
+- 修复 Python 绑定中的 `upload_file` 问题。
+- 清理对预编译加密库文件的依赖，调整库的构建方式。
+
 # reqrio-v0.3.1
 
 - Allow H2 to add `content-length` field
