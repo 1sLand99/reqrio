@@ -115,7 +115,7 @@ impl<'a> MessageParsed<'a> {
             HandshakeType::ServerHello => Ok(MessageParsed::ServerHello(ServerHello::from_reader(handshake_type, reader)?)),
             HandshakeType::Certificate => Ok(MessageParsed::Certificate(Certificates::from_reader(version, reader, false)?)),
             HandshakeType::CompressedCertificate => Ok(MessageParsed::CompressedCertificate(CompressedCertificate::from_reader(handshake_type, reader)?)),
-            HandshakeType::ServerKeyExchange => Ok(MessageParsed::ServerKeyExchange(ServerKeyExchange::from_reader(handshake_type, reader)?)),
+            HandshakeType::ServerKeyExchange => Ok(MessageParsed::ServerKeyExchange(ServerKeyExchange::from_reader(handshake_type, reader, version)?)),
             HandshakeType::ServerHelloDone => Ok(MessageParsed::ServerHelloDone(ServerHelloDone::from_reader(handshake_type, reader)?)),
             HandshakeType::ClientKeyExchange => Ok(MessageParsed::ClientKeyExchange(ClientKeyExchange::from_reader(reader, alg)?)),
             HandshakeType::NewSessionTicket => Ok(MessageParsed::NewSessionTicket(SessionTicket::from_reader(handshake_type, reader, version)?)),
@@ -146,7 +146,7 @@ impl<'a> MessageParsed<'a> {
         }
     }
 
-    pub fn len(&self, key_size: u8) -> usize {
+    pub fn len(&self, kea: KeyExchangeAlg) -> usize {
         match self {
             MessageParsed::UnParsed => 0,
             MessageParsed::ClientHello(v) => v.len(),
@@ -155,7 +155,7 @@ impl<'a> MessageParsed<'a> {
             MessageParsed::CompressedCertificate(v) => v.len(),
             MessageParsed::ServerKeyExchange(v) => v.len(),
             MessageParsed::ServerHelloDone(v) => v.len(),
-            MessageParsed::ClientKeyExchange(v) => v.len(key_size),
+            MessageParsed::ClientKeyExchange(v) => v.len(kea),
             MessageParsed::NewSessionTicket(v) => v.len(),
             MessageParsed::Payload(v) => v.len(),
             MessageParsed::CertificateStatus(v) => v.len(),
@@ -168,7 +168,7 @@ impl<'a> MessageParsed<'a> {
         }
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) -> Result<(), BufferError> {
+    pub fn write_to<W: WriteExt>(self, writer: &mut W, kea: KeyExchangeAlg) -> Result<(), BufferError> {
         match self {
             MessageParsed::UnParsed => Ok(()),
             MessageParsed::ClientHello(v) => v.write_to(writer),
@@ -177,7 +177,7 @@ impl<'a> MessageParsed<'a> {
             MessageParsed::CompressedCertificate(v) => v.write_to(writer),
             MessageParsed::ServerKeyExchange(v) => v.write_to(writer),
             MessageParsed::ServerHelloDone(v) => v.write_to(writer),
-            MessageParsed::ClientKeyExchange(v) => v.write_to(writer, key_size),
+            MessageParsed::ClientKeyExchange(v) => v.write_to(writer, kea),
             MessageParsed::NewSessionTicket(v) => v.write_to(writer),
             MessageParsed::Payload(v) => writer.write_slice(v.as_ref()),
             MessageParsed::CertificateStatus(v) => v.write_to(writer),

@@ -112,14 +112,14 @@ impl Connection {
         self.update_session(client_hello)
     }
 
-    pub fn set_by_server_hello(&mut self, server_hello: &ServerHello) -> RlsResult<bool> {
+    pub fn set_by_server_hello(&mut self, server_hello: &ServerHello, version: Version) -> RlsResult<bool> {
         self.alpn = server_hello.alpn();
         self.derived.session_mut().set_session_id(server_hello.session_id.as_ref());
         self.cipher_suite = server_hello.cipher_suite;
         self.hasher.init(self.cipher_suite.hash())?;
         if let Some(version) = server_hello.supported_version() {
             self.version = *version;
-        }
+        } else { self.version = version; }
         if server_hello.random().as_ref() == Self::HRR_MAGIC { return Ok(true); }
         self.hasher.update(&self.session_bytes)?;
         #[cfg(feature = "log")]
@@ -143,7 +143,8 @@ impl Connection {
 
     pub(crate) fn derived_key_cipher(&mut self, typ: KeyType) -> RlsResult<()> {
         #[cfg(feature = "log")]
-        trace!("[DerivedCipher] type={:?}; cipher={:?}; mac={:?}",typ,self.cipher_suite.cipher(),self.cipher_suite.mac_hash());
+        trace!("[DerivedCipher] type={:?}; cipher={:?}; mac={:?}; veriosn={:?}",
+            typ,self.cipher_suite.cipher(),self.cipher_suite.mac_hash(),self.version);
         let key = self.derived.make_cipher_key(&self.version, typ)?;
         let sk = key.send_key(typ, self.server);
         let smk = key.send_mac_key(self.server);
@@ -163,7 +164,11 @@ impl Connection {
     pub fn set_by_certificate(&mut self, certificate: Certificates, ext_cas: &[Certificate], sni: &str) -> RlsResult<()> {
         for certificate in certificate.certificates() {
             self.certificates.push(Certificate::from_der(certificate.as_ref())?);
-            if !self.verify { return Ok(()); }
+        }
+        if !self.verify { return Ok(()); };
+        if self.version == Version::TLCP {
+            self.certificates[0].verify_sni(sni)?;
+            return Ok(());
         }
         self.root_stores.verify_cert(&mut self.certificates, ext_cas, sni)
     }
@@ -183,15 +188,36 @@ impl Connection {
         }
     }
 
-    fn gen_key_sign_data(&self, server_key: &ServerKeyExchange) -> Vec<u8> {
-        let mut sign_data = Vec::with_capacity(512);
-        sign_data.extend_from_slice(self.derived.client_random());
-        sign_data.extend_from_slice(self.derived.server_random());
-        sign_data.push(*server_key.hellman_param().curve_type() as u8);
-        sign_data.extend(server_key.hellman_param().named_curve().as_u16().to_be_bytes());
-        sign_data.push(server_key.hellman_param().pub_key().len() as u8);
-        sign_data.extend(server_key.hellman_param().pub_key().as_ref());
-        sign_data
+    fn gen_key_sign_data(&mut self, server_key: &ServerKeyExchange, key: &mut Sm2Key) -> RlsResult<Vec<u8>> {
+        match self.version {
+            Version::TLCP => {
+                let mut sign_data = Vec::with_capacity(1024);
+                sign_data.extend_from_slice(self.derived.client_random());
+                sign_data.extend_from_slice(self.derived.server_random());
+                for certificate in self.certificates.iter_mut() {
+                    let (pubkey, key_usage) = certificate.sm2_pub_key()?;
+                    if key_usage & 0x80 == 0x80 && key.is_null() {
+                        *key = Sm2Key::from_pub_key(pubkey.as_slice())?;
+                    } else if key_usage & 0x20 == 0x20 {
+                        let len = certificate.as_der()?.as_slice().len() as u32;
+                        sign_data.extend_from_slice(&len.to_be_bytes()[1..]);
+                        sign_data.extend_from_slice(certificate.as_der()?.as_slice());
+                    }
+                    if !key.is_null() && sign_data.len() > 64 { break; }
+                }
+                Ok(sign_data)
+            }
+            _ => {
+                let mut sign_data = Vec::with_capacity(512);
+                sign_data.extend_from_slice(self.derived.client_random());
+                sign_data.extend_from_slice(self.derived.server_random());
+                sign_data.push(*server_key.hellman_param().curve_type() as u8);
+                sign_data.extend(server_key.hellman_param().named_curve().as_u16().to_be_bytes());
+                sign_data.push(server_key.hellman_param().pub_key().len() as u8);
+                sign_data.extend(server_key.hellman_param().pub_key().as_ref());
+                Ok(sign_data)
+            }
+        }
     }
 
     pub fn verify_cert(&mut self, verify: CertificateVerify<'_>, server: bool) -> RlsResult<()> {
@@ -239,10 +265,19 @@ impl Connection {
         self.named_curve = *server_key.hellman_param().named_curve();
         #[cfg(feature = "log")]
         info!("[ExchangeKey] algorithm={}; curve={:?}; verify={}", self.sig_alg.spec(), self.named_curve, self.verify);
-        if self.verify {
-            let sign_data = self.gen_key_sign_data(&server_key);
-            let signature = AlgorithmSigner::new_verify(self.certificates[0].pub_key()?, self.sig_alg)?;
-            signature.verify(sign_data, server_key.hellman_param().signature().as_ref())?;
+        match (self.verify, self.version) {
+            (true, Version::TLCP) => {
+                println!("verify sign");
+                let mut key = Sm2Key::none();
+                let sign_data = self.gen_key_sign_data(&server_key, &mut key)?;
+                key.verify_asn1(sign_data, server_key.hellman_param().signature().as_ref())?;
+            }
+            (true, _) => {
+                let sign_data = self.gen_key_sign_data(&server_key, &mut Sm2Key::none())?;
+                let signature = AlgorithmSigner::new_verify(self.certificates[0].pub_key()?, self.sig_alg)?;
+                signature.verify(sign_data, server_key.hellman_param().signature().as_ref())?;
+            }
+            (_, _) => {}
         }
         self.exchange_pub_key = Bytes::new(server_key.hellman_param().pub_key().to_vec());
         self.secret_key = Some(SecretKey::new(&self.named_curve)?);
@@ -261,19 +296,30 @@ impl Connection {
 
     pub fn pub_share_key(&mut self) -> RlsResult<Buf<'_>> {
         match self.secret_key {
+            Some(SecretKey::PreMasterSecret(ref bs)) => {
+                debug_assert_eq!(self.version, Version::TLCP);
+                let cert = self.certificates.iter_mut().find_map(|cert| {
+                    let cert = cert.sm2_pub_key().ok().filter(|x| x.1 & 0x20 == 0x20);
+                    cert.map(|x| x.0)
+                }).ok_or(HandShakeError::MissingPubkey)?;
+                let key = Sm2Key::from_pub_key(cert.as_slice())?;
+                let pubkey = key.encrypt_premaster(bs.as_ref())?;
+                Ok(Buf::Vec(pubkey))
+            }
+            Some(ref key) => key.pub_key(),
             None => {
-                let key = SecretKey::new_pre_master_secret()?;
+                debug_assert_eq!(self.version, Version::TLS_1_2);
+                let key = SecretKey::new_pre_master_secret(&self.version)?;
                 let rsa = RsaCipher::new(self.certificates[0].pub_key()?)?;
                 let pub_key = Buf::Vec(rsa.encrypt(key.pub_key()?.as_ref())?);
                 self.secret_key = Some(key);
                 Ok(pub_key)
             }
-            Some(ref key) => key.pub_key(),
         }
     }
 
     pub fn make_cipher(&mut self, recover: bool) -> RlsResult<()> {
-        if let Version::TLS_1_2 = self.version && !recover {
+        if matches!(self.version, Version::TLS_1_2|Version::TLCP) && !recover {
             let secret_key = self.secret_key.as_mut().ok_or("Invalid secret key")?;
             let share_secret = secret_key.diffie_hellman(self.exchange_pub_key.as_ref())?;
             self.derived.make_master(Version::TLS_1_2, share_secret, self.hasher.current_hash()?)?;
@@ -293,7 +339,7 @@ impl Connection {
         //server hello
         let mut server_hello = ServerHello::from_client_hello(client_hello, alpn)?;
         server_hello.set_random(random);
-        self.set_by_server_hello(&server_hello)?;
+        self.set_by_server_hello(&server_hello, Version::TLS_1_2)?;
         record.messages.push(Message::new_parsed(MessageParsed::ServerHello(server_hello)));
         //certificate
         let mut certificates = Certificates::default();
@@ -306,7 +352,7 @@ impl Connection {
         let key = SecretKey::new(server_key_exchange.hellman_param().named_curve())?;
         server_key_exchange.hellman_param_mut().set_pub_key(Buf::Vec(key.pub_key()?.to_vec()));
         self.secret_key = Some(key);
-        let sign_data = self.gen_key_sign_data(&server_key_exchange);
+        let sign_data = self.gen_key_sign_data(&server_key_exchange, &mut Sm2Key::none())?;
         let signer = AlgorithmSigner::new_sign(pri_key.pkey(), server_key_exchange.hellman_param().signature_algorithm())?;
         server_key_exchange.hellman_param_mut().set_signature(Buf::Vec(signer.sign(&sign_data)?));
         self.exchange_pub_key = Bytes::new(server_key_exchange.hellman_param().pub_key().to_vec());
@@ -388,9 +434,9 @@ impl Connection {
         let signer = AlgorithmSigner::new_sign(key.pkey(), &self.mtls_hash)?;
         let sign = signer.sign(mem::take(&mut self.session_bytes))?;
         cert_verify.set_sign(&sign);
-        let mut record = RecordLayer::handshake();
+        let mut record = RecordLayer::handshake(self.version);
         record.messages.push(Message::new_parsed(MessageParsed::CertificateVerify(cert_verify)));
-        record.write_to(writer, 1)
+        record.write_to(writer, KeyExchangeAlg::NULL)
     }
 
     pub fn set_secret_keys(&mut self, keys: HashMap<NamedCurve, SecretKey>) {

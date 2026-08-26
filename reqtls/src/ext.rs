@@ -1,6 +1,5 @@
 use crate::config::{ClientConfig, Config};
 use crate::error::RlsResult;
-use crate::suite::KeyExchangeAlg;
 use crate::*;
 #[cfg(feature = "log")]
 use log::{debug, trace, warn};
@@ -61,11 +60,10 @@ pub trait StreamHandle {
         }
         #[cfg(feature = "quic")]
         if config.alpn == &ALPN::Http30 { client_hello.build_quic()?; }
-        let mut record = RecordLayer::handshake();
+        let mut record = RecordLayer::handshake(Version::TLS_1_0);
         record.messages = vec![client_hello.into()];
-        record.version = Version::TLS_1_0;
 
-        record.write_to(param.write_buffer, 1)?;
+        record.write_to(param.write_buffer, param.conn.cipher_suite().exchange_alg())?;
         param.conn.set_secret_keys(secrets);
         param.conn.update_session(&param.write_buffer.filled()[5..])?;
         Ok(())
@@ -75,8 +73,8 @@ pub trait StreamHandle {
     /// * `param` - 流参数
     /// * `server_hello` - 已解析的结构
     /// * 返回是否为hello_retry
-    fn handle_server_hello(param: &mut StreamParam<'_>, server_hello: ServerHello) -> Result<bool, RlsError> {
-        let hello_retry = param.conn.set_by_server_hello(&server_hello)?;
+    fn handle_server_hello(param: &mut StreamParam<'_>, version: Version, server_hello: ServerHello) -> Result<bool, RlsError> {
+        let hello_retry = param.conn.set_by_server_hello(&server_hello, version)?;
         if hello_retry {
             #[cfg(feature = "log")]
             debug!("[ParsingServerHello] hello_retry=true; retry_share={:?}",server_hello.key_share_extend().map(|x|x.key_entry().name_curve()));
@@ -99,7 +97,7 @@ pub trait StreamHandle {
                 version: Version::TLS_1_2,
                 messages: vec![Message::new_parsed(MessageParsed::ClientHello(client))],
             };
-            record.write_to(param.write_buffer, 1)?;
+            record.write_to(param.write_buffer, param.conn.cipher_suite().exchange_alg())?;
             param.conn.hello_retry(&param.write_buffer.filled()[5..])?;
             param.conn.set_secret_keys(secrets);
             *param.hello_retrying = true;
@@ -112,26 +110,26 @@ pub trait StreamHandle {
     fn handle_server_hello_done(param: &mut StreamParam<'_>, config: &mut Config) -> Result<(), RlsError> {
         let config = config.client_mut().ok_or("missing config")?;
         let offset = param.write_buffer.offset().end;
+        let kea = param.conn.cipher_suite().exchange_alg();
         if !config.client_cert.is_empty() {
             //client certificate
             let mut certificate = Certificates::default();
             if let Some(cert) = config.client_cert.get_mut(0) {
                 certificate.add_certificate(cert.as_der()?.as_slice());
             }
-            let mut record = RecordLayer::handshake();
+            let mut record = RecordLayer::handshake(*param.conn.version());
             record.messages.push(certificate.into());
-            record.write_to(param.write_buffer, 1)?;
+            record.write_to(param.write_buffer, kea)?;
             param.conn.update_session(param.write_buffer.slice_at(offset + 5))?;
         }
         let offset = param.write_buffer.offset().end;
         //client key exchange
+        let mut record = RecordLayer::handshake(*param.conn.version());
         let mut client_key_exchange = ClientKeyExchange::default();
-        let key_size = if matches!(param.conn.cipher_suite().exchange_alg(), KeyExchangeAlg::RSA) { 2 } else { 1 };
         let pub_key = param.conn.pub_share_key()?;
         client_key_exchange.set_pub_key(pub_key.as_ref());
-        let mut record = RecordLayer::handshake();
         record.messages.push(client_key_exchange.into());
-        record.write_to(param.write_buffer, key_size)?;
+        record.write_to(param.write_buffer, kea)?;
 
         param.conn.update_session(param.write_buffer.slice_at(offset + 5))?;
         param.conn.make_cipher(false)?;
@@ -141,7 +139,14 @@ pub trait StreamHandle {
             param.conn.handle_mtls_client(param.write_buffer, config.cert_key)?;
             param.conn.update_session(param.write_buffer.slice_at(offset + 5))?;
         }
-        param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
+        //change_cipher_spec
+        param.write_buffer.write_u8(20)?;
+        param.write_buffer.write_u16(param.conn.version().as_u16())?;
+        param.write_buffer.write_u8(0)?;
+        param.write_buffer.write_u8(1)?;
+        param.write_buffer.write_u8(1)?;
+
+        // param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
         let record_len = param.conn.make_finish_message(param.write_buffer.unfilled(), false)?;
         param.write_buffer.add_len(record_len);
         Ok(())
@@ -180,13 +185,13 @@ pub trait StreamHandle {
         Ok(())
     }
 
-    fn handle_handshake(param: &mut StreamParam<'_>, mut config: Option<&mut Config<'_>>, message: Message<'_>) -> RlsResult<()> {
+    fn handle_handshake(param: &mut StreamParam<'_>, mut config: Option<&mut Config<'_>>, message: Message<'_>, version: Version) -> RlsResult<()> {
         #[cfg(feature = "log")]
         trace!("[HandleHandshake] message: {:?}]", message);
         match message.parsed {
             MessageParsed::ServerHello(server_hello) => {
                 param.conn.update_session(message.encoded.as_ref())?;
-                let hello_retry = Self::handle_server_hello(param, server_hello)?;
+                let hello_retry = Self::handle_server_hello(param, version, server_hello)?;
                 if hello_retry { return Ok(()); }
             }
             MessageParsed::Certificate(v) => {
@@ -214,7 +219,7 @@ pub trait StreamHandle {
                 let server = config.server_mut().ok_or("missing config")?;
                 let record = param.conn.gen_server_hello(v, server.server_cert, server.cert_key, &random, server.alpn.clone())?;
                 let offset = param.write_buffer.offset().end;
-                record.write_to(param.write_buffer, 1)?;
+                record.write_to(param.write_buffer, param.conn.cipher_suite().exchange_alg())?;
                 param.conn.update_session(param.write_buffer.slice_at(offset + 5))?;
                 return Ok(());
             }
@@ -265,7 +270,7 @@ pub trait StreamHandle {
 
     fn handle_record(&mut self, record_len: usize, mut config: Option<&mut Config<'_>>, app_buf: &mut [u8]) -> Result<usize, RlsError> {
         let (read_buffer, mut param) = self.stream_param();
-        let record = RecordLayer::from_bytes(read_buffer.filled(), param.conn.cipher_suite().exchange_alg(), *param.encrypted_channel)?;
+        let record = RecordLayer::from_bytes(read_buffer.filled(), param.conn.cipher_suite().exchange_alg(), *param.encrypted_channel).unwrap();
         match record.content_type {
             RecordType::CipherSpec => {
                 #[cfg(feature = "log")]
@@ -290,7 +295,7 @@ pub trait StreamHandle {
                     Self::handle_finish(&mut param)?;
                 }
                 false => for message in record.messages {
-                    Self::handle_handshake(&mut param, config.as_deref_mut(), message)?
+                    Self::handle_handshake(&mut param, config.as_deref_mut(), message, record.version)?
                 }
             }
             RecordType::ApplicationData => {
@@ -316,7 +321,7 @@ pub trait StreamHandle {
                         let mut msg_readers = Reader::from_slice(&app_buf[..len - 1]);
                         while msg_readers.unread_len() > 0 {
                             let message = Message::from_reader(&mut msg_readers, &record_type, param.conn.cipher_suite().exchange_alg(), param.conn.version())?;
-                            Self::handle_handshake(&mut param, config.as_deref_mut(), message)?;
+                            Self::handle_handshake(&mut param, config.as_deref_mut(), message, Version::TLS_1_3)?;
                         }
                         0
                     }

@@ -16,7 +16,8 @@ pub enum HandShakeError {
     UnknownCipherSuite(u16),
     QUICMissingKeyShare,
     MissingSupportedVersions,
-    MissingQUICParameters
+    MissingQUICParameters,
+    MissingPubkey,
 }
 
 impl Display for HandShakeError {

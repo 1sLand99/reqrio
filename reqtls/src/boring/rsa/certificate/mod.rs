@@ -93,6 +93,24 @@ impl Certificate {
         Ok(&self.pkey)
     }
 
+    pub fn sm2_pub_key(&mut self) -> Result<(BufPtr, u16), RlsError> {
+        let cert = self.as_der()?.as_slice();
+        let mut pubkey = BufPtr::nullptr().disable_auto_free();
+        let mut pubkey_len = 0;
+        let mut key_usage = 0;
+        unsafe {
+            X509_sm2_pub_key(
+                cert.as_ptr(),
+                cert.len(),
+                pubkey.ptr_mut(),
+                &mut pubkey_len,
+                &mut key_usage,
+            )
+        }.ok(RlsError::WritePubKeyError)?;
+        pubkey.check_ptr(pubkey_len)?;
+        Ok((pubkey, key_usage))
+    }
+
     pub fn verify_sni(&self, sni: impl Into<Vec<u8>>) -> RlsResult<()> {
         let sni = sni.into();
         let sni_len = sni.len();

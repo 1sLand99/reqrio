@@ -39,17 +39,17 @@ pub struct RecordLayer<'a> {
 }
 
 impl<'a> RecordLayer<'a> {
-    pub fn new(rt: RecordType) -> RecordLayer<'a> {
+    pub fn new(rt: RecordType, version: Version) -> RecordLayer<'a> {
         RecordLayer {
             content_type: rt,
-            version: Version::TLS_1_2,
+            version,
             len: 0,
             messages: vec![],
         }
     }
 
-    pub fn handshake() -> RecordLayer<'a> {
-        RecordLayer::new(RecordType::HandShake)
+    pub fn handshake(version: Version) -> RecordLayer<'a> {
+        RecordLayer::new(RecordType::HandShake, version)
     }
 
     pub fn from_bytes(bytes: &'a [u8], alg: KeyExchangeAlg, encrypted: bool) -> RlsResult<RecordLayer<'a>> {
@@ -77,16 +77,16 @@ impl<'a> RecordLayer<'a> {
         })
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) -> RlsResult<()> {
+    pub fn write_to<W: WriteExt>(self, writer: &mut W, kea: KeyExchangeAlg) -> RlsResult<()> {
         let offset = writer.offset().end;
         let sni = self.messages[0].parsed.client().map(|x| x.server_name().unwrap_or("")).unwrap_or("").to_string();
         let h2 = self.messages[0].parsed.client().map(|x| x.alps().map(|x| x.values().iter().any(|x| x == &ALPN::Http20)).unwrap_or(false)).unwrap_or(false);
         writer.write_u8(self.content_type as u8)?;
         writer.write_u16(self.version.into_inner())?;
-        let len = self.messages.iter().map(|x| x.parsed.len(key_size)).sum::<usize>();
+        let len = self.messages.iter().map(|x| x.parsed.len(kea)).sum::<usize>();
         writer.write_u16(len as u16)?;
         for message in self.messages {
-            message.parsed.write_to(writer, key_size)?;
+            message.parsed.write_to(writer, kea)?;
         }
         writer.flush(offset, sni, h2)
     }

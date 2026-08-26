@@ -164,7 +164,7 @@ impl<S: AsyncRead + Unpin> AsyncRead for TlsStreamA<S> {
                 Poll::Ready(len) => len,
                 Poll::Pending => return Poll::Pending,
             };
-            let len = stream.handle_record(record_len, None, buf.initialized_mut())?;
+            let len = stream.handle_record(record_len, None, buf.initialized_mut()).unwrap();
             stream.read_buffer.used_empty(record_len);
             if len == 0 { continue; }
             buf.set_filled(len);

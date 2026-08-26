@@ -8,7 +8,7 @@ use crate::coder::CodingError;
 use crate::dns::DNSError;
 use crate::hash::HashError;
 use crate::url::UrlError;
-use crate::{Alert, BufferError};
+use crate::{Alert, BufferError, SmError};
 pub use handshake::HandShakeError;
 use hex::FromHexError;
 use std::array::TryFromSliceError;
@@ -96,6 +96,7 @@ pub enum RlsError {
     Cipher(CipherError),
     Pkey(PKeyError),
     Coding(CodingError),
+    Sm(SmError),
 }
 
 impl Display for RlsError {
@@ -169,6 +170,7 @@ impl Display for RlsError {
             RlsError::Cipher(e) => write!(f, "Cipher({:?})", e),
             RlsError::Pkey(e) => write!(f, "Pkey({:?})", e),
             RlsError::Coding(e) => write!(f, "Coding({:?})", e),
+            RlsError::Sm(sm) => write!(f, "Sm({:?})", sm),
         }
     }
 }
@@ -329,6 +331,12 @@ impl From<PKeyError> for RlsError {
 impl From<CodingError> for RlsError {
     fn from(value: CodingError) -> Self {
         RlsError::Coding(value)
+    }
+}
+
+impl From<SmError> for RlsError {
+    fn from(value: SmError) -> Self {
+        RlsError::Sm(value)
     }
 }
 

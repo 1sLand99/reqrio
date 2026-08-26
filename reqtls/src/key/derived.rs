@@ -128,7 +128,7 @@ impl DerivedKey {
 
     pub fn make_master(&mut self, version: Version, share_secret: Vec<u8>, session_hash: &[u8]) -> RlsResult<()> {
         match version {
-            Version::TLS_1_2 => self.make_tls12_master(share_secret, session_hash),
+            Version::TLS_1_2 | Version::TLCP => self.make_tls12_master(share_secret, session_hash),
             Version::TLS_1_3 => Ok(()),
             _ => Err(HandShakeError::UnsupportedVersion(version).into()),
         }
@@ -166,7 +166,7 @@ impl DerivedKey {
 
         Ok(&self.key_block)
     }
-    
+
     #[cfg(feature = "quic")]
     pub fn make_initial_quic_secret(&mut self, cid: &[u8]) -> RlsResult<()> {
         let mut inti_hkdf = Hkdf::new(&Self::INIT_SLAT, cid, HashType::Sha256)?;
@@ -178,7 +178,7 @@ impl DerivedKey {
 
     pub fn make_cipher_key(&mut self, version: &Version, typ: KeyType) -> RlsResult<&KeyBlock> {
         Ok(match *version {
-            Version::TLS_1_2 => self.make_tls12_cipher_key()?,
+            Version::TLS_1_2 | Version::TLCP => self.make_tls12_cipher_key()?,
             Version::TLS_1_3 => self.make_tls13_cipher_key(typ)?,
             _ => return Err(HandShakeError::UnsupportedVersion(*version).into()),
         })
@@ -187,7 +187,7 @@ impl DerivedKey {
 
     pub fn make_finish(&mut self, version: Version, server: bool, session_hash: &[u8]) -> RlsResult<Vec<u8>> {
         match version {
-            Version::TLS_1_2 => self.make_tls12_finish(server, session_hash),
+            Version::TLS_1_2 | Version::TLCP => self.make_tls12_finish(server, session_hash),
             Version::TLS_1_3 => self.make_tls13_finish(server, session_hash),
             _ => Err(HandShakeError::UnsupportedVersion(version).into()),
         }

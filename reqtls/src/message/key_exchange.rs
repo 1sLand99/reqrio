@@ -3,7 +3,7 @@ use super::super::message::HandshakeType;
 use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::suite::KeyExchangeAlg;
-use crate::{u24, BufferError, ReadExt, Reader, WriteExt};
+use crate::{u24, BufferError, ReadExt, Reader, Version, WriteExt};
 use std::fmt::{Debug, Formatter};
 
 #[derive(Debug, Copy, Clone)]
@@ -44,6 +44,9 @@ impl NamedCurve {
     pub const FFDHE8192: u16 = 0x0104;
 
 
+    pub const ECC_SM2: u16 = 0xFFFF;
+
+
     pub const ALL: [u16; 13] = [
         NamedCurve::X25519,
         NamedCurve::X448,
@@ -57,7 +60,8 @@ impl NamedCurve {
         NamedCurve::FFDHE3072,
         NamedCurve::FFDHE4096,
         NamedCurve::FFDHE6144,
-        NamedCurve::FFDHE8192];
+        NamedCurve::FFDHE8192
+    ];
 
     fn spec(&self) -> &str {
         match self.0 {
@@ -72,6 +76,7 @@ impl NamedCurve {
             NamedCurve::FFDHE4096 => "FFDHE4096",
             NamedCurve::FFDHE6144 => "FFDHE6144",
             NamedCurve::FFDHE8192 => "FFDHE8192",
+            NamedCurve::ECC_SM2 => "ECC_SM2",
             _ => "Reserved"
         }
     }
@@ -137,13 +142,18 @@ impl<'a> ServerHellmanParam<'a> {
             signature: Buf::Ref(&[]),
         }
     }
-    pub fn from_reader(reader: &mut Reader<'a>) -> RlsResult<ServerHellmanParam<'a>> {
+    pub fn from_reader(reader: &mut Reader<'a>, version: &Version) -> RlsResult<ServerHellmanParam<'a>> {
         let mut res = ServerHellmanParam::new();
-        res.curve_type = CurveType::from_u8(reader.read_u8()?).ok_or("CurveType Unknown")?;
-        res.named_curve = NamedCurve::new(reader.read_u16()?);
-        res.pub_key_len = reader.read_u8()?;
-        res.pub_key = Buf::Ref(reader.read_slice(res.pub_key_len as usize)?);
-        res.signature_algorithm = SignatureAlgorithm::new(reader.read_u16()?);
+        if !matches!(version, &Version::TLCP) {
+            res.curve_type = CurveType::from_u8(reader.read_u8()?).ok_or("CurveType Unknown")?;
+            res.named_curve = NamedCurve::new(reader.read_u16()?);
+            res.pub_key_len = reader.read_u8()?;
+            res.pub_key = Buf::Ref(reader.read_slice(res.pub_key_len as usize)?);
+            res.signature_algorithm = SignatureAlgorithm::new(reader.read_u16()?);
+        } else {
+            res.named_curve = NamedCurve::ECC_SM2.into();
+            res.signature_algorithm = SignatureAlgorithm::new(0);
+        }
         res.signature_len = reader.read_u16()?;
         res.signature = Buf::Ref(reader.read_slice(res.signature_len as usize)?);
         Ok(res)
@@ -206,11 +216,11 @@ impl<'a> Default for ServerKeyExchange<'a> {
 }
 
 impl<'a> ServerKeyExchange<'a> {
-    pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>) -> RlsResult<ServerKeyExchange<'a>> {
+    pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>, version: &Version) -> RlsResult<ServerKeyExchange<'a>> {
         reader.read_u24()?;
         Ok(ServerKeyExchange {
             handshake_type: ht,
-            hellman_param: ServerHellmanParam::from_reader(reader)?,
+            hellman_param: ServerHellmanParam::from_reader(reader, version)?,
         })
     }
 
@@ -250,7 +260,7 @@ impl<'a> ClientHellmanParam<'a> {
     pub fn from_reader(reader: &mut Reader<'a>, alg: KeyExchangeAlg) -> RlsResult<ClientHellmanParam<'a>> {
         let mut res = ClientHellmanParam::new();
         res.pub_key_len = match alg {
-            KeyExchangeAlg::RSA => reader.read_u16()?,
+            KeyExchangeAlg::RSA | KeyExchangeAlg::ECC => reader.read_u16()?,
             _ => reader.read_u8()? as u16,
         };
         // let key_size = suite.map(|x| x.key_size()).unwrap_or(1);
@@ -258,14 +268,15 @@ impl<'a> ClientHellmanParam<'a> {
         res.pub_key = Buf::Ref(reader.read_slice(res.pub_key_len as usize)?);
         Ok(res)
     }
-    pub fn len(&self, key_size: u8) -> usize {
-        key_size as usize + self.pub_key.len()
+    pub fn len(&self, alg: KeyExchangeAlg) -> usize {
+        let key_size = if matches!(alg, KeyExchangeAlg::RSA | KeyExchangeAlg::ECC) { 2 } else { 1 };
+        key_size + self.pub_key.len()
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) -> Result<(), BufferError> {
-        match key_size {
-            2 => writer.write_u16(self.pub_key.len() as u16)?,
-            _ => writer.write_u8(self.pub_key.len() as u8)?,
+    pub fn write_to<W: WriteExt>(self, writer: &mut W, alg: KeyExchangeAlg) -> Result<(), BufferError> {
+        match alg {
+            KeyExchangeAlg::RSA | KeyExchangeAlg::ECC => writer.write_u16(self.pub_key.len() as u16)?,
+            _=> writer.write_u8(self.pub_key.len() as u8)?,
         }
         writer.write_slice(self.pub_key.as_ref())
     }
@@ -299,14 +310,14 @@ impl<'a> ClientKeyExchange<'a> {
         })
     }
 
-    pub fn len(&self, key_size: u8) -> usize {
-        4 + self.hellman_param.len(key_size)
+    pub fn len(&self, kea: KeyExchangeAlg) -> usize {
+        4 + self.hellman_param.len(kea)
     }
 
-    pub fn write_to<W: WriteExt>(self, writer: &mut W, key_size: u8) -> Result<(), BufferError> {
+    pub fn write_to<W: WriteExt>(self, writer: &mut W, kea: KeyExchangeAlg) -> Result<(), BufferError> {
         writer.write_u8(self.handshake_type as u8)?;
-        writer.write_u24(self.hellman_param.len(key_size) as u24)?;
-        self.hellman_param.write_to(writer, key_size)
+        writer.write_u24(self.hellman_param.len(kea) as u24)?;
+        self.hellman_param.write_to(writer, kea)
     }
 
     pub fn set_pub_key(&mut self, pub_key: &'a [u8]) {

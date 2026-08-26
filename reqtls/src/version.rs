@@ -9,7 +9,14 @@ impl Version {
     pub const TLS_1_1: Version = Version(0x302);
     pub const TLS_1_2: Version = Version(0x303);
     pub const TLS_1_3: Version = Version(0x304);
-    pub const ALL: [Version; 4] = [Version::TLS_1_0, Version::TLS_1_1, Version::TLS_1_2, Version::TLS_1_3];
+    pub const TLCP: Version = Version(0x101);
+    pub const ALL: [Version; 5] = [
+        Version::TLS_1_0,
+        Version::TLS_1_1,
+        Version::TLS_1_2,
+        Version::TLS_1_3,
+        Version::TLCP
+    ];
 }
 
 impl Version {
@@ -45,6 +52,7 @@ impl Debug for Version {
             0x302 => write!(f, "TLS_1_1(0x{:04x})", self.0),
             0x303 => write!(f, "TLS_1_2(0x{:04x})", self.0),
             0x304 => write!(f, "TLS_1_3(0x{:04x})", self.0),
+            0x101 => write!(f, "TLCP(0x{:04x})", self.0),
             _ => write!(f, "Reserved(0x{:04x})", self.0)
         }
     }
