@@ -80,7 +80,6 @@ impl CipherCrypto {
     ///```
     pub fn encrypt(&self, param: CryptEncodeParam) -> RlsResult<()> {
         self.cipher.init_cipher(param.iv, 1)?;
-        println!("encrypt={} key={:?} {:?}", self.mac_key.len(), self.mac_key, self.hash);
         let mut hmac = Hmac::new(&self.mac_key, self.hash)?;
         hmac.update(param.seq.to_be_bytes())?;
         hmac.update(&param.buffer.head()[..3])?;

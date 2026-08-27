@@ -303,11 +303,9 @@ pub use packet::{
 pub use reqrio_json as json;
 pub use reqtls::*;
 pub use scq::ScReq;
-#[cfg(feature = "aync")]
-pub use stream::TlsStreamA;
-pub use stream::{Proxy, ProxyStream, TlsStreamS, ConnParam, WebSocket, WebSocketBuilder};
+pub use stream::{Proxy, ProxyStream, ConnParam, WebSocket, WebSocketBuilder, TlsStream};
 #[cfg(feature = "quic")]
-pub use stream::{QUICStreamS,HTTP3StreamS};
+pub use stream::{QUICStreamS, HTTP3StreamS};
 pub use time::{Time, TimeError, Timeout};
 #[cfg(feature = "tokio")]
 pub use tokio;

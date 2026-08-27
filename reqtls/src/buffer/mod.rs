@@ -151,6 +151,7 @@ impl Buffer {
     }
 
     pub fn check_move(&mut self, need: usize) -> Result<(), BufferError> {
+        if self.len() >= need { return Ok(()); }
         if self.unfilled_len() < need && self.offset().start != 0 {
             self.move_to(self.offset(), 0)?;
         }

@@ -1,8 +1,11 @@
+// mod sync;
+
 use crate::body::Body;
 use crate::error::HlsResult;
 use crate::stream::Stream;
 use crate::*;
 use crate::ext::ReqPriExt;
+// pub use sync::WebSocketS;
 
 pub struct WebSocketBuilder<S: ReqExt>(S);
 
@@ -87,10 +90,10 @@ impl WebSocket {
             None => headers.insert("Sec-WebSocket-Version", "13")?,
             Some(value) => if value.to_string() == "" { *value = HeaderValue::String("13".to_string()) }
         }
-        // match headers.get_mut("Sec-WebSocket-Extensions") {
-        //     None => headers.insert("Sec-WebSocket-Extensions", "permessage-deflate; client_max_window_bits")?,
-        //     Some(value) => if value.to_string() == "" { *value = HeaderValue::String("permessage-deflate; client_max_window_bits".to_string()) }
-        // }
+        match headers.get_mut("Sec-WebSocket-Extensions") {
+            None => headers.insert("Sec-WebSocket-Extensions", "permessage-deflate; client_max_window_bits")?,
+            Some(value) => if value.to_string() == "" { *value = HeaderValue::String("permessage-deflate; client_max_window_bits".to_string()) }
+        }
         match headers.get_mut("Upgrade") {
             None => headers.insert("Upgrade", "websocket")?,
             Some(value) => if value.to_string() == "" { *value = HeaderValue::String("websocket".to_string()) }
@@ -144,15 +147,13 @@ impl WebSocket {
     }
 
     pub fn read_frame(&mut self) -> HlsResult<WsFrame> {
-        if let Ok(frame) = WsFrame::from_buffer(&mut self.buffer) {
-            return Ok(frame);
-        }
-        loop {
-            self.stream.sync_read(&mut self.buffer)?;
+        let frame = loop {
             if let Ok(frame) = WsFrame::from_buffer(&mut self.buffer) {
-                return Ok(frame);
+                break frame;
             }
-        }
+            self.stream.sync_read(&mut self.buffer)?;
+        };
+        Ok(frame)
     }
 
     pub fn shutdown(mut self) -> HlsResult<()> {

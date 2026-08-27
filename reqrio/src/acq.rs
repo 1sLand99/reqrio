@@ -309,9 +309,6 @@ impl AcReq {
 }
 
 impl ReqPriExt for AcReq {
-    fn header_mut(&mut self) -> &mut Header {
-        &mut self.header
-    }
 
     fn responses(&mut self) -> &mut HashMap<u64, Response> {
         &mut self.responses

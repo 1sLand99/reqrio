@@ -150,6 +150,7 @@ pub struct ProxyStream<S> {
     http_proxy: bool,
     buffer: Buffer,
     resp: Response,
+    pub(crate) timeout: Timeout,
 }
 
 impl<S> ProxyStream<S> {
@@ -185,6 +186,7 @@ impl ProxyStream<std::net::TcpStream> {
             http_proxy: matches!(proxy, Proxy::HttpPlain(_)),
             buffer,
             resp: Response::new(),
+            timeout: timeout.clone(),
         })
     }
 
@@ -267,7 +269,7 @@ impl io::Write for ProxyStream<std::net::TcpStream> {
 
 #[cfg(feature = "aync")]
 impl ProxyStream<tokio::net::TcpStream> {
-    pub async fn async_connect(proxy: &Proxy, peer_addr: &Addr, ech: bool) -> HlsResult<ProxyStream<tokio::net::TcpStream>> {
+    pub async fn async_connect(proxy: &Proxy, peer_addr: &Addr, timeout: &Timeout, ech: bool) -> HlsResult<ProxyStream<tokio::net::TcpStream>> {
         #[cfg(feature = "log")]
         debug!("[ProxyStream] Proxy: {} | PeerAddr: {}",proxy,peer_addr);
         // let st = Time::now_mills();
@@ -289,6 +291,7 @@ impl ProxyStream<tokio::net::TcpStream> {
             http_proxy: matches!(proxy, Proxy::HttpPlain(_)),
             buffer,
             resp: Response::new(),
+            timeout: timeout.clone(),
         })
     }
 }

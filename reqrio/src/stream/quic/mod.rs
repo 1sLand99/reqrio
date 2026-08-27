@@ -38,7 +38,7 @@ pub(crate) struct QUICParams<'a> {
     idle_buffer: &'a mut Vec<(u64, Buffer)>,
 }
 
-pub trait QUICHandler{
+pub trait QUICHandler {
     fn free_buffer(task_buffer: &mut HashMap<u64, (Buffer, usize)>, idle_buffer: &mut Vec<(u64, Buffer)>, bid: u64) -> Result<(), QUICError> {
         if task_buffer[&bid].1 <= 1 {
             if let Some((mut buffer, _)) = task_buffer.remove(&bid) {
@@ -96,9 +96,9 @@ pub trait QUICHandler{
                     }
                 }
                 QUICFrame::ConnectionCloseTrp { reason, err_code, .. } => return Err(QUICError::TransportError { reason: reason.to_string(), err_code }),
-                QUICFrame::Crypto { offset, value, buf_pos } => {
+                QUICFrame::Crypto { offset, buf_pos, .. } => {
                     #[cfg(feature = "log")]
-                    trace!("[QUIC Frame] off={}; pd={}; pos={:?};", offset, value.len(), buf_pos);
+                    trace!("[QUIC Frame] off={}; pd={}; pos={:?};", offset, buf_pos.len(), buf_pos);
                     let queues = params.buffer_queues.entry(QId::HId).or_insert_with(|| Vec::with_capacity(30));
                     queues.push(Queue {
                         bid,
@@ -108,9 +108,9 @@ pub trait QUICHandler{
                     });
                     buf_ref += 1;
                 }
-                QUICFrame::Stream { flag, sid, offset, payload, buf_pos } => {
+                QUICFrame::Stream { flag, sid, offset, buf_pos, .. } => {
                     #[cfg(feature = "log")]
-                    trace!("[QUIC Frame] fin={}; sid={}; off={}; pd={}; pos={:?}", flag.fin(), sid, offset, payload.len(), buf_pos);
+                    trace!("[QUIC Frame] fin={}; sid={}; off={}; pd={}; pos={:?}", flag.fin(), sid, offset, buf_pos.len(), buf_pos);
                     let queues = params.buffer_queues.entry(QId::AId(sid)).or_insert_with(|| Vec::with_capacity(30));
                     queues.push(Queue {
                         bid,

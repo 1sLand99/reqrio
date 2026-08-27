@@ -1,14 +1,19 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use crate::json::JsonValue;
 use crate::error::HlsError;
+use crate::TimeError;
 
+#[derive(Clone)]
 pub struct Timeout {
     //连接超时
-    connect: Duration,
+    connect_time: Instant,
+    connect_timeout: Duration,
     //读取超时，单次
-    read: Duration,
+    read_time: Instant,
+    read_timeout: Duration,
     //写出超时，单次
-    write: Duration,
+    write_time: Instant,
+    write_timeout: Duration,
     //处理超时，总超时
     handle: Duration,
     //连接尝试次数
@@ -26,9 +31,12 @@ impl Default for Timeout {
 impl Timeout {
     pub fn new_same(timeout: u64, handles: i32) -> Timeout {
         Timeout {
-            connect: Duration::from_millis(timeout),
-            read: Duration::from_millis(timeout),
-            write: Duration::from_millis(timeout),
+            connect_time: Instant::now(),
+            connect_timeout: Duration::from_millis(timeout),
+            read_time: Instant::now(),
+            read_timeout: Duration::from_millis(timeout),
+            write_time: Instant::now(),
+            write_timeout: Duration::from_millis(timeout),
             handle: Duration::from_millis(timeout),
             connect_times: handles,
             handle_times: handles,
@@ -46,15 +54,15 @@ impl Timeout {
     }
 
     pub fn connect(&self) -> Duration {
-        self.connect
+        self.connect_timeout
     }
 
     pub fn read(&self) -> Duration {
-        self.read
+        self.read_timeout
     }
 
     pub fn write(&self) -> Duration {
-        self.write
+        self.write_timeout
     }
 
     pub fn handle(&self) -> Duration {
@@ -70,15 +78,15 @@ impl Timeout {
     }
 
     pub fn set_connect(&mut self, millis: u64) {
-        self.connect = Duration::from_millis(millis);
+        self.connect_timeout = Duration::from_millis(millis);
     }
 
     pub fn set_read(&mut self, millis: u64) {
-        self.read = Duration::from_millis(millis);
+        self.read_timeout = Duration::from_millis(millis);
     }
 
     pub fn set_write(&mut self, millis: u64) {
-        self.write = Duration::from_millis(millis);
+        self.write_timeout = Duration::from_millis(millis);
     }
 
     pub fn set_handle(&mut self, millis: u64) {
@@ -93,15 +101,51 @@ impl Timeout {
         self.handle_times = handle_times;
         self.connect_times = handle_times;
     }
+
+    pub fn read_timeout(&self) -> Result<(), TimeError> {
+        match self.read_time.elapsed() > self.read_timeout {
+            true => Err(TimeError::ReadTimeout),
+            false => Ok(())
+        }
+    }
+
+    pub fn write_timeout(&self) -> Result<(), TimeError> {
+        match self.write_time.elapsed() > self.write_timeout {
+            true => Err(TimeError::ReadTimeout),
+            false => Ok(())
+        }
+    }
+
+    pub fn connect_timeout(&self) -> Result<(), TimeError> {
+        match self.connect_time.elapsed() > self.connect_timeout {
+            true => Err(TimeError::ConnectTimeout),
+            false => Ok(())
+        }
+    }
+
+    pub fn reset_read(&mut self) {
+        self.read_time = Instant::now();
+    }
+
+    pub fn reset_write(&mut self) {
+        self.write_time = Instant::now();
+    }
+
+    pub fn reset_connect(&mut self) {
+        self.connect_time = Instant::now();
+    }
 }
 
 impl TryFrom<JsonValue> for Timeout {
     type Error = HlsError;
     fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
         Ok(Timeout {
-            connect: Duration::from_millis(value["connect"].as_u64()?),
-            read: Duration::from_millis(value["read"].as_u64()?),
-            write: Duration::from_millis(value["write"].as_u64()?),
+            connect_time: Instant::now(),
+            connect_timeout: Duration::from_millis(value["connect"].as_u64()?),
+            read_time: Instant::now(),
+            read_timeout: Duration::from_millis(value["read"].as_u64()?),
+            write_time: Instant::now(),
+            write_timeout: Duration::from_millis(value["write"].as_u64()?),
             handle: Duration::from_millis(value["handle"].as_u64()?),
             connect_times: value["connect_times"].as_i32()?,
             handle_times: value["handle_times"].as_i32()?,

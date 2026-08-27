@@ -7,8 +7,8 @@ use json::JsonValue;
 use std::collections::HashMap;
 use std::path::Path;
 
-#[allow(private_bounds)]
-pub trait ReqExt: ReqPriExt + Sized {
+
+pub trait ReqExt: Sized {
     fn header_mut(&mut self) -> &mut Header;
     fn header(&self) -> &Header;
     fn with_timeout(mut self, timeout: Timeout) -> Self {
@@ -120,8 +120,7 @@ pub trait ReqExt: ReqPriExt + Sized {
     fn set_header_keys(&mut self, headers: Vec<HeaderKey>, keep_sort: bool) -> HlsResult<()>;
 }
 
-pub(crate) trait ReqPriExt {
-    fn header_mut(&mut self) -> &mut Header;
+pub(crate) trait ReqPriExt: ReqExt {
     fn responses(&mut self) -> &mut HashMap<u64, Response>;
     fn into_stream(self) -> HlsResult<Stream>;
     fn http_stream_mut(&mut self) -> &mut HTTPStream;
@@ -170,14 +169,15 @@ pub(crate) trait ReqPriExt {
     }
 }
 
-pub trait ReqGenExt: ReqExt {
+#[allow(private_bounds)]
+pub trait ReqGenExt: ReqPriExt + ReqExt {
     fn stream_mut(&mut self) -> &mut Stream;
 
     /// * 最好在调试模式使用，生产模式使用时，一个请求将会产生两次reader，影响效率
     /// * H2严禁使用，否则影响hpack编码
     fn h1_raw_string(&mut self, url: &Url, body: &Body<'_>) -> HlsResult<String> {
         let body_raw = body.to_vec()?;
-        let header_reader = ReqExt::header_mut(self).as_reader(HeaderParam {
+        let header_reader = self.header().as_reader(HeaderParam {
             url,
             h_sid: &0,
             hpack_encoder: None,

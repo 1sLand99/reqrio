@@ -1,25 +1,20 @@
-mod sync_stream;
-
 mod proxy;
 mod ws;
-#[cfg(feature = "aync")]
-mod aync;
 #[cfg(feature = "quic")]
 mod quic;
 #[cfg(feature = "quic")]
 mod http3;
 mod http2;
 mod http1;
+mod tls;
 
 use crate::packet::HeaderParam;
+#[cfg(all(feature = "quic", feature = "aync"))]
+use crate::stream::http3::HTTP3StreamA;
 use crate::*;
 #[cfg(feature = "aync")]
-pub use aync::TlsStreamA;
-#[cfg(feature = "aync")]
-use aync::{TcpStreamA, TimeoutRW, TlsStreamT};
-use http1::HTTP1StreamS;
-#[cfg(feature = "aync")]
 use http1::HTTP1StreamA;
+use http1::HTTP1StreamS;
 #[cfg(feature = "aync")]
 use http2::HTTP2StreamA;
 use http2::HTTP2StreamS;
@@ -30,13 +25,10 @@ pub use proxy::ProxyStream;
 #[cfg(feature = "quic")]
 pub use quic::QUICStreamS;
 use std::collections::HashMap;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::{env, io};
-pub use sync_stream::TlsStreamS;
-pub use ws::{WebSocket, WebSocketBuilder};
-#[cfg(all(feature = "quic", feature = "aync"))]
-use crate::stream::http3::HTTP3StreamA;
+pub use tls::*;
+pub use ws::*;
 
 pub struct ConnParam<'a> {
     pub url: &'a Url,
@@ -246,12 +238,12 @@ pub enum Stream {
     NonConnection,
     //同步
     SyncHttp(ProxyStream<std::net::TcpStream>),
-    SyncHttps(TlsStreamS<ProxyStream<std::net::TcpStream>>),
+    SyncHttps(TlsStream<ProxyStream<std::net::TcpStream>>),
     //异步
     #[cfg(feature = "aync")]
-    AsyncHttp(TcpStreamA),
+    AsyncHttp(ProxyStream<tokio::net::TcpStream>),
     #[cfg(feature = "aync")]
-    AsyncHttps(TlsStreamT),
+    AsyncHttps(TlsStream<ProxyStream<tokio::net::TcpStream>>),
 }
 
 impl Stream {
@@ -271,7 +263,7 @@ impl Stream {
         match self {
             Stream::SyncHttps(s) => Some(s.connection().session()),
             #[cfg(feature = "aync")]
-            Stream::AsyncHttps(s) => Some(s.get_ref().connection().session()),
+            Stream::AsyncHttps(s) => Some(s.connection().session()),
             _ => None
         }
     }
@@ -282,17 +274,20 @@ impl Stream {
     pub async fn async_conn(&mut self, param: &mut ConnParam<'_>) -> HlsResult<ALPN> {
         let _ = self.async_shutdown().await;
         // let st = Time::now_mills();
-        let connect = ProxyStream::async_connect(param.proxy, param.url.addr(), param.ech);
+        let connect = ProxyStream::async_connect(param.proxy, param.url.addr(), param.timeout, param.ech);
         let stream = tokio::time::timeout(param.timeout.connect(), connect).await??;
         // println!("TCP TIME: {}", Time::now_mills() - st);
         match param.url.scheme() {
             Scheme::Http | Scheme::Ws => {
-                *self = Stream::AsyncHttp(TcpStreamA::from_proxy_stream(stream, param.timeout));
+                *self = Stream::AsyncHttp(stream);
                 Ok(ALPN::Http11)
             }
             Scheme::Https | Scheme::Wss => {
+                let timeout = param.timeout.clone();
+                let mut connecting = TlsStream::connect(ClientConfig::from(param), stream);
+                connecting.state.set_timeout(timeout);
                 // let st = Time::now_mills();
-                let tls_stream = TlsStreamT::connect_timeout(param, stream).await?;
+                let tls_stream = connecting.await?;
                 // println!("TLS TIME: {}", Time::now_mills() - st);
                 let alpn = tls_stream.alpn().cloned().unwrap_or(ALPN::Http11);
                 *self = Stream::AsyncHttps(tls_stream);
@@ -305,24 +300,49 @@ impl Stream {
 
     pub async fn async_write(&mut self, buf: &[u8]) -> HlsResult<()> {
         match self {
-            Stream::AsyncHttp(s) => s.write_all(buf).await,
-            Stream::AsyncHttps(s) => s.write_all(buf).await,
+            Stream::AsyncHttp(s) => {
+                match tokio::time::timeout(s.timeout.write(), tokio::io::AsyncWriteExt::write_all(s, buf)).await {
+                    Ok(res) => Ok(res?),
+                    Err(_) => Err(TimeError::WriteTimeout.into())
+                }
+            }
+            Stream::AsyncHttps(s) => Ok(tokio::io::AsyncWriteExt::write_all(s, buf).await?),
             _ => Err("Unsupported async write".into()),
         }
     }
 
     pub async fn async_read(&mut self, buffer: &mut Buffer) -> HlsResult<()> {
         match self {
-            Stream::AsyncHttp(s) => s.read(buffer).await,
-            Stream::AsyncHttps(s) => Ok(s.read(buffer).await?),
+            Stream::AsyncHttp(s) => {
+                match tokio::time::timeout(s.timeout.read(), tokio::io::AsyncReadExt::read(s, buffer.unfilled())).await {
+                    Ok(len) => {
+                        buffer.add_len(len?);
+                        Ok(())
+                    }
+                    Err(_) => Err(TimeError::ReadTimeout.into())
+                }
+            }
+            Stream::AsyncHttps(s) => {
+                let len = tokio::io::AsyncReadExt::read(s, buffer.unfilled()).await?;
+                buffer.add_len(len);
+                Ok(())
+            }
             _ => Err("Unsupported async read".into()),
         }
     }
 
     pub async fn async_shutdown(&mut self) -> HlsResult<()> {
         match self {
-            Stream::AsyncHttp(s) => Ok(s.shutdown().await?),
-            Stream::AsyncHttps(s) => Ok(s.shutdown().await?),
+            Stream::AsyncHttp(s) => {
+                match tokio::time::timeout(s.timeout.read(), tokio::io::AsyncWriteExt::shutdown(s)).await {
+                    Ok(ret) => Ok(ret?),
+                    Err(_) => Err(TimeError::ReadTimeout.into())
+                }
+            }
+            Stream::AsyncHttps(s) => {
+                tokio::io::AsyncWriteExt::shutdown(s).await?;
+                Ok(())
+            }
             _ => Err("Unsupported async read".into()),
         }
     }
@@ -331,14 +351,14 @@ impl Stream {
 impl Stream {
     pub fn sync_conn<'a, 'b: 'a>(&'a mut self, param: &'a mut ConnParam<'b>) -> HlsResult<ALPN> {
         let _ = self.sync_shutdown();
-        let stream = ProxyStream::sync_connect(param.proxy, param.url.addr(), param.timeout, param.ech)?;
+        let stream = ProxyStream::sync_connect(param.proxy, param.url.addr(), param.timeout, param.ech).unwrap();
         match param.url.scheme() {
             Scheme::Http | Scheme::Ws => {
                 *self = Stream::SyncHttp(stream);
                 Ok(ALPN::Http11)
             }
             Scheme::Https | Scheme::Wss => {
-                let tls_stream = TlsStreamS::connect(ClientConfig::from(param), stream)?;
+                let tls_stream = TlsStream::connect(ClientConfig::from(param), stream).wait().unwrap();
                 let alpn = tls_stream.alpn().cloned().unwrap_or(ALPN::Http11);
                 *self = Stream::SyncHttps(tls_stream);
                 Ok(alpn)
@@ -350,11 +370,11 @@ impl Stream {
     pub fn sync_write(&mut self, buf: &[u8]) -> HlsResult<()> {
         match self {
             Stream::SyncHttp(s) => {
-                s.write_all(buf)?;
+                io::Write::write_all(s, buf)?;
                 Ok(())
             }
             Stream::SyncHttps(s) => {
-                s.write_all(buf)?;
+                io::Write::write_all(s, buf)?;
                 Ok(())
             }
             _ => Err("Unsupported sync write".into()),
