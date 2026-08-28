@@ -66,6 +66,10 @@ impl Debug for Buffer {
 }
 
 impl Buffer {
+    pub fn none() -> Buffer {
+        Buffer(CPointer::nullptr())
+    }
+    
     pub fn with_capacity(capacity: usize) -> Self {
         let buffer = unsafe { Buffer_new(capacity) };
         if buffer.is_null() { panic!("failed to create buffer") };

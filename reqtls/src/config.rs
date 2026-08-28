@@ -28,7 +28,7 @@ pub struct ClientConfig<'a> {
     ///设置应用层使用哪个协议，这里一般设置最高那个
     pub alpn: &'a ALPN,
     ///Tls指纹信息，
-    pub fingerprint: &'a mut TlsFinger,
+    pub fingerprint: &'a TlsFinger,
     ///证书，mTls设置客户端证书
     pub client_cert: &'a mut Vec<Certificate>,
     ///证书私钥，mTls设置客户端证书私钥

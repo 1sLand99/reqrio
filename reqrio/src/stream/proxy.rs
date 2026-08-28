@@ -1,15 +1,19 @@
 use crate::error::{HlsError, HlsResult};
+use crate::stream::connect::{ProxyConnecting, ProxyState};
+use crate::stream::read::BufReading;
 use crate::*;
 use std::fmt::{Display, Formatter};
 use std::io;
-use std::io::{ErrorKind, Read};
-use std::net::{IpAddr, Shutdown};
+use std::io::Read;
 use std::net::SocketAddr;
+use std::net::{IpAddr, Shutdown};
 #[cfg(feature = "aync")]
 use std::pin::Pin;
 use std::str::FromStr;
 #[cfg(feature = "aync")]
 use std::task::{Context, Poll};
+#[cfg(feature = "aync")]
+use tokio::io::AsyncRead;
 #[cfg(feature = "aync")]
 use tokio::io::ReadBuf;
 
@@ -35,7 +39,7 @@ impl Proxy {
         Proxy::Socks5(url)
     }
 
-    fn write_context<W: WriteExt>(&self, peer_addr: &Addr, writer: &mut W, index: usize) -> HlsResult<bool> {
+    pub(crate) fn write_context<W: WriteExt>(&self, peer_addr: &Addr, writer: &mut W, index: usize) -> HlsResult<bool> {
         match self {
             Proxy::Null => return Ok(true),
             Proxy::HttpPlain(v) => {
@@ -145,19 +149,35 @@ impl TryFrom<String> for Proxy {
 }
 
 pub struct ProxyStream<S> {
-    stream: S,
-    handle_proxy: bool,
-    http_proxy: bool,
-    buffer: Buffer,
-    resp: Response,
+    pub(crate) stream: S,
+    pub(crate) handle_proxy: bool,
+    pub(crate) http_proxy: bool,
+    pub(crate) buffer: Buffer,
+    pub(crate) resp: Response,
+    #[cfg(feature = "aync")]
     pub(crate) timeout: Timeout,
 }
 
 impl<S> ProxyStream<S> {
-    pub fn stream_mut(&mut self) -> &mut S {
-        &mut self.stream
+    pub fn connect<'b, 'a: 'b>(stream: S, param: &'b ConnParam<'a>) -> ProxyConnecting<'a, S> {
+        let mut timeout = param.timeout.clone();
+        timeout.reset_connect();
+        ProxyConnecting {
+            state: ProxyState::Connecting {
+                stream,
+                timeout,
+                buffer: Buffer::with_capacity(1024),
+            },
+            proxy: param.proxy,
+            dst_addr: param.url.addr(),
+            #[cfg(feature = "aync")]
+            index: 0,
+            #[cfg(feature = "aync")]
+            finish: false,
+        }
     }
 }
+
 
 impl ProxyStream<std::net::TcpStream> {
     fn create_sync(addr: &SocketAddr, timeout: &Timeout) -> HlsResult<std::net::TcpStream> {
@@ -186,6 +206,7 @@ impl ProxyStream<std::net::TcpStream> {
             http_proxy: matches!(proxy, Proxy::HttpPlain(_)),
             buffer,
             resp: Response::new(),
+            #[cfg(feature = "aync")]
             timeout: timeout.clone(),
         })
     }
@@ -193,19 +214,6 @@ impl ProxyStream<std::net::TcpStream> {
     pub fn shutdown(&mut self) -> HlsResult<()> {
         self.stream.shutdown(Shutdown::Both)?;
         Ok(())
-    }
-
-    fn sync_read(&mut self, buf: Option<&mut [u8]>) -> io::Result<usize> {
-        let buf = buf.unwrap_or(self.buffer.unfilled());
-        loop {
-            match self.stream.read(buf) {
-                Ok(len) => return Ok(len),
-                Err(e) => match e.kind() {
-                    ErrorKind::Interrupted => continue,
-                    _ => return Err(e),
-                }
-            }
-        }
     }
 }
 
@@ -216,43 +224,41 @@ impl Read for ProxyStream<std::net::TcpStream> {
             self.buffer.reset();
             if self.http_proxy {
                 loop {
-                    let len = self.sync_read(None)?;
-                    if len == 0 { return Err(io::Error::other(HlsError::PeerClosedConnection)); }
-                    self.buffer.add_len(len);
+                    BufReading {
+                        stream: &mut self.stream,
+                        want_size: self.buffer.len() + 1,
+                        buf: &mut self.buffer,
+                        #[cfg(feature = "aync")]
+                        timeout: &mut self.timeout,
+                    }.wait()?;
                     if self.resp.extend_buffer(&mut self.buffer)? { break; }
                 }
                 let status = self.resp.header().status().code();
                 if status != 200 { return Err(io::Error::other(format!("connect http proxy error-{}", status))); }
             } else {
-                let len = self.sync_read(None)?;
-                if len == 0 { return Err(io::Error::other(HlsError::PeerClosedConnection)); }
-                self.buffer.add_len(len);
+                BufReading {
+                    stream: &mut self.stream,
+                    buf: &mut self.buffer,
+                    want_size: 12,
+                    #[cfg(feature = "aync")]
+                    timeout: &mut self.timeout,
+                }.wait()?;
                 if self.buffer.filled().starts_with(&[5, 2]) {
-                    if self.buffer.len() == 2 {
-                        let len = self.sync_read(None)?;
-                        if len == 0 { return Err(io::Error::other(HlsError::PeerClosedConnection)); }
-                        self.buffer.add_len(len);
-                    }
                     if self.buffer.filled()[3] != 0 { return Err(io::Error::other("socks5 auth fail")); }
                     self.buffer.used_empty(2);
                 }
                 self.buffer.used_empty(2);
-                if self.buffer.is_empty() {
-                    let len = self.sync_read(None)?;
-                    if len == 0 { return Err(io::Error::other(HlsError::PeerClosedConnection)); }
-                    self.buffer.add_len(len);
-                }
                 self.buffer.used_empty(10);
             }
-            if self.buffer.is_empty() {
-                Ok(0)
-            } else {
-                buf[..self.buffer.len()].copy_from_slice(self.buffer.filled());
-                Ok(self.buffer.len())
-            }
-        } else {
-            self.sync_read(Some(buf))
+            return Ok(0);
         }
+        if !self.buffer.is_empty() {
+            buf[..self.buffer.len()].copy_from_slice(self.buffer.filled());
+            let len = self.buffer.len();
+            self.buffer.reset();
+            return Ok(len);
+        }
+        self.stream.read(buf)
     }
 }
 
@@ -298,63 +304,54 @@ impl ProxyStream<tokio::net::TcpStream> {
 
 #[cfg(feature = "aync")]
 impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
-    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
-        if !self.handle_proxy {
-            let stream = self.get_mut();
+    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+        let stream = self.get_mut();
+        if !stream.handle_proxy {
             if stream.http_proxy {
                 loop {
-                    let mut pb = ReadBuf::new(stream.buffer.unfilled());
-                    match Pin::new(&mut stream.stream).poll_read(cx, &mut pb) {
+                    let mut reader = BufReading {
+                        stream: &mut stream.stream,
+                        want_size: stream.buffer.len() + 1,
+                        buf: &mut stream.buffer,
+                        timeout: &mut stream.timeout,
+                    };
+                    match Pin::new(&mut reader).poll(cx)? {
+                        Poll::Ready(_) => if stream.resp.extend_buffer(&mut stream.buffer)? { break; },
                         Poll::Pending => return Poll::Pending,
-                        Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-                        Poll::Ready(Ok(())) => {
-                            let rl = pb.filled().len();
-                            if rl == 0 { return Poll::Ready(Err(HlsError::PeerClosedConnection.into())); }
-                            stream.buffer.add_len(rl);
-                            let finished = stream.resp.extend_buffer(&mut stream.buffer)?;
-                            if finished { break; }
-                        }
                     }
                 }
                 let status = stream.resp.header().status();
-                if status.code() != 200 { return Poll::Ready(Err(io::Error::other(format!("connect http proxy fail-{}", status.code())))); }
+                if status.code() != 200 { return Poll::Ready(Err(io::Error::other(format!("connect http proxy fail-{:?}", status)))); }
             } else {
-                loop {
-                    let mut pb = ReadBuf::new(stream.buffer.unfilled());
-                    match Pin::new(&mut stream.stream).poll_read(cx, &mut pb) {
-                        Poll::Pending => return Poll::Pending,
-                        Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-                        Poll::Ready(Ok(())) => {
-                            let rl = pb.filled().len();
-                            if rl == 0 { return Poll::Ready(Err(io::Error::other(HlsError::PeerClosedConnection))); }
-                            stream.buffer.add_len(rl);
-                            if stream.buffer.len() < 2 { continue; }
-                            if stream.buffer.filled()[1] == 2 {
-                                if stream.buffer.len() < 4 { continue; }
-                                if stream.buffer.filled()[3] == 0 {
-                                    if stream.buffer.len() >= 14 {
-                                        stream.buffer.used_empty(14);
-                                        break;
-                                    }
-                                } else { return Poll::Ready(Err(io::Error::other("socks5 auth fail"))); }
-                            } else if stream.buffer.len() >= 12 {
-                                stream.buffer.used_empty(12);
-                                break;
-                            }
+                let mut reader = BufReading {
+                    stream: &mut stream.stream,
+                    want_size: 12,
+                    buf: &mut stream.buffer,
+                    timeout: &mut stream.timeout,
+                };
+                match Pin::new(&mut reader).poll(cx)? {
+                    Poll::Ready(_) => {
+                        if stream.buffer.filled()[1] == 2 {
+                            if stream.buffer.filled()[3] == 0 {
+                                if stream.buffer.len() >= 14 {
+                                    stream.buffer.used_empty(14);
+                                }
+                            } else { return Poll::Ready(Err(io::Error::other("socks5 auth fail"))); }
+                        } else if stream.buffer.len() >= 12 {
+                            stream.buffer.used_empty(12);
                         }
                     }
+                    Poll::Pending => return Poll::Pending,
                 }
             }
             stream.handle_proxy = true;
-            if stream.buffer.is_empty() {
-                Poll::Ready(Ok(()))
-            } else {
-                buf.put_slice(stream.buffer.filled());
-                Poll::Ready(Ok(()))
-            }
-        } else {
-            Pin::new(&mut self.stream).poll_read(cx, buf)
         }
+        if !stream.buffer.is_empty() {
+            buf.put_slice(stream.buffer.filled());
+            stream.buffer.reset();
+            return Poll::Ready(Ok(()));
+        }
+        Pin::new(&mut stream.stream).poll_read(cx, buf)
     }
 }
 
@@ -362,7 +359,7 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
 impl tokio::io::AsyncWrite for ProxyStream<tokio::net::TcpStream> {
     fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize, io::Error>> {
         if !self.handle_proxy {
-            match tokio::io::AsyncRead::poll_read(Pin::new(&mut self), cx, &mut ReadBuf::new(&mut [])) {
+            match self.as_mut().poll_read(cx, &mut ReadBuf::new(&mut [])) {
                 Poll::Ready(Ok(_)) => {}
                 Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
                 Poll::Pending => return Poll::Pending,

@@ -101,9 +101,9 @@ impl WsFrame {
         res
     }
 
-    pub fn is_empty(&self) -> bool { self.len() == 0 }
+    pub fn is_empty(&self) -> bool { self.frame_len() == 0 }
 
-    pub fn len(&self) -> usize {
+    pub fn frame_len(&self) -> usize {
         let mut len = 2;
         if self.masker.mask {
             len += 4;
@@ -123,7 +123,7 @@ impl WsFrame {
         res.typ = WsFrameType::from_u8(buffer.filled()[0])?;
         res.masker = Marker::from_u8(buffer.filled()[1]);
         res.payload = WsPayload::from_bytes(&res.masker, &buffer.filled()[2..])?;
-        buffer.move_to(res.len()..buffer.len(), 0)?;
+        buffer.move_to(res.frame_len()..buffer.len(), 0)?;
         Ok(res)
     }
 

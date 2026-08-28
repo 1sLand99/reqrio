@@ -1,4 +1,3 @@
-
 use crate::error::HlsResult;
 #[cfg(feature = "aync")]
 use crate::Timeout;
@@ -34,38 +33,43 @@ pub struct TlsStream<S> {
 }
 
 impl<S> TlsStream<S> {
-    fn build(config: Config<'_>, conn: Connection, stream: S) -> TlsConnecting<'_, S> {
-        TlsConnecting {
-            sent_client_hello: matches!(config, Config::Server(_)),
-            state: ConnState::Connecting(Box::new(TlsStream {
-                conn,
-                stream,
-                encrypted_channel: false,
-                handshake_finished: false,
-                hello_retrying: false,
-                read_buffer: Buffer::with_capacity(16469),
-                write_buffer: Default::default(),
-                #[cfg(feature = "aync")]
-                shutdown_wrote: false,
-                #[cfg(feature = "aync")]
-                write_offset: 0,
-                #[cfg(feature = "aync")]
-                timeout: Timeout::longer(),
-            })),
-            config,
-            app_buf: Default::default(),
+    pub(crate) fn new(conn: Connection, stream: S) -> TlsStream<S> {
+        TlsStream {
+            conn,
+            stream,
+            encrypted_channel: false,
+            handshake_finished: false,
+            hello_retrying: false,
+            read_buffer: Buffer::with_capacity(16469),
+            write_buffer: Default::default(),
+            #[cfg(feature = "aync")]
+            shutdown_wrote: false,
+            #[cfg(feature = "aync")]
+            write_offset: 0,
+            #[cfg(feature = "aync")]
+            timeout: Timeout::longer(),
         }
     }
-
+    
     pub fn connect(mut config: ClientConfig<'_>, stream: S) -> TlsConnecting<'_, S> {
         let session = config.session.as_ref().cloned().unwrap_or_default();
         let conn = Connection::new_client(session, mem::take(&mut config.key_log), false)
             .with_verify(config.verify).with_mtls(!config.client_cert.is_empty());
-        TlsStream::build(Config::Client(config), conn, stream)
+        TlsConnecting {
+            sent_client_hello: false,
+            state: ConnState::Connecting(Box::new(TlsStream::new(conn, stream))),
+            config:Config::Client(config),
+            app_buf: Default::default(),
+        }
     }
 
     pub fn accept(stream: S, config: ServerConfig<'_>) -> TlsConnecting<'_, S> {
-        TlsStream::build(Config::Server(config), Connection::default(), stream)
+        TlsConnecting {
+            sent_client_hello: true,
+            state: ConnState::Connecting(Box::new(TlsStream::new(Connection::default(), stream))),
+            config:Config::Server(config),
+            app_buf: Default::default(),
+        }
     }
 
     pub(super) fn write_buffer(&mut self) -> BufWriting<'_, S> {

@@ -192,14 +192,14 @@ pub struct HTTP2StreamA {
 
 #[cfg(feature = "aync")]
 impl HTTP2StreamA {
-    pub async fn new(mut stream: Stream, fingerprint: &Fingerprint) -> HlsResult<HTTP2StreamA> {
-        let mut buffer = Buffer::with_capacity(24657);
-        buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")?;
-        fingerprint.h2().build_setting().write_to(&mut buffer)?;
-        fingerprint.h2().build_window_update().write_to(&mut buffer)?;
-        stream.write(buffer.filled()).await?;
+    pub fn new(stream: Stream, mut buffer: Buffer) -> HTTP2StreamA {
+        // let mut buffer = Buffer::with_capacity(24657);
+        // buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")?;
+        // fingerprint.h2().build_setting().write_to(&mut buffer)?;
+        // fingerprint.h2().build_window_update().write_to(&mut buffer)?;
+        // stream.write(buffer.filled()).await?;
         buffer.reset();
-        Ok(HTTP2StreamA {
+        HTTP2StreamA {
             encoder: HPackEncode::new(65536),
             decoder: HPackDecode::new(65536),
             sid: 1,
@@ -207,7 +207,7 @@ impl HTTP2StreamA {
             read_buffer: buffer,
             write_buffer: Buffer::with_capacity(16438),
             increment: 0,
-        })
+        }
     }
     async fn flush(stream: &mut Stream, buffer: &mut Buffer) -> HlsResult<()> {
         if buffer.is_empty() { return Ok(()); }

@@ -32,9 +32,8 @@ impl<'a, S: AsyncWrite + Unpin> Future for BufWriting<'a, S> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let writer = self.get_mut();
-        loop {
-            let stream = Pin::new(&mut writer.stream);
-            match stream.poll_write(cx, writer.buf.filled())? {
+        while !writer.buf.is_empty() {
+            match Pin::new(&mut writer.stream).poll_write(cx, writer.buf.filled())? {
                 Poll::Ready(wrote) => {
                     writer.timeout.reset_write();
                     if wrote == 0 { return Poll::Ready(Err(HlsError::PeerClosedConnection)); }
@@ -55,6 +54,7 @@ impl<'a, S: AsyncWrite + Unpin> Future for BufWriting<'a, S> {
 pub struct StreamWrite<'a> {
     pub(crate) stream: &'a mut Stream,
     pub(crate) buf: &'a [u8],
+    #[cfg(feature = "aync")]
     pub(crate) off: usize,
 }
 

@@ -16,6 +16,7 @@ pub struct ScReq {
     fingerprint: Fingerprint,
     verify: bool,
     auto_redirect: bool,
+    redirect_times: i32,
     certs: Vec<Certificate>,
     key: RsaKey,
     ca_certs: Vec<Certificate>,
@@ -38,6 +39,7 @@ impl Default for ScReq {
             fingerprint: Fingerprint::default(),
             verify: true,
             auto_redirect: true,
+            redirect_times: i32::MAX,
             certs: vec![],
             key: RsaKey::none(),
             ca_certs: vec![],
@@ -179,6 +181,7 @@ impl ScReq {
         Ok(Some(resp.raw.slice(offset)))
     }
 
+    /// 流式请求，仅返回请求头，请求体需调next_chunk
     pub fn send_stream<'a, U>(&mut self, method: Method, url: U, body: impl Into<Body<'a>>) -> HlsResult<(u64, &Header)>
     where
         U: TryInto<Url>,
@@ -189,19 +192,24 @@ impl ScReq {
         Ok((sid, header))
     }
 
-    fn handle_recv(&mut self, sid: u64) -> HlsResult<Response> {
-        let resp = self.recv(sid)?;
-        let code = resp.header().status().code();
-        if self.auto_redirect && (300..400).contains(&code) {
-            let location = resp.header().location().ok_or("missing location")?;
-            let location = match location.starts_with("http") {
-                true => Cow::Borrowed(location),
-                false => Cow::Owned(format!("{}://{}{}", self.url.scheme(), self.url.addr(), location))
-            };
-            let sid = self.send(Method::GET, location.as_ref(), Body::none())?;
-            return self.handle_recv(sid);
+    fn handle_recv(&mut self, mut sid: u64) -> HlsResult<Response> {
+        let mut redirect_times = 0;
+        while redirect_times < self.redirect_times {
+            let resp = self.recv(sid)?;
+            let code = resp.header().status().code();
+            if self.auto_redirect && (300..400).contains(&code) {
+                let location = resp.header().location().ok_or("missing location")?;
+                let location = match location.starts_with("http") {
+                    true => Cow::Borrowed(location),
+                    false => Cow::Owned(format!("{}://{}{}", self.url.scheme(), self.url.addr(), location))
+                };
+                sid = self.send(Method::GET, location.as_ref(), Body::none())?;
+                redirect_times += 1;
+                continue;
+            }
+            return Ok(resp)
         }
-        Ok(resp)
+        Err("redirection exceeds the maximum".into())
     }
 
     pub fn do_http<'a, U>(&mut self, method: Method, url: U, body: impl Into<Body<'a>>) -> HlsResult<Response>
@@ -312,17 +320,19 @@ impl ScReq {
     }
 }
 
-impl ReqPriExt for ScReq {
-    fn responses(&mut self) -> &mut HashMap<u64, Response> {
-        &mut self.responses
-    }
-
+impl ReqStreamExt for ScReq {
     fn into_stream(self) -> HlsResult<Stream> {
         self.stream.into_stream()
     }
 
     fn http_stream_mut(&mut self) -> &mut HTTPStream {
         &mut self.stream
+    }
+}
+
+impl ReqPriExt for ScReq {
+    fn responses(&mut self) -> &mut HashMap<u64, Response> {
+        &mut self.responses
     }
 }
 
@@ -359,6 +369,10 @@ impl ReqExt for ScReq {
 
     fn set_auto_redirect(&mut self, auto_redirect: bool) {
         self.auto_redirect = auto_redirect;
+    }
+
+    fn set_max_redirect_exceeds(&mut self, max_redirect_exceeded: i32) {
+        self.redirect_times=max_redirect_exceeded
     }
 
     fn set_key_log(&mut self, path: impl AsRef<Path>) {

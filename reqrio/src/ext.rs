@@ -38,6 +38,11 @@ pub trait ReqExt: Sized {
         self.set_auto_redirect(auto_redirect);
         self
     }
+    fn set_max_redirect_exceeds(&mut self, max_redirect_exceeded: i32);
+    fn with_max_redirect_exceeded(mut self, max_redirect_exceeded: i32) -> Self {
+        self.set_max_redirect_exceeds(max_redirect_exceeded);
+        self
+    }
 
     ///导出tls key log，不设置时读取SSLKEYLOGFILE环境变量，为保证通信安全，请勿用于生产模式，以免造成隐私泄露
     fn set_key_log(&mut self, path: impl AsRef<Path>);
@@ -127,19 +132,7 @@ pub trait ReqExt: Sized {
 
 pub(crate) trait ReqPriExt: ReqExt {
     fn responses(&mut self) -> &mut HashMap<u64, Response>;
-    fn into_stream(self) -> HlsResult<Stream>;
-    fn http_stream_mut(&mut self) -> &mut HTTPStream;
-    fn read_to_vec<T: ReadExt>(mut reader: T) -> HlsResult<Vec<u8>> {
-        let mut res = vec![0; reader.len()];
-        let mut buffer = Buffer::from_ptr(&mut res);
-        loop {
-            reader.read(&mut buffer)?;
-            if reader.wrote() { break; }
-            res.resize(res.capacity() + 1024, 0);
-        }
-        assert_eq!(res.len(), buffer.len());
-        Ok(res)
-    }
+
 
     fn get_resp(&mut self, sid: u64) -> Option<Response> {
         let resp = self.responses().remove(&sid);
@@ -174,10 +167,20 @@ pub(crate) trait ReqPriExt: ReqExt {
     }
 }
 
-#[allow(private_bounds)]
-pub trait ReqGenExt: ReqPriExt + ReqExt {
-    fn stream_mut(&mut self) -> &mut Stream;
-
+pub trait ReqStreamExt: ReqExt {
+    fn into_stream(self) -> HlsResult<Stream>;
+    fn http_stream_mut(&mut self) -> &mut HTTPStream;
+    fn read_to_vec<T: ReadExt>(mut reader: T) -> HlsResult<Vec<u8>> {
+        let mut res = vec![0; reader.len()];
+        let mut buffer = Buffer::from_ptr(&mut res);
+        loop {
+            reader.read(&mut buffer)?;
+            if reader.wrote() { break; }
+            res.resize(res.capacity() + 1024, 0);
+        }
+        assert_eq!(res.len(), buffer.len());
+        Ok(res)
+    }
     /// * 最好在调试模式使用，生产模式使用时，一个请求将会产生两次reader，影响效率
     /// * H2严禁使用，否则影响hpack编码
     fn h1_raw_string(&mut self, url: &Url, body: &Body<'_>) -> HlsResult<String> {

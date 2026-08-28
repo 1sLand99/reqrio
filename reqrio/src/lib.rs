@@ -165,12 +165,9 @@
 //! ```rust
 //! # use reqrio::*;
 //! # fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! let url = Url::try_from("wss://stream.example.com/events")?;
+//! let url = "wss://stream.example.com/events";
 //!
-//! let mut ws = WebSocket::sync_build()
-//!     .with_origin("https://example.com")?
-//!     .with_user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")?
-//!     .build(&url)?;
+//! let mut ws = WebSocket::open_sync(url)?;
 //!
 //! // Read frames in a loop
 //! loop {
@@ -294,7 +291,7 @@ use crate::error::HlsResult;
 pub use acq::AcReq;
 pub use body::{Body, FileForm, HttpFile, BodyData, BodyExt};
 pub use error::HlsError;
-pub use ext::{ReqExt, ReqGenExt, UrlExt};
+pub use ext::{ReqExt, ReqStreamExt, UrlExt};
 pub use fingerprint::{Fingerprint, H2Finger};
 pub use packet::{
     Application, ContentType, Cookie, Font, FrameFlag, FrameType, H2Frame, H2Setting, Header,
@@ -303,7 +300,7 @@ pub use packet::{
 pub use reqrio_json as json;
 pub use reqtls::*;
 pub use scq::ScReq;
-pub use stream::{Proxy, ProxyConnecting, ConnParam, WebSocket, WebSocketBuilder, TlsStream};
+pub use stream::{Proxy, ProxyStream, ConnParam, WebSocket, TlsStream};
 #[cfg(feature = "quic")]
 pub use stream::{QUICStreamS, HTTP3StreamS};
 pub use time::{Time, TimeError, Timeout};
@@ -313,30 +310,23 @@ pub use tokio;
 pub use logger::Logger;
 
 
-fn build_session() -> HlsResult<ScReq> {
-    let mut req = ScReq::new();
-    req.insert_header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0")?;
-    Ok(req)
-}
-
 pub fn get<'a, E>(url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
 where
     HlsError: From<E>,
 {
-    let mut session = build_session()?;
-    session.get(url, body)
+    ScReq::new().get(url, body)
 }
 
 pub fn post<'a, E>(url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
 where
     HlsError: From<E>,
 {
-    build_session()?.post(url, body)
+    ScReq::new().post(url, body)
 }
 
 pub fn put<'a, E>(url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
 where
     HlsError: From<E>,
 {
-    build_session()?.put(url, body)
+    ScReq::new().put(url, body)
 }

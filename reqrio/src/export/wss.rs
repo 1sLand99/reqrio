@@ -1,51 +1,20 @@
 use crate::error::HlsResult;
+use crate::*;
 use std::ffi::{c_char, CStr, CString};
 use std::ptr::null_mut;
-use crate::{json, HlsError, Proxy, ScReq, Url, WebSocket, WebSocketBuilder, WsFrame, WsOpcode};
+
 
 #[unsafe(no_mangle)]
-pub extern "system" fn ws_build() -> *mut WebSocketBuilder<ScReq> {
-    Box::into_raw(Box::new(WebSocket::sync_build()))
-}
-
-#[unsafe(no_mangle)]
-pub extern "system" fn ws_add_header(builder: *mut WebSocketBuilder<ScReq>, name: *const c_char, value: *const c_char) -> i32 {
-    || -> HlsResult<i32>{
-        let builder = unsafe { builder.as_mut().ok_or(HlsError::NullPointer) }?;
-        let name = unsafe { CStr::from_ptr(name) }.to_str()?;
-        let value = unsafe { CStr::from_ptr(value) }.to_str()?;
-        builder.add_header(name, value)?;
-        Ok(0)
-    }().unwrap_or(-1)
-}
-
-#[unsafe(no_mangle)]
-pub extern "system" fn ws_set_proxy(builder: *mut WebSocketBuilder<ScReq>, proxy: *const c_char) -> i32 {
-    || -> HlsResult<i32>{
-        let builder = unsafe { builder.as_mut().ok_or(HlsError::NullPointer) }?;
-        let proxy = unsafe { CStr::from_ptr(proxy) }.to_str()?;
-        let url = Url::try_from(proxy)?;
-        builder.set_proxy(Proxy::HttpPlain(url));
-        Ok(0)
-    }().unwrap_or(-1)
-}
-
-#[unsafe(no_mangle)]
-pub extern "system" fn ws_set_uri(builder: *mut WebSocketBuilder<ScReq>, uri: *const c_char) -> i32 {
-    || -> HlsResult<i32>{
-        let builder = unsafe { builder.as_mut().ok_or(HlsError::NullPointer) }?;
-        let uri = unsafe { CStr::from_ptr(uri) }.to_str()?;
-        builder.set_uri(uri)?;
-        Ok(0)
-    }().unwrap_or(-1)
-}
-
-#[unsafe(no_mangle)]
-pub extern "system" fn ws_open(builder: *mut WebSocketBuilder<ScReq>, url: *const Url) -> *mut WebSocket {
+pub extern "system" fn ws_open(url: *const c_char, hdr: *const c_char) -> *mut WebSocket {
     || -> HlsResult<*mut WebSocket>{
-        let builder = unsafe { Box::from_raw(builder) };
-        let url = unsafe { url.as_ref() }.ok_or(HlsError::NullPointer)?;
-        let ws = builder.build(url)?;
+        let header = json::from_bytes(unsafe { CStr::from_ptr(hdr).to_bytes() })?;
+        let url = unsafe { CStr::from_ptr(url).to_str()? };
+        let mut req = ScReq::new().with_header_json(header)?;
+        let resp = req.get(url, None)?;
+        if resp.header().status() != HttpStatus::SwitchingProtocols {
+            return Err(format!("ws upgrade fial-{}", resp.header().status()).into());
+        }
+        let ws = WebSocket::new(req.into_stream()?);
         Ok(Box::into_raw(Box::new(ws)))
     }().unwrap_or_else(|e| {
         println!("{}", e);
@@ -58,7 +27,15 @@ pub extern "system" fn ws_open_raw(url: *const c_char, context: *const c_char) -
     || -> HlsResult<*mut WebSocket>{
         let url = unsafe { CStr::from_ptr(url) }.to_str()?;
         let context = unsafe { CStr::from_ptr(context) }.to_bytes();
-        let ws = WebSocket::open_raw(url, context)?;
+        let mut buffer = Buffer::with_capacity(16469);
+        let mut stream = ScReq::new().connect(url)?.into_stream()?;
+        stream.write(context).wait()?;
+        let mut resp = Response::new();
+        loop {
+            stream.read(&mut buffer).wait()?;
+            if resp.extend_buffer(&mut buffer)? { break; };
+        }
+        let ws = WebSocket::new_with_buffer(stream, buffer);
         Ok(Box::into_raw(Box::new(ws)))
     }().unwrap_or(null_mut())
 }
