@@ -35,14 +35,14 @@ impl HTTP1StreamS {
             self.write_buffer.reset();
             let len = request.read(&mut self.write_buffer)?;
             if len == 0 { break; }
-            self.stream.sync_write(self.write_buffer.filled())?;
+            self.stream.write(self.write_buffer.filled()).wait()?;
         }
         Ok(sid)
     }
 
     pub fn recv(&mut self, responses: &mut HashMap<u64, Response>) -> HlsResult<Vec<u64>> {
         self.read_buffer.check_move(16384)?;
-        self.stream.sync_read(&mut self.read_buffer)?;
+        self.stream.read(&mut self.read_buffer).wait()?;
         let response = responses.get_mut(&self.recv_sid).ok_or("resp not inited")?;
         let finish = response.extend_buffer(&mut self.read_buffer)?;
         if finish {
@@ -95,14 +95,14 @@ impl HTTP1StreamA {
             self.write_buffer.reset();
             let len = request.read(&mut self.write_buffer)?;
             if len == 0 { break; }
-            self.stream.async_write(self.write_buffer.filled()).await?;
+            self.stream.write(self.write_buffer.filled()).await?;
         }
         Ok(sid)
     }
 
     pub async fn recv(&mut self, responses: &mut HashMap<u64, Response>) -> HlsResult<Vec<u64>> {
         self.read_buffer.check_move(16384)?;
-        self.stream.async_read(&mut self.read_buffer).await?;
+        self.stream.read(&mut self.read_buffer).await?;
         let response = responses.get_mut(&self.recv_sid).ok_or("resp not inited")?;
         let finish = response.extend_buffer(&mut self.read_buffer)?;
         if finish {

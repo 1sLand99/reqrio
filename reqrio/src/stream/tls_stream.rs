@@ -1,12 +1,8 @@
-mod read;
-mod connect;
-mod write;
 
 use crate::error::HlsResult;
 #[cfg(feature = "aync")]
 use crate::Timeout;
-use connect::{ConnState, TlsConnecting};
-pub use read::RecordReading;
+use super::connect::{ConnState, TlsConnecting};
 use reqtls::*;
 #[cfg(feature = "aync")]
 use std::cmp::min;
@@ -18,22 +14,23 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 #[cfg(feature = "aync")]
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
-pub use write::BufWriting;
+use crate::stream::read::RecordReading;
+use crate::stream::write::BufWriting;
 
 pub struct TlsStream<S> {
-    conn: Connection,
+    pub(super) conn: Connection,
     stream: S,
     encrypted_channel: bool,
-    handshake_finished: bool,
+    pub(super) handshake_finished: bool,
     hello_retrying: bool,
-    read_buffer: Buffer,
-    write_buffer: Buffer,
+    pub(super) read_buffer: Buffer,
+    pub(super) write_buffer: Buffer,
     #[cfg(feature = "aync")]
     shutdown_wrote: bool,
     #[cfg(feature = "aync")]
     write_offset: usize,
     #[cfg(feature = "aync")]
-    timeout: Timeout,
+    pub(super) timeout: Timeout,
 }
 
 impl<S> TlsStream<S> {
@@ -71,7 +68,7 @@ impl<S> TlsStream<S> {
         TlsStream::build(Config::Server(config), Connection::default(), stream)
     }
 
-    fn write_buffer(&mut self) -> BufWriting<'_, S> {
+    pub(super) fn write_buffer(&mut self) -> BufWriting<'_, S> {
         BufWriting {
             stream: &mut self.stream,
             buf: &mut self.write_buffer,
@@ -80,7 +77,7 @@ impl<S> TlsStream<S> {
         }
     }
 
-    fn read_next_record(&mut self) -> RecordReading<'_, S> {
+    pub(super) fn read_next_record(&mut self) -> RecordReading<'_, S> {
         RecordReading {
             stream: &mut self.stream,
             buf: &mut self.read_buffer,

@@ -1,5 +1,6 @@
 use crate::error::HlsResult;
 use crate::*;
+use std::future::Future;
 use std::io::{Read, Write};
 use std::mem;
 use std::ops::{Deref, DerefMut};
@@ -109,3 +110,63 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> Future for TlsConnecting<'a, S> {
         Poll::Ready(Ok(stream))
     }
 }
+
+
+// pub struct StreamConnect<'a> {
+//     pub(crate) stream: &'a mut Stream,
+//     pub(crate) shutdown: bool,
+//     pub(crate) param: ConnParam<'a>,
+// }
+
+// impl<'a> StreamConnect<'a> {
+//     pub fn wait(mut self) -> HlsResult<ALPN> {
+//         let _ = self.stream.shutdown().wait();
+//         let stream = ProxyStream::sync_connect(self.param.proxy, self.param.url.addr(), self.param.timeout, self.param.ech).unwrap();
+//         match self.param.url.scheme() {
+//             Scheme::Http | Scheme::Ws => {
+//                 *self.stream = Stream::SyncHttp(stream);
+//                 Ok(ALPN::Http11)
+//             }
+//             Scheme::Https | Scheme::Wss => {
+//                 let tls_stream = TlsStream::connect(ClientConfig::from(&mut self.param), stream).wait().unwrap();
+//                 let alpn = tls_stream.alpn().cloned().unwrap_or(ALPN::Http11);
+//                 *self.stream = Stream::SyncHttps(tls_stream);
+//                 Ok(alpn)
+//             }
+//             _ => Err("stream not supported".into())
+//         }
+//     }
+// }
+// // 
+// #[cfg(feature = "aync")]
+// impl<'a> Future for StreamConnect<'a> {
+//     type Output = HlsResult<ALPN>;
+//     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+//         if !self.shutdown {
+//             let mut shutdown = self.stream.shutdown();
+//             match Pin::new(&mut shutdown).poll(cx) {
+//                 Poll::Ready(_) => self.shutdown = true,
+//                 Poll::Pending => return Poll::Pending,
+//             }
+//         }
+// 
+// 
+//         let reader = self.get_mut();
+//         let stream: &mut (dyn AsyncWrite + Unpin) = match reader.stream {
+//             Stream::NonConnection => return Poll::Ready(Err("NonConnection".into())),
+//             Stream::AsyncHttp(stream) => stream,
+//             Stream::AsyncHttps(stream) => stream,
+//             _ => unreachable!(),
+//         };
+//         loop {
+//             match Pin::new(&mut *stream).poll_write(cx, &reader.buf[reader.off..])? {
+//                 Poll::Ready(len) => {
+//                     reader.off += len;
+//                     if reader.off >= reader.buf.len() { break; }
+//                 }
+//                 Poll::Pending => return Poll::Pending,
+//             }
+//         }
+//         Poll::Ready(Ok(()))
+//     }
+// }

@@ -6,11 +6,16 @@ mod quic;
 mod http3;
 mod http2;
 mod http1;
-mod tls;
+mod tls_stream;
+mod read;
+mod write;
+mod connect;
 
 use crate::packet::HeaderParam;
 #[cfg(all(feature = "quic", feature = "aync"))]
 use crate::stream::http3::HTTP3StreamA;
+use crate::stream::read::StreamRead;
+use crate::stream::write::{StreamShutdown, StreamWrite};
 use crate::*;
 #[cfg(feature = "aync")]
 use http1::HTTP1StreamA;
@@ -21,13 +26,13 @@ use http2::HTTP2StreamS;
 #[cfg(feature = "quic")]
 pub use http3::HTTP3StreamS;
 pub use proxy::Proxy;
-pub use proxy::ProxyStream;
+pub use proxy::ProxyConnecting;
 #[cfg(feature = "quic")]
 pub use quic::QUICStreamS;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::{env, io};
-pub use tls::*;
+use std::env;
+pub use tls_stream::*;
 pub use ws::*;
 
 pub struct ConnParam<'a> {
@@ -174,19 +179,6 @@ impl HTTPStream {
             }
         }
     }
-
-    #[allow(dead_code)]
-    pub fn shutdown_sync(&mut self) -> HlsResult<()> {
-        match self {
-            HTTPStream::NonConnection => Err("need connected before send".into()),
-            HTTPStream::SyncH1(h1) => h1.stream_mut().sync_shutdown(),
-            HTTPStream::SyncH2(h2) => h2.stream_mut().sync_shutdown(),
-            #[cfg(feature = "quic")]
-            HTTPStream::SyncH3(h3) => h3.shutdown_sync(),
-            #[cfg(feature = "aync")]
-            _ => Err("invalid sync stream".into()),
-        }
-    }
 }
 
 #[cfg(feature = "aync")]
@@ -234,16 +226,17 @@ impl HTTPStream {
     }
 }
 
+
 pub enum Stream {
     NonConnection,
     //同步
-    SyncHttp(ProxyStream<std::net::TcpStream>),
-    SyncHttps(TlsStream<ProxyStream<std::net::TcpStream>>),
+    SyncHttp(ProxyConnecting<std::net::TcpStream>),
+    SyncHttps(TlsStream<ProxyConnecting<std::net::TcpStream>>),
     //异步
     #[cfg(feature = "aync")]
-    AsyncHttp(ProxyStream<tokio::net::TcpStream>),
+    AsyncHttp(ProxyConnecting<tokio::net::TcpStream>),
     #[cfg(feature = "aync")]
-    AsyncHttps(TlsStream<ProxyStream<tokio::net::TcpStream>>),
+    AsyncHttps(TlsStream<ProxyConnecting<tokio::net::TcpStream>>),
 }
 
 impl Stream {
@@ -267,16 +260,36 @@ impl Stream {
             _ => None
         }
     }
+
+    pub fn read<'a>(&'a mut self, buffer: &'a mut Buffer) -> StreamRead<'a> {
+        StreamRead {
+            stream: self,
+            buf: buffer,
+        }
+    }
+
+    pub fn write<'a>(&'a mut self, buf: &'a [u8]) -> StreamWrite<'a> {
+        StreamWrite {
+            stream: self,
+            buf,
+            off: 0,
+        }
+    }
+
+    pub fn shutdown(&mut self) -> StreamShutdown<'_> {
+        StreamShutdown {
+            stream: self
+        }
+    }
 }
 
 #[cfg(feature = "aync")]
 impl Stream {
     pub async fn async_conn(&mut self, param: &mut ConnParam<'_>) -> HlsResult<ALPN> {
-        let _ = self.async_shutdown().await;
-        // let st = Time::now_mills();
-        let connect = ProxyStream::async_connect(param.proxy, param.url.addr(), param.timeout, param.ech);
-        let stream = tokio::time::timeout(param.timeout.connect(), connect).await??;
-        // println!("TCP TIME: {}", Time::now_mills() - st);
+        let _ = self.shutdown().await;
+        let connect = ProxyConnecting::async_connect(param.proxy, param.url.addr(), param.timeout, param.ech);
+        let stream = tokio::time::timeout(param.timeout.connect(), connect)
+            .await.or(Err(TimeError::ConnectTimeout))??;
         match param.url.scheme() {
             Scheme::Http | Scheme::Ws => {
                 *self = Stream::AsyncHttp(stream);
@@ -286,9 +299,7 @@ impl Stream {
                 let timeout = param.timeout.clone();
                 let mut connecting = TlsStream::connect(ClientConfig::from(param), stream);
                 connecting.state.set_timeout(timeout);
-                // let st = Time::now_mills();
                 let tls_stream = connecting.await?;
-                // println!("TLS TIME: {}", Time::now_mills() - st);
                 let alpn = tls_stream.alpn().cloned().unwrap_or(ALPN::Http11);
                 *self = Stream::AsyncHttps(tls_stream);
                 Ok(alpn)
@@ -296,114 +307,24 @@ impl Stream {
             _ => Err("stream not supported".into())
         }
     }
-
-
-    pub async fn async_write(&mut self, buf: &[u8]) -> HlsResult<()> {
-        match self {
-            Stream::AsyncHttp(s) => {
-                match tokio::time::timeout(s.timeout.write(), tokio::io::AsyncWriteExt::write_all(s, buf)).await {
-                    Ok(res) => Ok(res?),
-                    Err(_) => Err(TimeError::WriteTimeout.into())
-                }
-            }
-            Stream::AsyncHttps(s) => Ok(tokio::io::AsyncWriteExt::write_all(s, buf).await?),
-            _ => Err("Unsupported async write".into()),
-        }
-    }
-
-    pub async fn async_read(&mut self, buffer: &mut Buffer) -> HlsResult<()> {
-        match self {
-            Stream::AsyncHttp(s) => {
-                match tokio::time::timeout(s.timeout.read(), tokio::io::AsyncReadExt::read(s, buffer.unfilled())).await {
-                    Ok(len) => {
-                        buffer.add_len(len?);
-                        Ok(())
-                    }
-                    Err(_) => Err(TimeError::ReadTimeout.into())
-                }
-            }
-            Stream::AsyncHttps(s) => {
-                let len = tokio::io::AsyncReadExt::read(s, buffer.unfilled()).await?;
-                buffer.add_len(len);
-                Ok(())
-            }
-            _ => Err("Unsupported async read".into()),
-        }
-    }
-
-    pub async fn async_shutdown(&mut self) -> HlsResult<()> {
-        match self {
-            Stream::AsyncHttp(s) => {
-                match tokio::time::timeout(s.timeout.read(), tokio::io::AsyncWriteExt::shutdown(s)).await {
-                    Ok(ret) => Ok(ret?),
-                    Err(_) => Err(TimeError::ReadTimeout.into())
-                }
-            }
-            Stream::AsyncHttps(s) => {
-                tokio::io::AsyncWriteExt::shutdown(s).await?;
-                Ok(())
-            }
-            _ => Err("Unsupported async read".into()),
-        }
-    }
 }
 
 impl Stream {
     pub fn sync_conn<'a, 'b: 'a>(&'a mut self, param: &'a mut ConnParam<'b>) -> HlsResult<ALPN> {
-        let _ = self.sync_shutdown();
-        let stream = ProxyStream::sync_connect(param.proxy, param.url.addr(), param.timeout, param.ech).unwrap();
+        let _ = self.shutdown().wait();
+        let stream = ProxyConnecting::sync_connect(param.proxy, param.url.addr(), param.timeout, param.ech)?;
         match param.url.scheme() {
             Scheme::Http | Scheme::Ws => {
                 *self = Stream::SyncHttp(stream);
                 Ok(ALPN::Http11)
             }
             Scheme::Https | Scheme::Wss => {
-                let tls_stream = TlsStream::connect(ClientConfig::from(param), stream).wait().unwrap();
+                let tls_stream = TlsStream::connect(ClientConfig::from(param), stream).wait()?;
                 let alpn = tls_stream.alpn().cloned().unwrap_or(ALPN::Http11);
                 *self = Stream::SyncHttps(tls_stream);
                 Ok(alpn)
             }
             _ => Err("stream not supported".into())
-        }
-    }
-
-    pub fn sync_write(&mut self, buf: &[u8]) -> HlsResult<()> {
-        match self {
-            Stream::SyncHttp(s) => {
-                io::Write::write_all(s, buf)?;
-                Ok(())
-            }
-            Stream::SyncHttps(s) => {
-                io::Write::write_all(s, buf)?;
-                Ok(())
-            }
-            _ => Err("Unsupported sync write".into()),
-        }
-    }
-
-    pub fn sync_read(&mut self, buffer: &mut Buffer) -> HlsResult<()> {
-        match self {
-            Stream::SyncHttp(stream) => {
-                let len = io::Read::read(stream, buffer.unfilled())?;
-                if len == 0 { return Err(HlsError::PeerClosedConnection); }
-                buffer.add_len(len);
-                Ok(())
-            }
-            Stream::SyncHttps(stream) => {
-                let len = io::Read::read(stream, buffer.unfilled())?;
-                if len == 0 { return Err(HlsError::PeerClosedConnection); }
-                buffer.add_len(len);
-                Ok(())
-            }
-            _ => Err("Unsupported async read".into()),
-        }
-    }
-
-    pub fn sync_shutdown(&mut self) -> HlsResult<()> {
-        match self {
-            Stream::SyncHttp(s) => Ok(s.shutdown()?),
-            Stream::SyncHttps(s) => Ok(s.shutdown()?),
-            _ => Err("Unsupported async read".into()),
         }
     }
 }

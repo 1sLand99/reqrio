@@ -263,7 +263,7 @@ pub extern "system" fn ScReq_connect(req: *mut ScReq, url: *const c_char, sni: *
 pub extern "C" fn ScReq_close_stream(req: *mut ScReq) -> *mut c_char {
     check_run(move || {
         let req = unsafe { req.as_mut() }.ok_or(HlsError::NullPointer)?;
-        let _ = req.http_stream_mut().shutdown_sync();
+        let _ = req.http_stream_mut().stream_mut().and_then(|stream| stream.shutdown().wait());
         Ok(null_mut())
     }, handle_err2)
 }
@@ -274,7 +274,7 @@ pub extern "C" fn ScReq_close_stream(req: *mut ScReq) -> *mut c_char {
 pub extern "C" fn ScReq_drop(req: *mut ScReq) {
     if req.is_null() { return; }
     let mut req = unsafe { Box::from_raw(req) };
-    let _ = req.http_stream_mut().shutdown_sync();
+    let _ = req.http_stream_mut().stream_mut().and_then(|stream| stream.shutdown().wait());
     drop(req);
 }
 

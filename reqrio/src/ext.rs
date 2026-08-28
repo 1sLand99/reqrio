@@ -102,6 +102,11 @@ pub trait ReqExt: Sized {
         Ok(self)
     }
 
+    fn with_header(mut self, header: Header) -> Self {
+        *self.header_mut() = header;
+        self
+    }
+
     fn insert_header(&mut self, k: impl AsRef<str>, v: impl ToString) -> HlsResult<()> {
         ReqExt::header_mut(self).insert(k, v)
     }

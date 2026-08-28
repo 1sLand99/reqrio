@@ -85,7 +85,7 @@ impl<W: WriteExt, C: StreamDecode<W>> StreamDecode<W> for ChunkDecoder<W, C> {
 mod chunk_tests {
     use crate::coder::chunk::ChunkDecoder;
     use crate::coder::{BrotliDecoder, DeflateStream, StreamDecode};
-    use crate::{Buffer, ReadExt, Reader};
+    use crate::{Buffer, Reader};
     use std::fs;
 
     #[test]
@@ -104,7 +104,6 @@ mod chunk_tests {
         let mut decompressed = Buffer::with_capacity(data.len() * 10);
         let mut decoder = ChunkDecoder::new(DeflateStream::new_decompress(DeflateStream::GZIP).unwrap());
         decoder.decompress(&mut Reader::from_slice(&data), &mut decompressed).unwrap();
-        // println!("{:?}", decompressed.filled());
         assert!(std::str::from_utf8(decompressed.filled()).is_ok())
     }
 
@@ -121,18 +120,15 @@ mod chunk_tests {
         ];
         let mut decompressed = Buffer::with_capacity(8192);
         let mut decoder = ChunkDecoder::new(BrotliDecoder::new().unwrap());
-        for (index, datum) in data.into_iter().enumerate() {
-            println!("{}", index);
+        for datum in data.into_iter() {
             let mut reader = Reader::from_slice(&datum);
             match decoder.decompress(&mut reader, &mut decompressed) {
                 Ok(_) => {}
-                Err(e) => {
-                    println!("{} {} {:?}", e, reader.unread_len(), &reader.inner()[reader.position()..]);
+                Err(_) => {
                     decompressed.resize(8192 * 2).unwrap();
                     match decoder.decompress(&mut reader, &mut decompressed) {
                         Ok(_) => {}
-                        Err(e) => {
-                            println!("{} {} {:?}", e, reader.unread_len(), &reader.inner()[reader.position()..]);
+                        Err(_) => {
                             decompressed.resize(8192 * 4).unwrap();
                             decoder.decompress(&mut reader, &mut decompressed).unwrap();
                             decoder.flush(&mut decompressed).unwrap();
@@ -141,7 +137,6 @@ mod chunk_tests {
                 }
             }
             decoder.flush(&mut decompressed).unwrap();
-            println!("{}", String::from_utf8_lossy(decompressed.filled()));
         }
     }
 }

@@ -1,11 +1,42 @@
-// mod sync;
-
 use crate::body::Body;
 use crate::error::HlsResult;
 use crate::stream::Stream;
 use crate::*;
 use crate::ext::ReqPriExt;
-// pub use sync::WebSocketS;
+use crate::stream::write::StreamShutdown;
+// pub struct WebSocket {
+//     stream: Stream,
+//     write_buffer: Buffer,
+// }
+//
+// impl WebSocket {
+//     pub fn new(header: Header) -> WebSocket {
+//         WebSocket {
+//             header,
+//         }
+//     }
+//
+//     pub fn connect_sync(url: &str) -> HlsResult<WebSocket> {
+//         let header = Header::new_req_h1();
+//         let mut req = ScReq::new().with_header(header);
+//         let resp = req.get(url, None)?;
+//         if resp.header().status() != HttpStatus::OK {
+//             return Err("Connect Failed".into());
+//         }
+//         Ok(WebSocket {
+//             stream: req.into_stream()?
+//         })
+//     }
+//
+//     pub fn write_frame(&mut self, frame: WsFrame) -> StreamWrite {
+//         self.write_buffer.write_slice(frame.to_bytes().as_ref());
+//         StreamWrite {
+//             stream: &mut self.stream,
+//             buf: &mut self.write_buffer,
+//         }
+//     }
+// }
+
 
 pub struct WebSocketBuilder<S: ReqExt>(S);
 
@@ -122,13 +153,13 @@ impl WebSocket {
             None => req.do_http(Method::GET, url.clone(), Body::none())?,
             Some(raw) => {
                 req.set_url(url)?;
-                req.http_stream_mut().stream_mut()?.sync_write(raw)?;
+                req.http_stream_mut().stream_mut()?.write(raw).wait()?;
                 req.responses().insert(0, Response::new());
                 req.recv(0)?
             }
         };
         let status = resp.header().status();
-        if status != &HttpStatus::SwitchingProtocols { return Err(format!("Connect fail with code-{}", status).into()); }
+        if status != HttpStatus::SwitchingProtocols { return Err(format!("Connect fail with code-{}", status).into()); }
         req.into_stream()
     }
 
@@ -143,7 +174,7 @@ impl WebSocket {
 
 
     pub fn write_frame(&mut self, frame: WsFrame) -> HlsResult<()> {
-        self.stream.sync_write(&frame.to_bytes())
+        self.stream.write(&frame.to_bytes()).wait()
     }
 
     pub fn read_frame(&mut self) -> HlsResult<WsFrame> {
@@ -151,13 +182,13 @@ impl WebSocket {
             if let Ok(frame) = WsFrame::from_buffer(&mut self.buffer) {
                 break frame;
             }
-            self.stream.sync_read(&mut self.buffer)?;
+            self.stream.read(&mut self.buffer).wait()?;
         };
         Ok(frame)
     }
 
-    pub fn shutdown(mut self) -> HlsResult<()> {
-        self.stream.sync_shutdown()
+    pub fn shutdown(&mut self) -> StreamShutdown<'_> {
+        self.stream.shutdown()
     }
 }
 
@@ -173,7 +204,7 @@ impl WebSocket {
             Some(raw) => {
                 let url = Url::try_from(url)?;
                 req.set_url(&url).await?;
-                req.http_stream_mut().stream_mut()?.async_write(raw).await?;
+                req.http_stream_mut().stream_mut()?.write(raw).await?;
                 req.responses().insert(0, Response::new());
                 req.recv(0).await?
             }
@@ -194,7 +225,7 @@ impl WebSocket {
 
 
     pub async fn async_write_frame(&mut self, frame: WsFrame) -> HlsResult<()> {
-        self.stream.async_write(&frame.to_bytes()).await
+        self.stream.write(&frame.to_bytes()).await
     }
 
     pub async fn async_read_frame(&mut self) -> HlsResult<WsFrame> {
@@ -202,14 +233,11 @@ impl WebSocket {
             return Ok(frame);
         }
         loop {
-            self.stream.async_read(&mut self.buffer).await?;
+            self.stream.read(&mut self.buffer).await?;
             if let Ok(frame) = WsFrame::from_buffer(&mut self.buffer) {
                 return Ok(frame);
             }
         }
     }
 
-    pub async fn async_shutdown(mut self) -> HlsResult<()> {
-        self.stream.async_shutdown().await
-    }
 }

@@ -27,7 +27,7 @@ impl HTTP2StreamS {
         buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")?;
         fingerprint.h2().build_setting().write_to(&mut buffer)?;
         fingerprint.h2().build_window_update().write_to(&mut buffer)?;
-        stream.sync_write(buffer.filled())?;
+        stream.write(buffer.filled()).wait()?;
         buffer.reset();
         Ok(HTTP2StreamS {
             encoder: HPackEncode::new(65536),
@@ -42,7 +42,7 @@ impl HTTP2StreamS {
 
     fn flush(stream: &mut Stream, buffer: &mut Buffer) -> HlsResult<()> {
         if buffer.is_empty() { return Ok(()); }
-        stream.sync_write(buffer.filled())?;
+        stream.write(buffer.filled()).wait()?;
         buffer.reset();
         Ok(())
     }
@@ -69,7 +69,7 @@ impl HTTP2StreamS {
     fn read_size(&mut self, max_size: usize) -> HlsResult<()> {
         while self.read_buffer.len() < max_size {
             self.read_buffer.check_move(16438)?;
-            self.stream.sync_read(&mut self.read_buffer)?;
+            self.stream.read(&mut self.read_buffer).wait()?;
         }
         Ok(())
     }
@@ -197,7 +197,7 @@ impl HTTP2StreamA {
         buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")?;
         fingerprint.h2().build_setting().write_to(&mut buffer)?;
         fingerprint.h2().build_window_update().write_to(&mut buffer)?;
-        stream.async_write(buffer.filled()).await?;
+        stream.write(buffer.filled()).await?;
         buffer.reset();
         Ok(HTTP2StreamA {
             encoder: HPackEncode::new(65536),
@@ -211,7 +211,7 @@ impl HTTP2StreamA {
     }
     async fn flush(stream: &mut Stream, buffer: &mut Buffer) -> HlsResult<()> {
         if buffer.is_empty() { return Ok(()); }
-        stream.async_write(buffer.filled()).await?;
+        stream.write(buffer.filled()).await?;
         buffer.reset();
         Ok(())
     }
@@ -238,7 +238,7 @@ impl HTTP2StreamA {
     async fn read_size(&mut self, max_size: usize) -> HlsResult<()> {
         while self.read_buffer.len() < max_size {
             self.read_buffer.check_move(16438)?;
-            self.stream.async_read(&mut self.read_buffer).await?;
+            self.stream.read(&mut self.read_buffer).await?;
         }
         Ok(())
     }

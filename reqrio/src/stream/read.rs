@@ -1,6 +1,7 @@
 use crate::error::HlsResult;
+use crate::stream::Stream;
 use crate::*;
-use std::io::Read;
+use std::io::{ErrorKind, Read};
 #[cfg(feature = "aync")]
 use std::pin::Pin;
 #[cfg(feature = "aync")]
@@ -8,6 +9,8 @@ use std::task::{Context, Poll};
 #[cfg(feature = "aync")]
 use tokio::io::{AsyncRead, ReadBuf};
 
+
+#[must_use = "streams do nothing unless `.wait()/.await`"]
 pub struct BufReading<'a, S> {
     pub(crate) buf: &'a mut Buffer,
     pub(crate) stream: &'a mut S,
@@ -17,13 +20,17 @@ pub struct BufReading<'a, S> {
 }
 
 impl<'a, S: Read> BufReading<'a, S> {
-    fn wait(self) -> HlsResult<usize> {
+    pub(crate) fn wait(self) -> HlsResult<usize> {
         debug_assert!(self.want_size > 0);
         self.buf.check_move(self.want_size).unwrap();
         while self.buf.len() < self.want_size {
-            let len = self.stream.read(self.buf.unfilled())?;
-            if len == 0 { return Err(HlsError::PeerClosedConnection); }
-            self.buf.add_len(len);
+            debug_assert!(self.buf.unfilled_len() > 0);
+            match self.stream.read(self.buf.unfilled()).map_err(|e| e.kind()) {
+                Ok(0) => return Err(HlsError::PeerClosedConnection),
+                Ok(len) => self.buf.add_len(len),
+                Err(ErrorKind::Interrupted) => continue,
+                Err(e) => return Err(e.into()),
+            }
         }
         Ok(self.buf.len())
     }
@@ -58,7 +65,7 @@ impl<'a, S: AsyncRead + Unpin> Future for BufReading<'a, S> {
     }
 }
 
-
+#[must_use = "streams do nothing unless `.wait()/.await`"]
 pub struct RecordReading<'a, S> {
     pub(crate) stream: &'a mut S,
     pub(crate) buf: &'a mut Buffer,
@@ -114,5 +121,49 @@ impl<'a, S: AsyncRead + Unpin> Future for RecordReading<'a, S> {
         };
         if Pin::new(&mut reading).poll(cx)?.is_pending() { return Poll::Pending; }
         Poll::Ready(Ok(record_len))
+    }
+}
+
+#[must_use = "streams do nothing unless `.wait()/.await`"]
+pub struct StreamRead<'a> {
+    pub(crate) stream: &'a mut Stream,
+    pub(crate) buf: &'a mut Buffer,
+}
+
+impl<'a> StreamRead<'a> {
+    pub fn wait(self) -> HlsResult<()> {
+        let stream: &mut dyn Read = match self.stream {
+            Stream::NonConnection => return Err("NonConnection".into()),
+            Stream::SyncHttp(stream) => stream,
+            Stream::SyncHttps(stream) => stream,
+            #[cfg(feature = "aync")]
+            _ => unreachable!(),
+        };
+        let len = stream.read(self.buf.unfilled())?;
+        self.buf.add_len(len);
+        Ok(())
+    }
+}
+
+#[cfg(feature = "aync")]
+impl<'a> Future for StreamRead<'a> {
+    type Output = HlsResult<()>;
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let reader = self.get_mut();
+        let stream: &mut (dyn AsyncRead + Unpin) = match reader.stream {
+            Stream::NonConnection => return Poll::Ready(Err("NonConnection".into())),
+            Stream::AsyncHttp(stream) => stream,
+            Stream::AsyncHttps(stream) => stream,
+            _ => unreachable!(),
+        };
+        let mut buf = ReadBuf::new(reader.buf.unfilled());
+        match Pin::new(stream).poll_read(cx, &mut buf)? {
+            Poll::Ready(_) => {
+                let len = buf.filled().len();
+                reader.buf.add_len(len);
+                Poll::Ready(Ok(()))
+            }
+            Poll::Pending => Poll::Pending,
+        }
     }
 }

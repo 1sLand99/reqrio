@@ -44,7 +44,7 @@ pub extern "system" fn ws_set_uri(builder: *mut WebSocketBuilder<ScReq>, uri: *c
 pub extern "system" fn ws_open(builder: *mut WebSocketBuilder<ScReq>, url: *const Url) -> *mut WebSocket {
     || -> HlsResult<*mut WebSocket>{
         let builder = unsafe { Box::from_raw(builder) };
-        let url=unsafe{url.as_ref()}.ok_or(HlsError::NullPointer)?;
+        let url = unsafe { url.as_ref() }.ok_or(HlsError::NullPointer)?;
         let ws = builder.build(url)?;
         Ok(Box::into_raw(Box::new(ws)))
     }().unwrap_or_else(|e| {
@@ -96,6 +96,6 @@ pub extern "system" fn ws_write(websocket: *mut WebSocket, op_code: i32, mask: b
 pub extern "system" fn ws_close(websocket: *mut WebSocket) {
     println!("{}", websocket.is_null());
     if websocket.is_null() { return; }
-    let websocket = unsafe { Box::from_raw(websocket) };
-    let _ = websocket.shutdown();
+    let mut websocket = unsafe { Box::from_raw(websocket) };
+    let _ = websocket.shutdown().wait();
 }

@@ -64,7 +64,6 @@ pub struct CipherCrypto {
 
 impl CipherCrypto {
     pub fn new(cipher: CipherType, key: Vec<u8>, mac: Vec<u8>, hash: HashType) -> RlsResult<CipherCrypto> {
-        println!("{:?} {:?} {:?} {:?}", cipher, key, mac, hash);
         let cipher = Cipher::new(cipher).with_secret_key(key, None);
         Ok(CipherCrypto {
             mac_key: mac,
