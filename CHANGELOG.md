@@ -4,57 +4,74 @@
 
 ## ✨ 新特性
 
-### 🌊 HTTP/3 与 QUIC
+### 🌊 HTTP/3 与 QUIC [#20](https://github.com/xllgl2017/reqrio/pull/20)
 
 - 新增 QUIC 传输层，实现连接、握手、加密数据包、ACK、流控和流管理。
 - 新增 HTTP/3 请求与响应处理，支持同步和异步请求流程。
 - 新增 QPACK 编解码及静态表、动态表和索引管理。
 - `ScReq` 支持通过 `quic` feature 发起 HTTP/3 请求。
 - 新增 `H3Finger`，用于配置 HTTP/3 指纹。
-- 增加 `QUERY` 请求方法，以及对无序流、`HelloRetry`、`Retry` 数据包和 HTTP/3 响应头的处理。
+- 新增对无序流、`HelloRetry`、`Retry` 数据包和 HTTP/3 响应头的处理。
 
-启用 HTTP/3/QUIC 相关能力时，请开启 `quic` feature：
+> ⚠️启用 HTTP/3/QUIC 相关能力时，请开启 `quic` feature：
 
 ```toml
 reqrio = { version = "0.4.0", features = ["quic"] }
 ```
 
-### 🔐 TLCP 与国密算法
+### 🎯 其他
+
+- 增加 `QUERY` 请求方法 [RFC10008](https://www.rfc-editor.org/rfc/rfc10008.html)
+- 支持 MacOS [#22](https://github.com/xllgl2017/reqrio/issues/22)
+- 合并同步和异步接口，使用.wait()/.await
+
+### 🔐 TLCP 与国密算法 [#23](https://github.com/xllgl2017/reqrio/issues/23) [#25](https://github.com/xllgl2017/reqrio/pull/25)
 
 - 支持 TLCP 服务端证书校验。
 - 新增 `Sm2Key`，支持 SM2 加密、解密、签名和验签。
 - 支持 `ECC_SM4_CBC_SM3` 密码套件。
 - 完善 SM2、证书和签名相关的底层接口与错误处理。
 
-### 🧩 HTTPStream 与请求处理
+### 🧩 HTTPStream 与流式请求
 
-- 抽离并完善 `HTTPStream`，统一 HTTP/1.1、HTTP/2 和 HTTP/3 的流处理结构。
-- `HTTPStream` 支持异步使用。
-- 支持连续调用 `send` 发送多个请求，再通过请求 ID 调用 `recv` 获取对应响应：
+- 统一 HTTP/1.1、HTTP/2 和 HTTP/3 的流处理结构`HTTPStream`。
+- `HTTPStream` 支持异步和同步使用。
+- 支持连续发送多个请求, 并且不需按顺序接收，如下：
 
-```rust
-use reqrio::{Body, Method, ScReq};
+```text
+use reqrio::*;
 
 let mut req = ScReq::new().connect("https://example.com")?;
-let sid1 = req.send(Method::GET, "https://example.com/first", Body::none())?;
-let sid2 = req.send(Method::GET, "https://example.com/second", Body::none())?;
+let sid1 = req.send(Method::GET, "https://example.com/1", Body::none())?;
+let sid2 = req.send(Method::GET, "https://example.com/2", Body::none())?;
+let sid3 = req.send(Method::GET, "https://example.com/3", Body::none())?;
+let sid4 = req.send(Method::GET, "https://example.com/4", Body::none())?;
+let sid5 = req.send(Method::GET, "https://example.com/5", Body::none())?;
+let sid6 = req.send(Method::GET, "https://example.com/6", Body::none())?;
+let sid7 = req.send(Method::GET, "https://example.com/7", Body::none())?;
 
-let first = req.recv(sid1)?;
-let second = req.recv(sid2)?;
-println!("{} {}", first.header().status().code(), second.header().status().code());
+let resp1 = req.recv(sid1)?;
+let resp7 = req.recv(sid7)?;
+let resp2 = req.recv(sid2)?;
+println!("{} {}", resp1.header().status(), resp7.header().status());
 ```
 
-- 改进 HTTP/2 请求头和 `content-length` 处理。
-- 修复响应体在缺少 `content-length` 时的扩展问题。
-- 修复流读取、缓冲区扩容、分块解码和 WebSocket 相关问题。
+## 🛠️ 修复
 
-## 🛠️ 工程与平台
+- 修复h2响应体在缺少 `content-length` 时的问题。
+- 修复`WebSocket`的`premessage-deflate`未解压问题 [#17](https://github.com/xllgl2017/reqrio/issues/17)
+- 修复流式响应 [#18](https://github.com/xllgl2017/reqrio/issues/18)
+- 修复响应不正确，在高网络延迟环境 [#24](https://github.com/xllgl2017/reqrio/issues/24)
+- 修复h2在请求体为空的post时，的`content-length`无法设置问题
 
-- 重构 reqtls 构建流程，将构建逻辑拆分为独立模块。
-- 改进 QUIC feature 的 CI 检查和发布流程。
-- 增加 macOS 构建支持并修复相关 CI 问题。
-- 修复 Python 绑定中的 `upload_file` 问题。
-- 清理对预编译加密库文件的依赖，调整库的构建方式。
+## Contact
+
+- Telegram: https://t.me/+VVfbAeug-ohhZjU1
+- QQ: 1083315546
+
+---
+
+**Full Changelog**: https://github.com/xllgl2017/reqrio/compare/v0.3.1...v0.4.0
 
 # reqrio-v0.3.1
 
