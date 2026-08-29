@@ -75,20 +75,21 @@ impl DeflateStream {
     }
 
 
-    pub fn decompress_once<'a>(&mut self, reader: &mut Reader<'a>, out: &mut Vec<u8>) -> Result<usize, CodingError> {
+    pub fn decompress_once<'a>(&mut self, reader: &mut Reader<'a>, out: &mut Vec<u8>, mut flush: bool) -> Result<usize, CodingError> {
         let mut wrote = 0;
         loop {
             let mut writer = Buffer::from_ptr(out);
             writer.add_len(wrote);
             let res = if reader.unread_len() == 0 {
+                flush = true;
                 self.flush(&mut writer)
             } else { self.decompress(reader, &mut writer) };
             wrote = writer.filled().len();
             match res {
-                Ok(_) => return Ok(writer.filled().len()),
-                Err(CodingError::Buffer(BufferError::CapacityTooSmall { .. })) => {
-                    out.resize(out.len() + 1024, 0);
+                Ok(_) => if reader.unread_len() == 0 && flush {
+                    return Ok(writer.filled().len());
                 }
+                Err(CodingError::Buffer(BufferError::CapacityTooSmall { .. })) => out.resize(out.len() + 1024, 0),
                 Err(e) => return Err(e),
             }
         }
@@ -113,7 +114,7 @@ impl<W: WriteExt> StreamDecode<W> for DeflateStream {
         #[cfg(feature = "log")]
         trace!("gzip: read={}; remain={}; size={}", reader.position(), reader.unread_len(), reader.size());
         self.finish = matches!(state, DeflateState::STREAM_END);
-        if matches!(state,DeflateState::BUF_ERROR) {
+        if matches!(state, DeflateState::BUF_ERROR) {
             return Err(CodingError::Buffer(BufferError::CapacityTooSmall {
                 current: out.capacity(),
                 file: file!(),
@@ -123,6 +124,7 @@ impl<W: WriteExt> StreamDecode<W> for DeflateStream {
         } else if !matches!(state, DeflateState::OK|DeflateState::STREAM_END) {
             return Err(CodingError::DeflateError(state));
         }
+
         Ok(())
     }
 

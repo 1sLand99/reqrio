@@ -27,8 +27,7 @@ impl HTTP2StreamS {
         buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")?;
         fingerprint.h2().build_setting().write_to(&mut buffer)?;
         fingerprint.h2().build_window_update().write_to(&mut buffer)?;
-        stream.write(buffer.filled()).wait()?;
-        buffer.reset();
+        stream.write(&mut buffer).wait()?;
         Ok(HTTP2StreamS {
             encoder: HPackEncode::new(65536),
             decoder: HPackDecode::new(65536),
@@ -42,7 +41,7 @@ impl HTTP2StreamS {
 
     fn flush(stream: &mut Stream, buffer: &mut Buffer) -> HlsResult<()> {
         if buffer.is_empty() { return Ok(()); }
-        stream.write(buffer.filled()).wait()?;
+        stream.write(buffer).wait()?;
         buffer.reset();
         Ok(())
     }
@@ -211,8 +210,7 @@ impl HTTP2StreamA {
     }
     async fn flush(stream: &mut Stream, buffer: &mut Buffer) -> HlsResult<()> {
         if buffer.is_empty() { return Ok(()); }
-        stream.write(buffer.filled()).await?;
-        buffer.reset();
+        stream.write(buffer).await?;
         Ok(())
     }
 

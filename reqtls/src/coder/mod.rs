@@ -61,7 +61,7 @@ impl From<Utf8Error> for CodingError {
     }
 }
 
-impl From<ParseIntError> for CodingError{
+impl From<ParseIntError> for CodingError {
     fn from(value: ParseIntError) -> Self {
         CodingError::ParseInt(value)
     }
@@ -175,7 +175,7 @@ pub fn deflate_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, CodingError>
     let mut reader = Reader::from_slice(buf.as_ref());
     let mut out = vec![0; reader.size() * 2];
     let mut decoder = DeflateStream::new_decompress(DeflateStream::DEFLATE)?;
-    let len = decoder.decompress_once(&mut reader, &mut out)?;
+    let len = decoder.decompress_once(&mut reader, &mut out, false)?;
     out.truncate(len);
     Ok(out)
 }
@@ -195,7 +195,7 @@ pub fn gzip_decompress(buf: impl AsRef<[u8]>) -> Result<Vec<u8>, CodingError> {
     if reader.unread_len() == 0 { return Ok(vec![]); }
     let mut out = vec![0; reader.size() * 2];
     let mut decoder = DeflateStream::new_decompress(DeflateStream::GZIP)?;
-    let len = decoder.decompress_once(&mut reader, &mut out)?;
+    let len = decoder.decompress_once(&mut reader, &mut out, false)?;
     out.truncate(len);
     Ok(out)
 }

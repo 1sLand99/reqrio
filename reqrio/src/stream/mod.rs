@@ -269,12 +269,10 @@ impl Stream {
         }
     }
 
-    pub fn write<'a>(&'a mut self, buf: &'a [u8]) -> StreamWrite<'a> {
+    pub fn write<'a>(&'a mut self, buf: &'a mut Buffer) -> StreamWrite<'a> {
         StreamWrite {
             stream: self,
             buf,
-            #[cfg(feature = "aync")]
-            off: 0,
         }
     }
 

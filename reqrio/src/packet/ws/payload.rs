@@ -1,7 +1,6 @@
-use std::ptr;
-use crate::error::HlsResult;
-use crate::HlsError;
-use crate::packet::ws::Marker;
+use super::Marker;
+use crate::*;
+use reqtls::coder::{CodingError, DeflateStream};
 
 pub struct WsPayload {
     len: usize,
@@ -10,77 +9,81 @@ pub struct WsPayload {
 }
 
 impl WsPayload {
+    const DEFLATE_END: [u8; 4] = [0x00, 0x00, 0xff, 0xff];
+
     pub fn new() -> WsPayload {
         WsPayload {
             len: 0,
-            mask: [43, 34, 56, 23],
+            mask: rand::random::<[u8; 4]>(),
             payload: vec![],
         }
     }
 
-    pub(crate) fn copy_payload(&mut self, payload: &[u8], masker: &Marker) {
-        self.payload.reserve(payload.len());
-        let dst = self.payload.as_mut_ptr();
-        unsafe { ptr::copy_nonoverlapping(payload.as_ptr(), dst, payload.len()) };
-        unsafe { self.payload.set_len(payload.len()); }
-        if masker.mask {
-            self.payload.iter_mut().enumerate().for_each(|(i, b)| *b ^= self.mask[i % 4])
+    fn decode(&self, coder: &mut DeflateStream, reader: &mut Reader, payload: &mut Vec<u8>) -> Result<usize, CodingError> {
+        let mut out_len = 0;
+        while reader.unread_len() > 0 {
+            out_len += coder.decompress_once(reader, payload, true)?;
         }
-        self.len = payload.len();
+        Ok(out_len)
     }
 
-    pub fn from_bytes(masker: &Marker, bytes: &[u8]) -> HlsResult<WsPayload> {
-        let mut res = WsPayload::new();
-        match masker.len_code {
-            127 => {
-                if bytes.len() < 8 { return Err(HlsError::DataTooShort); }
-                res.len = u64::from_be_bytes(bytes[..8].try_into()?) as usize;
-                if masker.mask {
-                    if bytes.len() < res.len + 4 + 8 { return Err(HlsError::DataTooShort); }
-                    res.mask.copy_from_slice(&bytes[8..12]);
-                    res.copy_payload(&bytes[12..12 + res.len], masker);
-                } else {
-                    if bytes.len() < res.len + 8 { return Err(HlsError::DataTooShort); }
-                    res.copy_payload(&bytes[8..8 + res.len], masker);
+    pub(crate) fn read_payload(&mut self, mut reader: Reader, masker: &Marker, coder: Option<&mut DeflateStream>, demask_buffer: &mut Buffer) -> Result<(), CodingError> {
+        demask_buffer.reset();
+        match (masker.mask, coder) {
+            (true, None) => {
+                let mut payload = Vec::with_capacity(reader.inner().len());
+                for (i, b) in reader.inner().iter().enumerate() {
+                    payload.push(b ^ self.mask[i % 4])
                 }
+                self.payload = payload
             }
-            126 => {
-                res.len = u16::from_be_bytes(bytes[..2].try_into()?) as usize;
-                if masker.mask {
-                    if bytes.len() < res.len + 4 + 2 { return Err(HlsError::DataTooShort); }
-                    res.mask.copy_from_slice(&bytes[2..6]);
-                    res.copy_payload(&bytes[6..6 + res.len], masker);
-                } else {
-                    if bytes.len() < res.len + 2 { return Err(HlsError::DataTooShort); }
-                    res.copy_payload(&bytes[2..2 + res.len], masker);
-                }
+            (false, None) => self.payload = reader.inner().to_vec(),
+            (false, Some(coder)) => {
+                let mut payload = vec![0; reader.inner().len() * 2];
+                let mut out_len = self.decode(coder, &mut reader, &mut payload)?;
+                let mut reader = Reader::from_slice(&Self::DEFLATE_END);
+                out_len += self.decode(coder, &mut reader, &mut payload)?;
+                payload.truncate(out_len);
+                self.payload = payload;
             }
-            _ => {
-                res.len = masker.len_code as usize;
-                if masker.mask {
-                    if bytes.len() < res.len + 4 { return Err(HlsError::DataTooShort); }
-                    res.mask.copy_from_slice(&bytes[..4]);
-                    res.copy_payload(&bytes[4..4 + res.len], masker);
-                } else {
-                    if bytes.len() < res.len { return Err(HlsError::DataTooShort); }
-                    res.copy_payload(&bytes[..res.len], masker);
+            (true, Some(coder)) => {
+                if demask_buffer.capacity() < reader.inner().len() {
+                    demask_buffer.resize(reader.inner().len())?;
                 }
+                for (i, b) in reader.inner().iter().enumerate() {
+                    demask_buffer.write_u8(b ^ self.mask[i % 4])?;
+                }
+                let mut payload = vec![0; reader.inner().len() * 2];
+                let mut reader = Reader::from_slice(demask_buffer.filled());
+                let mut out_len = self.decode(coder, &mut reader, &mut payload)?;
+                let mut reader = Reader::from_slice(&Self::DEFLATE_END);
+                out_len += self.decode(coder, &mut reader, &mut payload)?;
+                payload.truncate(out_len);
+                self.payload = payload;
             }
         }
+        Ok(())
+    }
+
+    pub fn from_reader(masker: &Marker, reader: &mut Reader, coder: Option<&mut DeflateStream>, demask_buffer: &mut Buffer) -> Result<WsPayload, CodingError> {
+        let mut res = WsPayload::new();
+        res.len = match masker.len_code {
+            127 => reader.read_u64()? as usize,
+            126 => reader.read_u16()? as usize,
+            _ => masker.len_code as usize
+        };
+        if masker.mask {
+            res.mask.copy_from_slice(reader.read_slice(4)?);
+        }
+        res.read_payload(reader.read_reader(res.len)?, masker, coder, demask_buffer)?;
         Ok(res)
     }
 
     pub fn as_bytes(&self) -> &[u8] {
-        &self.payload
+        self.payload.as_ref()
     }
 
     pub fn len(&self) -> usize {
         self.len
-    }
-
-    pub fn to_bytes(self, masker: &Marker) -> Vec<u8> {
-        let mut res = if masker.mask { self.mask.to_vec() } else { vec![] };
-        res.extend(self.payload);
-        res
     }
 }

@@ -10,7 +10,6 @@ use std::ffi::{c_char, CStr, CString};
 use std::ops::{Deref};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr::{null, null_mut};
-use crate::ext::ReqPriExt;
 
 #[cfg(feature = "log")]
 const LOGER: Logger = Logger {

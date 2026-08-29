@@ -291,7 +291,7 @@ impl<'a> Future for StreamConnect<'a, tokio::net::TcpStream> {
                 Poll::Pending => return Poll::Pending,
             }
         }
-        let mut writer = connector.stream.write(connector.buffer.filled());
+        let mut writer = connector.stream.write(&mut connector.buffer);
         match Pin::new(&mut writer).poll(cx)? {
             Poll::Ready(_) => {
                 let stream = mem::replace(&mut connector.stream, Stream::NonConnection);

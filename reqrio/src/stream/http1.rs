@@ -35,7 +35,7 @@ impl HTTP1StreamS {
             self.write_buffer.reset();
             let len = request.read(&mut self.write_buffer)?;
             if len == 0 { break; }
-            self.stream.write(self.write_buffer.filled()).wait()?;
+            self.stream.write(&mut self.write_buffer).wait()?;
         }
         Ok(sid)
     }
@@ -95,7 +95,7 @@ impl HTTP1StreamA {
             self.write_buffer.reset();
             let len = request.read(&mut self.write_buffer)?;
             if len == 0 { break; }
-            self.stream.write(self.write_buffer.filled()).await?;
+            self.stream.write(&mut self.write_buffer).await?;
         }
         Ok(sid)
     }

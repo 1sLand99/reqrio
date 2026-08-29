@@ -1,5 +1,7 @@
 use reqrio::*;
 use std::fs;
+use std::time::Duration;
+use tokio::time::sleep;
 
 #[cfg(feature = "log")]
 const LOGER: Logger = Logger {
@@ -22,34 +24,6 @@ fn test_log() {
 async fn main() {
     #[cfg(feature = "log")]
     test_log();
-    // let stream=std::net::TcpStream::connect("www.baidu.com:443").unwrap();
-    // let config=ClientConfig{
-    //     sni: "www.baidu.com",
-    //     alpn: &ALPN::Http20,
-    //     fingerprint: &mut TlsFinger::Default,
-    //     client_cert: &mut vec![],
-    //     cert_key: &RsaKey::none(),
-    //     verify: false,
-    //     ca_certs: &[],
-    //     key_log: Some(PathBuf::from("2.log")),
-    //     session: &None,
-    // };
-    // let mut stream=TlsStream::connect(config,stream).wait().unwrap();
-    //
-    //
-    //
-    // // let mut ws = WebSocket::open("ws://127.0.0.1:9222/devtools/browser/cafb1e57-b026-46fc-86c4-ce3cb4bdf55e").unwrap();
-    // // ws.write_frame(WsFrame::new_text(true,"454545")).unwrap();
-    // // loop {
-    // //     let frame = ws.read_frame().unwrap();
-    // //     println!("{:?}", frame.payload().as_bytes());
-    // //     println!("{}",std::str::from_utf8(frame.payload().as_bytes()).unwrap());
-    // //     sleep(Duration::from_secs(1));
-    // //     ws.write_frame(WsFrame::new_text(true,"454545567567567")).unwrap();
-    // // }
-    //
-    //
-    // return;
     Buffer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
     let fingerprint = Fingerprint::from_hex(
         "160101006e0100006a0101c7ec7194d530ff19db95632fa75e775e6a19b321f7d72dadc3610d1e28406b78208eb49beda186277455c7595ac2042ae09b8e7df712fff6bdb40085d390a875b60002e0130100001f6a6a000000000012001000000d746573742e676d73736c2e636efafa000100",

@@ -53,9 +53,7 @@ impl<'a, S: AsyncWrite + Unpin> Future for BufWriting<'a, S> {
 #[must_use]
 pub struct StreamWrite<'a> {
     pub(crate) stream: &'a mut Stream,
-    pub(crate) buf: &'a [u8],
-    #[cfg(feature = "aync")]
-    pub(crate) off: usize,
+    pub(crate) buf: &'a mut Buffer,
 }
 
 impl<'a> StreamWrite<'a> {
@@ -67,7 +65,8 @@ impl<'a> StreamWrite<'a> {
             #[cfg(feature = "aync")]
             _ => unreachable!(),
         };
-        stream.write_all(self.buf)?;
+        stream.write_all(self.buf.filled())?;
+        self.buf.reset();
         Ok(())
     }
 }
@@ -76,22 +75,20 @@ impl<'a> StreamWrite<'a> {
 impl<'a> Future for StreamWrite<'a> {
     type Output = HlsResult<()>;
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let reader = self.get_mut();
-        let stream: &mut (dyn AsyncWrite + Unpin) = match reader.stream {
+        let writer = self.get_mut();
+        let stream: &mut (dyn AsyncWrite + Unpin) = match writer.stream {
             Stream::NonConnection => return Poll::Ready(Err("NonConnection".into())),
             Stream::AsyncHttp(stream) => stream,
             Stream::AsyncHttps(stream) => stream,
             _ => unreachable!(),
         };
         loop {
-            match Pin::new(&mut *stream).poll_write(cx, &reader.buf[reader.off..])? {
-                Poll::Ready(len) => {
-                    reader.off += len;
-                    if reader.off >= reader.buf.len() { break; }
-                }
+            match Pin::new(&mut *stream).poll_write(cx, writer.buf.filled())? {
+                Poll::Ready(len) => if writer.buf.used_empty(len) { break; },
                 Poll::Pending => return Poll::Pending,
             }
         }
+        writer.buf.reset();
         Poll::Ready(Ok(()))
     }
 }

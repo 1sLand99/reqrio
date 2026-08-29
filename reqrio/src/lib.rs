@@ -171,7 +171,7 @@
 //!
 //! // Read frames in a loop
 //! loop {
-//!     let frame = ws.read_frame()?;
+//!     let frame = ws.read_frame().wait()?;
 //!     match frame.frame_type().op_code() {
 //!         WsOpcode::TEXT => {
 //!             let text = String::from_utf8(frame.payload().as_bytes().to_vec())?;
@@ -179,8 +179,7 @@
 //!         }
 //!         WsOpcode::BINARY => println!("Binary data received"),
 //!         WsOpcode::PING => {
-//!             let pong = WsFrame::new_pong(true, frame.payload().as_bytes());
-//!             ws.write_frame(pong)?;
+//!             ws.send_pong(frame.payload().as_bytes()).wait()?;
 //!         }
 //!         WsOpcode::CLOSE => break,
 //!         _ => {}
