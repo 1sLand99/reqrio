@@ -115,6 +115,7 @@ fn main() {
         // .with_proxy(Proxy::try_from("http://36.150.202.148:10951").unwrap())
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::try_from("http://127.0.0.1:10280").unwrap())
+        .with_proxy(Proxy::try_from("socks5://127.0.0.1:10279").unwrap())
         ;
 
     // let headers = json::object! {

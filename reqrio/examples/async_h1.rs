@@ -87,7 +87,7 @@ async fn main() {
         .with_mtls(vec![], RsaKey::none(), Some(vec![cert]))
         // .with_proxy(Proxy::try_from("http: //222.186.129.68:15265").unwrap())
         // .with_mtls(certs, key)
-        // .with_proxy(Proxy::new_socks5("127.0.0.1",10279))
+        .with_proxy(Proxy::new_socks5("127.0.0.1",10279))
         // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10280))
         // .connect("https://104.18.34.137".sni("whatnot.com")).await.unwrap()
         ;
@@ -105,6 +105,8 @@ async fn main() {
     // req.connect("https://test.gmssl.cn/").await.unwrap();
     let res = req.get("https://test.gmssl.cn/", None).await.unwrap();
     println!("{}", res.raw_string());
+    // let res = req.get("https://www.baidu.com", None).await.unwrap();
+    // println!("{}", res.raw_string());
 
 
     // let url = "https://www.dickssportinggoods.com/p/2026-topps-flagship-football-mega-box-26topufang4p4ib5vqjhq/26topufang4p4ib5vqjhq";

@@ -19,12 +19,6 @@
 reqrio = { version = "0.4.0", features = ["quic"] }
 ```
 
-### 🎯 其他
-
-- 增加 `QUERY` 请求方法 [RFC10008](https://www.rfc-editor.org/rfc/rfc10008.html)
-- 支持 MacOS [#22](https://github.com/xllgl2017/reqrio/issues/22)
-- 合并同步和异步接口，使用.wait()/.await
-
 ### 🔐 TLCP 与国密算法 [#23](https://github.com/xllgl2017/reqrio/issues/23) [#25](https://github.com/xllgl2017/reqrio/pull/25)
 
 - 支持 TLCP 服务端证书校验。
@@ -55,10 +49,16 @@ let resp7 = req.recv(sid7)?;
 let resp2 = req.recv(sid2)?;
 println!("{} {}", resp1.header().status(), resp7.header().status());
 ```
+### 🎯 其他
+
+- 增加 `QUERY` 请求方法 [RFC10008](https://www.rfc-editor.org/rfc/rfc10008.html)
+- 支持 MacOS [#22](https://github.com/xllgl2017/reqrio/issues/22)
+- 合并同步和异步接口，使用.wait()/.await
 
 ## 🛠️ 修复
 
-- 修复h2响应体在缺少 `content-length` 时的问题。
+- 修复h2响应体在缺少 `content-length` 时的问题
+- 
 - 修复`WebSocket`的`premessage-deflate`未解压问题 [#17](https://github.com/xllgl2017/reqrio/issues/17)
 - 修复流式响应 [#18](https://github.com/xllgl2017/reqrio/issues/18)
 - 修复响应不正确，在高网络延迟环境 [#24](https://github.com/xllgl2017/reqrio/issues/24)

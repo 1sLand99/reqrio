@@ -321,6 +321,7 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
                     }
                 }
                 let status = stream.resp.header().status();
+                println!("{}", status);
                 if status.code() != 200 { return Poll::Ready(Err(io::Error::other(format!("connect http proxy fail-{:?}", status)))); }
             } else {
                 let mut reader = BufReading {
@@ -345,6 +346,7 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
                 }
             }
             stream.handle_proxy = true;
+            return Poll::Ready(Ok(()));
         }
         if !stream.buffer.is_empty() {
             buf.put_slice(stream.buffer.filled());
