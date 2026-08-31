@@ -179,9 +179,9 @@ fn main() {
     // let res1 = req.recv(sid1).unwrap();
     // println!("{}", res1.raw_string());
 
-    // let sid2 = req.send(Method::GET, "https://cn.bing.com/search?q=3516541635&rdr=1&rdrig=4B500EC883E54B3881736EA98E8C2AF4", None).unwrap();
-    // let res2 = req.recv(sid2).unwrap();
-    // println!("{}", res2.raw_string());
+    let sid2 = req.send(Method::GET, "https://cn.bing.com/search?q=3516541635&rdr=1&rdrig=4B500EC883E54B3881736EA98E8C2AF4", None).unwrap();
+    let res2 = req.recv(sid2).unwrap();
+    println!("{}", res2.raw_string());
     // let res2=req.get("https://docs.rs/fluidattacks-blends/0.7.0/fluidattacks_blends/",None).unwrap();
     // println!("{}", res2.raw_string());
     // println!("{}", res2.raw_string());

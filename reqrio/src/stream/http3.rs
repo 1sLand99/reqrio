@@ -7,7 +7,6 @@ use crate::*;
 use reqtls::quic::{self, QUICFrame, QUICFrameFlag};
 use std::collections::HashMap;
 use crate::stream::quic::Queue;
-#[cfg(all(feature = "quic", feature = "aync"))]
 use crate::stream::quic::QUICStream;
 
 pub struct StreamParam {
@@ -215,7 +214,6 @@ trait H3Handle {
                     //客户端忽略，服务端暂不处理
                     H3Frame::PriorityUpdate { .. } => {}
                     H3Frame::Headers(hdr) => {
-                        println!("{:?}", hdr);
                         let Some(response) = recv.responses.get_mut(sid) else { continue };
                         let read_size = match recv.decoder.decode_into(hdr.as_ref(), response.header_mut(), QPackType::Stream, sid) {
                             Ok(size) => size,
@@ -234,7 +232,6 @@ trait H3Handle {
                 pos = reader.position();
             }
             param.buffer.used_empty(pos);
-            println!("11={}-{}-{:?}", param.fin, param.buffer.is_empty(), param.buffer.filled());
             if param.fin && param.buffer.is_empty() { recv.res.push(*sid); }
             if param.typ == H3Stream::QPackEncoder && !handle_enc {
                 items = recv.stream_ids.iter_mut();

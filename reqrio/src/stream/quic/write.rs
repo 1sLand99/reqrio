@@ -58,9 +58,13 @@ impl<'a> Future for QUICPacketWrite<'a, tokio::net::UdpSocket> {
         while !writer.uw_buffer.is_empty() {
             match Pin::new(&mut writer.socket).poll_send_to(cx, writer.uw_buffer.filled(), *writer.addr)? {
                 Poll::Ready(len) => {
-                    writer.uw_buffer.used_empty(len)
+                    writer.uw_buffer.used_empty(len);
+                    writer.timeout.reset_write();
                 }
-                Poll::Pending => return Poll::Pending,
+                Poll::Pending => {
+                    writer.timeout.write_timeout()?;
+                    return Poll::Pending;
+                }
             };
         }
         writer.uw_buffer.reset();

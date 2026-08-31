@@ -47,28 +47,33 @@ impl H3Setting {
 
 #[repr(u64)]
 pub enum H3Frame<'a> {
-    Data(Buf<'a>)= 0x0,
-    Settings(Vec<H3Setting>)= 0x4,
+    Data(Buf<'a>),
+    Settings(Vec<H3Setting>),
     PriorityUpdate {
         stream_id: u64,
         value: &'a str,
-    }= 0xf0700,
-    Headers(Buf<'a>)= 0x1,
+    },
+    Headers(Buf<'a>),
     Reserved {
         typ: u64,
         payload: Buf<'a>,
     },
 }
 impl<'a> H3Frame<'a> {
+    const DATA: u64 = 0x0;
+    const HEADERS: u64 = 0x1;
+    const SETTINGS: u64 = 0x4;
+    const PRIORITY_UPDATE: u64 = 0xf0700;
+
     pub fn from_reader(reader: &mut Reader<'a>) -> Result<H3Frame<'a>, BufferError> {
         let typ = quic::read_variant(reader)? as u64;
         let len = quic::read_variant(reader)?;
         if reader.unread_len() < len { return Err(BufferError::Insufficient); }
         let mut reader = reader.read_reader(len)?;
         match typ {
-            0x0 => Ok(H3Frame::Data(Buf::Ref(reader.read_slice(len)?))),
-            0x1 => Ok(H3Frame::Headers(Buf::Ref(reader.read_slice(len)?))),
-            0x4 => {
+            H3Frame::DATA => Ok(H3Frame::Data(Buf::Ref(reader.read_slice(len)?))),
+            H3Frame::HEADERS => Ok(H3Frame::Headers(Buf::Ref(reader.read_slice(len)?))),
+            H3Frame::SETTINGS => {
                 let mut settings = vec![];
                 while reader.unread_len() > 0 {
                     let setting = H3Setting::from_reader(&mut reader)?;
@@ -76,7 +81,7 @@ impl<'a> H3Frame<'a> {
                 }
                 Ok(H3Frame::Settings(settings))
             }
-            0xf0700 => {
+            H3Frame::PRIORITY_UPDATE => {
                 let pos = reader.position();
                 let stream_id = quic::read_variant(&mut reader)? as u64;
                 let sid_len = reader.position() - pos;
@@ -95,12 +100,12 @@ impl<'a> H3Frame<'a> {
     pub fn write_to<W: WriteExt>(&self, writer: &mut W) -> Result<(), BufferError> {
         match self {
             H3Frame::Data(data) => {
-                quic::write_variant(0x0, writer)?;
+                quic::write_variant(H3Frame::DATA as usize, writer)?;
                 quic::write_variant(data.len(), writer)?;
                 writer.write_slice(data.as_ref())
             }
             H3Frame::Settings(settings) => {
-                quic::write_variant(0x4, writer)?;
+                quic::write_variant(H3Frame::SETTINGS as usize, writer)?;
                 let len = settings.iter().map(|x| x.len()).sum::<usize>();
                 quic::write_variant(len, writer)?;
                 for setting in settings {
@@ -108,18 +113,15 @@ impl<'a> H3Frame<'a> {
                 }
                 Ok(())
             }
-            H3Frame::PriorityUpdate {
-                stream_id,
-                value
-            } => {
-                quic::write_variant(0xf0700, writer)?;
+            H3Frame::PriorityUpdate { stream_id, value } => {
+                quic::write_variant(H3Frame::PRIORITY_UPDATE as usize, writer)?;
                 let len = quic::variant_len(*stream_id as usize) + value.len();
                 quic::write_variant(len, writer)?;
                 quic::write_variant(*stream_id as usize, writer)?;
                 writer.write_slice(value.as_ref())
             }
             H3Frame::Headers(hdr) => {
-                quic::write_variant(0x1, writer)?;
+                quic::write_variant(H3Frame::HEADERS as usize, writer)?;
                 quic::write_variant(hdr.len(), writer)?;
                 writer.write_slice(hdr.as_ref())
             }
@@ -136,7 +138,7 @@ impl<'a> H3Frame<'a> {
         let mut writer = Buffer::from_ptr(res.as_mut_slice());
         if offset == 0 { writer.write_u8(0)?; }
         self.write_to(&mut writer)?;
-        unsafe { res.set_len(writer.len()) };
+        res.truncate(writer.len());
         Ok(res)
     }
 }

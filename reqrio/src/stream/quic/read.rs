@@ -1,5 +1,4 @@
 use crate::*;
-use reqtls::quic::QUICError;
 use std::ops::Range;
 #[cfg(feature = "aync")]
 use std::pin::Pin;
@@ -19,7 +18,7 @@ pub struct QUICPacketRead<'a, S> {
 }
 
 impl<'a> QUICPacketRead<'a, std::net::UdpSocket> {
-    pub fn wait(self) -> Result<Range<usize>, QUICError> {
+    pub fn wait(self) -> HlsResult<Range<usize>> {
         if self.packet_offsets.is_empty() { self.buffer.reset(); }
         let pos = self.packet_offsets.iter().position(|&(typ, _)| typ <= self.current);
         match pos {
@@ -37,7 +36,7 @@ impl<'a> QUICPacketRead<'a, std::net::UdpSocket> {
                     self.packet_offsets.push((flag.packet_type(), off));
                     continue;
                 }
-                break Ok(off)
+                break Ok(off);
             }
         }
     }
@@ -45,7 +44,7 @@ impl<'a> QUICPacketRead<'a, std::net::UdpSocket> {
 
 #[cfg(feature = "aync")]
 impl<'a> Future for QUICPacketRead<'a, tokio::net::UdpSocket> {
-    type Output = Result<Range<usize>, QUICError>;
+    type Output = HlsResult<Range<usize>>;
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let reader = self.get_mut();
         if reader.packet_offsets.is_empty() { reader.buffer.reset(); }
@@ -56,8 +55,12 @@ impl<'a> Future for QUICPacketRead<'a, tokio::net::UdpSocket> {
                 let start = reader.buffer.end();
                 let mut buf = ReadBuf::new(reader.buffer.unfilled());
                 match Pin::new(&mut reader.socket).poll_recv(cx, &mut buf)? {
-                    Poll::Pending => return Poll::Pending,
+                    Poll::Pending => {
+                        reader.timeout.read_timeout()?;
+                        return Poll::Pending;
+                    }
                     Poll::Ready(_) => {
+                        reader.timeout.reset_read();
                         let len = buf.filled().len();
                         let off = start..start + len;
                         let flag = QUICFlag::from_raw(buf.filled()[0]);
