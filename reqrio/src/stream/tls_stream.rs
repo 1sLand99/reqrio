@@ -73,6 +73,8 @@ impl<S> TlsStream<S> {
     }
 
     pub(super) fn write_buffer(&mut self) -> BufWriting<'_, S> {
+        #[cfg(feature = "aync")]
+        self.timeout.reset_write();
         BufWriting {
             stream: &mut self.stream,
             buf: &mut self.write_buffer,
@@ -82,6 +84,8 @@ impl<S> TlsStream<S> {
     }
 
     pub(super) fn read_next_record(&mut self) -> RecordReading<'_, S> {
+        #[cfg(feature = "aync")]
+        self.timeout.reset_read();
         RecordReading {
             stream: &mut self.stream,
             buf: &mut self.read_buffer,

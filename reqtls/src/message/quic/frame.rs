@@ -433,7 +433,8 @@ impl<'a> QUICFrame<'a> {
             QUICFrame::NewToken(_)|
             QUICFrame::HandshakeDone|
             QUICFrame::StopSending {..}|
-            QUICFrame::MaxStreamsBidi(_),
+            QUICFrame::MaxStreamsBidi(_)|
+            QUICFrame::MaxStreamData {..},
         )
     }
 }

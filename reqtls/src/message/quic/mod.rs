@@ -48,9 +48,9 @@ mod tests {
 
     #[test]
     fn test_packet_type() {
-        assert!(PacketType::Initial == PacketType::Initial);
-        assert!(PacketType::Handshake == PacketType::Handshake);
-        assert!(PacketType::Retry == PacketType::Retry);
+        assert_eq!(PacketType::Initial, PacketType::Initial);
+        assert_eq!(PacketType::Handshake, PacketType::Handshake);
+        assert_eq!(PacketType::Retry, PacketType::Retry);
         assert!(PacketType::Initial < PacketType::Handshake);
         assert!(PacketType::Initial < PacketType::ShortHeader);
         assert!(PacketType::Handshake < PacketType::ShortHeader);
@@ -209,6 +209,7 @@ impl<'a> Default for QUICPacket<'a> {
 
 impl<'a> QUICPacket<'a> {
     pub fn new_long(pty: PacketType, num: u64, pd_len: usize, dcid: &'a [u8], token: &'a Buf<'a>) -> Self {
+        std::debug_assert_matches!(pty,  PacketType::Initial| PacketType::Handshake);
         let num_len = crate::quic::variant_len(num as usize);
         let (len, padding) = if pd_len + num_len + 16 >= 1232 {
             (pd_len + num_len + 16, 0)
@@ -234,6 +235,7 @@ impl<'a> QUICPacket<'a> {
     }
 
     pub fn new_short(pty: PacketType, num: u64, pd_len: usize, dcid: &'a [u8]) -> Self {
+        std::debug_assert_matches!(pty, PacketType::ShortHeader);
         let num_len = crate::quic::variant_len(num as usize);
         QUICPacket {
             flag: QUICFlag {

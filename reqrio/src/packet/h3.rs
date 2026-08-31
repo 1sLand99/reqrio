@@ -153,8 +153,9 @@ impl<'a> Debug for H3Frame<'a> {
     }
 }
 
-#[derive(Debug)]
+
 #[repr(u64)]
+#[derive(Debug, PartialEq)]
 pub enum H3Stream {
     Control = 0x00,
     QPackEncoder = 0x02,

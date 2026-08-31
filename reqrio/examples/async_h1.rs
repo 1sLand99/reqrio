@@ -75,26 +75,26 @@ async fn main() {
     // headers.update_by(tls).unwrap();
     let cert = Certificate::from_der(hex::decode("308201cd30820170a00302010202060172a730a372300c06082a811ccf5501837505003049310b300906035504061302434e310e300c060355040a1305474d53534c3110300e060355040b1307504b492f534d32311830160603550403130f526f6f74434120666f7220546573743022180f32303135313233313136303030305a180f32303335313233303136303030305a3049310b300906035504061302434e310e300c060355040a1305474d53534c3110300e060355040b1307504b492f534d32311830160603550403130f526f6f74434120666f7220546573743059301306072a8648ce3d020106082a811ccf5501822d03420004e3f9aa5894bf9d7565d9efe98565764919b70915750df85b33cfa86e99ec9664fe2a104af6374f9a65dc28ff6d5fb76df6ca8d233cbcddb1c281dbad734905d2a33e303c30190603551d0e041204109c69ec0fba1a39c5afe824ebb29c1204300f0603551d130101ff040530030101ff300e0603551d0f0101ff0404030200c6300c06082a811ccf5501837505000349003046022100849d6e41950874be6b0e2f14a85d873fef3b3efb05b215cd6d9c11c4351e04970221008d4bc2eea29f5aee7e5661cec796ba55f07084dfddb9bf6395f58355c5590507").unwrap()).unwrap();
     let mut req = AcReq::new()
-        .with_fingerprint(fingerprint)
+        // .with_fingerprint(fingerprint)
         .with_timeout(timeout)
         .with_verify(true)
         .with_key_log("2.log")
         .with_auto_redirect(false)
         // .with_proxy(Proxy::Null)
         .with_verify(true)
-        .with_alpn(ALPN::Http20)
+        .with_alpn(ALPN::Http30)
         .with_header_json(headers).unwrap()
-        .with_mtls(vec![], RsaKey::none(), Some(vec![cert]))
+        // .with_mtls(vec![], RsaKey::none(), Some(vec![cert]))
         // .with_proxy(Proxy::try_from("http: //222.186.129.68:15265").unwrap())
         // .with_mtls(certs, key)
-        .with_proxy(Proxy::new_socks5("127.0.0.1",10279))
+        // .with_proxy(Proxy::new_socks5("127.0.0.1",10279))
         // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10280))
         // .connect("https://104.18.34.137".sni("whatnot.com")).await.unwrap()
         ;
     // let res = req.post("http://127.0.0.1:8000/log", json::object! {"on": false}).await.unwrap();
     // let res = req.get("https://fk1.moutai519.com.cn/bangcle/api/v1/1/1", None).await.unwrap().json().unwrap();
     // let res = req.post("http://127.0.0.1:8000/upload_wac", res).await.unwrap();
-    // println!("{}", res.raw_string());
+    // // println!("{}", res.raw_string());
     // let res = req.post("http://127.0.0.1:8000/generate", json::object! {
     //     "ua": "Mozilla/5.0 (Linux; Android 12; 2201123C Build/SKQ1.211006.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/123",
     //     "body":{},
@@ -103,8 +103,8 @@ async fn main() {
     // println!("{}", res.json().unwrap().pretty());
     // return;
     // req.connect("https://test.gmssl.cn/").await.unwrap();
-    let res = req.get("https://test.gmssl.cn/", None).await.unwrap();
-    println!("{}", res.raw_string());
+    // let res = req.get("https://test.gmssl.cn/", None).await.unwrap();
+    // println!("{}", res.raw_string());
     // let res = req.get("https://www.baidu.com", None).await.unwrap();
     // println!("{}", res.raw_string());
 
@@ -118,12 +118,14 @@ async fn main() {
     // let res1 = req.recv(sid1).await.unwrap();
     // let res1 = req.get(url, None).await.unwrap();
     // println!("{}", res1.raw_string());
-    // let res2 = req.recv(sid1).await.unwrap();
+    // let res2 = req.recv(sid2).await.unwrap();
     // println!("{}", res2.raw_string());
     // println!("{}", Time::now().as_mills() - t.as_mills())
 
-    // req.set_url("https://shopee.tw/").await.unwrap();
-    // req.set_json(data);
+    // let res1 = req.get("https://docs.rs", None).await.unwrap();
+    let res1 = req.get("https://www.bing.com", None).await.unwrap();
+    println!("{}", res1.raw_string());
+
     // req.set_auto_redirect(false);
     // req.set_url("http://zwfw.hubei.gov.cn/web/user/uias_login.do?appCode=hbzwfw&gotoUrl=http%3A%2F%2Fzwfw.hubei.gov.cn%2Fwebview%2Fgrkj%2Fwelcome.html&p01=").await.unwrap();
     // req.set_url("https://www.jetstar.com").await.unwrap();

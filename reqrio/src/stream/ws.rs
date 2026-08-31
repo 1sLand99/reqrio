@@ -1,4 +1,6 @@
+#[cfg(feature = "aync")]
 use std::pin::Pin;
+#[cfg(feature = "aync")]
 use std::task::{Context, Poll};
 use reqtls::coder::DeflateStream;
 use crate::error::HlsResult;
@@ -52,7 +54,6 @@ impl WebSocket {
     }
 }
 
-
 impl WebSocket {
     pub fn new_with_buffer(resp: Response, stream: Stream, buffer: Buffer) -> HlsResult<WebSocket> {
         if resp.header().status() != HttpStatus::SwitchingProtocols {
@@ -77,7 +78,6 @@ impl WebSocket {
         WebSocket::new_with_buffer(resp, stream, Buffer::with_capacity(16384))
     }
 }
-
 
 pub struct WsRead<'a> {
     stream: &'a mut Stream,

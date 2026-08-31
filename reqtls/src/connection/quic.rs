@@ -6,9 +6,7 @@ use crate::suite::iv::Iv;
 use crate::{Buf, Buffer, BufferError, Cipher, CipherSuite, CipherType, Connection, PacketType, Reader, TlsSession, Version, WriteExt};
 #[cfg(feature = "log")]
 use log::trace;
-use std::ops::Range;
 use std::path::PathBuf;
-use std::slice;
 use crate::key::KeyType;
 
 pub struct QUICConnection {
@@ -119,30 +117,19 @@ impl QUICConnection {
     }
 
 
-    pub fn build_message(&mut self, mut packet: QUICPacket, mut frames: Vec<QUICFrame<'_>>, buffer: &mut Buffer) -> RlsResult<(Range<usize>, &[u8])> {
+    pub fn build_message(&mut self, mut packet: &mut QUICPacket, frames: &mut Vec<QUICFrame<'_>>, buffer: &mut Buffer) -> RlsResult<()> {
         if packet.padding_size() != 0 {
             frames.push(QUICFrame::Padding(packet.padding_size()));
         }
         packet.encode()?;
-        if buffer.unfilled_len() < packet.len() {
-            return Err(BufferError::CapacityTooSmall {
-                current: buffer.capacity(),
-                needed: packet.len(),
-                file: file!(),
-                line: line!(),
-            }.into());
-        }
-        let start = buffer.end();
+        if packet.len() > 1500 { return Err(BufferError::UdpMsgTooLarge.into()); }
         buffer.write_slice(packet.hdr_raw())?;
         for frame in frames {
             frame.write_to(buffer)?;
         }
         buffer.add_len(16);
-        let offset = start..buffer.end();
-        let ptr = buffer.raw_ptr_mut();
-        let buf = unsafe { slice::from_raw_parts_mut(ptr.add(start), offset.len()) };
-        self.make_message(buf, &mut packet)?;
-        Ok((offset, buf))
+        self.make_message(buffer.filled_mut(), &mut packet)?;
+        Ok(())
     }
 
 

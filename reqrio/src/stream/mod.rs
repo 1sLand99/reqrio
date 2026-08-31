@@ -29,7 +29,7 @@ pub use http3::HTTP3StreamS;
 pub use proxy::Proxy;
 pub use proxy::ProxyStream;
 #[cfg(feature = "quic")]
-pub use quic::QUICStreamS;
+pub use quic::QUICStream;
 use std::collections::HashMap;
 use std::env;
 use std::path::{Path, PathBuf};

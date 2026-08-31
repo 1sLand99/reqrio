@@ -9,7 +9,7 @@ use std::task::{Context, Poll};
 #[cfg(feature = "aync")]
 use tokio::io::AsyncWrite;
 
-#[must_use]
+#[must_use = "do nothing unless `.wait()/.await`"]
 pub struct BufWriting<'a, S> {
     pub(crate) stream: &'a mut S,
     pub(crate) buf: &'a mut Buffer,
@@ -50,7 +50,7 @@ impl<'a, S: AsyncWrite + Unpin> Future for BufWriting<'a, S> {
     }
 }
 
-#[must_use]
+#[must_use = "do nothing unless `.wait()/.await`"]
 pub struct StreamWrite<'a> {
     pub(crate) stream: &'a mut Stream,
     pub(crate) buf: &'a mut Buffer,
@@ -94,7 +94,7 @@ impl<'a> Future for StreamWrite<'a> {
 }
 
 
-#[must_use]
+#[must_use = "do nothing unless `.wait()/.await`"]
 pub struct StreamShutdown<'a> {
     pub(crate) stream: &'a mut Stream,
 }

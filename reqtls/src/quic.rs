@@ -44,6 +44,7 @@ pub struct QUICRange {
     ranges: Vec<Range<u64>>,
     largest: u64,
     sent_largest: u64,
+    need_ack: bool,
 }
 
 impl Default for QUICRange {
@@ -52,6 +53,7 @@ impl Default for QUICRange {
             ranges: Vec::with_capacity(100),
             largest: 0,
             sent_largest: 0,
+            need_ack: false,
         }
     }
 }
@@ -111,6 +113,14 @@ impl QUICRange {
 
     pub fn reset_sent_largest(&mut self) {
         self.sent_largest = self.largest;
+    }
+
+    pub fn set_ack(&mut self, ack: bool) {
+        self.need_ack = ack;
+    }
+    
+    pub fn need_ack(&self) -> bool {
+        self.need_ack
     }
 }
 
