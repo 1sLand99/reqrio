@@ -36,6 +36,8 @@ async fn test_auto_redirect() {
 
 fn build_finger(suites: Vec<CipherSuite>, groups: Vec<NamedCurve>) -> Fingerprint {
     let tls = TlsFinger::Custom {
+        record_version: Version::TLS_1_0,
+        message_version: Version::TLS_1_2,
         suites,
         extensions: vec![
             Extension::StatusRequest(StatusRequest::new()),

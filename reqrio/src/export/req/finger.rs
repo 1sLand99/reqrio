@@ -304,15 +304,15 @@ pub extern "system" fn Fingerprint_custom(custom: *const c_char, token: *const c
                     extensions.push(Extension::PskKeyExchangeMode(vec![value]));
                 }
                 _ => {
-                    if value.is_null() { continue; }
                     let value = value.members().map(|x| x.as_u8().unwrap_or(0)).collect::<Vec<_>>();
                     extensions.push(Extension::Reserved { typ, value: Buf::Vec(value) });
                 }
             }
         }
-
-
+        
         let tls = TlsFinger::Custom {
+            record_version: Version::new(custom["record_version"].as_u16().unwrap_or(0x301)),
+            message_version: Version::new(custom["message_version"].as_u16().unwrap_or(0x303)),
             suites: custom["suites"].members().map(|x| x.as_u16().unwrap_or(0).into()).collect(),
             extensions,
         };

@@ -12,8 +12,8 @@ pub struct KeyEntry<'a> {
 impl<'a> KeyEntry<'a> {
     fn new(group: NamedCurve) -> Self {
         KeyEntry {
+            exchange: if group.is_reserved() { Buf::Ref(&[0]) } else { Buf::Ref(&[]) },
             group,
-            exchange: Buf::Ref(&[]),
         }
     }
 

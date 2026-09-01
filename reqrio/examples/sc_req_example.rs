@@ -2,6 +2,8 @@ use reqrio::*;
 
 fn build_finger() -> Fingerprint {
     let tls = TlsFinger::Custom {
+        record_version: Version::TLS_1_0,
+        message_version: Version::TLS_1_2,
         suites: vec![
             CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
             CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,

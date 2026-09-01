@@ -36,9 +36,7 @@ pub trait StreamHandle {
         let key_share = match config.alpn {
             #[cfg(feature = "quic")]
             ALPN::Http30 => match client_hello.key_share_mut().is_some() {
-                true => {
-                    client_hello.key_share_mut()
-                }
+                true => client_hello.key_share_mut(),
                 false => return Err(HandShakeError::QUICMissingKeyShare.into()),
             }
             _ => client_hello.key_share_mut()
@@ -51,16 +49,22 @@ pub trait StreamHandle {
                         secrets.insert(*key.name_curve(), secret);
                     }
                 });
-                for key_entry in key_share.key_entries_mut() {
+                let mut deletes = vec![];
+                for (i, key_entry) in key_share.key_entries_mut().iter_mut().enumerate() {
                     if let Some(secret) = secrets.get(key_entry.name_curve()) {
                         key_entry.set_exchange_key(secret.pub_key()?)
                     }
+                    if key_entry.exchange_key().is_empty() { deletes.push(i); }
+                }
+                deletes.reverse();
+                for del in deletes {
+                    key_share.key_entries_mut().remove(del);
                 }
             }
         }
         #[cfg(feature = "quic")]
         if config.alpn == &ALPN::Http30 { client_hello.build_quic()?; }
-        let mut record = RecordLayer::handshake(Version::TLS_1_0);
+        let mut record = RecordLayer::handshake(config.fingerprint.record_version());
         record.messages = vec![client_hello.into()];
 
         record.write_to(param.write_buffer, param.conn.cipher_suite().exchange_alg())?;
