@@ -307,25 +307,16 @@ pub use time::{Time, TimeError, Timeout};
 pub use tokio;
 #[cfg(feature = "log")]
 pub use logger::Logger;
+use crate::ext::ReqUrl;
 
-
-pub fn get<'a, E>(url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
-where
-    HlsError: From<E>,
-{
+pub fn get<'a>(url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
     ScReq::new().get(url, body)
 }
 
-pub fn post<'a, E>(url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
-where
-    HlsError: From<E>,
-{
+pub fn post<'a>(url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
     ScReq::new().post(url, body)
 }
 
-pub fn put<'a, E>(url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
-where
-    HlsError: From<E>,
-{
+pub fn put<'a>(url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
     ScReq::new().put(url, body)
 }

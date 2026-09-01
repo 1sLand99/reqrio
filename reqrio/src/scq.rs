@@ -60,66 +60,39 @@ impl ScReq {
         ScReq::default()
     }
 
-    pub fn get<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
-    {
+    pub fn get<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
         self.do_http(Method::GET, url, body)
     }
 
-    pub fn post<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
-    {
+    pub fn post<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
         self.do_http(Method::POST, url, body)
     }
 
-    pub fn put<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
-    {
+    pub fn put<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
         self.do_http(Method::PUT, url, body)
     }
 
-    pub fn options<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
-    {
+    pub fn options<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
         self.do_http(Method::OPTIONS, url, body)
     }
 
-    pub fn delete<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
-    {
+    pub fn delete<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
         self.do_http(Method::DELETE, url, body)
     }
 
-    pub fn head<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
-    {
+    pub fn head<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
         self.do_http(Method::HEAD, url, body)
     }
 
-    pub fn trace<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
-    {
+    pub fn trace<'a, E>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
         self.do_http(Method::TRACE, url, body)
     }
 
-    pub fn patch<'a, E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'a>>) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
-    {
+    pub fn patch<'a, E>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
         self.do_http(Method::PATCH, url, body)
     }
 
-    pub async fn query<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
-    {
+    pub async fn query<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
         self.do_http(Method::QUERY, url, body)
     }
 
@@ -182,12 +155,8 @@ impl ScReq {
     }
 
     /// 流式请求，仅返回请求头，请求体需调next_chunk
-    pub fn send_stream<'a, U>(&mut self, method: Method, url: U, body: impl Into<Body<'a>>) -> HlsResult<(u64, &Header)>
-    where
-        U: TryInto<Url>,
-        HlsError: From<U::Error>,
-    {
-        let sid = self.send(method, url.try_into()?, body)?;
+    pub fn send_stream<'a>(&mut self, method: Method, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<(u64, &Header)> {
+        let sid = self.send(method, url, body)?;
         let header = self.recv_stream(sid)?;
         Ok((sid, header))
     }
@@ -207,20 +176,16 @@ impl ScReq {
                 redirect_times += 1;
                 continue;
             }
-            return Ok(resp)
+            return Ok(resp);
         }
         Err("redirection exceeds the maximum".into())
     }
 
-    pub fn do_http<'a, U>(&mut self, method: Method, url: U, body: impl Into<Body<'a>>) -> HlsResult<Response>
-    where
-        U: TryInto<Url>,
-        HlsError: From<U::Error>,
-    {
-        let url = url.try_into()?;
+    pub fn do_http<'a>(&mut self, method: Method, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
         let body = body.into();
+        let url = url.into().build()?;
         for i in 1..=self.timeout.handle_times() {
-            let sid = self.send(method, &url, &body)?;
+            let sid = self.send(method, url.as_ref(), &body)?;
             let res = self.handle_recv(sid);
             match res {
                 Ok(res) => return Ok(res),
@@ -234,12 +199,9 @@ impl ScReq {
         Err("stream io error".into())
     }
 
-    pub fn connect<E>(mut self, url: impl TryInto<Url, Error=E>) -> HlsResult<ScReq>
-    where
-        HlsError: From<E>,
-    {
-        let url = url.try_into()?;
-        self.re_conn(Some(&url))?;
+    pub fn connect<'a>(mut self, url: impl Into<ReqUrl<'a>>) -> HlsResult<ScReq> {
+        let url = url.into().build()?;
+        self.re_conn(Some(url.as_ref()))?;
         Ok(self)
     }
 
@@ -292,29 +254,22 @@ impl ScReq {
         Ok(())
     }
 
-    pub fn send_check<'a, U>(&mut self, method: Method, url: U, body: impl Into<Body<'a>>) -> HlsResult<Response>
-    where
-        U: TryInto<Url> + Clone,
-        HlsError: From<U::Error>,
-    {
-        let response = self.do_http(method, url.clone(), body.into())?;
-        self.check_status(&url.try_into()?, &response)?;
+    pub fn send_check<'a>(&mut self, method: Method, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
+        let url = url.into().build()?;
+        let response = self.do_http(method, url.as_ref(), body.into())?;
+        self.check_status(url.as_ref(), &response)?;
         Ok(response)
     }
 
-    pub fn send_check_json<'a, U>(
+    pub fn send_check_json<'a>(
         &mut self,
         method: Method,
-        url: U,
+        url: impl Into<ReqUrl<'a>>,
         body: impl Into<Body<'a>>,
         k: impl AsRef<str>,
         v: impl ToString,
         e: Vec<impl AsRef<str>>,
-    ) -> HlsResult<JsonValue>
-    where
-        U: TryInto<Url> + Clone,
-        HlsError: From<U::Error>,
-    {
+    ) -> HlsResult<JsonValue> {
         let response = self.send_check(method, url, body.into())?;
         self.check_res(response, k, v, e)
     }
@@ -372,7 +327,7 @@ impl ReqExt for ScReq {
     }
 
     fn set_max_redirect_exceeds(&mut self, max_redirect_exceeded: i32) {
-        self.redirect_times=max_redirect_exceeded
+        self.redirect_times = max_redirect_exceeded
     }
 
     fn set_key_log(&mut self, path: impl AsRef<Path>) {

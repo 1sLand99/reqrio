@@ -61,67 +61,40 @@ impl AcReq {
         AcReq::default()
     }
 
-    pub async fn get<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
-    {
-        self.do_http(Method::GET, url, &body.into()).await
+    pub async fn get<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
+        self.do_http(Method::GET, url, body).await
     }
 
-    pub async fn post<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
-    {
-        self.do_http(Method::POST, url, &body.into()).await
+    pub async fn post<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
+        self.do_http(Method::POST, url, body).await
     }
 
-    pub async fn put<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
-    {
-        self.do_http(Method::PUT, url, &body.into()).await
+    pub async fn put<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
+        self.do_http(Method::PUT, url, body).await
     }
 
-    pub async fn options<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
-    {
-        self.do_http(Method::OPTIONS, url, &body.into()).await
+    pub async fn options<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
+        self.do_http(Method::OPTIONS, url, body).await
     }
 
-    pub async fn delete<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
-    {
-        self.do_http(Method::DELETE, url, &body.into()).await
+    pub async fn delete<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
+        self.do_http(Method::DELETE, url, body).await
     }
 
-    pub async fn head<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
-    {
-        self.do_http(Method::HEAD, url, &body.into()).await
+    pub async fn head<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
+        self.do_http(Method::HEAD, url, body).await
     }
 
-    pub async fn trace<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
-    {
-        self.do_http(Method::TRACE, url, &body.into()).await
+    pub async fn trace<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
+        self.do_http(Method::TRACE, url, body).await
     }
 
-    pub async fn patch<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
-    {
-        self.do_http(Method::PATCH, url, &body.into()).await
+    pub async fn patch<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response>    {
+        self.do_http(Method::PATCH, url, body).await
     }
 
-    pub async fn query<E>(&mut self, url: impl TryInto<Url, Error=E>, body: impl Into<Body<'_>>) -> HlsResult<Response>
-    where
-        HlsError: From<E>,
-    {
-        self.do_http(Method::QUERY, url, &body.into()).await
+    pub async fn query<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
+        self.do_http(Method::QUERY, url, body).await
     }
 
 
@@ -203,25 +176,17 @@ impl AcReq {
     }
 
     /// 流式请求，仅返回请求头，请求体需调next_chunk
-    pub async fn send_stream<'a, U>(&mut self, method: Method, url: U, body: impl Into<Body<'a>>) -> HlsResult<(u64, &Header)>
-    where
-        U: TryInto<Url>,
-        HlsError: From<U::Error>,
-    {
-        let sid = self.send(method, url.try_into()?, body).await?;
+    pub async fn send_stream<'a>(&mut self, method: Method, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<(u64, &Header)> {
+        let sid = self.send(method, url, body).await?;
         let header = self.recv_stream(sid).await?;
         Ok((sid, header))
     }
 
-    pub async fn do_http<'a, U>(&mut self, method: Method, url: U, body: impl Into<Body<'a>>) -> HlsResult<Response>
-    where
-        U: TryInto<Url>,
-        HlsError: From<U::Error>,
-    {
-        let url = url.try_into()?;
+    pub async fn do_http<'a>(&mut self, method: Method, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
+        let url = url.into().build()?;
         let body = body.into();
         for i in 1..=self.timeout.handle_times() {
-            let sid = self.send(method, &url, &body).await?;
+            let sid = self.send(method, url.as_ref(), &body).await?;
             let res = tokio::time::timeout(self.timeout.handle(), self.handle_recv(sid)).await;
             match res {
                 Err(_) => if i >= self.timeout.handle_times() { return Err(HlsError::Time(TimeError::HandleTimeout)) }
@@ -236,12 +201,9 @@ impl AcReq {
         Err("stream io error".into())
     }
 
-    pub async fn connect<E>(mut self, url: impl TryInto<Url, Error=E>) -> HlsResult<AcReq>
-    where
-        HlsError: From<E>,
-    {
-        let url = url.try_into()?;
-        self.re_conn(Some(&url)).await?;
+    pub async fn connect<'a>(mut self, url: impl Into<ReqUrl<'a>>) -> HlsResult<AcReq> {
+        let url = url.into().build()?;
+        self.re_conn(Some(url.as_ref())).await?;
         Ok(self)
     }
 
@@ -288,29 +250,22 @@ impl AcReq {
         Ok(())
     }
 
-    pub async fn send_check<'a, U>(&mut self, method: Method, url: U, body: impl Into<Body<'a>>) -> HlsResult<Response>
-    where
-        U: TryInto<Url> + Clone,
-        HlsError: From<U::Error>,
-    {
-        let response = self.do_http(method, url.clone(), &body.into()).await?;
-        self.check_status(&url.try_into()?, &response)?;
+    pub async fn send_check<'a>(&mut self, method: Method, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
+        let url = url.into().build()?;
+        let response = self.do_http(method, url.as_ref(), &body.into()).await?;
+        self.check_status(url.as_ref(), &response)?;
         Ok(response)
     }
 
     pub async fn send_check_json<'a, U>(
         &mut self,
         method: Method,
-        url: U,
+        url: impl Into<ReqUrl<'a>>,
         body: impl Into<Body<'a>>,
         k: impl AsRef<str>,
         v: impl ToString,
         e: Vec<impl AsRef<str>>,
-    ) -> HlsResult<JsonValue>
-    where
-        U: TryInto<Url> + Clone,
-        HlsError: From<U::Error>,
-    {
+    ) -> HlsResult<JsonValue> {
         let response = self.send_check(method, url, body).await?;
         self.check_res(response, k, v, e)
     }

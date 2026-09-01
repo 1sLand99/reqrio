@@ -288,6 +288,18 @@ impl<'a> From<String> for ReqUrl<'a> {
     }
 }
 
+impl<'a> From<&'a String> for ReqUrl<'a> {
+    fn from(url: &'a String) -> Self {
+        ReqUrl::Str(url.as_str())
+    }
+}
+
+impl<'a> From<&'a mut String> for ReqUrl<'a> {
+    fn from(url: &'a mut String) -> Self {
+        ReqUrl::Str(url.as_str())
+    }
+}
+
 impl<'a> From<Result<Url, UrlError>> for ReqUrl<'a> {
     fn from(value: Result<Url, UrlError>) -> Self {
         ReqUrl::Res(value)
