@@ -1,5 +1,4 @@
-use reqrio::{json, Application, BodyData, BodyExt, Fingerprint, H2Finger, H2Setting, HttpFile, Proxy, ReqExt, ScReq, UrlExt};
-use reqtls::{CipherSuite, EcPointFormat, Extension, ExtensionType, ExtensionValue, NamedCurve, PskMode, SignatureAlgorithm, TlsFinger, Url, Version, ALPN};
+use reqrio::*;
 
 fn build_finger() -> Fingerprint {
     let tls = TlsFinger::Custom {
@@ -14,15 +13,15 @@ fn build_finger() -> Fingerprint {
             CipherSuite::TLS_CHACHA20_POLY1305_SHA256,
         ],
         extensions: vec![
-            ExtensionType::StatusRequest.into(),
-            Extension::new(ExtensionType::SupportedGroup, ExtensionValue::Curves(vec![
+            Extension::StatusRequest(StatusRequest::new()),
+            Extension::SupportedGroups(SupportedGroups::new(vec![
                 NamedCurve::X25519.into(),
                 NamedCurve::SecP256r1.into(),
                 NamedCurve::SecP384r1.into(),
                 NamedCurve::SecP521r1.into(),
             ])),
-            Extension::new(ExtensionType::EcPointFormats, ExtensionValue::EcPointFormats(vec![EcPointFormat::UNCOMPRESSED])),
-            Extension::new(ExtensionType::SignatureAlgorithms, ExtensionValue::Algorithms(vec![
+            Extension::EcPointFormats(EcPointFormats::new(vec![EcPointFormat::UNCOMPRESSED])),
+            Extension::SignatureAlgorithms(SignatureAlgorithms::new(vec![
                 SignatureAlgorithm::RSA_PKCS1_SHA1.into(),
                 SignatureAlgorithm::RSA_PKCS1_SHA256.into(),
                 SignatureAlgorithm::RSA_PKCS1_SHA384.into(),
@@ -37,25 +36,25 @@ fn build_finger() -> Fingerprint {
                 SignatureAlgorithm::RSA_PSS_RSAE_SHA384.into(),
                 SignatureAlgorithm::RSA_PSS_RSAE_SHA512.into(),
             ])),
-            ExtensionType::SignedCertificateTimestamp.into(),
-            ExtensionType::ExtendMasterSecret.into(),
-            ExtensionType::CompressionCertificate.into(),
-            ExtensionType::SessionTicket.into(),
-            Extension::new(ExtensionType::SupportedVersions, ExtensionValue::SupportedVersions(vec![
+            Extension::SignedCertificateTimestamp,
+            Extension::ExtendMasterSecret,
+            Extension::CompressionCertificate(CompressCertificate::new(vec![CompressionMethod::BROTLI])),
+            Extension::SessionTicket(Buf::Ref(&[])),
+            Extension::SupportedVersions(SupportVersions::new(vec![
                 Version::TLS_1_3,
                 Version::TLS_1_2
             ])),
-            Extension::new(ExtensionType::PskKeyExchangeMode, ExtensionValue::PskMode(PskMode::PSK_DHE_KE)),
-            Extension::new(ExtensionType::KeyShare, ExtensionValue::Curves(vec![
+            Extension::PskKeyExchangeMode(vec![PskMode::new(PskMode::PSK_DHE_KE)]),
+            Extension::KeyShare(KeyShare::new(vec![
                 NamedCurve::X25519.into(),
                 NamedCurve::SecP256r1.into(),
             ])),
-            Extension::new(ExtensionType::ApplicationSetting, ExtensionValue::Alps(vec![
+            Extension::ApplicationSetting(ALPS::new(vec![
                 ALPN::Http20,
                 ALPN::Http11
             ])),
-            ExtensionType::ServerName.into(),
-            Extension::new(ExtensionType::ApplicationLayerProtocolNegotiation, ExtensionValue::Alps(vec![
+            Extension::ServerName(vec![SNType::HostName("")]),
+            Extension::ApplicationLayerProtocolNegotiation(ALPS::new(vec![
                 ALPN::Http20,
                 ALPN::Http11
             ]))

@@ -2,13 +2,16 @@ use super::super::version::Version;
 use crate::{BufferError, ReadExt, Reader, WriteExt};
 use crate::error::RlsResult;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct SupportVersions {
     versions: Vec<Version>,
 }
 
 
 impl SupportVersions {
+    pub fn new(versions:Vec<Version>) -> Self {
+        SupportVersions { versions }
+    }
     pub fn from_reader(mut reader: Reader<'_>, server: bool) -> RlsResult<SupportVersions> {
         if !server {
             reader.read_u8()?;

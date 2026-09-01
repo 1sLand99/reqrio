@@ -6,7 +6,7 @@ use std::fmt::{Display, Formatter};
 #[derive(Debug, Clone)]
 pub struct Uri {
     path: String,
-    pub(crate) params: Vec<Param>,
+    params: Vec<Param>,
 }
 
 impl Default for Uri {
@@ -73,9 +73,9 @@ impl Uri {
 impl Display for Uri {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if self.path.contains("://") {
-            write!(f, "/{}", &self.path)?
+            write!(f, "/{}", self.path)?
         } else {
-            write!(f, "{}", &self.path)?
+            write!(f, "{}", self.path)?
         }
         if !self.params.is_empty() { write!(f, "?")?; }
         for (i, param) in self.params.iter().enumerate() {

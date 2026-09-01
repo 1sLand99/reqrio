@@ -69,7 +69,7 @@ impl Buffer {
     pub fn none() -> Buffer {
         Buffer(CPointer::nullptr())
     }
-    
+
     pub fn with_capacity(capacity: usize) -> Self {
         let buffer = unsafe { Buffer_new(capacity) };
         if buffer.is_null() { panic!("failed to create buffer") };
@@ -181,6 +181,7 @@ impl WriteExt for Buffer {
     }
 }
 
+#[derive(Clone)]
 pub enum Buf<'a> {
     Ptr(BufPtr),
     Ref(&'a [u8]),
@@ -271,6 +272,15 @@ impl BufPtr {
 impl Debug for BufPtr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.as_slice())
+    }
+}
+
+impl Clone for BufPtr {
+    fn clone(&self) -> Self {
+        BufPtr{
+            ptr: CPointer::new(self.ptr.as_mut_ptr()).with_free(false),
+            len: self.len,
+        }
     }
 }
 

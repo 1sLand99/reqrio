@@ -1,7 +1,7 @@
 use super::{DNSError, SvcParamValue, SvcType, DNS};
 use crate::dns::add::Additional;
 use crate::dns::value::{DNSValue, DnsType};
-use crate::extend::ech::EchConfig;
+use crate::extend::EchConfig;
 use crate::{rand, Buffer, ALPN};
 use std::io;
 use std::io::ErrorKind;

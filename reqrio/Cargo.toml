@@ -16,10 +16,10 @@ reqrio-json = { workspace = true }
 serde = { workspace = true, optional = true }
 tokio = { version = "1", features = ["time", "net", "io-util", "macros", 'rt-multi-thread'], optional = true }
 reqtls = { workspace = true, features = ["zstd"] }
-pin-project-lite = { version = "0.2", optional = true }
+#pin-project-lite = { version = "0.2", optional = true }
 
 [features]
-aync = ["tokio", "pin-project-lite"]
+aync = ["tokio"]
 export = ["reqtls/export"]
 staticlink = ["reqtls/static_link"]
 log = ["reqtls/log"]

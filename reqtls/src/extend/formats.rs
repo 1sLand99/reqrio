@@ -41,22 +41,20 @@ impl From<u8> for EcPointFormat {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EcPointFormats {
     formats: Vec<EcPointFormat>,
 }
 
 impl EcPointFormats {
-    pub fn new() -> EcPointFormats {
+    pub fn new(formats: Vec<EcPointFormat>) -> EcPointFormats {
         EcPointFormats {
-            formats: vec![],
+            formats,
         }
     }
 
     pub fn random() -> EcPointFormats {
-        let mut res = EcPointFormats::new();
-        res.formats = vec![EcPointFormat::UNCOMPRESSED];
-        res
+        EcPointFormats::new(vec![EcPointFormat::UNCOMPRESSED])
     }
 
     pub fn from_reader(mut reader: Reader) -> RlsResult<EcPointFormats> {

@@ -49,10 +49,6 @@ impl SecretKey {
         let mut premaster_secret = vec![0; 48];
         premaster_secret[0..2].copy_from_slice(version.as_u16().to_be_bytes().as_ref());
         rand::fill(&mut premaster_secret[2..]);
-
-
-        // let mut master_secret = vec![3, 3];
-        // master_secret.extend(rand::random::<[u8; 46]>());
         Ok(SecretKey::PreMasterSecret(Bytes::new(premaster_secret)))
     }
 

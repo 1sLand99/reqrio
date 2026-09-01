@@ -35,6 +35,11 @@ impl<T: CFree<T>> CPointer<T> {
     pub fn is_null(&self) -> bool { self.ptr.is_null() }
 
     pub fn disable_auto_free(&mut self) { self.auto_free = false }
+
+    pub fn with_free(mut self, free: bool) -> Self {
+        self.auto_free = free;
+        self
+    }
 }
 
 impl<T: CFree<T>> Drop for CPointer<T> {

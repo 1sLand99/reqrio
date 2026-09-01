@@ -5,8 +5,7 @@ use super::super::version::Version;
 use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
-use crate::extend::ExtensionValue;
-use crate::{rand, u24, BufferError, ClientHello, ExtensionType, HandShakeError, ReadExt, Reader, WriteExt, ALPN};
+use crate::{rand, u24, BufferError, ClientHello, HandShakeError, ReadExt, Reader, WriteExt, ALPN};
 
 #[derive(Debug)]
 pub struct ServerHello<'a> {
@@ -66,38 +65,38 @@ impl<'a> ServerHello<'a> {
             ..Default::default()
         };
         for extension in client_hello.take_extensions() {
-            match extension.extension_type().as_u16() {
-                ExtensionType::SignatureAlgorithms => {
-                    // let mut signature = SignatureAlgorithms::new();
-                    // signature.push_hash(SignatureAlgorithm::RSA_PKCS1_SHA256);
-                    // res.extensions.push(Extension::new(ExtensionType::SignatureAlgorithms, ExtensionValue::SignatureAlgorithms(signature)));
-                }
+            match extension {
+                // Extension::SignatureAlgorithms => {
+                //     // let mut signature = SignatureAlgorithms::new();
+                //     // signature.push_hash(SignatureAlgorithm::RSA_PKCS1_SHA256);
+                //     // res.extensions.push(Extension::new(ExtensionType::SignatureAlgorithms, ExtensionValue::SignatureAlgorithms(signature)));
+                // }
                 // ExtensionType::SignedCertificateTimestamp => res.extensions.push(extension),
-                ExtensionType::EcPointFormats => {
-                    // let mut ec_point_formats = EcPointFormats::new();
-                    // ec_point_formats.add_format(EcPointFormat::UNCOMPRESSED);
-                    // res.extensions.push(Extension::new(ExtensionType::EcPointFormats, ExtensionValue::EcPointFormats(ec_point_formats)));
-                }
-                ExtensionType::ApplicationLayerProtocolNegotiation => {
+                // Extension::EcPointFormats => {
+                //     // let mut ec_point_formats = EcPointFormats::new();
+                //     // ec_point_formats.add_format(EcPointFormat::UNCOMPRESSED);
+                //     // res.extensions.push(Extension::new(ExtensionType::EcPointFormats, ExtensionValue::EcPointFormats(ec_point_formats)));
+                // }
+                Extension::ApplicationLayerProtocolNegotiation(..) => {
                     let mut alps = ALPS::new(vec![]);
                     alps.add_alpn(alpn.clone());
-                    res.extensions.push(Extension::new(ExtensionType::ApplicationLayerProtocolNegotiation, ExtensionValue::ApplicationLayerProtocolNegotiation(alps)));
+                    res.extensions.push(Extension::ApplicationLayerProtocolNegotiation(alps));
                 }
-                ExtensionType::ExtendMasterSecret => res.extensions.push(extension),
-                ExtensionType::SupportedVersions => {
-                    // let mut version = SupportVersions::new();
-                    // version.push(Version::TLS_1_2);
-                    // res.extensions.push(Extension::new(ExtensionType::SupportedVersions, ExtensionValue::SupportedVersions(version)));
-                }
-                ExtensionType::SupportedGroup => {
-                    // let mut groups = SupportedGroups::new();
-                    // groups.add_group(GroupType::X25519);
-                    // res.extensions.push(Extension::new(ExtensionType::SupportedGroup, ExtensionValue::SupportedGroups(groups)));
-                }
-                ExtensionType::RenegotiationInfo => res.extensions.push(extension),
-                ExtensionType::ServerName => {}
-                ExtensionType::StatusRequest => res.extensions.push(extension),
-                ExtensionType::SessionTicket => res.extensions.push(Extension::from_type(ExtensionType::SessionTicket.into())),
+                Extension::ExtendMasterSecret => res.extensions.push(extension),
+                // Extension::SupportedVersions => {
+                //     // let mut version = SupportVersions::new();
+                //     // version.push(Version::TLS_1_2);
+                //     // res.extensions.push(Extension::new(ExtensionType::SupportedVersions, ExtensionValue::SupportedVersions(version)));
+                // }
+                // Extension::SupportedGroups(_) => {
+                //     // let mut groups = SupportedGroups::new();
+                //     // groups.add_group(GroupType::X25519);
+                //     // res.extensions.push(Extension::new(ExtensionType::SupportedGroup, ExtensionValue::SupportedGroups(groups)));
+                // }
+                Extension::RenegotiationInfo => res.extensions.push(extension),
+                // Extension::ServerName => {}
+                Extension::StatusRequest(_) => res.extensions.push(extension),
+                Extension::SessionTicket(_) => res.extensions.push(Extension::SessionTicket(Buf::Ref(&[]))),
                 _ => {}
             }
         }
@@ -105,7 +104,7 @@ impl<'a> ServerHello<'a> {
     }
 
     pub fn use_ems(&self) -> bool {
-        self.extensions.iter().any(|x| x.extension_type() == &ExtensionType::ExtendMasterSecret)
+        self.extensions.iter().any(|x| matches!(x, Extension::ExtendMasterSecret))
     }
 
     pub fn alpn(&self) -> Option<ALPN> {
@@ -150,15 +149,15 @@ impl<'a> ServerHello<'a> {
     }
 
     pub fn supported_version(&self) -> Option<&Version> {
-        let extend = self.extensions.iter().find(|x| x.extension_type() == &ExtensionType::SupportedVersions)?;
-        if let ExtensionValue::SupportedVersions(version) = extend.value() {
+        let extend = self.extensions.iter().find(|x| matches!(x, Extension::SupportedVersions(_)))?;
+        if let Extension::SupportedVersions(version) = extend {
             version.versions().first()
         } else { None }
     }
 
     pub fn key_share_extend(&self) -> Option<&KeyShare<'_>> {
-        let extend = self.extensions.iter().find(|x| x.extension_type() == &ExtensionType::KeyShare)?;
-        if let ExtensionValue::KeyShare(key) = extend.value() {
+        let extend = self.extensions.iter().find(|x| matches!(x, Extension::KeyShare(_)))?;
+        if let Extension::KeyShare(key) = extend {
             Some(key)
         } else { None }
     }

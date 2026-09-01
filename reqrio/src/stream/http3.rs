@@ -187,10 +187,13 @@ trait H3Handle {
         let mut items = recv.stream_ids.iter_mut();
         let mut handle_enc = false;
         while let Some((sid, param)) = items.next() {
-            if param.buffer.is_empty() { continue; }
+            if param.buffer.is_empty() {
+                if param.fin { recv.res.push(*sid) };
+                continue;
+            }
             let mut reader = Reader::from_slice(param.buffer.filled());
             #[cfg(feature = "log")]
-            debug!("[HTTP3] recv quic: typ={:?}; sid={}; fin={}",param.typ, sid,  param.fin);
+            debug!("[HTTP3] recv quic: typ={:?}; sid={}; fin={}; off={}",param.typ, sid,  param.fin, param.last_offset);
             let mut pos = reader.position();
             while reader.unread_len() > 0 {
                 let frame = match param.typ.handle_stream(&mut reader, recv.decoder) {

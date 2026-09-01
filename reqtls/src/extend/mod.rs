@@ -1,532 +1,591 @@
 mod version;
-pub mod formats;
+mod formats;
 mod server_name;
-pub mod algorithm;
+mod algorithm;
 mod status;
 pub mod group;
-pub mod key_share;
+mod key_share;
 pub mod alps;
 mod client_hello;
 mod certificate;
 mod psk_key;
 mod pre_share_key;
-pub mod ech;
+mod ech;
 #[cfg(feature = "quic")]
 mod quic;
 
-use crate::buffer::Buf;
 use crate::error::RlsResult;
-use crate::{BufferError, ReadExt, Reader, Version, WriteExt, ALPN};
-use algorithm::SignatureAlgorithms;
-use alps::ALPS;
+use crate::*;
+pub use algorithm::SignatureAlgorithms;
+pub use alps::ALPS;
 pub use certificate::CompressCertificate;
 pub use certificate::CompressionMethod;
-use client_hello::EncryptClientHello;
-pub use ech::Aead;
-use formats::EcPointFormats;
-use group::SupportedGroups;
+pub use client_hello::EncryptClientHello;
+pub use ech::{Aead, EchConfig};
+pub use formats::{EcPointFormats, EcPointFormat};
+pub use group::SupportedGroups;
 pub use key_share::KeyShare;
 use pre_share_key::PreSharedKey;
-pub use psk_key::PskKey;
 pub use psk_key::PskMode;
-pub use server_name::ServerName;
-pub use status::StatusRequest;
-use std::fmt::{Debug, Formatter};
-pub use version::SupportVersions;
 #[cfg(feature = "quic")]
 pub use quic::Parameter;
+pub use server_name::SNType;
+pub use status::StatusRequest;
+use std::fmt::Debug;
+pub use version::SupportVersions;
 
-#[derive(PartialEq, Clone, Copy)]
-pub struct ExtensionType(u16);
-
-impl ExtensionType {
-    pub fn new(value: u16) -> ExtensionType { ExtensionType(value) }
-
-    pub fn into_inner(self) -> u16 { self.0 }
-
-    pub fn is_reserved(&self) -> bool {
-        crate::REVERSED.contains(&self.0)
-    }
-
-    pub fn as_u16(&self) -> u16 { self.0 }
-}
-
-#[allow(non_upper_case_globals)]
-impl ExtensionType {
-    pub const ServerName: u16 = 0x0;
-    pub const StatusRequest: u16 = 0x5;
-    pub const SupportedGroup: u16 = 0xa;
-    pub const EcPointFormats: u16 = 0xb;
-    pub const SignatureAlgorithms: u16 = 0xd;
-    pub const ApplicationLayerProtocolNegotiation: u16 = 0x10;
-    pub const SignedCertificateTimestamp: u16 = 0x12;
-    pub const Padding: u16 = 0x15;
-    pub const EncryptTheMac: u16 = 0x16;
-    pub const ExtendMasterSecret: u16 = 0x17;
-    pub const SessionTicket: u16 = 0x23;
-    pub const CompressionCertificate: u16 = 0x1b;
-    pub const SupportedVersions: u16 = 0x2b;
-    pub const PskKeyExchangeMode: u16 = 0x2d;
-    pub const PostHandshakeAuth: u16 = 0x31;
-    pub const KeyShare: u16 = 0x33;
-    pub const RenegotiationInfo: u16 = 0xff01;
-    pub const EncryptedClientHello: u16 = 0xfe0d;
-    pub const ApplicationSetting: u16 = 0x44cd;
-    pub const PreSharedKey: u16 = 0x29;
-    pub const ApplicationSettingOld: u16 = 0x4469;
-    pub const QUICTrpParameters: u16 = 0x0039;
-
-    pub const EXTENSIONS: [u16; 21] = [0x0, 0x5, 0xa, 0xb, 0xd, 0x10, 0x12, 0x15, 0x16, 0x17, 0x23, 0x1b, 0x2b, 0x2d, 0x31, 0x33, 0xff01, 0xfe0d, 0x44cd, 0x29, 0x4469];
-
-    pub fn spec(&self) -> &'static str {
-        match self.0 {
-            0x0 => "ServerName",
-            0x5 => "StatusRequest",
-            0xa => "SupportedGroup",
-            0xb => "EcPointFormats",
-            0xd => "SignatureAlgorithms",
-            0x10 => "ApplicationLayerProtocolNegotiation",
-            0x12 => "SignedCertificateTimestamp",
-            0x15 => "Padding",
-            0x16 => "EncryptTheMac",
-            0x17 => "ExtendMasterSecret",
-            0x23 => "SessionTicket",
-            0x1b => "CompressionCertificate",
-            0x2b => "SupportedVersions",
-            0x2d => "PskKeyExchangeMode",
-            0x31 => "PostHandshakeAuth",
-            0x33 => "KeyShare",
-            0x39 => "QUICTrpParameters",
-            0xff01 => "RenegotiationInfo",
-            0xfe0d => "EncryptedClientHello",
-            0x44cd => "ApplicationSetting",
-            0x29 => "PreSharedKey",
-            0x4469 => "ApplicationSettingOld",
-            _ => "Reserved"
-        }
-    }
-}
-
-impl Debug for ExtensionType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}(0x{:04x})", self.spec(), self.0)
-    }
-}
-
-impl From<u16> for ExtensionType {
-    fn from(value: u16) -> Self { ExtensionType(value) }
-}
-
-impl PartialEq<u16> for ExtensionType {
-    fn eq(&self, other: &u16) -> bool {
-        &self.0 == other
-    }
-}
-
-
-#[derive(Debug)]
-pub struct RenegotiationInfo {
-    len: u8,
-}
-
-impl RenegotiationInfo {
-    pub fn new() -> RenegotiationInfo {
-        RenegotiationInfo { len: 0 }
-    }
-    pub fn from_reader(mut reader: Reader<'_>) -> RlsResult<RenegotiationInfo> {
-        Ok(RenegotiationInfo {
-            len: reader.read_u8()?
-        })
-    }
-
-    pub fn len(&self) -> usize { 1 }
-
-    pub fn write_to<W: WriteExt>(self, writer: &mut W) -> Result<(), BufferError> {
-        writer.write_u8(self.len)
-    }
-}
-
-pub enum ExtensionValue<'a> {
-    PskKeyExchangeMode(PskKey),
-    KeyShare(KeyShare<'a>),
-    SupportedGroups(SupportedGroups),
+#[derive(Debug, Clone)]
+pub enum Extension<'a> {
+    ServerName(Vec<SNType<'a>>),
     StatusRequest(StatusRequest),
-    SignatureAlgorithms(SignatureAlgorithms),
-    ServerName(ServerName<'a>),
+    SupportedGroups(SupportedGroups),
     EcPointFormats(EcPointFormats),
-    SupportedVersions(SupportVersions),
-    RenegotiationInfo(RenegotiationInfo),
-    ApplicationSetting(ALPS),
-    ApplicationSettingOld(ALPS),
-    EncryptedClientHello(EncryptClientHello<'a>),
-    CompressionCertificate(CompressCertificate),
+    SignatureAlgorithms(SignatureAlgorithms),
     ApplicationLayerProtocolNegotiation(ALPS),
-    SessionTicket(Buf<'a>),
-    EncryptTheMac,
-    MasterSecret,
     SignedCertificateTimestamp,
-    PreSharedKey(PreSharedKey<'a>),
     Padding(usize),
+    EncryptTheMac,
+    ExtendMasterSecret,
+    SessionTicket(Buf<'a>),
+    CompressionCertificate(CompressCertificate),
+    SupportedVersions(SupportVersions),
+    PskKeyExchangeMode(Vec<PskMode>),
+    PostHandshakeAuth,
+    KeyShare(KeyShare<'a>),
+    RenegotiationInfo,
+    EncryptedClientHello(EncryptClientHello<'a>),
+    ApplicationSetting(ALPS),
+    PreSharedKey(PreSharedKey<'a>),
+    ApplicationSettingOld(ALPS),
     #[cfg(feature = "quic")]
     QUICTrpParameters(Vec<Parameter<'a>>),
-    Unknown(Buf<'a>),
-}
-
-impl<'a> ExtensionValue<'a> {
-    pub fn from_reader(t: &ExtensionType, mut reader: Reader<'a>, server: bool) -> RlsResult<Self> {
-        match t.0 {
-            ExtensionType::ServerName => Ok(ExtensionValue::ServerName(ServerName::from_reader(reader)?)),
-            ExtensionType::StatusRequest => Ok(ExtensionValue::StatusRequest(StatusRequest::from_reader(reader)?)),
-            ExtensionType::SupportedGroup => Ok(ExtensionValue::SupportedGroups(SupportedGroups::from_reader(reader)?)),
-            ExtensionType::EcPointFormats => Ok(ExtensionValue::EcPointFormats(EcPointFormats::from_reader(reader)?)),
-            ExtensionType::SignatureAlgorithms => Ok(ExtensionValue::SignatureAlgorithms(SignatureAlgorithms::from_reader(reader)?)),
-            ExtensionType::EncryptTheMac => Ok(ExtensionValue::EncryptTheMac),
-            ExtensionType::ExtendMasterSecret => Ok(ExtensionValue::MasterSecret),
-            ExtensionType::SessionTicket => Ok(ExtensionValue::SessionTicket(Buf::Ref(reader.into_inner()))),
-            ExtensionType::RenegotiationInfo => Ok(ExtensionValue::RenegotiationInfo(RenegotiationInfo::from_reader(reader)?)),
-            ExtensionType::SupportedVersions => Ok(ExtensionValue::SupportedVersions(SupportVersions::from_reader(reader, server)?)),
-            ExtensionType::PskKeyExchangeMode => Ok(ExtensionValue::PskKeyExchangeMode(PskKey::from_reader(reader)?)),
-            ExtensionType::CompressionCertificate => Ok(ExtensionValue::CompressionCertificate(CompressCertificate::from_reader(reader)?)),
-            ExtensionType::EncryptedClientHello => {
-                if server {
-                    Ok(ExtensionValue::Unknown(Buf::Ref(reader.into_inner())))
-                } else {
-                    Ok(ExtensionValue::EncryptedClientHello(EncryptClientHello::from_reader(reader)?))
-                }
-            }
-            ExtensionType::SignedCertificateTimestamp => Ok(ExtensionValue::SignedCertificateTimestamp),
-            ExtensionType::ApplicationSetting => Ok(ExtensionValue::ApplicationSetting(ALPS::from_reader(reader)?)),
-            ExtensionType::KeyShare => Ok(ExtensionValue::KeyShare(KeyShare::from_reader(reader, server)?)),
-            ExtensionType::ApplicationLayerProtocolNegotiation => Ok(ExtensionValue::ApplicationLayerProtocolNegotiation(ALPS::from_reader(reader)?)),
-            ExtensionType::PreSharedKey => Ok(ExtensionValue::PreSharedKey(PreSharedKey::from_reader(reader)?)),
-            ExtensionType::ApplicationSettingOld => Ok(ExtensionValue::ApplicationSetting(ALPS::from_reader(reader)?)),
-            ExtensionType::Padding => Ok(ExtensionValue::Padding(reader.unread_len())),
-            #[cfg(feature = "quic")]
-            ExtensionType::QUICTrpParameters => {
-                let mut res = vec![];
-                while reader.unread_len() > 0 {
-                    res.push(Parameter::from_reader(&mut reader)?);
-                }
-                Ok(ExtensionValue::QUICTrpParameters(res))
-            }
-            _ => Ok(ExtensionValue::Unknown(Buf::Ref(reader.into_inner())))
-        }
-    }
-
-    pub fn len(&self, server: bool) -> usize {
-        match self {
-            ExtensionValue::PskKeyExchangeMode(v) => v.len(),
-            ExtensionValue::KeyShare(v) => v.len(),
-            ExtensionValue::SupportedGroups(v) => v.len(),
-            ExtensionValue::StatusRequest(v) => if server { 0 } else { v.len() },
-            ExtensionValue::SignatureAlgorithms(v) => v.len(),
-            ExtensionValue::ServerName(v) => v.len(),
-            ExtensionValue::EcPointFormats(v) => v.len(),
-            ExtensionValue::SupportedVersions(v) => v.len(server),
-            ExtensionValue::RenegotiationInfo(v) => v.len(),
-            ExtensionValue::ApplicationSetting(v) => v.len(),
-            ExtensionValue::ApplicationSettingOld(v) => v.len(),
-            ExtensionValue::EncryptedClientHello(v) => v.len(),
-            ExtensionValue::CompressionCertificate(v) => v.len(),
-            ExtensionValue::ApplicationLayerProtocolNegotiation(v) => v.len(),
-            ExtensionValue::SessionTicket(v) => v.len(),
-            ExtensionValue::EncryptTheMac => 0,
-            ExtensionValue::MasterSecret => 0,
-            ExtensionValue::SignedCertificateTimestamp => 0,
-            ExtensionValue::PreSharedKey(v) => v.len(),
-            ExtensionValue::Unknown(v) => v.len(),
-            ExtensionValue::Padding(v) => *v,
-            #[cfg(feature = "quic")]
-            ExtensionValue::QUICTrpParameters(v) => v.iter().map(|x|x.len()).sum::<usize>(),
-        }
-    }
-
-    pub fn write_to<W: WriteExt>(self, writer: &mut W, server: bool) -> Result<(), BufferError> {
-        match self {
-            ExtensionValue::PskKeyExchangeMode(v) => v.write_to(writer),
-            ExtensionValue::KeyShare(v) => v.write_to(writer),
-            ExtensionValue::SupportedGroups(v) => v.write_to(writer),
-            ExtensionValue::StatusRequest(v) => if !server { v.write_to(writer) } else { Ok(()) },
-            ExtensionValue::SignatureAlgorithms(v) => v.write_to(writer),
-            ExtensionValue::ServerName(v) => v.write_to(writer),
-            ExtensionValue::EcPointFormats(v) => v.write_to(writer),
-            ExtensionValue::SupportedVersions(v) => v.write_to(writer, server),
-            ExtensionValue::RenegotiationInfo(v) => v.write_to(writer),
-            ExtensionValue::SessionTicket(v) => writer.write_slice(v.as_ref()),
-            ExtensionValue::EncryptTheMac => Ok(()),
-            ExtensionValue::MasterSecret => Ok(()),
-            ExtensionValue::CompressionCertificate(v) => v.write_to(writer),
-            ExtensionValue::EncryptedClientHello(v) => v.write_to(writer),
-            ExtensionValue::ApplicationSetting(v) => v.write_to(writer),
-            ExtensionValue::ApplicationLayerProtocolNegotiation(v) => v.write_to(writer),
-            ExtensionValue::Unknown(v) => writer.write_slice(v.as_ref()),
-            ExtensionValue::SignedCertificateTimestamp => Ok(()),
-            ExtensionValue::PreSharedKey(v) => v.write_to(writer),
-            ExtensionValue::ApplicationSettingOld(v) => v.write_to(writer),
-            ExtensionValue::Padding(size) => writer.write_slice(&vec![0u8; size]),
-            #[cfg(feature = "quic")]
-            ExtensionValue::QUICTrpParameters(values) => {
-                for value in values {
-                    value.write_to(writer)?;
-                }
-                Ok(())
-            }
-        }
-    }
-}
-
-impl<'a> Debug for ExtensionValue<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ExtensionValue::PskKeyExchangeMode(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
-            ExtensionValue::KeyShare(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
-            ExtensionValue::SupportedGroups(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
-            ExtensionValue::StatusRequest(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
-            ExtensionValue::SignatureAlgorithms(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
-            ExtensionValue::ServerName(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
-            ExtensionValue::EcPointFormats(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
-            ExtensionValue::SupportedVersions(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
-            ExtensionValue::RenegotiationInfo(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
-            ExtensionValue::ApplicationSetting(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
-            ExtensionValue::ApplicationSettingOld(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
-            ExtensionValue::EncryptedClientHello(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
-            ExtensionValue::CompressionCertificate(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
-            ExtensionValue::ApplicationLayerProtocolNegotiation(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
-            ExtensionValue::SessionTicket(v) => write!(f, "{:#?}", v),
-            ExtensionValue::EncryptTheMac => write!(f, "EncryptTheMac"),
-            ExtensionValue::MasterSecret => write!(f, "MasterSecret"),
-            ExtensionValue::SignedCertificateTimestamp => write!(f, "SignedCertificateTimestamp"),
-            ExtensionValue::PreSharedKey(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
-            ExtensionValue::Unknown(v) => if f.alternate() { write!(f, "{:#?}", v) } else { write!(f, "{:?}", v) },
-            ExtensionValue::Padding(size) => write!(f, "Padding({})", size),
-            #[cfg(feature = "quic")]
-            ExtensionValue::QUICTrpParameters(values) => if f.alternate() { write!(f, "{:#?}", values) } else { write!(f, "{:?}", values) },
-        }
-    }
-}
-
-
-#[derive(Debug)]
-pub struct Extension<'a> {
-    type_: ExtensionType,
-    value: ExtensionValue<'a>,
-}
-
-impl<'a> Default for Extension<'a> {
-    fn default() -> Self {
-        Extension {
-            type_: ExtensionType(0),
-            value: ExtensionValue::Unknown(Buf::Ref(&[])),
-        }
-    }
+    Reserved {
+        typ: u16,
+        value: Buf<'a>,
+    },
 }
 
 impl<'a> Extension<'a> {
-    pub fn new(typ: impl Into<ExtensionType>, value: ExtensionValue) -> Extension {
-        Extension {
-            type_: typ.into(),
-            value,
-        }
-    }
+    pub const SERVER_NAME: u16 = 0x0;
+    pub const STATUS_REQUEST: u16 = 0x5;
+    pub const SUPPORTED_GROUP: u16 = 0xa;
+    pub const EC_POINT_FORMATS: u16 = 0xb;
+    pub const SIGNATURE_ALGORITHMS: u16 = 0xd;
+    pub const APPLICATION_LAYER_PROTOCOL_NEGOTIATION: u16 = 0x10;
+    pub const SIGNED_CERTIFICATE_TIMESTAMP: u16 = 0x12;
+    pub const PADDING: u16 = 0x15;
+    pub const ENCRYPT_THE_MAC: u16 = 0x16;
+    pub const EXTEND_MASTER_SECRET: u16 = 0x17;
+    pub const SESSION_TICKET: u16 = 0x23;
+    pub const COMPRESSION_CERTIFICATE: u16 = 0x1b;
+    pub const SUPPORTED_VERSIONS: u16 = 0x2b;
+    pub const PSK_KEY_EXCHANGE_MODE: u16 = 0x2d;
+    pub const POST_HANDSHAKE_AUTH: u16 = 0x31;
+    pub const KEY_SHARE: u16 = 0x33;
+    pub const RENEGOTIATION_INFO: u16 = 0xff01;
+    pub const ENCRYPTED_CLIENT_HELLO: u16 = 0xfe0d;
+    pub const APPLICATION_SETTING: u16 = 0x44cd;
+    pub const PRE_SHARED_KEY: u16 = 0x29;
+    pub const APPLICATION_SETTING_OLD: u16 = 0x4469;
+    pub const QUIC_TRP_PARAMETERS: u16 = 0x0039;
 
-    pub fn default_value(ty: ExtensionType) -> Option<ExtensionValue<'a>> {
-        match ty.0 {
-            ExtensionType::ServerName => Some(ExtensionValue::ServerName(ServerName::new())),
-            ExtensionType::StatusRequest => Some(ExtensionValue::StatusRequest(StatusRequest::new())),
-            ExtensionType::SupportedGroup => Some(ExtensionValue::SupportedGroups(SupportedGroups::random())),
-            ExtensionType::EcPointFormats => Some(ExtensionValue::EcPointFormats(EcPointFormats::random())),
-            ExtensionType::SignatureAlgorithms => Some(ExtensionValue::SignatureAlgorithms(SignatureAlgorithms::random())),
-            ExtensionType::ApplicationLayerProtocolNegotiation => Some(ExtensionValue::ApplicationLayerProtocolNegotiation(ALPS::new(vec![ALPN::Http20, ALPN::Http11]))),
-            ExtensionType::SignedCertificateTimestamp => Some(ExtensionValue::SignedCertificateTimestamp),
-            ExtensionType::EncryptTheMac => Some(ExtensionValue::EncryptTheMac),
-            ExtensionType::ExtendMasterSecret => Some(ExtensionValue::MasterSecret),
-            ExtensionType::SessionTicket => Some(ExtensionValue::SessionTicket(Buf::Ref(&[]))),
-            ExtensionType::CompressionCertificate => {
-                let mut cp_cer = CompressCertificate::new();
-                cp_cer.push(CompressionMethod::NULL);
-                Some(ExtensionValue::CompressionCertificate(cp_cer))
-            }
-            ExtensionType::SupportedVersions => {
+    pub fn default_value(ty: u16) -> Option<Extension<'a>> {
+        match ty {
+            Extension::SERVER_NAME => Some(Extension::ServerName(vec![])),
+            Extension::STATUS_REQUEST => Some(Extension::StatusRequest(StatusRequest::new())),
+            Extension::SUPPORTED_GROUP => Some(Extension::SupportedGroups(SupportedGroups::random())),
+            Extension::EC_POINT_FORMATS => Some(Extension::EcPointFormats(EcPointFormats::random())),
+            Extension::SIGNATURE_ALGORITHMS => Some(Extension::SignatureAlgorithms(SignatureAlgorithms::random())),
+            Extension::APPLICATION_LAYER_PROTOCOL_NEGOTIATION => Some(Extension::ApplicationLayerProtocolNegotiation(ALPS::new(vec![ALPN::Http20, ALPN::Http11]))),
+            Extension::SIGNED_CERTIFICATE_TIMESTAMP => Some(Extension::SignedCertificateTimestamp),
+            Extension::ENCRYPT_THE_MAC => Some(Extension::EncryptTheMac),
+            Extension::EXTEND_MASTER_SECRET => Some(Extension::ExtendMasterSecret),
+            Extension::SESSION_TICKET => Some(Extension::SessionTicket(Buf::Ref(&[]))),
+            Extension::COMPRESSION_CERTIFICATE => Some(Extension::CompressionCertificate(CompressCertificate::new(vec![CompressionMethod::NULL]))),
+            Extension::SUPPORTED_VERSIONS => {
                 let mut supported_versions = SupportVersions::default();
                 supported_versions.push(Version::TLS_1_3);
                 supported_versions.push(Version::TLS_1_2);
-                Some(ExtensionValue::SupportedVersions(supported_versions))
+                Some(Extension::SupportedVersions(supported_versions))
             }
-            ExtensionType::PskKeyExchangeMode => Some(ExtensionValue::PskKeyExchangeMode(PskKey::new())),
-            ExtensionType::KeyShare => Some(ExtensionValue::KeyShare(KeyShare::default())),
-            ExtensionType::RenegotiationInfo => Some(ExtensionValue::RenegotiationInfo(RenegotiationInfo::new())),
-            ExtensionType::EncryptedClientHello => Some(ExtensionValue::EncryptedClientHello(EncryptClientHello::new())),
-            ExtensionType::ApplicationSetting => Some(ExtensionValue::ApplicationSetting(ALPS::new(vec![ALPN::Http20, ALPN::Http11]))),
-            ExtensionType::ApplicationSettingOld => Some(ExtensionValue::ApplicationSettingOld(ALPS::new(vec![ALPN::Http20, ALPN::Http11]))),
-            ExtensionType::PreSharedKey => Some(ExtensionValue::PreSharedKey(PreSharedKey::random())),
-            ExtensionType::Padding=>Some(ExtensionValue::Padding(202)),
+            Extension::PSK_KEY_EXCHANGE_MODE => Some(Extension::PskKeyExchangeMode(vec![PskMode::new(PskMode::PSK_DHE_KE)])),
+            Extension::KEY_SHARE => Some(Extension::KeyShare(KeyShare::default())),
+            Extension::RENEGOTIATION_INFO => Some(Extension::RenegotiationInfo),
+            Extension::ENCRYPTED_CLIENT_HELLO => Some(Extension::EncryptedClientHello(EncryptClientHello::new())),
+            Extension::APPLICATION_SETTING => Some(Extension::ApplicationSetting(ALPS::new(vec![ALPN::Http20, ALPN::Http11]))),
+            Extension::APPLICATION_SETTING_OLD => Some(Extension::ApplicationSettingOld(ALPS::new(vec![ALPN::Http20, ALPN::Http11]))),
+            Extension::PRE_SHARED_KEY => Some(Extension::PreSharedKey(PreSharedKey::random())),
+            Extension::PADDING => Some(Extension::Padding(202)),
             _ => None
         }
     }
 
-    pub fn from_type(t: ExtensionType) -> Extension<'a> {
-        let mut res = Extension::default();
-        if let Some(value) = Extension::default_value(t) {
-            res.value = value;
-        }
-        res.type_ = t;
-        res
-    }
-
     pub fn from_reader(mut reader: Reader<'a>, server: bool) -> RlsResult<Vec<Extension<'a>>> {
-        if reader.unread_len() == 0 { return Ok(vec![]); }
-        let mut res = Vec::with_capacity(reader.unread_len());
+        let mut extensions = Vec::with_capacity(15);
+        if reader.unread_len() == 0 { return Ok(extensions); }
         while reader.unread_len() > 0 {
-            let type_ = ExtensionType::new(reader.read_u16()?);
-            let len = reader.read_u16()?;
-            res.push(Extension {
-                value: ExtensionValue::from_reader(&type_, reader.read_reader(len as usize)?, server)?,
-                type_,
-
+            let typ = reader.read_u16()?;
+            let len = reader.read_u16()? as usize;
+            extensions.push(match typ {
+                Extension::SERVER_NAME => {
+                    let mut res = Vec::with_capacity(10);
+                    if len > 0 {
+                        let mut reader = reader.read_reader(len)?;
+                        let list_len = reader.read_u16()? as usize;
+                        let mut reader = reader.read_reader(list_len)?;
+                        while reader.unread_len() > 0 {
+                            match reader.read_u8()? {
+                                SNType::HOST_NAME => {
+                                    let len = reader.read_u16()? as usize;
+                                    res.push(SNType::HostName(reader.read_str(len)?));
+                                }
+                                _ => {
+                                    #[cfg(feature = "log")]
+                                    warn!("[Extension] unknown SNType!")
+                                }
+                            }
+                        }
+                    }
+                    Extension::ServerName(res)
+                }
+                Extension::STATUS_REQUEST => Extension::StatusRequest(StatusRequest::from_reader(reader.read_reader(len)?)?),
+                Extension::SUPPORTED_GROUP => Extension::SupportedGroups(SupportedGroups::from_reader(reader.read_reader(len)?)?),
+                Extension::EC_POINT_FORMATS => Extension::EcPointFormats(EcPointFormats::from_reader(reader.read_reader(len)?)?),
+                Extension::SIGNATURE_ALGORITHMS => Extension::SignatureAlgorithms(SignatureAlgorithms::from_reader(reader.read_reader(len)?)?),
+                Extension::ENCRYPT_THE_MAC => Extension::EncryptTheMac,
+                Extension::EXTEND_MASTER_SECRET => Extension::ExtendMasterSecret,
+                Extension::SESSION_TICKET => Extension::SessionTicket(Buf::Ref(reader.read_slice(len)?)),
+                Extension::RENEGOTIATION_INFO => {
+                    reader.read_u8()?;
+                    Extension::RenegotiationInfo
+                }
+                Extension::SUPPORTED_VERSIONS => Extension::SupportedVersions(SupportVersions::from_reader(reader.read_reader(len)?, server)?),
+                Extension::PSK_KEY_EXCHANGE_MODE => {
+                    let mut reader = reader.read_reader(len)?;
+                    let len = reader.read_u8()? as usize;
+                    let mut reader = reader.read_reader(len)?;
+                    let mut res = Vec::with_capacity(10);
+                    while reader.unread_len() > 0 {
+                        res.push(PskMode::new(reader.read_u8()?))
+                    }
+                    Extension::PskKeyExchangeMode(res)
+                }
+                Extension::COMPRESSION_CERTIFICATE => Extension::CompressionCertificate(CompressCertificate::from_reader(reader.read_reader(len)?)?),
+                Extension::ENCRYPTED_CLIENT_HELLO => {
+                    if server {
+                        Extension::Reserved {
+                            typ,
+                            value: Buf::Ref(reader.read_slice(len)?),
+                        }
+                    } else {
+                        Extension::EncryptedClientHello(EncryptClientHello::from_reader(reader.read_reader(len)?)?)
+                    }
+                }
+                Extension::SIGNED_CERTIFICATE_TIMESTAMP => Extension::SignedCertificateTimestamp,
+                Extension::APPLICATION_SETTING => Extension::ApplicationSetting(ALPS::from_reader(reader.read_reader(len)?)?),
+                Extension::KEY_SHARE => Extension::KeyShare(KeyShare::from_reader(reader.read_reader(len)?, server)?),
+                Extension::APPLICATION_LAYER_PROTOCOL_NEGOTIATION => Extension::ApplicationLayerProtocolNegotiation(ALPS::from_reader(reader.read_reader(len)?)?),
+                Extension::PRE_SHARED_KEY => Extension::PreSharedKey(PreSharedKey::from_reader(reader.read_reader(len)?)?),
+                Extension::APPLICATION_SETTING_OLD => Extension::ApplicationSetting(ALPS::from_reader(reader.read_reader(len)?)?),
+                Extension::PADDING => Extension::Padding(len),
+                #[cfg(feature = "quic")]
+                Extension::QUIC_TRP_PARAMETERS => {
+                    let mut res = Vec::with_capacity(10);
+                    let mut reader = reader.read_reader(len)?;
+                    while reader.unread_len() > 0 {
+                        res.push(Parameter::from_reader(&mut reader)?);
+                    }
+                    Extension::QUICTrpParameters(res)
+                }
+                _ => {
+                    Extension::Reserved {
+                        typ,
+                        value: Buf::Ref(reader.read_slice(len)?),
+                    }
+                }
             });
         }
-        Ok(res)
+        Ok(extensions)
     }
 
-    pub fn extension_type(&self) -> &ExtensionType { &self.type_ }
+    pub fn as_u16(&self) -> u16 {
+        match self {
+            Extension::ServerName(_) => Extension::SERVER_NAME,
+            Extension::StatusRequest(_) => Extension::STATUS_REQUEST,
+            Extension::SupportedGroups(_) => Extension::SUPPORTED_GROUP,
+            Extension::EcPointFormats(_) => Extension::EC_POINT_FORMATS,
+            Extension::SignatureAlgorithms(_) => Extension::SIGNATURE_ALGORITHMS,
+            Extension::ApplicationLayerProtocolNegotiation(_) => Extension::APPLICATION_LAYER_PROTOCOL_NEGOTIATION,
+            Extension::SignedCertificateTimestamp => Extension::SIGNED_CERTIFICATE_TIMESTAMP,
+            Extension::Padding(_) => Extension::PADDING,
+            Extension::EncryptTheMac => Extension::ENCRYPT_THE_MAC,
+            Extension::ExtendMasterSecret => Extension::EXTEND_MASTER_SECRET,
+            Extension::SessionTicket(_) => Extension::SESSION_TICKET,
+            Extension::CompressionCertificate(_) => Extension::COMPRESSION_CERTIFICATE,
+            Extension::SupportedVersions(_) => Extension::SUPPORTED_VERSIONS,
+            Extension::PskKeyExchangeMode(_) => Extension::PSK_KEY_EXCHANGE_MODE,
+            Extension::PostHandshakeAuth => Extension::POST_HANDSHAKE_AUTH,
+            Extension::KeyShare(_) => Extension::KEY_SHARE,
+            Extension::RenegotiationInfo => Extension::RENEGOTIATION_INFO,
+            Extension::EncryptedClientHello(_) => Extension::ENCRYPTED_CLIENT_HELLO,
+            Extension::ApplicationSetting(_) => Extension::APPLICATION_SETTING,
+            Extension::PreSharedKey(_) => Extension::PRE_SHARED_KEY,
+            Extension::ApplicationSettingOld(_) => Extension::APPLICATION_SETTING_OLD,
+            #[cfg(feature = "quic")]
+            Extension::QUICTrpParameters(_) => Extension::QUIC_TRP_PARAMETERS,
+            Extension::Reserved { typ, .. } => *typ
+        }
+    }
 
     pub fn supported_groups(&self) -> Option<&SupportedGroups> {
-        match &self.value {
-            ExtensionValue::SupportedGroups(v) => Some(v),
+        match &self {
+            Extension::SupportedGroups(v) => Some(v),
             _ => None
         }
     }
 
     pub fn signature_algorithms(&self) -> Option<&SignatureAlgorithms> {
-        match &self.value {
-            ExtensionValue::SignatureAlgorithms(v) => Some(v),
+        match &self {
+            Extension::SignatureAlgorithms(v) => Some(v),
             _ => None
         }
     }
 
     pub fn signature_algorithms_mut(&mut self) -> Option<&mut SignatureAlgorithms> {
-        match &mut self.value {
-            ExtensionValue::SignatureAlgorithms(v) => Some(v),
+        match self {
+            Extension::SignatureAlgorithms(v) => Some(v),
             _ => None
         }
     }
 
     pub fn supported_versions(&self) -> Option<&SupportVersions> {
-        match &self.value {
-            ExtensionValue::SupportedVersions(v) => Some(v),
+        match &self {
+            Extension::SupportedVersions(v) => Some(v),
             _ => None
         }
     }
 
     pub fn supported_versions_mut(&mut self) -> Option<&mut SupportVersions> {
-        match &mut self.value {
-            ExtensionValue::SupportedVersions(v) => Some(v),
+        match self {
+            Extension::SupportedVersions(v) => Some(v),
             _ => None
         }
     }
 
     pub fn supported_groups_mut(&mut self) -> Option<&mut SupportedGroups> {
-        match self.value {
-            ExtensionValue::SupportedGroups(ref mut v) => Some(v),
+        match self {
+            Extension::SupportedGroups(v) => Some(v),
             _ => None
         }
     }
 
     pub fn ec_point_formats(&self) -> Option<&EcPointFormats> {
-        match &self.value {
-            ExtensionValue::EcPointFormats(v) => Some(v),
+        match self {
+            Extension::EcPointFormats(v) => Some(v),
             _ => None
         }
     }
 
     pub fn ex_point_formats_mut(&mut self) -> Option<&mut EcPointFormats> {
-        match self.value {
-            ExtensionValue::EcPointFormats(ref mut v) => Some(v),
+        match self {
+            Extension::EcPointFormats(v) => Some(v),
             _ => None
         }
     }
 
-    // pub fn application_layer_protocol_negotiation(&self) -> Option<&ALPS> {
-    //     match &self.value {
-    //         ExtensionValue::ApplicationLayerProtocolNegotiation(v) => Some(v),
-    //         _ => None
-    //     }
-    // }
+    pub fn is_reserved(&self) -> bool {
+        match self {
+            Extension::Reserved { typ, .. } => REVERSED.contains(typ),
+            _ => false
+        }
+    }
 
-    pub fn len(&self, server: bool) -> usize { 4 + self.value.len(server) }
+    pub fn len(&self, server: bool) -> usize {
+        4 + match self {
+            Extension::ServerName(value) => 2 + value.iter().map(|x| x.len()).sum::<usize>(),
+            Extension::StatusRequest(value) => value.len(),
+            Extension::SupportedGroups(value) => value.len(),
+            Extension::EcPointFormats(value) => value.len(),
+            Extension::SignatureAlgorithms(value) => value.len(),
+            Extension::ApplicationLayerProtocolNegotiation(value) => value.len(),
+            Extension::SignedCertificateTimestamp => 0,
+            Extension::Padding(value) => *value,
+            Extension::EncryptTheMac => 0,
+            Extension::ExtendMasterSecret => 0,
+            Extension::SessionTicket(value) => value.len(),
+            Extension::CompressionCertificate(value) => value.len(),
+            Extension::SupportedVersions(value) => value.len(server),
+            Extension::PskKeyExchangeMode(value) => 1 + value.len(),
+            Extension::PostHandshakeAuth => 0,
+            Extension::KeyShare(value) => value.len(),
+            Extension::RenegotiationInfo => 1,
+            Extension::EncryptedClientHello(value) => value.len(),
+            Extension::ApplicationSetting(value) => value.len(),
+            Extension::PreSharedKey(value) => value.len(),
+            Extension::ApplicationSettingOld(value) => value.len(),
+            #[cfg(feature = "quic")]
+            Extension::QUICTrpParameters(value) => value.iter().map(|x| x.len()).sum::<usize>(),
+            Extension::Reserved { value, .. } => value.len(),
+        }
+    }
 
     pub fn write_to<W: WriteExt>(self, writer: &mut W, server: bool) -> Result<(), BufferError> {
-        writer.write_u16(self.type_.into_inner())?;
-        writer.write_u16(self.value.len(server) as u16)?;
-        self.value.write_to(writer, server)
+        match self {
+            Extension::ServerName(value) => {
+                writer.write_u16(Extension::SERVER_NAME)?;
+                let len = value.iter().map(|x| x.len()).sum::<usize>();
+                writer.write_u16((len + 2) as u16)?;
+                writer.write_u16(len as u16)?;
+                for sn_typ in value.iter() {
+                    sn_typ.write_to(writer)?;
+                }
+            }
+            Extension::StatusRequest(value) => {
+                writer.write_u16(Extension::STATUS_REQUEST)?;
+                writer.write_u16(value.len() as u16)?;
+                value.write_to(writer)?
+            }
+            Extension::SupportedGroups(value) => {
+                writer.write_u16(Extension::SUPPORTED_GROUP)?;
+                writer.write_u16(value.len() as u16)?;
+                value.write_to(writer)?
+            }
+            Extension::EcPointFormats(value) => {
+                writer.write_u16(Extension::EC_POINT_FORMATS)?;
+                writer.write_u16(value.len() as u16)?;
+                value.write_to(writer)?
+            }
+            Extension::SignatureAlgorithms(value) => {
+                writer.write_u16(Extension::SIGNATURE_ALGORITHMS)?;
+                writer.write_u16(value.len() as u16)?;
+                value.write_to(writer)?
+            }
+            Extension::ApplicationLayerProtocolNegotiation(value) => {
+                writer.write_u16(Extension::APPLICATION_LAYER_PROTOCOL_NEGOTIATION)?;
+                writer.write_u16(value.len() as u16)?;
+                value.write_to(writer)?
+            }
+            Extension::SignedCertificateTimestamp => {
+                writer.write_u16(Extension::SIGNED_CERTIFICATE_TIMESTAMP)?;
+                writer.write_u16(0)?;
+            }
+            Extension::Padding(size) => {
+                writer.write_u16(Extension::PADDING)?;
+                writer.write_u16(size as u16)?;
+                writer.write_slice(&vec![0u8; size])?
+            }
+            Extension::EncryptTheMac => {
+                writer.write_u16(Extension::ENCRYPT_THE_MAC)?;
+                writer.write_u16(0)?;
+            }
+            Extension::ExtendMasterSecret => {
+                writer.write_u16(Extension::EXTEND_MASTER_SECRET)?;
+                writer.write_u16(0)?;
+            }
+            Extension::SessionTicket(value) => {
+                writer.write_u16(Extension::SESSION_TICKET)?;
+                writer.write_u16(value.len() as u16)?;
+                writer.write_slice(value.as_ref())?
+            }
+            Extension::CompressionCertificate(value) => {
+                writer.write_u16(Extension::COMPRESSION_CERTIFICATE)?;
+                writer.write_u16(value.len() as u16)?;
+                value.write_to(writer)?
+            }
+            Extension::SupportedVersions(value) => {
+                writer.write_u16(Extension::SUPPORTED_VERSIONS)?;
+                writer.write_u16(value.len(server) as u16)?;
+                value.write_to(writer, server)?
+            }
+            Extension::PskKeyExchangeMode(value) => {
+                writer.write_u16(Extension::PSK_KEY_EXCHANGE_MODE)?;
+                writer.write_u16((1 + value.len()) as u16)?;
+                writer.write_u8(value.len() as u8)?;
+                for v in value {
+                    writer.write_u8(v.into_inner())?
+                }
+            }
+            Extension::PostHandshakeAuth => {
+                writer.write_u16(Extension::POST_HANDSHAKE_AUTH)?;
+                writer.write_u16(0)?;
+            }
+            Extension::KeyShare(value) => {
+                writer.write_u16(Extension::KEY_SHARE)?;
+                writer.write_u16(value.len() as u16)?;
+                value.write_to(writer)?
+            }
+            Extension::RenegotiationInfo => {
+                writer.write_u16(Extension::RENEGOTIATION_INFO)?;
+                writer.write_u16(1)?;
+                writer.write_u8(0)?;
+            }
+            Extension::EncryptedClientHello(value) => {
+                writer.write_u16(Extension::ENCRYPTED_CLIENT_HELLO)?;
+                writer.write_u16(value.len() as u16)?;
+                value.write_to(writer)?
+            }
+            Extension::ApplicationSetting(value) => {
+                writer.write_u16(Extension::APPLICATION_SETTING)?;
+                writer.write_u16(value.len() as u16)?;
+                value.write_to(writer)?
+            }
+            Extension::PreSharedKey(value) => {
+                writer.write_u16(Extension::PRE_SHARED_KEY)?;
+                writer.write_u16(value.len() as u16)?;
+                value.write_to(writer)?
+            }
+            Extension::ApplicationSettingOld(value) => {
+                writer.write_u16(Extension::APPLICATION_SETTING_OLD)?;
+                writer.write_u16(value.len() as u16)?;
+                value.write_to(writer)?
+            }
+            #[cfg(feature = "quic")]
+            Extension::QUICTrpParameters(value) => {
+                writer.write_u16(Extension::QUIC_TRP_PARAMETERS)?;
+                let len = value.iter().map(|x| x.len()).sum::<usize>();
+                writer.write_u16(len as u16)?;
+                for p in value {
+                    p.write_to(writer)?;
+                }
+            }
+            Extension::Reserved { typ, value } => {
+                writer.write_u16(typ)?;
+                writer.write_u16(value.len() as u16)?;
+                writer.write_slice(value.as_ref())?;
+            }
+        }
+        Ok(())
     }
 
     pub fn set_server_name(&mut self, value: &'a str) {
-        if let ExtensionValue::ServerName(ref mut v) = self.value { v.set_value(value) }
+        if let Extension::ServerName(vs) = self {
+            let name = vs.iter_mut().find(|x| matches!(x, SNType::HostName(_)));
+            match name {
+                Some(SNType::HostName(name)) => *name = value,
+                None => vs.push(SNType::HostName(value))
+            }
+        }
     }
 
     pub fn set_key_share(&mut self, key_share: KeyShare<'a>) {
-        if let ExtensionValue::KeyShare(ref mut key) = self.value {
+        if let Extension::KeyShare(key) = self {
             *key = key_share;
         }
     }
 
     pub fn key_share(&self) -> Option<&KeyShare<'a>> {
-        if let ExtensionValue::KeyShare(ref key) = self.value {
+        if let Extension::KeyShare(key) = self {
             Some(key)
         } else { None }
     }
 
     pub fn key_share_mut(&mut self) -> Option<&mut KeyShare<'a>> {
-        if let ExtensionValue::KeyShare(ref mut key) = self.value {
+        if let Extension::KeyShare(key) = self {
             Some(key)
         } else { None }
     }
 
-    pub fn server_name(&self) -> Option<&ServerName<'a>> {
-        match self.value {
-            ExtensionValue::ServerName(ref v) => Some(v),
+    pub fn server_name(&self) -> Option<&Vec<SNType<'a>>> {
+        match self {
+            Extension::ServerName(v) => Some(v),
             _ => None
         }
     }
 
     pub fn alps(&self) -> Option<&ALPS> {
-        match self.value {
-            ExtensionValue::ApplicationLayerProtocolNegotiation(ref v) => Some(v),
+        match self {
+            Extension::ApplicationLayerProtocolNegotiation(v) => Some(v),
             _ => None
         }
     }
 
     pub fn alps_mut(&mut self) -> Option<&mut ALPS> {
-        match self.value {
-            ExtensionValue::ApplicationLayerProtocolNegotiation(ref mut v) => Some(v),
+        match self {
+            Extension::ApplicationLayerProtocolNegotiation(v) => Some(v),
             _ => None
         }
     }
 
     pub fn remove_h2_alpn(&mut self) {
-        match self.value {
-            ExtensionValue::ApplicationSetting(ref mut v) => v.remove_h2_alpn(),
-            ExtensionValue::ApplicationLayerProtocolNegotiation(ref mut v) => v.remove_h2_alpn(),
+        match self {
+            Extension::ApplicationSetting(v) => v.remove_h2_alpn(),
+            Extension::ApplicationLayerProtocolNegotiation(v) => v.remove_h2_alpn(),
             _ => {}
         }
     }
 
     pub fn add_h2_alpn(&mut self) {
-        match self.value {
-            ExtensionValue::ApplicationSetting(ref mut v) => v.add_h2_alpn(),
-            ExtensionValue::ApplicationLayerProtocolNegotiation(ref mut v) => v.add_h2_alpn(),
+        match self {
+            Extension::ApplicationSetting(v) => v.add_h2_alpn(),
+            Extension::ApplicationLayerProtocolNegotiation(v) => v.add_h2_alpn(),
             _ => {}
         }
     }
 
     pub fn remove_tls13(&mut self) {
-        if let ExtensionValue::SupportedVersions(ref mut v) = self.value { v.remove_tls13() }
+        if let Extension::SupportedVersions(v) = self { v.remove_tls13() }
     }
+}
 
-    pub fn value(&self) -> &ExtensionValue<'_> { &self.value }
 
-    pub fn value_mut(&mut self) -> &mut ExtensionValue<'a> { &mut self.value }
+impl<'a> PartialEq<u16> for Extension<'a> {
+    fn eq(&self, other: &u16) -> bool {
+        match self {
+            Extension::ServerName(_) => other == &Extension::SERVER_NAME,
+            Extension::StatusRequest(_) => other == &Extension::STATUS_REQUEST,
+            Extension::SupportedGroups(_) => other == &Extension::SUPPORTED_GROUP,
+            Extension::EcPointFormats(_) => other == &Extension::EC_POINT_FORMATS,
+            Extension::SignatureAlgorithms(_) => other == &Extension::SIGNATURE_ALGORITHMS,
+            Extension::ApplicationLayerProtocolNegotiation(_) => other == &Extension::APPLICATION_LAYER_PROTOCOL_NEGOTIATION,
+            Extension::SignedCertificateTimestamp => other == &Extension::SIGNED_CERTIFICATE_TIMESTAMP,
+            Extension::Padding(_) => other == &Extension::PADDING,
+            Extension::EncryptTheMac => other == &Extension::ENCRYPT_THE_MAC,
+            Extension::ExtendMasterSecret => other == &Extension::EXTEND_MASTER_SECRET,
+            Extension::SessionTicket(_) => other == &Extension::SESSION_TICKET,
+            Extension::CompressionCertificate(_) => other == &Extension::COMPRESSION_CERTIFICATE,
+            Extension::SupportedVersions(_) => other == &Extension::SUPPORTED_VERSIONS,
+            Extension::PskKeyExchangeMode(_) => other == &Extension::PSK_KEY_EXCHANGE_MODE,
+            Extension::PostHandshakeAuth => other == &Extension::POST_HANDSHAKE_AUTH,
+            Extension::KeyShare(_) => other == &Extension::KEY_SHARE,
+            Extension::RenegotiationInfo => other == &Extension::RENEGOTIATION_INFO,
+            Extension::EncryptedClientHello(_) => other == &Extension::ENCRYPTED_CLIENT_HELLO,
+            Extension::ApplicationSetting(_) => other == &Extension::APPLICATION_SETTING,
+            Extension::PreSharedKey(_) => other == &Extension::PRE_SHARED_KEY,
+            Extension::ApplicationSettingOld(_) => other == &Extension::APPLICATION_SETTING_OLD,
+            #[cfg(feature = "quic")]
+            Extension::QUICTrpParameters(_) => other == &Extension::QUIC_TRP_PARAMETERS,
+            Extension::Reserved { typ, .. } => typ == other,
+        }
+    }
+}
 
-    pub fn into_value(self) -> ExtensionValue<'a> { self.value }
+impl<'a> From<&Extension<'a>> for Extension<'a> {
+    fn from(value: &Extension<'a>) -> Self {
+        match value {
+            Extension::ServerName(value) => Extension::ServerName(value.clone()),
+            // Extension::StatusRequest(value) => {}
+            // Extension::SupportedGroups(value) => {}
+            // Extension::EcPointFormats(value) => {}
+            // Extension::SignatureAlgorithms(value) => {}
+            // Extension::ApplicationLayerProtocolNegotiation(value) => {}
+            // Extension::SignedCertificateTimestamp => {}
+            // Extension::Padding(value) => {}
+            // Extension::EncryptTheMac => {}
+            // Extension::ExtendMasterSecret => {}
+            // Extension::SessionTicket(value) => {}
+            // Extension::CompressionCertificate(value) => {}
+            // Extension::SupportedVersions(value) => {}
+            // Extension::PskKeyExchangeMode(value) => {}
+            // Extension::PostHandshakeAuth => {}
+            // Extension::KeyShare(value) => {}
+            // Extension::RenegotiationInfo => {}
+            // Extension::EncryptedClientHello(value) => {}
+            // Extension::ApplicationSetting(value) => {}
+            // Extension::PreSharedKey(value) => {}
+            // Extension::ApplicationSettingOld(value) => {}
+            // Extension::QUICTrpParameters(value) => {}
+            // Extension::Reserved { .. } => {}
+            _ => unreachable!()
+        }
+    }
 }

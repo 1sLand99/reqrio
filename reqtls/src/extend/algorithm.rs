@@ -3,15 +3,15 @@ use crate::error::RlsResult;
 use crate::{rand, BufferError, ReadExt, Reader, WriteExt};
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SignatureAlgorithms {
     hash: Vec<SignatureAlgorithm>,
 }
 
 impl SignatureAlgorithms {
-    pub fn new() -> SignatureAlgorithms {
+    pub fn new(sig_alg: Vec<SignatureAlgorithm>) -> SignatureAlgorithms {
         SignatureAlgorithms {
-            hash: vec![],
+            hash: sig_alg,
         }
     }
 
@@ -55,7 +55,7 @@ impl SignatureAlgorithms {
     }
 
     pub fn random() -> SignatureAlgorithms {
-        let mut res = SignatureAlgorithms::new();
+        let mut res = SignatureAlgorithms::new(vec![]);
         let all_sign = SignatureAlgorithm::ALL;
         res.hash = vec![
             SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),

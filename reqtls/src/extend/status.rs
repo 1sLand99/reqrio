@@ -15,7 +15,7 @@ impl StatusType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StatusRequest {
     status_type: StatusType,
     responder_id_len: u16,

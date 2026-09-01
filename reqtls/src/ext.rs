@@ -145,8 +145,7 @@ pub trait StreamHandle {
         param.write_buffer.write_u8(0)?;
         param.write_buffer.write_u8(1)?;
         param.write_buffer.write_u8(1)?;
-
-        // param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
+        //finish
         let record_len = param.conn.make_finish_message(param.write_buffer.unfilled(), false)?;
         param.write_buffer.add_len(record_len);
         Ok(())
@@ -304,7 +303,6 @@ pub trait StreamHandle {
                 return self.handle_by_application(record_len, config, app_buf);
             }
         }
-        // read_buffer.used_empty(record_len);
         Ok(0)
     }
 
@@ -334,7 +332,6 @@ pub trait StreamHandle {
             }
             _ => param.conn.read_message(&read_buffer.filled()[..record_len], app_buf)?
         };
-        // read_buffer.used_empty(record_len);
         Ok(len)
     }
 }

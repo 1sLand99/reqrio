@@ -3,13 +3,20 @@ use crate::{BufferError, NamedCurve, ReadExt, Reader, WriteExt};
 use std::fmt::Debug;
 use crate::error::RlsResult;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct KeyEntry<'a> {
     group: NamedCurve,
     exchange: Buf<'a>,
 }
 
 impl<'a> KeyEntry<'a> {
+    fn new(group: NamedCurve) -> Self {
+        KeyEntry {
+            group,
+            exchange: Buf::Ref(&[]),
+        }
+    }
+
     fn from_reader(reader: &mut Reader<'a>) -> RlsResult<KeyEntry<'a>> {
         let group = reader.read_u16()?.into();
         if reader.unread_len() == 0 {
@@ -48,13 +55,18 @@ impl<'a> KeyEntry<'a> {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct KeyShare<'a> {
     entries: Vec<KeyEntry<'a>>,
 }
 
 
 impl<'a> KeyShare<'a> {
+    pub fn new(groups: Vec<NamedCurve>) -> Self {
+        KeyShare {
+            entries: groups.into_iter().map(KeyEntry::new).collect(),
+        }
+    }
     pub fn from_reader(mut reader: Reader<'a>, server: bool) -> RlsResult<KeyShare<'a>> {
         if !server { reader.read_u16()?; }
         let mut entries = Vec::with_capacity(reader.unread_len());

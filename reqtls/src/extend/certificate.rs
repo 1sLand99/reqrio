@@ -25,7 +25,7 @@ impl CompressionMethod {
             _ => CompressionMethod::NULL
         }
     }
-    
+
     pub fn into_inner(self) -> u16 {
         self.0
     }
@@ -61,15 +61,15 @@ impl From<u16> for CompressionMethod {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CompressCertificate {
     algorithms: Vec<CompressionMethod>,
 }
 
 impl CompressCertificate {
-    pub fn new() -> CompressCertificate {
+    pub fn new(algorithms: Vec<CompressionMethod>) -> CompressCertificate {
         CompressCertificate {
-            algorithms: vec![],
+            algorithms,
         }
     }
 

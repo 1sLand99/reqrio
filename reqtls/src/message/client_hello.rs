@@ -6,9 +6,9 @@ use crate::boring::hash;
 use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
-use crate::extend::{ExtensionType, ExtensionValue, ServerName};
 #[cfg(feature = "quic")]
 use crate::extend::Parameter;
+use crate::extend::SNType;
 use crate::*;
 use std::mem;
 
@@ -65,8 +65,6 @@ impl<'a> ClientHello<'a> {
         res.compress_method = Buf::Ref(reader.read_slice(res.compress_method_len as usize)?);
         res.extend_len = reader.read_u16()?;
         res.extensions = Extension::from_reader(reader.read_reader(res.extend_len as usize)?, false)?;
-        // println!("{}", res.ja3());
-        // println!("{}", res.ja4());
         Ok(res)
     }
 
@@ -111,7 +109,7 @@ impl<'a> ClientHello<'a> {
         // 771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,51-35-65281-0-23-17613-18-5-65037-43-27-13-10-11-45-16,4588-29-23-24,0
         let ver = self.version.as_u16();
         let suite = self.cipher_suites.iter().filter_map(|x| if x.is_reserved() { None } else { Some(x.value().to_string()) }).collect::<Vec<_>>();
-        let ext = self.extensions.iter().filter_map(|x| if x.extension_type().is_reserved() { None } else { Some(x.extension_type().as_u16().to_string()) }).collect::<Vec<_>>();
+        let ext = self.extensions.iter().filter_map(|x| if x.is_reserved() { None } else { Some(x.as_u16().to_string()) }).collect::<Vec<_>>();
         let extend = self.extensions.iter().find(|x| x.supported_groups().is_some());
         let group = if let Some(extend) = extend && let Some(group) = extend.supported_groups() {
             group.values().iter().filter_map(|x| if x.is_reserved() { None } else { Some(x.as_u16().to_string()) }).collect::<Vec<_>>()
@@ -131,7 +129,7 @@ impl<'a> ClientHello<'a> {
     /// 't'+version+'d'+len(cipher_suites)+len(extensions)+alpn+'_'+cipher_suite(u16)+','+ec_point_format(u8)
     /// tls1.3中移除了ec_point_format
     pub fn ja4(&self) -> String {
-        let ver = self.extensions.iter().find(|x| x.extension_type() == &ExtensionType::SupportedVersions);
+        let ver = self.extensions.iter().find(|x| matches!(x, Extension::SupportedVersions(_)));
         let ver = ver.map(|ext| {
             let versions = ext.supported_versions()?.versions();
             let vers = versions.iter().find(|x| x.is_reverse())?;
@@ -143,10 +141,10 @@ impl<'a> ClientHello<'a> {
             Some(x.value())
         }).collect::<Vec<_>>();
         suite.sort();
-        let mut exts = self.extensions.iter().filter_map(|x| if x.extension_type().is_reserved() || x.alps().is_some() || x.server_name().is_some() {
+        let mut exts = self.extensions.iter().filter_map(|x| if x.is_reserved() || x.alps().is_some() || x.server_name().is_some() {
             None
         } else {
-            Some(x.extension_type().as_u16())
+            Some(x.as_u16())
         }).collect::<Vec<_>>();
         exts.sort();
         let ext = self.extensions.iter().find(|x| x.alps().is_some());
@@ -174,13 +172,10 @@ impl<'a> ClientHello<'a> {
     }
 
     pub fn set_server_name(&mut self, server_name: &'a str) {
-        let extend_type = ExtensionType::ServerName;
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &extend_type);
+        let extend = self.extensions.iter_mut().find(|x| matches!(x, Extension::ServerName(_)));
         match extend {
             None => {
-                let value = ExtensionValue::ServerName(ServerName::new().with_value(server_name));
-                let ext = Extension::new(ExtensionType::ServerName, value);
-                self.extensions.push(ext);
+                self.extensions.push(Extension::ServerName(vec![SNType::HostName(server_name)]));
             }
             Some(ext) => ext.set_server_name(server_name),
         }
@@ -202,37 +197,43 @@ impl<'a> ClientHello<'a> {
         self.extensions = extension;
     }
 
-    pub fn server_name(&self) -> Option<&str> {
-        let extension = self.extensions.iter().find(|x| x.extension_type() == &ExtensionType::ServerName)?;
-        Some(extension.server_name()?.value())
+    pub fn server_name(&self) -> Option<&Vec<SNType<'a>>> {
+        let extension = self.extensions.iter().find(|x| matches!(x, Extension::ServerName(_)))?;
+        extension.server_name()
+    }
+
+    pub fn host_name(&self) -> Option<&'a str> {
+        let server_name = self.server_name()?;
+        let hostname = server_name.iter().find(|x| matches!(x, SNType::HostName(_)))?;
+        match hostname { SNType::HostName(name) => Some(name) }
     }
 
     pub fn alps(&self) -> Option<&ALPS> {
-        let extension = self.extensions.iter().find(|x| x.extension_type() == &ExtensionType::ApplicationLayerProtocolNegotiation)?;
+        let extension = self.extensions.iter().find(|x| **x == Extension::APPLICATION_LAYER_PROTOCOL_NEGOTIATION)?;
         extension.alps()
     }
 
     pub fn remove_h2_alpn(&mut self) {
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ApplicationLayerProtocolNegotiation);
+        let extend = self.extensions.iter_mut().find(|x| matches!(x, Extension::ApplicationLayerProtocolNegotiation(_)));
         if let Some(ext) = extend {
             ext.remove_h2_alpn();
         }
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ApplicationSetting);
+        let extend = self.extensions.iter_mut().find(|x| matches!(x, Extension::ApplicationSetting(_)));
         if let Some(ext) = extend {
             ext.remove_h2_alpn();
         }
     }
 
     pub fn add_h2_alpn(&mut self) {
-        let mut handle_alps = |et: ExtensionType| {
-            let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &et);
+        let mut handle_alps = |et: u16| {
+            let extend = self.extensions.iter_mut().find(|x| **x == et);
             if let Some(extend) = extend {
                 extend.add_h2_alpn();
             }
         };
-        handle_alps(ExtensionType::ApplicationLayerProtocolNegotiation.into());
-        handle_alps(ExtensionType::ApplicationSetting.into());
-        handle_alps(ExtensionType::ApplicationSettingOld.into());
+        handle_alps(Extension::APPLICATION_LAYER_PROTOCOL_NEGOTIATION);
+        handle_alps(Extension::APPLICATION_SETTING);
+        handle_alps(Extension::APPLICATION_SETTING_OLD);
     }
 
     pub fn cipher_suites(&self) -> &Vec<CipherSuite> {
@@ -250,52 +251,52 @@ impl<'a> ClientHello<'a> {
     pub fn extensions_mut(&mut self) -> &mut [Extension<'a>] { &mut self.extensions }
 
     pub fn set_key_share(&mut self, key_share: KeyShare<'a>) {
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::KeyShare);
+        let extend = self.extensions.iter_mut().find(|x| matches!(x, Extension::KeyShare(_)));
         match extend {
-            None => self.extensions.push(Extension::new(ExtensionType::KeyShare, ExtensionValue::KeyShare(key_share))),
+            None => self.extensions.push(Extension::KeyShare(key_share)),
             Some(extend) => extend.set_key_share(key_share),
         }
     }
 
     pub fn set_session_ticket(&mut self, ticket: &'a [u8]) {
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::SessionTicket);
-        if let Some(extend) = extend && let ExtensionValue::SessionTicket(value) = extend.value_mut() {
+        let extend = self.extensions.iter_mut().find(|x| matches!(x, Extension::SessionTicket(_)));
+        if let Some(Extension::SessionTicket(value)) = extend {
             *value = Buf::Ref(ticket);
         }
     }
 
     pub fn padding(&self) -> usize {
-        let extend = self.extensions.iter().find(|x| x.extension_type() == &ExtensionType::Padding);
-        if let Some(extend) = extend && let ExtensionValue::Padding(value) = extend.value() {
+        let extend = self.extensions.iter().find(|x| matches!(x, Extension::Padding(_)));
+        if let Some(Extension::Padding(value)) = extend {
             *value
         } else { 0 }
     }
 
     pub fn set_padding(&mut self, padding: usize) {
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::Padding);
-        if let Some(extend) = extend && let ExtensionValue::Padding(value) = extend.value_mut() {
+        let extend = self.extensions.iter_mut().find(|x| matches!(x, Extension::Padding(_)));
+        if let Some(Extension::Padding(value)) = extend {
             *value = padding;
         }
     }
 
     pub fn remove_padding(&mut self) {
-        let extend = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::Padding);
+        let extend = self.extensions.iter().position(|x| matches!(x, Extension::Padding(_)));
         if let Some(index) = extend {
             self.extensions.remove(index);
         }
     }
 
     pub fn key_share_mut(&mut self) -> Option<&mut KeyShare<'a>> {
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::KeyShare);
-        extend.map(|x| x.key_share_mut()).unwrap_or(None)
+        let extend = self.extensions.iter_mut().find(|x| matches!(x, Extension::KeyShare(_)))?;
+        extend.key_share_mut()
     }
 
     pub fn remove_tls13(&mut self) {
-        let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::PreSharedKey);
+        let pos = self.extensions.iter().position(|x| matches!(x, Extension::PreSharedKey(_)));
         if let Some(pos) = pos {
             self.extensions.remove(pos);
         }
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::SupportedVersions);
+        let extend = self.extensions.iter_mut().find(|x| matches!(x, Extension::SupportedVersions(_)));
         if let Some(ext) = extend {
             ext.remove_tls13()
         }
@@ -304,13 +305,13 @@ impl<'a> ClientHello<'a> {
     #[cfg(feature = "quic")]
     pub fn build_quic(&mut self) -> RlsResult<()> {
         if self.key_share_mut().is_none() { return Err(HandShakeError::QUICMissingKeyShare.into()); };
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::SupportedVersions);
+        let extend = self.extensions.iter_mut().find(|x| matches!(x, Extension::SupportedVersions(_)));
         let extend = extend.ok_or(HandShakeError::MissingSupportedVersions)?;
         let mut sv = SupportVersions::default();
         sv.push(Version::TLS_1_3);
-        let sve = Extension::new(ExtensionType::SupportedVersions, ExtensionValue::SupportedVersions(sv));
+        let sve = Extension::SupportedVersions(sv);
         *extend = sve;
-        let extend = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::QUICTrpParameters);
+        let extend = self.extensions.iter_mut().find(|x| matches!(x, Extension::QUICTrpParameters(_)));
         if extend.is_none() {
             let params = vec![
                 Parameter::new(0x20, Buf::Ref(&[128, 1, 0, 0])),
@@ -327,20 +328,20 @@ impl<'a> ClientHello<'a> {
                 Parameter::new(0x08, Buf::Ref(&[64, 100])),
                 Parameter::new(0x03, Buf::Ref(&[69, 192]))
             ];
-            let qte = Extension::new(ExtensionType::QUICTrpParameters, ExtensionValue::QUICTrpParameters(params));
+            let qte = Extension::QUICTrpParameters(params);
             self.extensions.insert(0, qte);
         }
-        if let Some(extend) = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ApplicationLayerProtocolNegotiation) {
+        if let Some(extend) = self.extensions.iter_mut().find(|x| **x == Extension::APPLICATION_LAYER_PROTOCOL_NEGOTIATION) {
             let alps = ALPS::new(vec![ALPN::Http30]);
-            *extend = Extension::new(ExtensionType::ApplicationLayerProtocolNegotiation, ExtensionValue::ApplicationLayerProtocolNegotiation(alps));
+            *extend = Extension::ApplicationLayerProtocolNegotiation(alps);
         }
-        if let Some(extend) = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ApplicationSetting) {
+        if let Some(extend) = self.extensions.iter_mut().find(|x| matches!(x, Extension::ApplicationSetting(_))) {
             let alps = ALPS::new(vec![ALPN::Http30]);
-            *extend = Extension::new(ExtensionType::ApplicationSetting, ExtensionValue::ApplicationSetting(alps));
+            *extend = Extension::ApplicationSetting(alps);
         }
-        if let Some(extend) = self.extensions.iter_mut().find(|x| x.extension_type() == &ExtensionType::ApplicationSettingOld) {
+        if let Some(extend) = self.extensions.iter_mut().find(|x| matches!(x, Extension::ApplicationSettingOld(_))) {
             let alps = ALPS::new(vec![ALPN::Http30]);
-            *extend = Extension::new(ExtensionType::ApplicationSettingOld, ExtensionValue::ApplicationSettingOld(alps));
+            *extend = Extension::ApplicationSettingOld(alps);
         }
         let mut suites = vec![];
         if self.cipher_suites.contains(&CipherSuite::TLS_AES_128_GCM_SHA256) {
@@ -352,19 +353,19 @@ impl<'a> ClientHello<'a> {
         if self.cipher_suites.contains(&CipherSuite::TLS_CHACHA20_POLY1305_SHA256) {
             suites.push(CipherSuite::TLS_CHACHA20_POLY1305_SHA256);
         }
-        let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::EcPointFormats);
+        let pos = self.extensions.iter().position(|x| matches!(x, Extension::EcPointFormats(_)));
         if let Some(pos) = pos {
             self.extensions.remove(pos);
         }
-        let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::ExtendMasterSecret);
+        let pos = self.extensions.iter().position(|x| matches!(x, Extension::ExtendMasterSecret));
         if let Some(pos) = pos {
             self.extensions.remove(pos);
         }
-        let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::SessionTicket);
+        let pos = self.extensions.iter().position(|x| matches!(x, Extension::SessionTicket(_)));
         if let Some(pos) = pos {
             self.extensions.remove(pos);
         }
-        let pos = self.extensions.iter().position(|x| x.extension_type() == &ExtensionType::EncryptedClientHello);
+        let pos = self.extensions.iter().position(|x| matches!(x, Extension::EncryptedClientHello(_)));
         if let Some(pos) = pos {
             self.extensions.remove(pos);
         }
@@ -374,7 +375,7 @@ impl<'a> ClientHello<'a> {
     }
 
     pub fn remove_server_name(&mut self) {
-        let pos = self.extensions.iter_mut().position(|x| x.extension_type() == &ExtensionType::ServerName);
+        let pos = self.extensions.iter_mut().position(|x| matches!(x, Extension::ServerName(_)));
         if let Some(pos) = pos {
             self.extensions.remove(pos);
         }

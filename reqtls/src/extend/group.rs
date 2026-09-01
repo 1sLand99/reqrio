@@ -3,20 +3,20 @@ use crate::{BufferError, NamedCurve, ReadExt, Reader, WriteExt};
 use std::fmt::Debug;
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SupportedGroups {
     values: Vec<NamedCurve>,
 }
 
 impl SupportedGroups {
-    pub fn new() -> SupportedGroups {
+    pub fn new(groups: Vec<NamedCurve>) -> SupportedGroups {
         SupportedGroups {
-            values: vec![],
+            values: groups
         }
     }
     pub fn from_reader(mut reader: Reader<'_>) -> RlsResult<SupportedGroups> {
         let len = reader.read_u16()?;
-        let mut values=Vec::with_capacity(reader.unread_len());
+        let mut values = Vec::with_capacity(reader.unread_len());
         for _ in (0..len).step_by(2) {
             values.push(NamedCurve::new(reader.read_u16()?))
         }
@@ -49,18 +49,16 @@ impl SupportedGroups {
     pub fn values_mut(&mut self) -> &mut Vec<NamedCurve> {
         &mut self.values
     }
-    
+
     pub fn values(&self) -> &Vec<NamedCurve> { &self.values }
 
 
     pub fn random() -> SupportedGroups {
-        let mut res = SupportedGroups::new();
-        res.values = vec![
+        SupportedGroups::new(vec![
             NamedCurve::X25519.into(),
             NamedCurve::SecP256r1.into(),
             NamedCurve::SecP384r1.into(),
             NamedCurve::SecP521r1.into(),
-        ];
-        res
+        ])
     }
 }

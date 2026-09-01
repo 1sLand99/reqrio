@@ -2,7 +2,7 @@ use crate::error::RlsResult;
 use crate::{BufferError, ReadExt, Reader, WriteExt, ALPN};
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ALPS {
     values: Vec<ALPN>,
 }

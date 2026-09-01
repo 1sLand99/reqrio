@@ -286,19 +286,24 @@ pub mod quic;
 mod gm_sm;
 
 pub use alpn::ALPN;
-pub use boring::{base64, certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner,
-                 certificate::CertStore, certificate::CertType, certificate::Certificate, certificate::DnType,
-                 certificate::KeyIdentifier, certificate::KeyUsage, certificate::SubjectAltName, cipher, hash,
-                 hmac, AlgorithmSigner, Cipher, CipherType, PKey, PKeyCtx, Padding, RsaCipher,
-                 RsaKey, RsaPadding, SignatureAlgorithm};
+pub use boring::{
+    base64, certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner,
+    certificate::CertStore, certificate::CertType, certificate::Certificate, certificate::DnType,
+    certificate::KeyIdentifier, certificate::KeyUsage, certificate::SubjectAltName, cipher, hash,
+    hmac, AlgorithmSigner, Cipher, CipherType, PKey, PKeyCtx, Padding, RsaCipher,
+    RsaKey, RsaPadding, SignatureAlgorithm,
+};
 pub use buffer::{u24, Buf, Buffer, BufferError, ReadExt, Reader, WriteExt};
 pub use bytes::Bytes;
 pub use config::{ClientConfig, Config, ServerConfig};
 pub use connection::Connection;
 pub use error::{HandShakeError, RlsError};
 pub use ext::{StreamHandle, StreamParam};
-pub use extend::{formats::EcPointFormat, CompressionMethod, ExtensionType, KeyShare,
-                 PskMode, SupportVersions};
+pub use extend::{
+    EcPointFormats, EcPointFormat, CompressionMethod, KeyShare, PskMode, SupportVersions, Extension,
+    StatusRequest, SupportedGroups, SignatureAlgorithms, CompressCertificate, ALPS, SNType, 
+    EncryptClientHello,
+};
 pub use finger::*;
 pub use hash::{HashType, Hasher, Hmac};
 pub use hex;

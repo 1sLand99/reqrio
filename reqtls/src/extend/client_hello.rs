@@ -1,5 +1,4 @@
 use super::ech::{Aead, KDF};
-use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::{BufferError, ReadExt, Reader, WriteExt};
 
@@ -18,7 +17,7 @@ impl ClientHelloType {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) struct CipherSuite {
     pub(super) kdf: KDF,
     pub(super) aead: Aead,
@@ -41,15 +40,15 @@ impl CipherSuite {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EncryptClientHello<'a> {
     type_: ClientHelloType,
     cipher_suite: CipherSuite,
     config_id: u8,
     enc_len: u16,
-    enc: Buf<'a>,
+    enc: &'a [u8],
     payload_len: u16,
-    payload: Buf<'a>,
+    payload: &'a [u8],
 }
 
 impl<'a> EncryptClientHello<'a> {
@@ -62,9 +61,9 @@ impl<'a> EncryptClientHello<'a> {
             },
             config_id: 0,
             enc_len: 0,
-            enc: Buf::Ref(&[]),
+            enc: &[],
             payload_len: 0,
-            payload: Buf::Ref(&[]),
+            payload: &[],
         }
     }
 
@@ -74,9 +73,9 @@ impl<'a> EncryptClientHello<'a> {
         res.cipher_suite = CipherSuite::from_reader(&mut reader)?;
         res.config_id = reader.read_u8()?;
         res.enc_len = reader.read_u16()?;
-        res.enc = Buf::Ref(reader.read_slice(res.enc_len as usize)?);
+        res.enc = reader.read_slice(res.enc_len as usize)?;
         res.payload_len = reader.read_u16()?;
-        res.payload = Buf::Ref(reader.read_slice(res.payload_len as usize)?);
+        res.payload = reader.read_slice(res.payload_len as usize)?;
         Ok(res)
     }
 
