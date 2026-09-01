@@ -139,20 +139,29 @@ impl<'a> H2Frame<'a> {
         let mut stream_identifier = reader.read_u32()?;
         stream_identifier &= !2147483648;
         if reader.unread_len() < len as usize { return Err("byte not enough".into()); }
-        let (dependency, weight, payload) = if flag.priority() {
-            (reader.read_u32()?, reader.read_u8()?, reader.read_slice(len as usize - 5)?)
-        } else {
-            (0, 0, reader.read_slice(len as usize)?)
-        };
-        Ok(H2Frame {
+        let mut frame = H2Frame {
             len,
             frame_type,
             flag,
             stream_identifier,
-            stream_dependency: dependency,
-            weight,
-            payload,
-        })
+            stream_dependency: 0,
+            weight: 0,
+            payload: &[],
+        };
+        let mut pd_len = frame.len as usize;
+        let padding_len = if frame.flag.padding() { reader.read_u8()? as usize } else { 0 };
+        if padding_len > 0 {
+            pd_len -= 1;
+            pd_len -= padding_len;
+        }
+        if frame.flag.priority() {
+            frame.stream_dependency = reader.read_u32()?;
+            frame.weight = reader.read_u8()?;
+            pd_len -= 5;
+        }
+        frame.payload = reader.read_slice(pd_len)?;
+        reader.read_slice(padding_len)?;
+        Ok(frame)
     }
 
     pub fn to_bytes(mut self) -> Vec<u8> {
@@ -162,7 +171,6 @@ impl<'a> H2Frame<'a> {
         if self.flag.priority() {
             self.stream_dependency |= 2147483648;
             dep_bs = self.stream_dependency.to_be_bytes().to_vec();
-
             dep_bs.push(self.weight);
         }
         res.push(self.flag.into_inner());
