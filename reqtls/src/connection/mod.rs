@@ -267,7 +267,6 @@ impl Connection {
         info!("[ExchangeKey] algorithm={}; curve={:?}; verify={}", self.sig_alg.spec(), self.named_curve, self.verify);
         match (self.verify, self.version) {
             (true, Version::TLCP) => {
-                println!("verify sign");
                 let mut key = Sm2Key::none();
                 let sign_data = self.gen_key_sign_data(&server_key, &mut key)?;
                 key.verify_asn1(sign_data, server_key.hellman_param().signature().as_ref())?;
