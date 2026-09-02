@@ -10,6 +10,7 @@ mod wss;
 static CONVERT_ERROR: LazyLock<CString> = LazyLock::new(|| unsafe { CString::from_vec_unchecked(b"convert error fail".to_vec()) });
 
 fn handle_err1<T, E: ToString>(e: E, err: *mut *mut c_char, t: T) -> T {
+    println!("{}",e.to_string());
     let ce = CString::new(e.to_string().replace("\0", "")).unwrap_or_else(|_| CONVERT_ERROR.clone());
     unsafe { *err = ce.into_raw(); }
     t

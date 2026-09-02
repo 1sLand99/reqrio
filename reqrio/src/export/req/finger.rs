@@ -253,6 +253,7 @@ pub extern "system" fn Fingerprint_random(token: *const c_char, err: *mut *mut c
 #[allow(non_snake_case)]
 pub extern "system" fn Fingerprint_custom(custom: *const c_char, token: *const c_char, err: *mut *mut c_char) -> *mut Fingerprint {
     check_run(move || {
+        if token.is_null() { return Err("token 不能为空".into()) }
         let custom = json::from_bytes(unsafe { CStr::from_ptr(custom) }.to_bytes())?;
         let token = unsafe { CStr::from_ptr(token) }.to_str()?;
         let mut extensions = vec![];
@@ -304,8 +305,14 @@ pub extern "system" fn Fingerprint_custom(custom: *const c_char, token: *const c
                     extensions.push(Extension::PskKeyExchangeMode(vec![value]));
                 }
                 _ => {
-                    let value = value.members().map(|x| x.as_u8().unwrap_or(0)).collect::<Vec<_>>();
-                    extensions.push(Extension::Reserved { typ, value: Buf::Vec(value) });
+                    let default = Extension::default_value(typ);
+                    match default {
+                        None => {
+                            let value = value.members().map(|x| x.as_u8().unwrap_or(0)).collect::<Vec<_>>();
+                            extensions.push(Extension::Reserved { typ, value: Buf::Vec(value) });
+                        }
+                        Some(extend) => extensions.push(extend)
+                    }
                 }
             }
         }
