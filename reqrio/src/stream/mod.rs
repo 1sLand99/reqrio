@@ -286,7 +286,7 @@ impl Stream {
         StreamConnect {
             url: param.url,
             fingerprint: param.fingerprint,
-            proxy_connecting: ProxyStream::connect(stream, &param),
+            proxy_connecting: ProxyStream::connect(stream, param.url.addr(), param.proxy, param.timeout.clone()),
             tls_connecting: TlsConnecting {
                 sent_client_hello: false,
                 config: Config::Client(ClientConfig {

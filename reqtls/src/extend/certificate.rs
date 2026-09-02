@@ -99,6 +99,10 @@ impl CompressCertificate {
     pub fn push(&mut self, ty: CompressionMethod) {
         self.algorithms.push(ty);
     }
+
+    pub fn methods(&self) -> &[CompressionMethod] {
+        &self.algorithms
+    }
 }
 
 

@@ -5,7 +5,7 @@ pub mod huffman;
 #[cfg(feature = "quic")]
 mod qpack;
 
-pub use hpack::{HPackCoding, HPackEncode, HPackDecode};
+pub use hpack::{HPackCoding, HPackEncode, HPackDecode, HPackDecodeBuf};
 #[cfg(feature = "quic")]
 pub use qpack::{QPackType, QPackEncode, QPackDecode};
 pub use item::PackItem;

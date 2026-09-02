@@ -44,7 +44,7 @@ impl TlsFinger {
                 Ok(res)
             }
             TlsFinger::ClientHello { bytes, .. } => {
-                let mut reader = Reader::from_slice(&bytes.as_ref()[5..]);
+                let mut reader = Reader::from_slice(bytes.as_ref());
                 reader.read_u8()?;
                 ClientHello::from_bytes(&mut reader)
             }
@@ -231,6 +231,16 @@ impl TlsFinger {
         })
     }
 
+    ///record hex prefix: 220303
+    pub fn from_record_hex(record: impl AsRef<str>) -> RlsResult<TlsFinger> {
+        let mut client_hello = hex::decode(record.as_ref())?;
+        let ver = Version::new(u16::from_be_bytes([client_hello[1], client_hello[2]]));
+        let len = u16::from_be_bytes([client_hello[3], client_hello[4]]) as usize + 5;
+        let _ = client_hello.split_off(len);
+        let client_hello = client_hello.split_off(5);
+        Ok(TlsFinger::ClientHello { record_version: ver, bytes: Bytes::new(client_hello) })
+    }
+
     pub fn add_cipher_suite(&mut self, suite: CipherSuite) {
         if let TlsFinger::Custom { suites, .. } = self {
             suites.push(suite);
@@ -246,7 +256,7 @@ impl TlsFinger {
     pub fn find_mut(&mut self, typ: u16) -> Option<&mut Extension<'static>> {
         match self {
             TlsFinger::Default => None,
-            TlsFinger::ClientHello{..} => None,
+            TlsFinger::ClientHello { .. } => None,
             TlsFinger::Custom { extensions, .. } => extensions.iter_mut().find(|x| **x == typ)
         }
     }

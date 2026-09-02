@@ -1,9 +1,10 @@
-use crate::error::HlsResult;
 use reader::DecodeReader;
+use crate::pack::PackError;
+
 mod reader;
 mod table;
 
-pub fn decode(src: impl AsRef<[u8]>) -> HlsResult<Vec<u8>> {
+pub fn decode(src: impl AsRef<[u8]>) -> Result<Vec<u8>, PackError> {
     let mut reader = DecodeReader::new();
     let mut dst = vec![];
     for byte in src.as_ref() {

@@ -41,8 +41,8 @@ impl<'a> HPackDecodeBuf<'a> {
         res
     }
 
-    pub fn read_size(&mut self, size: usize) -> HlsResult<Vec<u8>> {
-        if self.remain.len() + self.buf.len() - self.read < size { return Err(PackError::BufferTooSmall.into()); };
+    pub fn read_size(&mut self, size: usize) -> Result<Vec<u8>, PackError> {
+        if self.remain.len() + self.buf.len() - self.read < size { return Err(PackError::BufferTooSmall); };
         let res = match self.read >= self.remain.len() {
             true => self.buf[self.read - self.remain.len()..self.read - self.remain.len() + size].to_vec(),
             false => [&self.remain[self.read..], &self.buf[..self.read + size - self.remain.len()]].concat()
@@ -79,7 +79,7 @@ impl HPackDecode {
         }
     }
 
-    pub fn decode_integer(&self, buf: &mut HPackDecodeBuf<'_>) -> HlsResult<usize> {
+    pub fn decode_integer(&self, buf: &mut HPackDecodeBuf<'_>) -> Result<usize, PackError> {
         let mut res = 0;
         let mut shift = 0;
         loop {
@@ -91,25 +91,25 @@ impl HPackDecode {
         Ok(res)
     }
 
-    pub fn decode_index(&self, buf: &mut HPackDecodeBuf<'_>) -> HlsResult<Index> {
+    pub fn decode_index(&self, buf: &mut HPackDecodeBuf<'_>) -> Result<Index, PackError> {
         let (mut index, finish) = Index::read_index(buf)?;
         if !finish { index += self.decode_integer(buf)?; }
         Ok(index)
     }
 
-    pub fn decode_string(&self, buf: &mut HPackDecodeBuf<'_>) -> HlsResult<String> {
+    pub fn decode_string(&self, buf: &mut HPackDecodeBuf<'_>) -> Result<String, PackError> {
         let (mut index, finish) = Index::read_len(buf)?;
         if !finish { index += self.decode_integer(buf)? }
         if let Index::ValueLen { huffman, value } = index {
             let value = buf.read_size(value)?;
             match huffman {
-                true => Ok(String::from_utf8(huffman::decode(value)?)?),
-                false => Ok(String::from_utf8(value)?)
+                true => Ok(String::from_utf8(huffman::decode(value)?).or(Err(PackError::Currently("invild utf8 pack".to_string())))?),
+                false => Ok(String::from_utf8(value).or(Err(PackError::Currently("invild utf8 pack".to_string())))?)
             }
-        } else { Err(PackError::InvalidLenIndex.into()) }
+        } else { Err(PackError::InvalidLenIndex) }
     }
 
-    pub fn decode_next(&mut self, buf: &mut HPackDecodeBuf<'_>) -> HlsResult<PackItem> {
+    pub fn decode_next(&mut self, buf: &mut HPackDecodeBuf<'_>) -> Result<PackItem, PackError> {
         let index = self.decode_index(buf)?;
         let res = match index {
             Index::Indexed(index) => Ok(self.table.get(index - 1).ok_or(PackError::IndexedItemNone)?.clone()),
@@ -143,7 +143,7 @@ impl HPackDecode {
                 self.table.update_table_size(index);
                 Ok(PackItem::new_table_size(index))
             }
-            _ => Err(PackError::InvalidIndexType(index.into_inner() as u8).into())
+            _ => Err(PackError::InvalidIndexType(index.into_inner() as u8))
         };
         buf.flush();
         res

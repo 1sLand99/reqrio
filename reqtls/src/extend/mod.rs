@@ -31,7 +31,7 @@ pub use psk_key::PskMode;
 pub use quic::Parameter;
 pub use server_name::SNType;
 pub use status::StatusRequest;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
 pub use version::SupportVersions;
 
 #[derive(Debug, Clone)]
@@ -527,7 +527,6 @@ impl<'a> Extension<'a> {
     }
 }
 
-
 impl<'a> PartialEq<u16> for Extension<'a> {
     fn eq(&self, other: &u16) -> bool {
         match self {
@@ -559,33 +558,31 @@ impl<'a> PartialEq<u16> for Extension<'a> {
     }
 }
 
-impl<'a> From<&Extension<'a>> for Extension<'a> {
-    fn from(value: &Extension<'a>) -> Self {
-        match value {
-            Extension::ServerName(value) => Extension::ServerName(value.clone()),
-            // Extension::StatusRequest(value) => {}
-            // Extension::SupportedGroups(value) => {}
-            // Extension::EcPointFormats(value) => {}
-            // Extension::SignatureAlgorithms(value) => {}
-            // Extension::ApplicationLayerProtocolNegotiation(value) => {}
-            // Extension::SignedCertificateTimestamp => {}
-            // Extension::Padding(value) => {}
-            // Extension::EncryptTheMac => {}
-            // Extension::ExtendMasterSecret => {}
-            // Extension::SessionTicket(value) => {}
-            // Extension::CompressionCertificate(value) => {}
-            // Extension::SupportedVersions(value) => {}
-            // Extension::PskKeyExchangeMode(value) => {}
-            // Extension::PostHandshakeAuth => {}
-            // Extension::KeyShare(value) => {}
-            // Extension::RenegotiationInfo => {}
-            // Extension::EncryptedClientHello(value) => {}
-            // Extension::ApplicationSetting(value) => {}
-            // Extension::PreSharedKey(value) => {}
-            // Extension::ApplicationSettingOld(value) => {}
-            // Extension::QUICTrpParameters(value) => {}
-            // Extension::Reserved { .. } => {}
-            _ => unreachable!()
+impl<'a> Display for Extension<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Extension::ServerName(_) => write!(f, "ServerName(0x{:04x})", Extension::SERVER_NAME),
+            Extension::StatusRequest(_) => write!(f, "StatusRequest(0x{:04x})", Extension::STATUS_REQUEST),
+            Extension::SupportedGroups(_) => write!(f, "SupportedGroups(0x{:04x})", Extension::SUPPORTED_GROUP),
+            Extension::EcPointFormats(_) => write!(f, "EcPointFormats(0x{:04x})", Extension::EC_POINT_FORMATS),
+            Extension::SignatureAlgorithms(_) => write!(f, "SignatureAlgorithms(0x{:04x})", Extension::EC_POINT_FORMATS),
+            Extension::ApplicationLayerProtocolNegotiation(_) => write!(f, "ApplicationLayerProtocolNegotiation(0x{:04x})", Extension::APPLICATION_LAYER_PROTOCOL_NEGOTIATION),
+            Extension::SignedCertificateTimestamp => write!(f, "SignedCertificateTimestamp(0x{:04x})", Extension::SIGNED_CERTIFICATE_TIMESTAMP),
+            Extension::Padding(_) => write!(f, "Padding(0x{:04x})", Extension::PADDING),
+            Extension::EncryptTheMac => write!(f, "EncryptTheMac(0x{:04x})", Extension::ENCRYPT_THE_MAC),
+            Extension::ExtendMasterSecret => write!(f, "ExtendMasterSecret(0x{:04x})", Extension::EXTEND_MASTER_SECRET),
+            Extension::SessionTicket(_) => write!(f, "SessionTicket(0x{:04x})", Extension::SESSION_TICKET),
+            Extension::CompressionCertificate(_) => write!(f, "CompressionCertificate(0x{:04x})", Extension::COMPRESSION_CERTIFICATE),
+            Extension::SupportedVersions(_) => write!(f, "SupportedVersions(0x{:04x})", Extension::SUPPORTED_VERSIONS),
+            Extension::PskKeyExchangeMode(_) => write!(f, "PskKeyExchangeMode(0x{:04x})", Extension::PSK_KEY_EXCHANGE_MODE),
+            Extension::PostHandshakeAuth => write!(f, "PostHandshakeAuth(0x{:04x})", Extension::POST_HANDSHAKE_AUTH),
+            Extension::KeyShare(_) => write!(f, "KeyShare(0x{:04x})", Extension::KEY_SHARE),
+            Extension::RenegotiationInfo => write!(f, "RenegotiationInfo(0x{:04x})", Extension::RENEGOTIATION_INFO),
+            Extension::EncryptedClientHello(_) => write!(f, "EncryptedClientHello(0x{:04x})", Extension::ENCRYPTED_CLIENT_HELLO),
+            Extension::ApplicationSetting(_) => write!(f, "ApplicationSetting(0x{:04x})", Extension::APPLICATION_SETTING),
+            Extension::PreSharedKey(_) => write!(f, "PreSharedKey(0x{:04x})", Extension::PRE_SHARED_KEY),
+            Extension::ApplicationSettingOld(_) => write!(f, "ApplicationSettingOld(0x{:04x})", Extension::APPLICATION_SETTING_OLD),
+            Extension::Reserved { typ, .. } => write!(f, "Reserved(0x{:04x})", typ),
         }
     }
 }

@@ -236,7 +236,7 @@ pub extern "system" fn Fingerprint_from_client_hello(client_hello: *const u8, le
     check_run(move || {
         let client_hello = unsafe { slice::from_raw_parts(client_hello, len) }.to_vec();
         let token = unsafe { CStr::from_ptr(token) }.to_str()?;
-        Ok(Box::into_raw(Box::new(Fingerprint::from_client_hello(client_hello, token)?)))
+        Ok(Box::into_raw(Box::new(Fingerprint::from_client_hello(Version::TLS_1_0, client_hello, token)?)))
     }, |e| handle_err1(e, err, null_mut()))
 }
 
@@ -309,7 +309,7 @@ pub extern "system" fn Fingerprint_custom(custom: *const c_char, token: *const c
                 }
             }
         }
-        
+
         let tls = TlsFinger::Custom {
             record_version: Version::new(custom["record_version"].as_u16().unwrap_or(0x301)),
             message_version: Version::new(custom["message_version"].as_u16().unwrap_or(0x303)),

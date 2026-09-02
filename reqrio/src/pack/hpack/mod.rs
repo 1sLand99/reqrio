@@ -1,4 +1,4 @@
-pub use decode::HPackDecode;
+pub use decode::{HPackDecode, HPackDecodeBuf};
 pub use encode::HPackEncode;
 
 mod encode;

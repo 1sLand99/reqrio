@@ -179,21 +179,19 @@ impl Fingerprint {
         }
     }
 
-    pub fn from_client_hello(ch: Vec<u8>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {
+    ///client hello bytes prefix: [1, 0, .]
+    pub fn from_client_hello(record_version: Version, ch: Vec<u8>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {
         Ok(Fingerprint {
-            tls: TlsFinger::ClientHello { record_version: Version::TLS_1_0, bytes: Bytes::new(ch) },
+            tls: TlsFinger::ClientHello { record_version, bytes: Bytes::new(ch) },
             legal_subscript: Buffer::check_subscription(token)?,
             ..Default::default()
         })
     }
 
-    pub fn from_hex(hex_str: impl AsRef<str>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {
-        let mut client_hello = hex::decode(hex_str.as_ref())?;
-        let ver = Version::new(u16::from_be_bytes([client_hello[1], client_hello[2]]));
-        let len = u16::from_be_bytes([client_hello[3], client_hello[4]]) as usize + 5;
-        let _ = client_hello.split_off(len);
+    ///record hex prefix: 220303
+    pub fn from_record_hex(hex_str: impl AsRef<str>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {
         Ok(Fingerprint {
-            tls: TlsFinger::ClientHello { record_version: ver, bytes: Bytes::new(client_hello) },
+            tls: TlsFinger::from_record_hex(hex_str)?,
             legal_subscript: Buffer::check_subscription(token)?,
             ..Default::default()
         })

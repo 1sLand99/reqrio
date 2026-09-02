@@ -1,4 +1,4 @@
-use crate::error::HlsResult;
+use crate::pack::PackError;
 use super::table::DecodeNode;
 
 pub(crate) struct DecodeReader {
@@ -19,7 +19,7 @@ impl DecodeReader {
             tail_size: 0,
         }
     }
-    pub fn decode(&mut self, byte: u8, dst: &mut Vec<u8>) -> HlsResult<()> {
+    pub fn decode(&mut self, byte: u8, dst: &mut Vec<u8>) -> Result<(), PackError> {
         self.buf <<= 8; // make space for new chunk
         self.buf_size += 8;
         self.buf |= byte as usize; // apply new chunk
@@ -33,7 +33,7 @@ impl DecodeReader {
         Ok(())
     }
 
-    pub fn finalize(&mut self, dst: &mut Vec<u8>) -> HlsResult<()> {
+    pub fn finalize(&mut self, dst: &mut Vec<u8>) -> Result<(), PackError> {
         let shift_len = (self.buf_size as f64 / 5.0).ceil() as usize * 5 - self.buf_size; // how much missing to chunk size
 
         self.buf <<= shift_len; // expand buffer to chunk size
@@ -55,7 +55,7 @@ impl DecodeReader {
         self.buf_size = 0;
 
         if ![0, 1, 3, 7, 15, 31, 63, 127].contains(&self.tail) { // validate padding
-            return Err("Check huffman tail fail".into());
+            return Err(PackError::Currently("Check huffman tail fail".to_string()));
         }
 
         self.tail = 0; // reset (make object reusable)
@@ -64,9 +64,9 @@ impl DecodeReader {
         Ok(())
     }
 
-    fn decode_next(&mut self, dst: &mut Vec<u8>) -> HlsResult<()> {
+    fn decode_next(&mut self, dst: &mut Vec<u8>) -> Result<(), PackError> {
         let key = self.buf >> (self.buf_size - 5);
-        let node = Self::find_target(self.id, key).ok_or(format!("get huffman node error,key: {}", self.id))?;
+        let node = Self::find_target(self.id, key).ok_or(PackError::Currently(format!("get huffman node error,key: {}", self.id)))?;
 
         self.buf -= key >> node.leftover << (self.buf_size - 5 + node.leftover as usize); // remove key from buffer
         self.buf_size -= 5 - node.leftover as usize;
@@ -83,13 +83,13 @@ impl DecodeReader {
                 dst.push(ascii as u8);
                 Ok(())
             } else {
-                Err("Invalid huffman table ascii".into())
+                Err(PackError::Currently("Invalid huffman table ascii".to_string()))
             }
         } else if let Some(next_id) = node.next { // transition
             self.id = next_id as usize;
             Ok(())
         } else {
-            Err("decode huffman error".into())
+            Err(PackError::Currently("decode huffman error".to_string()))
         }
     }
 

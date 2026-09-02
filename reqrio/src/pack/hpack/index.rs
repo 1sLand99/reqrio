@@ -1,6 +1,5 @@
 use std::ops::AddAssign;
 use reqtls::{BufferError, WriteExt};
-use crate::error::HlsResult;
 use super::decode::HPackDecodeBuf;
 use crate::pack::PackError;
 
@@ -254,7 +253,7 @@ impl Index {
         }
     }
 
-    pub fn read_index(buf: &mut HPackDecodeBuf<'_>) -> HlsResult<(Self, bool)> {
+    pub fn read_index(buf: &mut HPackDecodeBuf<'_>) -> Result<(Self, bool), PackError> {
         let byte = buf.read().ok_or(PackError::BufferTooSmall)?;
         if byte & 0b1000_0000 == 0b1000_0000 { //indexed
             let value = (byte & 0b0111_1111) as usize;
@@ -280,10 +279,10 @@ impl Index {
                 0 => Ok((Index::NoIndexOnce, true)),
                 _ => Ok((Index::NameIndexedOnce(value), value != 0b0000_1111)),
             }
-        } else { Err(PackError::InvalidIndexType(*byte).into()) }
+        } else { Err(PackError::InvalidIndexType(*byte)) }
     }
 
-    pub fn read_len(buf: &mut HPackDecodeBuf<'_>) -> HlsResult<(Index, bool)> {
+    pub fn read_len(buf: &mut HPackDecodeBuf<'_>) -> Result<(Index, bool), PackError> {
         let byte = buf.read().ok_or(PackError::BufferTooSmall)?;
         let value = (byte & 0b0111_1111) as usize;
         Ok((Index::ValueLen { huffman: byte & 0b1000_0000 == 0b1000_0000, value }, value != 0b0111_1111))

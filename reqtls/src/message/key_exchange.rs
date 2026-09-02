@@ -4,7 +4,7 @@ use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::suite::KeyExchangeAlg;
 use crate::{u24, BufferError, ReadExt, Reader, Version, WriteExt};
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Debug, Copy, Clone)]
 pub enum CurveType {
@@ -107,6 +107,12 @@ impl PartialEq<u16> for &NamedCurve {
 }
 
 impl Debug for NamedCurve {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(0x{:04x})", self.spec(), self.0)
+    }
+}
+
+impl Display for NamedCurve {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}(0x{:04x})", self.spec(), self.0)
     }
@@ -276,7 +282,7 @@ impl<'a> ClientHellmanParam<'a> {
     pub fn write_to<W: WriteExt>(self, writer: &mut W, alg: KeyExchangeAlg) -> Result<(), BufferError> {
         match alg {
             KeyExchangeAlg::RSA | KeyExchangeAlg::ECC => writer.write_u16(self.pub_key.len() as u16)?,
-            _=> writer.write_u8(self.pub_key.len() as u8)?,
+            _ => writer.write_u8(self.pub_key.len() as u8)?,
         }
         writer.write_slice(self.pub_key.as_ref())
     }

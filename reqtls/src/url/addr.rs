@@ -11,7 +11,7 @@ use std::time::SystemTime;
 static DNS: LazyLock<RwLock<HashMap<String, Arc<DNSCache>>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
 
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Addr {
     host: String,
     port: u16,

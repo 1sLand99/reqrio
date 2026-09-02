@@ -159,8 +159,7 @@ pub struct ProxyStream<S> {
 }
 
 impl<S> ProxyStream<S> {
-    pub fn connect<'b, 'a: 'b>(stream: S, param: &'b ConnParam<'a>) -> ProxyConnecting<'a, S> {
-        let mut timeout = param.timeout.clone();
+    pub fn connect<'a>(stream: S, addr: &'a Addr, proxy: &'a Proxy, mut timeout: Timeout) -> ProxyConnecting<'a, S> {
         timeout.reset_connect();
         ProxyConnecting {
             state: ProxyState::Connecting {
@@ -168,8 +167,8 @@ impl<S> ProxyStream<S> {
                 timeout,
                 buffer: Buffer::with_capacity(1024),
             },
-            proxy: param.proxy,
-            dst_addr: param.url.addr(),
+            proxy,
+            dst_addr: addr,
             #[cfg(feature = "aync")]
             index: 0,
             #[cfg(feature = "aync")]
@@ -180,36 +179,36 @@ impl<S> ProxyStream<S> {
 
 
 impl ProxyStream<std::net::TcpStream> {
-    fn create_sync(addr: &SocketAddr, timeout: &Timeout) -> HlsResult<std::net::TcpStream> {
-        let stream = std::net::TcpStream::connect_timeout(addr, timeout.connect())?;
-        stream.set_read_timeout(Some(timeout.read()))?;
-        stream.set_write_timeout(Some(timeout.write()))?;
-        Ok(stream)
-    }
-    pub fn sync_connect(proxy: &Proxy, peer_addr: &Addr, timeout: &Timeout, ech: bool) -> HlsResult<ProxyStream<std::net::TcpStream>> {
-        #[cfg(feature = "log")]
-        debug!("[ProxyStream] Proxy: {} | PeerAddr: {}",proxy,peer_addr);
-        let addr = proxy.socket_addr(peer_addr, ech)?;
-        let mut stream = ProxyStream::create_sync(&addr, timeout)?;
-        let mut buffer = Buffer::with_capacity(1024);
-        for i in 0..4 {
-            buffer.reset();
-            let finish = proxy.write_context(peer_addr, &mut buffer, i)?;
-            if buffer.is_empty() { continue; }
-            io::Write::write_all(&mut stream, buffer.filled())?;
-            if finish { break; }
-        }
-        buffer.reset();
-        Ok(ProxyStream {
-            stream,
-            handle_proxy: matches!(proxy,Proxy::Null),
-            http_proxy: matches!(proxy, Proxy::HttpPlain(_)),
-            buffer,
-            resp: Response::new(),
-            #[cfg(feature = "aync")]
-            timeout: timeout.clone(),
-        })
-    }
+    // fn create_sync(addr: &SocketAddr, timeout: &Timeout) -> HlsResult<std::net::TcpStream> {
+    //     let stream = std::net::TcpStream::connect_timeout(addr, timeout.connect())?;
+    //     stream.set_read_timeout(Some(timeout.read()))?;
+    //     stream.set_write_timeout(Some(timeout.write()))?;
+    //     Ok(stream)
+    // }
+    // pub fn sync_connect(proxy: &Proxy, peer_addr: &Addr, timeout: &Timeout, ech: bool) -> HlsResult<ProxyStream<std::net::TcpStream>> {
+    //     #[cfg(feature = "log")]
+    //     debug!("[ProxyStream] Proxy: {} | PeerAddr: {}",proxy,peer_addr);
+    //     let addr = proxy.socket_addr(peer_addr, ech)?;
+    //     let mut stream = ProxyStream::create_sync(&addr, timeout)?;
+    //     let mut buffer = Buffer::with_capacity(1024);
+    //     for i in 0..4 {
+    //         buffer.reset();
+    //         let finish = proxy.write_context(peer_addr, &mut buffer, i)?;
+    //         if buffer.is_empty() { continue; }
+    //         io::Write::write_all(&mut stream, buffer.filled())?;
+    //         if finish { break; }
+    //     }
+    //     buffer.reset();
+    //     Ok(ProxyStream {
+    //         stream,
+    //         handle_proxy: matches!(proxy,Proxy::Null),
+    //         http_proxy: matches!(proxy, Proxy::HttpPlain(_)),
+    //         buffer,
+    //         resp: Response::new(),
+    //         #[cfg(feature = "aync")]
+    //         timeout: timeout.clone(),
+    //     })
+    // }
 
     pub fn shutdown(&mut self) -> HlsResult<()> {
         self.stream.shutdown(Shutdown::Both)?;
@@ -273,37 +272,37 @@ impl io::Write for ProxyStream<std::net::TcpStream> {
     }
 }
 
-#[cfg(feature = "aync")]
-impl ProxyStream<tokio::net::TcpStream> {
-    pub async fn async_connect(proxy: &Proxy, peer_addr: &Addr, timeout: &Timeout, ech: bool) -> HlsResult<ProxyStream<tokio::net::TcpStream>> {
-        #[cfg(feature = "log")]
-        debug!("[ProxyStream] Proxy: {} | PeerAddr: {}",proxy,peer_addr);
-        // let st = Time::now_mills();
-        let addr = proxy.socket_addr(peer_addr, ech)?;
-        // println!("DNS TIME: {}", Time::now_mills() - st);
-        let mut stream = tokio::net::TcpStream::connect(addr).await?;
-        let mut buffer = Buffer::with_capacity(1024);
-        for i in 0..4 {
-            buffer.reset();
-            let finish = proxy.write_context(peer_addr, &mut buffer, i)?;
-            if buffer.is_empty() { continue; }
-            tokio::io::AsyncWriteExt::write_all(&mut stream, buffer.filled()).await?;
-            if finish { break; }
-        }
-        buffer.reset();
-        Ok(ProxyStream {
-            stream,
-            handle_proxy: matches!(proxy,Proxy::Null),
-            http_proxy: matches!(proxy, Proxy::HttpPlain(_)),
-            buffer,
-            resp: Response::new(),
-            timeout: timeout.clone(),
-        })
-    }
-}
+// #[cfg(feature = "aync")]
+// impl ProxyStream<tokio::net::TcpStream> {
+//     pub async fn async_connect(proxy: &Proxy, peer_addr: &Addr, timeout: &Timeout, ech: bool) -> HlsResult<ProxyStream<tokio::net::TcpStream>> {
+//         #[cfg(feature = "log")]
+//         debug!("[ProxyStream] Proxy: {} | PeerAddr: {}",proxy,peer_addr);
+//         // let st = Time::now_mills();
+//         let addr = proxy.socket_addr(peer_addr, ech)?;
+//         // println!("DNS TIME: {}", Time::now_mills() - st);
+//         let mut stream = tokio::net::TcpStream::connect(addr).await?;
+//         let mut buffer = Buffer::with_capacity(1024);
+//         for i in 0..4 {
+//             buffer.reset();
+//             let finish = proxy.write_context(peer_addr, &mut buffer, i)?;
+//             if buffer.is_empty() { continue; }
+//             tokio::io::AsyncWriteExt::write_all(&mut stream, buffer.filled()).await?;
+//             if finish { break; }
+//         }
+//         buffer.reset();
+//         Ok(ProxyStream {
+//             stream,
+//             handle_proxy: matches!(proxy,Proxy::Null),
+//             http_proxy: matches!(proxy, Proxy::HttpPlain(_)),
+//             buffer,
+//             resp: Response::new(),
+//             timeout: timeout.clone(),
+//         })
+//     }
+// }
 
 #[cfg(feature = "aync")]
-impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
+impl AsyncRead for ProxyStream<tokio::net::TcpStream> {
     fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
         let stream = self.get_mut();
         if !stream.handle_proxy {
@@ -321,7 +320,6 @@ impl tokio::io::AsyncRead for ProxyStream<tokio::net::TcpStream> {
                     }
                 }
                 let status = stream.resp.header().status();
-                println!("{}", status);
                 if status.code() != 200 { return Poll::Ready(Err(io::Error::other(format!("connect http proxy fail-{:?}", status)))); }
             } else {
                 let mut reader = BufReading {

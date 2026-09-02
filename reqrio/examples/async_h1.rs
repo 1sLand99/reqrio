@@ -22,7 +22,7 @@ fn test_log() {
 async fn main() {
     #[cfg(feature = "log")]
     test_log();
-    Buffer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
+    // Buffer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
 
     let t = Time::now();
     let mut timeout = Timeout::longer();
@@ -50,18 +50,17 @@ async fn main() {
     let mut req = AcReq::new()
         .with_fingerprint(fingerprint)
         .with_timeout(timeout)
-        .with_verify(true)
+        .with_verify(false)
         .with_key_log("2.log")
         .with_auto_redirect(false)
         // .with_proxy(Proxy::Null)
-        .with_verify(true)
         .with_alpn(ALPN::Http20)
         .with_header_json(headers).unwrap()
         // .with_mtls(vec![], RsaKey::none(), Some(vec![cert]))
         // .with_proxy(Proxy::try_from("http: //222.186.129.68:15265").unwrap())
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::new_socks5("127.0.0.1",10279))
-        // .with_proxy(Proxy::new_http_plain("127.0.0.1", 10280))
+        // .with_proxy(Proxy::new_http_plain("127.0.0.1", 8080))
         // .connect("https://104.18.34.137".sni("whatnot.com")).await.unwrap()
         ;
     // let res = req.post("http://127.0.0.1:8000/log", json::object! {"on": false}).await.unwrap();
@@ -97,7 +96,7 @@ async fn main() {
 
     // let res1 = req.get("https://docs.rs", None).await.unwrap();
     // let res1 = req.get("https://www.bing.com", None).await.unwrap();
-    let res1 = req.get("https://www.baidu.com", None).await.unwrap();
+    let res1 = req.get("https://202.89.233.101".sni("cn.bing.com"), None).await.unwrap();
     println!("{}", res1.raw_string());
 
     // req.set_auto_redirect(false);
