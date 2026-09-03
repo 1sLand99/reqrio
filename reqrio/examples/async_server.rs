@@ -1,11 +1,28 @@
-use reqrio::TlsStream;
+use reqrio::{set_logger, set_max_level, LevelFilter, Logger, TlsStream};
 use reqtls::{Certificate, RsaKey, ServerConfig, ALPN};
 use std::fs;
 use std::io::{Read, Write};
 use std::net::TcpListener;
 
+#[cfg(feature = "log")]
+const LOGER: Logger = Logger {
+    module: &[],
+    debug_file: None,
+    info_file: None,
+    warn_file: None,
+    error_file: None,
+    out_file: None,
+};
+
+#[cfg(feature = "log")]
+fn test_log() {
+    set_logger(&LOGER).unwrap();
+    set_max_level(LevelFilter::Trace);
+}
+
 #[tokio::main]
 async fn main() {
+    test_log();
     let listen = TcpListener::bind("0.0.0.0:7878").unwrap();
     let cert = fs::read(r"C:\Users\XLX\Desktop\xnm\1\server.crt").unwrap();
     let mut certificates = Certificate::from_pem(cert).unwrap();
@@ -15,7 +32,7 @@ async fn main() {
         let (stream, addr) = listen.accept().unwrap();
         println!("Accepted connection from {}", addr);
         let tls_stream = TlsStream::accept(stream, ServerConfig {
-            alpn: &ALPN::Http20,
+            alpn: &ALPN::Http11,
             ca: &mut Certificate::none(),
             server_cert: &mut certificates,
             cert_key: &pri_key,

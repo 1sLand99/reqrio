@@ -220,7 +220,7 @@ pub trait StreamHandle {
                 let config = config.as_mut().ok_or("config can't be null")?;
                 let random = rand::random::<[u8; 32]>();
                 let server = config.server_mut().ok_or("missing config")?;
-                let record = param.conn.gen_server_hello(v, server.server_cert, server.cert_key, &random, server.alpn.clone())?;
+                let record = param.conn.gen_server_hello(version, v, server.server_cert, server.cert_key, &random, server.alpn.clone())?;
                 let offset = param.write_buffer.offset().end;
                 record.write_to(param.write_buffer, param.conn.cipher_suite().exchange_alg())?;
                 param.conn.update_session(param.write_buffer.slice_at(offset + 5))?;
@@ -273,7 +273,7 @@ pub trait StreamHandle {
 
     fn handle_record(&mut self, record_len: usize, mut config: Option<&mut Config<'_>>, app_buf: &mut [u8]) -> Result<usize, RlsError> {
         let (read_buffer, mut param) = self.stream_param();
-        let record = RecordLayer::from_bytes(read_buffer.filled(), param.conn.cipher_suite().exchange_alg(), *param.encrypted_channel).unwrap();
+        let record = RecordLayer::from_bytes(read_buffer.filled(), param.conn.cipher_suite().exchange_alg(), *param.encrypted_channel)?;
         match record.content_type {
             RecordType::CipherSpec => {
                 #[cfg(feature = "log")]

@@ -185,6 +185,10 @@ impl<'a> ClientHello<'a> {
         self.version = version;
     }
 
+    pub fn version(&mut self) -> &Version {
+        &self.version
+    }
+
     pub fn set_cipher_suites(&mut self, suites: Vec<CipherSuite>) {
         self.cipher_suites = suites;
     }

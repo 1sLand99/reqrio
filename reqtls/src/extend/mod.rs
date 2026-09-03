@@ -582,6 +582,7 @@ impl<'a> Display for Extension<'a> {
             Extension::ApplicationSetting(_) => write!(f, "ApplicationSetting(0x{:04x})", Extension::APPLICATION_SETTING),
             Extension::PreSharedKey(_) => write!(f, "PreSharedKey(0x{:04x})", Extension::PRE_SHARED_KEY),
             Extension::ApplicationSettingOld(_) => write!(f, "ApplicationSettingOld(0x{:04x})", Extension::APPLICATION_SETTING_OLD),
+            #[cfg(feature = "quic")]
             Extension::QUICTrpParameters(_) => write!(f, "QUICTrpParameters(0x{:04x})", Extension::QUIC_TRP_PARAMETERS),
             Extension::Reserved { typ, .. } => write!(f, "Reserved(0x{:04x})", typ),
         }

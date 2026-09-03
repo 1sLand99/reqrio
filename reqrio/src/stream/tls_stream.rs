@@ -50,7 +50,7 @@ impl<S> TlsStream<S> {
             timeout: Timeout::longer(),
         }
     }
-    
+
     pub fn connect(mut config: ClientConfig<'_>, stream: S) -> TlsConnecting<'_, S> {
         let session = config.session.as_ref().cloned().unwrap_or_default();
         let conn = Connection::new_client(session, mem::take(&mut config.key_log), false)
@@ -58,7 +58,7 @@ impl<S> TlsStream<S> {
         TlsConnecting {
             sent_client_hello: false,
             state: ConnState::Connecting(Box::new(TlsStream::new(conn, stream))),
-            config:Config::Client(config),
+            config: Config::Client(config),
             app_buf: Default::default(),
         }
     }
@@ -66,8 +66,8 @@ impl<S> TlsStream<S> {
     pub fn accept(stream: S, config: ServerConfig<'_>) -> TlsConnecting<'_, S> {
         TlsConnecting {
             sent_client_hello: true,
-            state: ConnState::Connecting(Box::new(TlsStream::new(Connection::default(), stream))),
-            config:Config::Server(config),
+            state: ConnState::Connecting(Box::new(TlsStream::new(Connection::default().with_verify(config.verify), stream))),
+            config: Config::Server(config),
             app_buf: Default::default(),
         }
     }
@@ -120,8 +120,8 @@ impl<S: Write> TlsStream<S> {
 impl<S: Read> Read for TlsStream<S> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         loop {
-            let record_len = self.read_next_record().wait().unwrap();
-            let size = self.handle_record(record_len, None, buf).unwrap();
+            let record_len = self.read_next_record().wait()?;
+            let size = self.handle_record(record_len, None, buf)?;
             self.read_buffer.used_empty(record_len);
             if size > 0 { return Ok(size); }
         }
