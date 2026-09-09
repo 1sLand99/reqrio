@@ -89,7 +89,7 @@ impl<'a> H2EncodeFrame<'a> {
         writer.write_u24(len)?;
         writer.write_u8(self.frame_type.to_u8())?;
         writer.write_u8(self.frame_flag.as_u8())?;
-        writer.write_ru32(self.stream_identifier)?;
+        writer.write_u32(*self.stream_identifier)?;
         if self.frame_flag.priority() {
             writer.write_u32(self.stream_dependency | 2147483648)?;
             writer.write_u8(self.weight)?;
@@ -101,7 +101,7 @@ impl<'a> H2EncodeFrame<'a> {
                 }
                 Ok(())
             }
-            EncodePayload::WindowUpdate(size) => writer.write_ru32(size),
+            EncodePayload::WindowUpdate(size) => writer.write_u32(*size),
             EncodePayload::Data(data) => writer.write_slice(data),
         }
     }

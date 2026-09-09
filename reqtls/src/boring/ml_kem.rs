@@ -1,10 +1,10 @@
 use crate::boring::bindings::*;
-use crate::boring::evp::{EvpError, PKeyError};
-use crate::boring::{BoringResExt, EcCurve, EcError, EvpCurve};
-use std::mem::MaybeUninit;
-use std::ptr::null_mut;
+use crate::boring::evp::EvpError;
+use crate::boring::{BoringResExt, EcCurve, EcError, X25519};
 use crate::hash::HashError;
 use crate::NamedCurve;
+use std::mem::MaybeUninit;
+use std::ptr::null_mut;
 
 #[derive(Debug)]
 pub enum MLKEMError {
@@ -15,7 +15,6 @@ pub enum MLKEMError {
     Ec(EcError),
     Hmac(HashError),
     UnSupported(NamedCurve),
-    Pkey(PKeyError),
 }
 
 impl From<EvpError> for MLKEMError {
@@ -33,12 +32,6 @@ impl From<EcError> for MLKEMError {
 impl From<HashError> for MLKEMError {
     fn from(e: HashError) -> Self {
         MLKEMError::Hmac(e)
-    }
-}
-
-impl From<PKeyError> for MLKEMError {
-    fn from(value: PKeyError) -> Self {
-        MLKEMError::Pkey(value)
     }
 }
 
@@ -105,7 +98,7 @@ impl MLKEM768 {
 pub enum Hybrid {
     X25519MLKEM768 {
         kem768: MLKEM768,
-        evp_curve: EvpCurve,
+        evp_curve: X25519,
         pubkey: [u8; 32 + MLKEM768::MLKEM768_PUBLIC_KEY_BYTES],
     },
     SecP256r1MLKEM768 {
@@ -118,8 +111,7 @@ pub enum Hybrid {
 impl Hybrid {
     pub fn new_x25519_768() -> Result<Hybrid, MLKEMError> {
         let mut pubkey = [0; 32 + MLKEM768::MLKEM768_PUBLIC_KEY_BYTES];
-        let evp_curve = EvpCurve::new_x25519()?;
-        evp_curve.pub_key_out(&mut pubkey[1184..1216])?;
+        let evp_curve = X25519::new_pubkey(&mut pubkey[1184..1216]);
         Ok(Hybrid::X25519MLKEM768 {
             kem768: MLKEM768::new_pubkey(&mut pubkey[0..1184])?,
             evp_curve,

@@ -2,7 +2,7 @@ mod handshake;
 #[cfg(feature = "quic")]
 mod quic;
 
-use crate::boring::{EcError, EvpError, MLKEMError, PKeyError};
+use crate::boring::{EcError, EvpError, MLKEMError};
 use crate::cipher::CipherError;
 use crate::coder::CodingError;
 use crate::dns::DNSError;
@@ -94,7 +94,6 @@ pub enum RlsError {
     EcError(EcError),
     MlKemError(MLKEMError),
     Cipher(CipherError),
-    Pkey(PKeyError),
     Coding(CodingError),
     Sm(SmError),
 }
@@ -168,7 +167,6 @@ impl Display for RlsError {
             RlsError::EcError(e) => write!(f, "EcError({:?})", e),
             RlsError::MlKemError(e) => write!(f, "MlKemError({:?})", e),
             RlsError::Cipher(e) => write!(f, "Cipher({:?})", e),
-            RlsError::Pkey(e) => write!(f, "Pkey({:?})", e),
             RlsError::Coding(e) => write!(f, "Coding({:?})", e),
             RlsError::Sm(sm) => write!(f, "Sm({:?})", sm),
         }
@@ -319,12 +317,6 @@ impl From<MLKEMError> for RlsError {
 impl From<CipherError> for RlsError {
     fn from(value: CipherError) -> Self {
         RlsError::Cipher(value)
-    }
-}
-
-impl From<PKeyError> for RlsError {
-    fn from(value: PKeyError) -> Self {
-        RlsError::Pkey(value)
     }
 }
 

@@ -3,23 +3,17 @@ mod curve;
 pub mod cipher;
 mod aead;
 mod error;
-mod pkey;
-mod pkey_ctx;
 
 use crate::boring::bindings::*;
 use crate::error::RlsResult;
 pub use aead::AeadCtx;
 pub use cipher::Cipher;
-pub use curve::EvpCurve;
+pub use curve::X25519;
 
 use crate::boring::CryptEncodeParam;
 use crate::cipher::CipherError;
 use crate::hash::Hmac;
 pub use error::EvpError;
-pub use pkey::PKey;
-use pkey::PKEY;
-pub use pkey_ctx::PKeyCtx;
-pub use pkey_ctx::PKeyError;
 
 #[repr(C)]
 #[allow(non_camel_case_types)]

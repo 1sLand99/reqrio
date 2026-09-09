@@ -1,7 +1,7 @@
 mod block;
 mod derived;
 
-use crate::boring::{EcCurve, EvpCurve, Hybrid};
+use crate::boring::{EcCurve, EvpError, Hybrid, X25519};
 use crate::buffer::Buf;
 use crate::bytes::Bytes;
 use crate::error::RlsResult;
@@ -38,7 +38,7 @@ impl TrafficSecret {
 #[allow(non_camel_case_types)]
 pub enum SecretKey {
     None,
-    Evp(EvpCurve),
+    Evp(X25519),
     Ec(EcCurve),
     PreMasterSecret(Bytes),
     Hybrid(Box<Hybrid>),
@@ -54,7 +54,7 @@ impl SecretKey {
 
     pub fn new(name_cure: &NamedCurve) -> RlsResult<SecretKey> {
         match name_cure.as_u16() {
-            NamedCurve::X25519 => Ok(SecretKey::Evp(EvpCurve::new_x25519()?)),
+            NamedCurve::X25519 => Ok(SecretKey::Evp(X25519::new())),
             NamedCurve::SecP256r1 => Ok(SecretKey::Ec(EcCurve::new_p256()?)),
             NamedCurve::SecP384r1 => Ok(SecretKey::Ec(EcCurve::new_p384()?)),
             NamedCurve::SecP521r1 => Ok(SecretKey::Ec(EcCurve::new_p521()?)),
@@ -76,7 +76,7 @@ impl SecretKey {
 
     pub fn pub_key(&self) -> RlsResult<Buf<'_>> {
         match self {
-            SecretKey::Evp(v) => Ok(v.pub_key()?),
+            SecretKey::Evp(v) => Ok(v.pub_key().ok_or(EvpError::GetPubKey)?),
             SecretKey::Ec(v) => Ok(Buf::Ptr(v.pub_key()?)),
             SecretKey::None => Ok(Buf::Ref(&[])),
             SecretKey::PreMasterSecret(bytes) => Ok(Buf::Ref(bytes.as_ref())),

@@ -40,7 +40,7 @@ impl H2Setting {
             H2Setting::Reserved { flag, value } => (*flag, value),
         };
         writer.write_u16(flag)?;
-        writer.write_ru32(value)
+        writer.write_u32(*value)
     }
 
     pub fn value(&self) -> &u32 {

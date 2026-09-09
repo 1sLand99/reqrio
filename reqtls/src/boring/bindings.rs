@@ -250,8 +250,6 @@ pub(crate) struct EVP_PKEY_CTX {
     _unused: [u8; 0],
 }
 
-pub(crate) const EVP_PKEY_X25519: i32 = 948;
-
 unsafe extern "C" {
     pub(crate) fn EVP_PKEY_new() -> *mut EVP_PKEY;
 

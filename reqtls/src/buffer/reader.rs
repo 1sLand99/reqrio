@@ -192,7 +192,5 @@ mod tests {
         assert_eq!(reader.read_u32().unwrap(), 117967114);
         assert_eq!(reader.read_u64().unwrap(), 796025588171149586);
         assert!(reader.read_u8().is_err());
-
-        // println!("{}", u64::from_be_bytes([11, 12, 13, 14, 15, 16, 17, 18]));
     }
 }

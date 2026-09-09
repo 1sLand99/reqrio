@@ -1,67 +1,50 @@
-use super::{PKey, PKeyCtx};
-use crate::boring::bindings::*;
-use crate::boring::evp::pkey_ctx::PKeyError;
+use crate::boring::{BoringResExt, EvpError};
 use crate::buffer::Buf;
+use std::os::raw::c_int;
 
-pub struct EvpCurve {
-    evp_key: PKey,
-    pub_key_len: usize,
-    nid: i32,
-    secret: usize,
+unsafe extern "C" {
+    fn X25519_keypair(pub_key: *mut u8, pri_key: *mut u8);
+    fn X25519(share_key: *mut u8, pri_key: *const u8, peer_pub_key: *const u8) -> c_int;
 }
 
+#[derive(Debug)]
+pub struct X25519 {
+    pub(crate) pub_key: Option<[u8; 32]>,
+    pub(crate) pri_key: [u8; 32],
+}
 
-impl EvpCurve {
-    pub fn new_x25519() -> Result<EvpCurve, PKeyError> {
-        EvpCurve::new(EVP_PKEY_X25519, 32, 32)
+impl X25519 {
+    pub fn new_pubkey(pub_key: &mut [u8]) -> X25519 {
+        let mut pri_key = [0u8; 32];
+        unsafe { X25519_keypair(pub_key.as_mut_ptr(), pri_key.as_mut_ptr()) };
+        X25519 {
+            pub_key: None,
+            pri_key,
+        }
     }
 
-    fn new(nid: i32, pub_len: usize, secret_len: usize) -> Result<EvpCurve, PKeyError> {
-        Ok(EvpCurve {
-            evp_key: PKeyCtx::new_nid(nid)?.generate_key()?,
-            pub_key_len: pub_len,
-            secret: secret_len,
-            nid,
-        })
+    pub fn new() -> X25519 {
+        let mut pri_key = [0u8; 32];
+        let mut pub_key = [0u8; 32];
+        unsafe { X25519_keypair(pub_key.as_mut_ptr(), pri_key.as_mut_ptr()) };
+        X25519 {
+            pub_key: Some(pub_key),
+            pri_key,
+        }
     }
 
-    pub fn pub_key(&self) -> Result<Buf<'_>, PKeyError> {
-        let mut pub_key = vec![0; self.pub_key_len];
-        self.pub_key_out(&mut pub_key)?;
-        Ok(Buf::Vec(pub_key))
+    pub fn diffie_hellman_extract(&mut self, pubkey: impl AsRef<[u8]>, out: &mut [u8]) -> Result<(), EvpError> {
+        unsafe { X25519(out.as_mut_ptr(), self.pri_key.as_ptr(), pubkey.as_ref().as_ptr()) }
+            .ok(EvpError::Derive)
     }
 
-    pub fn pub_key_out(&self, out: &mut [u8]) -> Result<(), PKeyError> {
-        self.evp_key.extract_pub_key(out)
-    }
-
-    pub fn diffie_hellman_extract(&mut self, pubkey: impl AsRef<[u8]>, out: &mut [u8]) -> Result<(), PKeyError> {
-        self.evp_key.diffie_hellman(self.nid, pubkey, out)
-    }
-
-    pub fn diffie_hellman(&mut self, pub_key: impl AsRef<[u8]>) -> Result<Vec<u8>, PKeyError> {
-        let mut secret = vec![0u8; self.secret];
+    pub fn diffie_hellman(&mut self, pub_key: impl AsRef<[u8]>) -> Result<Vec<u8>,EvpError> {
+        let mut secret = vec![0u8; 32];
         self.diffie_hellman_extract(pub_key, &mut secret)?;
         Ok(secret)
     }
-}
 
-
-#[cfg(test)]
-mod tests {
-    use crate::boring::evp::curve::EvpCurve;
-
-    #[test]
-    fn test_evp_curve() {
-        let mut x25519_1 = EvpCurve::new_x25519().unwrap();
-        let pub_key1 = x25519_1.pub_key().unwrap();
-        assert_eq!(pub_key1.len(), 32);
-
-        let mut x25519_2 = EvpCurve::new_x25519().unwrap();
-        let pub_key2 = x25519_2.pub_key().unwrap();
-        assert_eq!(pub_key2.len(), 32);
-        let s1 = x25519_1.diffie_hellman(x25519_2.pub_key().unwrap().as_ref()).unwrap();
-        let s2 = x25519_2.diffie_hellman(x25519_1.pub_key().unwrap().as_ref()).unwrap();
-        assert_eq!(s1, s2);
+    pub fn pub_key(&self) -> Option<Buf<'_>> {
+        Some(Buf::Ref(self.pub_key.as_ref()?))
     }
 }

@@ -21,25 +21,31 @@ use std::slice;
 #[allow(non_camel_case_types)]
 pub type u24 = u32;
 
-ffi::c_pointer_free!(Writer, Buffer_free);
+ffi::c_pointer_free!(Writer, Writer_free);
 
 unsafe extern "C" {
-    fn Buffer_new(buffer: *mut Writer) -> c_int;
-    fn Buffer_resize(buffer: *mut Writer, capacity: usize) -> c_int;
-    fn Buffer_reset_offset(buffer: *mut Writer, start: usize, end: usize);
-    fn Buffer_free(buffer: *mut Writer);
-    fn Buffer_reset(buffer: *mut Writer);
-    fn Buffer_used_empty(buffer: *mut Writer, size: usize) -> bool;
-    fn Buffer_write_u8(buffer: *mut Writer, val: &u8) -> i32;
-    fn Buffer_write_u16(buffer: *mut Writer, val: &u16) -> i32;
-    fn Buffer_write_u24(buffer: *mut Writer, val: &u24) -> i32;
-    fn Buffer_write_u24_in(buffer: *mut Writer, place: usize, val: &u24) -> i32;
-    fn Buffer_write_u32(buffer: *mut Writer, val: &u32) -> i32;
-    fn Buffer_write_u64(buffer: *mut Writer, val: &u64) -> i32;
-    fn Buffer_write_slice(buffer: *mut Writer, ptr: *const u8, len: usize) -> i32;
-    fn Buffer_write_slice_in(buffer: *mut Writer, place: usize, ptr: *const u8, len: usize) -> i32;
-    fn Buffer_flush(buffer: *mut Writer, len: usize, sni: *const c_char, h2: bool) -> i32;
-    fn Buffer_move_to(buffer: *mut Writer, from: usize, to: usize, pos: usize);
+    fn Writer_new(buffer: *mut Writer) -> c_int;
+    fn Writer_resize(buffer: *mut Writer, capacity: usize) -> c_int;
+    fn Writer_reset_offset(buffer: *mut Writer, start: usize, end: usize);
+    fn Writer_free(buffer: *mut Writer);
+    fn Writer_reset(buffer: *mut Writer);
+    fn Writer_used_empty(buffer: *mut Writer, size: usize) -> bool;
+    fn Writer_write_u8(buffer: *mut Writer, val: u8) -> i32;
+    fn Writer_write_u8_unchecked(buffer: *mut Writer, val: u8);
+    fn Writer_write_u16_le(buffer: *mut Writer, val: u16) -> i32;
+    fn Writer_write_u16(buffer: *mut Writer, val: u16);
+    fn Writer_write_u24_le(buffer: *mut Writer, val: u24) -> i32;
+    fn Writer_write_u24(buffer: *mut Writer, val: u24);
+    fn Writer_write_u24_le_in(buffer: *mut Writer, place: usize, val: u24) -> i32;
+    fn Writer_write_u32_le(buffer: *mut Writer, val: u32) -> i32;
+    fn Writer_write_u32(buffer: *mut Writer, val: u32);
+    fn Writer_write_u64_le(buffer: *mut Writer, val: u64) -> i32;
+    fn Writer_write_u64(buffer: *mut Writer, val: u64);
+    fn Writer_write_slice(buffer: *mut Writer, ptr: *const u8, len: usize) -> i32;
+    fn Writer_write_slice_unchecked(buffer: *mut Writer, ptr: *const u8, len: usize);
+    fn Writer_write_slice_in(buffer: *mut Writer, place: usize, ptr: *const u8, len: usize) -> i32;
+    fn Writer_flush(buffer: *mut Writer, len: usize, sni: *const c_char, h2: bool) -> i32;
+    fn Writer_move_to(buffer: *mut Writer, from: usize, to: usize, pos: usize);
     pub fn is_subscription(token: *const c_char) -> bool;
 }
 
@@ -72,7 +78,7 @@ impl Writer {
 
     pub fn with_capacity(capacity: usize) -> Self {
         let mut buffer = Writer::new(null_mut(), capacity);
-        let ret = unsafe { Buffer_new(&mut buffer) };
+        let ret = unsafe { Writer_new(&mut buffer) };
         if ret != 1 { panic!("failed to create buffer") };
         buffer
     }
@@ -80,7 +86,7 @@ impl Writer {
     pub fn resize(&mut self, at_least: usize) -> Result<(), BufferError> {
         let mut capacity = self.capacity() * 2;
         while capacity < at_least { capacity *= 2; }
-        let ret = unsafe { Buffer_resize(self, capacity) };
+        let ret = unsafe { Writer_resize(self, capacity) };
         if ret != 1 {
             return Err(BufferError::ResizeFail {
                 current: self.capacity(),
@@ -98,7 +104,7 @@ impl Writer {
     }
 
     pub fn reset_offset(&mut self, offset: Range<usize>) {
-        unsafe { Buffer_reset_offset(self, offset.start, offset.end) };
+        unsafe { Writer_reset_offset(self, offset.start, offset.end) };
     }
 
     pub fn from_ptr(buf: &mut [u8]) -> Self {
@@ -129,7 +135,7 @@ impl Writer {
     }
 
     pub fn reset(&mut self) {
-        unsafe { Buffer_reset(self) }
+        unsafe { Writer_reset(self) }
     }
 
     pub fn slice_at(&self, place: usize) -> &[u8] {
@@ -142,12 +148,12 @@ impl Writer {
     }
 
     pub fn used_empty(&mut self, size: usize) -> bool {
-        unsafe { Buffer_used_empty(self, size) }
+        unsafe { Writer_used_empty(self, size) }
     }
 
     pub fn move_to(&mut self, r: Range<usize>, pos: usize) -> Result<(), BufferError> {
         if r.end < r.start || r.end > self.end() { return Err(BufferError::RangeEdgeError(r)); };
-        unsafe { Buffer_move_to(self, r.start, r.end, pos) };
+        unsafe { Writer_move_to(self, r.start, r.end, pos) };
         Ok(())
     }
 
@@ -181,11 +187,16 @@ impl Writer {
     }
 
     pub fn write_u8(&mut self, v: u8) -> Result<(), BufferError> {
-        let res = unsafe { Buffer_write_u8(self, &v) };
+        let res = unsafe { Writer_write_u8(self, v) };
         self.check_write(res, 1)
     }
+    #[allow(unsafe_op_in_unsafe_fn)]
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_u8_unchecked(&mut self, v: u8) {
+        Writer_write_u8_unchecked(self, v)
+    }
     pub fn write_u16_be(&mut self, v: u16) -> Result<(), BufferError> {
-        let res = unsafe { Buffer_write_u16(self, &v) };
+        let res = unsafe { Writer_write_u16_le(self, v) };
         self.check_write(res, 2)
     }
 
@@ -194,13 +205,19 @@ impl Writer {
         self.write_u16_be(v.to_be())
     }
 
+    #[allow(unsafe_op_in_unsafe_fn)]
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_u16_unchecked(&mut self, v: u16) {
+        Writer_write_u16(self, v)
+    }
+
     pub fn write_u16_in(&mut self, place: usize, n: u16) -> Result<(), BufferError> {
         self.write_slice_in(place, &n.to_be_bytes())?;
         Ok(())
     }
 
     pub fn write_u24_be(&mut self, v: u24) -> Result<(), BufferError> {
-        let res = unsafe { Buffer_write_u24(self, &v) };
+        let res = unsafe { Writer_write_u24_le(self, v) };
         self.check_write(res, 3)
     }
 
@@ -209,8 +226,15 @@ impl Writer {
         self.write_u24_be(v.to_be())
     }
 
+    #[allow(unsafe_op_in_unsafe_fn)]
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_u24_unchecked(&mut self, v: u24) {
+        Writer_write_u24(self, v)
+    }
+
+
     pub fn write_u24_be_in(&mut self, place: usize, v: u24) -> Result<usize, BufferError> {
-        let res = unsafe { Buffer_write_u24_in(self, place, &v) };
+        let res = unsafe { Writer_write_u24_le_in(self, place, v) };
         self.check_write(res, 3)?;
         Ok(3)
     }
@@ -220,7 +244,7 @@ impl Writer {
     }
 
     pub fn write_u32_be(&mut self, v: u32) -> Result<(), BufferError> {
-        let res = unsafe { Buffer_write_u32(self, &v) };
+        let res = unsafe { Writer_write_u32_le(self, v) };
         self.check_write(res, 4)
     }
 
@@ -229,13 +253,14 @@ impl Writer {
         self.write_u32_be(v.to_be())
     }
 
-    #[inline]
-    pub fn write_ru32(&mut self, v: &u32) -> Result<(), BufferError> {
-        self.write_u32_be(v.to_be())
+    #[allow(unsafe_op_in_unsafe_fn)]
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_u32_unchecked(&mut self, v: u32) {
+        Writer_write_u32(self, v)
     }
-
+    
     pub fn write_u64_be(&mut self, v: u64) -> Result<(), BufferError> {
-        let res = unsafe { Buffer_write_u64(self, &v) };
+        let res = unsafe { Writer_write_u64_le(self, v) };
         self.check_write(res, 8)
     }
 
@@ -243,14 +268,27 @@ impl Writer {
         self.write_u64_be(v.to_be())
     }
 
+    #[allow(unsafe_op_in_unsafe_fn)]
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_u64_unchecked(&mut self, v: u64) {
+        Writer_write_u64(self, v)
+    }
+
     pub fn write_slice(&mut self, v: &[u8]) -> Result<(), BufferError> {
-        let res = unsafe { Buffer_write_slice(self, v.as_ptr(), v.len()) };
+        let res = unsafe { Writer_write_slice(self, v.as_ptr(), v.len()) };
         self.check_write(res, v.len())
     }
 
+    #[allow(unsafe_op_in_unsafe_fn)]
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_slice_unchecked(&mut self, v: &[u8]) {
+        Writer_write_slice_unchecked(self, v.as_ptr(), v.len())
+    }
+
+
     ///不更新长度，需要更新使用write_slice
     pub fn write_slice_in(&mut self, place: usize, v: &[u8]) -> Result<usize, BufferError> {
-        let res = unsafe { Buffer_write_slice_in(self, place, v.as_ptr(), v.len()) };
+        let res = unsafe { Writer_write_slice_in(self, place, v.as_ptr(), v.len()) };
         self.check_write(res, v.len())?;
         Ok(v.len())
     }
@@ -258,7 +296,7 @@ impl Writer {
 
     pub fn flush(&mut self, offset: usize, sni: String, h2: bool) -> RlsResult<()> {
         let csni = CString::new(sni)?;
-        let res = unsafe { Buffer_flush(self, self.offset().end - offset, csni.as_ptr(), h2) };
+        let res = unsafe { Writer_flush(self, self.offset().end - offset, csni.as_ptr(), h2) };
         if res != 1 { return Err(RlsError::Currently("buffer flush error".to_string())); }
         Ok(())
     }
