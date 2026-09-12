@@ -1,4 +1,4 @@
-use crate::buffer::{CipherDecodeBuffer, CipherEncodeBuffer};
+use crate::buffer::{TlsDecodeBuffer, CipherEncodeBuffer};
 use crate::error::RlsResult;
 use crate::message::{QUICFrame, QUICPacket};
 use crate::quic::QUICRange;
@@ -108,7 +108,7 @@ impl QUICConnection {
                 line: line!(),
             }.into());
         }
-        let buffer = CipherDecodeBuffer::from_quic(packet, buffer)?;
+        let buffer = TlsDecodeBuffer::from_quic(packet, buffer);
 
 
         let len = self.conn.recv_cipher.decrypt(Some(packet.num), buffer).unwrap();

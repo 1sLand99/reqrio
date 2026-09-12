@@ -11,7 +11,7 @@ pub mod base64;
 mod ml_kem;
 
 use crate::boring::bindings::EVP_AEAD_DEFAULT_TAG_LENGTH;
-use crate::buffer::{CipherDecodeBuffer, CipherEncodeBuffer};
+use crate::buffer::{TlsDecodeBuffer, CipherEncodeBuffer};
 use crate::error::RlsResult;
 use crate::{CipherSuite, RlsError};
 pub use ec_curve::*;
@@ -44,12 +44,12 @@ pub(crate) struct CryptEncodeParam<'a, 'b: 'a> {
     pub(crate) buffer: &'a mut CipherEncodeBuffer<'b>,
 }
 
-pub(crate) struct CryptDecodeParam<'a, 'b: 'a> {
+pub(crate) struct CryptDecodeParam<'a> {
     pub(crate) nonce: &'a [u8],
     pub(crate) iv: &'a [u8],
     pub(crate) aad: &'a [u8],
     pub(crate) seq: &'a u64,
-    pub(crate) buffer: &'a mut CipherDecodeBuffer<'b>,
+    pub(crate) buffer: &'a mut TlsDecodeBuffer,
 }
 
 pub enum Crypto {

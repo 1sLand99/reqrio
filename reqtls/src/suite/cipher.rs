@@ -1,5 +1,5 @@
 use crate::boring::{CryptDecodeParam, CryptEncodeParam, Crypto};
-use crate::buffer::{CipherDecodeBuffer, CipherEncodeBuffer};
+use crate::buffer::{TlsDecodeBuffer, CipherEncodeBuffer};
 use crate::error::RlsResult;
 use crate::suite::iv::Iv;
 use crate::CipherSuite;
@@ -47,7 +47,7 @@ impl TlsCipher {
         Ok(buffer.record_len())
     }
 
-    pub fn decrypt(&mut self, seq: Option<u64>, mut buffer: CipherDecodeBuffer) -> RlsResult<usize> {
+    pub fn decrypt(&mut self, seq: Option<u64>, mut buffer: TlsDecodeBuffer) -> RlsResult<usize> {
         let seq_num = if let Some(seq) = seq { seq } else { self.seq };
         let add = buffer.aad(seq_num)?;
         let nonce = buffer.nonce(&self.iv, seq_num);
@@ -72,7 +72,7 @@ impl TlsCipher {
 
 #[cfg(test)]
 mod tests {
-    use crate::buffer::{CipherDecodeBuffer, CipherEncodeBuffer};
+    use crate::buffer::{TlsDecodeBuffer, CipherEncodeBuffer};
     use crate::suite::cipher::TlsCipher;
     use crate::suite::iv::Iv;
     use crate::{CipherSuite, RecordType};
@@ -95,7 +95,7 @@ mod tests {
         assert_eq!(&buffer[..len], [22, 3, 3, 0, 64, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 29, 210, 41, 29, 168, 173, 203, 170, 224, 45, 110, 107, 227, 240, 203, 36, 82, 130, 40, 3, 21, 207, 115, 206, 174, 235, 168, 142, 12, 232, 232, 49, 11, 160, 179, 93, 198, 149, 196, 100, 177, 35, 11, 30, 139, 124, 143, 135]);
         cipher.seq = 0;
         let mut out = vec![0; 1024];
-        let record_buffer = CipherDecodeBuffer::from_buffer(&buffer[..len], &mut out, suite).unwrap();
+        let record_buffer = TlsDecodeBuffer::from_buffer(&buffer[..len], &mut out, suite).unwrap();
         let len = cipher.decrypt(None, record_buffer).unwrap();
         assert_eq!(&out[..len], payload);
     }
@@ -116,7 +116,7 @@ mod tests {
 
         cipher.seq = 0;
         let mut db = [0; 1024];
-        let decode_buffer = CipherDecodeBuffer::from_buffer(&buffer[..len], &mut db, suite).unwrap();
+        let decode_buffer = TlsDecodeBuffer::from_buffer(&buffer[..len], &mut db, suite).unwrap();
         let len = cipher.decrypt(None, decode_buffer).unwrap();
         assert_eq!(&db[..len - 1], payload);
         assert_eq!(db[len - 1], RecordType::HandShake as u8);

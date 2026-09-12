@@ -1,24 +1,23 @@
+use std::slice;
 use crate::error::RlsResult;
 use crate::{BufferError, CipherSuite, CipherType, Version};
 #[cfg(feature = "quic")]
 use crate::message::QUICPacket;
 use crate::suite::iv::Iv;
 
-pub struct PayloadDecodeBuffer<'a> {
-    origin: &'a [u8],
-    decoded: &'a mut [u8],
-}
-
-
-pub struct CipherDecodeBuffer<'a> {
+#[repr(C)]
+pub struct TlsDecodeBuffer {
     suite: &'static CipherSuite,
     quic: bool,
-    head: &'a [u8],
-    payload: PayloadDecodeBuffer<'a>,
+    head_len: usize,
+    head: *const u8,
+    origin_len: usize,
+    origin: *const u8,
+    decoded: *mut u8,
 }
 
-impl<'a> CipherDecodeBuffer<'a> {
-    pub fn from_buffer(origin: &'a [u8], decoded: &'a mut [u8], suite: &'static CipherSuite) -> RlsResult<Self> {
+impl TlsDecodeBuffer {
+    pub fn from_buffer(origin: &[u8], decoded: &mut [u8], suite: &'static CipherSuite) -> RlsResult<Self> {
         if decoded.len() < origin.len() - 5 - suite.trans_iv_len {
             return Err(BufferError::CapacityTooSmall {
                 current: decoded.len(),
@@ -28,26 +27,32 @@ impl<'a> CipherDecodeBuffer<'a> {
             }.into());
         }
         let (head, origin) = origin.split_at(5);
-        Ok(CipherDecodeBuffer {
+        Ok(TlsDecodeBuffer {
             suite,
             quic: false,
-            head,
-            payload: PayloadDecodeBuffer { origin, decoded },
+            head_len: 5,
+            head: head.as_ptr(),
+            origin_len: origin.len(),
+            origin: origin.as_ptr(),
+            decoded: decoded.as_mut_ptr(),
         })
     }
 
     #[cfg(feature = "quic")]
-    pub fn from_quic(packet: &'a QUICPacket, decoded: &'a mut [u8]) -> RlsResult<Self> {
-        Ok(CipherDecodeBuffer {
-            head: packet.hdr_raw(),
+    pub fn from_quic(packet: &QUICPacket, decoded: &mut [u8]) -> Self {
+        TlsDecodeBuffer {
             suite: &CipherSuite::TLS_AES_128_GCM_SHA256,
-            payload: PayloadDecodeBuffer { origin: packet.payload.as_ref(), decoded },
             quic: true,
-        })
+            head_len: packet.hdr_len(),
+            head: packet.hdr_raw().as_ptr(),
+            origin_len: packet.payload.len(),
+            origin: packet.payload.as_ref().as_ptr(),
+            decoded: decoded.as_mut_ptr(),
+        }
     }
 
     pub fn aad(&self, seq: u64) -> RlsResult<Vec<u8>> {
-        if self.quic { return Ok(self.head.to_vec()); }
+        if self.quic { return Ok(unsafe { slice::from_raw_parts(self.head, self.head_len) }.to_vec()); }
         match *self.suite.version {
             Version::TLS_1_3 => Ok(self.tls13_aad()),
             Version::TLS_1_2 | Version::TLCP => Ok(self.tls12_aad(seq)),
@@ -59,9 +64,8 @@ impl<'a> CipherDecodeBuffer<'a> {
     fn tls12_aad(&self, seq: u64) -> Vec<u8> {
         let mut res = vec![0; 13];
         res[0..8].copy_from_slice(seq.to_be_bytes().as_ref());
-        res[8] = self.head[0];
-        res[9..11].copy_from_slice(&self.head[1..3]);
-        let payload_len = self.payload.origin.len() as u16 - self.suite.trans_iv_len as u16 - 16;
+        res[8..11].copy_from_slice(unsafe { slice::from_raw_parts(self.head, 3) });
+        let payload_len = self.origin_len as u16 - self.suite.trans_iv_len as u16 - 16;
         res[11..13].copy_from_slice(&payload_len.to_be_bytes());
         res
     }
@@ -69,25 +73,28 @@ impl<'a> CipherDecodeBuffer<'a> {
     ///tls1.3 aad: head[0..3]||pd_len(tag)
     fn tls13_aad(&self) -> Vec<u8> {
         let mut res = vec![0; 5];
-        res[0..3].copy_from_slice(&self.head[0..3]);
-        let payload_len = self.payload.origin.len() as u16;
+        res[0..3].copy_from_slice(unsafe { slice::from_raw_parts(self.head, 3) });
+        let payload_len = self.origin_len as u16;
         res[3..5].copy_from_slice(&payload_len.to_be_bytes());
         res
     }
 
     pub fn encrypted_payload(&self) -> &[u8] {
-        &self.payload.origin[self.suite.trans_iv_len..]
+        let len = self.origin_len - self.suite.trans_iv_len;
+        unsafe { slice::from_raw_parts(self.origin.add(self.suite.trans_iv_len), len) }
     }
 
     pub fn explicit_iv(&self) -> &[u8] {
-        &self.payload.origin[..self.suite.trans_iv_len]
+        unsafe { slice::from_raw_parts(self.origin, self.suite.trans_iv_len) }
     }
 
     pub fn decrypted_buffer(&mut self) -> &mut [u8] {
-        self.payload.decoded
+        unsafe { slice::from_raw_parts_mut(self.decoded, self.origin_len - self.suite.trans_iv_len) }
     }
 
-    pub fn head(&self) -> &[u8] { self.head }
+    pub fn head(&self) -> &[u8] {
+        unsafe { slice::from_raw_parts(self.head, self.head_len) }
+    }
 
     pub fn nonce(&self, iv: &Iv, seq: u64) -> Vec<u8> {
         match self.suite.cipher() {

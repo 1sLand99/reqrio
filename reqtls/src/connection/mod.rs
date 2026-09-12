@@ -8,7 +8,7 @@ use super::suite::CipherSuite;
 use super::suite::TlsCipher;
 use super::version::Version;
 use crate::boring::{certificate, AlgorithmSigner};
-use crate::buffer::{Buf, CipherDecodeBuffer, CipherEncodeBuffer};
+use crate::buffer::{Buf, TlsDecodeBuffer, CipherEncodeBuffer};
 use crate::error::{HandShakeError, RlsResult};
 use crate::key::{DerivedKey, KeyType, SecretKey, TlsSession};
 use crate::message::{CompressedCertificate, EncryptedExtension, HandshakeType};
@@ -404,7 +404,7 @@ impl Connection {
     }
 
     pub fn read_message(&mut self, origin: &[u8], buffer: &mut [u8]) -> RlsResult<usize> {
-        let buffer = CipherDecodeBuffer::from_buffer(origin, buffer, self.cipher_suite)?;
+        let buffer = TlsDecodeBuffer::from_buffer(origin, buffer, self.cipher_suite)?;
         self.recv_cipher.decrypt(None, buffer)
     }
 

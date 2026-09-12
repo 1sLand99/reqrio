@@ -6,7 +6,7 @@ mod reader;
 use crate::error::RlsResult;
 use crate::ffi::CPointer;
 use crate::{ffi, RlsError};
-pub use decode::CipherDecodeBuffer;
+pub use decode::TlsDecodeBuffer;
 pub use encode::CipherEncodeBuffer;
 pub use error::BufferError;
 pub use reader::Reader;
@@ -258,7 +258,7 @@ impl Writer {
     pub unsafe fn write_u32_unchecked(&mut self, v: u32) {
         Writer_write_u32(self, v)
     }
-    
+
     pub fn write_u64_be(&mut self, v: u64) -> Result<(), BufferError> {
         let res = unsafe { Writer_write_u64_le(self, v) };
         self.check_write(res, 8)

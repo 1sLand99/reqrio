@@ -123,7 +123,7 @@ impl CipherCrypto {
 mod tests {
     use crate::boring::evp::CipherCrypto;
     use crate::boring::{CryptDecodeParam, CryptEncodeParam};
-    use crate::buffer::{CipherDecodeBuffer, CipherEncodeBuffer};
+    use crate::buffer::{TlsDecodeBuffer, CipherEncodeBuffer};
     use crate::{CipherSuite, RecordType};
 
     fn test_cipher_tls(suite: &'static CipherSuite, key: &[u8], en: &[u8]) {
@@ -148,7 +148,7 @@ mod tests {
 
 
         let mut decoded_buffer = vec![0; 1024];
-        let mut record_buffer = CipherDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, suite).unwrap();
+        let mut record_buffer = TlsDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, suite).unwrap();
         let len = crypto.decrypt(CryptDecodeParam {
             nonce: &[0; 12],
             iv: &iv,

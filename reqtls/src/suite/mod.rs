@@ -11,19 +11,20 @@ mod cipher;
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum KeyExchangeAlg {
-    NULL,
-    ECDHE_ECDSA,
-    ECDHE_RSA,
-    DHE_DSS,
-    DHE_RSA,
-    DH_ANON,
-    DH_DSS,
-    DH_RSA,
-    RSA,
-    ECC,
+    NULL = 0,
+    ECDHE_ECDSA = 1,
+    ECDHE_RSA = 2,
+    DHE_DSS = 3,
+    DHE_RSA = 4,
+    DH_ANON = 5,
+    DH_DSS = 6,
+    DH_RSA = 7,
+    RSA = 8,
+    ECC = 9,
 }
 
 #[derive(Copy, Clone)]
+#[repr(C)]
 pub struct CipherSuite {
     value: u16,
     cipher: CipherType,

@@ -179,7 +179,7 @@ impl AeadCtx {
 mod aead_tests {
     use crate::boring::bindings::EVP_AEAD_DEFAULT_TAG_LENGTH;
     use crate::boring::{AeadCtx, CryptDecodeParam, CryptEncodeParam};
-    use crate::buffer::{CipherDecodeBuffer, CipherEncodeBuffer};
+    use crate::buffer::{TlsDecodeBuffer, CipherEncodeBuffer};
     use crate::{CipherSuite, RecordType, Version, Writer};
     use std::{env, fs};
 
@@ -203,7 +203,7 @@ mod aead_tests {
         assert_eq!(len, size);
         assert_eq!(&buffer[..len], en);
         let mut decoded_buffer = vec![0; 1024];
-        let mut record_buffer = CipherDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, suite).unwrap();
+        let mut record_buffer = TlsDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, suite).unwrap();
         let aad = record_buffer.aad(0).unwrap();
         let mut len = ctx.open(CryptDecodeParam {
             nonce: &[0; 12],
