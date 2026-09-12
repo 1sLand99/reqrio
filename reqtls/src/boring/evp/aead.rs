@@ -9,9 +9,16 @@ use std::os::raw::{c_int, c_void};
 use std::ptr::null_mut;
 
 #[repr(C)]
+#[cfg_attr(debug_assertions, derive(Debug))]
+pub enum AeadDir {
+    Open = 0,
+    Seal = 1,
+}
+
+#[repr(C)]
 pub struct AeadCtx {
     tag_len: c_int,
-    enc: c_int,
+    enc: AeadDir,
     pub(crate) aead: Aead,
     pub(crate) seq: u64,
     ctx: *mut c_void,
@@ -58,7 +65,7 @@ unsafe extern "C" {
 }
 
 impl AeadCtx {
-    pub(crate) fn new(aead: Aead, enc: c_int) -> AeadCtx {
+    pub(crate) fn new(aead: Aead, enc: AeadDir) -> AeadCtx {
         AeadCtx {
             aead,
             enc,
@@ -77,7 +84,7 @@ impl AeadCtx {
     pub fn none() -> AeadCtx {
         AeadCtx {
             aead: Aead::AES_128_GCM,
-            enc: 0,
+            enc: AeadDir::Open,
             tag_len: EVP_AEAD_DEFAULT_TAG_LENGTH,
             seq: 0,
             ctx: null_mut(),
@@ -85,10 +92,8 @@ impl AeadCtx {
         }
     }
 
-    pub fn new_with_key(aead: Aead, key: &[u8], tag_len: c_int) -> RlsResult<AeadCtx> {
-        let mut ctx = AeadCtx::new(aead, 0);
-        ctx.tag_len = tag_len;
-        ctx.init(key)
+    pub fn new_with_key(aead: Aead, key: &[u8], dir: AeadDir) -> RlsResult<AeadCtx> {
+        AeadCtx::new(aead, dir).init(key)
     }
 
     pub(crate) fn seal2(&self, seq: Option<u64>, mut buffer: CipherEncodeBuffer, iv: &Iv) -> RlsResult<usize> {
@@ -201,14 +206,14 @@ impl AeadCtx {
 
 #[cfg(test)]
 mod aead_tests {
-    use crate::boring::bindings::EVP_AEAD_DEFAULT_TAG_LENGTH;
+    use crate::boring::evp::aead::AeadDir;
     use crate::boring::{AeadCtx, CryptDecodeParam, CryptEncodeParam};
     use crate::buffer::{CipherEncodeBuffer, TlsDecodeBuffer};
     use crate::{CipherSuite, RecordType, Version, Writer};
     use std::{env, fs};
 
     fn test_aead(suite: &'static CipherSuite, key: &[u8], size: usize, en: &[u8]) {
-        let ctx = AeadCtx::new_with_key(*suite.aead(), key, EVP_AEAD_DEFAULT_TAG_LENGTH).unwrap();
+        let ctx = AeadCtx::new_with_key(*suite.aead(), key, AeadDir::Open).unwrap();
         let payload = [1, 2, 3, 4, 5, 61, 2, 3, 4, 5, 6, 7, 8, 9, 23, 23];
         let iv = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4];
         let mut buffer = [0; 1024];
@@ -217,9 +222,7 @@ mod aead_tests {
         let aad = record_buffer.aad(0);
         ctx.seal(CryptEncodeParam {
             nonce: &[0; 12],
-            iv: &iv,
             aad: &aad,
-            seq: &0,
             buffer: &mut record_buffer,
         }).unwrap();
         let len = record_buffer.record_len();
@@ -230,9 +233,7 @@ mod aead_tests {
         let aad = record_buffer.aad(0).unwrap();
         let mut len = ctx.open(CryptDecodeParam {
             nonce: &[0; 12],
-            iv: &iv,
             aad: &aad,
-            seq: &0,
             buffer: &mut record_buffer,
         }).unwrap();
         if let &Version::TLS_1_3 = suite.version {

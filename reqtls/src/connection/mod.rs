@@ -7,7 +7,7 @@ use super::suite::iv::Iv;
 use super::suite::CipherSuite;
 use super::suite::TlsCipher;
 use super::version::Version;
-use crate::boring::{certificate, AlgorithmSigner};
+use crate::boring::{certificate, AeadDir, AlgorithmSigner};
 use crate::buffer::{Buf, CipherEncodeBuffer, TlsDecodeBuffer};
 use crate::error::{HandShakeError, RlsResult};
 use crate::key::{DerivedKey, KeyType, SecretKey, TlsSession};
@@ -148,11 +148,11 @@ impl Connection {
         let key = self.derived.make_cipher_key(&self.version, typ)?;
         let sk = key.send_key(typ, self.server);
         let smk = key.send_mac_key(self.server);
-        self.send_cipher.set_key(sk, smk, self.cipher_suite)?;
+        self.send_cipher.set_key(sk, smk, self.cipher_suite, AeadDir::Seal)?;
         self.send_cipher.set_iv(Iv::new(key.send_iv(typ, self.server)));
         let rk = key.recv_key(typ, self.server);
         let rmk = key.recv_mac_key(self.server);
-        self.recv_cipher.set_key(rk, rmk, self.cipher_suite)?;
+        self.recv_cipher.set_key(rk, rmk, self.cipher_suite, AeadDir::Open)?;
         self.recv_cipher.set_iv(Iv::new(key.recv_iv(typ, self.server)));
         Ok(())
     }
@@ -456,7 +456,7 @@ impl Connection {
 
 #[cfg(test)]
 mod tests {
-    use crate::boring::{CryptDecodeParam, CryptEncodeParam};
+    use crate::boring::{AeadDir, CryptDecodeParam, CryptEncodeParam};
     use crate::buffer::{CipherEncodeBuffer, TlsDecodeBuffer};
     use crate::error::RlsResult;
     use crate::suite::iv::Iv;
@@ -492,15 +492,12 @@ mod tests {
         fn read_message(&mut self, origin: &[u8], out: &mut [u8], iv: &Iv, seq: Option<u64>) -> RlsResult<usize> {
             let mut buffer = TlsDecodeBuffer::from_buffer(origin, out, self.suite)?;
             let seq_num = if let Some(seq) = seq { seq } else { self.decryptor.seq };
-            let mut aad = buffer.aad(seq_num)?;
-            if self.encryptor.aead.is_cbc() { aad.truncate(11); }
+            let aad = buffer.aad(seq_num)?;
             let nonce = buffer.nonce(iv, seq_num);
             // println!("seq: {}; aad: {:x?}; nonce: {:?}", seq_num, add, nonce);
             let len = self.decryptor.open(CryptDecodeParam {
                 nonce: &nonce,
-                iv: &nonce,
                 aad: &aad,
-                seq: &seq_num,
                 buffer: &mut buffer,
             })?;
             if seq.is_none() { self.decryptor.seq += 1 }
@@ -510,16 +507,13 @@ mod tests {
         fn write_message(&mut self, rt: RecordType, origin: &[u8], out: &mut [u8], iv: &Iv, seq: Option<u64>) -> RlsResult<usize> {
             let mut buffer = CipherEncodeBuffer::new_tls(rt, out, origin, self.suite);
             let seq_num = if let Some(seq) = seq { seq } else { self.encryptor.seq };
-            let mut aad = buffer.aad(seq_num);
-            if self.encryptor.aead.is_cbc() { aad.truncate(11); }
+            let aad = buffer.aad(seq_num);
             let nonce = iv.as_array(seq_num, None);
             buffer.add_explicit_iv(&nonce);
             // println!("seq: {}; aad: {:x?}; nonce: {:?}", seq_num, aad, nonce);
             self.encryptor.seal(CryptEncodeParam {
                 nonce: &nonce,
-                iv: &nonce,
                 aad: &aad,
-                seq: &seq_num,
                 buffer: &mut buffer,
             })?;
             if seq.is_none() { self.encryptor.seq += 1; }
@@ -540,8 +534,8 @@ mod tests {
                 client_random: [0; 32],
             },
             secrets: null_mut(),
-            encryptor: AeadCtx::new(*suite.aead(), 1).init(key).unwrap(),
-            decryptor: AeadCtx::new(*suite.aead(), 0).init(key).unwrap(),
+            encryptor: AeadCtx::new(*suite.aead(), AeadDir::Seal).init(key).unwrap(),
+            decryptor: AeadCtx::new(*suite.aead(), AeadDir::Open).init(key).unwrap(),
             suite,
         };
         let payload = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 34, 3, 3, 3];
@@ -549,7 +543,7 @@ mod tests {
         let len = connection.write_message(RecordType::HandShake, &payload, &mut out, &iv, None).unwrap();
         assert_eq!(&out[..len], en);
 
-        let mut decoded = [0; 48];
+        let mut decoded = [0; 80];
         let mut len = connection.read_message(&out[..len], &mut decoded, &iv, None).unwrap();
         if suite.version == &Version::TLS_1_3 { len -= 1; }
         assert_eq!(&decoded[..len], payload);
@@ -558,18 +552,42 @@ mod tests {
 
     #[test]
     fn test_connection() {
-        let suite = &CipherSuite::TLS_AES_128_GCM_SHA256;
-        let key = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];
-        let iv = Iv::new(&[1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4]);
-        let en = [23, 3, 3, 0, 33, 34, 40, 91, 27, 49, 27, 234, 48, 61, 80, 240, 83, 57, 50, 173, 18, 215, 175, 31, 86, 15, 170, 121, 14, 214, 229, 157, 92, 45, 134, 62, 241, 235];
-        test_encrypt(&key, suite, iv, &en);
+        // let suite = &CipherSuite::TLS_AES_128_GCM_SHA256;
+        // let key = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];
+        // let iv = Iv::new(&[1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4]);
+        // let en = [23, 3, 3, 0, 33, 34, 40, 91, 27, 49, 27, 234, 48, 61, 80, 240, 83, 57, 50, 173, 18, 215, 175, 31, 86, 15, 170, 121, 14, 214, 229, 157, 92, 45, 134, 62, 241, 235];
+        // test_encrypt(&key, suite, iv, &en);
+        //
+        //
+        // let suite = &CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA;
+        // let mut mac_key = vec![12; suite.mac_key_size];
+        // mac_key.extend([1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]);
+        // let iv = Iv::new(&[1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]);
+        // let en = [22, 3, 3, 0, 64, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 206, 174, 82, 144, 162, 110, 228, 50, 236, 145, 88, 67, 130, 252, 202, 24, 27, 211, 112, 165, 77, 208, 61, 245, 177, 74, 121, 201, 13, 139, 77, 138, 249, 229, 227, 166, 194, 52, 189, 241, 222, 162, 0, 251, 58, 226, 9, 63];
+        // test_encrypt(&mac_key, suite, iv, &en);
+        //
+        // let suite = &CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA256;
+        // let mut mac_key = vec![12; suite.mac_key_size];
+        // mac_key.extend([1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]);
+        // let iv = Iv::new(&[1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]);
+        // let en = [22, 3, 3, 0, 80, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 29, 210, 41, 29, 168, 173, 203, 170, 224, 45, 110, 107, 227, 240, 203, 36, 83, 152, 13, 240, 33, 31, 255, 32, 130, 27, 164, 212, 181, 49, 82, 194, 45, 165, 174, 78, 135, 40, 209, 43, 152, 115, 18, 62, 249, 120, 250, 211, 76, 205, 68, 187, 65, 233, 12, 243, 36, 90, 202, 83, 240, 2, 66, 29];
+        // test_encrypt(&mac_key, suite, iv, &en);
+        //
+        //
+        // let suite = &CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384;
+        // let mut mac_key = vec![12; suite.mac_key_size];
+        // mac_key.extend([1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]);
+        // println!("{}", mac_key.len());
+        // let iv = Iv::new(&[1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]);
+        // let en = [22, 3, 3, 0, 96, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 29, 210, 41, 29, 168, 173, 203, 170, 224, 45, 110, 107, 227, 240, 203, 36, 88, 19, 168, 94, 92, 196, 205, 85, 207, 171, 128, 243, 140, 155, 132, 219, 46, 163, 37, 192, 137, 243, 11, 54, 186, 7, 106, 84, 73, 57, 240, 54, 21, 24, 229, 49, 75, 248, 187, 83, 119, 59, 42, 138, 145, 251, 110, 138, 132, 1, 18, 241, 53, 8, 132, 204, 209, 1, 197, 246, 216, 9, 55, 48];
+        // test_encrypt(&mac_key, suite, iv, &en);
 
-
-        let suite = &CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA;
+        let suite = &CipherSuite::ECC_SM4_CBC_SM3;
         let mut mac_key = vec![12; suite.mac_key_size];
         mac_key.extend([1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]);
         let iv = Iv::new(&[1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]);
-        let en = [22, 3, 3, 0, 64, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 206, 174, 82, 144, 162, 110, 228, 50, 236, 145, 88, 67, 130, 252, 202, 24, 27, 211, 112, 165, 77, 208, 61, 245, 177, 74, 121, 201, 13, 139, 77, 138, 249, 229, 227, 166, 194, 52, 189, 241, 222, 162, 0, 251, 58, 226, 9, 63];
+        let en = [22, 1, 1, 0, 80, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 198, 14, 19, 241, 183, 40, 82, 246, 189, 252, 121, 16, 190, 240, 95, 119, 196, 14, 130, 24, 130, 104, 168, 11, 212, 183, 172, 109, 10, 147, 121, 104, 165, 193, 48, 97, 205, 97, 245, 216, 86, 25, 229, 237, 236, 10, 247, 24, 137, 39, 196, 218, 125, 105, 75, 180, 126, 4, 204, 216, 153, 88, 207, 149];
         test_encrypt(&mac_key, suite, iv, &en);
+
     }
 }

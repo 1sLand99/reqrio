@@ -35,11 +35,6 @@ pub(crate) struct EVP_ENCODE_CTX {
 
 
 unsafe extern "C" {
-    pub(crate) fn CRYPTO_memcmp(
-        a: *const c_void,
-        b: *const c_void,
-        len: usize,
-    ) -> c_int;
 
     pub(crate) fn HMAC(
         evp_md: *const EVP_MD,

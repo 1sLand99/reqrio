@@ -119,6 +119,11 @@ async fn test_ecdhe_rsa() {
     let mut req = AcReq::new().with_timeout(Timeout::longer()).with_fingerprint(fingerprint);
     req.get("https://m.so.com", None).await.unwrap();
     let fingerprint = build_finger(
+        vec![CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA256],
+        vec![NamedCurve::X25519.into()], );
+    let mut req = ScReq::new().with_timeout(Timeout::longer()).with_fingerprint(fingerprint);
+    req.get("https://m.so.com", None).unwrap();
+    let fingerprint = build_finger(
         vec![CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384],
         vec![NamedCurve::X25519.into()]);
     let mut req = AcReq::new().with_timeout(Timeout::longer()).with_fingerprint(fingerprint);

@@ -7,6 +7,7 @@ use crate::{Buf, Writer, BufferError, Cipher, CipherSuite, CipherType, Connectio
 #[cfg(feature = "log")]
 use log::trace;
 use std::path::PathBuf;
+use crate::boring::AeadDir;
 use crate::key::KeyType;
 
 pub struct QUICConnection {
@@ -77,7 +78,7 @@ impl QUICConnection {
         let rhk = self.conn.derived.key_block().recv_hp_key(typ, self.conn.server);
         self.recv_sample.set_secret_key(rhk, None);
         let rk = self.conn.derived.key_block().recv_key(typ, self.conn.server);
-        self.conn.recv_cipher.set_key(rk, &[], suite)?;
+        self.conn.recv_cipher.set_key(rk, &[], suite, AeadDir::Open)?;
         let ri = self.conn.derived.key_block().recv_iv(typ, self.conn.server);
         self.conn.recv_cipher.set_iv(Iv::new(ri));
         self.current = typ;

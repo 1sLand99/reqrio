@@ -1,4 +1,4 @@
-use crate::boring::{CryptDecodeParam, CryptEncodeParam, Crypto};
+use crate::boring::{AeadDir, CryptDecodeParam, CryptEncodeParam, Crypto};
 use crate::buffer::{TlsDecodeBuffer, CipherEncodeBuffer};
 use crate::error::RlsResult;
 use crate::suite::iv::Iv;
@@ -20,8 +20,8 @@ impl TlsCipher {
         }
     }
 
-    pub fn set_key(&mut self, key: &[u8], mac_key: &[u8], suite: &'static CipherSuite) -> RlsResult<()> {
-        self.crypto = Crypto::from_aead(key, mac_key, suite)?;
+    pub fn set_key(&mut self, key: &[u8], mac_key: &[u8], suite: &'static CipherSuite, dir: AeadDir) -> RlsResult<()> {
+        self.crypto = Crypto::from_aead(key, mac_key, suite, dir)?;
         self.seq = 0;
         Ok(())
     }
@@ -38,9 +38,7 @@ impl TlsCipher {
         buffer.add_explicit_iv(&nonce);
         self.crypto.encrypt(CryptEncodeParam {
             nonce: &nonce,
-            iv: &nonce,
             aad: &add_arr,
-            seq: &seq_num,
             buffer: &mut buffer,
         })?;
         if seq.is_none() { self.seq += 1; }
@@ -54,9 +52,7 @@ impl TlsCipher {
         // println!("seq: {}; aad: {:x?}; nonce: {:?}", seq_num, add, nonce);
         let len = self.crypto.decrypt(CryptDecodeParam {
             nonce: &nonce,
-            iv: &nonce,
             aad: &add,
-            seq: &seq_num,
             buffer: &mut buffer,
         })?;
         if seq.is_none() { self.seq += 1; }
@@ -76,6 +72,7 @@ mod tests {
     use crate::suite::cipher::TlsCipher;
     use crate::suite::iv::Iv;
     use crate::{CipherSuite, RecordType};
+    use crate::boring::AeadDir;
 
     #[test]
     fn test_cipher() {
@@ -84,7 +81,7 @@ mod tests {
         let ivv = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];
         let mac_key = [0; 20];
         let suite = &CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA;
-        cipher.set_key(&key_bs, &mac_key, suite).unwrap();
+        cipher.set_key(&key_bs, &mac_key, suite, AeadDir::Seal).unwrap();
         let iv = Iv::new(&ivv);
         cipher.set_iv(iv);
         let mut buffer = [0u8; 1024];
@@ -95,6 +92,7 @@ mod tests {
         assert_eq!(&buffer[..len], [22, 3, 3, 0, 64, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 29, 210, 41, 29, 168, 173, 203, 170, 224, 45, 110, 107, 227, 240, 203, 36, 82, 130, 40, 3, 21, 207, 115, 206, 174, 235, 168, 142, 12, 232, 232, 49, 11, 160, 179, 93, 198, 149, 196, 100, 177, 35, 11, 30, 139, 124, 143, 135]);
         cipher.seq = 0;
         let mut out = vec![0; 1024];
+        cipher.set_key(&key_bs, &mac_key, suite, AeadDir::Open).unwrap();
         let record_buffer = TlsDecodeBuffer::from_buffer(&buffer[..len], &mut out, suite).unwrap();
         let len = cipher.decrypt(None, record_buffer).unwrap();
         assert_eq!(&out[..len], payload);
@@ -106,7 +104,7 @@ mod tests {
         let key = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];
         let iv = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4];
         let suite = &CipherSuite::TLS_AES_128_GCM_SHA256;
-        cipher.set_key(&key, &[], suite).unwrap();
+        cipher.set_key(&key, &[], suite, AeadDir::Open).unwrap();
         cipher.set_iv(Iv::new(&iv));
         let mut buffer = [0u8; 1024];
         let payload = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 34, 3, 3, 3];

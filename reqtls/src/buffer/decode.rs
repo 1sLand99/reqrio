@@ -89,11 +89,6 @@ impl<'a> TlsDecodeBuffer<'a> {
         // unsafe { slice::from_raw_parts_mut(self.decoded, self.origin_len - self.suite.trans_iv_len) }
     }
 
-    pub fn head(&self) -> &[u8] {
-        self.head
-        // unsafe { slice::from_raw_parts(self.head, self.head_len) }
-    }
-
     pub fn nonce(&self, iv: &Iv, seq: u64) -> Vec<u8> {
         match *self.suite.aead() {
             Aead::AES_128_GCM | Aead::AES_256_GCM => match *self.suite.version {
@@ -106,7 +101,7 @@ impl<'a> TlsDecodeBuffer<'a> {
             Aead::AES_256_CBC_SHA |
             Aead::AES_256_CBC_SHA256 |
             Aead::AES_256_CBC_SHA384 |
-            Aead::SM4_CBC => iv.decrypting_iv(Some(self.explicit_iv())).into_owned(),
+            Aead::SM4_CBC_SM3 => iv.decrypting_iv(Some(self.explicit_iv())).into_owned(),
             _ => panic!("gen iv failed"),
         }
     }

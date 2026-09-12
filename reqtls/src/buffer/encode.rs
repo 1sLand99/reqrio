@@ -118,8 +118,6 @@ impl<'a> CipherEncodeBuffer<'a> {
         self.head[3..5].copy_from_slice(&(len as u16).to_be_bytes());
     }
 
-    pub fn head(&self) -> &[u8] { self.head }
-
     pub fn aad(&self, seq: u64) -> Vec<u8> {
         if self.quic { return self.head.to_vec(); }
         match *self.suite.version {
@@ -164,7 +162,7 @@ mod tests {
         let suite = &CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256;
         let mut encode = CipherEncodeBuffer::new_tls(record_type, &mut buffer, &payload, suite);
         encode.add_explicit_iv(&[14; 12]);
-        assert_eq!(encode.head(), [record_type.as_u8(), 3, 3, 0, 0]);
+        assert_eq!(encode.head, [record_type.as_u8(), 3, 3, 0, 0]);
         assert_eq!(encode.payload.origin_payload(), payload);
         let mut pd = Vec::with_capacity(suite.trans_iv_len + payload.len() + 16);
         pd.extend_from_slice(&payload);
@@ -174,7 +172,7 @@ mod tests {
         let suite = &CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256;
         let mut buffer = [0; 1024];
         let mut encode = CipherEncodeBuffer::new_tls(record_type, &mut buffer, &payload, suite);
-        assert_eq!(encode.head(), [record_type.as_u8(), 3, 3, 0, 0]);
+        assert_eq!(encode.head, [record_type.as_u8(), 3, 3, 0, 0]);
         assert_eq!(encode.payload.origin_payload(), payload);
         assert_eq!(encode.payload.encoded_payload(), pd);
 
@@ -182,7 +180,7 @@ mod tests {
         let mut buffer = [0; 1024];
         let mut encode = CipherEncodeBuffer::new_tls(record_type, &mut buffer, &payload, suite);
         encode.add_explicit_iv(&[77; 16]);
-        assert_eq!(encode.head(), [record_type.as_u8(), 3, 3, 0, 0]);
+        assert_eq!(encode.head, [record_type.as_u8(), 3, 3, 0, 0]);
         assert_eq!(encode.payload.origin_payload(), payload);
         assert_eq!(&encode.payload.encoded_payload()[..pd.len()], pd);
     }
@@ -196,7 +194,7 @@ mod tests {
         let suite = &CipherSuite::TLS_AES_128_GCM_SHA256;
         let mut encode = CipherEncodeBuffer::new_tls(record_type, &mut buffer, &payload, suite);
         encode.add_explicit_iv(&[14; 12]);
-        assert_eq!(encode.head(), [23, 3, 3, 0, 0]);
+        assert_eq!(encode.head, [23, 3, 3, 0, 0]);
         let mut pd = Vec::with_capacity(suite.trans_iv_len + payload.len() + 16);
         pd.extend_from_slice(&payload);
         pd.push(record_type.as_u8());
@@ -208,7 +206,7 @@ mod tests {
         let suite = &CipherSuite::TLS_CHACHA20_POLY1305_SHA256;
         let mut buffer = [0; 1024];
         let mut encode = CipherEncodeBuffer::new_tls(record_type, &mut buffer, &payload, suite);
-        assert_eq!(encode.head(), [23, 3, 3, 0, 0]);
+        assert_eq!(encode.head, [23, 3, 3, 0, 0]);
         pd = pd[..pd.len() - 16].to_vec();
         assert_eq!(encode.payload.origin_payload(), pd);
         pd.extend([0; 16]);

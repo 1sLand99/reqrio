@@ -13,7 +13,7 @@ pub enum Aead {
     AES_256_CBC_SHA256 = 0xFC,
     AES_256_CBC_SHA384 = 0xFB,
     SM4_GCM = 0xFA,
-    SM4_CBC = 0xF9,
+    SM4_CBC_SM3 = 0xF9,
 }
 
 impl Aead {
@@ -41,7 +41,7 @@ impl Aead {
             Aead::AES_256_CBC_SHA |
             Aead::AES_256_CBC_SHA256 |
             Aead::AES_256_CBC_SHA384 |
-            Aead::SM4_CBC => true,
+            Aead::SM4_CBC_SM3 => true,
         }
     }
 }

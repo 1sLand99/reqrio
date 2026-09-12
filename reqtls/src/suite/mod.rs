@@ -417,8 +417,8 @@ impl CipherSuite {
         value: 0x003d,
         aead: Aead::AES_256_CBC_SHA256,
         exchange: KeyExchangeAlg::RSA,
-        mac: HashType::Sha384,
-        hash: HashType::Sha384,
+        mac: HashType::Sha256,
+        hash: HashType::Sha256,
         key_size: 32,
         fix_iv_size: 16,
         explict_iv_size: 0,
@@ -524,7 +524,7 @@ impl CipherSuite {
 
     pub const ECC_SM4_CBC_SM3: CipherSuite = CipherSuite {
         value: 0xe013,
-        aead: Aead::SM4_CBC,
+        aead: Aead::SM4_CBC_SM3,
         exchange: KeyExchangeAlg::ECC,
         mac: HashType::Sm3,
         hash: HashType::Sm3,
@@ -692,7 +692,7 @@ impl CipherSuite {
             Aead::AES_256_CBC_SHA |
             Aead::AES_256_CBC_SHA256 |
             Aead::AES_256_CBC_SHA384 |
-            Aead::SM4_CBC => self.mac.hash_size() + pad_len,
+            Aead::SM4_CBC_SM3 => self.mac.hash_size() + pad_len,
             _ => unreachable!()
         }
     }
