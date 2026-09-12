@@ -67,7 +67,7 @@ impl Crypto {
             CipherType::CHACHA20_POLY1305 |
             CipherType::SM4_GCM => {
                 let aead = suite.aead().ok_or(RlsError::AeadNone)?;
-                Ok(Crypto::Aead(AeadCtx::new(aead, key, EVP_AEAD_DEFAULT_TAG_LENGTH)?))
+                Ok(Crypto::Aead(AeadCtx::new_with_key(aead, key, EVP_AEAD_DEFAULT_TAG_LENGTH)?))
             }
             CipherType::AES_128_CBC |
             CipherType::AES_256_CBC |

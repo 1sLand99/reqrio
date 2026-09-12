@@ -173,6 +173,8 @@ impl HTTPStream {
                 let _ = self.stream_mut().and_then(|stream| stream.shutdown().wait());
                 let addr = param.proxy.socket_addr(param.url.addr(), false)?;
                 let stream = std::net::TcpStream::connect_timeout(&addr, param.timeout.connect())?;
+                stream.set_read_timeout(Some(param.timeout.read()))?;
+                stream.set_write_timeout(Some(param.timeout.write()))?;
                 let (alpn, stream) = Stream::connect(param, stream).wait()?;
                 *self = stream;
                 Ok(alpn)
