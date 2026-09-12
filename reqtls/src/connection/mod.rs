@@ -8,7 +8,7 @@ use super::suite::CipherSuite;
 use super::suite::TlsCipher;
 use super::version::Version;
 use crate::boring::{certificate, AlgorithmSigner};
-use crate::buffer::{Buf, TlsDecodeBuffer, CipherEncodeBuffer};
+use crate::buffer::{Buf, CipherEncodeBuffer, TlsDecodeBuffer};
 use crate::error::{HandShakeError, RlsResult};
 use crate::key::{DerivedKey, KeyType, SecretKey, TlsSession};
 use crate::message::{CompressedCertificate, EncryptedExtension, HandshakeType};
@@ -144,7 +144,7 @@ impl Connection {
     pub(crate) fn derived_key_cipher(&mut self, typ: KeyType) -> RlsResult<()> {
         #[cfg(feature = "log")]
         trace!("[DerivedCipher] type={:?}; cipher={:?}; mac={:?}; veriosn={:?}",
-            typ,self.cipher_suite.cipher(),self.cipher_suite.mac_hash(),self.version);
+            typ,self.cipher_suite.aead(),self.cipher_suite.mac_hash(),self.version);
         let key = self.derived.make_cipher_key(&self.version, typ)?;
         let sk = key.send_key(typ, self.server);
         let smk = key.send_mac_key(self.server);
@@ -451,4 +451,125 @@ impl Connection {
     pub fn version(&self) -> &Version { &self.version }
 
     pub fn sig_alg(&self) -> &SignatureAlgorithm { &self.sig_alg }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::boring::{CryptDecodeParam, CryptEncodeParam};
+    use crate::buffer::{CipherEncodeBuffer, TlsDecodeBuffer};
+    use crate::error::RlsResult;
+    use crate::suite::iv::Iv;
+    use crate::{AeadCtx, CipherSuite, RecordType, Version};
+    use std::os::raw::c_void;
+    use std::ptr::{null, null_mut};
+
+    #[repr(C)]
+    struct TlsSession {
+        ticket_len: usize,
+        ticket: *const u8,
+        session_id_len: u8,
+        session_id: *const u8,
+        master_secret: [u8; 48],
+    }
+
+    #[repr(C)]
+    struct DerivedKey {
+        session: TlsSession,
+        client_random: [u8; 32],
+    }
+
+    #[repr(C)]
+    struct Connection {
+        derived: DerivedKey,
+        secrets: *mut c_void,
+        encryptor: AeadCtx,
+        decryptor: AeadCtx,
+        suite: &'static CipherSuite,
+    }
+
+    impl Connection {
+        fn read_message(&mut self, origin: &[u8], out: &mut [u8], iv: &Iv, seq: Option<u64>) -> RlsResult<usize> {
+            let mut buffer = TlsDecodeBuffer::from_buffer(origin, out, self.suite)?;
+            let seq_num = if let Some(seq) = seq { seq } else { self.decryptor.seq };
+            let mut aad = buffer.aad(seq_num)?;
+            if self.encryptor.aead.is_cbc() { aad.truncate(11); }
+            let nonce = buffer.nonce(iv, seq_num);
+            // println!("seq: {}; aad: {:x?}; nonce: {:?}", seq_num, add, nonce);
+            let len = self.decryptor.open(CryptDecodeParam {
+                nonce: &nonce,
+                iv: &nonce,
+                aad: &aad,
+                seq: &seq_num,
+                buffer: &mut buffer,
+            })?;
+            if seq.is_none() { self.decryptor.seq += 1 }
+            Ok(len)
+        }
+
+        fn write_message(&mut self, rt: RecordType, origin: &[u8], out: &mut [u8], iv: &Iv, seq: Option<u64>) -> RlsResult<usize> {
+            let mut buffer = CipherEncodeBuffer::new_tls(rt, out, origin, self.suite);
+            let seq_num = if let Some(seq) = seq { seq } else { self.encryptor.seq };
+            let mut aad = buffer.aad(seq_num);
+            if self.encryptor.aead.is_cbc() { aad.truncate(11); }
+            let nonce = iv.as_array(seq_num, None);
+            buffer.add_explicit_iv(&nonce);
+            // println!("seq: {}; aad: {:x?}; nonce: {:?}", seq_num, aad, nonce);
+            self.encryptor.seal(CryptEncodeParam {
+                nonce: &nonce,
+                iv: &nonce,
+                aad: &aad,
+                seq: &seq_num,
+                buffer: &mut buffer,
+            })?;
+            if seq.is_none() { self.encryptor.seq += 1; }
+            Ok(buffer.record_len())
+        }
+    }
+
+    fn test_encrypt(key: &[u8], suite: &'static CipherSuite, iv: Iv, en: &[u8]) {
+        let mut connection = Connection {
+            derived: DerivedKey {
+                session: TlsSession {
+                    ticket_len: 0,
+                    ticket: null(),
+                    session_id_len: 0,
+                    session_id: null(),
+                    master_secret: [0; 48],
+                },
+                client_random: [0; 32],
+            },
+            secrets: null_mut(),
+            encryptor: AeadCtx::new(*suite.aead(), 1).init(key).unwrap(),
+            decryptor: AeadCtx::new(*suite.aead(), 0).init(key).unwrap(),
+            suite,
+        };
+        let payload = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 34, 3, 3, 3];
+        let mut out = [0; 1024];
+        let len = connection.write_message(RecordType::HandShake, &payload, &mut out, &iv, None).unwrap();
+        assert_eq!(&out[..len], en);
+
+        let mut decoded = [0; 48];
+        let mut len = connection.read_message(&out[..len], &mut decoded, &iv, None).unwrap();
+        if suite.version == &Version::TLS_1_3 { len -= 1; }
+        assert_eq!(&decoded[..len], payload);
+    }
+
+
+    #[test]
+    fn test_connection() {
+        let suite = &CipherSuite::TLS_AES_128_GCM_SHA256;
+        let key = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];
+        let iv = Iv::new(&[1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4]);
+        let en = [23, 3, 3, 0, 33, 34, 40, 91, 27, 49, 27, 234, 48, 61, 80, 240, 83, 57, 50, 173, 18, 215, 175, 31, 86, 15, 170, 121, 14, 214, 229, 157, 92, 45, 134, 62, 241, 235];
+        test_encrypt(&key, suite, iv, &en);
+
+
+        let suite = &CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA;
+        let mut mac_key = vec![12; suite.mac_key_size];
+        mac_key.extend([1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]);
+        let iv = Iv::new(&[1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]);
+        let en = [22, 3, 3, 0, 64, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 206, 174, 82, 144, 162, 110, 228, 50, 236, 145, 88, 67, 130, 252, 202, 24, 27, 211, 112, 165, 77, 208, 61, 245, 177, 74, 121, 201, 13, 139, 77, 138, 249, 229, 227, 166, 194, 52, 189, 241, 222, 162, 0, 251, 58, 226, 9, 63];
+        test_encrypt(&mac_key, suite, iv, &en);
+    }
 }

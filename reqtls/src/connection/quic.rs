@@ -3,7 +3,7 @@ use crate::error::RlsResult;
 use crate::message::{QUICFrame, QUICPacket};
 use crate::quic::QUICRange;
 use crate::suite::iv::Iv;
-use crate::{Buf, Writer, BufferError, Cipher, CipherSuite, CipherType, Connection, PacketType, Reader, TlsSession, Version};
+use crate::{Buf, Writer, BufferError, Cipher, CipherSuite, CipherType, Connection, PacketType, Reader, TlsSession, Version, Aead};
 #[cfg(feature = "log")]
 use log::trace;
 use std::path::PathBuf;
@@ -49,7 +49,7 @@ impl QUICConnection {
     ///update sample cipher
     pub fn make_sample_cipher(&mut self, typ: KeyType) -> RlsResult<()> {
         println!("{:?}-{:?}-{}", self.conn.cipher_suite, self.current, self.conn.server);
-        let cipher = self.get_cipher(self.conn.cipher_suite.cipher());
+        let cipher = self.get_cipher(self.conn.cipher_suite.aead());
         self.send_sample = Cipher::new(cipher);
         self.recv_sample = Cipher::new(cipher);
         let shk = self.conn.derived.key_block().send_hp_key(typ, self.conn.server);
@@ -60,11 +60,11 @@ impl QUICConnection {
         Ok(())
     }
 
-    fn get_cipher(&self, cipher: CipherType) -> CipherType {
-        match cipher {
-            CipherType::AES_128_GCM => CipherType::AES_128_ECB,
-            CipherType::AES_256_GCM => CipherType::AES_256_ECB,
-            CipherType::CHACHA20_POLY1305 => CipherType::CHACHA20_POLY1305,
+    fn get_cipher(&self, aead: &Aead) -> CipherType {
+        match *aead {
+            Aead::AES_128_GCM => CipherType::AES_128_ECB,
+            Aead::AES_256_GCM => CipherType::AES_256_ECB,
+            Aead::ChaCha20_POLY1305 => CipherType::CHACHA20_POLY1305,
             _ => unreachable!()
         }
     }
@@ -73,7 +73,7 @@ impl QUICConnection {
         if self.current == typ { return Ok(()); }
         let suite = suite.unwrap_or(self.conn.cipher_suite);
         println!("{:?}>>{:?}; suite={:?}", self.current, typ, suite);
-        self.recv_sample = Cipher::new(self.get_cipher(suite.cipher()));
+        self.recv_sample = Cipher::new(self.get_cipher(suite.aead()));
         let rhk = self.conn.derived.key_block().recv_hp_key(typ, self.conn.server);
         self.recv_sample.set_secret_key(rhk, None);
         let rk = self.conn.derived.key_block().recv_key(typ, self.conn.server);

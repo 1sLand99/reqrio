@@ -1,6 +1,7 @@
+use std::cmp::max;
 use crate::extend::Aead;
 use crate::hash::HashType;
-use crate::{CipherType, Version};
+use crate::Version;
 pub use cipher::TlsCipher;
 use std::fmt::{Debug, Formatter};
 
@@ -27,7 +28,7 @@ pub enum KeyExchangeAlg {
 #[repr(C)]
 pub struct CipherSuite {
     value: u16,
-    cipher: CipherType,
+    aead: Aead,
     exchange: KeyExchangeAlg,
     mac: HashType,
     hash: HashType,
@@ -36,6 +37,8 @@ pub struct CipherSuite {
     pub(crate) explict_iv_size: usize,
     pub(crate) trans_iv_len: usize,
     pub(crate) mac_key_size: usize,
+    ///3des-8; aes-16
+    pub(crate) block_size: usize,
     pub(crate) version: &'static Version,
     spec: &'static str,
 }
@@ -44,7 +47,7 @@ impl CipherSuite {
     //ecdhe-ecdsa
     pub const TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256: CipherSuite = CipherSuite {
         value: 0xc02b,
-        cipher: CipherType::AES_128_GCM,
+        aead: Aead::AES_128_GCM,
         exchange: KeyExchangeAlg::ECDHE_ECDSA,
         mac: HashType::Sha256,
         hash: HashType::Sha256,
@@ -53,12 +56,14 @@ impl CipherSuite {
         explict_iv_size: 8,
         trans_iv_len: 8,
         mac_key_size: 0,
+        block_size: 16,
         spec: "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
         version: &Version::TLS_1_2,
+
     };
     pub const TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384: CipherSuite = CipherSuite {
         value: 0xc02c,
-        cipher: CipherType::AES_256_GCM,
+        aead: Aead::AES_256_GCM,
         exchange: KeyExchangeAlg::ECDHE_ECDSA,
         mac: HashType::Sha384,
         hash: HashType::Sha384,
@@ -69,10 +74,11 @@ impl CipherSuite {
         mac_key_size: 0,
         spec: "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
         version: &Version::TLS_1_2,
+        block_size: 16,
     };
     pub const TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256: CipherSuite = CipherSuite {
         value: 0xc023,
-        cipher: CipherType::AES_128_CBC,
+        aead: Aead::AES_128_CBC_SHA256,
         exchange: KeyExchangeAlg::ECDHE_ECDSA,
         mac: HashType::Sha256,
         hash: HashType::Sha256,
@@ -81,12 +87,13 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 16,
         mac_key_size: 32,
+        block_size: 16,
         spec: "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256",
         version: &Version::TLS_1_2,
     };
     pub const TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384: CipherSuite = CipherSuite {
         value: 0xc024,
-        cipher: CipherType::AES_256_CBC,
+        aead: Aead::AES_256_CBC_SHA384,
         exchange: KeyExchangeAlg::ECDHE_ECDSA,
         mac: HashType::Sha384,
         hash: HashType::Sha384,
@@ -95,12 +102,13 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 16,
         mac_key_size: 48,
+        block_size: 16,
         spec: "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384",
         version: &Version::TLS_1_2,
     };
     pub const TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA: CipherSuite = CipherSuite {
         value: 0xc009,
-        cipher: CipherType::AES_128_CBC,
+        aead: Aead::AES_128_CBC_SHA,
         exchange: KeyExchangeAlg::ECDHE_ECDSA,
         mac: HashType::Sha1,
         hash: HashType::Sha256,
@@ -109,12 +117,13 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 16,
         mac_key_size: 20,
+        block_size: 16,
         spec: "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
         version: &Version::TLS_1_2,
     };
     pub const TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA: CipherSuite = CipherSuite {
         value: 0xc00a,
-        cipher: CipherType::AES_256_CBC,
+        aead: Aead::AES_256_CBC_SHA,
         exchange: KeyExchangeAlg::ECDHE_ECDSA,
         mac: HashType::Sha1,
         hash: HashType::Sha256,
@@ -123,12 +132,13 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 16,
         mac_key_size: 20,
+        block_size: 16,
         spec: "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
         version: &Version::TLS_1_2,
     };
     pub const TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256: CipherSuite = CipherSuite {
         value: 0xcca9,
-        cipher: CipherType::CHACHA20_POLY1305,
+        aead: Aead::ChaCha20_POLY1305,
         exchange: KeyExchangeAlg::ECDHE_ECDSA,
         mac: HashType::Sha256,
         hash: HashType::Sha256,
@@ -137,6 +147,7 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 0,
         mac_key_size: 0,
+        block_size: 0,
         spec: "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
         version: &Version::TLS_1_2,
     };
@@ -144,7 +155,7 @@ impl CipherSuite {
     //ecdhe-rsa
     pub const TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256: CipherSuite = CipherSuite {
         value: 0xc02f,
-        cipher: CipherType::AES_128_GCM,
+        aead: Aead::AES_128_GCM,
         exchange: KeyExchangeAlg::ECDHE_RSA,
         mac: HashType::Sha256,
         hash: HashType::Sha256,
@@ -153,12 +164,13 @@ impl CipherSuite {
         explict_iv_size: 8,
         trans_iv_len: 8,
         mac_key_size: 0,
+        block_size: 16,
         spec: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
         version: &Version::TLS_1_2,
     };
     pub const TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384: CipherSuite = CipherSuite {
         value: 0xc030,
-        cipher: CipherType::AES_256_GCM,
+        aead: Aead::AES_256_GCM,
         exchange: KeyExchangeAlg::ECDHE_RSA,
         mac: HashType::Sha384,
         hash: HashType::Sha384,
@@ -167,12 +179,13 @@ impl CipherSuite {
         explict_iv_size: 8,
         trans_iv_len: 8,
         mac_key_size: 0,
+        block_size: 16,
         spec: "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
         version: &Version::TLS_1_2,
     };
     pub const TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256: CipherSuite = CipherSuite {
         value: 0xc027,
-        cipher: CipherType::AES_128_CBC,
+        aead: Aead::AES_128_CBC_SHA256,
         exchange: KeyExchangeAlg::ECDHE_RSA,
         mac: HashType::Sha256,
         hash: HashType::Sha256,
@@ -181,12 +194,13 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 16,
         mac_key_size: 32,
+        block_size: 16,
         spec: "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
         version: &Version::TLS_1_2,
     };
     pub const TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384: CipherSuite = CipherSuite {
         value: 0xc028,
-        cipher: CipherType::AES_256_CBC,
+        aead: Aead::AES_256_CBC_SHA384,
         exchange: KeyExchangeAlg::ECDHE_RSA,
         mac: HashType::Sha384,
         hash: HashType::Sha384,
@@ -195,12 +209,13 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 16,
         mac_key_size: 48,
+        block_size: 16,
         spec: "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384",
         version: &Version::TLS_1_2,
     };
     pub const TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA: CipherSuite = CipherSuite {
         value: 0xc013,
-        cipher: CipherType::AES_128_CBC,
+        aead: Aead::AES_128_CBC_SHA,
         exchange: KeyExchangeAlg::ECDHE_RSA,
         mac: HashType::Sha1,
         hash: HashType::Sha256,
@@ -209,12 +224,13 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 16,
         mac_key_size: 20,
+        block_size: 16,
         spec: "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
         version: &Version::TLS_1_2,
     };
     pub const TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA: CipherSuite = CipherSuite {
         value: 0xc014,
-        cipher: CipherType::AES_256_CBC,
+        aead: Aead::AES_256_CBC_SHA,
         exchange: KeyExchangeAlg::ECDHE_RSA,
         mac: HashType::Sha1,
         hash: HashType::Sha256,
@@ -223,12 +239,13 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 16,
         mac_key_size: 20,
+        block_size: 16,
         spec: "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
         version: &Version::TLS_1_2,
     };
     pub const TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256: CipherSuite = CipherSuite {
         value: 0xcca8,
-        cipher: CipherType::CHACHA20_POLY1305,
+        aead: Aead::ChaCha20_POLY1305,
         exchange: KeyExchangeAlg::ECDHE_RSA,
         mac: HashType::Sha256,
         hash: HashType::Sha256,
@@ -237,6 +254,7 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 0,
         mac_key_size: 0,
+        block_size: 0,
         spec: "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
         version: &Version::TLS_1_2,
     };
@@ -244,7 +262,7 @@ impl CipherSuite {
     //dhe-rsa
     pub const TLS_DHE_RSA_WITH_AES_128_GCM_SHA256: CipherSuite = CipherSuite {
         value: 0x009e,
-        cipher: CipherType::AES_128_GCM,
+        aead: Aead::AES_128_GCM,
         exchange: KeyExchangeAlg::DHE_RSA,
         mac: HashType::Sha256,
         hash: HashType::Sha256,
@@ -253,12 +271,13 @@ impl CipherSuite {
         explict_iv_size: 8,
         trans_iv_len: 8,
         mac_key_size: 0,
+        block_size: 16,
         spec: "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256",
         version: &Version::TLS_1_2,
     };
     pub const TLS_DHE_RSA_WITH_AES_256_GCM_SHA384: CipherSuite = CipherSuite {
         value: 0x009f,
-        cipher: CipherType::AES_256_GCM,
+        aead: Aead::AES_256_GCM,
         exchange: KeyExchangeAlg::DHE_RSA,
         mac: HashType::Sha384,
         hash: HashType::Sha384,
@@ -267,12 +286,13 @@ impl CipherSuite {
         explict_iv_size: 8,
         trans_iv_len: 8,
         mac_key_size: 0,
+        block_size: 16,
         spec: "TLS_DHE_RSA_WITH_AES_256_GCM_SHA384",
         version: &Version::TLS_1_2,
     };
     pub const TLS_DHE_RSA_WITH_AES_128_CBC_SHA256: CipherSuite = CipherSuite {
         value: 0x0067,
-        cipher: CipherType::AES_128_CBC,
+        aead: Aead::AES_128_CBC_SHA256,
         exchange: KeyExchangeAlg::DHE_RSA,
         mac: HashType::Sha256,
         hash: HashType::Sha256,
@@ -281,12 +301,13 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 16,
         mac_key_size: 32,
+        block_size: 16,
         spec: "TLS_DHE_RSA_WITH_AES_128_CBC_SHA256",
         version: &Version::TLS_1_2,
     };
     pub const TLS_DHE_RSA_WITH_AES_256_CBC_SHA256: CipherSuite = CipherSuite {
         value: 0x006b,
-        cipher: CipherType::AES_256_CBC,
+        aead: Aead::AES_256_CBC_SHA256,
         exchange: KeyExchangeAlg::DHE_RSA,
         mac: HashType::Sha256,
         hash: HashType::Sha256,
@@ -295,12 +316,13 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 16,
         mac_key_size: 32,
+        block_size: 16,
         spec: "TLS_DHE_RSA_WITH_AES_256_CBC_SHA256",
         version: &Version::TLS_1_2,
     };
     pub const TLS_DHE_RSA_WITH_AES_128_CBC_SHA: CipherSuite = CipherSuite {
         value: 0x0033,
-        cipher: CipherType::AES_128_CBC,
+        aead: Aead::AES_128_CBC_SHA,
         exchange: KeyExchangeAlg::DHE_RSA,
         mac: HashType::Sha1,
         hash: HashType::Sha256,
@@ -309,12 +331,13 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 16,
         mac_key_size: 20,
+        block_size: 16,
         spec: "TLS_DHE_RSA_WITH_AES_128_CBC_SHA",
         version: &Version::TLS_1_2,
     };
     pub const TLS_DHE_RSA_WITH_AES_256_CBC_SHA: CipherSuite = CipherSuite {
         value: 0x0039,
-        cipher: CipherType::AES_256_CBC,
+        aead: Aead::AES_256_CBC_SHA,
         exchange: KeyExchangeAlg::DHE_RSA,
         mac: HashType::Sha1,
         hash: HashType::Sha256,
@@ -323,12 +346,13 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 16,
         mac_key_size: 20,
+        block_size: 16,
         spec: "TLS_DHE_RSA_WITH_AES_256_CBC_SHA",
         version: &Version::TLS_1_2,
     };
     pub const TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256: CipherSuite = CipherSuite {
         value: 0xccaa,
-        cipher: CipherType::CHACHA20_POLY1305,
+        aead: Aead::ChaCha20_POLY1305,
         exchange: KeyExchangeAlg::DHE_RSA,
         mac: HashType::Sha256,
         hash: HashType::Sha256,
@@ -337,6 +361,7 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 0,
         mac_key_size: 0,
+        block_size: 0,
         spec: "TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
         version: &Version::TLS_1_2,
     };
@@ -345,7 +370,7 @@ impl CipherSuite {
     //rsa
     pub const TLS_RSA_WITH_AES_128_GCM_SHA256: CipherSuite = CipherSuite {
         value: 0x009c,
-        cipher: CipherType::AES_128_GCM,
+        aead: Aead::AES_128_GCM,
         exchange: KeyExchangeAlg::RSA,
         mac: HashType::Sha256,
         hash: HashType::Sha256,
@@ -354,12 +379,13 @@ impl CipherSuite {
         explict_iv_size: 8,
         trans_iv_len: 8,
         mac_key_size: 0,
+        block_size: 16,
         spec: "TLS_RSA_WITH_AES_128_GCM_SHA256",
         version: &Version::TLS_1_2,
     };
     pub const TLS_RSA_WITH_AES_256_GCM_SHA384: CipherSuite = CipherSuite {
         value: 0x009d,
-        cipher: CipherType::AES_256_GCM,
+        aead: Aead::AES_256_GCM,
         exchange: KeyExchangeAlg::RSA,
         mac: HashType::Sha384,
         hash: HashType::Sha384,
@@ -368,12 +394,13 @@ impl CipherSuite {
         explict_iv_size: 8,
         trans_iv_len: 8,
         mac_key_size: 0,
+        block_size: 16,
         spec: "TLS_RSA_WITH_AES_256_GCM_SHA384",
         version: &Version::TLS_1_2,
     };
     pub const TLS_RSA_WITH_AES_128_CBC_SHA256: CipherSuite = CipherSuite {
         value: 0x003c,
-        cipher: CipherType::AES_128_CBC,
+        aead: Aead::AES_128_CBC_SHA256,
         exchange: KeyExchangeAlg::RSA,
         mac: HashType::Sha256,
         hash: HashType::Sha256,
@@ -382,12 +409,13 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 16,
         mac_key_size: 32,
+        block_size: 16,
         spec: "TLS_RSA_WITH_AES_128_CBC_SHA256",
         version: &Version::TLS_1_2,
     };
     pub const TLS_RSA_WITH_AES_256_CBC_SHA256: CipherSuite = CipherSuite {
         value: 0x003d,
-        cipher: CipherType::AES_256_CBC,
+        aead: Aead::AES_256_CBC_SHA256,
         exchange: KeyExchangeAlg::RSA,
         mac: HashType::Sha384,
         hash: HashType::Sha384,
@@ -396,12 +424,13 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 16,
         mac_key_size: 32,
+        block_size: 16,
         spec: "TLS_RSA_WITH_AES_256_CBC_SHA256",
         version: &Version::TLS_1_2,
     };
     pub const TLS_RSA_WITH_AES_128_CBC_SHA: CipherSuite = CipherSuite {
         value: 0x002f,
-        cipher: CipherType::AES_128_CBC,
+        aead: Aead::AES_128_CBC_SHA,
         exchange: KeyExchangeAlg::RSA,
         mac: HashType::Sha1,
         hash: HashType::Sha256,
@@ -410,12 +439,13 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 16,
         mac_key_size: 20,
+        block_size: 16,
         spec: "TLS_RSA_WITH_AES_128_CBC_SHA",
         version: &Version::TLS_1_2,
     };
     pub const TLS_RSA_WITH_AES_256_CBC_SHA: CipherSuite = CipherSuite {
         value: 0x0035,
-        cipher: CipherType::AES_256_CBC,
+        aead: Aead::AES_256_CBC_SHA,
         exchange: KeyExchangeAlg::RSA,
         mac: HashType::Sha1,
         hash: HashType::Sha256,
@@ -424,6 +454,7 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 16,
         mac_key_size: 20,
+        block_size: 16,
         spec: "TLS_RSA_WITH_AES_256_CBC_SHA",
         version: &Version::TLS_1_2,
     };
@@ -431,7 +462,7 @@ impl CipherSuite {
     //tls1.3
     pub const TLS_AES_128_GCM_SHA256: CipherSuite = CipherSuite {
         value: 0x1301,
-        cipher: CipherType::AES_128_GCM,
+        aead: Aead::AES_128_GCM,
         exchange: KeyExchangeAlg::NULL,
         mac: HashType::Sha256,
         hash: HashType::Sha256,
@@ -440,12 +471,13 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 0,
         mac_key_size: 0,
+        block_size: 16,
         spec: "TLS_AES_128_GCM_SHA256",
         version: &Version::TLS_1_3,
     };
     pub const TLS_AES_256_GCM_SHA384: CipherSuite = CipherSuite {
         value: 0x1302,
-        cipher: CipherType::AES_256_GCM,
+        aead: Aead::AES_256_GCM,
         exchange: KeyExchangeAlg::NULL,
         mac: HashType::Sha384,
         hash: HashType::Sha384,
@@ -454,12 +486,13 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 0,
         mac_key_size: 0,
+        block_size: 16,
         spec: "TLS_AES_256_GCM_SHA384",
         version: &Version::TLS_1_3,
     };
     pub const TLS_CHACHA20_POLY1305_SHA256: CipherSuite = CipherSuite {
         value: 0x1303,
-        cipher: CipherType::CHACHA20_POLY1305,
+        aead: Aead::ChaCha20_POLY1305,
         exchange: KeyExchangeAlg::NULL,
         mac: HashType::Sha256,
         hash: HashType::Sha256,
@@ -468,13 +501,14 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 0,
         mac_key_size: 0,
+        block_size: 0,
         spec: "TLS_CHACHA20_POLY1305_SHA256",
         version: &Version::TLS_1_3,
     };
 
     pub const TLS_SM4_GCM_SM3: CipherSuite = CipherSuite {
         value: 0x00c6,
-        cipher: CipherType::SM4_GCM,
+        aead: Aead::SM4_GCM,
         exchange: KeyExchangeAlg::NULL,
         mac: HashType::Sm3,
         hash: HashType::Sm3,
@@ -483,13 +517,14 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 0,
         mac_key_size: 0,
+        block_size: 16,
         version: &Version::TLS_1_3,
         spec: "TLS_SM4_GCM_SM3",
     };
 
     pub const ECC_SM4_CBC_SM3: CipherSuite = CipherSuite {
         value: 0xe013,
-        cipher: CipherType::SM4_CBC,
+        aead: Aead::SM4_CBC,
         exchange: KeyExchangeAlg::ECC,
         mac: HashType::Sm3,
         hash: HashType::Sm3,
@@ -498,13 +533,14 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 16,
         mac_key_size: 32,
+        block_size: 16,
         version: &Version::TLCP,
         spec: "ECC_SM4_CBC_SM3",
     };
 
     pub const TLS_EMPTY_RENEGOTIATION_INFO_SCSV: CipherSuite = CipherSuite {
         value: 0x00ff,
-        cipher: CipherType::AES_128_CBC,
+        aead: Aead::AES_128_CBC_SHA,
         exchange: KeyExchangeAlg::ECDHE_ECDSA,
         mac: HashType::MD5,
         hash: HashType::MD5,
@@ -513,13 +549,14 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 0,
         mac_key_size: 0,
+        block_size: 16,
         spec: "",
         version: &Version::TLS_1_0,
     };
 
     pub(crate) const UNKNOWN: CipherSuite = CipherSuite {
         value: 0,
-        cipher: CipherType::AES_128_CBC,
+        aead: Aead::AES_128_CBC_SHA,
         exchange: KeyExchangeAlg::NULL,
         mac: HashType::MD5,
         hash: HashType::MD5,
@@ -528,6 +565,7 @@ impl CipherSuite {
         explict_iv_size: 0,
         trans_iv_len: 0,
         mac_key_size: 0,
+        block_size: 0,
         spec: "",
         version: &Version::TLS_1_0,
     };
@@ -580,17 +618,20 @@ impl CipherSuite {
         self.spec
     }
 
-    pub fn cipher(&self) -> CipherType {
-        self.cipher
-    }
-
     pub fn exchange_alg(&self) -> KeyExchangeAlg {
         self.exchange
     }
 
-
     pub fn mac_hash(&self) -> HashType {
         self.mac
+    }
+
+    pub fn aead(&self) -> &Aead {
+        &self.aead
+    }
+
+    pub fn hash(&self) -> HashType {
+        self.hash
     }
 }
 
@@ -636,16 +677,24 @@ impl CipherSuite {
 
     pub fn into_inner(self) -> u16 { self.value }
 
-    pub fn aead(&self) -> Option<Aead> {
-        Aead::from_cipher_kind(self.spec())
-    }
-
-    pub fn hash(&self) -> HashType {
-        self.hash
-    }
-
     pub fn value(&self) -> u16 {
         self.value
+    }
+
+    pub fn tag_len(&self, pd_len: usize) -> usize {
+        let pad_len = self.block_size - ((pd_len + self.mac.hash_size()) & (max(self.block_size, 1) - 1));
+        match self.aead {
+            Aead::AES_128_GCM |
+            Aead::AES_256_GCM |
+            Aead::ChaCha20_POLY1305 => 16,
+            Aead::AES_128_CBC_SHA |
+            Aead::AES_128_CBC_SHA256 |
+            Aead::AES_256_CBC_SHA |
+            Aead::AES_256_CBC_SHA256 |
+            Aead::AES_256_CBC_SHA384 |
+            Aead::SM4_CBC => self.mac.hash_size() + pad_len,
+            _ => unreachable!()
+        }
     }
 }
 

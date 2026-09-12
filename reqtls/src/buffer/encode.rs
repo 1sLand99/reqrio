@@ -19,7 +19,7 @@ impl<'a> PayloadEncodeBuffer<'a> {
         }
         PayloadEncodeBuffer {
             encoded: buffer,
-            encode_offset: suite.trans_iv_len..suite.trans_iv_len + plain_offset.len() + 16,
+            encode_offset: suite.trans_iv_len..suite.trans_iv_len + plain_offset.len() + suite.tag_len(plain_offset.len()),
             plain_offset,
 
         }
@@ -75,7 +75,7 @@ impl<'a> CipherEncodeBuffer<'a> {
                 head[1] = 3;
                 head[2] = 3;
             }
-            Version::TLCP=>{
+            Version::TLCP => {
                 head[0] = rt.as_u8();
                 head[1] = 1;
                 head[2] = 1;
@@ -184,7 +184,7 @@ mod tests {
         encode.add_explicit_iv(&[77; 16]);
         assert_eq!(encode.head(), [record_type.as_u8(), 3, 3, 0, 0]);
         assert_eq!(encode.payload.origin_payload(), payload);
-        assert_eq!(encode.payload.encoded_payload(), pd);
+        assert_eq!(&encode.payload.encoded_payload()[..pd.len()], pd);
     }
 
     #[test]

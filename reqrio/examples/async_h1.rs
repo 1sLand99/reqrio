@@ -569,8 +569,8 @@ async fn main() {
             client_radom: rand::random(),
         },
         secrets: null_mut(),
-        encryptor: AeadCtx::new(Aead::AES_128_GCM),
-        decryptor: AeadCtx::new(Aead::AES_128_GCM),
+        encryptor: AeadCtx::none(),
+        decryptor: AeadCtx::none(),
     };
     let sni = "www.baidu.com";
     let config = ClientConfig {

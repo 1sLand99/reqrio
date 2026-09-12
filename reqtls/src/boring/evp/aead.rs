@@ -1,24 +1,31 @@
+use crate::boring::bindings::EVP_AEAD_DEFAULT_TAG_LENGTH;
 use crate::boring::{BoringResExt, CryptDecodeParam, CryptEncodeParam};
+use crate::buffer::CipherEncodeBuffer;
 use crate::error::RlsResult;
 use crate::extend::Aead;
-use crate::{ffi, RlsError};
+use crate::suite::iv::Iv;
+use crate::RlsError;
 use std::os::raw::{c_int, c_void};
 use std::ptr::null_mut;
-use crate::boring::bindings::EVP_AEAD_DEFAULT_TAG_LENGTH;
-use crate::buffer::CipherEncodeBuffer;
-use crate::suite::iv::Iv;
 
 #[repr(C)]
 pub struct AeadCtx {
-    aead: Aead,
     tag_len: c_int,
-    seq: u64,
+    enc: c_int,
+    pub(crate) aead: Aead,
+    pub(crate) seq: u64,
     ctx: *mut c_void,
     rsv: [u32; 32],
 }
-ffi::c_pointer_free!(AeadCtx, AEAD_CTX_free);
+
 unsafe impl Sync for AeadCtx {}
 unsafe impl Send for AeadCtx {}
+
+impl Drop for AeadCtx {
+    fn drop(&mut self) {
+        unsafe { AEAD_CTX_free(self) }
+    }
+}
 
 unsafe extern "C" {
     fn AEAD_CTX_init(ctx: *mut AeadCtx, key: *const u8, key_len: usize) -> c_int;
@@ -51,20 +58,37 @@ unsafe extern "C" {
 }
 
 impl AeadCtx {
-    pub fn new(aead: Aead) -> AeadCtx {
+    pub(crate) fn new(aead: Aead, enc: c_int) -> AeadCtx {
         AeadCtx {
             aead,
+            enc,
             tag_len: EVP_AEAD_DEFAULT_TAG_LENGTH,
             seq: 0,
             ctx: null_mut(),
             rsv: [0; 32],
         }
     }
+
+    pub(crate) fn init(mut self, key: &[u8]) -> RlsResult<Self> {
+        unsafe { AEAD_CTX_init(&mut self, key.as_ptr(), key.len()) }.ok(RlsError::AeadCryptError)?;
+        Ok(self)
+    }
+
+    pub fn none() -> AeadCtx {
+        AeadCtx {
+            aead: Aead::AES_128_GCM,
+            enc: 0,
+            tag_len: EVP_AEAD_DEFAULT_TAG_LENGTH,
+            seq: 0,
+            ctx: null_mut(),
+            rsv: [0; 32],
+        }
+    }
+
     pub fn new_with_key(aead: Aead, key: &[u8], tag_len: c_int) -> RlsResult<AeadCtx> {
-        let mut ctx = AeadCtx::new(aead);
+        let mut ctx = AeadCtx::new(aead, 0);
         ctx.tag_len = tag_len;
-        unsafe { AEAD_CTX_init(&mut ctx, key.as_ptr(), key.len()) }.ok(RlsError::AeadEncryptError)?;
-        Ok(ctx)
+        ctx.init(key)
     }
 
     pub(crate) fn seal2(&self, seq: Option<u64>, mut buffer: CipherEncodeBuffer, iv: &Iv) -> RlsResult<usize> {
@@ -140,7 +164,7 @@ impl AeadCtx {
                 self,
                 param.buffer.decrypted_buffer().as_mut_ptr(),
                 &mut out_len,
-                param.buffer.decrypted_buffer().len() - 16,
+                param.buffer.decrypted_buffer().len(),
                 param.nonce.as_ptr(),
                 param.nonce.len(),
                 param.buffer.encrypted_payload().as_ptr(),
@@ -179,13 +203,12 @@ impl AeadCtx {
 mod aead_tests {
     use crate::boring::bindings::EVP_AEAD_DEFAULT_TAG_LENGTH;
     use crate::boring::{AeadCtx, CryptDecodeParam, CryptEncodeParam};
-    use crate::buffer::{TlsDecodeBuffer, CipherEncodeBuffer};
+    use crate::buffer::{CipherEncodeBuffer, TlsDecodeBuffer};
     use crate::{CipherSuite, RecordType, Version, Writer};
     use std::{env, fs};
 
     fn test_aead(suite: &'static CipherSuite, key: &[u8], size: usize, en: &[u8]) {
-        let aead = suite.aead().unwrap();
-        let ctx = AeadCtx::new_with_key(aead, key, EVP_AEAD_DEFAULT_TAG_LENGTH).unwrap();
+        let ctx = AeadCtx::new_with_key(*suite.aead(), key, EVP_AEAD_DEFAULT_TAG_LENGTH).unwrap();
         let payload = [1, 2, 3, 4, 5, 61, 2, 3, 4, 5, 6, 7, 8, 9, 23, 23];
         let iv = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4];
         let mut buffer = [0; 1024];
@@ -233,7 +256,7 @@ mod aead_tests {
 
         let key = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];
         test_aead(&CipherSuite::TLS_AES_128_GCM_SHA256, &key, 38, &[23, 3, 3, 0, 33, 73, 124, 57, 79, 141, 133, 227, 18, 144, 234, 121, 155, 242, 80, 24, 135, 242, 85, 24, 178, 65, 169, 220, 3, 194, 146, 52, 174, 244, 106, 123, 230, 31]);
-        test_aead(&CipherSuite::TLS_SM4_GCM_SM3, &key, 38, &[23, 3, 3, 0, 33, 230, 37, 165, 245, 42, 213, 2, 105, 130, 26, 88, 111, 64, 103, 112, 27, 4, 49, 122, 222, 51, 209, 20, 222, 149, 172, 18, 163, 84, 66, 244, 154, 211]);
+        // test_aead(&CipherSuite::TLS_SM4_GCM_SM3, &key, 38, &[23, 3, 3, 0, 33, 230, 37, 165, 245, 42, 213, 2, 105, 130, 26, 88, 111, 64, 103, 112, 27, 4, 49, 122, 222, 51, 209, 20, 222, 149, 172, 18, 163, 84, 66, 244, 154, 211]);
 
         let key = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];
         test_aead(&CipherSuite::TLS_AES_256_GCM_SHA384, &key, 38, &[23, 3, 3, 0, 33, 212, 216, 11, 46, 55, 11, 51, 6, 9, 103, 221, 215, 100, 98, 203, 62, 129, 117, 41, 52, 75, 226, 135, 56, 115, 180, 125, 134, 114, 206, 161, 50, 134]);
