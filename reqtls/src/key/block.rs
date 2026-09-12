@@ -66,7 +66,7 @@ pub(crate) struct Tls12Key {
     client_iv: [u8; 16],
     server_iv: [u8; 16],
     iv_size: usize,
-    explicit: [u8; 16],
+    // explicit: [u8; 16],
     explicit_len: usize,
 }
 
@@ -82,7 +82,7 @@ impl Tls12Key {
             client_iv: [0; 16],
             server_iv: [0; 16],
             iv_size: suite.fix_iv_size,
-            explicit: [0; 16],
+            // explicit: [0; 16],
             explicit_len: suite.explict_iv_size,
         }
     }
@@ -285,7 +285,7 @@ impl KeyBlock {
 
     pub fn client_iv(&self, typ: KeyType) -> &[u8] {
         match self {
-            KeyBlock::Tls12(key) => &key.client_iv[..key.iv_size],
+            KeyBlock::Tls12(key) => &key.client_iv[..key.iv_size + key.explicit_len],
             KeyBlock::Tls13(key) => &key.client_iv[..key.iv_size],
             KeyBlock::QUIC {
                 initial,
@@ -319,7 +319,7 @@ impl KeyBlock {
 
     pub fn server_iv(&self, typ: KeyType) -> &[u8] {
         match self {
-            KeyBlock::Tls12(key) => &key.server_iv[..key.iv_size],
+            KeyBlock::Tls12(key) => &key.server_iv[..key.iv_size + key.explicit_len],
             KeyBlock::Tls13(key) => &key.server_iv[..key.iv_size],
             KeyBlock::QUIC {
                 initial,
@@ -351,23 +351,17 @@ impl KeyBlock {
         }
     }
 
-    pub fn explicit(&self) -> &[u8] {
-        match self {
-            KeyBlock::Tls12(key) => &key.explicit[..key.explicit_len],
-            _ => &[]
-        }
-    }
-
     pub fn bufs(&mut self) -> Vec<&mut [u8]> {
         let KeyBlock::Tls12(key) = self else { unreachable!() };
+        let (client_iv, explicit) = key.client_iv.split_at_mut(key.iv_size);
         vec![
             &mut key.client_mac_key[..key.mac_size],
             &mut key.server_mac_key[..key.mac_size],
             &mut key.client_key[..key.key_size],
             &mut key.server_key[..key.key_size],
-            &mut key.client_iv[..key.iv_size],
+            client_iv,
             &mut key.server_iv[..key.iv_size],
-            &mut key.explicit[..key.explicit_len],
+            &mut explicit[..key.explicit_len]
         ]
     }
     #[cfg(feature = "quic")]

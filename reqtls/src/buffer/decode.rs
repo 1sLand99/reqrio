@@ -92,10 +92,10 @@ impl<'a> CipherDecodeBuffer<'a> {
     pub fn nonce(&self, iv: &Iv, seq: u64) -> Vec<u8> {
         match self.suite.cipher() {
             CipherType::AES_128_GCM | CipherType::AES_256_GCM => match *self.suite.version {
-                Version::TLS_1_3 => iv.as_array(seq, Some(self.explicit_iv())),
+                Version::TLS_1_3 => iv.as_array(seq, None).into_owned(),
                 _ => iv.decrypting_iv(Some(self.explicit_iv())).into_owned()
             },
-            CipherType::CHACHA20_POLY1305 => iv.as_array(seq, Some(self.explicit_iv())),
+            CipherType::CHACHA20_POLY1305 => iv.as_array(seq, None).into_owned(),
             CipherType::AES_128_CBC |
             CipherType::AES_256_CBC |
             CipherType::SM4_CBC => iv.decrypting_iv(Some(self.explicit_iv())).into_owned(),

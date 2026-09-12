@@ -79,7 +79,7 @@ impl QUICConnection {
         let rk = self.conn.derived.key_block().recv_key(typ, self.conn.server);
         self.conn.recv_cipher.set_key(rk, &[], suite)?;
         let ri = self.conn.derived.key_block().recv_iv(typ, self.conn.server);
-        self.conn.recv_cipher.set_iv(Iv::new(ri, vec![]));
+        self.conn.recv_cipher.set_iv(Iv::new(ri));
         self.current = typ;
         Ok(())
     }
@@ -117,7 +117,7 @@ impl QUICConnection {
     }
 
 
-    pub fn build_message(&mut self, mut packet: &mut QUICPacket, frames: &mut Vec<QUICFrame<'_>>, buffer: &mut Writer) -> RlsResult<()> {
+    pub fn build_message(&mut self, packet: &mut QUICPacket, frames: &mut Vec<QUICFrame<'_>>, buffer: &mut Writer) -> RlsResult<()> {
         if packet.padding_size() != 0 {
             frames.push(QUICFrame::Padding(packet.padding_size()));
         }
@@ -128,7 +128,7 @@ impl QUICConnection {
             frame.write_to(buffer)?;
         }
         buffer.add_len(16);
-        self.make_message(buffer.filled_mut(), &mut packet)?;
+        self.make_message(buffer.filled_mut(), packet)?;
         Ok(())
     }
 

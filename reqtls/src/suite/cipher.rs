@@ -15,7 +15,7 @@ impl TlsCipher {
     pub fn none() -> TlsCipher {
         TlsCipher {
             crypto: Crypto::None,
-            iv: Iv::new(&[], vec![]),
+            iv: Iv::new(&[]),
             seq: 0,
         }
     }
@@ -85,7 +85,7 @@ mod tests {
         let mac_key = [0; 20];
         let suite = &CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA;
         cipher.set_key(&key_bs, &mac_key, suite).unwrap();
-        let iv = Iv::new(&ivv, [].to_vec());
+        let iv = Iv::new(&ivv);
         cipher.set_iv(iv);
         let mut buffer = [0u8; 1024];
         let payload = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 34, 3, 3, 3];
@@ -107,7 +107,7 @@ mod tests {
         let iv = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4];
         let suite = &CipherSuite::TLS_AES_128_GCM_SHA256;
         cipher.set_key(&key, &[], suite).unwrap();
-        cipher.set_iv(Iv::new(&iv, Vec::new()));
+        cipher.set_iv(Iv::new(&iv));
         let mut buffer = [0u8; 1024];
         let payload = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 34, 3, 3, 3];
         let encoded_buffer = CipherEncodeBuffer::new_tls(RecordType::HandShake, &mut buffer, &payload, suite);

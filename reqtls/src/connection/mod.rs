@@ -149,11 +149,11 @@ impl Connection {
         let sk = key.send_key(typ, self.server);
         let smk = key.send_mac_key(self.server);
         self.send_cipher.set_key(sk, smk, self.cipher_suite)?;
-        self.send_cipher.set_iv(Iv::new(key.send_iv(typ, self.server), key.explicit()));
+        self.send_cipher.set_iv(Iv::new(key.send_iv(typ, self.server)));
         let rk = key.recv_key(typ, self.server);
         let rmk = key.recv_mac_key(self.server);
         self.recv_cipher.set_key(rk, rmk, self.cipher_suite)?;
-        self.recv_cipher.set_iv(Iv::new(key.recv_iv(typ, self.server), vec![]));
+        self.recv_cipher.set_iv(Iv::new(key.recv_iv(typ, self.server)));
         Ok(())
     }
 
