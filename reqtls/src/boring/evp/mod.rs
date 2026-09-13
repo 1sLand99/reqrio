@@ -1,10 +1,12 @@
 pub mod cipher;
 mod aead;
 mod error;
+mod iv;
 
 pub use aead::{AeadCtx, AeadDir};
 pub use cipher::Cipher;
 pub use error::EvpError;
+pub use iv::Iv;
 
 #[repr(C)]
 #[allow(non_camel_case_types)]
@@ -57,7 +59,7 @@ mod tests {
         let mut real_key = Vec::with_capacity(mac_key.len() + key.len());
         real_key.extend_from_slice(mac_key.as_slice());
         real_key.extend_from_slice(key);
-        let aead = AeadCtx::new_with_key(*suite.aead(), &real_key, AeadDir::Seal).unwrap();
+        let aead = AeadCtx::new_with_key(*suite.aead(), AeadDir::Seal, &real_key).unwrap();
         aead.seal(&iv, &record_buffer.aad(0), &mut record_buffer).unwrap();
         let len = record_buffer.record_len();
         assert_eq!(&buffer[..len], en);
@@ -65,7 +67,7 @@ mod tests {
 
         let mut decoded_buffer = vec![0; 1024];
         let mut record_buffer = TlsDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, suite).unwrap();
-        let aead = AeadCtx::new_with_key(*suite.aead(), &real_key, AeadDir::Open).unwrap();
+        let aead = AeadCtx::new_with_key(*suite.aead(), AeadDir::Open, &real_key).unwrap();
         let len = aead.open(&iv, &record_buffer.aad(0).unwrap(), &mut record_buffer).unwrap();
         assert_eq!(decoded_buffer[..len], payload);
     }

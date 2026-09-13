@@ -1,8 +1,8 @@
 use crate::error::RlsResult;
 #[cfg(feature = "quic")]
 use crate::message::QUICPacket;
-use crate::suite::iv::Iv;
 use crate::{Aead, BufferError, CipherSuite, Version};
+use crate::boring::Iv;
 
 #[repr(C)]
 pub struct TlsDecodeBuffer<'a> {

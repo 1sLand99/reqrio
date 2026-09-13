@@ -5,7 +5,6 @@ use crate::Version;
 pub use cipher::TlsCipher;
 use std::fmt::{Debug, Formatter};
 
-pub mod iv;
 mod cipher;
 
 #[derive(Debug, Copy, Clone)]

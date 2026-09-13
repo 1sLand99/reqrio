@@ -1,14 +1,13 @@
-use crate::buffer::{TlsDecodeBuffer, CipherEncodeBuffer};
+use crate::boring::AeadDir;
+use crate::buffer::{CipherEncodeBuffer, TlsDecodeBuffer};
 use crate::error::RlsResult;
+use crate::key::KeyType;
 use crate::message::{QUICFrame, QUICPacket};
 use crate::quic::QUICRange;
-use crate::suite::iv::Iv;
-use crate::{Buf, Writer, BufferError, Cipher, CipherSuite, CipherType, Connection, PacketType, Reader, TlsSession, Version, Aead};
+use crate::{Aead, Buf, BufferError, Cipher, CipherSuite, CipherType, Connection, PacketType, Reader, TlsSession, Version, Writer};
 #[cfg(feature = "log")]
 use log::trace;
 use std::path::PathBuf;
-use crate::boring::AeadDir;
-use crate::key::KeyType;
 
 pub struct QUICConnection {
     recv_sample: Cipher,
@@ -78,9 +77,9 @@ impl QUICConnection {
         let rhk = self.conn.derived.key_block().recv_hp_key(typ, self.conn.server);
         self.recv_sample.set_secret_key(rhk, None);
         let rk = self.conn.derived.key_block().recv_key(typ, self.conn.server);
-        self.conn.recv_cipher.set_key(rk, suite, AeadDir::Open)?;
         let ri = self.conn.derived.key_block().recv_iv(typ, self.conn.server);
-        self.conn.recv_cipher.set_iv(Iv::new(ri));
+        self.conn.recv_cipher.set_key(rk, ri, suite, AeadDir::Open)?;
+        // self.conn.recv_cipher.set_iv(Iv::new().with_init(ri));
         self.current = typ;
         Ok(())
     }
@@ -167,11 +166,11 @@ impl QUICConnection {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-    use std::ops::Range;
     use crate::connection::quic::QUICConnection;
     use crate::message::QUICFrame;
-    use crate::{Buf, Writer, KeyExchangeAlg, Message, QUICPacket, Reader, RecordType, TlsSession, Version};
+    use crate::{Buf, KeyExchangeAlg, Message, QUICPacket, Reader, RecordType, TlsSession, Version, Writer};
+    use std::collections::HashMap;
+    use std::ops::Range;
 
     fn decode(conn: &mut QUICConnection, origin: &[u8], queues: &mut Vec<(usize, u64, Range<usize>)>, bid: u64) -> Writer {
         let mut reader = Reader::from_slice(origin);

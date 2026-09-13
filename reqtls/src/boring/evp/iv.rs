@@ -1,19 +1,22 @@
 use std::borrow::Cow;
 
-#[derive(Debug)]
+#[repr(C)]
 pub struct Iv {
     raw: [u8; 16],
     size: usize,
 }
 
 impl Iv {
-    pub fn new(iv: &[u8]) -> Iv {
-        let mut raw = [0; 16];
-        raw[..iv.len()].copy_from_slice(iv);
+    pub fn new() -> Iv {
         Iv {
-            raw,
-            size: iv.len(),
+            raw: [0; 16],
+            size: 0,
         }
+    }
+
+    pub fn init(&mut self, iv: &[u8]) {
+        self.raw[..iv.len()].copy_from_slice(iv);
+        self.size = iv.len();
     }
 
     pub fn as_array(&self, seq: u64, explicit: Option<&[u8]>) -> Cow<'_, [u8]> {

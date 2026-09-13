@@ -6,9 +6,10 @@ use crate::extend::Aead;
 use crate::RlsError;
 use std::os::raw::{c_int, c_void};
 use std::ptr::null_mut;
+use super::iv::Iv;
+
 
 #[repr(C)]
-#[cfg_attr(debug_assertions, derive(Debug))]
 pub enum AeadDir {
     Open = 0,
     Seal = 1,
@@ -16,12 +17,14 @@ pub enum AeadDir {
 
 #[repr(C)]
 pub struct AeadCtx {
-    tag_len: c_int,
-    enc: AeadDir,
     pub(crate) aead: Aead,
     pub(crate) seq: u64,
+    pub(crate) iv: Iv,
+    tag_len: c_int,
+    enc: AeadDir,
     ctx: *mut c_void,
     rsv: [u32; 32],
+
 }
 
 unsafe impl Sync for AeadCtx {}
@@ -67,17 +70,26 @@ impl AeadCtx {
     pub(crate) fn new(aead: Aead, enc: AeadDir) -> AeadCtx {
         AeadCtx {
             aead,
-            enc,
-            tag_len: EVP_AEAD_DEFAULT_TAG_LENGTH,
             seq: 0,
-            ctx: null_mut(),
+            iv: Iv::new(),
+            tag_len: EVP_AEAD_DEFAULT_TAG_LENGTH,
+            enc,
             rsv: [0; 32],
+            ctx: null_mut(),
         }
     }
 
     pub(crate) fn init(mut self, key: &[u8]) -> RlsResult<Self> {
         unsafe { AEAD_CTX_init(&mut self, key.as_ptr(), key.len()) }.ok(RlsError::AeadCryptError)?;
         Ok(self)
+    }
+
+    pub(crate) fn init_aead(&mut self, aead: Aead, dir: AeadDir, key: &[u8], iv: &[u8]) -> RlsResult<()> {
+        self.aead = aead;
+        self.enc = dir;
+        self.iv.init(iv);
+        unsafe { AEAD_CTX_init(self, key.as_ptr(), key.len()) }.ok(RlsError::AeadCryptError)?;
+        Ok(())
     }
 
     pub fn none() -> AeadCtx {
@@ -88,11 +100,17 @@ impl AeadCtx {
             seq: 0,
             ctx: null_mut(),
             rsv: [0; 32],
+            iv: Iv::new(),
         }
     }
 
-    pub fn new_with_key(aead: Aead, key: &[u8], dir: AeadDir) -> RlsResult<AeadCtx> {
+    pub fn new_with_key(aead: Aead, dir: AeadDir, key: &[u8]) -> RlsResult<AeadCtx> {
         AeadCtx::new(aead, dir).init(key)
+    }
+
+    pub fn with_iv(mut self, iv: &[u8]) -> Self {
+        self.iv.init(iv);
+        self
     }
 
     pub(crate) fn seal(&self, nonce: &[u8], aad: &[u8], buf: &mut CipherEncodeBuffer) -> RlsResult<()> {
@@ -196,7 +214,7 @@ mod aead_tests {
     use std::{env, fs};
 
     fn test_aead(suite: &'static CipherSuite, key: &[u8], size: usize, en: &[u8]) {
-        let ctx = AeadCtx::new_with_key(*suite.aead(), key, AeadDir::Open).unwrap();
+        let ctx = AeadCtx::new_with_key(*suite.aead(), AeadDir::Open, key).unwrap();
         let payload = [1, 2, 3, 4, 5, 61, 2, 3, 4, 5, 6, 7, 8, 9, 23, 23];
         let iv = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4];
         let mut buffer = [0; 1024];
