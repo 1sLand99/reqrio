@@ -126,7 +126,7 @@ impl Connection {
             self.version, self.cipher_suite.spec(), self.cipher_suite.hash(), self.cipher_suite.aead());
         self.derived.init(KeyType::Handshake, self.cipher_suite);
         self.derived.set_server_random(server_hello.random.as_ref().try_into()?);
-        self.derived.use_ems=server_hello.use_ems();
+        self.derived.use_ems = server_hello.use_ems();
         if Version::TLS_1_3 == self.version {
             let key_entry = server_hello.key_share_extend().ok_or(RlsError::MissingKeyEntry)?.key_entry();
             self.named_curve = key_entry.group();
@@ -468,32 +468,18 @@ mod tests {
     use crate::buffer::{CipherEncodeBuffer, TlsDecodeBuffer};
     use crate::error::RlsResult;
     use crate::suite::iv::Iv;
-    use crate::{AeadCtx, CipherSuite, RecordType, Version};
+    use crate::{rand, AeadCtx, CipherSuite, RecordType, TlsSession, Version};
     use std::os::raw::c_void;
-    use std::ptr::{null, null_mut};
-
-    #[repr(C)]
-    struct TlsSession {
-        ticket_len: usize,
-        ticket: *const u8,
-        session_id_len: u8,
-        session_id: *const u8,
-        master_secret: [u8; 48],
-    }
-
-    #[repr(C)]
-    struct DerivedKey {
-        session: TlsSession,
-        client_random: [u8; 32],
-    }
+    use std::ptr::null_mut;
+    use crate::key::DerivedKey;
 
     #[repr(C)]
     struct Connection {
-        derived: DerivedKey,
-        secrets: *mut c_void,
         encryptor: AeadCtx,
         decryptor: AeadCtx,
         suite: &'static CipherSuite,
+        secrets: *mut c_void,
+        derived: DerivedKey,
     }
 
     impl Connection {
@@ -523,20 +509,11 @@ mod tests {
 
     fn test_encrypt(key: &[u8], suite: &'static CipherSuite, iv: Iv, en: &[u8]) {
         let mut connection = Connection {
-            derived: DerivedKey {
-                session: TlsSession {
-                    ticket_len: 0,
-                    ticket: null(),
-                    session_id_len: 0,
-                    session_id: null(),
-                    master_secret: [0; 48],
-                },
-                client_random: [0; 32],
-            },
-            secrets: null_mut(),
             encryptor: AeadCtx::new(*suite.aead(), AeadDir::Seal).init(key).unwrap(),
             decryptor: AeadCtx::new(*suite.aead(), AeadDir::Open).init(key).unwrap(),
             suite,
+            secrets: null_mut(),
+            derived: DerivedKey::new(rand::random(), rand::random(), TlsSession::default(), None, false),
         };
         let payload = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 34, 3, 3, 3];
         let mut out = [0; 1024];
