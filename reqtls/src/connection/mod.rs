@@ -77,7 +77,7 @@ impl Connection {
     }
 
     pub fn client_random(&self) -> &[u8] {
-        self.derived.client_random()
+        &self.derived.client_random
     }
 
     pub fn with_verify(mut self, verify: bool) -> Connection {
@@ -113,7 +113,7 @@ impl Connection {
 
     pub fn set_by_server_hello(&mut self, server_hello: &ServerHello, version: Version) -> RlsResult<bool> {
         self.alpn = server_hello.alpn();
-        self.derived.session_mut().set_session_id(server_hello.session_id.as_ref());
+        self.derived.session.set_session_id(server_hello.session_id.as_ref());
         self.cipher_suite = server_hello.cipher_suite;
         self.hasher.init(self.cipher_suite.hash())?;
         if let Some(version) = server_hello.supported_version() {
@@ -126,7 +126,7 @@ impl Connection {
             self.version, self.cipher_suite.spec(), self.cipher_suite.hash(), self.cipher_suite.aead());
         self.derived.init(KeyType::Handshake, self.cipher_suite);
         self.derived.set_server_random(server_hello.random.as_ref().try_into()?);
-        self.derived.set_ems(server_hello.use_ems());
+        self.derived.use_ems=server_hello.use_ems();
         if Version::TLS_1_3 == self.version {
             let key_entry = server_hello.key_share_extend().ok_or(RlsError::MissingKeyEntry)?.key_entry();
             self.named_curve = key_entry.group();
@@ -189,8 +189,8 @@ impl Connection {
         match self.version {
             Version::TLCP => {
                 let mut sign_data = Vec::with_capacity(1024);
-                sign_data.extend_from_slice(self.derived.client_random());
-                sign_data.extend_from_slice(self.derived.server_random());
+                sign_data.extend_from_slice(&self.derived.client_random);
+                sign_data.extend_from_slice(&self.derived.server_random);
                 for certificate in self.certificates.iter_mut() {
                     let (pubkey, key_usage) = certificate.sm2_pub_key()?;
                     if key_usage & 0x80 == 0x80 && key.is_null() {
@@ -206,8 +206,8 @@ impl Connection {
             }
             _ => {
                 let mut sign_data = Vec::with_capacity(512);
-                sign_data.extend_from_slice(self.derived.client_random());
-                sign_data.extend_from_slice(self.derived.server_random());
+                sign_data.extend_from_slice(&self.derived.client_random);
+                sign_data.extend_from_slice(&self.derived.server_random);
                 sign_data.push(*server_key.hellman_param().curve_type() as u8);
                 sign_data.extend(server_key.hellman_param().named_curve().as_u16().to_be_bytes());
                 sign_data.push(server_key.hellman_param().pub_key().len() as u8);
@@ -287,7 +287,7 @@ impl Connection {
     }
 
     pub fn set_by_session_ticket(&mut self, ticket: SessionTicket) {
-        self.derived.session_mut().set_ticket(ticket.tls_ticket().ticket().to_vec());
+        self.derived.session.set_ticket(ticket.tls_ticket().ticket().to_vec());
     }
 
     pub fn set_by_client_exchange_key(&mut self, client_key: ClientKeyExchange) {
@@ -425,7 +425,7 @@ impl Connection {
 
     pub fn session_bytes(&self) -> &[u8] { &self.session_bytes }
     pub fn cipher_suite(&self) -> &'static CipherSuite { self.cipher_suite }
-    pub fn session(&self) -> &TlsSession { self.derived.session() }
+    pub fn session(&self) -> &TlsSession { &self.derived.session }
     pub fn server(&self) -> bool { self.server }
     pub fn handle_mtls_client(&mut self, writer: &mut Writer, key: &RsaKey) -> RlsResult<()> {
         let mut cert_verify = CertificateVerify::default();

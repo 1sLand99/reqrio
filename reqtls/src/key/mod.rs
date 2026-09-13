@@ -6,11 +6,11 @@ use crate::buffer::BufPtr;
 use crate::error::RlsResult;
 use crate::{ffi, Buf, BufferError, NamedCurve, Version};
 use std::os::raw::c_int;
-
 use crate::ffi::CPointer;
 pub use block::{KeyType, TlsSession};
 pub(crate) use derived::DerivedKey;
 
+#[repr(C)]
 pub struct TrafficSecret {
     client_traffic: [u8; 48],
     server_traffic: [u8; 48],
