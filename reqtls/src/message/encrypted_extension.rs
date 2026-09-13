@@ -3,7 +3,7 @@ use crate::message::HandshakeType;
 use crate::extend::Extension;
 use crate::{u24, BufferError, Reader, Writer, ALPN};
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct EncryptedExtension<'a> {
     handshake_type: HandshakeType,
     extensions: Vec<Extension<'a>>,

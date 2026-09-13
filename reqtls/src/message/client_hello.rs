@@ -12,7 +12,7 @@ use crate::extend::SNType;
 use crate::*;
 use std::mem;
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct ClientHello<'a> {
     handshake_type: HandshakeType,
     len: u24,

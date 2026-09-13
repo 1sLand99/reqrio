@@ -2,9 +2,10 @@ use super::HandshakeType;
 use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::{u24, BufferError, CertType, CompressionMethod, Reader, SignatureAlgorithm, Version, Writer};
+#[cfg(debug_assertions)]
 use std::fmt::Debug;
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct Certificates<'a> {
     handshake_type: HandshakeType,
     certificates: Vec<Buf<'a>>,
@@ -73,7 +74,7 @@ impl<'a> Certificates<'a> {
     }
 }
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct CertificateStatus<'a> {
     handshake_type: HandshakeType,
     bytes: Buf<'a>,
@@ -98,7 +99,7 @@ impl<'a> CertificateStatus<'a> {
 }
 
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct CertificateRequest<'a> {
     handshake_type: HandshakeType,
     cert_type: Vec<CertType>,
@@ -183,7 +184,7 @@ impl<'a> CertificateRequest<'a> {
     }
 }
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct CertificateVerify<'a> {
     handshake_type: HandshakeType,
     sign_hash: SignatureAlgorithm,
@@ -246,7 +247,7 @@ impl<'a> CertificateVerify<'a> {
 }
 
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct CompressedCertificate<'a> {
     handshake_type: HandshakeType,
     algorithm: CompressionMethod,

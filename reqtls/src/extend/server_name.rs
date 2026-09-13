@@ -1,10 +1,13 @@
+#[cfg(debug_assertions)]
 use std::fmt::{Debug, Formatter};
 use std::os::raw::c_void;
 use std::ptr::null;
+#[cfg(debug_assertions)]
 use std::slice;
-use crate::{BufferError, Reader, Writer};
+use crate::*;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub enum SNType<'a> {
     HostName(&'a str),
 }

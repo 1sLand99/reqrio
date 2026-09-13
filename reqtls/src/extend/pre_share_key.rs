@@ -2,7 +2,8 @@ use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::{rand, BufferError, Reader, Writer};
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct PskIdentity<'a> {
     value: Buf<'a>,
     age: u32,
@@ -42,7 +43,8 @@ impl<'a> PskIdentity<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct PskBinder<'a> {
     value: Buf<'a>,
 }
@@ -75,7 +77,8 @@ impl<'a> PskBinder<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct PreSharedKey<'a> {
     identity: PskIdentity<'a>,
     binder: PskBinder<'a>,

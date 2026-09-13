@@ -1,6 +1,7 @@
 use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::{BufferError, NamedCurve, Reader, Writer};
+#[cfg(debug_assertions)]
 use std::fmt::{Debug, Formatter};
 use std::ptr::null;
 use std::slice;
@@ -46,7 +47,7 @@ impl KeyEntry {
     }
 }
 
-// #[cfg(debug_assertions)]
+#[cfg(debug_assertions)]
 impl Debug for KeyEntry {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut struct_debug = f.debug_struct("KeyEntry");
@@ -60,7 +61,8 @@ impl Debug for KeyEntry {
 unsafe impl Sync for KeyEntry {}
 unsafe impl Send for KeyEntry {}
 
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct KeyShare {
     entries: Vec<KeyEntry>,
 }

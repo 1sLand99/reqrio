@@ -52,7 +52,7 @@ impl From<u16> for TrpErrKind {
     }
 }
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct QUICFrameFlag {
     fin: bool,
     len: bool,
@@ -102,7 +102,7 @@ impl From<u64> for QUICFrameFlag {
     }
 }
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct AckRange {
     pub gap: u64,
     pub range: u64,
@@ -179,7 +179,7 @@ impl From<u64> for QUICFrameType {
 }
 
 #[repr(u64)]
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub enum QUICFrame<'a> {
     Padding(usize),
     Ping,

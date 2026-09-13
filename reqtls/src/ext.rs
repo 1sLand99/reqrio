@@ -2,7 +2,9 @@ use crate::config::{ClientConfig, Config};
 use crate::error::RlsResult;
 use crate::*;
 #[cfg(feature = "log")]
-use log::{debug, trace, warn};
+use log::debug;
+#[cfg(all(debug_assertions, feature = "log"))]
+use log::{trace, warn};
 use std::collections::HashMap;
 
 pub struct StreamParam<'a> {
@@ -192,7 +194,7 @@ pub trait StreamHandle {
     }
 
     fn handle_handshake(param: &mut StreamParam<'_>, mut config: Option<&mut Config<'_>>, message: Message<'_>, version: Version) -> RlsResult<()> {
-        #[cfg(feature = "log")]
+        #[cfg(all(debug_assertions, feature = "log"))]
         trace!("[HandleHandshake] message: {:?}]", message);
         match message.parsed {
             MessageParsed::ServerHello(server_hello) => {
@@ -266,7 +268,7 @@ pub trait StreamHandle {
                 param.conn.update_session(message.encoded.as_ref())?;
             }
             _ => {
-                #[cfg(feature = "log")]
+                #[cfg(all(debug_assertions, feature = "log"))]
                 warn!("unhandled message: {:?}", message);
             }
         }
@@ -279,7 +281,7 @@ pub trait StreamHandle {
         let record = RecordLayer::from_bytes(read_buffer.filled(), param.conn.cipher_suite().exchange_alg(), *param.encrypted_channel)?;
         match record.content_type {
             RecordType::CipherSpec => {
-                #[cfg(feature = "log")]
+                #[cfg(all(debug_assertions, feature = "log"))]
                 trace!("[HandleRecord] {:?}", record);
                 *param.encrypted_channel = !*param.hello_retrying;
                 if param.conn.secret_key().is_none() && param.conn.version() == &Version::TLS_1_2 {
@@ -287,13 +289,13 @@ pub trait StreamHandle {
                 }
             }
             RecordType::Alert => {
-                #[cfg(feature = "log")]
+                #[cfg(all(debug_assertions, feature = "log"))]
                 trace!("[HandleRecord] {:?}", record);
                 return Err(RlsError::Alert(self.handle_by_alert()?));
             }
             RecordType::HandShake => match *param.encrypted_channel {
                 true => {
-                    #[cfg(feature = "log")]
+                    #[cfg(all(debug_assertions, feature = "log"))]
                     trace!("[HandleRecord] {:?}", record);
                     let out = param.write_buffer.unfilled();
                     let len = param.conn.read_message(&read_buffer.filled()[..record_len], out)?;
@@ -305,7 +307,7 @@ pub trait StreamHandle {
                 }
             }
             RecordType::ApplicationData => {
-                #[cfg(feature = "log")]
+                #[cfg(all(debug_assertions, feature = "log"))]
                 trace!("[HandleRecord] {:?}", record);
                 return self.handle_by_application(record_len, config, app_buf);
             }

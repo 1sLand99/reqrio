@@ -31,10 +31,13 @@ pub use psk_key::PskMode;
 pub use quic::Parameter;
 pub use server_name::{SNType, ServerName};
 pub use status::StatusRequest;
-use std::fmt::{Debug, Display, Formatter};
+#[cfg(debug_assertions)]
+use std::fmt::Debug;
+use std::fmt::{Display, Formatter};
 pub use version::SupportVersions;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub enum Extension<'a> {
     ServerName(Vec<SNType<'a>>),
     StatusRequest(StatusRequest),

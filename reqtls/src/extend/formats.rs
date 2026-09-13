@@ -1,3 +1,4 @@
+#[cfg(debug_assertions)]
 use std::fmt::{Debug, Formatter};
 use crate::error::RlsResult;
 use crate::{BufferError, Reader, Writer};
@@ -29,6 +30,7 @@ impl EcPointFormat {
     }
 }
 
+#[cfg(debug_assertions)]
 impl Debug for EcPointFormat {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}(0x{:02x})", self.spec(), self.0)
@@ -41,7 +43,8 @@ impl From<u8> for EcPointFormat {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct EcPointFormats {
     formats: Vec<EcPointFormat>,
 }

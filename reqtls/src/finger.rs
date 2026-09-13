@@ -5,9 +5,10 @@ use crate::extend::alps::ALPS;
 use crate::extend::group::SupportedGroups;
 use crate::extend::{CompressCertificate, Extension, SNType, StatusRequest};
 use crate::*;
+#[cfg(debug_assertions)]
 use std::fmt::Debug;
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub enum TlsFinger {
     Default,
     ClientHello {

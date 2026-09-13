@@ -3,7 +3,8 @@ use crate::error::RlsResult;
 use crate::{rand, BufferError, Reader, Writer};
 
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct SignatureAlgorithms {
     hash: Vec<SignatureAlgorithm>,
 }

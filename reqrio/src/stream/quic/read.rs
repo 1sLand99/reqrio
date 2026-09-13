@@ -30,7 +30,7 @@ impl<'a> QUICPacketRead<'a, std::net::UdpSocket> {
                 let off = start..start + len;
                 let flag = QUICFlag::from_raw(unfilled[0]);
                 self.buffer.add_len(len);
-                #[cfg(feature = "log")]
+                #[cfg(all(debug_assertions, feature = "log"))]
                 trace!("read flag={:?}; cur={:?}; {}", flag.packet_type(), self.current, flag.packet_type() > self.current);
                 if flag.packet_type() > self.current {
                     self.packet_offsets.push((flag.packet_type(), off));
@@ -65,7 +65,7 @@ impl<'a> Future for QUICPacketRead<'a, tokio::net::UdpSocket> {
                         let off = start..start + len;
                         let flag = QUICFlag::from_raw(buf.filled()[0]);
                         reader.buffer.add_len(len);
-                        #[cfg(feature = "log")]
+                        #[cfg(all(debug_assertions, feature = "log"))]
                         trace!("read flag={:?}; cur={:?}; {}", flag.packet_type(), reader.current, flag.packet_type() > reader.current);
                         if flag.packet_type() > reader.current {
                             reader.packet_offsets.push((flag.packet_type(), off));

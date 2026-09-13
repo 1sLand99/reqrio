@@ -83,7 +83,7 @@ impl Default for H3Finger {
     }
 }
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct Fingerprint {
     tls: TlsFinger,
     h2: H2Finger,

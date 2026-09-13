@@ -23,13 +23,16 @@ pub use key_exchange::{ClientKeyExchange, NamedCurve, ServerKeyExchange};
 pub use quic::*;
 pub use server_hello::{ServerHello, ServerHelloDone};
 pub use session_ticket::{SessionTicket, TlsSessionTicket};
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
+#[cfg(debug_assertions)]
+use std::fmt::Formatter;
 
 pub struct Message<'a> {
     pub encoded: Buf<'a>,
     pub parsed: MessageParsed<'a>,
 }
 
+#[cfg(debug_assertions)]
 impl<'a> Debug for Message<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Message {{")?;
@@ -235,6 +238,7 @@ impl<'a> MessageParsed<'a> {
     }
 }
 
+#[cfg(debug_assertions)]
 impl<'a> Debug for MessageParsed<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {

@@ -1,5 +1,7 @@
 use std::fmt;
-use std::fmt::{Debug, Display, Formatter};
+#[cfg(debug_assertions)]
+use std::fmt::Debug;
+use std::fmt::{Display, Formatter};
 use crate::error::RlsResult;
 use crate::{BufferError, Reader, Writer};
 
@@ -31,7 +33,7 @@ impl CompressionMethod {
     }
 }
 
-
+#[cfg(debug_assertions)]
 impl Debug for CompressionMethod {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.0 {
@@ -61,7 +63,8 @@ impl From<u16> for CompressionMethod {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct CompressCertificate {
     algorithms: Vec<CompressionMethod>,
 }

@@ -30,7 +30,7 @@ impl RecordType {
 }
 
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct RecordLayer<'a> {
     pub content_type: RecordType,
     pub version: Version,

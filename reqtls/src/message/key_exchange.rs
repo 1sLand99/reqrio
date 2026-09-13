@@ -6,7 +6,8 @@ use crate::suite::KeyExchangeAlg;
 use crate::{u24, BufferError, Reader, Version, Writer};
 use std::fmt::{Debug, Display, Formatter};
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub enum CurveType {
     NamedCurve = 0x3
 }
@@ -102,7 +103,7 @@ impl NamedCurve {
             NamedCurve::X25519MLKEM768 => 1216,
             NamedCurve::SecP256r1MLKEM768 => 1249,
             NamedCurve::PRE_MASTER => 48,
-            _ => unreachable!("{:?}", self)
+            _ => unreachable!("{}", self)
         }
     }
 }
@@ -142,7 +143,7 @@ impl From<NamedCurve> for u16 {
 }
 
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct ServerHellmanParam<'a> {
     curve_type: CurveType,
     named_curve: NamedCurve,
@@ -223,7 +224,7 @@ impl<'a> ServerHellmanParam<'a> {
     }
 }
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct ServerKeyExchange<'a> {
     handshake_type: HandshakeType,
     hellman_param: ServerHellmanParam<'a>,
@@ -266,7 +267,7 @@ impl<'a> ServerKeyExchange<'a> {
     pub fn hellman_param_mut(&mut self) -> &mut ServerHellmanParam<'a> { &mut self.hellman_param }
 }
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct ClientHellmanParam<'a> {
     pub_key_len: u16,
     pub_key: Buf<'a>,
@@ -309,7 +310,7 @@ impl<'a> ClientHellmanParam<'a> {
     }
 }
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct ClientKeyExchange<'a> {
     handshake_type: HandshakeType,
     hellman_param: ClientHellmanParam<'a>,

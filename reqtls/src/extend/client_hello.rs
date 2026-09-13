@@ -2,7 +2,8 @@ use super::ech::{Aead, KDF};
 use crate::error::RlsResult;
 use crate::{Buf, BufferError, Reader, Writer};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 enum ClientHelloType {
     OuterClientHello = 0,
 }
@@ -17,7 +18,8 @@ impl ClientHelloType {
 }
 
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub(super) struct CipherSuite {
     pub(super) kdf: KDF,
     pub(super) aead: Aead,
@@ -40,7 +42,8 @@ impl CipherSuite {
 }
 
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct EncryptClientHello<'a> {
     type_: ClientHelloType,
     cipher_suite: CipherSuite,

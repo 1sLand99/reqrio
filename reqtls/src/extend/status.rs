@@ -1,7 +1,8 @@
 use crate::error::RlsResult;
 use crate::{BufferError, Reader, Writer};
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub enum StatusType {
     OCSP = 0x1
 }
@@ -15,7 +16,8 @@ impl StatusType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct StatusRequest {
     status_type: StatusType,
     responder_id_len: u16,

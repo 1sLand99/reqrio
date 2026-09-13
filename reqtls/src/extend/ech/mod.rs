@@ -6,9 +6,10 @@ use crate::dns::DNSError;
 use crate::{Buf, Reader};
 pub use aead::Aead;
 pub use kdf::KDF;
+#[cfg(debug_assertions)]
 use std::fmt::Debug;
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 #[allow(dead_code)]
 pub struct EchConfig {
     len: u16,
@@ -47,6 +48,7 @@ struct DHKem(u16);
 impl DHKem {
     const X25519_HDK: u16 = 0x0020;
 
+    #[cfg(debug_assertions)]
     fn spec(&self) -> &str {
         match self.0 {
             DHKem::X25519_HDK => "X25519",
@@ -55,13 +57,14 @@ impl DHKem {
     }
 }
 
+#[cfg(debug_assertions)]
 impl Debug for DHKem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}(0x{:x})", self.spec(), self.0)
     }
 }
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 #[allow(dead_code)]
 pub struct EchContent {
     config_id: u8,

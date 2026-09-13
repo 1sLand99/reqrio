@@ -2,14 +2,15 @@ use super::super::version::Version;
 use crate::{BufferError, Reader, Writer};
 use crate::error::RlsResult;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct SupportVersions {
     versions: Vec<Version>,
 }
 
 
 impl SupportVersions {
-    pub fn new(versions:Vec<Version>) -> Self {
+    pub fn new(versions: Vec<Version>) -> Self {
         SupportVersions { versions }
     }
     pub fn from_reader(mut reader: Reader<'_>, server: bool) -> RlsResult<SupportVersions> {

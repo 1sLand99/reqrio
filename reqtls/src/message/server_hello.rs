@@ -7,7 +7,7 @@ use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 use crate::{rand, u24, BufferError, ClientHello, HandShakeError, Reader, Writer, ALPN};
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct ServerHello<'a> {
     handshake_type: HandshakeType,
     len: u24,
@@ -166,7 +166,7 @@ impl<'a> ServerHello<'a> {
     }
 }
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct ServerHelloDone {
     handshake_type: HandshakeType,
     len: u24,

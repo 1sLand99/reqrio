@@ -133,7 +133,7 @@ impl Connection {
             let share_secret = secret_key.diffie_hellman(key_entry.key().as_ref())?;
             self.derived.make_handshake_traffic_secret(share_secret, self.hasher.current_hash()?)?;
             #[cfg(feature = "log")]
-            info!("[ParsedServerHello] KeyShare={:?}; pubkey={}",key_entry.group(), key_entry.key().len());
+            info!("[ParsedServerHello] KeyShare={}; pubkey={}",key_entry.group(), key_entry.key().len());
             self.derived_key_cipher(KeyType::Handshake)?;
         }
         Ok(false)
@@ -260,7 +260,7 @@ impl Connection {
         self.sig_alg = *server_key.hellman_param().signature_algorithm();
         self.named_curve = *server_key.hellman_param().named_curve();
         #[cfg(feature = "log")]
-        info!("[ExchangeKey] algorithm={}; curve={:?}; verify={}", self.sig_alg.spec(), self.named_curve, self.verify);
+        info!("[ExchangeKey] algorithm={}; curve={}; verify={}", self.sig_alg.spec(), self.named_curve, self.verify);
         match (self.verify, self.version) {
             (true, Version::TLCP) => {
                 let mut key = Sm2Key::none();

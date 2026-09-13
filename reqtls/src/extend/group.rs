@@ -1,9 +1,11 @@
 use crate::error::RlsResult;
 use crate::{BufferError, NamedCurve, Reader, Writer};
+#[cfg(debug_assertions)]
 use std::fmt::Debug;
 
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct SupportedGroups {
     values: Vec<NamedCurve>,
 }

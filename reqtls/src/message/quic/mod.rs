@@ -5,7 +5,8 @@ use crate::{u24, Buf, Writer, BufferError, Reader};
 pub use frame::{QUICFrame, QUICFrameFlag, AckRange, TrpErrKind};
 
 
-#[derive(Default, Copy, Clone, Debug, PartialEq)]
+#[derive(Default, Copy, Clone, PartialEq)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub enum PacketType {
     #[default]
     Initial = 0,
@@ -59,7 +60,8 @@ mod tests {
 }
 
 
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Copy, Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct QUICFlag {
     long_header: bool,
     fixed_bit: bool,
@@ -171,7 +173,7 @@ impl QUICFlag {
     }
 }
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct QUICPacket<'a> {
     pub(crate) flag: QUICFlag,
     pub(crate) ver: u32,
@@ -209,7 +211,7 @@ impl<'a> Default for QUICPacket<'a> {
 
 impl<'a> QUICPacket<'a> {
     pub fn new_long(pty: PacketType, num: u64, pd_len: usize, dcid: &'a [u8], token: &'a Buf<'a>) -> Self {
-        std::debug_assert_matches!(pty,  PacketType::Initial| PacketType::Handshake);
+        debug_assert!(matches!(pty, PacketType::Initial|PacketType::Handshake));
         let num_len = crate::quic::variant_len(num as usize);
         let (len, padding) = if pd_len + num_len + 16 >= 1232 {
             (pd_len + num_len + 16, 0)
@@ -235,7 +237,7 @@ impl<'a> QUICPacket<'a> {
     }
 
     pub fn new_short(pty: PacketType, num: u64, pd_len: usize, dcid: &'a [u8]) -> Self {
-        std::debug_assert_matches!(pty, PacketType::ShortHeader);
+        debug_assert!(matches!(pty, PacketType::ShortHeader));
         let num_len = crate::quic::variant_len(num as usize);
         QUICPacket {
             flag: QUICFlag {

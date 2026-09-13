@@ -4,7 +4,7 @@ use crate::error::RlsResult;
 use crate::{u24, BufferError, Reader, Version, Writer};
 use crate::extend::Extension;
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 #[allow(unused)]
 pub struct TlsSessionTicket<'a> {
     lifetime: u32,
@@ -75,7 +75,7 @@ impl<'a> TlsSessionTicket<'a> {
     }
 }
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct SessionTicket<'a> {
     handshake_type: HandshakeType,
     tls_ticket: TlsSessionTicket<'a>,

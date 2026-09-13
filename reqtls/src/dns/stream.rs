@@ -12,7 +12,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct DNSCache {
     addrs: Vec<IpAddr>,
     alpn: Vec<ALPN>,
