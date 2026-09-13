@@ -80,7 +80,7 @@ impl<'a> RecordLayer<'a> {
     pub fn write_to(self, writer: &mut Writer, kea: KeyExchangeAlg) -> RlsResult<()> {
         let offset = writer.offset().end;
         let sni = self.messages[0].parsed.client().and_then(|x| x.host_name()).unwrap_or("").to_string();
-        let h2 = self.messages[0].parsed.client().map(|x| x.alps().map(|x| x.values().iter().any(|x| x == &ALPN::Http20)).unwrap_or(false)).unwrap_or(false);
+        let h2 = self.messages[0].parsed.client().map(|x| x.alps().map(|x| x.values().iter().any(|x| x == &ALPN::HTTP20)).unwrap_or(false)).unwrap_or(false);
         writer.write_u8(self.content_type as u8)?;
         writer.write_u16(self.version.into_inner())?;
         let len = self.messages.iter().map(|x| x.parsed.len(kea)).sum::<usize>();

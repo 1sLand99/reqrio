@@ -59,8 +59,8 @@ pub fn random_fingerprint(sni: &str) -> Result<Fingerprint, HlsError> {
             ])),
             Extension::SessionTicket(Buf::Ref(&[])),
             Extension::ApplicationLayerProtocolNegotiation(ALPS::new(vec![
-                ALPN::Http20,
-                ALPN::Http11
+                ALPN::HTTP20,
+                ALPN::HTTP11
             ])),
             Extension::StatusRequest(StatusRequest::new()),
             Extension::SignatureAlgorithms(SignatureAlgorithms::new(vec![
@@ -88,7 +88,7 @@ pub fn random_fingerprint(sni: &str) -> Result<Fingerprint, HlsError> {
                 CompressionMethod::BROTLI
             ])),
             Extension::ApplicationSettingOld(ALPS::new(vec![
-                ALPN::Http20
+                ALPN::HTTP20
             ])),
             Extension::Reserved { typ: REVERSED[rand::random::<usize>() % REVERSED.len()], value: Buf::Ref(&[0]) },
             Extension::Padding(padding as usize)
@@ -107,7 +107,7 @@ fn main() {
     Writer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
     let fingerprint = random_fingerprint("www.baidu.com").unwrap();
     let mut req = ScReq::new()
-        .with_alpn(ALPN::Http20)
+        .with_alpn(ALPN::HTTP20)
         .with_verify(true)
         .with_timeout(Timeout::new_same(3000, 1))
         .with_key_log("2.log")

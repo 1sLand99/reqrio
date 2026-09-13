@@ -37,8 +37,8 @@ impl TlsFinger {
                 let mut reader = Reader::from_slice(&Self::DEFAULT_TLS[5..]);
                 reader.read_u8()?;
                 let mut res = ClientHello::from_bytes(&mut reader)?;
-                match alpn {
-                    ALPN::Http20 => res.add_h2_alpn(),
+                match *alpn {
+                    ALPN::HTTP20 => res.add_h2_alpn(),
                     _ => res.remove_h2_alpn()
                 }
                 Ok(res)
@@ -124,7 +124,7 @@ impl TlsFinger {
                 Extension::KeyShare(KeyShare::new(groups)),
                 Extension::CompressionCertificate(CompressCertificate::new(vec![CompressionMethod::NULL])),
                 Extension::SupportedVersions(SupportVersions::new(versions)),
-                Extension::ApplicationLayerProtocolNegotiation(ALPS::new(vec![ALPN::Http20, ALPN::Http11])),
+                Extension::ApplicationLayerProtocolNegotiation(ALPS::new(vec![ALPN::HTTP20, ALPN::HTTP11])),
                 Extension::ServerName(vec![SNType::HostName("")]),
                 Extension::EcPointFormats(EcPointFormats::new(TlsFinger::random_formats())),
                 Extension::RenegotiationInfo,
@@ -222,7 +222,7 @@ impl TlsFinger {
             });
         }
         extensions.push(Extension::ServerName(vec![SNType::HostName("")]));
-        extensions.push(Extension::ApplicationLayerProtocolNegotiation(ALPS::new(vec![ALPN::Http20, ALPN::Http11])));
+        extensions.push(Extension::ApplicationLayerProtocolNegotiation(ALPS::new(vec![ALPN::HTTP20, ALPN::HTTP11])));
         Ok(TlsFinger::Custom {
             record_version: Version::TLS_1_0,
             message_version: Version::TLS_1_2,

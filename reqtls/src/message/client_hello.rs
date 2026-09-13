@@ -336,15 +336,15 @@ impl<'a> ClientHello<'a> {
             self.extensions.insert(0, qte);
         }
         if let Some(extend) = self.extensions.iter_mut().find(|x| **x == Extension::APPLICATION_LAYER_PROTOCOL_NEGOTIATION) {
-            let alps = ALPS::new(vec![ALPN::Http30]);
+            let alps = ALPS::new(vec![ALPN::HTTP30]);
             *extend = Extension::ApplicationLayerProtocolNegotiation(alps);
         }
         if let Some(extend) = self.extensions.iter_mut().find(|x| matches!(x, Extension::ApplicationSetting(_))) {
-            let alps = ALPS::new(vec![ALPN::Http30]);
+            let alps = ALPS::new(vec![ALPN::HTTP30]);
             *extend = Extension::ApplicationSetting(alps);
         }
         if let Some(extend) = self.extensions.iter_mut().find(|x| matches!(x, Extension::ApplicationSettingOld(_))) {
-            let alps = ALPS::new(vec![ALPN::Http30]);
+            let alps = ALPS::new(vec![ALPN::HTTP30]);
             *extend = Extension::ApplicationSettingOld(alps);
         }
         let mut suites = vec![];

@@ -522,11 +522,6 @@ struct TlsSession {
     master_secret: [u8; 48],
 }
 
-#[repr(C)]
-struct ALPN {
-    len: u8,
-    ptr: *const u8,
-}
 
 #[repr(C)]
 struct ClientConfig {
@@ -578,10 +573,7 @@ async fn main() {
         sni: sni.as_ptr(),
         verify: false,
         key_log: null(),
-        alpn: ALPN {
-            len: 0,
-            ptr: null(),
-        },
+        alpn: ALPN::HTTP11,
         version: 0,
     };
     let mut writer = Writer::with_capacity(4096);
