@@ -14,7 +14,7 @@ pub enum TlsFinger {
         ///record layer version
         record_version: Version,
         ///client hello bytes
-        bytes: Bytes,
+        bytes: Buf<'static>,
     },
     Custom {
         ///record layer version
@@ -238,7 +238,7 @@ impl TlsFinger {
         let len = u16::from_be_bytes([client_hello[3], client_hello[4]]) as usize + 5;
         let _ = client_hello.split_off(len);
         let client_hello = client_hello.split_off(5);
-        Ok(TlsFinger::ClientHello { record_version: ver, bytes: Bytes::new(client_hello) })
+        Ok(TlsFinger::ClientHello { record_version: ver, bytes: Buf::Vec(client_hello) })
     }
 
     pub fn add_cipher_suite(&mut self, suite: CipherSuite) {

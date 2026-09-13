@@ -1,7 +1,6 @@
 #[cfg(feature = "quic")]
 mod quic;
 
-use super::bytes::Bytes;
 use super::record::{RecordLayer, RecordType};
 use super::suite::iv::Iv;
 use super::suite::CipherSuite;
@@ -23,7 +22,7 @@ pub struct Connection {
     pub(crate) recv_cipher: TlsCipher,
     pub(crate) send_cipher: TlsCipher,
     named_curve: NamedCurve,
-    exchange_pub_key: Bytes,
+    exchange_pub_key: Buf<'static>,
     alpn: Option<ALPN>,
     cipher_suite: &'static CipherSuite,
     session_bytes: Vec<u8>,
@@ -54,7 +53,7 @@ impl Connection {
             recv_cipher: TlsCipher::none(),
             send_cipher: TlsCipher::none(),
             named_curve: NamedCurve::X25519.into(),
-            exchange_pub_key: Bytes::none(),
+            exchange_pub_key: Buf::Ref(&[]),
             alpn: None,
             cipher_suite: &CipherSuite::UNKNOWN,
             session_bytes: Vec::with_capacity(4096),
@@ -130,12 +129,12 @@ impl Connection {
         self.derived.set_ems(server_hello.use_ems());
         if Version::TLS_1_3 == self.version {
             let key_entry = server_hello.key_share_extend().ok_or(RlsError::MissingKeyEntry)?.key_entry();
-            self.named_curve = *key_entry.name_curve();
-            let mut secret_key = self.secret_keys.remove(key_entry.name_curve()).ok_or("secret not inited")?;
-            let share_secret = secret_key.diffie_hellman(key_entry.exchange_key().as_ref())?;
+            self.named_curve = key_entry.group();
+            let secret_key = self.secret_keys.remove(&key_entry.group()).ok_or("secret not inited")?;
+            let share_secret = secret_key.diffie_hellman(key_entry.key().as_ref())?;
             self.derived.make_handshake_traffic_secret(share_secret, self.hasher.current_hash()?)?;
             #[cfg(feature = "log")]
-            info!("[ParsedServerHello] KeyShare={:?}; pubkey={}",key_entry.name_curve(), key_entry.exchange_key().len());
+            info!("[ParsedServerHello] KeyShare={:?}; pubkey={}",key_entry.group(), key_entry.key().len());
             self.derived_key_cipher(KeyType::Handshake)?;
         }
         Ok(false)
@@ -276,8 +275,12 @@ impl Connection {
             }
             (_, _) => {}
         }
-        self.exchange_pub_key = Bytes::new(server_key.hellman_param().pub_key().to_vec());
-        self.secret_key = Some(SecretKey::new(&self.named_curve)?);
+        self.exchange_pub_key = Buf::Vec(server_key.hellman_param().pub_key().to_vec());
+        if self.version == Version::TLCP {
+            self.secret_key = Some(SecretKey::new_pre_master_secret(&self.version)?)
+        } else {
+            self.secret_key = Some(SecretKey::new(self.named_curve)?);
+        }
         self.secret_keys.clear();
         self.secret_keys.shrink_to_fit();
         Ok(())
@@ -288,30 +291,29 @@ impl Connection {
     }
 
     pub fn set_by_client_exchange_key(&mut self, client_key: ClientKeyExchange) {
-        self.exchange_pub_key = Bytes::new(client_key.hellman_param().pub_key().to_vec());
+        self.exchange_pub_key = Buf::Vec(client_key.hellman_param().pub_key().to_vec());
     }
 
     pub fn pub_share_key(&mut self) -> RlsResult<Buf<'_>> {
-        match self.secret_key {
-            Some(SecretKey::PreMasterSecret(ref bs)) => {
+        if let Some(ref mut secret_key) = self.secret_key {
+            if secret_key.named_curve() == NamedCurve::PRE_MASTER {
                 debug_assert_eq!(self.version, Version::TLCP);
                 let cert = self.certificates.iter_mut().find_map(|cert| {
                     let cert = cert.sm2_pub_key().ok().filter(|x| x.1 & 0x20 == 0x20);
                     cert.map(|x| x.0)
                 }).ok_or(HandShakeError::MissingPubkey)?;
-                let key = Sm2Key::from_pub_key(cert.as_slice())?;
-                let pubkey = key.encrypt_premaster(bs.as_ref())?;
-                Ok(Buf::Vec(pubkey))
+                let sm2_key = Sm2Key::from_pub_key(cert.as_slice())?;
+                let pubkey = sm2_key.encrypt_premaster(secret_key.pub_key()?)?;
+                return Ok(Buf::Vec(pubkey));
             }
-            Some(ref key) => key.pub_key(),
-            None => {
-                debug_assert_eq!(self.version, Version::TLS_1_2);
-                let key = SecretKey::new_pre_master_secret(&self.version)?;
-                let rsa = RsaCipher::new(self.certificates[0].pub_key()?)?;
-                let pub_key = Buf::Vec(rsa.encrypt(key.pub_key()?.as_ref())?);
-                self.secret_key = Some(key);
-                Ok(pub_key)
-            }
+            Ok(secret_key.pub_key()?)
+        } else {
+            debug_assert_eq!(self.version, Version::TLS_1_2);
+            let key = SecretKey::new_pre_master_secret(&self.version)?;
+            let rsa = RsaCipher::new(self.certificates[0].pub_key()?)?;
+            let pub_key = Buf::Vec(rsa.encrypt(key.pub_key()?)?);
+            self.secret_key = Some(key);
+            Ok(pub_key)
         }
     }
 
@@ -346,13 +348,13 @@ impl Connection {
         record.messages.push(Message::new_parsed(MessageParsed::Certificate(certificates)));
         //server_key_exchange
         let mut server_key_exchange = ServerKeyExchange::default();
-        let key = SecretKey::new(server_key_exchange.hellman_param().named_curve())?;
+        let key = SecretKey::new(*server_key_exchange.hellman_param().named_curve())?;
         server_key_exchange.hellman_param_mut().set_pub_key(Buf::Vec(key.pub_key()?.to_vec()));
         self.secret_key = Some(key);
         let sign_data = self.gen_key_sign_data(&server_key_exchange, &mut Sm2Key::none())?;
         let signer = AlgorithmSigner::new_sign(pri_key.pkey(), server_key_exchange.hellman_param().signature_algorithm())?;
         server_key_exchange.hellman_param_mut().set_signature(Buf::Vec(signer.sign(&sign_data)?));
-        self.exchange_pub_key = Bytes::new(server_key_exchange.hellman_param().pub_key().to_vec());
+        self.exchange_pub_key = Buf::Vec(server_key_exchange.hellman_param().pub_key().to_vec());
         self.named_curve = *server_key_exchange.hellman_param().named_curve();
         record.messages.push(Message::new_parsed(MessageParsed::ServerKeyExchange(server_key_exchange)));
         //server_hello_done
@@ -438,6 +440,14 @@ impl Connection {
 
     pub fn set_secret_keys(&mut self, keys: HashMap<NamedCurve, SecretKey>) {
         self.secret_keys = keys;
+    }
+
+    pub fn secret_keys_mut(&mut self) -> &mut HashMap<NamedCurve, SecretKey> {
+        &mut self.secret_keys
+    }
+
+    pub fn secret_keys(&self) -> &HashMap<NamedCurve, SecretKey> {
+        &self.secret_keys
     }
 
     pub fn secret_key(&self) -> &Option<SecretKey> {

@@ -389,6 +389,14 @@ impl<'a> Buf<'a> {
             Buf::Vec(v) => v.clone()
         }
     }
+
+    pub fn as_ptr(&self) -> *const u8 {
+        match self {
+            Buf::Ptr(buf) => buf.ptr.as_ptr(),
+            Buf::Ref(buf) => buf.as_ptr(),
+            Buf::Vec(buf) => buf.as_ptr()
+        }
+    }
 }
 
 impl<'a> AsRef<[u8]> for Buf<'a> {
@@ -420,6 +428,14 @@ impl BufPtr {
     pub fn nullptr() -> Self {
         BufPtr {
             ptr: CPointer::nullptr(),
+            len: 0,
+        }
+    }
+
+    ///注意外部指针，不自动释放
+    pub fn from_ptr(ptr: *const u8) -> BufPtr {
+        BufPtr{
+            ptr:CPointer::new(ptr.cast_mut()).with_free(false),
             len: 0,
         }
     }

@@ -2,9 +2,8 @@ mod aead;
 mod kdf;
 
 use super::client_hello::CipherSuite;
-use crate::bytes::Bytes;
 use crate::dns::DNSError;
-use crate::Reader;
+use crate::{Buf, Reader};
 pub use aead::Aead;
 pub use kdf::KDF;
 use std::fmt::Debug;
@@ -25,7 +24,7 @@ impl EchConfig {
             content: EchContent {
                 config_id: 0,
                 kem_id: DHKem(0),
-                key: Bytes::none(),
+                key: Buf::Ref(&[]),
                 ciphers: vec![],
                 max_name_len: 0,
                 name: "".to_string(),
@@ -67,7 +66,7 @@ impl Debug for DHKem {
 pub struct EchContent {
     config_id: u8,
     kem_id: DHKem,
-    key: Bytes,
+    key: Buf<'static>,
     ciphers: Vec<CipherSuite>,
     max_name_len: u8,
     name: String,
@@ -94,7 +93,7 @@ impl EchContent {
         Ok(EchContent {
             config_id,
             kem_id,
-            key: Bytes::new(key.to_vec()),
+            key: Buf::Vec(key.to_vec()),
             ciphers,
             max_name_len,
             name: name.to_string(),

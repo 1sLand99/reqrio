@@ -45,16 +45,16 @@ pub trait StreamHandle {
             None => client_hello.remove_tls13(),
             Some(key_share) => {
                 key_share.key_entries().iter().for_each(|key| {
-                    if let Ok(secret) = SecretKey::new(key.name_curve()) {
-                        secrets.insert(*key.name_curve(), secret);
+                    if let Ok(secret) = SecretKey::new(key.group()) {
+                        secrets.insert(key.group(), secret);
                     }
                 });
                 let mut deletes = vec![];
                 for (i, key_entry) in key_share.key_entries_mut().iter_mut().enumerate() {
-                    if let Some(secret) = secrets.get(key_entry.name_curve()) {
-                        key_entry.set_exchange_key(secret.pub_key()?)
+                    if let Some(secret) = secrets.get(&key_entry.group()) {
+                        key_entry.set_key(secret.pub_key()?)
                     }
-                    if key_entry.exchange_key().is_empty() { deletes.push(i); }
+                    if key_entry.is_empty() { deletes.push(i); }
                 }
                 deletes.reverse();
                 for del in deletes {
@@ -81,20 +81,24 @@ pub trait StreamHandle {
         let hello_retry = param.conn.set_by_server_hello(&server_hello, version)?;
         if hello_retry {
             #[cfg(feature = "log")]
-            debug!("[ParsingServerHello] hello_retry=true; retry_share={:?}",server_hello.key_share_extend().map(|x|x.key_entry().name_curve()));
+            debug!("[ParsingServerHello] hello_retry=true; retry_share={:?}",server_hello.key_share_extend().map(|x|x.key_entry().group()));
+
+            let secrets = param.conn.secret_keys_mut();
+            secrets.clear();
+            let server_entries = server_hello.key_share_extend().ok_or(HandShakeError::RetryNoKeyShare)?.key_entries();
+            for entry in server_entries.iter() {
+                let secret = SecretKey::new(entry.group())?;
+                secrets.insert(entry.group(), secret);
+            }
             let mut reader = Reader::from_slice(param.conn.session_bytes());
             reader.read_u8()?;
             let mut client = ClientHello::from_bytes(&mut reader)?;
-            let mut secrets = HashMap::new();
-            for entry in server_hello.key_share_extend().ok_or(HandShakeError::RetryNoKeyShare)?.key_entries() {
-                let secret = SecretKey::new(entry.name_curve())?;
-                secrets.insert(*entry.name_curve(), secret);
+            let entries = client.key_share_mut().ok_or(HandShakeError::RetryNoKeyShare)?.key_entries_mut();
+            *entries = server_entries.to_vec();
+            for entry in entries.iter_mut() {
+                let secrets = param.conn.secret_keys().get(&entry.group()).ok_or(HandShakeError::RetryGroupNotSupported(entry.group()))?;
+                entry.set_key(secrets.pub_key()?);
             }
-            let mut key_share = KeyShare::default();
-            for (name_curve, secret) in secrets.iter_mut() {
-                key_share.add_entry(*name_curve, secret.pub_key()?);
-            }
-            client.set_key_share(key_share);
             let record = RecordLayer {
                 content_type: RecordType::HandShake,
                 len: 0,
@@ -103,7 +107,6 @@ pub trait StreamHandle {
             };
             record.write_to(param.write_buffer, param.conn.cipher_suite().exchange_alg())?;
             param.conn.hello_retry(&param.write_buffer.filled()[5..])?;
-            param.conn.set_secret_keys(secrets);
             *param.hello_retrying = true;
             return Ok(true);
         }

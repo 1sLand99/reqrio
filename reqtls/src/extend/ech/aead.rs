@@ -28,20 +28,20 @@ impl Aead {
         }
     }
 
-    pub(crate) fn is_cbc(&self) -> bool {
-        match self {
-            Aead::AES_128_GCM |
-            Aead::AES_256_GCM |
-            Aead::ChaCha20_POLY1305 |
-            Aead::AES_128_CCM |
-            Aead::AES_128_CCM_8 |
-            Aead::SM4_GCM => false,
-            Aead::AES_128_CBC_SHA |
-            Aead::AES_128_CBC_SHA256 |
-            Aead::AES_256_CBC_SHA |
-            Aead::AES_256_CBC_SHA256 |
-            Aead::AES_256_CBC_SHA384 |
-            Aead::SM4_CBC_SM3 => true,
-        }
-    }
+    // pub(crate) fn is_cbc(&self) -> bool {
+    //     match self {
+    //         Aead::AES_128_GCM |
+    //         Aead::AES_256_GCM |
+    //         Aead::ChaCha20_POLY1305 |
+    //         Aead::AES_128_CCM |
+    //         Aead::AES_128_CCM_8 |
+    //         Aead::SM4_GCM => false,
+    //         Aead::AES_128_CBC_SHA |
+    //         Aead::AES_128_CBC_SHA256 |
+    //         Aead::AES_256_CBC_SHA |
+    //         Aead::AES_256_CBC_SHA256 |
+    //         Aead::AES_256_CBC_SHA384 |
+    //         Aead::SM4_CBC_SM3 => true,
+    //     }
+    // }
 }

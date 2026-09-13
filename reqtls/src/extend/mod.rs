@@ -24,12 +24,12 @@ pub use client_hello::EncryptClientHello;
 pub use ech::{Aead, EchConfig};
 pub use formats::{EcPointFormats, EcPointFormat};
 pub use group::SupportedGroups;
-pub use key_share::KeyShare;
+pub use key_share::{KeyShare, KeyEntry};
 use pre_share_key::PreSharedKey;
 pub use psk_key::PskMode;
 #[cfg(feature = "quic")]
 pub use quic::Parameter;
-pub use server_name::SNType;
+pub use server_name::{SNType, ServerName};
 pub use status::StatusRequest;
 use std::fmt::{Debug, Display, Formatter};
 pub use version::SupportVersions;
@@ -51,7 +51,7 @@ pub enum Extension<'a> {
     SupportedVersions(SupportVersions),
     PskKeyExchangeMode(Vec<PskMode>),
     PostHandshakeAuth,
-    KeyShare(KeyShare<'a>),
+    KeyShare(KeyShare),
     RenegotiationInfo,
     EncryptedClientHello(EncryptClientHello<'a>),
     ApplicationSetting(ALPS),
@@ -468,19 +468,19 @@ impl<'a> Extension<'a> {
         }
     }
 
-    pub fn set_key_share(&mut self, key_share: KeyShare<'a>) {
+    pub fn set_key_share(&mut self, key_share: KeyShare) {
         if let Extension::KeyShare(key) = self {
             *key = key_share;
         }
     }
 
-    pub fn key_share(&self) -> Option<&KeyShare<'a>> {
+    pub fn key_share(&self) -> Option<&KeyShare> {
         if let Extension::KeyShare(key) = self {
             Some(key)
         } else { None }
     }
 
-    pub fn key_share_mut(&mut self) -> Option<&mut KeyShare<'a>> {
+    pub fn key_share_mut(&mut self) -> Option<&mut KeyShare> {
         if let Extension::KeyShare(key) = self {
             Some(key)
         } else { None }

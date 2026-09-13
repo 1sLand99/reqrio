@@ -2,8 +2,8 @@ use crate::error::RlsResult;
 use crate::{BufferError, Reader, Writer, ALPN};
 
 
-#[derive(Clone)]
-#[cfg_attr(debug_assertions, derive(Debug))]
+#[derive(Clone, Debug)]
+// #[cfg_attr(debug_assertions, derive(Debug))]
 pub struct ALPS {
     values: Vec<ALPN>,
 }

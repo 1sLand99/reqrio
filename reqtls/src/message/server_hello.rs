@@ -158,7 +158,7 @@ impl<'a> ServerHello<'a> {
         } else { None }
     }
 
-    pub fn key_share_extend(&self) -> Option<&KeyShare<'_>> {
+    pub fn key_share_extend(&self) -> Option<&KeyShare> {
         let extend = self.extensions.iter().find(|x| matches!(x, Extension::KeyShare(_)))?;
         if let Extension::KeyShare(key) = extend {
             Some(key)

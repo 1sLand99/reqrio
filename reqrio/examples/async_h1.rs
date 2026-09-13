@@ -20,35 +20,8 @@ fn test_log() {
     set_max_level(LevelFilter::Trace);
 }
 
-#[repr(C)]
-#[derive(Default)]
-struct Hostname {
-    len: u16,
-    ptr: *const u8,
-}
 
-#[cfg(debug_assertions)]
-impl Debug for Hostname {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut struct_debug = f.debug_struct("Hostname");
-        struct_debug.field("len", &self.len);
-        let slice = unsafe { slice::from_raw_parts(self.ptr, self.len as usize) };
-        let hostname = std::str::from_utf8(slice).unwrap_or("");
-        struct_debug.field("ptr", &hostname);
-        struct_debug.finish()
-    }
-}
 
-#[repr(C)]
-#[derive(Default)]
-struct ServerName {
-    typ: u8,
-    ptr: *const u8,
-}
-
-impl ServerName {
-    pub const HOSTNAME: ServerName = ServerName { typ: 0, ptr: null() };
-}
 
 
 #[repr(C)]
@@ -84,48 +57,9 @@ impl Debug for KeyShare {
     }
 }
 
-#[repr(C)]
-#[derive(Default)]
-struct KeyEntry {
-    group: u16,
-    key_len: u16,
-    key: *const u8,
-}
 
-impl KeyEntry {
-    const X25519: KeyEntry = KeyEntry {
-        group: NamedCurve::X25519,
-        key_len: 32,
-        key: null(),
-    };
-}
 
-#[cfg(debug_assertions)]
-impl Debug for KeyEntry {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut struct_debug = f.debug_struct("KeyEntry");
-        struct_debug.field("group", &NamedCurve::new(self.group));
-        struct_debug.field("key_len", &self.key_len);
-        let slice = unsafe { slice::from_raw_parts(self.key, self.key_len as usize) };
-        struct_debug.field("key", &hex::encode(slice));
-        struct_debug.finish()
-    }
-}
 
-#[cfg(debug_assertions)]
-impl Debug for ServerName {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut debug_struct = f.debug_struct("ServerName");
-        debug_struct.field("type", &self.typ);
-        if self.typ == 0x0 {
-            let mut reader = Reader::from_ptr(self.ptr, usize::MAX);
-            let mut hostname = Hostname::default();
-            unsafe { Hostname_parse(&mut reader, &mut hostname) };
-            debug_struct.field("hostname", &hostname);
-        }
-        debug_struct.finish()
-    }
-}
 
 #[repr(C)]
 #[derive(Default)]
@@ -473,7 +407,6 @@ unsafe extern "C" {
     fn ClientHello_parse(reader: *mut Reader, client_hello: *mut ClientHello) -> c_int;
     fn Extension_parse(reader: *mut Reader, extension: *mut Extension) -> c_int;
     fn ServerName_parse(reader: *mut Reader, server_name: *mut ServerName) -> c_int;
-    fn Hostname_parse(reader: *mut Reader, hostname: *mut Hostname) -> c_int;
     fn StatusRequest_parse(reader: *mut Reader, extension: *mut StatusRequest) -> c_int;
     fn KeyShare_parse(reader: *mut Reader, key_share: *mut KeyShare) -> c_int;
     fn KeyEntry_parse(reader: *mut Reader, key_entry: *mut KeyEntry) -> c_int;
@@ -551,40 +484,40 @@ struct Connection {
 async fn main() {
     #[cfg(feature = "log")]
     test_log();
-    let mut connection = Connection {
-        derived: DerivedKey {
-            session: TlsSession {
-                ticket_len: 0,
-                ticket: null(),
-                session_id_len: 0,
-                session_id: null(),
-                master_secret: [0; 48],
-            },
-            client_radom: rand::random(),
-        },
-        secrets: null_mut(),
-        encryptor: AeadCtx::none(),
-        decryptor: AeadCtx::none(),
-    };
-    let sni = "www.baidu.com";
-    let config = ClientConfig {
-        sni_len: sni.len() as u16,
-        sni: sni.as_ptr(),
-        verify: false,
-        key_log: null(),
-        alpn: ALPN::HTTP11,
-        version: 0,
-    };
-    let mut writer = Writer::with_capacity(4096);
-    let ret = unsafe { Record_build(&mut writer, 1, &mut connection, &config) };
-    println!("Record build: {}", ret);
-    println!("{} {:?}", writer.len(), writer.filled());
-
-
-    println!("{:#?}", RecordLayer::from_bytes(writer.filled(), reqtls::KeyExchangeAlg::NULL, false).unwrap());
-
-
-    return;
+    // let mut connection = Connection {
+    //     derived: DerivedKey {
+    //         session: TlsSession {
+    //             ticket_len: 0,
+    //             ticket: null(),
+    //             session_id_len: 0,
+    //             session_id: null(),
+    //             master_secret: [0; 48],
+    //         },
+    //         client_radom: rand::random(),
+    //     },
+    //     secrets: null_mut(),
+    //     encryptor: AeadCtx::none(),
+    //     decryptor: AeadCtx::none(),
+    // };
+    // let sni = "www.baidu.com";
+    // let config = ClientConfig {
+    //     sni_len: sni.len() as u16,
+    //     sni: sni.as_ptr(),
+    //     verify: false,
+    //     key_log: null(),
+    //     alpn: ALPN::HTTP11,
+    //     version: 0,
+    // };
+    // let mut writer = Writer::with_capacity(4096);
+    // let ret = unsafe { Record_build(&mut writer, 1, &mut connection, &config) };
+    // println!("Record build: {}", ret);
+    // println!("{} {:?}", writer.len(), writer.filled());
+    //
+    //
+    // println!("{:#?}", RecordLayer::from_bytes(writer.filled(), reqtls::KeyExchangeAlg::NULL, false).unwrap());
+    //
+    //
+    // return;
 
 
     let finger = TlsFinger::Custom {

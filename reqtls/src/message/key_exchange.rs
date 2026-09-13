@@ -42,10 +42,8 @@ impl NamedCurve {
     pub const FFDHE4096: u16 = 0x0102;
     pub const FFDHE6144: u16 = 0x0103;
     pub const FFDHE8192: u16 = 0x0104;
-
-
     pub const ECC_SM2: u16 = 0xFFFF;
-
+    pub const PRE_MASTER: u16 = 0xFFFE;
 
     pub const ALL: [u16; 13] = [
         NamedCurve::X25519,
@@ -94,6 +92,19 @@ impl NamedCurve {
     pub fn is_reserved(&self) -> bool {
         crate::REVERSED.contains(&self.0)
     }
+
+    pub fn pubkey_len(&self) -> usize {
+        match self.0 {
+            NamedCurve::X25519 => 32,
+            NamedCurve::SecP256r1 => 65,
+            NamedCurve::SecP384r1 => 97,
+            NamedCurve::SecP521r1 => 133,
+            NamedCurve::X25519MLKEM768 => 1216,
+            NamedCurve::SecP256r1MLKEM768 => 1249,
+            NamedCurve::PRE_MASTER => 48,
+            _ => unreachable!("{:?}", self)
+        }
+    }
 }
 
 impl From<u16> for NamedCurve {
@@ -121,6 +132,12 @@ impl Display for NamedCurve {
 impl PartialEq<u16> for NamedCurve {
     fn eq(&self, other: &u16) -> bool {
         &self.0 == other
+    }
+}
+
+impl From<NamedCurve> for u16 {
+    fn from(value: NamedCurve) -> Self {
+        value.into_inner()
     }
 }
 

@@ -182,7 +182,7 @@ impl Fingerprint {
     ///client hello bytes prefix: [1, 0, .]
     pub fn from_client_hello(record_version: Version, ch: Vec<u8>, token: impl AsRef<str>) -> HlsResult<Fingerprint> {
         Ok(Fingerprint {
-            tls: TlsFinger::ClientHello { record_version, bytes: Bytes::new(ch) },
+            tls: TlsFinger::ClientHello { record_version, bytes: Buf::Vec(ch) },
             legal_subscript: Writer::check_subscription(token)?,
             ..Default::default()
         })

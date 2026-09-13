@@ -254,7 +254,7 @@ impl<'a> ClientHello<'a> {
 
     pub fn extensions_mut(&mut self) -> &mut [Extension<'a>] { &mut self.extensions }
 
-    pub fn set_key_share(&mut self, key_share: KeyShare<'a>) {
+    pub fn set_key_share(&mut self, key_share: KeyShare) {
         let extend = self.extensions.iter_mut().find(|x| matches!(x, Extension::KeyShare(_)));
         match extend {
             None => self.extensions.push(Extension::KeyShare(key_share)),
@@ -290,7 +290,7 @@ impl<'a> ClientHello<'a> {
         }
     }
 
-    pub fn key_share_mut(&mut self) -> Option<&mut KeyShare<'a>> {
+    pub fn key_share_mut(&mut self) -> Option<&mut KeyShare> {
         let extend = self.extensions.iter_mut().find(|x| matches!(x, Extension::KeyShare(_)))?;
         extend.key_share_mut()
     }
