@@ -1,11 +1,11 @@
-use crate::boring::{AeadDir, CryptDecodeParam, CryptEncodeParam, Crypto};
-use crate::buffer::{TlsDecodeBuffer, CipherEncodeBuffer};
+use crate::boring::AeadDir;
+use crate::buffer::{CipherEncodeBuffer, TlsDecodeBuffer};
 use crate::error::RlsResult;
 use crate::suite::iv::Iv;
-use crate::CipherSuite;
+use crate::{AeadCtx, CipherSuite};
 
 pub struct TlsCipher {
-    crypto: Crypto,
+    ctx: AeadCtx,
     iv: Iv,
     seq: u64,
 }
@@ -14,14 +14,17 @@ pub struct TlsCipher {
 impl TlsCipher {
     pub fn none() -> TlsCipher {
         TlsCipher {
-            crypto: Crypto::None,
+            ctx: AeadCtx::none(),
             iv: Iv::new(&[]),
             seq: 0,
         }
     }
 
     pub fn set_key(&mut self, key: &[u8], mac_key: &[u8], suite: &'static CipherSuite, dir: AeadDir) -> RlsResult<()> {
-        self.crypto = Crypto::from_aead(key, mac_key, suite, dir)?;
+        let mut real_key = Vec::with_capacity(mac_key.len() + key.len());
+        real_key.extend(mac_key);
+        real_key.extend(key);
+        self.ctx = AeadCtx::new_with_key(*suite.aead(), &real_key, dir)?;
         self.seq = 0;
         Ok(())
     }
@@ -36,43 +39,35 @@ impl TlsCipher {
         let add_arr = buffer.aad(seq_num);
         let nonce = self.iv.as_array(seq_num, None);
         buffer.add_explicit_iv(&nonce);
-        self.crypto.encrypt(CryptEncodeParam {
-            nonce: &nonce,
-            aad: &add_arr,
-            buffer: &mut buffer,
-        })?;
+        self.ctx.seal(&nonce, &add_arr, &mut buffer)?;
         if seq.is_none() { self.seq += 1; }
         Ok(buffer.record_len())
     }
 
     pub fn decrypt(&mut self, seq: Option<u64>, mut buffer: TlsDecodeBuffer) -> RlsResult<usize> {
         let seq_num = if let Some(seq) = seq { seq } else { self.seq };
-        let add = buffer.aad(seq_num)?;
+        let aad = buffer.aad(seq_num)?;
         let nonce = buffer.nonce(&self.iv, seq_num);
         // println!("seq: {}; aad: {:x?}; nonce: {:?}", seq_num, add, nonce);
-        let len = self.crypto.decrypt(CryptDecodeParam {
-            nonce: &nonce,
-            aad: &add,
-            buffer: &mut buffer,
-        })?;
+        let len = self.ctx.open(&nonce, &aad, &mut buffer)?;
         if seq.is_none() { self.seq += 1; }
         Ok(len)
     }
 
     #[cfg(feature = "quic")]
     pub fn is_null(&self) -> bool {
-        matches!(self.crypto, Crypto::None)
+        self.ctx.is_null()
     }
 }
 
 
 #[cfg(test)]
 mod tests {
-    use crate::buffer::{TlsDecodeBuffer, CipherEncodeBuffer};
+    use crate::boring::AeadDir;
+    use crate::buffer::{CipherEncodeBuffer, TlsDecodeBuffer};
     use crate::suite::cipher::TlsCipher;
     use crate::suite::iv::Iv;
     use crate::{CipherSuite, RecordType};
-    use crate::boring::AeadDir;
 
     #[test]
     fn test_cipher() {

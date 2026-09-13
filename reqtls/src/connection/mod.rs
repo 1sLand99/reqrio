@@ -456,7 +456,7 @@ impl Connection {
 
 #[cfg(test)]
 mod tests {
-    use crate::boring::{AeadDir, CryptDecodeParam, CryptEncodeParam};
+    use crate::boring::AeadDir;
     use crate::buffer::{CipherEncodeBuffer, TlsDecodeBuffer};
     use crate::error::RlsResult;
     use crate::suite::iv::Iv;
@@ -495,11 +495,7 @@ mod tests {
             let aad = buffer.aad(seq_num)?;
             let nonce = buffer.nonce(iv, seq_num);
             // println!("seq: {}; aad: {:x?}; nonce: {:?}", seq_num, add, nonce);
-            let len = self.decryptor.open(CryptDecodeParam {
-                nonce: &nonce,
-                aad: &aad,
-                buffer: &mut buffer,
-            })?;
+            let len = self.decryptor.open(&nonce, &aad, &mut buffer)?;
             if seq.is_none() { self.decryptor.seq += 1 }
             Ok(len)
         }
@@ -511,11 +507,7 @@ mod tests {
             let nonce = iv.as_array(seq_num, None);
             buffer.add_explicit_iv(&nonce);
             // println!("seq: {}; aad: {:x?}; nonce: {:?}", seq_num, aad, nonce);
-            self.encryptor.seal(CryptEncodeParam {
-                nonce: &nonce,
-                aad: &aad,
-                buffer: &mut buffer,
-            })?;
+            self.encryptor.seal(&nonce, &aad, &mut buffer)?;
             if seq.is_none() { self.encryptor.seq += 1; }
             Ok(buffer.record_len())
         }
@@ -588,6 +580,5 @@ mod tests {
         let iv = Iv::new(&[1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]);
         let en = [22, 1, 1, 0, 80, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 198, 14, 19, 241, 183, 40, 82, 246, 189, 252, 121, 16, 190, 240, 95, 119, 196, 14, 130, 24, 130, 104, 168, 11, 212, 183, 172, 109, 10, 147, 121, 104, 165, 193, 48, 97, 205, 97, 245, 216, 86, 25, 229, 237, 236, 10, 247, 24, 137, 39, 196, 218, 125, 105, 75, 180, 126, 4, 204, 216, 153, 88, 207, 149];
         test_encrypt(&mac_key, suite, iv, &en);
-
     }
 }

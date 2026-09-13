@@ -1,9 +1,8 @@
 use crate::boring::bindings::EVP_AEAD_DEFAULT_TAG_LENGTH;
-use crate::boring::{BoringResExt, CryptDecodeParam, CryptEncodeParam};
-use crate::buffer::CipherEncodeBuffer;
+use crate::boring::BoringResExt;
+use crate::buffer::{CipherEncodeBuffer, TlsDecodeBuffer};
 use crate::error::RlsResult;
 use crate::extend::Aead;
-use crate::suite::iv::Iv;
 use crate::RlsError;
 use std::os::raw::{c_int, c_void};
 use std::ptr::null_mut;
@@ -96,12 +95,9 @@ impl AeadCtx {
         AeadCtx::new(aead, dir).init(key)
     }
 
-    pub(crate) fn seal2(&self, seq: Option<u64>, mut buffer: CipherEncodeBuffer, iv: &Iv) -> RlsResult<usize> {
-        let seq_num = if let Some(seq) = seq { seq } else { self.seq };
-        let aad = buffer.aad(seq_num);
-        let nonce = iv.as_array(seq_num, None);
-        let payload = buffer.payload();
+    pub(crate) fn seal(&self, nonce: &[u8], aad: &[u8], buf: &mut CipherEncodeBuffer) -> RlsResult<()> {
         let mut out_len = 0;
+        let payload = buf.payload();
         unsafe {
             AEAD_CTX_seal(
                 self,
@@ -116,28 +112,7 @@ impl AeadCtx {
                 aad.len(),
             )
         }.ok(RlsError::AeadEncryptError)?;
-        buffer.set_encrypted_len(out_len);
-        Ok(out_len)
-    }
-
-    pub(crate) fn seal(&self, param: CryptEncodeParam) -> RlsResult<()> {
-        let mut out_len = 0;
-        let payload = param.buffer.payload();
-        unsafe {
-            AEAD_CTX_seal(
-                self,
-                payload.encoded_payload().as_mut_ptr(),
-                &mut out_len,
-                payload.encoded_payload().len(),
-                param.nonce.as_ptr(),
-                param.nonce.len(),
-                payload.origin_payload().as_ptr(),
-                payload.origin_payload().len(),
-                param.aad.as_ptr(),
-                param.aad.len(),
-            )
-        }.ok(RlsError::AeadEncryptError)?;
-        param.buffer.set_encrypted_len(out_len);
+        buf.set_encrypted_len(out_len);
         Ok(())
     }
 
@@ -162,23 +137,23 @@ impl AeadCtx {
         Ok(output)
     }
 
-    pub(crate) fn open(&self, param: CryptDecodeParam) -> RlsResult<usize> {
+    pub(crate) fn open(&self, nonce: &[u8], aad: &[u8], buf: &mut TlsDecodeBuffer) -> RlsResult<usize> {
         let mut out_len = 0usize;
-        let ok = unsafe {
+       unsafe {
             AEAD_CTX_open(
                 self,
-                param.buffer.decrypted_buffer().as_mut_ptr(),
+                buf.decrypted_buffer().as_mut_ptr(),
                 &mut out_len,
-                param.buffer.decrypted_buffer().len(),
-                param.nonce.as_ptr(),
-                param.nonce.len(),
-                param.buffer.encrypted_payload().as_ptr(),
-                param.buffer.encrypted_payload().len(),
-                param.aad.as_ptr(),
-                param.aad.len(),
+                buf.decrypted_buffer().len(),
+                nonce.as_ptr(),
+                nonce.len(),
+                buf.encrypted_payload().as_ptr(),
+                buf.encrypted_payload().len(),
+                aad.as_ptr(),
+                aad.len(),
             )
-        };
-        if ok != 1 { Err(RlsError::AeadDecryptError) } else { Ok(out_len) }
+        }.ok(RlsError::AeadDecryptError)?;
+        Ok(out_len)
     }
 
     pub fn open_bytes(&self, nonce: &[u8], aad: &[u8], cipher_bytes: &[u8]) -> RlsResult<Vec<u8>> {
@@ -201,13 +176,17 @@ impl AeadCtx {
         output.truncate(output_len);
         Ok(output)
     }
+
+    pub fn is_null(&self) -> bool {
+        self.ctx.is_null() && self.rsv == [0; 32]
+    }
 }
 
 
 #[cfg(test)]
 mod aead_tests {
     use crate::boring::evp::aead::AeadDir;
-    use crate::boring::{AeadCtx, CryptDecodeParam, CryptEncodeParam};
+    use crate::boring::AeadCtx;
     use crate::buffer::{CipherEncodeBuffer, TlsDecodeBuffer};
     use crate::{CipherSuite, RecordType, Version, Writer};
     use std::{env, fs};
@@ -220,22 +199,14 @@ mod aead_tests {
         let mut record_buffer = CipherEncodeBuffer::new_tls(RecordType::HandShake, &mut buffer, &payload, suite);
         record_buffer.add_explicit_iv(&iv);
         let aad = record_buffer.aad(0);
-        ctx.seal(CryptEncodeParam {
-            nonce: &[0; 12],
-            aad: &aad,
-            buffer: &mut record_buffer,
-        }).unwrap();
+        ctx.seal(&[0; 12], &aad, &mut record_buffer).unwrap();
         let len = record_buffer.record_len();
         assert_eq!(len, size);
         assert_eq!(&buffer[..len], en);
         let mut decoded_buffer = vec![0; 1024];
         let mut record_buffer = TlsDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, suite).unwrap();
         let aad = record_buffer.aad(0).unwrap();
-        let mut len = ctx.open(CryptDecodeParam {
-            nonce: &[0; 12],
-            aad: &aad,
-            buffer: &mut record_buffer,
-        }).unwrap();
+        let mut len = ctx.open(&[0; 12], &aad, &mut record_buffer).unwrap();
         if let &Version::TLS_1_3 = suite.version {
             len -= 1;
         }

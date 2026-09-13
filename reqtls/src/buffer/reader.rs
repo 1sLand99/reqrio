@@ -108,7 +108,7 @@ impl<'a> Reader<'a> {
                 size: self.size,
             });
         }
-        Ok(unsafe { std::slice::from_raw_parts(ptr, size) })
+        Ok(unsafe { slice::from_raw_parts(ptr, size) })
     }
 
     pub fn read_reader(&mut self, size: usize) -> Result<Reader<'a>, BufferError> {

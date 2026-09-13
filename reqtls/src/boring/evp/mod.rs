@@ -44,7 +44,7 @@ pub enum CipherType {
 
 #[cfg(test)]
 mod tests {
-    use crate::boring::{AeadDir, CryptDecodeParam, CryptEncodeParam};
+    use crate::boring::AeadDir;
     use crate::buffer::{CipherEncodeBuffer, TlsDecodeBuffer};
     use crate::{AeadCtx, CipherSuite, RecordType};
 
@@ -60,23 +60,15 @@ mod tests {
         real_key.extend_from_slice(mac_key.as_slice());
         real_key.extend_from_slice(key);
         let aead = AeadCtx::new_with_key(*suite.aead(), &real_key, AeadDir::Seal).unwrap();
-        aead.seal(CryptEncodeParam {
-            nonce: &iv,
-            aad: &record_buffer.aad(0),
-            buffer: &mut record_buffer,
-        }).unwrap();
+        aead.seal(&iv, &record_buffer.aad(0), &mut record_buffer).unwrap();
         let len = record_buffer.record_len();
         assert_eq!(&buffer[..len], en);
 
 
         let mut decoded_buffer = vec![0; 1024];
         let mut record_buffer = TlsDecodeBuffer::from_buffer(&buffer[..len], &mut decoded_buffer, suite).unwrap();
-        let aead=AeadCtx::new_with_key(*suite.aead(), &real_key, AeadDir::Open).unwrap();
-        let len = aead.open(CryptDecodeParam {
-            nonce: &iv,
-            aad: &record_buffer.aad(0).unwrap(),
-            buffer: &mut record_buffer,
-        }).unwrap();
+        let aead = AeadCtx::new_with_key(*suite.aead(), &real_key, AeadDir::Open).unwrap();
+        let len = aead.open(&iv, &record_buffer.aad(0).unwrap(), &mut record_buffer).unwrap();
         assert_eq!(decoded_buffer[..len], payload);
     }
 
