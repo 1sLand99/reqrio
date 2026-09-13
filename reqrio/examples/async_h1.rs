@@ -1,6 +1,5 @@
 use reqrio::*;
 use std::fmt::{Debug, Formatter};
-use std::marker::PhantomData;
 use std::os::raw::{c_int, c_void};
 use std::ptr::{null, null_mut};
 use std::{fs, slice};

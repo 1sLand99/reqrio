@@ -78,7 +78,7 @@ impl QUICConnection {
         let rhk = self.conn.derived.key_block().recv_hp_key(typ, self.conn.server);
         self.recv_sample.set_secret_key(rhk, None);
         let rk = self.conn.derived.key_block().recv_key(typ, self.conn.server);
-        self.conn.recv_cipher.set_key(rk, &[], suite, AeadDir::Open)?;
+        self.conn.recv_cipher.set_key(rk, suite, AeadDir::Open)?;
         let ri = self.conn.derived.key_block().recv_iv(typ, self.conn.server);
         self.conn.recv_cipher.set_iv(Iv::new(ri));
         self.current = typ;

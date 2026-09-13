@@ -96,6 +96,7 @@ impl AeadCtx {
     }
 
     pub(crate) fn seal(&self, nonce: &[u8], aad: &[u8], buf: &mut CipherEncodeBuffer) -> RlsResult<()> {
+        debug_assert!(!self.is_null());
         let mut out_len = 0;
         let payload = buf.payload();
         unsafe {
@@ -117,6 +118,7 @@ impl AeadCtx {
     }
 
     pub fn seal_bytes(&self, nonce: &[u8], aad: &[u8], plaintext: &[u8]) -> RlsResult<Vec<u8>> {
+        debug_assert!(!self.is_null());
         let mut output = vec![0u8; plaintext.len() + 16];
         let mut output_len = 0usize;
         unsafe {
@@ -138,8 +140,9 @@ impl AeadCtx {
     }
 
     pub(crate) fn open(&self, nonce: &[u8], aad: &[u8], buf: &mut TlsDecodeBuffer) -> RlsResult<usize> {
+        debug_assert!(!self.is_null());
         let mut out_len = 0usize;
-       unsafe {
+        unsafe {
             AEAD_CTX_open(
                 self,
                 buf.decrypted_buffer().as_mut_ptr(),
@@ -157,6 +160,7 @@ impl AeadCtx {
     }
 
     pub fn open_bytes(&self, nonce: &[u8], aad: &[u8], cipher_bytes: &[u8]) -> RlsResult<Vec<u8>> {
+        debug_assert!(!self.is_null());
         let mut output = vec![0u8; cipher_bytes.len() - 16];
         let mut output_len = 0usize;
         unsafe {

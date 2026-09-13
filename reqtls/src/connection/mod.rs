@@ -147,12 +147,10 @@ impl Connection {
             typ,self.cipher_suite.aead(),self.cipher_suite.mac_hash(),self.version);
         let key = self.derived.make_cipher_key(&self.version, typ)?;
         let sk = key.send_key(typ, self.server);
-        let smk = key.send_mac_key(self.server);
-        self.send_cipher.set_key(sk, smk, self.cipher_suite, AeadDir::Seal)?;
+        self.send_cipher.set_key(sk, self.cipher_suite, AeadDir::Seal)?;
         self.send_cipher.set_iv(Iv::new(key.send_iv(typ, self.server)));
         let rk = key.recv_key(typ, self.server);
-        let rmk = key.recv_mac_key(self.server);
-        self.recv_cipher.set_key(rk, rmk, self.cipher_suite, AeadDir::Open)?;
+        self.recv_cipher.set_key(rk, self.cipher_suite, AeadDir::Open)?;
         self.recv_cipher.set_iv(Iv::new(key.recv_iv(typ, self.server)));
         Ok(())
     }

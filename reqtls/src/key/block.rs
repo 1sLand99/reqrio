@@ -57,32 +57,26 @@ impl TlsSession {
 
 #[derive(Debug)]
 pub(crate) struct Tls12Key {
-    client_mac_key: [u8; 48],
-    server_mac_key: [u8; 48],
-    mac_size: usize,
-    client_key: [u8; 32],
-    server_key: [u8; 32],
+    client_key: [u8; 80],
+    server_key: [u8; 80],
     key_size: usize,
+    mac_size: usize,
     client_iv: [u8; 16],
     server_iv: [u8; 16],
     iv_size: usize,
-    // explicit: [u8; 16],
     explicit_len: usize,
 }
 
 impl Tls12Key {
     fn new(suite: &'static CipherSuite) -> Tls12Key {
         Tls12Key {
-            client_mac_key: [0; 48],
-            server_mac_key: [0; 48],
             mac_size: suite.mac_key_size,
-            client_key: [0; 32],
-            server_key: [0; 32],
+            client_key: [0; 80],
+            server_key: [0; 80],
             key_size: suite.key_size,
             client_iv: [0; 16],
             server_iv: [0; 16],
             iv_size: suite.fix_iv_size,
-            // explicit: [0; 16],
             explicit_len: suite.explict_iv_size,
         }
     }
@@ -201,23 +195,9 @@ impl KeyBlock {
         }
     }
 
-    pub fn client_mac_key(&self) -> &[u8] {
-        match self {
-            KeyBlock::Tls12(key) => &key.client_mac_key[..key.mac_size],
-            _ => &[]
-        }
-    }
-
-    pub fn server_mac_key(&self) -> &[u8] {
-        match self {
-            KeyBlock::Tls12(key) => &key.server_mac_key[..key.mac_size],
-            _ => &[]
-        }
-    }
-
     pub fn client_key(&self, typ: KeyType) -> &[u8] {
         match self {
-            KeyBlock::Tls12(key) => &key.client_key[..key.key_size],
+            KeyBlock::Tls12(key) => &key.client_key[..key.mac_size + key.key_size],
             KeyBlock::Tls13(key) => &key.client_key[..key.key_size],
             KeyBlock::QUIC {
                 initial,
@@ -234,7 +214,6 @@ impl KeyBlock {
 
     pub fn client_key_mut(&mut self, typ: KeyType) -> &mut [u8] {
         match self {
-            KeyBlock::Tls12(key) => &mut key.client_key[..key.key_size],
             KeyBlock::Tls13(key) => &mut key.client_key[..key.key_size],
             KeyBlock::QUIC {
                 initial,
@@ -251,7 +230,7 @@ impl KeyBlock {
 
     pub fn server_key(&self, typ: KeyType) -> &[u8] {
         match self {
-            KeyBlock::Tls12(key) => &key.server_key[..key.key_size],
+            KeyBlock::Tls12(key) => &key.server_key[..key.mac_size + key.key_size],
             KeyBlock::Tls13(key) => &key.server_key[..key.key_size],
             KeyBlock::QUIC {
                 initial,
@@ -268,7 +247,6 @@ impl KeyBlock {
 
     pub fn server_key_mut(&mut self, typ: KeyType) -> &mut [u8] {
         match self {
-            KeyBlock::Tls12(key) => &mut key.server_key[..key.key_size],
             KeyBlock::Tls13(key) => &mut key.server_key[..key.key_size],
             KeyBlock::QUIC {
                 initial,
@@ -302,7 +280,6 @@ impl KeyBlock {
 
     pub fn client_iv_mut(&mut self, typ: KeyType) -> &mut [u8] {
         match self {
-            KeyBlock::Tls12(key) => &mut key.client_iv[..key.iv_size],
             KeyBlock::Tls13(key) => &mut key.client_iv[..key.iv_size],
             KeyBlock::QUIC {
                 initial,
@@ -336,7 +313,6 @@ impl KeyBlock {
 
     pub fn server_iv_mut(&mut self, typ: KeyType) -> &mut [u8] {
         match self {
-            KeyBlock::Tls12(key) => &mut key.server_iv[..key.iv_size],
             KeyBlock::Tls13(key) => &mut key.server_iv[..key.iv_size],
             KeyBlock::QUIC {
                 initial,
@@ -354,11 +330,13 @@ impl KeyBlock {
     pub fn bufs(&mut self) -> Vec<&mut [u8]> {
         let KeyBlock::Tls12(key) = self else { unreachable!() };
         let (client_iv, explicit) = key.client_iv.split_at_mut(key.iv_size);
+        let (client_mac_key, client_key) = key.client_key.split_at_mut(key.mac_size);
+        let (server_mac_key, server_key) = key.server_key.split_at_mut(key.mac_size);
         vec![
-            &mut key.client_mac_key[..key.mac_size],
-            &mut key.server_mac_key[..key.mac_size],
-            &mut key.client_key[..key.key_size],
-            &mut key.server_key[..key.key_size],
+            client_mac_key,
+            server_mac_key,
+            &mut client_key[..key.key_size],
+            &mut server_key[..key.key_size],
             client_iv,
             &mut key.server_iv[..key.iv_size],
             &mut explicit[..key.explicit_len]
@@ -446,13 +424,6 @@ impl KeyBlock {
         }
     }
 
-    pub fn send_mac_key(&self, server: bool) -> &[u8] {
-        match server {
-            true => self.server_mac_key(),
-            false => self.client_mac_key()
-        }
-    }
-
     pub fn recv_key(&self, typ: KeyType, server: bool) -> &[u8] {
         match server {
             true => self.client_key(typ),
@@ -472,14 +443,6 @@ impl KeyBlock {
         match server {
             true => self.client_hp_key(typ),
             false => self.server_hp_key(typ)
-        }
-    }
-
-
-    pub fn recv_mac_key(&self, server: bool) -> &[u8] {
-        match server {
-            true => self.client_mac_key(),
-            false => self.server_mac_key()
         }
     }
 }
