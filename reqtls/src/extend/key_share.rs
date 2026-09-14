@@ -81,13 +81,13 @@ impl KeyShare {
             let group = reader.read_u16()?;
             if reader.unread_len() == 0 {
                 entries.push(KeyEntry::new(NamedCurve::new(group)));
-                continue;
+                break;
             }
             let key_len = reader.read_u16()?;
             entries.push(KeyEntry {
                 group,
                 key_len,
-                key: reader.read_slice(key_len as usize)?.as_ptr(),
+                key: reader.read_ptr(key_len as usize)?,
             });
         }
         Ok(KeyShare {

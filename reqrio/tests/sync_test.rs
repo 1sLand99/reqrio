@@ -75,7 +75,7 @@ fn build_finger(suites: Vec<CipherSuite>, groups: Vec<NamedCurve>) -> Fingerprin
                 ALPN::HTTP20,
                 ALPN::HTTP11
             ])),
-            Extension::ServerName(vec![SNType::HostName("")]),
+            Extension::ServerName(vec![ServerName::new_sni("")]),
             Extension::ApplicationLayerProtocolNegotiation(ALPS::new(vec![
                 ALPN::HTTP20,
                 ALPN::HTTP11

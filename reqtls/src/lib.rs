@@ -299,7 +299,7 @@ pub use error::{HandShakeError, RlsError};
 pub use ext::{StreamHandle, StreamParam};
 pub use extend::{
     EcPointFormats, EcPointFormat, CompressionMethod, KeyShare, PskMode, SupportVersions, Extension,
-    StatusRequest, SupportedGroups, SignatureAlgorithms, CompressCertificate, ALPS, SNType, Aead,
+    StatusRequest, SupportedGroups, SignatureAlgorithms, CompressCertificate, ALPS, Aead,
     EncryptClientHello, ServerName, KeyEntry,
 };
 pub use finger::*;

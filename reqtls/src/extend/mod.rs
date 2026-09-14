@@ -22,14 +22,14 @@ pub use certificate::CompressCertificate;
 pub use certificate::CompressionMethod;
 pub use client_hello::EncryptClientHello;
 pub use ech::{Aead, EchConfig};
-pub use formats::{EcPointFormats, EcPointFormat};
+pub use formats::{EcPointFormat, EcPointFormats};
 pub use group::SupportedGroups;
-pub use key_share::{KeyShare, KeyEntry};
+pub use key_share::{KeyEntry, KeyShare};
 use pre_share_key::PreSharedKey;
 pub use psk_key::PskMode;
 #[cfg(feature = "quic")]
 pub use quic::Parameter;
-pub use server_name::{SNType, ServerName};
+pub use server_name::ServerName;
 pub use status::StatusRequest;
 #[cfg(debug_assertions)]
 use std::fmt::Debug;
@@ -39,7 +39,7 @@ pub use version::SupportVersions;
 #[derive(Clone)]
 #[cfg_attr(debug_assertions, derive(Debug))]
 pub enum Extension<'a> {
-    ServerName(Vec<SNType<'a>>),
+    ServerName(Vec<ServerName>),
     StatusRequest(StatusRequest),
     SupportedGroups(SupportedGroups),
     EcPointFormats(EcPointFormats),
@@ -138,16 +138,17 @@ impl<'a> Extension<'a> {
                         let list_len = reader.read_u16()? as usize;
                         let mut reader = reader.read_reader(list_len)?;
                         while reader.unread_len() > 0 {
-                            match reader.read_u8()? {
-                                SNType::HOST_NAME => {
-                                    let len = reader.read_u16()? as usize;
-                                    res.push(SNType::HostName(reader.read_str(len)?));
-                                }
-                                _ => {
-                                    #[cfg(feature = "log")]
-                                    warn!("[Extension] unknown SNType!")
-                                }
-                            }
+                            res.push(ServerName::from_reader(&mut reader)?);
+                            // match reader.read_u8()? {
+                            //     SNType::HOST_NAME => {
+                            //         let len = reader.read_u16()? as usize;
+                            //         res.push(SNType::HostName(reader.read_str(len)?));
+                            //     }
+                            //     _ => {
+                            //         #[cfg(feature = "log")]
+                            //         warn!("[Extension] unknown SNType!")
+                            //     }
+                            // }
                         }
                     }
                     Extension::ServerName(res)
@@ -463,11 +464,13 @@ impl<'a> Extension<'a> {
 
     pub fn set_server_name(&mut self, value: &'a str) {
         if let Extension::ServerName(vs) = self {
-            let name = vs.iter_mut().find(|x| matches!(x, SNType::HostName(_)));
-            match name {
-                Some(SNType::HostName(name)) => *name = value,
-                None => vs.push(SNType::HostName(value))
-            }
+            vs.clear();
+            vs.push(ServerName::new_sni(value));
+            // let name = vs.iter_mut().find(|x| matches!(x, SNType::HostName(_)));
+            // match name {
+            //     Some(SNType::HostName(name)) => *name = value,
+            //     None => vs.push(SNType::HostName(value))
+            // }
         }
     }
 
@@ -489,9 +492,9 @@ impl<'a> Extension<'a> {
         } else { None }
     }
 
-    pub fn server_name(&self) -> Option<&Vec<SNType<'a>>> {
+    pub fn server_name(&self) -> Option<&ServerName> {
         match self {
-            Extension::ServerName(v) => Some(v),
+            Extension::ServerName(v) => v.first(),
             _ => None
         }
     }

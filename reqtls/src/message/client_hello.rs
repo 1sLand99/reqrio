@@ -8,7 +8,6 @@ use crate::error::RlsResult;
 use crate::extend::alps::ALPS;
 #[cfg(feature = "quic")]
 use crate::extend::Parameter;
-use crate::extend::SNType;
 use crate::*;
 use std::mem;
 
@@ -175,7 +174,7 @@ impl<'a> ClientHello<'a> {
         let extend = self.extensions.iter_mut().find(|x| matches!(x, Extension::ServerName(_)));
         match extend {
             None => {
-                self.extensions.push(Extension::ServerName(vec![SNType::HostName(server_name)]));
+                self.extensions.push(Extension::ServerName(vec![ServerName::new_sni(server_name)]));
             }
             Some(ext) => ext.set_server_name(server_name),
         }
@@ -201,15 +200,17 @@ impl<'a> ClientHello<'a> {
         self.extensions = extension;
     }
 
-    pub fn server_name(&self) -> Option<&Vec<SNType<'a>>> {
+    pub fn server_name(&self) -> Option<&ServerName> {
         let extension = self.extensions.iter().find(|x| matches!(x, Extension::ServerName(_)))?;
         extension.server_name()
     }
 
-    pub fn host_name(&self) -> Option<&'a str> {
+    pub fn host_name(&self) -> Option<&str> {
         let server_name = self.server_name()?;
-        let hostname = server_name.iter().find(|x| matches!(x, SNType::HostName(_)))?;
-        match hostname { SNType::HostName(name) => Some(name) }
+        server_name.value().ok()
+
+        // let hostname = server_name.iter().find(|x| matches!(x, SNType::HostName(_)))?;
+        // match hostname { SNType::HostName(name) => Some(name) }
     }
 
     pub fn alps(&self) -> Option<&ALPS> {

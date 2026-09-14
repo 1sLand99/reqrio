@@ -69,3 +69,9 @@ impl From<Utf8Error> for BufferError {
         BufferError::Utf8Error(value)
     }
 }
+
+impl From<BufferError> for std::fmt::Error {
+    fn from(_: BufferError) -> Self {
+        std::fmt::Error
+    }
+}

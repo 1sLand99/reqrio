@@ -45,7 +45,7 @@ pub fn random_fingerprint(sni: &str) -> Result<Fingerprint, HlsError> {
         ],
         extensions: vec![
             Extension::Reserved { typ: REVERSED[rand::random::<usize>() % REVERSED.len()], value: Buf::Ref(&[]) },
-            Extension::ServerName(vec![SNType::HostName("")]),
+            Extension::ServerName(vec![ServerName::new_sni("")]),
             Extension::ExtendMasterSecret,
             Extension::RenegotiationInfo,
             Extension::SupportedGroups(SupportedGroups::new(vec![

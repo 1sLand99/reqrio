@@ -1,7 +1,7 @@
 use reqrio::*;
 use std::fmt::{Debug, Formatter};
 use std::os::raw::{c_int, c_void};
-use std::ptr::{null, null_mut};
+use std::ptr::null;
 use std::{fs, slice};
 
 #[cfg(feature = "log")]
@@ -19,9 +19,6 @@ fn test_log() {
     set_logger(&LOGER).unwrap();
     set_max_level(LevelFilter::Trace);
 }
-
-
-
 
 
 #[repr(C)]
@@ -58,9 +55,6 @@ impl Debug for KeyShare {
 }
 
 
-
-
-
 #[repr(C)]
 #[derive(Default)]
 #[cfg_attr(debug_assertions, derive(Debug))]
@@ -71,7 +65,7 @@ struct StatusRequest {
 }
 
 impl StatusRequest {
-    pub const DEFAULT: StatusRequest = StatusRequest { typ: 0, resp_id_len: 0, req_ext_len: 0 };
+    pub const OCSP: StatusRequest = StatusRequest { typ: 0, resp_id_len: 0, req_ext_len: 0 };
 }
 
 
@@ -140,6 +134,17 @@ struct Extension {
 }
 
 impl Extension {
+    #[allow(non_upper_case_globals)]
+    pub const ServerName: Extension = Extension::new(ExtensionType::ServerName, 0, &[&ServerName::HOSTNAME]);
+
+    pub const fn new<T>(typ: ExtensionType, len: u16, value: &'static T) -> Extension {
+        Extension {
+            typ: typ as u16,
+            len,
+            value: value as *const T as *const c_void,
+        }
+    }
+
     pub fn server_name(snes: &'static [ServerName]) -> Extension {
         Extension {
             typ: ExtensionType::ServerName as u16,
@@ -229,27 +234,6 @@ impl Debug for Extension {
             _ => {}
         }
         debug_struct.finish()
-    }
-}
-
-#[repr(C)]
-struct BufRef {
-    ptr: *const u8,
-    len: usize,
-}
-
-#[cfg(debug_assertions)]
-impl Debug for BufRef {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.ptr.is_null() || self.len == usize::MAX {
-            let mut debug_struct = f.debug_struct("BufRef");
-            debug_struct.field("ptr", &self.ptr);
-            debug_struct.field("len", &self.len);
-            debug_struct.finish()
-        } else {
-            let slice = unsafe { slice::from_raw_parts(self.ptr, self.len) };
-            write!(f, "{}", hex::encode(slice))
-        }
     }
 }
 
@@ -479,6 +463,8 @@ struct Connection {
     decryptor: AeadCtx,
 }
 
+impl Connection {}
+
 
 #[tokio::main]
 async fn main() {
@@ -525,10 +511,11 @@ async fn main() {
         message_version: Version::TLS_1_2,
         suites: &[CipherSuite::ECC_SM4_CBC_SM3],
         extensions: vec![
+            Extension::ServerName,
             Extension::server_name(&[ServerName::HOSTNAME]),
             Extension::signature_algorithm(&[SignatureAlgorithm::ECDSA_SECP256R1_SHA256]),
             Extension::key_share(KeyShare::new(&[KeyEntry::X25519])),
-            Extension::status_request(&StatusRequest::DEFAULT),
+            Extension::status_request(&StatusRequest::OCSP),
             Extension::padding(196)
         ],
     };

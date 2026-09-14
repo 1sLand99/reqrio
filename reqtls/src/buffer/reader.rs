@@ -100,14 +100,7 @@ impl<'a> Reader<'a> {
     }
 
     pub fn read_slice(&mut self, size: usize) -> Result<&'a [u8], BufferError> {
-        let ptr = unsafe { Reader_read_slice(self, size) };
-        if ptr.is_null() {
-            return Err(BufferError::IndexOutBound {
-                index: self.pos,
-                want: size,
-                size: self.size,
-            });
-        }
+        let ptr=self.read_ptr(size)?;
         Ok(unsafe { slice::from_raw_parts(ptr, size) })
     }
 
@@ -131,6 +124,19 @@ impl<'a> Reader<'a> {
 
     pub fn unread_ptr(&self) -> *const u8 {
         unsafe { self.ptr.add(self.pos) }
+    }
+
+    pub fn read_ptr(&mut self, size: usize) -> Result<*const u8, BufferError> {
+        let ptr = unsafe { Reader_read_slice(self, size) };
+        if ptr.is_null() {
+            return Err(BufferError::IndexOutBound {
+                index: self.pos,
+                want: size,
+                size: self.size,
+            });
+        }
+        Ok(ptr)
+        
     }
 
     pub fn add_len(&mut self, size: usize) {

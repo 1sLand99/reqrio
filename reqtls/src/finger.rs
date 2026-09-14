@@ -3,7 +3,7 @@ use crate::error::RlsResult;
 use crate::extend::SignatureAlgorithms;
 use crate::extend::alps::ALPS;
 use crate::extend::group::SupportedGroups;
-use crate::extend::{CompressCertificate, Extension, SNType, StatusRequest};
+use crate::extend::{CompressCertificate, Extension, StatusRequest};
 use crate::*;
 #[cfg(debug_assertions)]
 use std::fmt::Debug;
@@ -126,7 +126,7 @@ impl TlsFinger {
                 Extension::CompressionCertificate(CompressCertificate::new(vec![CompressionMethod::NULL])),
                 Extension::SupportedVersions(SupportVersions::new(versions)),
                 Extension::ApplicationLayerProtocolNegotiation(ALPS::new(vec![ALPN::HTTP20, ALPN::HTTP11])),
-                Extension::ServerName(vec![SNType::HostName("")]),
+                Extension::ServerName(vec![ServerName::new_sni("")]),
                 Extension::EcPointFormats(EcPointFormats::new(TlsFinger::random_formats())),
                 Extension::RenegotiationInfo,
                 Extension::ExtendMasterSecret,
@@ -222,7 +222,7 @@ impl TlsFinger {
                 }
             });
         }
-        extensions.push(Extension::ServerName(vec![SNType::HostName("")]));
+        extensions.push(Extension::ServerName(vec![ServerName::new_sni("")]));
         extensions.push(Extension::ApplicationLayerProtocolNegotiation(ALPS::new(vec![ALPN::HTTP20, ALPN::HTTP11])));
         Ok(TlsFinger::Custom {
             record_version: Version::TLS_1_0,
