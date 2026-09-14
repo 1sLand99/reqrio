@@ -15,15 +15,10 @@ pub struct KeyEntry {
 }
 
 impl KeyEntry {
-    pub const X25519: KeyEntry = KeyEntry {
-        group: NamedCurve::X25519,
-        key_len: 32,
-        key: null(),
-    };
-
-    pub fn new(group: NamedCurve) -> KeyEntry {
+    pub const X25519: KeyEntry = KeyEntry::new(NamedCurve::X25519);
+    pub const fn new(group: NamedCurve) -> KeyEntry {
         KeyEntry {
-            group: group.as_u16(),
+            group: group.into_inner(),
             key_len: 0,
             key: null(),
         }

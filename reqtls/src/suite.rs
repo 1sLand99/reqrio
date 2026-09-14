@@ -2,10 +2,7 @@ use std::cmp::max;
 use crate::extend::Aead;
 use crate::hash::HashType;
 use crate::Version;
-pub use cipher::TlsCipher;
 use std::fmt::{Debug, Formatter};
-
-mod cipher;
 
 #[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]

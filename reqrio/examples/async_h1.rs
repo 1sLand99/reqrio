@@ -429,15 +429,6 @@ impl Drop for TlsFinger {
     }
 }
 
-#[repr(C)]
-struct TlsSession {
-    ticket_len: usize,
-    ticket: *const u8,
-    session_id_len: u8,
-    session_id: *const u8,
-    master_secret: [u8; 48],
-}
-
 
 #[repr(C)]
 struct ClientConfig {
@@ -449,61 +440,31 @@ struct ClientConfig {
     version: u16,
 }
 
-#[repr(C)]
-struct DerivedKey {
-    session: TlsSession,
-    client_radom: [u8; 32],
-}
-
-#[repr(C)]
-struct Connection {
-    derived: DerivedKey,
-    secrets: *mut c_void,
-    encryptor: AeadCtx,
-    decryptor: AeadCtx,
-}
-
-impl Connection {}
-
 
 #[tokio::main]
 async fn main() {
     #[cfg(feature = "log")]
     test_log();
-    // let mut connection = Connection {
-    //     derived: DerivedKey {
-    //         session: TlsSession {
-    //             ticket_len: 0,
-    //             ticket: null(),
-    //             session_id_len: 0,
-    //             session_id: null(),
-    //             master_secret: [0; 48],
-    //         },
-    //         client_radom: rand::random(),
-    //     },
-    //     secrets: null_mut(),
-    //     encryptor: AeadCtx::none(),
-    //     decryptor: AeadCtx::none(),
-    // };
-    // let sni = "www.baidu.com";
-    // let config = ClientConfig {
-    //     sni_len: sni.len() as u16,
-    //     sni: sni.as_ptr(),
-    //     verify: false,
-    //     key_log: null(),
-    //     alpn: ALPN::HTTP11,
-    //     version: 0,
-    // };
-    // let mut writer = Writer::with_capacity(4096);
-    // let ret = unsafe { Record_build(&mut writer, 1, &mut connection, &config) };
-    // println!("Record build: {}", ret);
-    // println!("{} {:?}", writer.len(), writer.filled());
-    //
-    //
-    // println!("{:#?}", RecordLayer::from_bytes(writer.filled(), reqtls::KeyExchangeAlg::NULL, false).unwrap());
-    //
-    //
-    // return;
+    let mut connection = Connection::new_client(TlsSession::default(), None, false);
+    let sni = "www.baidu.com";
+    let config = ClientConfig {
+        sni_len: sni.len() as u16,
+        sni: sni.as_ptr(),
+        verify: false,
+        key_log: null(),
+        alpn: ALPN::HTTP11,
+        version: 0,
+    };
+    let mut writer = Writer::with_capacity(4096);
+    let ret = unsafe { Record_build(&mut writer, 1, &mut connection, &config) };
+    println!("Record build: {}", ret);
+    println!("{} {:?}", writer.len(), writer.filled());
+
+
+    println!("{:#?}", RecordLayer::from_bytes(writer.filled(), reqtls::KeyExchangeAlg::NULL, false).unwrap());
+
+
+    return;
 
 
     let finger = TlsFinger::Custom {

@@ -3,7 +3,6 @@ mod quic;
 
 use super::record::{RecordLayer, RecordType};
 use super::suite::CipherSuite;
-use super::suite::TlsCipher;
 use super::version::Version;
 use crate::boring::{certificate, AeadDir, AlgorithmSigner};
 use crate::buffer::{Buf, CipherEncodeBuffer, TlsDecodeBuffer};
@@ -15,27 +14,33 @@ use crate::*;
 pub use quic::QUICConnection;
 use std::collections::HashMap;
 use std::mem;
+use std::os::raw::c_void;
 use std::path::PathBuf;
+use std::ptr::null_mut;
 
+#[repr(C)]
 pub struct Connection {
-    pub(crate) recv_cipher: TlsCipher,
-    pub(crate) send_cipher: TlsCipher,
+    pub(crate) decryptor: AeadCtx,
+    pub(crate) encryptor: AeadCtx,
+    suite: &'static CipherSuite,
     named_curve: NamedCurve,
+    sig_alg: SignatureAlgorithm,
+    version: Version,
+    verify: bool,
+    server: bool,
+    mtls_enable: bool,
+    mtls_hash: SignatureAlgorithm,
+    secrets_len: usize,
+    secrets: *mut c_void,
+    pub(crate) derived: DerivedKey,
+    //--------------owner----------
     exchange_pub_key: Buf<'static>,
     alpn: Option<ALPN>,
-    cipher_suite: &'static CipherSuite,
     session_bytes: Vec<u8>,
-    pub(crate) derived: DerivedKey,
     certificates: Vec<Certificate>,
     secret_keys: HashMap<NamedCurve, SecretKey>,
     secret_key: Option<SecretKey>,
-    verify: bool,
     root_stores: &'static CertStore,
-    sig_alg: SignatureAlgorithm,
-    mtls_hash: SignatureAlgorithm,
-    mtls_enable: bool,
-    version: Version,
-    server: bool,
     hasher: Hasher,
 }
 impl Default for Connection {
@@ -44,23 +49,27 @@ impl Default for Connection {
     }
 }
 
+unsafe impl Sync for Connection {}
+unsafe impl Send for Connection {}
+
 impl Connection {
     const HRR_MAGIC: [u8; 32] = [207, 33, 173, 116, 229, 154, 97, 17, 190, 29, 140, 2, 30, 101, 184, 145, 194, 162, 17, 22, 122, 187, 140, 94, 7, 158, 9, 226, 200, 168, 51, 156];
 
     pub fn new(client_random: [u8; 32], server_random: [u8; 32], session: TlsSession, key_log: Option<PathBuf>, quic: bool) -> Connection {
         Connection {
-            recv_cipher: TlsCipher::none(),
-            send_cipher: TlsCipher::none(),
-            named_curve: NamedCurve::X25519.into(),
+            decryptor: AeadCtx::none(),
+            encryptor: AeadCtx::none(),
+            named_curve: NamedCurve::X25519,
             exchange_pub_key: Buf::Ref(&[]),
             alpn: None,
-            cipher_suite: &CipherSuite::UNKNOWN,
+            suite: &CipherSuite::UNKNOWN,
             session_bytes: Vec::with_capacity(4096),
             derived: DerivedKey::new(client_random, server_random, session, key_log, quic),
             certificates: vec![],
             verify: false,
             root_stores: &certificate::ROOT_STORES,
             mtls_hash: SignatureAlgorithm::new(0),
+            secrets_len: 0,
             mtls_enable: false,
             version: Version::TLS_1_2,
             secret_keys: HashMap::new(),
@@ -68,6 +77,7 @@ impl Connection {
             server: false,
             hasher: Hasher::default(),
             sig_alg: SignatureAlgorithm::new(0),
+            secrets: null_mut(),
         }
     }
 
@@ -113,8 +123,8 @@ impl Connection {
     pub fn set_by_server_hello(&mut self, server_hello: &ServerHello, version: Version) -> RlsResult<bool> {
         self.alpn = server_hello.alpn();
         self.derived.session.set_session_id(server_hello.session_id.as_ref());
-        self.cipher_suite = server_hello.cipher_suite;
-        self.hasher.init(self.cipher_suite.hash())?;
+        self.suite = server_hello.cipher_suite;
+        self.hasher.init(self.suite.hash())?;
         if let Some(version) = server_hello.supported_version() {
             self.version = *version;
         } else { self.version = version; }
@@ -122,8 +132,8 @@ impl Connection {
         self.hasher.update(&self.session_bytes)?;
         #[cfg(feature = "log")]
         info!("[ParsedServerHello] Version: {:?} | CipherSuite: {} | Hasher: {:?} | AEAD: {:?}",
-            self.version, self.cipher_suite.spec(), self.cipher_suite.hash(), self.cipher_suite.aead());
-        self.derived.init(KeyType::Handshake, self.cipher_suite);
+            self.version, self.suite.spec(), self.suite.hash(), self.suite.aead());
+        self.derived.init(KeyType::Handshake, self.suite);
         self.derived.set_server_random(server_hello.random.as_ref().try_into()?);
         self.derived.use_ems = server_hello.use_ems();
         if Version::TLS_1_3 == self.version {
@@ -140,15 +150,18 @@ impl Connection {
     }
 
     pub(crate) fn derived_key_cipher(&mut self, typ: KeyType) -> RlsResult<()> {
+        let aead = *self.suite.aead();
         #[cfg(feature = "log")]
         trace!("[DerivedCipher] type={:?}; cipher={:?}; mac={:?}; veriosn={:?}",
-            typ,self.cipher_suite.aead(),self.cipher_suite.mac_hash(),self.version);
+            typ,self.suite.aead(),self.suite.mac_hash(),self.version);
         let key = self.derived.make_cipher_key(&self.version, typ)?;
         let sk = key.send_key(typ, self.server);
-        self.send_cipher.set_key(sk, key.send_iv(typ, self.server), self.cipher_suite, AeadDir::Seal)?;
+        self.encryptor.init_aead(aead, AeadDir::Seal, sk, key.send_iv(typ, self.server))?;
+        // self.encryptor.set_key(sk, key.send_iv(typ, self.server), self.suite, AeadDir::Seal)?;
         // self.send_cipher.set_iv(Iv::new().with_init(key.send_iv(typ, self.server)));
         let rk = key.recv_key(typ, self.server);
-        self.recv_cipher.set_key(rk, key.recv_iv(typ, self.server), self.cipher_suite, AeadDir::Open)?;
+        self.decryptor.init_aead(aead, AeadDir::Open, rk, key.recv_iv(typ, self.server))?;
+        // self.decryptor.set_key(rk, key.recv_iv(typ, self.server), self.suite, AeadDir::Open)?;
         // self.recv_cipher.set_iv(Iv::new().with_init(key.recv_iv(typ, self.server)));
         Ok(())
     }
@@ -374,7 +387,7 @@ impl Connection {
             buffer[..finish.len()].copy_from_slice(finish.as_slice());
             Ok(finish.len())
         } else {
-            self.make_message(RecordType::HandShake, buffer, &finish)
+            self.make_message(RecordType::HandShake, &finish, buffer)
         }
     }
 
@@ -389,22 +402,51 @@ impl Connection {
     }
 
 
-    pub fn make_message(&mut self, cty: RecordType, buffer: &mut [u8], payload: &[u8]) -> RlsResult<usize> {
-        if buffer.len() < 5 + payload.len() {
+    // pub fn make_message(&mut self, cty: RecordType, buffer: &mut [u8], payload: &[u8]) -> RlsResult<usize> {
+    //     if buffer.len() < 5 + payload.len() {
+    //         return Err(BufferError::CapacityTooSmall {
+    //             needed: 5 + payload.len(),
+    //             current: buffer.len(),
+    //             file: file!(),
+    //             line: line!(),
+    //         }.into());
+    //     }
+    //     let buffer = CipherEncodeBuffer::new_tls(cty, buffer, payload, self.suite);
+    //     self.encryptor.encrypt(None, buffer)
+    // }
+
+    // pub fn read_message(&mut self, origin: &[u8], buffer: &mut [u8]) -> RlsResult<usize> {
+    //     let buffer = TlsDecodeBuffer::from_buffer(origin, buffer, self.suite)?;
+    //     self.decryptor.decrypt(None, buffer)
+    // }
+
+    pub fn read_message(&mut self, origin: &[u8], out: &mut [u8]) -> RlsResult<usize> {
+        let mut buffer = TlsDecodeBuffer::from_buffer(origin, out, self.suite)?;
+        let aad = buffer.aad(self.decryptor.seq)?;
+        let nonce = buffer.nonce(&self.decryptor.iv, self.decryptor.seq);
+        // println!("seq: {}; aad: {:x?}; nonce: {:?}", seq_num, aad, nonce);
+        let len = self.decryptor.open(&nonce, &aad, &mut buffer)?;
+        self.decryptor.seq += 1;
+        Ok(len)
+    }
+    //
+    pub fn make_message(&mut self, rt: RecordType, origin: &[u8], out: &mut [u8]) -> RlsResult<usize> {
+        if out.len() < 5 + origin.len() {
             return Err(BufferError::CapacityTooSmall {
-                needed: 5 + payload.len(),
-                current: buffer.len(),
+                needed: 5 + origin.len(),
+                current: out.len(),
                 file: file!(),
                 line: line!(),
             }.into());
         }
-        let buffer = CipherEncodeBuffer::new_tls(cty, buffer, payload, self.cipher_suite);
-        self.send_cipher.encrypt(None, buffer)
-    }
-
-    pub fn read_message(&mut self, origin: &[u8], buffer: &mut [u8]) -> RlsResult<usize> {
-        let buffer = TlsDecodeBuffer::from_buffer(origin, buffer, self.cipher_suite)?;
-        self.recv_cipher.decrypt(None, buffer)
+        let mut buffer = CipherEncodeBuffer::new_tls(rt, out, origin, self.suite);
+        let aad = buffer.aad(self.encryptor.seq);
+        let nonce = self.encryptor.iv.as_array(self.encryptor.seq, None);
+        buffer.add_explicit_iv(&nonce);
+        // println!("seq: {}; aad: {:x?}; nonce: {:?}", seq_num, aad, nonce);
+        self.encryptor.seal(&nonce, &aad, &mut buffer)?;
+        self.encryptor.seq += 1;
+        Ok(buffer.record_len())
     }
 
     pub fn alpn(&self) -> Option<&ALPN> {
@@ -423,7 +465,7 @@ impl Connection {
     }
 
     pub fn session_bytes(&self) -> &[u8] { &self.session_bytes }
-    pub fn cipher_suite(&self) -> &'static CipherSuite { self.cipher_suite }
+    pub fn cipher_suite(&self) -> &'static CipherSuite { self.suite }
     pub fn session(&self) -> &TlsSession { &self.derived.session }
     pub fn server(&self) -> bool { self.server }
     pub fn handle_mtls_client(&mut self, writer: &mut Writer, key: &RsaKey) -> RlsResult<()> {
@@ -464,62 +506,21 @@ impl Connection {
 #[cfg(test)]
 mod tests {
     use crate::boring::AeadDir;
-    use crate::buffer::{CipherEncodeBuffer, TlsDecodeBuffer};
-    use crate::error::RlsResult;
-    use crate::key::DerivedKey;
-    use crate::{rand, AeadCtx, CipherSuite, RecordType, TlsSession, Version};
-    use std::os::raw::c_void;
-    use std::ptr::null_mut;
+    use crate::{CipherSuite, Connection, RecordType, TlsSession, Version};
 
-    #[repr(C)]
-    struct Connection {
-        encryptor: AeadCtx,
-        decryptor: AeadCtx,
-        suite: &'static CipherSuite,
-        secrets: *mut c_void,
-        derived: DerivedKey,
-    }
-
-    impl Connection {
-        fn read_message(&mut self, origin: &[u8], out: &mut [u8], seq: Option<u64>) -> RlsResult<usize> {
-            let mut buffer = TlsDecodeBuffer::from_buffer(origin, out, self.suite)?;
-            let seq_num = if let Some(seq) = seq { seq } else { self.decryptor.seq };
-            let aad = buffer.aad(seq_num)?;
-            let nonce = buffer.nonce(&self.decryptor.iv, seq_num);
-            // println!("seq: {}; aad: {:x?}; nonce: {:?}", seq_num, aad, nonce);
-            let len = self.decryptor.open(&nonce, &aad, &mut buffer)?;
-            if seq.is_none() { self.decryptor.seq += 1 }
-            Ok(len)
-        }
-
-        fn write_message(&mut self, rt: RecordType, origin: &[u8], out: &mut [u8], seq: Option<u64>) -> RlsResult<usize> {
-            let mut buffer = CipherEncodeBuffer::new_tls(rt, out, origin, self.suite);
-            let seq_num = if let Some(seq) = seq { seq } else { self.encryptor.seq };
-            let aad = buffer.aad(seq_num);
-            let nonce = self.encryptor.iv.as_array(seq_num, None);
-            buffer.add_explicit_iv(&nonce);
-            // println!("seq: {}; aad: {:x?}; nonce: {:?}", seq_num, aad, nonce);
-            self.encryptor.seal(&nonce, &aad, &mut buffer)?;
-            if seq.is_none() { self.encryptor.seq += 1; }
-            Ok(buffer.record_len())
-        }
-    }
 
     fn test_encrypt(key: &[u8], suite: &'static CipherSuite, iv: &[u8], en: &[u8]) {
-        let mut connection = Connection {
-            encryptor: AeadCtx::new(*suite.aead(), AeadDir::Seal).init(key).unwrap().with_iv(iv),
-            decryptor: AeadCtx::new(*suite.aead(), AeadDir::Open).init(key).unwrap().with_iv(iv),
-            suite,
-            secrets: null_mut(),
-            derived: DerivedKey::new(rand::random(), rand::random(), TlsSession::default(), None, false),
-        };
+        let mut connection = Connection::new_client(TlsSession::default(), None, false);
+        connection.suite = suite;
+        connection.encryptor.init_aead(*suite.aead(), AeadDir::Seal, key, iv).unwrap();
+        connection.decryptor.init_aead(*suite.aead(), AeadDir::Open, key, iv).unwrap();
         let payload = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 34, 3, 3, 3];
         let mut out = [0; 1024];
-        let len = connection.write_message(RecordType::HandShake, &payload, &mut out, None).unwrap();
+        let len = connection.make_message(RecordType::HandShake, &payload, &mut out).unwrap();
         assert_eq!(&out[..len], en);
 
         let mut decoded = [0; 80];
-        let mut len = connection.read_message(&out[..len], &mut decoded, None).unwrap();
+        let mut len = connection.read_message(&out[..len], &mut decoded).unwrap();
         if suite.version == &Version::TLS_1_3 { len -= 1; }
         assert_eq!(&decoded[..len], payload);
     }

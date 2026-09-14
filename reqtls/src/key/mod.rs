@@ -63,11 +63,10 @@ pub struct SecretKey {
 }
 
 impl SecretKey {
-    pub fn new(group: impl Into<u16>) -> Result<SecretKey, String> {
-        let group = group.into();
-        let secret_key = unsafe { SecretKey_new(group) };
+    pub fn new(group: NamedCurve) -> Result<SecretKey, String> {
+        let secret_key = unsafe { SecretKey_new(group.as_u16()) };
         Ok(SecretKey {
-            group: NamedCurve::new(group),
+            group,
             ptr: CPointer::new_checked(secret_key, format!("group '{}' not supported", group))?,
         })
     }
@@ -77,7 +76,7 @@ impl SecretKey {
     pub fn new_pre_master_secret(version: &Version) -> Result<SecretKey, &'static str> {
         let secret_key = unsafe { SecretKey_new_pre_master_secret(version.as_u16()) };
         Ok(SecretKey {
-            group: NamedCurve::PRE_MASTER.into(),
+            group: NamedCurve::PRE_MASTER,
             ptr: CPointer::new_checked(secret_key, "new pre-master-secret failed")?,
         })
     }

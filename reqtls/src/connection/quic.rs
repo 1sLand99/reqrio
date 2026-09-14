@@ -20,7 +20,7 @@ pub struct QUICConnection {
 impl QUICConnection {
     pub fn new(session: TlsSession, key_log: Option<PathBuf>, verify: bool) -> QUICConnection {
         let mut conn = Connection::new_client(session, key_log, true).with_verify(verify);
-        conn.cipher_suite = &CipherSuite::TLS_AES_128_GCM_SHA256;
+        conn.suite = &CipherSuite::TLS_AES_128_GCM_SHA256;
         conn.version = Version::TLS_1_3;
         QUICConnection {
             conn,
@@ -34,7 +34,7 @@ impl QUICConnection {
 
     /// [rfc9001 5.2](https://datatracker.ietf.org/doc/html/rfc9001#name-initial-secrets)
     pub fn make_initial_cipher(&mut self, cid: &Buf<'_>, force: bool) -> RlsResult<()> {
-        if !self.conn.recv_cipher.is_null() && !self.conn.send_cipher.is_null() & !force { return Ok(()); }
+        if !self.conn.decryptor.is_null() && !self.conn.encryptor.is_null() & !force { return Ok(()); }
         //清空现有的handshake bytes
         self.conn.session_bytes.clear();
         if !force { self.conn.derived.init(KeyType::Initial, &CipherSuite::TLS_AES_128_GCM_SHA256); }
@@ -48,8 +48,8 @@ impl QUICConnection {
 
     ///update sample cipher
     pub fn make_sample_cipher(&mut self, typ: KeyType) -> RlsResult<()> {
-        println!("{:?}-{:?}-{}", self.conn.cipher_suite, self.current, self.conn.server);
-        let cipher = self.get_cipher(self.conn.cipher_suite.aead());
+        println!("{:?}-{:?}-{}", self.conn.suite, self.current, self.conn.server);
+        let cipher = self.get_cipher(self.conn.suite.aead());
         self.send_sample = Cipher::new(cipher);
         self.recv_sample = Cipher::new(cipher);
         let shk = self.conn.derived.key_block().send_hp_key(typ, self.conn.server);
@@ -71,14 +71,15 @@ impl QUICConnection {
 
     fn init_cipher(&mut self, suite: Option<&'static CipherSuite>, typ: KeyType) -> RlsResult<()> {
         if self.current == typ { return Ok(()); }
-        let suite = suite.unwrap_or(self.conn.cipher_suite);
+        let suite = suite.unwrap_or(self.conn.suite);
         println!("{:?}>>{:?}; suite={:?}", self.current, typ, suite);
         self.recv_sample = Cipher::new(self.get_cipher(suite.aead()));
         let rhk = self.conn.derived.key_block().recv_hp_key(typ, self.conn.server);
         self.recv_sample.set_secret_key(rhk, None);
         let rk = self.conn.derived.key_block().recv_key(typ, self.conn.server);
         let ri = self.conn.derived.key_block().recv_iv(typ, self.conn.server);
-        self.conn.recv_cipher.set_key(rk, ri, suite, AeadDir::Open)?;
+        self.conn.decryptor.init_aead(*suite.aead(), AeadDir::Open, rk, ri)?;
+        // self.conn.decryptor.set_key(rk, ri, suite, AeadDir::Open)?;
         // self.conn.recv_cipher.set_iv(Iv::new().with_init(ri));
         self.current = typ;
         Ok(())
@@ -108,10 +109,11 @@ impl QUICConnection {
                 line: line!(),
             }.into());
         }
-        let buffer = TlsDecodeBuffer::from_quic(packet, buffer);
+        let mut buffer = TlsDecodeBuffer::from_quic(packet, buffer);
+        let aad = buffer.aad(packet.num)?;
+        let nonce = buffer.nonce(&self.conn.decryptor.iv, packet.num);
 
-
-        let len = self.conn.recv_cipher.decrypt(Some(packet.num), buffer).unwrap();
+        let len = self.conn.decryptor.open(&nonce, &aad, &mut buffer).unwrap();
         self.recv_nums.insert(packet.num);
         Ok(len)
     }
@@ -134,8 +136,10 @@ impl QUICConnection {
 
 
     pub fn make_message<'a>(&mut self, buffer: &mut [u8], packet: &mut QUICPacket<'a>) -> RlsResult<()> {
-        let encode_buffer = CipherEncodeBuffer::new_quic(buffer, packet, self.conn.cipher_suite);
-        self.conn.send_cipher.encrypt(Some(packet.num), encode_buffer)?;
+        let mut encode_buffer = CipherEncodeBuffer::new_quic(buffer, packet, self.conn.suite);
+        let aad = encode_buffer.aad(packet.num);
+        let nonce = self.conn.encryptor.iv.as_array(packet.num, None);
+        self.conn.encryptor.seal(&nonce, &aad, &mut encode_buffer)?;
         let sample = &buffer[packet.pn_offset + 4..packet.pn_offset + 20];
         let mut mask = self.send_sample.encrypt(sample)?;
         mask.truncate(5);
