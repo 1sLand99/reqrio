@@ -66,11 +66,11 @@ impl TlsSession {
 
     pub fn set_ticket(&mut self, ticket: Vec<u8>) {
         if ticket.is_empty() { return; }
-        let (ticket, ticket_len, ticket_capacity) = ticket.into_raw_parts();
         if !self.ticket.is_null() {
-            drop(unsafe { Vec::from_raw_parts(self.ticket, self.ticket_len as usize, ticket_capacity) });
+            drop(unsafe { Vec::from_raw_parts(self.ticket, self.ticket_len as usize, self.ticket_capacity) });
             self.ticket = null_mut();
         }
+        let (ticket, ticket_len, ticket_capacity) = ticket.into_raw_parts();
         self.ticket = ticket;
         self.ticket_len = ticket_len as u16;
         self.ticket_capacity = ticket_capacity;
