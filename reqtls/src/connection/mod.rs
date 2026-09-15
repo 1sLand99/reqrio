@@ -153,16 +153,12 @@ impl Connection {
         let aead = *self.suite.aead();
         #[cfg(feature = "log")]
         trace!("[DerivedCipher] type={:?}; cipher={:?}; mac={:?}; veriosn={:?}",
-            typ,self.suite.aead(),self.suite.mac_hash(),self.version);
+            typ,aead,self.suite.mac_hash(),self.version);
         let key = self.derived.make_cipher_key(&self.version, typ)?;
         let sk = key.send_key(typ, self.server);
         self.encryptor.init_aead(aead, AeadDir::Seal, sk, key.send_iv(typ, self.server))?;
-        // self.encryptor.set_key(sk, key.send_iv(typ, self.server), self.suite, AeadDir::Seal)?;
-        // self.send_cipher.set_iv(Iv::new().with_init(key.send_iv(typ, self.server)));
         let rk = key.recv_key(typ, self.server);
         self.decryptor.init_aead(aead, AeadDir::Open, rk, key.recv_iv(typ, self.server))?;
-        // self.decryptor.set_key(rk, key.recv_iv(typ, self.server), self.suite, AeadDir::Open)?;
-        // self.recv_cipher.set_iv(Iv::new().with_init(key.recv_iv(typ, self.server)));
         Ok(())
     }
 
@@ -402,29 +398,10 @@ impl Connection {
     }
 
 
-    // pub fn make_message(&mut self, cty: RecordType, buffer: &mut [u8], payload: &[u8]) -> RlsResult<usize> {
-    //     if buffer.len() < 5 + payload.len() {
-    //         return Err(BufferError::CapacityTooSmall {
-    //             needed: 5 + payload.len(),
-    //             current: buffer.len(),
-    //             file: file!(),
-    //             line: line!(),
-    //         }.into());
-    //     }
-    //     let buffer = CipherEncodeBuffer::new_tls(cty, buffer, payload, self.suite);
-    //     self.encryptor.encrypt(None, buffer)
-    // }
-
-    // pub fn read_message(&mut self, origin: &[u8], buffer: &mut [u8]) -> RlsResult<usize> {
-    //     let buffer = TlsDecodeBuffer::from_buffer(origin, buffer, self.suite)?;
-    //     self.decryptor.decrypt(None, buffer)
-    // }
-
     pub fn read_message(&mut self, origin: &[u8], out: &mut [u8]) -> RlsResult<usize> {
         let mut buffer = TlsDecodeBuffer::from_buffer(origin, out, self.suite)?;
         let aad = buffer.aad(self.decryptor.seq)?;
         let nonce = buffer.nonce(&self.decryptor.iv, self.decryptor.seq);
-        // println!("seq: {}; aad: {:x?}; nonce: {:?}", seq_num, aad, nonce);
         let len = self.decryptor.open(&nonce, &aad, &mut buffer)?;
         self.decryptor.seq += 1;
         Ok(len)
@@ -443,7 +420,6 @@ impl Connection {
         let aad = buffer.aad(self.encryptor.seq);
         let nonce = self.encryptor.iv.as_array(self.encryptor.seq, None);
         buffer.add_explicit_iv(&nonce);
-        // println!("seq: {}; aad: {:x?}; nonce: {:?}", seq_num, aad, nonce);
         self.encryptor.seal(&nonce, &aad, &mut buffer)?;
         self.encryptor.seq += 1;
         Ok(buffer.record_len())

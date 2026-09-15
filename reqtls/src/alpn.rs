@@ -57,7 +57,7 @@ impl Display for ALPN {
     }
 }
 
-// #[cfg(debug_assertions)]
+#[cfg(debug_assertions)]
 impl std::fmt::Debug for ALPN {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
