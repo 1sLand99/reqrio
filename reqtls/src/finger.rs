@@ -38,8 +38,8 @@ impl TlsFinger {
                 let mut reader = Reader::from_slice(&Self::DEFAULT_TLS[5..]);
                 reader.read_u8()?;
                 let mut res = ClientHello::from_bytes(&mut reader)?;
-                match *alpn {
-                    ALPN::HTTP20 => res.add_h2_alpn(),
+                match alpn {
+                    h2 if h2 == ALPN::HTTP20 => res.add_h2_alpn(),
                     _ => res.remove_h2_alpn()
                 }
                 Ok(res)

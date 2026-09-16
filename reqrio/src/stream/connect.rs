@@ -236,8 +236,8 @@ impl<'a> StreamConnect<'a, std::net::TcpStream> {
                 self.tls_connecting.state = ConnState::Connecting(Box::new(TlsStream::new(conn, proxy_stream)));
                 let tls_stream = self.tls_connecting.wait()?;
                 let alpn = tls_stream.alpn().cloned().unwrap_or(ALPN::HTTP11);
-                let stream = match alpn {
-                    ALPN::HTTP20 => HTTPStream::SyncH2(HTTP2StreamS::new(Stream::SyncHttps(tls_stream), self.fingerprint)?),
+                let stream = match &alpn {
+                    h2 if h2 == ALPN::HTTP20 => HTTPStream::SyncH2(HTTP2StreamS::new(Stream::SyncHttps(tls_stream), self.fingerprint)?),
                     _ => HTTPStream::SyncH1(HTTP1StreamS::new(Stream::SyncHttps(tls_stream)))
                 };
                 Ok((alpn, stream))

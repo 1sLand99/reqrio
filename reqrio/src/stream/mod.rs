@@ -162,9 +162,9 @@ impl HTTPStream {
     }
 
     pub(crate) fn conn_sync<'a, 'b: 'a>(&'a mut self, param: ConnParam<'b>) -> HlsResult<ALPN> {
-        match *param.alpn {
+        match param.alpn {
             #[cfg(feature = "quic")]
-            ALPN::HTTP30 => {
+            h3 if h3 == ALPN::HTTP30 => {
                 let socket = std::net::UdpSocket::bind("0.0.0.0:0")?;
                 *self = HTTPStream::SyncH3(HTTP3StreamS::connect(socket, param)?);
                 Ok(ALPN::HTTP30)
@@ -208,9 +208,9 @@ impl HTTPStream {
     }
 
     pub(crate) async fn conn_async<'a, 'b: 'a>(&'a mut self, param: ConnParam<'b>) -> HlsResult<ALPN> {
-        match *param.alpn {
+        match param.alpn {
             #[cfg(feature = "quic")]
-            ALPN::HTTP30 => {
+            h3 if h3 == ALPN::HTTP30 => {
                 let socket = tokio::net::UdpSocket::bind("0.0.0.0:0").await?;
                 *self = HTTPStream::AsyncH3(HTTP3StreamA::connect(socket, param).await?);
                 Ok(ALPN::HTTP30)

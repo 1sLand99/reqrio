@@ -486,10 +486,10 @@ impl Header {
     pub(crate) fn init_by_alpn(&mut self, alpn: ALPN) {
         if alpn == self.alpn { return; }
         self.alpn = alpn;
-        let keys = match self.alpn {
+        let keys = match &self.alpn {
             #[cfg(feature = "quic")]
-            ALPN::HTTP30 => Header::new_req_h3().keys,
-            ALPN::HTTP20 => Header::new_req_h2().keys,
+            h3 if h3 == ALPN::HTTP30 => Header::new_req_h3().keys,
+            h2 if h2 == ALPN::HTTP20 => Header::new_req_h2().keys,
             _ => Header::new_req_h1().keys
         };
         let keys = mem::replace(&mut self.keys, keys);
@@ -634,10 +634,10 @@ impl Header {
     }
 
     pub(crate) fn as_reader<'a>(&'a self, param: HeaderParam<'a>, ct: &'a ContentType) -> HlsResult<HeaderReader<'a>> {
-        Ok(match self.alpn {
-            ALPN::HTTP20 => HeaderReader::H2(self.as_h2_reader(param, ct)?),
+        Ok(match &self.alpn {
+            h2 if h2 == ALPN::HTTP20 => HeaderReader::H2(self.as_h2_reader(param, ct)?),
             #[cfg(feature = "quic")]
-            ALPN::HTTP30 => HeaderReader::H3(self.as_h3_reader(param, ct)?),
+            h3 if h3 == ALPN::HTTP30 => HeaderReader::H3(self.as_h3_reader(param, ct)?),
             _ => HeaderReader::H1(self.as_h1_reader(param, ct))
         })
     }

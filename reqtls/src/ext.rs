@@ -35,9 +35,9 @@ pub trait StreamHandle {
             client_hello.remove_padding();
         };
         let mut secrets = HashMap::new();
-        let key_share = match *config.alpn {
+        let key_share = match config.alpn {
             #[cfg(feature = "quic")]
-            ALPN::HTTP30 => match client_hello.key_share_mut().is_some() {
+            h3 if h3 == ALPN::HTTP30 => match client_hello.key_share_mut().is_some() {
                 true => client_hello.key_share_mut(),
                 false => return Err(HandShakeError::QUICMissingKeyShare.into()),
             }
