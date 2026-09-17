@@ -44,19 +44,19 @@ fn build_finger(suites: Vec<CipherSuite>, groups: Vec<NamedCurve>) -> Fingerprin
             Extension::SupportedGroups(SupportedGroups::new(groups)),
             Extension::EcPointFormats(EcPointFormats::new(vec![EcPointFormat::UNCOMPRESSED])),
             Extension::SignatureAlgorithms(SignatureAlgorithms::new(vec![
-                SignatureAlgorithm::RSA_PKCS1_SHA1.into(),
-                SignatureAlgorithm::RSA_PKCS1_SHA256.into(),
-                SignatureAlgorithm::RSA_PKCS1_SHA384.into(),
-                SignatureAlgorithm::RSA_PKCS1_SHA512.into(),
-                SignatureAlgorithm::ECDSA_SECP256R1_SHA256.into(),
-                SignatureAlgorithm::ECDSA_SECP384R1_SHA384.into(),
-                SignatureAlgorithm::ECDSA_SECP521R1_SHA512.into(),
-                SignatureAlgorithm::RSA_PSS_PSS_SHA256.into(),
-                SignatureAlgorithm::RSA_PSS_PSS_SHA384.into(),
-                SignatureAlgorithm::RSA_PSS_PSS_SHA512.into(),
-                SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),
-                SignatureAlgorithm::RSA_PSS_RSAE_SHA384.into(),
-                SignatureAlgorithm::RSA_PSS_RSAE_SHA512.into(),
+                SignatureAlgorithm::RSA_PKCS1_SHA1,
+                SignatureAlgorithm::RSA_PKCS1_SHA256,
+                SignatureAlgorithm::RSA_PKCS1_SHA384,
+                SignatureAlgorithm::RSA_PKCS1_SHA512,
+                SignatureAlgorithm::ECDSA_SECP256R1_SHA256,
+                SignatureAlgorithm::ECDSA_SECP384R1_SHA384,
+                SignatureAlgorithm::ECDSA_SECP521R1_SHA512,
+                SignatureAlgorithm::RSA_PSS_PSS_SHA256,
+                SignatureAlgorithm::RSA_PSS_PSS_SHA384,
+                SignatureAlgorithm::RSA_PSS_PSS_SHA512,
+                SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
+                SignatureAlgorithm::RSA_PSS_RSAE_SHA384,
+                SignatureAlgorithm::RSA_PSS_RSAE_SHA512,
             ])),
             Extension::SignedCertificateTimestamp,
             Extension::ExtendMasterSecret,
@@ -66,10 +66,10 @@ fn build_finger(suites: Vec<CipherSuite>, groups: Vec<NamedCurve>) -> Fingerprin
                 Version::TLS_1_3,
                 Version::TLS_1_2,
             ])),
-            Extension::PskKeyExchangeMode(vec![PskMode::new(PskMode::PSK_DHE_KE)]),
+            Extension::PskKeyExchangeMode(vec![PskMode::PSK_DHE_KE]),
             Extension::KeyShare(KeyShare::new(vec![
-                NamedCurve::X25519.into(),
-                NamedCurve::SecP256r1.into(),
+                NamedCurve::X25519,
+                NamedCurve::SecP256r1,
             ])),
             Extension::ApplicationSetting(ALPS::new(vec![
                 ALPN::HTTP20,
@@ -135,12 +135,12 @@ async fn test_ecdhe_rsa() {
 async fn test_rsa() {
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA],
-        vec![NamedCurve::X25519.into(), NamedCurve::SecP256r1.into()], );
+        vec![NamedCurve::X25519, NamedCurve::SecP256r1], );
     let mut req = AcReq::new().with_timeout(Timeout::longer()).with_fingerprint(fingerprint);
     req.get("https://m.baidu.com", None).await.unwrap();
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA],
-        vec![NamedCurve::X25519.into(), NamedCurve::SecP256r1.into()], );
+        vec![NamedCurve::X25519, NamedCurve::SecP256r1], );
     let mut req = AcReq::new().with_timeout(Timeout::longer()).with_fingerprint(fingerprint);
     req.get("https://m.baidu.com", None).await.unwrap();
 }
@@ -149,17 +149,17 @@ async fn test_rsa() {
 async fn test_tls13_cipher() {
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_AES_128_GCM_SHA256],
-        vec![NamedCurve::X25519.into()], );
+        vec![NamedCurve::X25519], );
     let mut req = AcReq::new().with_timeout(Timeout::longer()).with_fingerprint(fingerprint);
     req.get("https://m.sogou.com", None).await.unwrap();
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_AES_256_GCM_SHA384],
-        vec![NamedCurve::X25519.into()], );
+        vec![NamedCurve::X25519], );
     let mut req = AcReq::new().with_timeout(Timeout::longer()).with_fingerprint(fingerprint);
     req.get("https://m.sogou.com", None).await.unwrap();
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_CHACHA20_POLY1305_SHA256],
-        vec![NamedCurve::X25519.into()], );
+        vec![NamedCurve::X25519], );
     let mut req = AcReq::new().with_timeout(Timeout::longer()).with_fingerprint(fingerprint);
     req.get("https://m.sogou.com", None).await.unwrap();
 }

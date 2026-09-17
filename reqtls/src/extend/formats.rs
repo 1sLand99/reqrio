@@ -3,7 +3,7 @@ use std::fmt::{Debug, Formatter};
 use crate::error::RlsResult;
 use crate::{BufferError, Reader, Writer};
 
-#[allow(non_camel_case_types)]
+#[repr(C)]
 #[derive(Clone, PartialEq, Copy)]
 pub struct EcPointFormat(u8);
 

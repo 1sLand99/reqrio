@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
 
+#[repr(C)]
 #[derive(Copy, Clone, PartialEq)]
 pub struct Version(u16);
 

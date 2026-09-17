@@ -246,7 +246,7 @@ impl Connection {
     pub fn set_by_cert_req(&mut self, req: CertificateRequest, cert: Option<&mut Certificate>) -> RlsResult<()> {
         if let Some(cert) = cert {
             for hash in req.into_hashes() {
-                match (hash.as_u16(), cert.cert_type()?) {
+                match (hash, cert.cert_type()?) {
                     (SignatureAlgorithm::RSA_PSS_RSAE_SHA256, CertType::RSA) => self.mtls_hash = hash,
                     (SignatureAlgorithm::RSA_PSS_RSAE_SHA384, CertType::RSA) => self.mtls_hash = hash,
                     (SignatureAlgorithm::RSA_PSS_RSAE_SHA512, CertType::RSA) => self.mtls_hash = hash,
@@ -261,7 +261,7 @@ impl Connection {
                 }
                 break;
             }
-        } else { self.mtls_hash = SignatureAlgorithm::RSA_PKCS1_SHA1.into() }
+        } else { self.mtls_hash = SignatureAlgorithm::RSA_PKCS1_SHA1 }
         Ok(())
     }
 

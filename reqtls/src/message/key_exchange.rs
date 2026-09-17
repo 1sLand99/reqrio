@@ -26,6 +26,7 @@ impl CurveType {
 }
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq)]
+#[repr(C)]
 pub struct NamedCurve(u16);
 
 #[allow(non_upper_case_globals)]

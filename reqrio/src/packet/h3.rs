@@ -3,7 +3,7 @@ use reqtls::{quic, Buf, Writer, BufferError, Reader};
 use crate::HlsError;
 use crate::pack::{QPackDecode, QPackType};
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct H3Setting {
     flag: u64,
     value: u64,
@@ -143,6 +143,7 @@ impl<'a> H3Frame<'a> {
     }
 }
 
+#[cfg(debug_assertions)]
 impl<'a> Debug for H3Frame<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -157,7 +158,8 @@ impl<'a> Debug for H3Frame<'a> {
 
 
 #[repr(u64)]
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub enum H3Stream {
     Control = 0x00,
     QPackEncoder = 0x02,

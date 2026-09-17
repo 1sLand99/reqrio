@@ -50,9 +50,9 @@ pub fn random_fingerprint(sni: &str) -> Result<Fingerprint, HlsError> {
             Extension::RenegotiationInfo,
             Extension::SupportedGroups(SupportedGroups::new(vec![
                 NamedCurve::new(group),
-                NamedCurve::X25519.into(),
-                NamedCurve::SecP256r1.into(),
-                NamedCurve::SecP384r1.into()
+                NamedCurve::X25519,
+                NamedCurve::SecP256r1,
+                NamedCurve::SecP384r1
             ])),
             Extension::EcPointFormats(EcPointFormats::new(vec![
                 EcPointFormat::UNCOMPRESSED
@@ -64,21 +64,21 @@ pub fn random_fingerprint(sni: &str) -> Result<Fingerprint, HlsError> {
             ])),
             Extension::StatusRequest(StatusRequest::new()),
             Extension::SignatureAlgorithms(SignatureAlgorithms::new(vec![
-                SignatureAlgorithm::ECDSA_SECP256R1_SHA256.into(),
-                SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),
-                SignatureAlgorithm::RSA_PKCS1_SHA256.into(),
-                SignatureAlgorithm::ECDSA_SECP384R1_SHA384.into(),
-                SignatureAlgorithm::RSA_PSS_RSAE_SHA384.into(),
-                SignatureAlgorithm::RSA_PKCS1_SHA384.into(),
-                SignatureAlgorithm::RSA_PSS_RSAE_SHA512.into(),
-                SignatureAlgorithm::RSA_PKCS1_SHA512.into()
+                SignatureAlgorithm::ECDSA_SECP256R1_SHA256,
+                SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
+                SignatureAlgorithm::RSA_PKCS1_SHA256,
+                SignatureAlgorithm::ECDSA_SECP384R1_SHA384,
+                SignatureAlgorithm::RSA_PSS_RSAE_SHA384,
+                SignatureAlgorithm::RSA_PKCS1_SHA384,
+                SignatureAlgorithm::RSA_PSS_RSAE_SHA512,
+                SignatureAlgorithm::RSA_PKCS1_SHA512
             ])),
             Extension::SignedCertificateTimestamp,
             Extension::KeyShare(KeyShare::new(vec![
                 NamedCurve::new(group),
-                NamedCurve::X25519.into()
+                NamedCurve::X25519
             ])),
-            Extension::PskKeyExchangeMode(vec![PskMode::new(PskMode::PSK_DHE_KE)]),
+            Extension::PskKeyExchangeMode(vec![PskMode::PSK_DHE_KE]),
             Extension::SupportedVersions(SupportVersions::new(vec![
                 Version::new(REVERSED[rand::random::<usize>() % REVERSED.len()]),
                 Version::TLS_1_3,

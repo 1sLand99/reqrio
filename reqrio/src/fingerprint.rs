@@ -57,7 +57,7 @@ impl H2Finger {
 
 #[cfg(feature = "quic")]
 ///h3帧，仅用于握手后`setting stream`
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct H3Finger {
     pub frames: Vec<H3Frame<'static>>,
 }

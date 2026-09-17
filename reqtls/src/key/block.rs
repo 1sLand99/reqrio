@@ -11,6 +11,7 @@ pub enum KeyType {
 }
 
 #[derive(Debug, Clone)]
+#[repr(C)]
 pub struct TlsSession {
     ticket_len: u16,
     ticket_capacity: usize,

@@ -112,7 +112,7 @@ impl<'a> Extension<'a> {
                 supported_versions.push(Version::TLS_1_2);
                 Some(Extension::SupportedVersions(supported_versions))
             }
-            Extension::PSK_KEY_EXCHANGE_MODE => Some(Extension::PskKeyExchangeMode(vec![PskMode::new(PskMode::PSK_DHE_KE)])),
+            Extension::PSK_KEY_EXCHANGE_MODE => Some(Extension::PskKeyExchangeMode(vec![PskMode::PSK_DHE_KE])),
             Extension::KEY_SHARE => Some(Extension::KeyShare(KeyShare::default())),
             Extension::RENEGOTIATION_INFO => Some(Extension::RenegotiationInfo),
             Extension::ENCRYPTED_CLIENT_HELLO => Some(Extension::EncryptedClientHello(EncryptClientHello::new())),
@@ -132,6 +132,7 @@ impl<'a> Extension<'a> {
             let len = reader.read_u16()? as usize;
             extensions.push(match typ {
                 Extension::SERVER_NAME => {
+                    println!("{:?}", reader.inner());
                     let mut res = Vec::with_capacity(10);
                     if len > 0 {
                         let mut reader = reader.read_reader(len)?;
@@ -139,16 +140,6 @@ impl<'a> Extension<'a> {
                         let mut reader = reader.read_reader(list_len)?;
                         while reader.unread_len() > 0 {
                             res.push(ServerName::from_reader(&mut reader)?);
-                            // match reader.read_u8()? {
-                            //     SNType::HOST_NAME => {
-                            //         let len = reader.read_u16()? as usize;
-                            //         res.push(SNType::HostName(reader.read_str(len)?));
-                            //     }
-                            //     _ => {
-                            //         #[cfg(feature = "log")]
-                            //         warn!("[Extension] unknown SNType!")
-                            //     }
-                            // }
                         }
                     }
                     Extension::ServerName(res)

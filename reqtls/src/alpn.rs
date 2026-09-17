@@ -72,7 +72,7 @@ impl Display for ALPN {
             h3 if h3 == ALPN::HTTP30 => write!(f, "HTTP/3.0"),
             h2 if h2 == ALPN::HTTP20 => write!(f, "HTTP/2.0"),
             h1 if h1 == ALPN::HTTP11 => write!(f, "HTTP/1.1"),
-            _ => write!(f, "{}", String::from_utf8_lossy(unsafe { slice::from_raw_parts(self.ptr, self.len as usize) }).to_uppercase()),
+            _ => write!(f, "Unknown({})", String::from_utf8_lossy(unsafe { slice::from_raw_parts(self.ptr, self.len as usize) }).to_uppercase()),
         }
     }
 }

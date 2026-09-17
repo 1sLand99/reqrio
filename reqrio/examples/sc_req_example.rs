@@ -46,7 +46,7 @@ fn build_finger() -> Fingerprint {
                 Version::TLS_1_3,
                 Version::TLS_1_2
             ])),
-            Extension::PskKeyExchangeMode(vec![PskMode::new(PskMode::PSK_DHE_KE)]),
+            Extension::PskKeyExchangeMode(vec![PskMode::PSK_DHE_KE]),
             Extension::KeyShare(KeyShare::new(vec![
                 NamedCurve::X25519.into(),
                 NamedCurve::SecP256r1.into(),
