@@ -4,9 +4,11 @@ use crate::hash::HashType;
 use crate::Version;
 use std::fmt::{Debug, Formatter};
 
-#[derive(Debug, Copy, Clone)]
+#[repr(C)]
+#[derive(Copy, Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 #[allow(non_camel_case_types)]
-#[allow(clippy::upper_case_acronyms)]
+// #[allow(clippy::upper_case_acronyms)]
 pub enum KeyExchangeAlg {
     NULL = 0,
     ECDHE_ECDSA = 1,
@@ -20,8 +22,8 @@ pub enum KeyExchangeAlg {
     ECC = 9,
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct CipherSuite {
     value: u16,
     aead: Aead,

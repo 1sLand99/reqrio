@@ -9,9 +9,8 @@ pub use hasher::Hasher;
 pub use hmac::Hmac;
 use std::ptr::null_mut;
 
-
+#[repr(C)]
 #[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "export", repr(C))]
 pub enum HashType {
     MD5 = 0,
     Sha1 = 1,

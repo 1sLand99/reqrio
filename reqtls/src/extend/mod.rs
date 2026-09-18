@@ -36,6 +36,68 @@ use std::fmt::Debug;
 use std::fmt::{Display, Formatter};
 pub use version::SupportVersions;
 
+#[repr(C)]
+#[derive(PartialEq, Copy, Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
+pub struct ExtensionType(u16);
+#[allow(non_upper_case_globals)]
+impl ExtensionType {
+    pub const ServerName: ExtensionType = ExtensionType(0x0);
+    pub const StatusRequest: ExtensionType = ExtensionType(0x5);
+    pub const SupportedGroup: ExtensionType = ExtensionType(0xa);
+    pub const EcPointFormats: ExtensionType = ExtensionType(0xb);
+    pub const SignatureAlgorithms: ExtensionType = ExtensionType(0xd);
+    pub const ApplicationLayerProtocolNegotiation: ExtensionType = ExtensionType(0x10);
+    pub const SignedCertificateTimestamp: ExtensionType = ExtensionType(0x12);
+    pub const Padding: ExtensionType = ExtensionType(0x15);
+    pub const EncryptTheMac: ExtensionType = ExtensionType(0x16);
+    pub const ExtendMasterSecret: ExtensionType = ExtensionType(0x17);
+    pub const SessionTicket: ExtensionType = ExtensionType(0x23);
+    pub const CompressionCertificate: ExtensionType = ExtensionType(0x1b);
+    pub const SupportedVersions: ExtensionType = ExtensionType(0x2b);
+    pub const PskKeyExchangeMode: ExtensionType = ExtensionType(0x2d);
+    pub const PostHandshakeAuth: ExtensionType = ExtensionType(0x31);
+    pub const KeyShare: ExtensionType = ExtensionType(0x33);
+    pub const RenegotiationInfo: ExtensionType = ExtensionType(0xff01);
+    pub const EncryptedClientHello: ExtensionType = ExtensionType(0xfe0d);
+    pub const ApplicationSetting: ExtensionType = ExtensionType(0x44cd);
+    pub const PreSharedKey: ExtensionType = ExtensionType(0x29);
+    pub const ApplicationSettingOld: ExtensionType = ExtensionType(0x4469);
+    pub const QuicTrpParameters: ExtensionType = ExtensionType(0x0039);
+
+    pub fn spec(&self) -> &str {
+        match self.0 {
+            0 => "ServerName",
+            5 => "StatusRequest",
+            0xa => "SupportedGroup",
+            0xb => "EcPointFormats",
+            0xd => "SignatureAlgorithms",
+            0x10 => "ApplicationLayerProtocolNegotiation",
+            0x12 => "SignedCertificateTimestamp",
+            0x15 => "Padding",
+            0x16 => "EncryptTheMac",
+            0x17 => "ExtendMasterSecret",
+            0x23 => "SessionTicket",
+            0x1b => "CompressionCertificate",
+            0x2b => "SupportedVersions",
+            0x2d => "PskKeyExchangeMode",
+            0x31 => "PostHandshakeAuth",
+            0x33 => "KeyShare",
+            0xff01 => "RenegotiationInfo",
+            0xfe0d => "EncryptedClientHello",
+            0x44cd => "ApplicationSetting",
+            0x29 => "PreSharedKey",
+            0x4469 => "ApplicationSettingOld",
+            0x0039 => "QuicTrpParameters",
+            _ => "Reversed"
+        }
+    }
+
+    pub const fn new(value: u16) -> ExtensionType {
+        ExtensionType(value)
+    }
+}
+
 #[derive(Clone)]
 #[cfg_attr(debug_assertions, derive(Debug))]
 pub enum Extension<'a> {
@@ -96,10 +158,10 @@ impl<'a> Extension<'a> {
     pub fn default_value(ty: u16) -> Option<Extension<'a>> {
         match ty {
             Extension::SERVER_NAME => Some(Extension::ServerName(vec![])),
-            Extension::STATUS_REQUEST => Some(Extension::StatusRequest(StatusRequest::new())),
+            Extension::STATUS_REQUEST => Some(Extension::StatusRequest(StatusRequest::default())),
             Extension::SUPPORTED_GROUP => Some(Extension::SupportedGroups(SupportedGroups::random())),
             Extension::EC_POINT_FORMATS => Some(Extension::EcPointFormats(EcPointFormats::random())),
-            Extension::SIGNATURE_ALGORITHMS => Some(Extension::SignatureAlgorithms(SignatureAlgorithms::random())),
+            Extension::SIGNATURE_ALGORITHMS => Some(Extension::SignatureAlgorithms(SignatureAlgorithms::new(SignatureAlgorithms::random()))),
             Extension::APPLICATION_LAYER_PROTOCOL_NEGOTIATION => Some(Extension::ApplicationLayerProtocolNegotiation(ALPS::new(vec![ALPN::HTTP20, ALPN::HTTP11]))),
             Extension::SIGNED_CERTIFICATE_TIMESTAMP => Some(Extension::SignedCertificateTimestamp),
             Extension::ENCRYPT_THE_MAC => Some(Extension::EncryptTheMac),
@@ -132,7 +194,6 @@ impl<'a> Extension<'a> {
             let len = reader.read_u16()? as usize;
             extensions.push(match typ {
                 Extension::SERVER_NAME => {
-                    println!("{:?}", reader.inner());
                     let mut res = Vec::with_capacity(10);
                     if len > 0 {
                         let mut reader = reader.read_reader(len)?;

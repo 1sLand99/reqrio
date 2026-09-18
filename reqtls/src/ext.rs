@@ -5,7 +5,6 @@ use crate::*;
 use log::debug;
 #[cfg(all(debug_assertions, feature = "log"))]
 use log::{trace, warn};
-use std::collections::HashMap;
 
 pub struct StreamParam<'a> {
     pub handshake_finish: &'a mut bool,
@@ -22,55 +21,57 @@ pub trait StreamHandle {
 
     fn handle_client_hello(&mut self, config: &mut ClientConfig) -> RlsResult<()> {
         let (_, param) = self.stream_param();
-        let mut client_hello = config.fingerprint.build_client_hello(config.alpn)?;
-        client_hello.set_random(param.conn.client_random());
-        client_hello.set_server_name(config.sni);
-        client_hello.set_session_id(param.conn.session().session_id());
-        let ticket = param.conn.session().ticket();
-        client_hello.set_session_ticket(ticket);
-        let padding = client_hello.padding();
-        if padding > ticket.len() {
-            client_hello.set_padding(padding - ticket.len());
-        } else {
-            client_hello.remove_padding();
-        };
-        let mut secrets = HashMap::new();
-        let key_share = match config.alpn {
-            #[cfg(feature = "quic")]
-            h3 if h3 == ALPN::HTTP30 => match client_hello.key_share_mut().is_some() {
-                true => client_hello.key_share_mut(),
-                false => return Err(HandShakeError::QUICMissingKeyShare.into()),
-            }
-            _ => client_hello.key_share_mut()
-        };
-        match key_share {
-            None => client_hello.remove_tls13(),
-            Some(key_share) => {
-                key_share.key_entries().iter().for_each(|key| {
-                    if let Ok(secret) = SecretKey::new(key.group()) {
-                        secrets.insert(key.group(), secret);
-                    }
-                });
-                let mut deletes = vec![];
-                for (i, key_entry) in key_share.key_entries_mut().iter_mut().enumerate() {
-                    if let Some(secret) = secrets.get(&key_entry.group()) {
-                        key_entry.set_key(secret.pub_key()?)
-                    }
-                    if key_entry.is_empty() { deletes.push(i); }
-                }
-                deletes.reverse();
-                for del in deletes {
-                    key_share.key_entries_mut().remove(del);
-                }
-            }
-        }
-        #[cfg(feature = "quic")]
-        if config.alpn == &ALPN::HTTP30 { client_hello.build_quic()?; }
-        let mut record = RecordLayer::handshake(config.fingerprint.record_version());
-        record.messages = vec![client_hello.into()];
+        config.fingerprint.build_client_hello(param.write_buffer, config.alpn, config.sni, Version::TLS_1_3, param.conn)?;
 
-        record.write_to(param.write_buffer, param.conn.cipher_suite().exchange_alg())?;
-        param.conn.set_secret_keys(secrets);
+        // let mut client_hello = config.fingerprint.build_client_hello(config.alpn)?;
+        // client_hello.set_random(param.conn.client_random());
+        // client_hello.set_server_name(config.sni);
+        // client_hello.set_session_id(param.conn.session().session_id());
+        // let ticket = param.conn.session().ticket();
+        // client_hello.set_session_ticket(ticket);
+        // let padding = client_hello.padding();
+        // if padding > ticket.len() {
+        //     client_hello.set_padding(padding - ticket.len());
+        // } else {
+        //     client_hello.remove_padding();
+        // };
+        // let mut secrets = HashMap::new();
+        // let key_share = match config.alpn {
+        //     #[cfg(feature = "quic")]
+        //     h3 if h3 == ALPN::HTTP30 => match client_hello.key_share_mut().is_some() {
+        //         true => client_hello.key_share_mut(),
+        //         false => return Err(HandShakeError::QUICMissingKeyShare.into()),
+        //     }
+        //     _ => client_hello.key_share_mut()
+        // };
+        // match key_share {
+        //     None => client_hello.remove_tls13(),
+        //     Some(key_share) => {
+        //         key_share.key_entries().iter().for_each(|key| {
+        //             if let Ok(secret) = SecretKey::new(key.group()) {
+        //                 secrets.insert(key.group(), secret);
+        //             }
+        //         });
+        //         let mut deletes = vec![];
+        //         for (i, key_entry) in key_share.key_entries_mut().iter_mut().enumerate() {
+        //             if let Some(secret) = secrets.get(&key_entry.group()) {
+        //                 key_entry.set_key(secret.pub_key()?)
+        //             }
+        //             if key_entry.is_empty() { deletes.push(i); }
+        //         }
+        //         deletes.reverse();
+        //         for del in deletes {
+        //             key_share.key_entries_mut().remove(del);
+        //         }
+        //     }
+        // }
+        // #[cfg(feature = "quic")]
+        // if config.alpn == &ALPN::HTTP30 { client_hello.build_quic()?; }
+        // let mut record = RecordLayer::handshake(config.fingerprint.record_version());
+        // record.messages = vec![client_hello.into()];
+        //
+        // record.write_to(param.write_buffer, param.conn.cipher_suite().exchange_alg())?;
+        // param.conn.set_secret_keys(secrets);
         param.conn.update_session(&param.write_buffer.filled()[5..])?;
         Ok(())
     }

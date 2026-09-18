@@ -55,18 +55,17 @@ impl SignatureAlgorithms {
         self.hash.clear();
     }
 
-    pub fn random() -> SignatureAlgorithms {
-        let mut res = SignatureAlgorithms::new(vec![]);
-        let all_sign = SignatureAlgorithm::ALL;
-        res.hash = vec![
-            SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),
-            SignatureAlgorithm::ECDSA_SECP256R1_SHA256.into(),
-            SignatureAlgorithm::RSA_PKCS1_SHA256.into(),
+    pub fn random() -> Vec<SignatureAlgorithm> {
+        let mut res = vec![
+            SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
+            SignatureAlgorithm::ECDSA_SECP256R1_SHA256,
+            SignatureAlgorithm::RSA_PKCS1_SHA256,
         ];
-        while res.hash.len() < 10 {
+        let all_sign = SignatureAlgorithm::ALL;
+        while res.len() < 10 {
             let index = rand::random::<usize>() % all_sign.len();
-            if res.hash.iter().any(|x| x.as_u16() == all_sign[index]) { continue; }
-            res.hash.push(SignatureAlgorithm::new(all_sign[index]));
+            if res.iter().any(|x| x.as_u16() == all_sign[index]) { continue; }
+            res.push(SignatureAlgorithm::new(all_sign[index]));
         }
         res
     }
