@@ -298,15 +298,15 @@ pub use connection::Connection;
 pub use error::{HandShakeError, RlsError};
 pub use ext::{StreamHandle, StreamParam};
 pub use extend::{
-    EcPointFormats, EcPointFormat, CompressionMethod, KeyShare, PskMode, SupportVersions, Extension,
+    EcPointFormats, EcPointFormat, CompressionMethod, KeyShare, PskMode, SupportVersions, Extension as E,
     StatusRequest, SupportedGroups, SignatureAlgorithms, CompressCertificate, ALPS, Aead,
-    EncryptClientHello, ServerName, KeyEntry,
+    EncryptClientHello, ServerName, KeyEntry, ExtensionType,
 };
 pub use finger::*;
 pub use hash::{HashType, Hasher, Hmac};
 pub use hex;
 pub use hkdf::Hkdf;
-pub use key::{SecretKey, TlsSession, KeyType};
+pub use key::{TlsSession, KeyType};
 #[cfg(feature = "log")]
 pub use log::*;
 pub use message::{Alert, CertificateRequest, CertificateVerify, Certificates, ClientHello, Message,

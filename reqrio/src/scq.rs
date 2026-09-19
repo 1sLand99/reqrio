@@ -27,6 +27,7 @@ pub struct ScReq {
     pub(crate) ignore_order: bool,
     responses: HashMap<u64, Response>,
     recv_ids: HashSet<u64>,
+    version: Version,
 }
 
 impl Default for ScReq {
@@ -50,6 +51,7 @@ impl Default for ScReq {
             ignore_order: false,
             responses: HashMap::with_capacity(100),
             recv_ids: HashSet::new(),
+            version: Version::TLS_1_3,
         }
     }
 }
@@ -220,6 +222,7 @@ impl ScReq {
                 key_log: &self.key_log,
                 ech: false,
                 session: &self.tls_session,
+                version: self.version,
             };
             match self.stream.conn_sync(param) {
                 Ok(alpn) => {
@@ -348,8 +351,8 @@ impl ReqExt for ScReq {
         self.tls_session = tls_session;
     }
 
-    fn tls_session(&self) -> &Option<TlsSession> {
-        &self.tls_session
+    fn tls_session(&self) -> Option<&TlsSession> {
+        self.stream.tls_session()
     }
 
     fn set_fingerprint(&mut self, fingerprint: Fingerprint) {
@@ -359,6 +362,10 @@ impl ReqExt for ScReq {
         self.ignore_order = keep_sort;
         self.header.set_by_keys(headers, keep_sort)?;
         Ok(())
+    }
+
+    fn set_version(&mut self, version: Version) {
+        self.version = version;
     }
 }
 

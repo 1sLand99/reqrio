@@ -23,7 +23,7 @@ pub extern "system" fn Fingerprint_add_cipher_suite(fingerprint: *mut Fingerprin
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn Fingerprint_add_ext(fingerprint: *mut Fingerprint, ext_typ: u16) {
+pub extern "system" fn Fingerprint_add_ext(fingerprint: *mut Fingerprint, ext_typ: ExtensionType) {
     let fingerprint = unsafe { fingerprint.as_mut() };
     if let Some(fingerprint) = fingerprint {
         fingerprint.tls_mut().add_extension(match Extension::default_value(ext_typ) {
@@ -39,15 +39,16 @@ pub extern "system" fn Fingerprint_add_ext_alpn(fingerprint: *mut Fingerprint, e
     let fingerprint = unsafe { fingerprint.as_mut() };
     if let Some(fingerprint) = fingerprint {
         let alpn = ALPN::from_slice(unsafe { CStr::from_ptr(alpn) }.to_bytes());
+        let ext_typ = ExtensionType::new(ext_typ);
         match fingerprint.tls_mut().find_mut(ext_typ) {
-            Some(Extension::ApplicationLayerProtocolNegotiation(alps)) => alps.add_alpn(alpn),
-            Some(Extension::ApplicationSetting(alps)) => alps.add_alpn(alpn),
-            Some(Extension::ApplicationSettingOld(alps)) => alps.add_alpn(alpn),
+            Some(Extension::ApplicationLayerProtocolNegotiation(alps)) => alps.push(alpn),
+            Some(Extension::ApplicationSettings(alps)) => alps.push(alpn),
+            Some(Extension::ApplicationSettingOld(alps)) => alps.push(alpn),
             _ => {
                 let extend = match ext_typ {
-                    Extension::APPLICATION_LAYER_PROTOCOL_NEGOTIATION => Extension::ApplicationLayerProtocolNegotiation(ALPS::new(vec![alpn])),
-                    Extension::APPLICATION_SETTING => Extension::ApplicationSetting(ALPS::new(vec![alpn])),
-                    Extension::APPLICATION_SETTING_OLD => Extension::ApplicationSettingOld(ALPS::new(vec![alpn])),
+                    ExtensionType::ApplicationLayerProtocolNegotiation => Extension::ApplicationLayerProtocolNegotiation(vec![alpn]),
+                    ExtensionType::ApplicationSetting => Extension::ApplicationSettings(vec![alpn]),
+                    ExtensionType::ApplicationSettingOld => Extension::ApplicationSettingOld(vec![alpn]),
                     _ => unreachable!()
                 };
                 fingerprint.tls_mut().add_extension(extend);
@@ -58,13 +59,13 @@ pub extern "system" fn Fingerprint_add_ext_alpn(fingerprint: *mut Fingerprint, e
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn Fingerprint_add_ext_version(fingerprint: *mut Fingerprint, ext_typ: u16, version: u16) {
+pub extern "system" fn Fingerprint_add_ext_version(fingerprint: *mut Fingerprint, ext_typ: ExtensionType, version: u16) {
     let fingerprint = unsafe { fingerprint.as_mut() };
     let version: Version = version.into();
     if let Some(fingerprint) = fingerprint {
         match fingerprint.tls_mut().find_mut(ext_typ) {
             Some(Extension::SupportedVersions(values)) => values.push(version),
-            _ => fingerprint.tls_mut().add_extension(Extension::SupportedVersions(SupportVersions::new(vec![version]))),
+            _ => fingerprint.tls_mut().add_extension(Extension::SupportedVersions(vec![version])),
         }
     }
 }
@@ -72,16 +73,15 @@ pub extern "system" fn Fingerprint_add_ext_version(fingerprint: *mut Fingerprint
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn Fingerprint_add_ext_curve(fingerprint: *mut Fingerprint, ext_typ: u16, curve: u16) {
+pub extern "system" fn Fingerprint_add_ext_curve(fingerprint: *mut Fingerprint, ext_typ: ExtensionType, curve: NamedCurve) {
     let fingerprint = unsafe { fingerprint.as_mut() };
-    let curve=NamedCurve::new(curve);
     if let Some(fingerprint) = fingerprint {
         match fingerprint.tls_mut().find_mut(ext_typ) {
-            Some(Extension::SupportedGroups(values)) => values.add_group(curve),
-            Some(Extension::KeyShare(values)) => values.add_entry(curve, Buf::Ref(&[])),
+            Some(Extension::SupportedGroups(values)) => values.push(curve),
+            Some(Extension::KeyShare(values)) => values.push(KeyEntry::new(curve)),
             _ => match ext_typ {
-                Extension::SUPPORTED_GROUP => fingerprint.tls_mut().add_extension(Extension::SupportedGroups(SupportedGroups::new(vec![curve]))),
-                Extension::KEY_SHARE => fingerprint.tls_mut().add_extension(Extension::KeyShare(KeyShare::new(vec![]))),
+                ExtensionType::SupportedGroup => fingerprint.tls_mut().add_extension(Extension::SupportedGroups(vec![curve])),
+                ExtensionType::KeyShare => fingerprint.tls_mut().add_extension(Extension::KeyShare(vec![])),
                 _ => unreachable!()
             },
         }
@@ -90,32 +90,31 @@ pub extern "system" fn Fingerprint_add_ext_curve(fingerprint: *mut Fingerprint, 
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn Fingerprint_add_ext_compress(fingerprint: *mut Fingerprint, ext_typ: u16, method: u16) {
+pub extern "system" fn Fingerprint_add_ext_compress(fingerprint: *mut Fingerprint, ext_typ: ExtensionType, method: CompressionMethod) {
     let fingerprint = unsafe { fingerprint.as_mut() };
-    let method: CompressionMethod = method.into();
     if let Some(fingerprint) = fingerprint {
         match fingerprint.tls_mut().find_mut(ext_typ) {
             Some(Extension::CompressionCertificate(values)) => values.push(method),
-            _ => fingerprint.tls_mut().add_extension(Extension::CompressionCertificate(CompressCertificate::new(vec![method]))),
+            _ => fingerprint.tls_mut().add_extension(Extension::CompressionCertificate(vec![method])),
         }
     }
 }
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn Fingerprint_add_ext_psk_mode(fingerprint: *mut Fingerprint, ext_typ: u16, mode: u8) {
+pub extern "system" fn Fingerprint_add_ext_psk_mode(fingerprint: *mut Fingerprint, ext_typ: ExtensionType, mode: PskMode) {
     let fingerprint = unsafe { fingerprint.as_mut() };
     if let Some(fingerprint) = fingerprint {
         match fingerprint.tls_mut().find_mut(ext_typ) {
-            Some(Extension::PskKeyExchangeMode(values)) => values.push(PskMode::new(mode)),
-            _ => fingerprint.tls_mut().add_extension(Extension::PskKeyExchangeMode(vec![PskMode::new(mode)])),
+            Some(Extension::PskKeyExchangeModes(values)) => values.push(mode),
+            _ => fingerprint.tls_mut().add_extension(Extension::PskKeyExchangeModes(vec![mode])),
         }
     }
 }
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn Fingerprint_add_ext_padding(fingerprint: *mut Fingerprint, ext_typ: u16, padding: usize) {
+pub extern "system" fn Fingerprint_add_ext_padding(fingerprint: *mut Fingerprint, ext_typ: ExtensionType, padding: usize) {
     let fingerprint = unsafe { fingerprint.as_mut() };
     if let Some(fingerprint) = fingerprint {
         match fingerprint.tls_mut().find_mut(ext_typ) {
@@ -127,7 +126,7 @@ pub extern "system" fn Fingerprint_add_ext_padding(fingerprint: *mut Fingerprint
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn Fingerprint_add_ext_bytes(fingerprint: *mut Fingerprint, ext_typ: u16, bs: *const u8, len: usize) {
+pub extern "system" fn Fingerprint_add_ext_bytes(fingerprint: *mut Fingerprint, ext_typ: ExtensionType, bs: *const u8, len: usize) {
     let fingerprint = unsafe { fingerprint.as_mut() };
     let bs = unsafe { slice::from_raw_parts(bs, len) };
     if let Some(fingerprint) = fingerprint {
@@ -140,26 +139,26 @@ pub extern "system" fn Fingerprint_add_ext_bytes(fingerprint: *mut Fingerprint, 
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn Fingerprint_add_ext_algorithm(fingerprint: *mut Fingerprint, ext_typ: u16, algorithm: u16) {
+pub extern "system" fn Fingerprint_add_ext_algorithm(fingerprint: *mut Fingerprint, ext_typ: ExtensionType, algorithm: u16) {
     let fingerprint = unsafe { fingerprint.as_mut() };
     let algorithm: SignatureAlgorithm = algorithm.into();
     if let Some(fingerprint) = fingerprint {
         match fingerprint.tls_mut().find_mut(ext_typ) {
-            Some(Extension::SignatureAlgorithms(values)) => values.push_hash(algorithm),
-            _ => fingerprint.tls_mut().add_extension(Extension::SignatureAlgorithms(SignatureAlgorithms::new(vec![algorithm]))),
+            Some(Extension::SignatureAlgorithms(values)) => values.push(algorithm),
+            _ => fingerprint.tls_mut().add_extension(Extension::SignatureAlgorithms(vec![algorithm])),
         }
     }
 }
 
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
-pub extern "system" fn Fingerprint_add_ext_ec_point(fingerprint: *mut Fingerprint, ext_typ: u16, ec_point: u8) {
+pub extern "system" fn Fingerprint_add_ext_ec_point(fingerprint: *mut Fingerprint, ext_typ: ExtensionType, ec_point: u8) {
     let fingerprint = unsafe { fingerprint.as_mut() };
     let ec_point: EcPointFormat = ec_point.into();
     if let Some(fingerprint) = fingerprint {
         match fingerprint.tls_mut().find_mut(ext_typ) {
-            Some(Extension::EcPointFormats(values)) => values.add_format(ec_point),
-            _ => fingerprint.tls_mut().add_extension(Extension::EcPointFormats(EcPointFormats::new(vec![ec_point]))),
+            Some(Extension::EcPointFormats(values)) => values.push(ec_point),
+            _ => fingerprint.tls_mut().add_extension(Extension::EcPointFormats(vec![ec_point])),
         }
     }
 }
@@ -253,56 +252,59 @@ pub extern "system" fn Fingerprint_random(token: *const c_char, err: *mut *mut c
 #[allow(non_snake_case)]
 pub extern "system" fn Fingerprint_custom(custom: *const c_char, token: *const c_char, err: *mut *mut c_char) -> *mut Fingerprint {
     check_run(move || {
-        if token.is_null() { return Err("token 不能为空".into()) }
+        if token.is_null() { return Err("token 不能为空".into()); }
         let custom = json::from_bytes(unsafe { CStr::from_ptr(custom) }.to_bytes())?;
         let token = unsafe { CStr::from_ptr(token) }.to_str()?;
         let mut extensions = vec![];
         for (key, value) in custom["extensions"].entries() {
-            let typ = key.parse::<u16>().or(Err("Invalid extend type"))?;
+            let typ = ExtensionType::new(key.parse::<u16>().or(Err("Invalid extend type"))?);
             match typ {
-                Extension::SIGNATURE_ALGORITHMS if !value.is_null() => {
+                ExtensionType::SignatureAlgorithms if !value.is_null() => {
                     let values: Vec<SignatureAlgorithm> = value.members().map(|x| x.as_u16().unwrap_or(0).into()).collect();
-                    extensions.push(Extension::SignatureAlgorithms(SignatureAlgorithms::new(values)));
+                    extensions.push(Extension::SignatureAlgorithms(values));
                 }
-                Extension::COMPRESSION_CERTIFICATE if !value.is_null() => {
+                ExtensionType::CompressionCertificate if !value.is_null() => {
                     let values: Vec<CompressionMethod> = value.members().map(|x| x.as_u16().unwrap_or(0).into()).collect();
-                    extensions.push(Extension::CompressionCertificate(CompressCertificate::new(values)));
+                    extensions.push(Extension::CompressionCertificate(values));
                 }
-                Extension::EC_POINT_FORMATS if !value.is_null() => {
+                ExtensionType::EcPointFormats if !value.is_null() => {
                     let values: Vec<EcPointFormat> = value.members().map(|x| x.as_u8().unwrap_or(0).into()).collect();
-                    extensions.push(Extension::EcPointFormats(EcPointFormats::new(values)));
+                    extensions.push(Extension::EcPointFormats(values));
                 }
-                Extension::SUPPORTED_VERSIONS if !value.is_null() => {
+                ExtensionType::SupportedVersions if !value.is_null() => {
                     let values: Vec<Version> = value.members().map(|x| x.as_u16().unwrap_or(0).into()).collect();
-                    extensions.push(Extension::SupportedVersions(SupportVersions::new(values)));
+                    extensions.push(Extension::SupportedVersions(values));
                 }
-                Extension::SUPPORTED_GROUP  if !value.is_null() => {
+                ExtensionType::SupportedGroup  if !value.is_null() => {
                     let values: Vec<NamedCurve> = value.members().map(|x| NamedCurve::new(x.as_u16().unwrap_or(0))).collect();
-                    extensions.push(Extension::SupportedGroups(SupportedGroups::new(values)));
+                    extensions.push(Extension::SupportedGroups(values));
                 }
-                Extension::KEY_SHARE if !value.is_null() => {
-                    let values: Vec<NamedCurve> = value.members().map(|x| NamedCurve::new(x.as_u16().unwrap_or(0))).collect();
-                    extensions.push(Extension::KeyShare(KeyShare::new(values)));
+                ExtensionType::KeyShare if !value.is_null() => {
+                    let values: Vec<KeyEntry> = value.members().map(|x| {
+                        let curve=NamedCurve::new(x.as_u16().unwrap_or(0));
+                        KeyEntry::new(curve)
+                    }).collect();
+                    extensions.push(Extension::KeyShare(values));
                 }
-                Extension::APPLICATION_LAYER_PROTOCOL_NEGOTIATION  if !value.is_null() => {
+                ExtensionType::ApplicationLayerProtocolNegotiation  if !value.is_null() => {
                     let values = value.members().map(|x| ALPN::from_slice(x.as_str().unwrap_or("").as_bytes())).collect();
-                    extensions.push(Extension::ApplicationLayerProtocolNegotiation(ALPS::new(values)))
+                    extensions.push(Extension::ApplicationLayerProtocolNegotiation(values))
                 }
-                Extension::APPLICATION_SETTING if !value.is_null() => {
+                ExtensionType::ApplicationSetting if !value.is_null() => {
                     let values = value.members().map(|x| ALPN::from_slice(x.as_str().unwrap_or("").as_bytes())).collect();
-                    extensions.push(Extension::ApplicationSetting(ALPS::new(values)))
+                    extensions.push(Extension::ApplicationSettings(values))
                 }
-                Extension::APPLICATION_SETTING_OLD if !value.is_null() => {
+                ExtensionType::ApplicationSettingOld if !value.is_null() => {
                     let values = value.members().map(|x| ALPN::from_slice(x.as_str().unwrap_or("").as_bytes())).collect();
-                    extensions.push(Extension::ApplicationSettingOld(ALPS::new(values)))
+                    extensions.push(Extension::ApplicationSettingOld(values))
                 }
-                Extension::PADDING if !value.is_null() => {
+                ExtensionType::Padding if !value.is_null() => {
                     let value = value.as_usize().unwrap_or(0);
                     extensions.push(Extension::Padding(value));
                 }
-                Extension::PSK_KEY_EXCHANGE_MODE if !value.is_null() => {
+                ExtensionType::PskKeyExchangeMode if !value.is_null() => {
                     let value = PskMode::new(value.as_u8().unwrap_or(0));
-                    extensions.push(Extension::PskKeyExchangeMode(vec![value]));
+                    extensions.push(Extension::PskKeyExchangeModes(vec![value]));
                 }
                 _ => {
                     let default = Extension::default_value(typ);

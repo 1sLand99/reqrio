@@ -6,7 +6,7 @@ use crate::*;
 #[cfg(debug_assertions)]
 use std::fmt::Debug;
 use std::os::raw::{c_int, c_void};
-use std::ptr::null;
+use std::ptr::{null, null_mut};
 
 #[cfg_attr(debug_assertions, derive(Debug))]
 pub enum Extension {
@@ -29,11 +29,40 @@ pub enum Extension {
     ExtendedMasterSecret,
     SignedCertificateTimestamp,
     EncryptTheMac,
-    Reversed { typ: ExtensionType, value: Buf<'static> },
+    Reserved { typ: ExtensionType, value: Buf<'static> },
+}
+
+impl PartialEq<ExtensionType> for Extension {
+    fn eq(&self, other: &ExtensionType) -> bool {
+        match (self, *other) {
+            (Extension::KeyShare(_), ExtensionType::KeyShare) => true,
+            (Extension::StatusRequest(_), ExtensionType::StatusRequest) => true,
+            (Extension::ServerName(_), ExtensionType::ServerName) => true,
+            (Extension::SupportedGroups(_), ExtensionType::SupportedGroup) => true,
+            (Extension::SupportedVersions(_), ExtensionType::SupportedVersions) => true,
+            (Extension::ApplicationLayerProtocolNegotiation(_), ExtensionType::ApplicationLayerProtocolNegotiation) => true,
+            (Extension::ApplicationSettings(_), ExtensionType::ApplicationSetting) => true,
+            (Extension::ApplicationSettingOld(_), ExtensionType::ApplicationSettingOld) => true,
+            (Extension::CompressionCertificate(_), ExtensionType::CompressionCertificate) => true,
+            (Extension::EcPointFormats(_), ExtensionType::EcPointFormats) => true,
+            (Extension::PskKeyExchangeModes(_), ExtensionType::PskKeyExchangeMode) => true,
+            (Extension::SignatureAlgorithms(_), ExtensionType::SignatureAlgorithms) => true,
+            (Extension::SessionTicket(_), ExtensionType::SessionTicket) => true,
+            (Extension::EncryptedClientHello(_), ExtensionType::EncryptedClientHello) => true,
+            (Extension::RenegotiationInfo(_), ExtensionType::RenegotiationInfo) => true,
+            (Extension::Padding(_), ExtensionType::Padding) => true,
+            (Extension::ExtendedMasterSecret, ExtensionType::EncryptedClientHello) => true,
+            (Extension::SignedCertificateTimestamp, ExtensionType::SignedCertificateTimestamp) => true,
+            (Extension::EncryptTheMac, ExtensionType::EncryptTheMac) => true,
+            (Extension::Reserved { typ, .. }, typ2) => *typ == typ2,
+            _ => false,
+        }
+    }
 }
 
 impl Extension {
     pub const RENEGOTIATION_INFO: Extension = Extension::RenegotiationInfo(Buf::Ref(&[0]));
+    pub const STATUS_REQUEST: Extension = Extension::StatusRequest(StatusRequest::OCSP);
 
     pub fn default_value(ty: ExtensionType) -> Option<Extension> {
         match ty {
@@ -90,7 +119,7 @@ impl Extension {
             Extension::ExtendedMasterSecret => Extend::new_null(ExtensionType::ExtendMasterSecret),
             Extension::EncryptTheMac => Extend::new_null(ExtensionType::EncryptTheMac),
             Extension::Padding(size) => Extend { typ: ExtensionType::Padding, len: *size as u16, value: &StatusRequest::OCSP as *const StatusRequest as *const c_void },
-            Extension::Reversed { typ, value } => Extend::new_slice(*typ, value.as_ref()),
+            Extension::Reserved { typ, value } => Extend::new_slice(*typ, value.as_ref()),
         }
     }
 }
@@ -131,12 +160,12 @@ impl Extend {
 
 unsafe extern "C" {
     #[allow(improper_ctypes)]
-    fn Record_build(config: *mut Config, typ: u8) -> c_int;
+    fn Record_build(config: *mut RecordParam, typ: u8) -> c_int;
     #[allow(improper_ctypes)]
-    fn Record_build_client_hello(config: *mut Config, record_version: Version, reader: *mut Reader) -> c_int;
+    fn Record_build_client_hello(config: *mut RecordParam, record_version: Version, reader: *mut Reader) -> c_int;
     #[allow(improper_ctypes)]
     fn Record_build_custom(
-        config: *mut Config,
+        config: *mut RecordParam,
         record_version: Version,
         suite_count: usize,
         suites: *const u16,
@@ -168,37 +197,48 @@ pub enum TlsFinger {
 }
 
 #[repr(C)]
-struct Config {
-    sni_len: u16,
-    sni: *const u8,
-    alpn: ALPN,
-    version: Version,
-    writer: *mut Writer,
-    finger_type: c_int,
-    conn: *mut Connection,
+pub(crate) struct RecordParam {
+    pub(crate) sni_len: u16,
+    pub(crate) sni: *const u8,
+    pub(crate) alpn: ALPN,
+    pub(crate) version: Version,
+    pub(crate) writer: *mut Writer,
+    pub(crate) finger_type: c_int,
+    pub(crate) hrr: bool,
+    pub(crate) entries_count: usize,
+    pub(crate) entries: *const KeyEntry,
+    pub(crate) conn: *mut Connection,
+}
+
+impl<'a> From<&ClientConfig<'a>> for RecordParam {
+    fn from(config: &ClientConfig<'a>) -> Self {
+        RecordParam {
+            sni_len: config.sni.len() as u16,
+            sni: config.sni.as_ptr(),
+            alpn: config.alpn.clone(),
+            version: config.version,
+            writer: null_mut(),
+            finger_type: 0,
+            hrr: false,
+            entries_count: 0,
+            entries: null(),
+            conn: null_mut(),
+        }
+    }
 }
 
 impl TlsFinger {
     pub const DEFAULT: &'static TlsFinger = &TlsFinger::Default;
-    pub fn build_client_hello(&self, writer: &mut Writer, alpn: &ALPN, sni: &str, ver: Version, conn: &mut Connection) -> Result<(), &str> {
-        let mut config = Config {
-            sni_len: sni.len() as u16,
-            sni: sni.as_ptr(),
-            alpn: alpn.clone(),
-            version: ver,
-            writer,
-            finger_type: 0,
-            conn,
-        };
+    pub(crate) fn build_client_hello(&self, mut param: RecordParam) -> Result<(), &str> {
         match self {
-            TlsFinger::Default => unsafe { Record_build(&mut config, 1) }
+            TlsFinger::Default => unsafe { Record_build(&mut param, 1) }
             TlsFinger::ClientHello { bytes, record_version } => unsafe {
-                Record_build_client_hello(&mut config, *record_version, &mut Reader::from_slice(bytes.as_ref()))
+                Record_build_client_hello(&mut param, *record_version, &mut Reader::from_slice(bytes.as_ref()))
             }
             TlsFinger::Custom { suites, extensions, message_version, record_version } => {
                 unsafe {
                     Record_build_custom(
-                        &mut config,
+                        &mut param,
                         *record_version,
                         suites.len(),
                         suites.iter().map(|x| x.value()).collect::<Vec<_>>().as_ptr(),
@@ -317,7 +357,7 @@ impl TlsFinger {
                 ExtensionType::EcPointFormats => Extension::EcPointFormats(ec_formats.clone()),
                 ExtensionType::SignatureAlgorithms => Extension::SignatureAlgorithms(TlsFinger::random_algorithms()),
                 ExtensionType::CompressionCertificate => Extension::CompressionCertificate(vec![CompressionMethod::NULL]),
-                _ => Extension::default_value(typ).unwrap_or_else(|| Extension::Reversed { typ, value: Buf::Ref(&[]) })
+                _ => Extension::default_value(typ).unwrap_or_else(|| Extension::Reserved { typ, value: Buf::Ref(&[]) })
             });
         }
         Ok(TlsFinger::Custom {
@@ -365,7 +405,7 @@ impl TlsFinger {
                 ExtensionType::SignatureAlgorithms => Extension::SignatureAlgorithms(algorithms.clone()),
                 ExtensionType::CompressionCertificate => Extension::CompressionCertificate(vec![CompressionMethod::BROTLI]),
                 ExtensionType::EcPointFormats => Extension::EcPointFormats(TlsFinger::random_formats()),
-                _ => Extension::default_value(typ).unwrap_or_else(|| Extension::Reversed { typ, value: Buf::Ref(&[]) })
+                _ => Extension::default_value(typ).unwrap_or_else(|| Extension::Reserved { typ, value: Buf::Ref(&[]) })
             });
         }
         extensions.push(Extension::ServerName(vec![ServerName::HOSTNAME]));
@@ -400,11 +440,11 @@ impl TlsFinger {
         }
     }
 
-    pub fn find_mut(&mut self, typ: u16) -> Option<&mut Extension> {
+    pub fn find_mut(&mut self, typ: ExtensionType) -> Option<&mut Extension> {
         match self {
             TlsFinger::Default => None,
             TlsFinger::ClientHello { .. } => None,
-            TlsFinger::Custom { extensions, .. } => None // extensions.iter_mut().find(|x| **x == typ)
+            TlsFinger::Custom { extensions, .. } => extensions.iter_mut().find(|x| **x == typ)
         }
     }
 }
@@ -412,6 +452,7 @@ impl TlsFinger {
 
 #[cfg(test)]
 mod tests {
+    use std::ptr::null;
     use crate::extend::ExtensionType;
     use crate::finger::Extension;
     use crate::*;
@@ -425,18 +466,46 @@ mod tests {
         };
         let mut writer = Writer::with_capacity(4096);
         let mut connection = Connection::new_client(TlsSession::default(), None, false);
-        finger.build_client_hello(&mut writer, &ALPN::HTTP20, "www.baidu.com", Version::TLS_1_2, &mut connection).unwrap();
+        let sni = "www.baidu.com";
+        finger.build_client_hello(RecordParam {
+            sni_len: sni.len() as u16,
+            sni: sni.as_ptr(),
+            alpn: ALPN::HTTP20,
+            version: Version::TLS_1_2,
+            writer: &mut writer,
+            finger_type: 0,
+            hrr: false,
+            entries_count: 0,
+            conn: &mut connection,
+            entries: null(),
+
+        }).unwrap();
         assert!(RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).is_ok());
+        // println!("{:#?}", RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).unwrap());
     }
 
     #[test]
     fn test_build_default() {
         let finger = TlsFinger::Default;
         let mut writer = Writer::with_capacity(4096);
-        let mut connection = Connection::new_client(TlsSession::default(), None, false);
-        finger.build_client_hello(&mut writer, &ALPN::HTTP11, "www.baidu.com", Version::TLS_1_3, &mut connection).unwrap();
+        let mut session = TlsSession::default();
+        session.set_ticket(rand::random::<[u8; 274]>().to_vec());
+        let mut connection = Connection::new_client(session, None, false);
+        let sni = "www.baidu.com";
+        finger.build_client_hello(RecordParam {
+            sni_len: sni.len() as u16,
+            sni: sni.as_ptr(),
+            alpn: ALPN::HTTP11,
+            version: Version::TLS_1_3,
+            writer: &mut writer,
+            finger_type: 0,
+            hrr: false,
+            entries: null(),
+            entries_count: 0,
+            conn: &mut connection,
+        }).unwrap();
         assert!(RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).is_ok());
-        // println!("{:#?}", RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).unwrap());
+        println!("{:#?}", RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).unwrap());
     }
 
     #[test]
@@ -463,7 +532,7 @@ mod tests {
                 CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA,
             ],
             extensions: vec![
-                Extension::Reversed { typ: ExtensionType::new(0x2a2a), value: Buf::Ref(&[]) },
+                Extension::Reserved { typ: ExtensionType::new(0x2a2a), value: Buf::Ref(&[]) },
                 Extension::StatusRequest(StatusRequest::OCSP),
                 Extension::SupportedVersions(vec![
                     Version::new(0x0a0a),
@@ -511,13 +580,25 @@ mod tests {
                     NamedCurve::SecP256r1,
                     NamedCurve::SecP384r1
                 ]),
-                Extension::Reversed { typ: ExtensionType::new(0xdada), value: Buf::Ref(&[0]) }
+                Extension::Reserved { typ: ExtensionType::new(0xdada), value: Buf::Ref(&[0]) }
             ],
         };
         let mut writer = Writer::with_capacity(4096);
         let mut connection = Connection::new_client(TlsSession::default(), None, false);
-        finger.build_client_hello(&mut writer, &ALPN::HTTP20, "www.baidu.com", Version::TLS_1_2, &mut connection).unwrap();
+        let sni = "www.baidu.com";
+        finger.build_client_hello(RecordParam {
+            sni_len: sni.len() as u16,
+            sni: sni.as_ptr(),
+            alpn: ALPN::HTTP20,
+            version: Version::TLS_1_2,
+            writer: &mut writer,
+            finger_type: 0,
+            hrr: false,
+            entries_count: 0,
+            entries: null(),
+            conn: &mut connection,
+        }).unwrap();
         println!("{} {:?}", writer.len(), writer.filled());
-        println!("{:#?}", RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).unwrap());
+        // println!("{:#?}", RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).unwrap());
     }
 }

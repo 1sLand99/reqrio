@@ -49,6 +49,7 @@ pub struct ConnParam<'a> {
     pub key_log: &'a Option<PathBuf>,
     pub ech: bool,
     pub session: &'a Option<TlsSession>,
+    pub version: Version,
 }
 
 impl<'a, 'b: 'a> From<&'a mut ConnParam<'b>> for ClientConfig<'a> {
@@ -66,6 +67,7 @@ impl<'a, 'b: 'a> From<&'a mut ConnParam<'b>> for ClientConfig<'a> {
                 Err(_) => None
             }),
             session: param.session,
+            version: param.version,
         }
     }
 }
@@ -131,6 +133,22 @@ impl HTTPStream {
             HTTPStream::AsyncH2(h2) => Ok(h2.stream_mut()),
             #[cfg(all(feature = "aync", feature = "quic"))]
             HTTPStream::AsyncH3(_) => Err("use `HTTPStreamA`".into()),
+        }
+    }
+
+    pub fn tls_session(&self) -> Option<&TlsSession> {
+        match self {
+            HTTPStream::NonConnection => None,
+            HTTPStream::SyncH1(h1) => h1.stream().tls_session(),
+            HTTPStream::SyncH2(h2) => h2.stream().tls_session(),
+            #[cfg(feature = "quic")]
+            HTTPStream::SyncH3(_) => None,
+            #[cfg(feature = "aync")]
+            HTTPStream::AsyncH1(h1) => h1.stream().tls_session(),
+            #[cfg(feature = "aync")]
+            HTTPStream::AsyncH2(h2) => h2.stream().tls_session(),
+            #[cfg(all(feature = "aync", feature = "quic"))]
+            HTTPStream::AsyncH3(_) => None,
         }
     }
 }
@@ -301,6 +319,7 @@ impl Stream {
                     ca_certs: param.ca_cert,
                     key_log: param.key_log.clone(),
                     session: param.session,
+                    version: param.version,
                 }),
                 state: ConnState::Connected,
                 app_buf: Writer::with_capacity(16384),

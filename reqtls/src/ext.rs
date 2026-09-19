@@ -5,6 +5,7 @@ use crate::*;
 use log::debug;
 #[cfg(all(debug_assertions, feature = "log"))]
 use log::{trace, warn};
+use crate::connection::ConnError;
 
 pub struct StreamParam<'a> {
     pub handshake_finish: &'a mut bool,
@@ -19,59 +20,14 @@ pub trait StreamHandle {
 
     fn stream_param(&mut self) -> (&Writer, StreamParam<'_>);
 
-    fn handle_client_hello(&mut self, config: &mut ClientConfig) -> RlsResult<()> {
+    fn handle_client_hello(&mut self, config: &ClientConfig) -> RlsResult<()> {
         let (_, param) = self.stream_param();
-        config.fingerprint.build_client_hello(param.write_buffer, config.alpn, config.sni, Version::TLS_1_3, param.conn)?;
-
-        // let mut client_hello = config.fingerprint.build_client_hello(config.alpn)?;
-        // client_hello.set_random(param.conn.client_random());
-        // client_hello.set_server_name(config.sni);
-        // client_hello.set_session_id(param.conn.session().session_id());
-        // let ticket = param.conn.session().ticket();
-        // client_hello.set_session_ticket(ticket);
-        // let padding = client_hello.padding();
-        // if padding > ticket.len() {
-        //     client_hello.set_padding(padding - ticket.len());
-        // } else {
-        //     client_hello.remove_padding();
-        // };
-        // let mut secrets = HashMap::new();
-        // let key_share = match config.alpn {
-        //     #[cfg(feature = "quic")]
-        //     h3 if h3 == ALPN::HTTP30 => match client_hello.key_share_mut().is_some() {
-        //         true => client_hello.key_share_mut(),
-        //         false => return Err(HandShakeError::QUICMissingKeyShare.into()),
-        //     }
-        //     _ => client_hello.key_share_mut()
-        // };
-        // match key_share {
-        //     None => client_hello.remove_tls13(),
-        //     Some(key_share) => {
-        //         key_share.key_entries().iter().for_each(|key| {
-        //             if let Ok(secret) = SecretKey::new(key.group()) {
-        //                 secrets.insert(key.group(), secret);
-        //             }
-        //         });
-        //         let mut deletes = vec![];
-        //         for (i, key_entry) in key_share.key_entries_mut().iter_mut().enumerate() {
-        //             if let Some(secret) = secrets.get(&key_entry.group()) {
-        //                 key_entry.set_key(secret.pub_key()?)
-        //             }
-        //             if key_entry.is_empty() { deletes.push(i); }
-        //         }
-        //         deletes.reverse();
-        //         for del in deletes {
-        //             key_share.key_entries_mut().remove(del);
-        //         }
-        //     }
-        // }
+        let mut record_param = RecordParam::from(config);
+        record_param.writer = param.write_buffer;
+        record_param.conn = param.conn;
+        config.fingerprint.build_client_hello(record_param)?;
         // #[cfg(feature = "quic")]
         // if config.alpn == &ALPN::HTTP30 { client_hello.build_quic()?; }
-        // let mut record = RecordLayer::handshake(config.fingerprint.record_version());
-        // record.messages = vec![client_hello.into()];
-        //
-        // record.write_to(param.write_buffer, param.conn.cipher_suite().exchange_alg())?;
-        // param.conn.set_secret_keys(secrets);
         param.conn.update_session(&param.write_buffer.filled()[5..])?;
         Ok(())
     }
@@ -80,35 +36,19 @@ pub trait StreamHandle {
     /// * `param` - 流参数
     /// * `server_hello` - 已解析的结构
     /// * 返回是否为hello_retry
-    fn handle_server_hello(param: &mut StreamParam<'_>, version: Version, server_hello: ServerHello) -> Result<bool, RlsError> {
+    fn handle_server_hello(param: &mut StreamParam<'_>, config: &ClientConfig, version: Version, server_hello: ServerHello) -> Result<bool, RlsError> {
         let hello_retry = param.conn.set_by_server_hello(&server_hello, version)?;
         if hello_retry {
             #[cfg(feature = "log")]
             debug!("[ParsingServerHello] hello_retry=true; retry_share={:?}",server_hello.key_share_extend().map(|x|x.key_entry().group()));
-
-            let secrets = param.conn.secret_keys_mut();
-            secrets.clear();
             let server_entries = server_hello.key_share_extend().ok_or(HandShakeError::RetryNoKeyShare)?.key_entries();
-            for entry in server_entries.iter() {
-                let secret = SecretKey::new(entry.group())?;
-                secrets.insert(entry.group(), secret);
-            }
-            let mut reader = Reader::from_slice(param.conn.session_bytes());
-            reader.read_u8()?;
-            let mut client = ClientHello::from_bytes(&mut reader)?;
-            let entries = client.key_share_mut().ok_or(HandShakeError::RetryNoKeyShare)?.key_entries_mut();
-            *entries = server_entries.to_vec();
-            for entry in entries.iter_mut() {
-                let secrets = param.conn.secret_keys().get(&entry.group()).ok_or(HandShakeError::RetryGroupNotSupported(entry.group()))?;
-                entry.set_key(secrets.pub_key()?);
-            }
-            let record = RecordLayer {
-                content_type: RecordType::HandShake,
-                len: 0,
-                version: Version::TLS_1_2,
-                messages: vec![Message::new_parsed(MessageParsed::ClientHello(client))],
-            };
-            record.write_to(param.write_buffer, param.conn.cipher_suite().exchange_alg())?;
+            let mut record_param = RecordParam::from(config);
+            record_param.writer = param.write_buffer;
+            record_param.conn = param.conn;
+            record_param.entries_count = server_entries.len();
+            record_param.entries = server_entries.as_ptr();
+            record_param.hrr = true;
+            config.fingerprint.build_client_hello(record_param)?;
             param.conn.hello_retry(&param.write_buffer.filled()[5..])?;
             *param.hello_retrying = true;
             return Ok(true);
@@ -117,8 +57,7 @@ pub trait StreamHandle {
         Ok(false)
     }
 
-    fn handle_server_hello_done(param: &mut StreamParam<'_>, config: &mut Config) -> Result<(), RlsError> {
-        let config = config.client_mut().ok_or("missing config")?;
+    fn handle_server_hello_done(param: &mut StreamParam<'_>, config: &mut ClientConfig) -> Result<(), RlsError> {
         let offset = param.write_buffer.offset().end;
         let kea = param.conn.cipher_suite().exchange_alg();
         if !config.client_cert.is_empty() {
@@ -183,7 +122,7 @@ pub trait StreamHandle {
             ticket.write_to(param.write_buffer)?;
             param.conn.update_session(param.write_buffer.slice_at(offset + 5))?;
         }
-        if (param.conn.secret_key().is_none() && param.conn.version() == &Version::TLS_1_2) || param.conn.server() {
+        if (param.conn.certs().is_empty() && param.conn.version() == &Version::TLS_1_2) || param.conn.server() {
             #[cfg(feature = "log")]
             debug!("[HandleRecord] Recover TLS_1.2");
             param.write_buffer.write_slice(&Self::CHANGE_CIPHER_SPEC)?;
@@ -200,13 +139,15 @@ pub trait StreamHandle {
         match message.parsed {
             MessageParsed::ServerHello(server_hello) => {
                 param.conn.update_session(message.encoded.as_ref())?;
-                let hello_retry = Self::handle_server_hello(param, version, server_hello)?;
+                let config = config.as_mut().and_then(|x| x.client_mut())
+                    .ok_or(ConnError::MissingClientConfig)?;
+                let hello_retry = Self::handle_server_hello(param, config, version, server_hello)?;
                 if hello_retry { return Ok(()); }
             }
             MessageParsed::Certificate(v) => {
                 param.conn.update_session(message.encoded.as_ref())?;
-                let config = config.as_mut().ok_or("conn param can't be null")?;
-                let config = config.client_mut().ok_or("missing config")?;
+                let config = config.as_mut().and_then(|x| x.client_mut())
+                    .ok_or(ConnError::MissingClientConfig)?;
                 param.conn.set_by_certificate(v, config.ca_certs, config.sni)?;
             }
             MessageParsed::CertificateStatus(_) => param.conn.update_session(message.encoded.as_ref())?,
@@ -216,17 +157,18 @@ pub trait StreamHandle {
             }
             MessageParsed::ServerHelloDone(_) => {
                 param.conn.update_session(message.encoded)?;
-                let config = config.as_mut().ok_or("conn param can't be null")?;
+                let config = config.as_mut().and_then(|x| x.client_mut())
+                    .ok_or(ConnError::MissingClientConfig)?;
                 Self::handle_server_hello_done(param, config)?;
                 *param.handshake_finish = true;
                 return Ok(());
             }
             MessageParsed::ClientHello(v) => {
                 param.conn.update_session(message.encoded.as_ref())?;
-                let config = config.as_mut().ok_or("config can't be null")?;
+                let config = config.as_mut().and_then(|x| x.server_mut())
+                    .ok_or(ConnError::MissingClientConfig)?;
                 let random = rand::random::<[u8; 32]>();
-                let server = config.server_mut().ok_or("missing config")?;
-                let record = param.conn.gen_server_hello(version, v, server.server_cert, server.cert_key, &random, server.alpn.clone())?;
+                let record = param.conn.gen_server_hello(version, v, config.server_cert, config.cert_key, &random, config.alpn.clone())?;
                 let offset = param.write_buffer.offset().end;
                 record.write_to(param.write_buffer, param.conn.cipher_suite().exchange_alg())?;
                 param.conn.update_session(param.write_buffer.slice_at(offset + 5))?;
@@ -239,8 +181,8 @@ pub trait StreamHandle {
             }
             MessageParsed::CertificateRequest(v) => {
                 param.conn.update_session(message.encoded.as_ref())?;
-                let config = config.as_mut().ok_or("config can't be null")?;
-                let config = config.client_mut().ok_or("missing config")?;
+                let config = config.as_mut().and_then(|x| x.client_mut())
+                    .ok_or(ConnError::MissingClientConfig)?;
                 param.conn.set_by_cert_req(v, config.client_cert.first_mut())?;
             }
             MessageParsed::NewSessionTicket(ticket) => {
@@ -259,8 +201,8 @@ pub trait StreamHandle {
                 param.conn.update_session(message.encoded.as_ref())?;
             }
             MessageParsed::CompressedCertificate(cc) => {
-                let config = config.as_mut().ok_or("config can't be null")?;
-                let config = config.client_mut().ok_or("missing config")?;
+                let config = config.as_mut().and_then(|x| x.client_mut())
+                    .ok_or(ConnError::MissingClientConfig)?;
                 param.conn.set_by_compressed_certificate(cc, config.ca_certs, config.sni)?;
                 param.conn.update_session(message.encoded.as_ref())?;
             }
@@ -285,7 +227,7 @@ pub trait StreamHandle {
                 #[cfg(all(debug_assertions, feature = "log"))]
                 trace!("[HandleRecord] {:?}", record);
                 *param.encrypted_channel = !*param.hello_retrying;
-                if param.conn.secret_key().is_none() && param.conn.version() == &Version::TLS_1_2 {
+                if param.conn.certs().is_empty() && param.conn.version() == &Version::TLS_1_2 {
                     param.conn.make_cipher(true)?;
                 }
             }

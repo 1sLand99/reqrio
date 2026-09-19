@@ -40,10 +40,10 @@ fn build_finger(suites: Vec<CipherSuite>, groups: Vec<NamedCurve>) -> Fingerprin
         message_version: Version::TLS_1_2,
         suites,
         extensions: vec![
-            Extension::StatusRequest(StatusRequest::new()),
-            Extension::SupportedGroups(SupportedGroups::new(groups)),
-            Extension::EcPointFormats(EcPointFormats::new(vec![EcPointFormat::UNCOMPRESSED])),
-            Extension::SignatureAlgorithms(SignatureAlgorithms::new(vec![
+            Extension::STATUS_REQUEST,
+            Extension::SupportedGroups(groups),
+            Extension::EcPointFormats(vec![EcPointFormat::UNCOMPRESSED]),
+            Extension::SignatureAlgorithms(vec![
                 SignatureAlgorithm::RSA_PKCS1_SHA1,
                 SignatureAlgorithm::RSA_PKCS1_SHA256,
                 SignatureAlgorithm::RSA_PKCS1_SHA384,
@@ -57,37 +57,36 @@ fn build_finger(suites: Vec<CipherSuite>, groups: Vec<NamedCurve>) -> Fingerprin
                 SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
                 SignatureAlgorithm::RSA_PSS_RSAE_SHA384,
                 SignatureAlgorithm::RSA_PSS_RSAE_SHA512,
-            ])),
+            ]),
             Extension::SignedCertificateTimestamp,
-            Extension::ExtendMasterSecret,
-            Extension::CompressionCertificate(CompressCertificate::new(vec![CompressionMethod::NULL])),
+            Extension::ExtendedMasterSecret,
+            Extension::CompressionCertificate(vec![CompressionMethod::NULL]),
             Extension::SessionTicket(Buf::Ref(&[])),
-            Extension::SupportedVersions(SupportVersions::new(vec![
+            Extension::SupportedVersions(vec![
                 Version::TLS_1_3,
                 Version::TLS_1_2,
-            ])),
-            Extension::PskKeyExchangeMode(vec![PskMode::PSK_DHE_KE]),
-            Extension::KeyShare(KeyShare::new(vec![
-                NamedCurve::X25519,
-                NamedCurve::SecP256r1,
-            ])),
-            Extension::ApplicationSetting(ALPS::new(vec![
+            ]),
+            Extension::PskKeyExchangeModes(vec![PskMode::PSK_DHE_KE]),
+            Extension::KeyShare(vec![
+                KeyEntry::X25519,
+                KeyEntry::SecP256r1,
+            ]),
+            Extension::ApplicationSettings(vec![
                 ALPN::HTTP20,
                 ALPN::HTTP11
-            ])),
+            ]),
             Extension::ServerName(vec![ServerName::new_sni("")]),
-            Extension::ApplicationLayerProtocolNegotiation(ALPS::new(vec![
+            Extension::ApplicationLayerProtocolNegotiation(vec![
                 ALPN::HTTP20,
                 ALPN::HTTP11
-            ]))
+            ])
         ],
     };
     Fingerprint::new_tls(tls, fs::read_to_string("../TOKEN").unwrap_or("".to_string())).unwrap()
 }
 
-///ECDHE_RSA
 #[tokio::test]
-async fn test_ecdhe_rsa() {
+async fn test_ecdhe_rsa_gcm() {
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256],
         vec![NamedCurve::X25519, NamedCurve::SecP256r1], );
@@ -103,6 +102,11 @@ async fn test_ecdhe_rsa() {
         vec![NamedCurve::X25519, NamedCurve::SecP256r1], );
     let mut req = AcReq::new().with_timeout(Timeout::longer()).with_fingerprint(fingerprint);
     req.get("https://m.so.com", None).await.unwrap();
+
+}
+
+#[tokio::test]
+async fn test_ecdhe_rsa_cbc() {
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA],
         vec![NamedCurve::X25519, NamedCurve::SecP256r1], );
@@ -119,20 +123,19 @@ async fn test_ecdhe_rsa() {
     let mut req = AcReq::new().with_timeout(Timeout::longer()).with_fingerprint(fingerprint);
     req.get("https://m.so.com", None).await.unwrap();
     let fingerprint = build_finger(
-        vec![CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA256],
-        vec![NamedCurve::X25519], );
-    let mut req = ScReq::new().with_timeout(Timeout::longer()).with_fingerprint(fingerprint);
-    req.get("https://m.so.com", None).unwrap();
-    let fingerprint = build_finger(
         vec![CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384],
         vec![NamedCurve::X25519]);
     let mut req = AcReq::new().with_timeout(Timeout::longer()).with_fingerprint(fingerprint);
     req.get("https://m.so.com", None).await.unwrap();
 }
 
-///RSA
 #[tokio::test]
-async fn test_rsa() {
+async fn test_rsa_cbc() {
+    let fingerprint = build_finger(
+        vec![CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA256],
+        vec![NamedCurve::X25519], );
+    let mut req = ScReq::new().with_timeout(Timeout::longer()).with_fingerprint(fingerprint);
+    req.get("https://m.so.com", None).unwrap();
     let fingerprint = build_finger(
         vec![CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA],
         vec![NamedCurve::X25519, NamedCurve::SecP256r1], );
@@ -143,6 +146,7 @@ async fn test_rsa() {
         vec![NamedCurve::X25519, NamedCurve::SecP256r1], );
     let mut req = AcReq::new().with_timeout(Timeout::longer()).with_fingerprint(fingerprint);
     req.get("https://m.baidu.com", None).await.unwrap();
+
 }
 
 #[tokio::test]

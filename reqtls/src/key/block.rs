@@ -1,7 +1,5 @@
 use crate::{rand, CipherSuite, Version};
 use std::fmt::{Debug, Formatter};
-use std::ptr::null_mut;
-use std::slice;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum KeyType {
@@ -13,30 +11,10 @@ pub enum KeyType {
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct TlsSession {
-    ticket_len: u16,
-    ticket_capacity: usize,
-    ticket: *mut u8,
-    session_id_len: u8,
-    session_id_capacity: usize,
-    session_id: *mut u8,
+    ticket: Vec<u8>,
+    session_id: Vec<u8>,
     master_secret: [u8; 48],
 }
-
-impl Drop for TlsSession {
-    fn drop(&mut self) {
-        if !self.session_id.is_null() {
-            drop(unsafe { Vec::from_raw_parts(self.session_id, self.session_id_len as usize, self.session_id_capacity) });
-            self.session_id = null_mut();
-        }
-        if !self.ticket.is_null() {
-            drop(unsafe { Vec::from_raw_parts(self.ticket, self.ticket_len as usize, self.ticket_capacity) });
-            self.ticket = null_mut();
-        }
-    }
-}
-
-unsafe impl Sync for TlsSession {}
-unsafe impl Send for TlsSession {}
 
 impl Default for TlsSession {
     fn default() -> TlsSession {
@@ -47,13 +25,8 @@ impl Default for TlsSession {
 
 impl TlsSession {
     pub fn new(session_id: Vec<u8>) -> TlsSession {
-        let (session_id, session_id_len, session_id_capacity) = session_id.into_raw_parts();
         TlsSession {
-            ticket_len: 0,
-            ticket_capacity: 0,
-            ticket: null_mut(),
-            session_id_len: session_id_len as u8,
-            session_id_capacity,
+            ticket: vec![],
             session_id,
             master_secret: [0u8; 48],
         }
@@ -61,25 +34,15 @@ impl TlsSession {
 
 
     pub fn ticket(&self) -> &[u8] {
-        if self.ticket.is_null() { return &[]; }
-        unsafe { slice::from_raw_parts(self.ticket, self.ticket_len as usize) }
+        &self.ticket
     }
 
     pub fn set_ticket(&mut self, ticket: Vec<u8>) {
-        if ticket.is_empty() { return; }
-        if !self.ticket.is_null() {
-            drop(unsafe { Vec::from_raw_parts(self.ticket, self.ticket_len as usize, self.ticket_capacity) });
-            self.ticket = null_mut();
-        }
-        let (ticket, ticket_len, ticket_capacity) = ticket.into_raw_parts();
         self.ticket = ticket;
-        self.ticket_len = ticket_len as u16;
-        self.ticket_capacity = ticket_capacity;
     }
 
     pub fn session_id(&self) -> &[u8] {
-        if self.session_id.is_null() { return &[]; }
-        unsafe { slice::from_raw_parts(self.session_id, self.session_id_len as usize) }
+        &self.session_id
     }
 
     pub fn master_secret(&self) -> &[u8; 48] { &self.master_secret }
@@ -88,14 +51,7 @@ impl TlsSession {
 
     pub fn set_session_id(&mut self, session_id: &[u8]) {
         if session_id.is_empty() { return; }
-        if !self.session_id.is_null() {
-            drop(unsafe { Vec::from_raw_parts(self.session_id, self.session_id_len as usize, self.session_id_capacity) });
-            self.session_id = null_mut();
-        }
-        let (session_id, session_id_len, session_id_capacity) = session_id.to_vec().into_raw_parts();
-        self.session_id = session_id;
-        self.session_id_len = session_id_len as u8;
-        self.session_id_capacity = session_id_capacity;
+        self.session_id = session_id.to_vec();
     }
 }
 

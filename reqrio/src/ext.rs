@@ -52,11 +52,19 @@ pub trait ReqExt: Sized {
         self
     }
 
-    /// * 必须在建立tls连接（即：set_url/with_url）前设置, 否则需要调re_conn
+    /// * 必须在建立tls连接前设置, 否则需要调re_conn
     /// * 默认使用http2.0去连接，实际使用协议需要和服务器协商
     fn set_alpn(&mut self, alpn: ALPN);
     fn with_alpn(mut self, alpn: ALPN) -> Self {
         self.set_alpn(alpn);
+        self
+    }
+
+    /// * 必须在建立tls连接前设置, 否则需要调re_conn
+    /// * 默认使用TLS 1.3去连接，实际使用协议需要和服务器协商
+    fn set_version(&mut self, version: Version);
+    fn with_version(mut self, version: Version) -> Self {
+        self.set_version(version);
         self
     }
 
@@ -81,7 +89,7 @@ pub trait ReqExt: Sized {
         self.set_tls_session(tls_session);
         self
     }
-    fn tls_session(&self) -> &Option<TlsSession>;
+    fn tls_session(&self) -> Option<&TlsSession>;
 
     fn set_fingerprint(&mut self, fingerprint: Fingerprint);
     fn with_fingerprint(mut self, fingerprint: Fingerprint) -> Self {

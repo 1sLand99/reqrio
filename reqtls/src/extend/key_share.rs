@@ -17,7 +17,12 @@ pub struct KeyEntry {
 impl KeyEntry {
     pub const X25519MLKEM768: KeyEntry = KeyEntry::new(NamedCurve::X25519MLKEM768);
     pub const X25519: KeyEntry = KeyEntry::new(NamedCurve::X25519);
-    // pub const SecP256r1: KeyEntry = KeyEntry::new(NamedCurve::SecP256r1);
+    #[allow(non_upper_case_globals)]
+    pub const SecP256r1: KeyEntry = KeyEntry::new(NamedCurve::SecP256r1);
+    #[allow(non_upper_case_globals)]
+    pub const SecP384r1: KeyEntry = KeyEntry::new(NamedCurve::SecP384r1);
+    #[allow(non_upper_case_globals)]
+    pub const SecP521r1: KeyEntry = KeyEntry::new(NamedCurve::SecP521r1);
     pub const fn new(group: NamedCurve) -> KeyEntry {
         KeyEntry {
             group: group.into_inner(),

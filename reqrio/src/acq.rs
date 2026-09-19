@@ -29,6 +29,7 @@ pub struct AcReq {
     ignore_order: bool,
     responses: HashMap<u64, Response>,
     recv_ids: HashSet<u64>,
+    version: Version,
 }
 
 impl Default for AcReq {
@@ -52,6 +53,7 @@ impl Default for AcReq {
             ignore_order: false,
             responses: HashMap::with_capacity(100),
             recv_ids: HashSet::new(),
+            version: Version::TLS_1_3,
         }
     }
 }
@@ -89,7 +91,7 @@ impl AcReq {
         self.do_http(Method::TRACE, url, body).await
     }
 
-    pub async fn patch<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response>    {
+    pub async fn patch<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
         self.do_http(Method::PATCH, url, body).await
     }
 
@@ -222,6 +224,7 @@ impl AcReq {
                 key_log: &self.key_log,
                 ech: false,
                 session: &self.tls_session,
+                version: self.version,
             };
             let res = tokio::time::timeout(self.timeout.connect(), self.stream.conn_async(param)).await;
             match res {
@@ -334,6 +337,10 @@ impl ReqExt for AcReq {
         self.alpn = alpn;
     }
 
+    fn set_version(&mut self, version: Version) {
+        self.version = version;
+    }
+
     fn set_mtls(&mut self, certs: Vec<Certificate>, key: RsaKey, ca: Option<Vec<Certificate>>) {
         self.certs = certs;
         self.key = key;
@@ -344,8 +351,8 @@ impl ReqExt for AcReq {
         self.tls_session = tls_session;
     }
 
-    fn tls_session(&self) -> &Option<TlsSession> {
-        &self.tls_session
+    fn tls_session(&self) -> Option<&TlsSession> {
+        self.stream.tls_session()
     }
 
     fn set_fingerprint(&mut self, fingerprint: Fingerprint) {

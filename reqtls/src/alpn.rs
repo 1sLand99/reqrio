@@ -6,9 +6,9 @@ use std::slice;
 #[repr(C)]
 #[derive(Default)]
 pub struct ALPN {
-    len: u8,
-    ptr: *mut u8,
     capacity: usize,
+    ptr: *mut u8,
+    len: usize,
 }
 
 impl ALPN {
@@ -21,7 +21,7 @@ impl ALPN {
         let (ptr, len, capacity) = opt.to_vec().into_raw_parts();
         ALPN {
             ptr,
-            len: len as u8,
+            len,
             capacity,
         }
     }
@@ -48,7 +48,7 @@ impl ALPN {
     pub fn len(&self) -> usize { 1 + self.len as usize }
 
     pub fn write_to(self, writer: &mut Writer) -> Result<(), BufferError> {
-        writer.write_u8(self.len)?;
+        writer.write_u8(self.len as u8)?;
         writer.write_slice(self.value().as_bytes())
     }
 }

@@ -12,9 +12,9 @@ fn build_finger() -> Result<Fingerprint, HlsError> {
             CipherSuite::ECC_SM4_CBC_SM3,
         ],
         extensions: vec![
-            Extension::Reserved { typ: 0xfafa, value: Buf::Ref(&[]) },
+            Extension::Reserved { typ: ExtensionType::new(0xfafa), value: Buf::Ref(&[]) },
             Extension::ServerName(vec![ServerName::new_sni("")]),
-            Extension::Reserved { typ: 0x8a8a, value: Buf::Ref(&[0]) },
+            Extension::Reserved { typ: ExtensionType::new(0x8a8a), value: Buf::Ref(&[0]) },
         ],
     }, token)
 }

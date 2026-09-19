@@ -44,26 +44,26 @@ pub fn random_fingerprint(sni: &str) -> Result<Fingerprint, HlsError> {
             CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA,
         ],
         extensions: vec![
-            Extension::Reserved { typ: REVERSED[rand::random::<usize>() % REVERSED.len()], value: Buf::Ref(&[]) },
+            Extension::Reserved { typ: ExtensionType::new(REVERSED[rand::random::<usize>() % REVERSED.len()]), value: Buf::Ref(&[]) },
             Extension::ServerName(vec![ServerName::new_sni("")]),
-            Extension::ExtendMasterSecret,
-            Extension::RenegotiationInfo,
-            Extension::SupportedGroups(SupportedGroups::new(vec![
+            Extension::ExtendedMasterSecret,
+            Extension::RENEGOTIATION_INFO,
+            Extension::SupportedGroups(vec![
                 NamedCurve::new(group),
                 NamedCurve::X25519,
                 NamedCurve::SecP256r1,
                 NamedCurve::SecP384r1
-            ])),
-            Extension::EcPointFormats(EcPointFormats::new(vec![
+            ]),
+            Extension::EcPointFormats(vec![
                 EcPointFormat::UNCOMPRESSED
-            ])),
+            ]),
             Extension::SessionTicket(Buf::Ref(&[])),
-            Extension::ApplicationLayerProtocolNegotiation(ALPS::new(vec![
+            Extension::ApplicationLayerProtocolNegotiation(vec![
                 ALPN::HTTP20,
                 ALPN::HTTP11
-            ])),
-            Extension::StatusRequest(StatusRequest::new()),
-            Extension::SignatureAlgorithms(SignatureAlgorithms::new(vec![
+            ]),
+            Extension::STATUS_REQUEST,
+            Extension::SignatureAlgorithms(vec![
                 SignatureAlgorithm::ECDSA_SECP256R1_SHA256,
                 SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
                 SignatureAlgorithm::RSA_PKCS1_SHA256,
@@ -72,25 +72,25 @@ pub fn random_fingerprint(sni: &str) -> Result<Fingerprint, HlsError> {
                 SignatureAlgorithm::RSA_PKCS1_SHA384,
                 SignatureAlgorithm::RSA_PSS_RSAE_SHA512,
                 SignatureAlgorithm::RSA_PKCS1_SHA512
-            ])),
+            ]),
             Extension::SignedCertificateTimestamp,
-            Extension::KeyShare(KeyShare::new(vec![
-                NamedCurve::new(group),
-                NamedCurve::X25519
-            ])),
-            Extension::PskKeyExchangeMode(vec![PskMode::PSK_DHE_KE]),
-            Extension::SupportedVersions(SupportVersions::new(vec![
+            Extension::KeyShare(vec![
+                KeyEntry::new(NamedCurve::new(group)),
+                KeyEntry::X25519
+            ]),
+            Extension::PskKeyExchangeModes(vec![PskMode::PSK_DHE_KE]),
+            Extension::SupportedVersions(vec![
                 Version::new(REVERSED[rand::random::<usize>() % REVERSED.len()]),
                 Version::TLS_1_3,
                 Version::TLS_1_2,
-            ])),
-            Extension::CompressionCertificate(CompressCertificate::new(vec![
+            ]),
+            Extension::CompressionCertificate(vec![
                 CompressionMethod::BROTLI
-            ])),
-            Extension::ApplicationSettingOld(ALPS::new(vec![
+            ]),
+            Extension::ApplicationSettingOld(vec![
                 ALPN::HTTP20
-            ])),
-            Extension::Reserved { typ: REVERSED[rand::random::<usize>() % REVERSED.len()], value: Buf::Ref(&[0]) },
+            ]),
+            Extension::Reserved { typ: ExtensionType::new(REVERSED[rand::random::<usize>() % REVERSED.len()]), value: Buf::Ref(&[0]) },
             Extension::Padding(padding as usize)
         ],
     };
@@ -111,7 +111,7 @@ fn main() {
         .with_verify(true)
         .with_timeout(Timeout::new_same(3000, 1))
         .with_key_log("2.log")
-        .with_fingerprint(fingerprint)
+        // .with_fingerprint(fingerprint)
         // .with_proxy(Proxy::try_from("http://36.150.202.148:10951").unwrap())
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::try_from("http://127.0.0.1:10280").unwrap())
@@ -180,7 +180,13 @@ fn main() {
     // let res1 = req.recv(sid1).unwrap();
     // println!("{}", res1.raw_string());
 
-    let res = req.get("https://m.bingzhizhu.shop/", None).unwrap();
+    let res = req.get("https://www.baidu.com/", None).unwrap();
+    // let res=req.get("https://h5.moutai519.com.cn",None).unwrap();
+    let session=req.tls_session().cloned();
+    println!("{:#?}", session);
+    req.set_tls_session(session);
+    req.re_conn(None).unwrap();
+
     println!("{}", res.raw_string());
 
     // let sid2 = req.send(Method::GET, "https://cn.bing.com/search?q=3516541635&rdr=1&rdrig=4B500EC883E54B3881736EA98E8C2AF4", None).unwrap();

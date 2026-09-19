@@ -160,7 +160,7 @@ impl<'a> ServerHellmanParam<'a> {
             res.pub_key = Buf::Ref(reader.read_slice(res.pub_key_len as usize)?);
             res.signature_algorithm = SignatureAlgorithm::new(reader.read_u16()?);
         } else {
-            res.named_curve = NamedCurve::ECC_SM2.into();
+            res.named_curve = NamedCurve::PRE_MASTER;
             res.signature_algorithm = SignatureAlgorithm::new(0);
         }
         res.signature_len = reader.read_u16()?;
