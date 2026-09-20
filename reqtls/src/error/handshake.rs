@@ -19,6 +19,12 @@ pub enum HandShakeError {
     MissingSupportedVersions,
     MissingQUICParameters,
     MissingPubkey,
+    GenSecretKeyFailed,
+    DiffieHellmanFailed,
+    MissingClientConfig,
+    MissingServerConfig,
+    InvalidShareSecret,
+    SecretPubKeyNull
 }
 
 impl Display for HandShakeError {

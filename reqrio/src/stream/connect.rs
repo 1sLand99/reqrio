@@ -62,7 +62,7 @@ impl<'a, S: Read + Write> TlsConnecting<'a, S> {
     pub fn wait(mut self) -> HlsResult<TlsStream<S>> {
         let tls_stream = self.state.deref_mut();
         if !self.sent_client_hello {
-            tls_stream.handle_client_hello(self.config.client_mut().ok_or("missing config")?)?;
+            tls_stream.build_client_hello(self.config.client_mut().ok_or("missing config")?)?;
             self.sent_client_hello = true;
         }
         let mut stream = loop {
@@ -85,7 +85,7 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> Future for TlsConnecting<'a, S> {
         let connector = self.get_mut();
         if !connector.sent_client_hello {
             if connector.state.write_buffer.is_empty() {
-                connector.state.handle_client_hello(connector.config.client_mut().ok_or("missing config")?)?;
+                connector.state.build_client_hello(connector.config.client_mut().ok_or("missing config")?)?;
             }
             connector.sent_client_hello = true;
         }

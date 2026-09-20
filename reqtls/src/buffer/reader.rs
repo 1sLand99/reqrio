@@ -136,7 +136,7 @@ impl<'a> Reader<'a> {
             });
         }
         Ok(ptr)
-        
+
     }
 
     pub fn add_len(&mut self, size: usize) {

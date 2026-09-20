@@ -3,7 +3,7 @@ use super::TrafficSecret;
 use crate::error::RlsResult;
 use crate::hkdf::Hkdf;
 use crate::prf::Prf;
-use crate::{CipherSuite, HandShakeError, HashType, Hmac, Version};
+use crate::{rand, CipherSuite, HandShakeError, HashType, Hmac, Version};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::PathBuf;
@@ -27,12 +27,12 @@ impl DerivedKey {
     const ZERO: [u8; 64] = [0; 64];
     #[cfg(feature = "quic")]
     const INIT_SLAT: [u8; 20] = [56, 118, 44, 247, 245, 89, 52, 179, 77, 23, 154, 230, 164, 200, 12, 173, 204, 187, 127, 10];
-    pub fn new(client_random: [u8; 32], server_random: [u8; 32], session: TlsSession, key_log: Option<PathBuf>, quic: bool) -> Self {
+    pub fn new(session: TlsSession, key_log: Option<PathBuf>, quic: bool) -> Self {
         DerivedKey {
             prf: Prf::default(),
             hash: HashType::Sha256,
-            client_random,
-            server_random,
+            client_random: rand::random::<[u8; 32]>(),
+            server_random: rand::random::<[u8; 32]>(),
             use_ems: false,
             traffic_secret: TrafficSecret {
                 client_traffic: [0; 48],
@@ -194,14 +194,14 @@ impl DerivedKey {
         }
     }
 
-    pub fn set_client_random(&mut self, client_random: [u8; 32]) {
-        self.client_random = client_random;
+    pub fn set_client_random(&mut self, client_random: &[u8]) {
+        self.client_random.copy_from_slice(client_random);
     }
 
-    pub fn set_server_random(&mut self, server_random: [u8; 32]) {
-        self.server_random = server_random;
+    pub fn set_server_random(&mut self, server_random: &[u8]) {
+        self.server_random.copy_from_slice(server_random);
     }
-    
+
     #[cfg(feature = "quic")]
     pub fn key_block(&self) -> &KeyBlock {
         &self.key_block

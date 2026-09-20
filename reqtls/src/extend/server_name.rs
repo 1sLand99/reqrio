@@ -3,7 +3,6 @@ use crate::*;
 use std::fmt::{Debug, Formatter};
 use std::ptr::null;
 use std::slice;
-use std::str::Utf8Error;
 
 #[repr(C)]
 #[derive(Default, Clone)]
@@ -42,13 +41,6 @@ impl ServerName {
             len,
             ptr: reader.read_ptr(len as usize)?,
         })
-    }
-
-    pub(crate) fn value(&self) -> Result<&str, Utf8Error> {
-        unsafe {
-            let slice = slice::from_raw_parts(self.ptr, self.len as usize);
-            std::str::from_utf8(slice)
-        }
     }
 }
 

@@ -162,17 +162,17 @@ unsafe extern "C" {
     #[allow(improper_ctypes)]
     fn Record_build(config: *mut RecordParam, typ: u8) -> c_int;
     #[allow(improper_ctypes)]
-    fn Record_build_client_hello(config: *mut RecordParam, record_version: Version, reader: *mut Reader) -> c_int;
-    #[allow(improper_ctypes)]
-    fn Record_build_custom(
-        config: *mut RecordParam,
-        record_version: Version,
-        suite_count: usize,
-        suites: *const u16,
-        message_version: Version,
-        ext_count: usize,
-        extensions: *const Extend,
-    ) -> c_int;
+    fn Record_build_client_hello(config: *mut RecordParam, record_version: Version, client_hello: *const ClientHello) -> c_int;
+    // #[allow(improper_ctypes)]
+    // fn Record_build_custom(
+    //     config: *mut RecordParam,
+    //     record_version: Version,
+    //     suite_count: usize,
+    //     suites: *const u16,
+    //     message_version: Version,
+    //     ext_count: usize,
+    //     extensions: *const Extend,
+    // ) -> c_int;
 }
 
 #[cfg_attr(debug_assertions, derive(Debug))]
@@ -210,6 +210,23 @@ pub(crate) struct RecordParam {
     pub(crate) conn: *mut Connection,
 }
 
+impl Default for RecordParam {
+    fn default() -> Self {
+        RecordParam {
+            sni_len: 0,
+            sni: null(),
+            alpn: Default::default(),
+            version: Version::TLS_1_2,
+            writer: null_mut(),
+            finger_type: 0,
+            hrr: false,
+            entries_count: 0,
+            entries: null(),
+            conn: null_mut(),
+        }
+    }
+}
+
 impl<'a> From<&ClientConfig<'a>> for RecordParam {
     fn from(config: &ClientConfig<'a>) -> Self {
         RecordParam {
@@ -229,26 +246,36 @@ impl<'a> From<&ClientConfig<'a>> for RecordParam {
 
 impl TlsFinger {
     pub const DEFAULT: &'static TlsFinger = &TlsFinger::Default;
-    pub(crate) fn build_client_hello(&self, mut param: RecordParam) -> Result<(), &str> {
+    pub(crate) fn build_client_hello(&self, mut param: RecordParam) -> Result<(), BufferError> {
         match self {
             TlsFinger::Default => unsafe { Record_build(&mut param, 1) }
             TlsFinger::ClientHello { bytes, record_version } => unsafe {
-                Record_build_client_hello(&mut param, *record_version, &mut Reader::from_slice(bytes.as_ref()))
+                param.finger_type = 1;
+                let mut reader = Reader::from_slice(bytes.as_ref());
+                reader.read_u8()?;
+                let client_hello = ClientHello::from_reader(&mut reader)?;
+                Record_build_client_hello(&mut param, *record_version, &client_hello)
             }
             TlsFinger::Custom { suites, extensions, message_version, record_version } => {
-                unsafe {
-                    Record_build_custom(
-                        &mut param,
-                        *record_version,
-                        suites.len(),
-                        suites.iter().map(|x| x.value()).collect::<Vec<_>>().as_ptr(),
-                        *message_version,
-                        extensions.len(),
-                        extensions.iter().map(|x| x.build_extend()).collect::<Vec<_>>().as_ptr(),
-                    )
-                }
+                param.finger_type = 2;
+                let suites = suites.iter().map(|x| x.value()).collect::<Vec<_>>();
+                let extensions = extensions.iter().map(|x| x.build_extend()).collect::<Vec<_>>();
+                let client_hello = ClientHello {
+                    len: 0,
+                    version: *message_version,
+                    random: null(),
+                    session_id_len: 0,
+                    session_id: null(),
+                    cipher_suites_len: suites.len() as u16,
+                    cipher_suites: suites.as_ptr() as *const c_void,
+                    compress_method_len: 1,
+                    compress_method: [0u8].as_ptr(),
+                    extend_len: extensions.len() as u16,
+                    extensions: extensions.as_ptr() as *const c_void,
+                };
+                unsafe { Record_build_client_hello(&mut param, *record_version, &client_hello) }
             }
-        }.ok("build client hello failed")
+        }.ok(BufferError::InvalidCEncode)
     }
 
     pub fn record_version(&self) -> Version {
@@ -452,10 +479,10 @@ impl TlsFinger {
 
 #[cfg(test)]
 mod tests {
-    use std::ptr::null;
     use crate::extend::ExtensionType;
     use crate::finger::Extension;
     use crate::*;
+    use std::ptr::null;
 
     #[test]
     fn test_build_client_hello() {
@@ -481,7 +508,6 @@ mod tests {
 
         }).unwrap();
         assert!(RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).is_ok());
-        // println!("{:#?}", RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).unwrap());
     }
 
     #[test]
@@ -599,6 +625,6 @@ mod tests {
             conn: &mut connection,
         }).unwrap();
         println!("{} {:?}", writer.len(), writer.filled());
-        // println!("{:#?}", RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).unwrap());
+        println!("{:#?}", RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).unwrap());
     }
 }

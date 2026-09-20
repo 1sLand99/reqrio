@@ -31,6 +31,7 @@ pub enum BufferError {
     SliceConvertError(TryFromSliceError),
     Utf8Error(Utf8Error),
     UdpMsgTooLarge,
+    InvalidCEncode,
 }
 
 impl Display for BufferError {
@@ -52,6 +53,7 @@ impl Display for BufferError {
             BufferError::SliceConvertError(er) => write!(f, "SliceConvertError({})", er),
             BufferError::Utf8Error(e) => write!(f, "Utf8Error({})", e),
             BufferError::UdpMsgTooLarge => write!(f, "udp msg must less then 1500"),
+            BufferError::InvalidCEncode => write!(f, "invalid C encode"),
         }
     }
 }

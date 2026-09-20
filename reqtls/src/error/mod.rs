@@ -25,7 +25,6 @@ use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 use std::sync::PoisonError;
 use std::time::SystemTimeError;
-use crate::connection::ConnError;
 
 #[derive(Debug)]
 pub enum RlsError {
@@ -94,7 +93,6 @@ pub enum RlsError {
     EvpError(EvpError),
     Cipher(CipherError),
     Coding(CodingError),
-    Conn(ConnError),
     Sm(SmError),
 }
 
@@ -167,7 +165,6 @@ impl Display for RlsError {
             RlsError::Cipher(e) => write!(f, "Cipher({:?})", e),
             RlsError::Coding(e) => write!(f, "Coding({:?})", e),
             RlsError::Sm(sm) => write!(f, "Sm({:?})", sm),
-            RlsError::Conn(e) => write!(f, "Conn({:?})", e),
         }
     }
 }
@@ -316,12 +313,6 @@ impl From<CodingError> for RlsError {
 impl From<SmError> for RlsError {
     fn from(value: SmError) -> Self {
         RlsError::Sm(value)
-    }
-}
-
-impl From<ConnError> for RlsError {
-    fn from(value: ConnError) -> Self {
-        RlsError::Conn(value)
     }
 }
 

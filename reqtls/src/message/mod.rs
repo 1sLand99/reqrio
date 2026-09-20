@@ -65,13 +65,6 @@ impl<'a> Message<'a> {
         })
     }
 }
-
-impl<'a> From<ClientHello<'a>> for Message<'a> {
-    fn from(value: ClientHello<'a>) -> Self {
-        Message::new_parsed(MessageParsed::ClientHello(value))
-    }
-}
-
 impl<'a> From<Certificates<'a>> for Message<'a> {
     fn from(value: Certificates<'a>) -> Self {
         Message::new_parsed(MessageParsed::Certificate(value))
@@ -87,8 +80,8 @@ impl<'a> From<ClientKeyExchange<'a>> for Message<'a> {
 
 pub enum MessageParsed<'a> {
     UnParsed,
-    ClientHello(ClientHello<'a>),
-    ServerHello(ServerHello<'a>),
+    ClientHello(ClientHello),
+    ServerHello(ServerHello),
     Certificate(Certificates<'a>),
     CompressedCertificate(CompressedCertificate<'a>),
     ServerKeyExchange(ServerKeyExchange<'a>),
@@ -114,8 +107,8 @@ impl<'a> MessageParsed<'a> {
     fn from_reader_handshake(reader: &mut Reader<'a>, alg: KeyExchangeAlg, version: &Version) -> RlsResult<MessageParsed<'a>> {
         let handshake_type = HandshakeType::from_byte(reader.read_u8()?)?;
         match handshake_type {
-            HandshakeType::ClientHello => Ok(MessageParsed::ClientHello(ClientHello::from_bytes(reader)?)),
-            HandshakeType::ServerHello => Ok(MessageParsed::ServerHello(ServerHello::from_reader(handshake_type, reader)?)),
+            HandshakeType::ClientHello => Ok(MessageParsed::ClientHello(ClientHello::from_reader(reader)?)),
+            HandshakeType::ServerHello => Ok(MessageParsed::ServerHello(ServerHello::from_reader(reader)?)),
             HandshakeType::Certificate => Ok(MessageParsed::Certificate(Certificates::from_reader(version, reader, false)?)),
             HandshakeType::CompressedCertificate => Ok(MessageParsed::CompressedCertificate(CompressedCertificate::from_reader(handshake_type, reader)?)),
             HandshakeType::ServerKeyExchange => Ok(MessageParsed::ServerKeyExchange(ServerKeyExchange::from_reader(handshake_type, reader, version)?)),
@@ -152,8 +145,8 @@ impl<'a> MessageParsed<'a> {
     pub fn len(&self, kea: KeyExchangeAlg) -> usize {
         match self {
             MessageParsed::UnParsed => 0,
-            MessageParsed::ClientHello(v) => v.len(),
-            MessageParsed::ServerHello(v) => v.len(),
+            // MessageParsed::ClientHello(v) => v.len(),
+            // MessageParsed::ServerHello(v) => v.len(),
             MessageParsed::Certificate(v) => v.len(),
             MessageParsed::CompressedCertificate(v) => v.len(),
             MessageParsed::ServerKeyExchange(v) => v.len(),
@@ -167,15 +160,16 @@ impl<'a> MessageParsed<'a> {
             MessageParsed::Alert(_) => 0,
             MessageParsed::CipherSpec => 1,
             MessageParsed::Finished(v) => 3 + v.len(),
-            MessageParsed::EncryptedExtension(v) => v.len()
+            MessageParsed::EncryptedExtension(v) => v.len(),
+            _ => unreachable!()
         }
     }
 
     pub fn write_to(self, writer: &mut Writer, kea: KeyExchangeAlg) -> Result<(), BufferError> {
         match self {
             MessageParsed::UnParsed => Ok(()),
-            MessageParsed::ClientHello(v) => v.write_to(writer),
-            MessageParsed::ServerHello(v) => v.write_to(writer),
+            // MessageParsed::ClientHello(v) => v.write_to(writer),
+            // MessageParsed::ServerHello(v) => v.write_to(writer),
             MessageParsed::Certificate(v) => v.write_to(writer),
             MessageParsed::CompressedCertificate(v) => v.write_to(writer),
             MessageParsed::ServerKeyExchange(v) => v.write_to(writer),
@@ -192,31 +186,32 @@ impl<'a> MessageParsed<'a> {
                 writer.write_u16(v.len() as u16)?;
                 writer.write_slice(v.as_ref())
             }
-            MessageParsed::EncryptedExtension(v) => v.write_to(writer)
+            MessageParsed::EncryptedExtension(v) => v.write_to(writer),
+            _ => unreachable!()
         }
     }
 
-    pub fn client_mut(&mut self) -> Option<&mut ClientHello<'a>> {
-        match self {
-            MessageParsed::ClientHello(v) => Some(v),
-            _ => None
-        }
-    }
-    pub fn client(&self) -> Option<&ClientHello<'a>> {
-        match self {
-            MessageParsed::ClientHello(v) => Some(v),
-            _ => None
-        }
-    }
+    // pub fn client_mut(&mut self) -> Option<&mut ClientHello<'a>> {
+    //     match self {
+    //         MessageParsed::ClientHello(v) => Some(v),
+    //         _ => None
+    //     }
+    // }
+    // pub fn client(&self) -> Option<&ClientHello<'a>> {
+    //     match self {
+    //         MessageParsed::ClientHello(v) => Some(v),
+    //         _ => None
+    //     }
+    // }
 
-    pub fn server_mut(&mut self) -> Option<&mut ServerHello<'a>> {
-        match self {
-            MessageParsed::ServerHello(v) => Some(v),
-            _ => None
-        }
-    }
+    // pub fn server_mut(&mut self) -> Option<&mut ServerHello<'a>> {
+    //     match self {
+    //         MessageParsed::ServerHello(v) => Some(v),
+    //         _ => None
+    //     }
+    // }
 
-    pub fn server(&self) -> Option<&ServerHello<'a>> {
+    pub fn server(&self) -> Option<&ServerHello> {
         match self {
             MessageParsed::ServerHello(v) => Some(v),
             _ => None

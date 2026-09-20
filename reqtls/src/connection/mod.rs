@@ -1,7 +1,5 @@
 #[cfg(feature = "quic")]
 mod quic;
-mod error;
-
 use super::record::{RecordLayer, RecordType};
 use super::suite::CipherSuite;
 use super::version::Version;
@@ -11,7 +9,6 @@ use crate::error::{HandShakeError, RlsResult};
 use crate::key::{DerivedKey, KeyType, TlsSession};
 use crate::message::{CompressedCertificate, EncryptedExtension, HandshakeType};
 use crate::*;
-pub use error::ConnError;
 #[cfg(feature = "quic")]
 pub use quic::QUICConnection;
 use std::os::raw::{c_int, c_void};
@@ -23,8 +20,6 @@ unsafe extern "C" {
     #[allow(improper_ctypes)]
     fn Connection_free(conn: *mut Connection);
     #[allow(improper_ctypes)]
-    fn Connection_gen_secret_key(conn: *mut Connection) -> c_int;
-    #[allow(improper_ctypes)]
     fn Connection_get_pubkey(conn: *mut Connection, pubkey_len: *mut usize) -> *const u8;
     #[allow(improper_ctypes)]
     fn Connection_diffie_hellman(
@@ -33,6 +28,14 @@ unsafe extern "C" {
         pubkey_len: usize,
         out: *mut u8,
         out_len: *mut usize,
+    ) -> c_int;
+    #[allow(improper_ctypes)]
+    fn Connection_handle_server_hello(
+        conn: *mut Connection,
+        server_hello: *const ServerHello,
+        alpn: *mut ALPN,
+        share_secret: *mut u8,
+        share_secret_len: *mut usize,
     ) -> c_int;
 }
 
@@ -61,7 +64,7 @@ pub struct Connection {
 }
 impl Default for Connection {
     fn default() -> Self {
-        Connection::new([0; 32], [0; 32], TlsSession::default(), None, false)
+        Connection::new(TlsSession::default(), None, false)
     }
 }
 
@@ -77,7 +80,7 @@ impl Drop for Connection {
 impl Connection {
     const HRR_MAGIC: [u8; 32] = [207, 33, 173, 116, 229, 154, 97, 17, 190, 29, 140, 2, 30, 101, 184, 145, 194, 162, 17, 22, 122, 187, 140, 94, 7, 158, 9, 226, 200, 168, 51, 156];
 
-    pub fn new(client_random: [u8; 32], server_random: [u8; 32], session: TlsSession, key_log: Option<PathBuf>, quic: bool) -> Connection {
+    pub fn new(session: TlsSession, key_log: Option<PathBuf>, quic: bool) -> Connection {
         Connection {
             decryptor: AeadCtx::none(),
             encryptor: AeadCtx::none(),
@@ -86,7 +89,7 @@ impl Connection {
             alpn: None,
             suite: &CipherSuite::UNKNOWN,
             session_bytes: Vec::with_capacity(4096),
-            derived: DerivedKey::new(client_random, server_random, session, key_log, quic),
+            derived: DerivedKey::new(session, key_log, quic),
             certificates: vec![],
             verify: false,
             root_stores: &certificate::ROOT_STORES,
@@ -102,7 +105,7 @@ impl Connection {
     }
 
     pub fn new_client(session: TlsSession, key_log: Option<PathBuf>, quic: bool) -> Connection {
-        Connection::new(rand::random(), [0; 32], session, key_log, quic)
+        Connection::new(session, key_log, quic)
     }
 
     pub fn client_random(&self) -> &[u8] {
@@ -141,28 +144,37 @@ impl Connection {
     }
 
     pub fn set_by_server_hello(&mut self, server_hello: &ServerHello, version: Version) -> RlsResult<bool> {
-        self.alpn = server_hello.alpn();
-        self.derived.session.set_session_id(server_hello.session_id.as_ref());
-        self.suite = server_hello.cipher_suite;
+        self.suite = CipherSuite::find(server_hello.cipher_suite).ok_or(HandShakeError::UnknownCipherSuite(server_hello.cipher_suite))?;
         self.hasher.init(self.suite.hash())?;
-        if let Some(version) = server_hello.supported_version() {
-            self.version = *version;
-        } else { self.version = version; }
-        if server_hello.random().as_ref() == Self::HRR_MAGIC { return Ok(true); }
+        self.version = version;
+        let mut alpn = ALPN::default();
+        let mut share_secret = vec![0; 66];
+        let mut len = 0;
+        unsafe {
+            Connection_handle_server_hello(
+                self,
+                server_hello,
+                &mut alpn,
+                share_secret.as_mut_ptr(),
+                &mut len,
+            )
+        }.ok("handshake failed server_hello")?;
+        self.alpn = if alpn.is_empty() { None } else { Some(alpn.clone()) };
+        if server_hello.random() == Self::HRR_MAGIC { return Ok(true); }
+        self.derived.init(KeyType::Handshake, self.suite);
+
+        self.derived.set_server_random(server_hello.random());
+        self.derived.session.set_session_id(server_hello.session_id());
         self.hasher.update(&self.session_bytes)?;
         #[cfg(feature = "log")]
         info!("[ParsedServerHello] Version: {:?} | CipherSuite: {} | Hasher: {:?} | AEAD: {:?}",
             self.version, self.suite.spec(), self.suite.hash(), self.suite.aead());
-        self.derived.init(KeyType::Handshake, self.suite);
-        self.derived.set_server_random(server_hello.random.as_ref().try_into()?);
-        self.derived.use_ems = server_hello.use_ems();
         if Version::TLS_1_3 == self.version {
-            let key_entry = server_hello.key_share_extend().ok_or(RlsError::MissingKeyEntry)?.key_entry();
-            self.named_curve = key_entry.group();
-            let share_secret = self.diffie_hellman(key_entry.key().as_ref())?;
+            share_secret.truncate(len);
+            if share_secret.is_empty() { return Err(HandShakeError::InvalidShareSecret.into()); }
             self.derived.make_handshake_traffic_secret(share_secret, self.hasher.current_hash()?)?;
             #[cfg(feature = "log")]
-            info!("[ParsedServerHello] KeyShare={}; pubkey={}",key_entry.group(), key_entry.key().len());
+            info!("[ParsedServerHello] KeyShare={}",self.named_curve);
             self.derived_key_cipher(KeyType::Handshake)?;
         }
         Ok(false)
@@ -302,7 +314,6 @@ impl Connection {
             }
             (_, _) => {}
         }
-        unsafe { Connection_gen_secret_key(self) }.ok(ConnError::GenSecretKeyFailed)?;
         self.exchange_pub_key = Buf::Vec(server_key.hellman_param().pub_key().to_vec());
         Ok(())
     }
@@ -318,7 +329,7 @@ impl Connection {
     pub fn pub_share_key(&mut self) -> RlsResult<Buf<'_>> {
         let mut pubkey_len = 0;
         let pubkey = unsafe { Connection_get_pubkey(self, &mut pubkey_len) };
-        if pubkey.is_null() { return Err(ConnError::SecretPubKeyNull.into()); }
+        if pubkey.is_null() { return Err(HandShakeError::SecretPubKeyNull.into()); }
         let pubkey = unsafe { slice::from_raw_parts(pubkey, pubkey_len) };
         match (self.named_curve, self.version) {
             (NamedCurve::PRE_MASTER, Version::TLCP) => {
@@ -340,7 +351,7 @@ impl Connection {
         }
     }
 
-    fn diffie_hellman(&self, pubkey: &[u8]) -> Result<Vec<u8>, ConnError> {
+    fn diffie_hellman(&self, pubkey: &[u8]) -> Result<Vec<u8>, HandShakeError> {
         let mut share_secret = vec![0; 66];
         let mut len = 0;
         unsafe {
@@ -351,7 +362,7 @@ impl Connection {
                 share_secret.as_mut_ptr(),
                 &mut len,
             )
-        }.ok(ConnError::DiffieHellmanFailed)?;
+        }.ok(HandShakeError::DiffieHellmanFailed)?;
         share_secret.truncate(len);
         Ok(share_secret)
     }
@@ -365,44 +376,48 @@ impl Connection {
         Ok(())
     }
 
-    pub fn gen_server_hello<'a>(&mut self, _record_version: Version, client_hello: ClientHello<'a>, certificate: &'a mut [Certificate], pri_key: &RsaKey, random: &'a [u8], alpn: ALPN) -> RlsResult<RecordLayer<'a>> {
-        self.derived.set_client_random(client_hello.client_random().as_ref().try_into()?);
-        let mut record = RecordLayer {
-            content_type: RecordType::HandShake,
-            version: Version::TLS_1_2,
-            len: 0,
-            messages: vec![],
-        };
+    pub fn gen_server_hello<'a>(&mut self, writer: &mut Writer, client_hello: ClientHello, pri_key: &RsaKey) -> RlsResult<()> {
+        self.suite = &CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256;
+        self.hasher.init(self.suite.hash())?;
+        self.derived.init(KeyType::Handshake, self.suite);
+        self.derived.set_client_random(client_hello.random());
+        self.hasher.update(self.session_bytes.as_slice())?;
+        // let mut record = RecordLayer {
+        //     content_type: RecordType::HandShake,
+        //     version: Version::TLS_1_2,
+        //     len: 0,
+        //     messages: vec![],
+        // };
         //server hello
-        let mut server_hello = ServerHello::from_client_hello(client_hello, alpn)?;
-        server_hello.set_random(random);
-        self.set_by_server_hello(&server_hello, Version::TLS_1_2)?;
-        record.messages.push(Message::new_parsed(MessageParsed::ServerHello(server_hello)));
+        // let mut server_hello = ServerHello::from_client_hello(client_hello, alpn)?;
+        // server_hello.set_random(random);
+        // self.set_by_server_hello(&server_hello, Version::TLS_1_2)?;
+        // record.messages.push(Message::new_parsed(MessageParsed::ServerHello(server_hello)));
         //certificate
-        let mut certificates = Certificates::default();
-        for certificate in certificate.iter_mut() {
-            certificates.add_certificate(certificate.as_der()?.as_slice());
-        }
-        record.messages.push(Message::new_parsed(MessageParsed::Certificate(certificates)));
+        // let mut certificates = Certificates::default();
+        // for certificate in certificate.iter_mut() {
+        //     certificates.add_certificate(certificate.as_der()?.as_slice());
+        // }
+        // record.messages.push(Message::new_parsed(MessageParsed::Certificate(certificates)));
         //server_key_exchange
         let mut server_key_exchange = ServerKeyExchange::default();
         self.named_curve = *server_key_exchange.hellman_param().named_curve();
         let mut pubkey_len = 0;
         let pubkey = unsafe { Connection_get_pubkey(self, &mut pubkey_len) };
-        if pubkey.is_null() { return Err(ConnError::SecretPubKeyNull.into()); }
-        // let key = SecretKey::new(*server_key_exchange.hellman_param().named_curve())?;
+        if pubkey.is_null() { return Err(HandShakeError::SecretPubKeyNull.into()); }
         server_key_exchange.hellman_param_mut().set_pub_key(Buf::Ref(unsafe { slice::from_raw_parts(pubkey, pubkey_len) }));
-        // self.secret_key = Some(key);
         let sign_data = self.gen_key_sign_data(&server_key_exchange, &mut Sm2Key::none())?;
         let signer = AlgorithmSigner::new_sign(pri_key.pkey(), server_key_exchange.hellman_param().signature_algorithm())?;
         server_key_exchange.hellman_param_mut().set_signature(Buf::Vec(signer.sign(&sign_data)?));
         self.exchange_pub_key = Buf::Vec(server_key_exchange.hellman_param().pub_key().to_vec());
+        server_key_exchange.write_to(writer)?;
+        ServerHelloDone::new().write_to(writer)?;
 
-        record.messages.push(Message::new_parsed(MessageParsed::ServerKeyExchange(server_key_exchange)));
+        // record.messages.push(Message::new_parsed(MessageParsed::ServerKeyExchange(server_key_exchange)));
         //server_hello_done
-        record.messages.push(Message::new_parsed(MessageParsed::ServerHelloDone(ServerHelloDone::new())));
+        // record.messages.push(Message::new_parsed(MessageParsed::ServerHelloDone(ServerHelloDone::new())));
         self.server = true;
-        Ok(record)
+        Ok(())
     }
 
     ///#### tls Record结构-5bytes(头部)

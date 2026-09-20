@@ -1,3 +1,4 @@
+use std::os::raw::c_int;
 use crate::config::{ClientConfig, Config};
 use crate::error::RlsResult;
 use crate::*;
@@ -5,7 +6,12 @@ use crate::*;
 use log::debug;
 #[cfg(all(debug_assertions, feature = "log"))]
 use log::{trace, warn};
-use crate::connection::ConnError;
+use crate::boring::BoringResExt;
+
+unsafe extern "C" {
+    #[allow(improper_ctypes)]
+    fn ServerHello_from_client_hello(config: *const RecordParam, client_hello: *const ClientHello) -> c_int;
+}
 
 pub struct StreamParam<'a> {
     pub handshake_finish: &'a mut bool,
@@ -20,7 +26,7 @@ pub trait StreamHandle {
 
     fn stream_param(&mut self) -> (&Writer, StreamParam<'_>);
 
-    fn handle_client_hello(&mut self, config: &ClientConfig) -> RlsResult<()> {
+    fn build_client_hello(&mut self, config: &ClientConfig) -> RlsResult<()> {
         let (_, param) = self.stream_param();
         let mut record_param = RecordParam::from(config);
         record_param.writer = param.write_buffer;
@@ -40,8 +46,9 @@ pub trait StreamHandle {
         let hello_retry = param.conn.set_by_server_hello(&server_hello, version)?;
         if hello_retry {
             #[cfg(feature = "log")]
-            debug!("[ParsingServerHello] hello_retry=true; retry_share={:?}",server_hello.key_share_extend().map(|x|x.key_entry().group()));
-            let server_entries = server_hello.key_share_extend().ok_or(HandShakeError::RetryNoKeyShare)?.key_entries();
+            debug!("[ParsingServerHello] hello_retry=true; retry_share={:?}", param.conn.named_curve());
+            let server_entries = [KeyEntry::new(*param.conn.named_curve())];
+            // let server_entries = server_hello.key_share_extend().ok_or(HandShakeError::RetryNoKeyShare)?.key_entries();
             let mut record_param = RecordParam::from(config);
             record_param.writer = param.write_buffer;
             record_param.conn = param.conn;
@@ -100,6 +107,31 @@ pub trait StreamHandle {
         Ok(())
     }
 
+    fn handle_client_hello(param: &mut StreamParam<'_>, config: &mut ServerConfig, client_hello: ClientHello) -> Result<(), RlsError> {
+        param.write_buffer.write_u8(RecordType::HandShake.as_u8())?;
+        param.write_buffer.write_u16(Version::TLS_1_2.into_inner())?;
+        let record_start = param.write_buffer.end();
+        param.write_buffer.write_u16(0)?;
+        unsafe {
+            ServerHello_from_client_hello(&RecordParam {
+                alpn: config.alpn.clone(),
+                writer: param.write_buffer,
+                conn: param.conn,
+                ..Default::default()
+            }, &client_hello)
+        }.ok(BufferError::InvalidCEncode)?;
+        let mut certificates = Certificates::default();
+        for certificate in config.server_cert.iter_mut() {
+            certificates.add_certificate(certificate.as_der()?.as_slice());
+        }
+        certificates.write_to(param.write_buffer)?;
+
+        param.conn.gen_server_hello(param.write_buffer, client_hello, config.cert_key)?;
+        param.write_buffer.write_u16_in(record_start, (param.write_buffer.end() - record_start - 2) as u16)?;
+        param.conn.update_session(param.write_buffer.slice_at(record_start + 2))?;
+        Ok(())
+    }
+
     fn handle_by_alert(&mut self) -> Result<Alert, RlsError> {
         let (read_buffer, param) = self.stream_param();
         match param.encrypted_channel {
@@ -140,14 +172,14 @@ pub trait StreamHandle {
             MessageParsed::ServerHello(server_hello) => {
                 param.conn.update_session(message.encoded.as_ref())?;
                 let config = config.as_mut().and_then(|x| x.client_mut())
-                    .ok_or(ConnError::MissingClientConfig)?;
+                    .ok_or(HandShakeError::MissingClientConfig)?;
                 let hello_retry = Self::handle_server_hello(param, config, version, server_hello)?;
                 if hello_retry { return Ok(()); }
             }
             MessageParsed::Certificate(v) => {
                 param.conn.update_session(message.encoded.as_ref())?;
                 let config = config.as_mut().and_then(|x| x.client_mut())
-                    .ok_or(ConnError::MissingClientConfig)?;
+                    .ok_or(HandShakeError::MissingClientConfig)?;
                 param.conn.set_by_certificate(v, config.ca_certs, config.sni)?;
             }
             MessageParsed::CertificateStatus(_) => param.conn.update_session(message.encoded.as_ref())?,
@@ -158,7 +190,7 @@ pub trait StreamHandle {
             MessageParsed::ServerHelloDone(_) => {
                 param.conn.update_session(message.encoded)?;
                 let config = config.as_mut().and_then(|x| x.client_mut())
-                    .ok_or(ConnError::MissingClientConfig)?;
+                    .ok_or(HandShakeError::MissingClientConfig)?;
                 Self::handle_server_hello_done(param, config)?;
                 *param.handshake_finish = true;
                 return Ok(());
@@ -166,12 +198,8 @@ pub trait StreamHandle {
             MessageParsed::ClientHello(v) => {
                 param.conn.update_session(message.encoded.as_ref())?;
                 let config = config.as_mut().and_then(|x| x.server_mut())
-                    .ok_or(ConnError::MissingClientConfig)?;
-                let random = rand::random::<[u8; 32]>();
-                let record = param.conn.gen_server_hello(version, v, config.server_cert, config.cert_key, &random, config.alpn.clone())?;
-                let offset = param.write_buffer.offset().end;
-                record.write_to(param.write_buffer, param.conn.cipher_suite().exchange_alg())?;
-                param.conn.update_session(param.write_buffer.slice_at(offset + 5))?;
+                    .ok_or(HandShakeError::MissingClientConfig)?;
+                Self::handle_client_hello(param, config, v)?;
                 return Ok(());
             }
             MessageParsed::ClientKeyExchange(v) => {
@@ -182,7 +210,7 @@ pub trait StreamHandle {
             MessageParsed::CertificateRequest(v) => {
                 param.conn.update_session(message.encoded.as_ref())?;
                 let config = config.as_mut().and_then(|x| x.client_mut())
-                    .ok_or(ConnError::MissingClientConfig)?;
+                    .ok_or(HandShakeError::MissingClientConfig)?;
                 param.conn.set_by_cert_req(v, config.client_cert.first_mut())?;
             }
             MessageParsed::NewSessionTicket(ticket) => {
@@ -202,7 +230,7 @@ pub trait StreamHandle {
             }
             MessageParsed::CompressedCertificate(cc) => {
                 let config = config.as_mut().and_then(|x| x.client_mut())
-                    .ok_or(ConnError::MissingClientConfig)?;
+                    .ok_or(HandShakeError::MissingClientConfig)?;
                 param.conn.set_by_compressed_certificate(cc, config.ca_certs, config.sni)?;
                 param.conn.update_session(message.encoded.as_ref())?;
             }

@@ -55,7 +55,7 @@ impl<'a, S> QUICConnect<'a, S> {
         state.tw_buffer.reset();
         state.conn.make_initial_cipher(&state.dcid, force)?;
         let config = self.config.client_mut().ok_or("missing client config")?;
-        state.handle_client_hello(config)?;
+        state.build_client_hello(config)?;
         state.tw_buffer.used_empty(5);
         Ok(())
     }

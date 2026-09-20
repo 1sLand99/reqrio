@@ -40,19 +40,18 @@ async fn main() {
             ca_certs: &vec![],
             key_log: None,
         }).wait();
-        if let Ok(mut tls_stream) = tls_stream {
-            tokio::spawn(async move {
-                let mut buffer = [0; 1024];
-                loop {
-                    let len = tls_stream.read(&mut buffer).unwrap();
-                    if len == 0 { break; }
-                    println!("{}", String::from_utf8_lossy(&buffer[..len]));
-                    if buffer.starts_with(b"GET") || buffer.starts_with(b"POST") {
-                        tls_stream.write_all("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok".as_bytes()).unwrap();
+        tokio::spawn(async move {
+            let mut tls_stream = tls_stream.unwrap();
+            let mut buffer = [0; 1024];
+            loop {
+                let len = tls_stream.read(&mut buffer).unwrap();
+                if len == 0 { break; }
+                println!("{}", String::from_utf8_lossy(&buffer[..len]));
+                if buffer.starts_with(b"GET") || buffer.starts_with(b"POST") {
+                    tls_stream.write_all("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok".as_bytes()).unwrap();
 
-                    }
                 }
-            });
-        }
+            }
+        });
     }
 }

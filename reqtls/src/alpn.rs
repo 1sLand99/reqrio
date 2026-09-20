@@ -43,7 +43,7 @@ impl ALPN {
         Ok(res)
     }
 
-    pub fn is_empty(&self) -> bool { self.len() == 0 }
+    pub fn is_empty(&self) -> bool { self.len() == 0 || self.ptr.is_null() }
 
     pub fn len(&self) -> usize { 1 + self.len as usize }
 

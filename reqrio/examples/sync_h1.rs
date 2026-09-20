@@ -107,8 +107,8 @@ fn main() {
     Writer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
     let fingerprint = random_fingerprint("www.baidu.com").unwrap();
     let mut req = ScReq::new()
-        .with_alpn(ALPN::HTTP20)
-        .with_verify(true)
+        .with_alpn(ALPN::HTTP30)
+        .with_verify(false)
         .with_timeout(Timeout::new_same(3000, 1))
         .with_key_log("2.log")
         // .with_fingerprint(fingerprint)
@@ -180,9 +180,12 @@ fn main() {
     // let res1 = req.recv(sid1).unwrap();
     // println!("{}", res1.raw_string());
 
-    let res = req.get("https://www.baidu.com/", None).unwrap();
+    // let res = req.get("https://www.baidu.com/", None).unwrap();
     // let res=req.get("https://h5.moutai519.com.cn",None).unwrap();
-    let session=req.tls_session().cloned();
+    // let res = req.get("https://m.sogou.com", None).unwrap();;
+    // let res = req.get("https://127.0.0.1:7878", None).unwrap();
+    let res = req.get("https://www.bing.com", None).unwrap();
+    let session = req.tls_session().cloned();
     println!("{:#?}", session);
     req.set_tls_session(session);
     req.re_conn(None).unwrap();
