@@ -7,6 +7,7 @@ use log::debug;
 #[cfg(all(debug_assertions, feature = "log"))]
 use log::{trace, warn};
 use crate::boring::BoringResExt;
+use crate::finger::RecordParam;
 
 unsafe extern "C" {
     #[allow(improper_ctypes)]
@@ -146,11 +147,11 @@ pub trait StreamHandle {
     fn handle_finish(param: &mut StreamParam<'_>) -> Result<(), RlsError> {
         if param.conn.server() {
             let offset = param.write_buffer.offset().end;
-            let mut ticket = SessionTicket::default();
             let tbs = rand::random::<[u8; 276]>();
-            ticket.tls_ticket_mut().set_value(&tbs);
+            let ticket = SessionTicket::new(3600, tbs.as_ref());
             param.write_buffer.write_slice(&[22, 3, 3])?;
-            param.write_buffer.write_u16(ticket.len() as u16)?;
+            param.write_buffer.write_u16((ticket.len() + 1) as u16)?;
+            param.write_buffer.write_u8(HandshakeType::NewSessionTicket.as_u8())?;
             ticket.write_to(param.write_buffer)?;
             param.conn.update_session(param.write_buffer.slice_at(offset + 5))?;
         }
@@ -225,7 +226,7 @@ pub trait StreamHandle {
                 *param.handshake_finish = true;
             }
             MessageParsed::EncryptedExtension(ee) => {
-                param.conn.set_by_encrypted_extension(&ee);
+                param.conn.handle_extension(Reader::from_ptr(ee.extension as *const u8, ee.ext_len as usize))?;
                 param.conn.update_session(message.encoded.as_ref())?;
             }
             MessageParsed::CompressedCertificate(cc) => {

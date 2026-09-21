@@ -123,9 +123,9 @@ impl<'a> CertificateRequest<'a> {
         let mut res = CertificateRequest {
             cert_type: vec![CertType::RSA, CertType::ECDSA],
             hashes: vec![
-                SignatureAlgorithm::RSA_PSS_PSS_SHA256.into(),
-                SignatureAlgorithm::RSA_PSS_PSS_SHA384.into(),
-                SignatureAlgorithm::RSA_PSS_PSS_SHA512.into(),
+                SignatureAlgorithm::RSA_PSS_PSS_SHA256,
+                SignatureAlgorithm::RSA_PSS_PSS_SHA384,
+                SignatureAlgorithm::RSA_PSS_PSS_SHA512,
             ],
             ..CertificateRequest::default()
         };

@@ -397,6 +397,14 @@ impl<'a> Buf<'a> {
             Buf::Vec(buf) => buf.as_ptr()
         }
     }
+
+    pub fn into_vec(self) -> Vec<u8> {
+        match self {
+            Buf::Ptr(v) => v.as_slice().to_vec(),
+            Buf::Ref(v) => v.to_vec(),
+            Buf::Vec(v) => v,
+        }
+    }
 }
 
 impl<'a> AsRef<[u8]> for Buf<'a> {
@@ -434,8 +442,8 @@ impl BufPtr {
 
     ///注意外部指针，不自动释放
     pub fn from_ptr(ptr: *const u8) -> BufPtr {
-        BufPtr{
-            ptr:CPointer::new(ptr.cast_mut()).with_free(false),
+        BufPtr {
+            ptr: CPointer::new(ptr.cast_mut()).with_free(false),
             len: 0,
         }
     }

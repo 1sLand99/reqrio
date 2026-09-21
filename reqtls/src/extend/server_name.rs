@@ -1,4 +1,3 @@
-use crate::*;
 #[cfg(debug_assertions)]
 use std::fmt::{Debug, Formatter};
 use std::ptr::null;
@@ -21,26 +20,6 @@ impl ServerName {
             len: sni.len() as u16,
             ptr: sni.as_ptr(),
         }
-    }
-
-    pub(crate) fn len(&self) -> usize {
-        3 + self.len as usize
-    }
-
-    pub(crate) fn write_to(&self, writer: &mut Writer) -> Result<(), BufferError> {
-        writer.write_u8(self.typ)?;
-        writer.write_u16(self.len)?;
-        writer.write_slice(unsafe { slice::from_raw_parts(self.ptr, self.len as usize) })
-    }
-
-    pub(crate) fn from_reader(reader: &mut Reader) -> Result<ServerName, BufferError> {
-        let typ = reader.read_u8()?;
-        let len = reader.read_u16()?;
-        Ok(ServerName {
-            typ,
-            len,
-            ptr: reader.read_ptr(len as usize)?,
-        })
     }
 }
 

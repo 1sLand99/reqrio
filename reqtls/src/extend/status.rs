@@ -11,14 +11,6 @@ impl StatusType {
     pub const fn new(value: u8) -> StatusType {
         StatusType(value)
     }
-
-    // pub fn into_inner(self) -> u8 {
-    //     self.0
-    // }
-    //
-    // pub fn inner(&self) -> u8 {
-    //     self.0
-    // }
 }
 
 impl Debug for StatusType {

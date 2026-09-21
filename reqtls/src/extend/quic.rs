@@ -1,33 +1,24 @@
-use std::fmt::{Debug, Formatter};
-use crate::{Buf, BufferError, Reader, Writer};
+use crate::Buf;
 
-
-pub struct Parameter<'a> {
+#[repr(C)]
+#[cfg_attr(debug_assertions, derive(Debug))]
+pub struct QUICParameter {
     flag: u64,
-    value: Buf<'a>,
+    len: usize,
+    ptr: *mut u8,
+    cap: usize,
 }
-
-impl<'a> Debug for Parameter<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}({:?})", self.spec(), self.value)
-    }
-}
-
-impl<'a> Clone for Parameter<'a> {
-    fn clone(&self) -> Self {
-        let value = match &self.value {
-            Buf::Ptr(_) => unreachable!(),
-            Buf::Ref(v) => Buf::Vec(v.to_vec()),
-            Buf::Vec(v) => Buf::Vec(v.clone())
-        };
-        Parameter {
-            flag: self.flag,
-            value,
+unsafe impl Sync for QUICParameter {}
+unsafe impl Send for QUICParameter {}
+impl Drop for QUICParameter {
+    fn drop(&mut self) {
+        if self.cap != 0 {
+            drop(unsafe { Vec::from_raw_parts(self.ptr, self.len, self.cap) })
         }
     }
 }
 
-impl<'a> Parameter<'a> {
+impl QUICParameter {
     pub fn spec(&self) -> &str {
         match self.flag {
             0x00 => "original_destination_connection_id",
@@ -52,32 +43,13 @@ impl<'a> Parameter<'a> {
         }
     }
 
-    pub fn new(flag: u64, value: Buf<'a>) -> Parameter<'a> {
-        Parameter {
+    pub fn new(flag: u64, value: Buf) -> QUICParameter {
+        let (ptr, len, cap) = value.into_vec().into_raw_parts();
+        QUICParameter {
             flag,
-            value,
+            len,
+            ptr,
+            cap,
         }
-    }
-
-
-    pub fn from_reader(reader: &mut Reader<'a>) -> Result<Parameter<'a>, BufferError> {
-        let typ = crate::quic::read_variant(reader)? as u64;
-        let len = crate::quic::read_variant(reader)?;
-        let buf = Buf::Ref(reader.read_slice(len)?);
-        Ok(Parameter {
-            flag: typ,
-            value: buf,
-        })
-    }
-
-    pub fn len(&self) -> usize {
-        crate::quic::variant_len(self.flag as usize) +
-            crate::quic::variant_len(self.value.len()) + self.value.len()
-    }
-
-    pub fn write_to(self, writer: &mut Writer) -> Result<(), BufferError> {
-        crate::quic::write_variant(self.flag as usize, writer)?;
-        crate::quic::write_variant(self.value.len(), writer)?;
-        writer.write_slice(self.value.as_ref())
     }
 }

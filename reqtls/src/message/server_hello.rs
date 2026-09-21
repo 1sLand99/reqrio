@@ -17,7 +17,7 @@ pub struct ServerHello {
     pub(crate) cipher_suite: u16,
     pub(crate) compress_method: u8,
     pub(crate) extend_len: u16,
-    extensions: *const c_void,
+    pub(crate) extensions: *const c_void,
 }
 
 impl ServerHello {

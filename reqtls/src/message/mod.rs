@@ -22,7 +22,7 @@ pub use key_exchange::{ClientKeyExchange, NamedCurve, ServerKeyExchange};
 #[cfg(feature = "quic")]
 pub use quic::*;
 pub use server_hello::{ServerHello, ServerHelloDone};
-pub use session_ticket::{SessionTicket, TlsSessionTicket};
+pub use session_ticket::SessionTicket;
 use std::fmt::Debug;
 #[cfg(debug_assertions)]
 use std::fmt::Formatter;
@@ -87,7 +87,7 @@ pub enum MessageParsed<'a> {
     ServerKeyExchange(ServerKeyExchange<'a>),
     ServerHelloDone(ServerHelloDone),
     ClientKeyExchange(ClientKeyExchange<'a>),
-    NewSessionTicket(SessionTicket<'a>),
+    NewSessionTicket(SessionTicket),
     Payload(Buf<'a>),
     CertificateStatus(CertificateStatus<'a>),
     CertificateRequest(CertificateRequest<'a>),
@@ -95,7 +95,7 @@ pub enum MessageParsed<'a> {
     Alert(Alert),
     CipherSpec,
     Finished(Buf<'a>),
-    EncryptedExtension(EncryptedExtension<'a>),
+    EncryptedExtension(EncryptedExtension),
 }
 
 impl<'a> MessageParsed<'a> {
@@ -114,7 +114,7 @@ impl<'a> MessageParsed<'a> {
             HandshakeType::ServerKeyExchange => Ok(MessageParsed::ServerKeyExchange(ServerKeyExchange::from_reader(handshake_type, reader, version)?)),
             HandshakeType::ServerHelloDone => Ok(MessageParsed::ServerHelloDone(ServerHelloDone::from_reader(handshake_type, reader)?)),
             HandshakeType::ClientKeyExchange => Ok(MessageParsed::ClientKeyExchange(ClientKeyExchange::from_reader(reader, alg)?)),
-            HandshakeType::NewSessionTicket => Ok(MessageParsed::NewSessionTicket(SessionTicket::from_reader(handshake_type, reader, version)?)),
+            HandshakeType::NewSessionTicket => Ok(MessageParsed::NewSessionTicket(SessionTicket::from_reader(reader, version)?)),
             HandshakeType::CertificateStatus => Ok(MessageParsed::CertificateStatus(CertificateStatus::from_reader(handshake_type, reader)?)),
             HandshakeType::CertificateRequest => Ok(MessageParsed::CertificateRequest(CertificateRequest::from_reader(handshake_type, reader)?)),
             HandshakeType::CertificateVerify => Ok(MessageParsed::CertificateVerify(CertificateVerify::from_reader(handshake_type, reader)?)),
@@ -122,7 +122,7 @@ impl<'a> MessageParsed<'a> {
                 let len = reader.read_u24()? as usize;
                 Ok(MessageParsed::Finished(Buf::Ref(reader.read_slice(len)?)))
             }
-            HandshakeType::EncryptedExtensions => Ok(MessageParsed::EncryptedExtension(EncryptedExtension::from_reader(handshake_type, reader)?)),
+            HandshakeType::EncryptedExtensions => Ok(MessageParsed::EncryptedExtension(EncryptedExtension::from_reader(reader)?)),
             HandshakeType::MessageHash => Err(HandShakeError::UnsupportedMessage(handshake_type).into()),
         }
     }
@@ -145,14 +145,11 @@ impl<'a> MessageParsed<'a> {
     pub fn len(&self, kea: KeyExchangeAlg) -> usize {
         match self {
             MessageParsed::UnParsed => 0,
-            // MessageParsed::ClientHello(v) => v.len(),
-            // MessageParsed::ServerHello(v) => v.len(),
             MessageParsed::Certificate(v) => v.len(),
             MessageParsed::CompressedCertificate(v) => v.len(),
             MessageParsed::ServerKeyExchange(v) => v.len(),
             MessageParsed::ServerHelloDone(v) => v.len(),
             MessageParsed::ClientKeyExchange(v) => v.len(kea),
-            MessageParsed::NewSessionTicket(v) => v.len(),
             MessageParsed::Payload(v) => v.len(),
             MessageParsed::CertificateStatus(v) => v.len(),
             MessageParsed::CertificateRequest(v) => v.len(),
@@ -160,7 +157,6 @@ impl<'a> MessageParsed<'a> {
             MessageParsed::Alert(_) => 0,
             MessageParsed::CipherSpec => 1,
             MessageParsed::Finished(v) => 3 + v.len(),
-            MessageParsed::EncryptedExtension(v) => v.len(),
             _ => unreachable!()
         }
     }
@@ -168,14 +164,11 @@ impl<'a> MessageParsed<'a> {
     pub fn write_to(self, writer: &mut Writer, kea: KeyExchangeAlg) -> Result<(), BufferError> {
         match self {
             MessageParsed::UnParsed => Ok(()),
-            // MessageParsed::ClientHello(v) => v.write_to(writer),
-            // MessageParsed::ServerHello(v) => v.write_to(writer),
             MessageParsed::Certificate(v) => v.write_to(writer),
             MessageParsed::CompressedCertificate(v) => v.write_to(writer),
             MessageParsed::ServerKeyExchange(v) => v.write_to(writer),
             MessageParsed::ServerHelloDone(v) => v.write_to(writer),
             MessageParsed::ClientKeyExchange(v) => v.write_to(writer, kea),
-            MessageParsed::NewSessionTicket(v) => v.write_to(writer),
             MessageParsed::Payload(v) => writer.write_slice(v.as_ref()),
             MessageParsed::CertificateStatus(v) => v.write_to(writer),
             MessageParsed::CertificateRequest(v) => v.write_to(writer),
@@ -186,30 +179,9 @@ impl<'a> MessageParsed<'a> {
                 writer.write_u16(v.len() as u16)?;
                 writer.write_slice(v.as_ref())
             }
-            MessageParsed::EncryptedExtension(v) => v.write_to(writer),
             _ => unreachable!()
         }
     }
-
-    // pub fn client_mut(&mut self) -> Option<&mut ClientHello<'a>> {
-    //     match self {
-    //         MessageParsed::ClientHello(v) => Some(v),
-    //         _ => None
-    //     }
-    // }
-    // pub fn client(&self) -> Option<&ClientHello<'a>> {
-    //     match self {
-    //         MessageParsed::ClientHello(v) => Some(v),
-    //         _ => None
-    //     }
-    // }
-
-    // pub fn server_mut(&mut self) -> Option<&mut ServerHello<'a>> {
-    //     match self {
-    //         MessageParsed::ServerHello(v) => Some(v),
-    //         _ => None
-    //     }
-    // }
 
     pub fn server(&self) -> Option<&ServerHello> {
         match self {

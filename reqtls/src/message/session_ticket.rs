@@ -1,121 +1,89 @@
-use super::super::message::HandshakeType;
-use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::{u24, BufferError, Reader, Version, Writer};
-use crate::extend::Extension;
+use std::os::raw::c_void;
+use std::ptr::null;
+use std::slice;
 
+#[repr(C)]
 #[cfg_attr(debug_assertions, derive(Debug))]
-#[allow(unused)]
-pub struct TlsSessionTicket<'a> {
+pub struct SessionTicket {
+    pub(crate) len: u24,
     lifetime: u32,
     age_add: u32,
-    nonce: Buf<'a>,
-    ticket: Buf<'a>,
-    extensions: Vec<Extension<'a>>,
+    nonce_len: u8,
+    nonce: *const u8,
+    pub(crate) ticket_len: u16,
+    ticket: *const u8,
+    ext_len: u16,
+    extensions: *const c_void,
 }
 
-impl<'a> Default for TlsSessionTicket<'a> {
-    fn default() -> TlsSessionTicket<'a> {
-        TlsSessionTicket {
-            lifetime: 3600,
+impl SessionTicket {
+    pub fn new(lifetime: u32, ticket: &[u8]) -> SessionTicket {
+        SessionTicket {
+            len: 0,
+            lifetime,
             age_add: 0,
-            nonce: Buf::Ref(&[]),
-            ticket: Buf::Ref(&[]),
-            extensions: vec![],
+            nonce_len: 0,
+            nonce: null(),
+            ticket_len: ticket.len() as u16,
+            ticket: ticket.as_ptr(),
+            ext_len: 0,
+            extensions: null(),
         }
     }
-}
 
-impl<'a> TlsSessionTicket<'a> {
-    pub fn from_reader(reader: &mut Reader<'a>, version: &Version) -> RlsResult<TlsSessionTicket<'a>> {
+    pub fn from_reader(reader: &mut Reader, version: &Version) -> RlsResult<SessionTicket> {
+        let len = reader.read_u24()?;
         let lifetime = reader.read_u32()?;
-        let (age_add, nonce) = match *version {
+        let (age_add, nonce_len, nonce) = match *version {
             Version::TLS_1_3 => {
                 let age_add = reader.read_u32()?;
-                let nonce_len = reader.read_u8()? as usize;
-                let nonce = Buf::Ref(reader.read_slice(nonce_len)?);
-                (age_add, nonce)
+                let nonce_len = reader.read_u8()?;
+                let nonce = reader.read_ptr(nonce_len as usize)?;
+                (age_add, nonce_len, nonce)
             }
-            _ => (0, Buf::Ref(&[]))
+            _ => (0, 0, null())
         };
-        let len = reader.read_u16()? as usize;
-        let ticket = Buf::Ref(reader.read_slice(len)?);
-        let extensions = if version == &Version::TLS_1_3 {
+        let ticket_len = reader.read_u16()?;
+        let ticket = reader.read_ptr(ticket_len as usize)?;
+        let (ext_len, extensions) = if version == &Version::TLS_1_3 {
             let ext_len = reader.read_u16()?;
-            Extension::from_reader(reader.read_reader(ext_len as usize)?, true)?
-        } else { vec![] };
+            let ptr = reader.read_ptr(ext_len as usize)?;
+            (ext_len, ptr)
+        } else { (0, null()) };
 
-        Ok(TlsSessionTicket {
+        Ok(SessionTicket {
+            len,
             lifetime,
             age_add,
+            nonce_len,
             nonce,
+            ticket_len,
             ticket,
-            extensions,
+            ext_len,
+            extensions: extensions as *const c_void,
         })
     }
 
-    pub fn is_empty(&self) -> bool { self.len() == 0 }
-
     pub fn len(&self) -> usize {
-        6 + self.ticket.len()
+        9 + self.ticket_len as usize
     }
 
     pub fn write_to(self, writer: &mut Writer) -> Result<(), BufferError> {
+        writer.write_u24((6 + self.ticket_len) as u24)?;
         writer.write_u32(self.lifetime)?;
-        writer.write_u16(self.ticket.len() as u16)?;
-        writer.write_slice(self.ticket.as_ref())
+        writer.write_u16(self.ticket_len)?;
+        writer.write_slice(self.ticket())
     }
 
-    pub fn set_value(&mut self, value: &'a [u8]) {
-        self.ticket = Buf::Ref(value);
+    pub fn set_ticket(&mut self, value: &[u8]) {
+        self.ticket_len = value.len() as u16;
+        self.ticket = value.as_ptr();
     }
 
-    pub fn ticket(&self) -> &Buf<'a> {
-        &self.ticket
-    }
-}
 
-#[cfg_attr(debug_assertions, derive(Debug))]
-pub struct SessionTicket<'a> {
-    handshake_type: HandshakeType,
-    tls_ticket: TlsSessionTicket<'a>,
-}
-
-impl<'a> Default for SessionTicket<'a> {
-    fn default() -> SessionTicket<'a> {
-        SessionTicket {
-            handshake_type: HandshakeType::NewSessionTicket,
-            tls_ticket: TlsSessionTicket::default(),
-        }
-    }
-}
-
-impl<'a> SessionTicket<'a> {
-    pub fn from_reader(ht: HandshakeType, reader: &mut Reader<'a>, version: &Version) -> RlsResult<SessionTicket<'a>> {
-        reader.read_u24()?;
-        Ok(SessionTicket {
-            handshake_type: ht,
-            tls_ticket: TlsSessionTicket::from_reader(reader, version)?,
-        })
-    }
-
-    pub fn is_empty(&self) -> bool { self.len() == 0 }
-
-    pub fn len(&self) -> usize {
-        4 + self.tls_ticket.len()
-    }
-
-    pub fn write_to(self, writer: &mut Writer) -> Result<(), BufferError> {
-        writer.write_u8(self.handshake_type as u8)?;
-        writer.write_u24(self.tls_ticket.len() as u24)?;
-        self.tls_ticket.write_to(writer)
-    }
-
-    pub fn tls_ticket_mut(&mut self) -> &mut TlsSessionTicket<'a> {
-        &mut self.tls_ticket
-    }
-
-    pub fn tls_ticket(&self) -> &TlsSessionTicket<'a> {
-        &self.tls_ticket
+    pub fn ticket(&self) -> &[u8] {
+        unsafe { slice::from_raw_parts(self.ticket, self.ticket_len as usize) }
     }
 }

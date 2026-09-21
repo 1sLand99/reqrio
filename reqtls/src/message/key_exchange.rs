@@ -143,10 +143,10 @@ impl<'a> ServerHellmanParam<'a> {
     pub fn new() -> ServerHellmanParam<'a> {
         ServerHellmanParam {
             curve_type: CurveType::NamedCurve,
-            named_curve: NamedCurve::SecP384r1.into(),
+            named_curve: NamedCurve::SecP384r1,
             pub_key_len: 0,
             pub_key: Buf::Ref(&[]),
-            signature_algorithm: SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),
+            signature_algorithm: SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
             signature_len: 0,
             signature: Buf::Ref(&[]),
         }

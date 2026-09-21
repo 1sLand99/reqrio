@@ -1,128 +1,12 @@
 use crate::boring::BoringResExt;
 use crate::buffer::Buf;
 use crate::error::RlsResult;
-use crate::extend::{ExtensionType, StatusRequest};
+use crate::extend::{Extension, ExtensionType, StatusRequest};
 use crate::*;
 #[cfg(debug_assertions)]
 use std::fmt::Debug;
 use std::os::raw::{c_int, c_void};
 use std::ptr::{null, null_mut};
-
-#[cfg_attr(debug_assertions, derive(Debug))]
-pub enum Extension {
-    KeyShare(Vec<KeyEntry>),
-    StatusRequest(StatusRequest),
-    ServerName(Vec<ServerName>),
-    SupportedGroups(Vec<NamedCurve>),
-    SupportedVersions(Vec<Version>),
-    ApplicationLayerProtocolNegotiation(Vec<ALPN>),
-    ApplicationSettings(Vec<ALPN>),
-    ApplicationSettingOld(Vec<ALPN>),
-    CompressionCertificate(Vec<CompressionMethod>),
-    EcPointFormats(Vec<EcPointFormat>),
-    PskKeyExchangeModes(Vec<PskMode>),
-    SignatureAlgorithms(Vec<SignatureAlgorithm>),
-    SessionTicket(Buf<'static>),
-    EncryptedClientHello(Buf<'static>),
-    RenegotiationInfo(Buf<'static>),
-    Padding(usize),
-    ExtendedMasterSecret,
-    SignedCertificateTimestamp,
-    EncryptTheMac,
-    Reserved { typ: ExtensionType, value: Buf<'static> },
-}
-
-impl PartialEq<ExtensionType> for Extension {
-    fn eq(&self, other: &ExtensionType) -> bool {
-        match (self, *other) {
-            (Extension::KeyShare(_), ExtensionType::KeyShare) => true,
-            (Extension::StatusRequest(_), ExtensionType::StatusRequest) => true,
-            (Extension::ServerName(_), ExtensionType::ServerName) => true,
-            (Extension::SupportedGroups(_), ExtensionType::SupportedGroup) => true,
-            (Extension::SupportedVersions(_), ExtensionType::SupportedVersions) => true,
-            (Extension::ApplicationLayerProtocolNegotiation(_), ExtensionType::ApplicationLayerProtocolNegotiation) => true,
-            (Extension::ApplicationSettings(_), ExtensionType::ApplicationSetting) => true,
-            (Extension::ApplicationSettingOld(_), ExtensionType::ApplicationSettingOld) => true,
-            (Extension::CompressionCertificate(_), ExtensionType::CompressionCertificate) => true,
-            (Extension::EcPointFormats(_), ExtensionType::EcPointFormats) => true,
-            (Extension::PskKeyExchangeModes(_), ExtensionType::PskKeyExchangeMode) => true,
-            (Extension::SignatureAlgorithms(_), ExtensionType::SignatureAlgorithms) => true,
-            (Extension::SessionTicket(_), ExtensionType::SessionTicket) => true,
-            (Extension::EncryptedClientHello(_), ExtensionType::EncryptedClientHello) => true,
-            (Extension::RenegotiationInfo(_), ExtensionType::RenegotiationInfo) => true,
-            (Extension::Padding(_), ExtensionType::Padding) => true,
-            (Extension::ExtendedMasterSecret, ExtensionType::EncryptedClientHello) => true,
-            (Extension::SignedCertificateTimestamp, ExtensionType::SignedCertificateTimestamp) => true,
-            (Extension::EncryptTheMac, ExtensionType::EncryptTheMac) => true,
-            (Extension::Reserved { typ, .. }, typ2) => *typ == typ2,
-            _ => false,
-        }
-    }
-}
-
-impl Extension {
-    pub const RENEGOTIATION_INFO: Extension = Extension::RenegotiationInfo(Buf::Ref(&[0]));
-    pub const STATUS_REQUEST: Extension = Extension::StatusRequest(StatusRequest::OCSP);
-
-    pub fn default_value(ty: ExtensionType) -> Option<Extension> {
-        match ty {
-            ExtensionType::ServerName => Some(Extension::ServerName(vec![ServerName::HOSTNAME])),
-            ExtensionType::StatusRequest => Some(Extension::StatusRequest(StatusRequest::OCSP)),
-            ExtensionType::SupportedGroup => Some(Extension::SupportedGroups(vec![
-                NamedCurve::X25519,
-                NamedCurve::SecP256r1,
-                NamedCurve::SecP384r1,
-                NamedCurve::SecP521r1,
-            ])),
-            ExtensionType::EcPointFormats => Some(Extension::EcPointFormats(vec![EcPointFormat::UNCOMPRESSED])),
-            ExtensionType::SignatureAlgorithms => Some(Extension::SignatureAlgorithms(SignatureAlgorithms::random())),
-            ExtensionType::ApplicationLayerProtocolNegotiation => Some(Extension::ApplicationLayerProtocolNegotiation(vec![ALPN::HTTP20, ALPN::HTTP11])),
-            ExtensionType::SignedCertificateTimestamp => Some(Extension::SignedCertificateTimestamp),
-            ExtensionType::EncryptTheMac => Some(Extension::EncryptTheMac),
-            ExtensionType::ExtendMasterSecret => Some(Extension::ExtendedMasterSecret),
-            ExtensionType::SessionTicket => Some(Extension::SessionTicket(Buf::Ref(&[]))),
-            ExtensionType::CompressionCertificate => Some(Extension::CompressionCertificate(vec![CompressionMethod::NULL])),
-            ExtensionType::SupportedVersions => Some(Extension::SupportedVersions(vec![
-                Version::TLS_1_3,
-                Version::TLS_1_2,
-            ])),
-            ExtensionType::PskKeyExchangeMode => Some(Extension::PskKeyExchangeModes(vec![PskMode::PSK_DHE_KE])),
-            ExtensionType::KeyShare => Some(Extension::KeyShare(vec![])),
-            ExtensionType::RenegotiationInfo => Some(Extension::RENEGOTIATION_INFO),
-            // ExtensionType::EncryptedClientHello => Some(Extension::EncryptedClientHello(EncryptClientHello::new())),
-            ExtensionType::ApplicationSetting => Some(Extension::ApplicationSettings(vec![ALPN::HTTP20, ALPN::HTTP11])),
-            ExtensionType::ApplicationSettingOld => Some(Extension::ApplicationSettingOld(vec![ALPN::HTTP20, ALPN::HTTP11])),
-            // ExtensionType::PreSharedKey => Some(Extension::PreSharedKey(extend::pre_share_key::PreSharedKey::random())),
-            ExtensionType::Padding => Some(Extension::Padding(202)),
-            _ => None
-        }
-    }
-
-    fn build_extend(&self) -> Extend {
-        match self {
-            Extension::KeyShare(entries) => Extend::new(ExtensionType::KeyShare, entries.len() as u16, entries.as_slice()),
-            Extension::StatusRequest(status_request) => Extend::new(ExtensionType::StatusRequest, 1, status_request),
-            Extension::ServerName(server_name) => Extend::new_slice(ExtensionType::ServerName, server_name.as_slice()),
-            Extension::SupportedGroups(groups) => Extend::new_slice(ExtensionType::SupportedGroup, groups.as_slice()),
-            Extension::SupportedVersions(versions) => Extend::new_slice(ExtensionType::SupportedVersions, versions.as_slice()),
-            Extension::ApplicationLayerProtocolNegotiation(alps) => Extend::new_slice(ExtensionType::ApplicationLayerProtocolNegotiation, alps.as_slice()),
-            Extension::ApplicationSettings(alps) => Extend::new_slice(ExtensionType::ApplicationSetting, alps.as_slice()),
-            Extension::ApplicationSettingOld(alps) => Extend::new_slice(ExtensionType::ApplicationSettingOld, alps.as_slice()),
-            Extension::EcPointFormats(formats) => Extend::new_slice(ExtensionType::EcPointFormats, formats.as_slice()),
-            Extension::CompressionCertificate(methods) => Extend::new_slice(ExtensionType::CompressionCertificate, methods.as_slice()),
-            Extension::RenegotiationInfo(info) => Extend::new_slice(ExtensionType::RenegotiationInfo, info.as_ref()),
-            Extension::SignedCertificateTimestamp => Extend::new_null(ExtensionType::SignedCertificateTimestamp),
-            Extension::SignatureAlgorithms(algorithms) => Extend::new_slice(ExtensionType::SignatureAlgorithms, algorithms.as_slice()),
-            Extension::PskKeyExchangeModes(modes) => Extend::new_slice(ExtensionType::PskKeyExchangeMode, modes.as_slice()),
-            Extension::SessionTicket(ticket) => Extend::new_slice(ExtensionType::SessionTicket, ticket.as_ref()),
-            Extension::EncryptedClientHello(encrypted_client_hello) => Extend::new_slice(ExtensionType::EncryptedClientHello, encrypted_client_hello.as_ref()),
-            Extension::ExtendedMasterSecret => Extend::new_null(ExtensionType::ExtendMasterSecret),
-            Extension::EncryptTheMac => Extend::new_null(ExtensionType::EncryptTheMac),
-            Extension::Padding(size) => Extend { typ: ExtensionType::Padding, len: *size as u16, value: &StatusRequest::OCSP as *const StatusRequest as *const c_void },
-            Extension::Reserved { typ, value } => Extend::new_slice(*typ, value.as_ref()),
-        }
-    }
-}
 
 
 #[repr(C)]
@@ -156,6 +40,33 @@ impl Extend {
             value: slice.as_ptr() as *const c_void,
         }
     }
+
+    pub fn from_extension(extend: &Extension) -> Extend {
+        match extend {
+            Extension::KeyShare(entries) => Extend::new(ExtensionType::KeyShare, entries.len() as u16, entries.as_slice()),
+            Extension::StatusRequest(status_request) => Extend::new(ExtensionType::StatusRequest, 1, status_request),
+            Extension::ServerName(server_name) => Extend::new_slice(ExtensionType::ServerName, server_name.as_slice()),
+            Extension::SupportedGroups(groups) => Extend::new_slice(ExtensionType::SupportedGroup, groups.as_slice()),
+            Extension::SupportedVersions(versions) => Extend::new_slice(ExtensionType::SupportedVersions, versions.as_slice()),
+            Extension::ApplicationLayerProtocolNegotiation(alps) => Extend::new_slice(ExtensionType::ApplicationLayerProtocolNegotiation, alps.as_slice()),
+            Extension::ApplicationSettings(alps) => Extend::new_slice(ExtensionType::ApplicationSetting, alps.as_slice()),
+            Extension::ApplicationSettingOld(alps) => Extend::new_slice(ExtensionType::ApplicationSettingOld, alps.as_slice()),
+            Extension::EcPointFormats(formats) => Extend::new_slice(ExtensionType::EcPointFormats, formats.as_slice()),
+            Extension::CompressionCertificate(methods) => Extend::new_slice(ExtensionType::CompressionCertificate, methods.as_slice()),
+            Extension::RenegotiationInfo(info) => Extend::new_slice(ExtensionType::RenegotiationInfo, info.as_ref()),
+            Extension::SignedCertificateTimestamp => Extend::new_null(ExtensionType::SignedCertificateTimestamp),
+            Extension::SignatureAlgorithms(algorithms) => Extend::new_slice(ExtensionType::SignatureAlgorithms, algorithms.as_slice()),
+            Extension::PskKeyExchangeModes(modes) => Extend::new_slice(ExtensionType::PskKeyExchangeMode, modes.as_slice()),
+            Extension::SessionTicket(ticket) => Extend::new_slice(ExtensionType::SessionTicket, ticket.as_ref()),
+            Extension::EncryptedClientHello(encrypted_client_hello) => Extend::new_slice(ExtensionType::EncryptedClientHello, encrypted_client_hello.as_ref()),
+            #[cfg(feature = "quic")]
+            Extension::QuicTrpParameters(parameters) => Extend::new_slice(ExtensionType::QuicTrpParameters, parameters.as_slice()),
+            Extension::ExtendedMasterSecret => Extend::new_null(ExtensionType::ExtendMasterSecret),
+            Extension::EncryptTheMac => Extend::new_null(ExtensionType::EncryptTheMac),
+            Extension::Padding(size) => Extend { typ: ExtensionType::Padding, len: *size as u16, value: &StatusRequest::OCSP as *const StatusRequest as *const c_void },
+            Extension::Reserved { typ, value } => Extend::new_slice(*typ, value.as_ref()),
+        }
+    }
 }
 
 unsafe extern "C" {
@@ -163,16 +74,6 @@ unsafe extern "C" {
     fn Record_build(config: *mut RecordParam, typ: u8) -> c_int;
     #[allow(improper_ctypes)]
     fn Record_build_client_hello(config: *mut RecordParam, record_version: Version, client_hello: *const ClientHello) -> c_int;
-    // #[allow(improper_ctypes)]
-    // fn Record_build_custom(
-    //     config: *mut RecordParam,
-    //     record_version: Version,
-    //     suite_count: usize,
-    //     suites: *const u16,
-    //     message_version: Version,
-    //     ext_count: usize,
-    //     extensions: *const Extend,
-    // ) -> c_int;
 }
 
 #[cfg_attr(debug_assertions, derive(Debug))]
@@ -259,7 +160,7 @@ impl TlsFinger {
             TlsFinger::Custom { suites, extensions, message_version, record_version } => {
                 param.finger_type = 2;
                 let suites = suites.iter().map(|x| x.value()).collect::<Vec<_>>();
-                let extensions = extensions.iter().map(|x| x.build_extend()).collect::<Vec<_>>();
+                let extensions = extensions.iter().map(Extend::from_extension).collect::<Vec<_>>();
                 let client_hello = ClientHello {
                     len: 0,
                     version: *message_version,
@@ -480,7 +381,7 @@ impl TlsFinger {
 #[cfg(test)]
 mod tests {
     use crate::extend::ExtensionType;
-    use crate::finger::Extension;
+    use crate::finger::{Extension, RecordParam};
     use crate::*;
     use std::ptr::null;
 

@@ -298,11 +298,10 @@ pub use connection::Connection;
 pub use error::{HandShakeError, RlsError};
 pub use ext::{StreamHandle, StreamParam};
 pub use extend::{
-    EcPointFormats, EcPointFormat, CompressionMethod, KeyShare, PskMode, SupportVersions, Extension as E,
-    StatusRequest, SupportedGroups, SignatureAlgorithms, CompressCertificate, ALPS, Aead,
-    EncryptClientHello, ServerName, KeyEntry, ExtensionType,
+    EcPointFormat, CompressionMethod, PskMode, StatusRequest, CompressCertificate, Aead,
+    EncryptClientHello, ServerName, KeyEntry, ExtensionType, Extension,
 };
-pub use finger::*;
+pub use finger::TlsFinger;
 pub use hash::{HashType, Hasher, Hmac};
 pub use hex;
 pub use hkdf::Hkdf;
@@ -311,7 +310,7 @@ pub use key::{TlsSession, KeyType};
 pub use log::*;
 pub use message::{Alert, CertificateRequest, CertificateVerify, Certificates, ClientHello, Message,
                   ClientKeyExchange, MessageParsed, NamedCurve, ServerHello, ServerHelloDone,
-                  ServerKeyExchange, SessionTicket, TlsSessionTicket, HandshakeType};
+                  ServerKeyExchange, SessionTicket, HandshakeType};
 #[cfg(feature = "quic")]
 pub use message::{PacketType, QUICPacket, QUICFlag};
 pub use record::{RecordLayer, RecordType};
