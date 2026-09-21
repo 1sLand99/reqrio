@@ -5,7 +5,7 @@ mod reader;
 
 use crate::error::RlsResult;
 use crate::ffi::CPointer;
-use crate::{ffi, RlsError};
+use crate::ffi;
 pub use decode::TlsDecodeBuffer;
 pub use encode::CipherEncodeBuffer;
 pub use error::BufferError;
@@ -44,7 +44,6 @@ unsafe extern "C" {
     fn Writer_write_slice(buffer: *mut Writer, ptr: *const u8, len: usize) -> i32;
     fn Writer_write_slice_unchecked(buffer: *mut Writer, ptr: *const u8, len: usize);
     fn Writer_write_slice_in(buffer: *mut Writer, place: usize, ptr: *const u8, len: usize) -> i32;
-    fn Writer_flush(buffer: *mut Writer, len: usize, sni: *const c_char, h2: bool) -> i32;
     fn Writer_move_to(buffer: *mut Writer, from: usize, to: usize, pos: usize);
     pub fn is_subscription(token: *const c_char) -> bool;
 }
@@ -291,14 +290,6 @@ impl Writer {
         let res = unsafe { Writer_write_slice_in(self, place, v.as_ptr(), v.len()) };
         self.check_write(res, v.len())?;
         Ok(v.len())
-    }
-
-
-    pub fn flush(&mut self, offset: usize, sni: String, h2: bool) -> RlsResult<()> {
-        let csni = CString::new(sni)?;
-        let res = unsafe { Writer_flush(self, self.offset().end - offset, csni.as_ptr(), h2) };
-        if res != 1 { return Err(RlsError::Currently("buffer flush error".to_string())); }
-        Ok(())
     }
 
     pub fn check_subscription(token: impl AsRef<str>) -> RlsResult<i32> {

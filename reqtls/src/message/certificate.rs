@@ -195,7 +195,7 @@ impl<'a> Default for CertificateVerify<'a> {
     fn default() -> Self {
         CertificateVerify {
             handshake_type: HandshakeType::CertificateVerify,
-            sign_hash: SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),
+            sign_hash: SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
             sign: Buf::Ref(&[]),
         }
     }
