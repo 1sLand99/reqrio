@@ -22,7 +22,7 @@ fn test_log() {
 async fn main() {
     #[cfg(feature = "log")]
     test_log();
-    // Buffer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
+    Buffer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
 
     let t = Time::now();
     let mut timeout = Timeout::longer();

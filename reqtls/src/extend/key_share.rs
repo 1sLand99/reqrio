@@ -1,9 +1,7 @@
-use crate::buffer::Buf;
 use crate::NamedCurve;
 #[cfg(debug_assertions)]
 use std::fmt::{Debug, Formatter};
 use std::ptr::null;
-use std::slice;
 
 #[repr(C)]
 #[derive(Default, Clone)]
@@ -29,23 +27,6 @@ impl KeyEntry {
             key: null(),
         }
     }
-
-    pub fn group(&self) -> NamedCurve {
-        NamedCurve::new(self.group)
-    }
-
-    pub fn set_key(&mut self, key: Buf) {
-        self.key_len = key.len() as u16;
-        self.key = key.as_ptr();
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.key.is_null()
-    }
-
-    pub fn key(&self) -> Buf<'_> {
-        Buf::Ref(unsafe { slice::from_raw_parts(self.key, self.key_len as usize) })
-    }
 }
 
 #[cfg(debug_assertions)]
@@ -54,7 +35,7 @@ impl Debug for KeyEntry {
         let mut struct_debug = f.debug_struct("KeyEntry");
         struct_debug.field("group", &NamedCurve::new(self.group));
         struct_debug.field("key_len", &self.key_len);
-        struct_debug.field("key", &hex::encode(self.key()));
+        struct_debug.field("key", &self.key);
         struct_debug.finish()
     }
 }

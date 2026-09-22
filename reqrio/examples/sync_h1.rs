@@ -17,8 +17,6 @@ fn test_log() {
     set_max_level(LevelFilter::Trace);
 }
 
-const REVERSED: [u16; 15] = [0x0a0a, 0x1a1a, 0x2a2a, 0x3a3a, 0x4a4a, 0x5a5a, 0x6a6a, 0x7a7a, 0x8a8a, 0x9a9a, 0xaaaa, 0xbaba, 0xcaca, 0xeaea, 0xfafa];
-
 pub fn random_fingerprint(sni: &str) -> Result<Fingerprint, HlsError> {
     let group = REVERSED[rand::random::<usize>() % REVERSED.len()];
     let padding = 196 + (19 - sni.len() as i32);
@@ -107,7 +105,7 @@ fn main() {
     Writer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
     let fingerprint = random_fingerprint("www.baidu.com").unwrap();
     let mut req = ScReq::new()
-        .with_alpn(ALPN::HTTP20)
+        .with_alpn(ALPN::HTTP30)
         .with_verify(false)
         .with_timeout(Timeout::new_same(3000, 1))
         .with_key_log("2.log")
@@ -182,9 +180,9 @@ fn main() {
 
     // let res = req.get("https://www.baidu.com/", None).unwrap();
     // let res=req.get("https://h5.moutai519.com.cn",None).unwrap();
-    let res = req.get("https://m.sogou.com", None).unwrap();
+    // let res = req.get("https://m.sogou.com", None).unwrap();
     // let res = req.get("https://127.0.0.1:7878", None).unwrap();
-    // let res = req.get("https://www.bing.com", None).unwrap();
+    let res = req.get("https://www.bing.com", None).unwrap();
     // let session = req.tls_session().cloned();
     // println!("{:#?}", session);
     // req.set_tls_session(session);

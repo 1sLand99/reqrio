@@ -285,10 +285,13 @@ pub mod quic;
 mod gm_sm;
 
 pub use alpn::ALPN;
+#[cfg(feature = "cert_signer")]
 pub use boring::{
-    base64, certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner,
-    certificate::CertStore, certificate::CertType, certificate::Certificate, certificate::DnType,
-    certificate::KeyIdentifier, certificate::KeyUsage, certificate::SubjectAltName, cipher, hash,
+    certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner, certificate::DnType,
+    certificate::KeyIdentifier, certificate::KeyUsage, certificate::SubjectAltName,
+};
+pub use boring::{
+    base64, certificate::CertStore, certificate::CertType, certificate::Certificate, cipher, hash,
     hmac, AlgorithmSigner, Cipher, CipherType, Padding, RsaCipher, AeadCtx, AeadDir,
     RsaKey, RsaPadding, SignatureAlgorithm,
 };
@@ -318,6 +321,8 @@ pub use suite::{CipherSuite, KeyExchangeAlg};
 pub use url::{Addr, Param, Scheme, Uri, Url, UrlError};
 pub use version::Version;
 pub use gm_sm::*;
+
+pub type Buffer = Writer;
 
 
 pub const REVERSED: [u16; 16] = [0x0a0a, 0x1a1a, 0x2a2a, 0x3a3a, 0x4a4a, 0x5a5a, 0x6a6a, 0x7a7a, 0x8a8a, 0x9a9a, 0xaaaa, 0xbaba, 0xcaca, 0xdada, 0xeaea, 0xfafa];

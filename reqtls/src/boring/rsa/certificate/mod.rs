@@ -1,4 +1,5 @@
 mod store;
+#[cfg(feature = "cert_signer")]
 mod siger;
 mod cert_type;
 
@@ -10,6 +11,7 @@ use crate::error::RlsResult;
 use crate::ffi::CPointer;
 use crate::{BufferError, RlsError};
 pub use cert_type::CertType;
+#[cfg(feature = "cert_signer")]
 pub use siger::{BasicConstraint, CertExtend, CertSigner, DnType, KeyIdentifier, KeyUsage, SubjectAltName};
 use std::ffi::CString;
 use std::os::raw::{c_int, c_long};
@@ -33,7 +35,7 @@ impl Certificate {
         }
     }
 
-    pub(crate) fn is_none(&self) -> bool {
+    pub fn is_none(&self) -> bool {
         self.x509.is_null()
     }
 
