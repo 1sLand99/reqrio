@@ -548,7 +548,7 @@ impl CipherSuite {
         trans_iv_len: 0,
         mac_key_size: 0,
         block_size: 16,
-        spec: "",
+        spec: "TLS_EMPTY_RENEGOTIATION_INFO_SCSV",
         version: &Version::TLS_1_0,
     };
 

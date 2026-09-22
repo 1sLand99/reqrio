@@ -71,7 +71,7 @@ impl Extend {
 
 unsafe extern "C" {
     #[allow(improper_ctypes)]
-    fn Record_build(config: *mut RecordParam, typ: u8) -> c_int;
+    fn Record_build(config: *const RecordParam, typ: u8) -> c_int;
     #[allow(improper_ctypes)]
     fn Record_build_client_hello(config: *mut RecordParam, record_version: Version, client_hello: *const ClientHello) -> c_int;
 }
@@ -222,9 +222,9 @@ impl TlsFinger {
             if suites.contains(&suite) { continue; }
             suites.push(suite);
         }
-        let mut groups: Vec<NamedCurve> = vec![NamedCurve::X25519, NamedCurve::SecP256r1];
-        while groups.len() < 5 {
-            let group = NamedCurve::ALL[rand::random::<usize>() % 11];
+        let mut groups: Vec<NamedCurve> = vec![NamedCurve::X25519];
+        while groups.len() < 3 {
+            let group = NamedCurve::ALL[rand::random::<usize>() % 6];
             if groups.contains(&group) { continue; }
             groups.push(group);
         }

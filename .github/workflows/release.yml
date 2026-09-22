@@ -175,9 +175,9 @@ jobs:
             # windows-gnu: bds.cpp 的 std::filesystem / codecvt 符号只在静态
             # libstdc++.a 里、DLL 不导出，追加静态 stdc++（排在最后解析残留引用）
             export RUSTFLAGS="-Clink-arg=-Wl,-Bstatic -Clink-arg=-lstdc++ -Clink-arg=-Wl,-Bdynamic"
-            cargo build --package reqrio --release --features export,staticlink --target "${{ matrix.target.rust_target }}"
+            cargo build --package reqrio --release --features export,staticlink,quic --target "${{ matrix.target.rust_target }}"
           else
-            cargo build --package reqrio --release --features export,staticlink
+            cargo build --package reqrio --release --features export,staticlink,quic
           fi
 
       - name: Upload native lib
