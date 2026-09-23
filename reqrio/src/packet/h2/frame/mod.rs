@@ -1,9 +1,9 @@
 use crate::error::HlsResult;
 pub use flag::FrameFlag;
-use reqtls::{u24, BufferError, Reader, Writer};
+use reqtls::{u24, Buf, BufferError, Reader, Writer};
 pub use setting::H2Setting;
 use std::fmt::Debug;
-pub use typo::FrameType;
+pub use typo::H2FrameType;
 
 mod setting;
 mod typo;
@@ -17,9 +17,8 @@ enum EncodePayload<'a> {
 }
 
 
-#[derive(Debug)]
 pub struct H2EncodeFrame<'a> {
-    frame_type: FrameType,
+    frame_type: H2FrameType,
     frame_flag: FrameFlag,
     stream_identifier: &'a u32,
     stream_dependency: u32,
@@ -30,7 +29,7 @@ pub struct H2EncodeFrame<'a> {
 impl<'a> H2EncodeFrame<'a> {
     pub fn new_setting(settings: &'a Vec<H2Setting>) -> H2EncodeFrame<'a> {
         H2EncodeFrame {
-            frame_type: FrameType::Settings,
+            frame_type: H2FrameType::Settings,
             frame_flag: FrameFlag::default(),
             stream_identifier: &0,
             stream_dependency: 0,
@@ -41,7 +40,7 @@ impl<'a> H2EncodeFrame<'a> {
 
     pub fn new_window_update(window_size: &'a u32) -> H2EncodeFrame<'a> {
         H2EncodeFrame {
-            frame_type: FrameType::WindowUpdate,
+            frame_type: H2FrameType::WindowUpdate,
             frame_flag: FrameFlag::default(),
             stream_identifier: &0,
             stream_dependency: 0,
@@ -52,7 +51,7 @@ impl<'a> H2EncodeFrame<'a> {
 
     pub fn new_header(body_len: usize, sid: &'a u32) -> H2EncodeFrame<'a> {
         let mut res = H2EncodeFrame {
-            frame_type: FrameType::Headers,
+            frame_type: H2FrameType::Headers,
             frame_flag: FrameFlag::EndHeader,
             stream_identifier: sid,
             stream_dependency: 0,
@@ -87,7 +86,7 @@ impl<'a> H2EncodeFrame<'a> {
     pub fn write_to(self, writer: &mut Writer) -> Result<(), BufferError> {
         let len = self.len() as u24;
         writer.write_u24(len)?;
-        writer.write_u8(self.frame_type.to_u8())?;
+        writer.write_u8(self.frame_type.inner())?;
         writer.write_u8(self.frame_flag.as_u8())?;
         writer.write_u32(*self.stream_identifier)?;
         if self.frame_flag.priority() {
@@ -108,33 +107,32 @@ impl<'a> H2EncodeFrame<'a> {
 }
 
 
-#[derive(Debug)]
 pub struct H2Frame<'a> {
     len: u24,
-    frame_type: FrameType,
+    frame_type: H2FrameType,
     flag: FrameFlag,
     stream_identifier: u32,
     stream_dependency: u32,
     weight: u8,
-    payload: &'a [u8],
+    payload: Buf<'a>,
 }
 
 impl<'a> H2Frame<'a> {
     pub fn none_frame() -> H2Frame<'a> {
         H2Frame {
             len: 0,
-            frame_type: FrameType::Data,
+            frame_type: H2FrameType::Data,
             flag: FrameFlag::default(),
             stream_identifier: 0,
             stream_dependency: 0,
             weight: 0,
-            payload: &[],
+            payload: Buf::Ref(&[]),
         }
     }
 
     pub fn from_reader(mut reader: Reader<'a>) -> HlsResult<H2Frame<'a>> {
         let len = reader.read_u24()?;
-        let frame_type = FrameType::from_u8(reader.read_u8()?)?;
+        let frame_type = H2FrameType::new(reader.read_u8()?);
         let flag = FrameFlag::from_u8(reader.read_u8()?);
         let mut stream_identifier = reader.read_u32()?;
         stream_identifier &= !2147483648;
@@ -146,7 +144,7 @@ impl<'a> H2Frame<'a> {
             stream_identifier,
             stream_dependency: 0,
             weight: 0,
-            payload: &[],
+            payload: Buf::Ref(&[]),
         };
         let mut pd_len = frame.len as usize;
         let padding_len = if frame.flag.padding() { reader.read_u8()? as usize } else { 0 };
@@ -159,14 +157,14 @@ impl<'a> H2Frame<'a> {
             frame.weight = reader.read_u8()?;
             pd_len -= 5;
         }
-        frame.payload = reader.read_slice(pd_len)?;
+        frame.payload = Buf::Ref(reader.read_slice(pd_len)?);
         reader.read_slice(padding_len)?;
         Ok(frame)
     }
 
     pub fn to_bytes(mut self) -> Vec<u8> {
         let mut res = (if self.flag.priority() { self.payload.len() + 5 } else { self.payload.len() } as u32).to_be_bytes()[1..].to_vec();
-        res.push(self.frame_type.to_u8());
+        res.push(self.frame_type.inner());
         let mut dep_bs = vec![];
         if self.flag.priority() {
             self.stream_dependency |= 2147483648;
@@ -177,7 +175,7 @@ impl<'a> H2Frame<'a> {
         let stream_identifier = self.stream_identifier;
         res.extend(stream_identifier.to_be_bytes());
         res.extend(dep_bs);
-        res.extend(self.payload);
+        res.extend(self.payload.as_ref());
         res
     }
 
@@ -185,13 +183,13 @@ impl<'a> H2Frame<'a> {
         &self.flag
     }
 
-    pub fn frame_type(&self) -> &FrameType {
+    pub fn frame_type(&self) -> &H2FrameType {
         &self.frame_type
     }
 
-    pub fn payload(&self) -> &[u8] { self.payload }
+    pub fn payload(&self) -> &Buf<'_> { &self.payload }
 
-    pub fn set_payload(&mut self, payload: &'a [u8]) { self.payload = payload }
+    pub fn set_payload(&mut self, payload: &'a [u8]) { self.payload = Buf::Ref(payload); }
 
     pub fn is_empty(&self) -> bool { self.len == 0 }
 
@@ -203,7 +201,7 @@ impl<'a> H2Frame<'a> {
         self.stream_identifier
     }
 
-    pub fn set_frame_type(&mut self, frame_type: FrameType) {
+    pub fn set_frame_type(&mut self, frame_type: H2FrameType) {
         self.frame_type = frame_type;
     }
 
@@ -233,8 +231,7 @@ impl<'a> H2Frame<'a> {
     }
 
     pub fn is_end_frame(&self) -> bool {
-        self.flag.end_stream() &&
-            (self.frame_type == FrameType::Data || self.frame_type == FrameType::Headers)
+        self.flag.end_stream() && (self.frame_type == H2FrameType::Data || self.frame_type == H2FrameType::Headers)
     }
 }
 

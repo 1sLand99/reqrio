@@ -19,7 +19,7 @@ use reqtls::coder::CodingError;
 #[cfg(feature = "quic")]
 use reqtls::quic::QUICError;
 use crate::body::FormError;
-use crate::FrameType;
+use crate::H2FrameType;
 use crate::packet::HeaderError;
 use crate::time::TimeError;
 
@@ -32,7 +32,7 @@ pub enum HlsError {
     DecrypterNone,
     EncrypterNone,
     WsFrameTypeNone,
-    H2(FrameType),
+    H2(H2FrameType),
     UnsupportedAlpn(ALPN),
     Body(FormError),
     Rls(RlsError),
@@ -235,8 +235,8 @@ impl From<QUICError> for HlsError {
     }
 }
 
-impl From<FrameType> for HlsError {
-    fn from(value: FrameType) -> Self {
+impl From<H2FrameType> for HlsError {
+    fn from(value: H2FrameType) -> Self {
         HlsError::H2(value)
     }
 }
