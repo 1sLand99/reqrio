@@ -40,7 +40,7 @@ impl<'a> ReadExt for RawBodyReader<'a> {
 pub struct H2FrameHead<'a> {
     pd_len: u24,
     frame_type: H2FrameType,
-    frame_flag: FrameFlag,
+    frame_flag: H2FrameFlag,
     stream_identifier: &'a u32,
     weight: u8,
     wrote: bool,
@@ -48,9 +48,9 @@ pub struct H2FrameHead<'a> {
 
 impl<'a> H2FrameHead<'a> {
     pub fn new(sid: &'a u32, pd_len: usize, end_stream: bool) -> H2FrameHead<'a> {
-        let mut frame_flag = FrameFlag::from_u8(0);
+        let mut frame_flag = H2FrameFlag::from_u8(0);
         if end_stream {
-            frame_flag |= FrameFlag::EndStream;
+            frame_flag |= H2FrameFlag::EndStream;
         }
         H2FrameHead {
             pd_len: pd_len as u32,
@@ -77,7 +77,7 @@ impl<'a> ReadExt for H2FrameHead<'a> {
         if buf.unfilled_len() < 14 { return Ok(buf.offset().end - start); }
         buf.write_u24(self.pd_len)?;
         buf.write_u8(self.frame_type.inner())?;
-        buf.write_u8(self.frame_flag.as_u8())?;
+        buf.write_u8(self.frame_flag.inner())?;
         buf.write_u32(*self.stream_identifier)?;
         if self.frame_flag.priority() {
             buf.write_u8(self.weight)?;

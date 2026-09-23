@@ -3,7 +3,7 @@ use crate::pack::{HPackDecode, HPackEncode};
 use crate::packet::HeaderParam;
 use crate::reader::ReadExt;
 use crate::request::RequestBuffer;
-use crate::{Body, Fingerprint, FrameFlag, H2FrameType, H2Frame, H2Setting, Header, HeaderValue, Response};
+use crate::{Body, Fingerprint, H2FrameFlag, H2FrameType, H2Frame, H2Setting, Header, HeaderValue, Response};
 #[cfg(feature = "log")]
 use crate::{warn, trace};
 use reqtls::{u24, Writer, Reader};
@@ -162,7 +162,7 @@ trait H2Handle {
                 if frame.frame_type() == &H2FrameType::Settings && frame.flag().end_stream() {
                     let mut ack_frame = H2Frame::none_frame();
                     ack_frame.set_frame_type(H2FrameType::Settings);
-                    ack_frame.set_flag(FrameFlag::EndStream);
+                    ack_frame.set_flag(H2FrameFlag::EndStream);
                     param.write_buffer.write_slice(&ack_frame.to_bytes())?;
                 }
             }

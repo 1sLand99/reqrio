@@ -1,5 +1,5 @@
 use crate::error::HlsResult;
-pub use flag::FrameFlag;
+pub use flag::H2FrameFlag;
 use reqtls::{u24, Buf, BufferError, Reader, Writer};
 pub use setting::H2Setting;
 use std::fmt::Debug;
@@ -19,7 +19,7 @@ enum EncodePayload<'a> {
 
 pub struct H2EncodeFrame<'a> {
     frame_type: H2FrameType,
-    frame_flag: FrameFlag,
+    frame_flag: H2FrameFlag,
     stream_identifier: &'a u32,
     stream_dependency: u32,
     weight: u8,
@@ -30,7 +30,7 @@ impl<'a> H2EncodeFrame<'a> {
     pub fn new_setting(settings: &'a Vec<H2Setting>) -> H2EncodeFrame<'a> {
         H2EncodeFrame {
             frame_type: H2FrameType::Settings,
-            frame_flag: FrameFlag::default(),
+            frame_flag: H2FrameFlag::default(),
             stream_identifier: &0,
             stream_dependency: 0,
             weight: 0,
@@ -41,7 +41,7 @@ impl<'a> H2EncodeFrame<'a> {
     pub fn new_window_update(window_size: &'a u32) -> H2EncodeFrame<'a> {
         H2EncodeFrame {
             frame_type: H2FrameType::WindowUpdate,
-            frame_flag: FrameFlag::default(),
+            frame_flag: H2FrameFlag::default(),
             stream_identifier: &0,
             stream_dependency: 0,
             weight: 0,
@@ -52,13 +52,13 @@ impl<'a> H2EncodeFrame<'a> {
     pub fn new_header(body_len: usize, sid: &'a u32) -> H2EncodeFrame<'a> {
         let mut res = H2EncodeFrame {
             frame_type: H2FrameType::Headers,
-            frame_flag: FrameFlag::EndHeader,
+            frame_flag: H2FrameFlag::EndHeader,
             stream_identifier: sid,
             stream_dependency: 0,
             weight: 0,
             payload: EncodePayload::Data(&[]),
         };
-        if body_len == 0 { res.frame_flag |= FrameFlag::EndStream; }
+        if body_len == 0 { res.frame_flag |= H2FrameFlag::EndStream; }
         res
     }
 
@@ -80,14 +80,14 @@ impl<'a> H2EncodeFrame<'a> {
 
     pub fn set_priority(&mut self, weight: u8) {
         self.weight = weight;
-        self.frame_flag |= FrameFlag::Priority
+        self.frame_flag |= H2FrameFlag::Priority
     }
 
     pub fn write_to(self, writer: &mut Writer) -> Result<(), BufferError> {
         let len = self.len() as u24;
         writer.write_u24(len)?;
         writer.write_u8(self.frame_type.inner())?;
-        writer.write_u8(self.frame_flag.as_u8())?;
+        writer.write_u8(self.frame_flag.inner())?;
         writer.write_u32(*self.stream_identifier)?;
         if self.frame_flag.priority() {
             writer.write_u32(self.stream_dependency | 2147483648)?;
@@ -110,7 +110,7 @@ impl<'a> H2EncodeFrame<'a> {
 pub struct H2Frame<'a> {
     len: u24,
     frame_type: H2FrameType,
-    flag: FrameFlag,
+    flag: H2FrameFlag,
     stream_identifier: u32,
     stream_dependency: u32,
     weight: u8,
@@ -122,7 +122,7 @@ impl<'a> H2Frame<'a> {
         H2Frame {
             len: 0,
             frame_type: H2FrameType::Data,
-            flag: FrameFlag::default(),
+            flag: H2FrameFlag::default(),
             stream_identifier: 0,
             stream_dependency: 0,
             weight: 0,
@@ -133,7 +133,7 @@ impl<'a> H2Frame<'a> {
     pub fn from_reader(mut reader: Reader<'a>) -> HlsResult<H2Frame<'a>> {
         let len = reader.read_u24()?;
         let frame_type = H2FrameType::new(reader.read_u8()?);
-        let flag = FrameFlag::from_u8(reader.read_u8()?);
+        let flag = H2FrameFlag::from_u8(reader.read_u8()?);
         let mut stream_identifier = reader.read_u32()?;
         stream_identifier &= !2147483648;
         if reader.unread_len() < len as usize { return Err("byte not enough".into()); }
@@ -179,7 +179,7 @@ impl<'a> H2Frame<'a> {
         res
     }
 
-    pub fn flag(&self) -> &FrameFlag {
+    pub fn flag(&self) -> &H2FrameFlag {
         &self.flag
     }
 
@@ -205,7 +205,7 @@ impl<'a> H2Frame<'a> {
         self.frame_type = frame_type;
     }
 
-    pub fn set_flag(&mut self, flag: FrameFlag) {
+    pub fn set_flag(&mut self, flag: H2FrameFlag) {
         self.flag = flag;
     }
 
@@ -213,13 +213,13 @@ impl<'a> H2Frame<'a> {
         self.weight = weight;
     }
 
-    pub fn add_flag(&mut self, flag: FrameFlag) {
+    pub fn add_flag(&mut self, flag: H2FrameFlag) {
         self.flag |= flag;
     }
 
     pub fn set_priority(&mut self, weight: u8) {
         self.weight = weight;
-        self.add_flag(FrameFlag::Priority);
+        self.add_flag(H2FrameFlag::Priority);
     }
 
     pub fn set_stream_identifier(&mut self, stream_identifier: u32) {
