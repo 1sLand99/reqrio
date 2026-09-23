@@ -55,7 +55,7 @@ async fn main() {
         .with_auto_redirect(false)
         // .with_proxy(Proxy::Null)
         // .with_alpn(ALPN::Http20)
-        .with_header_json(headers).unwrap()
+        .with_header_json(headers)
         // .with_mtls(vec![], RsaKey::none(), Some(vec![cert]))
         .with_proxy(Proxy::try_from("http://180.117.50.133:3828").unwrap())
         // .with_mtls(certs, key)
@@ -97,7 +97,7 @@ async fn main() {
     // let res1 = req.get("https://docs.rs", None).await.unwrap();
     // let res1 = req.get("https://www.bing.com", None).await.unwrap();
     let res1 = req.get("https://202.89.233.101".sni("cn.bing.com"), None).await.unwrap();
-    println!("{}", res1.raw_string());
+    println!("{}", res1);
 
     // req.set_auto_redirect(false);
     // req.set_url("http://zwfw.hubei.gov.cn/web/user/uias_login.do?appCode=hbzwfw&gotoUrl=http%3A%2F%2Fzwfw.hubei.gov.cn%2Fwebview%2Fgrkj%2Fwelcome.html&p01=").await.unwrap();

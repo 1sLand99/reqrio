@@ -30,7 +30,7 @@ impl M3u8DownEngine {
             "accept-encoding": "gzip, deflate, br, zstd",
             "accept-language": "en,zh-CN;q=0.9,zh;q=0.8,en-US;q=0.7",
             "priority": "u=1, i"
-        }).unwrap();
+        });
         M3u8DownEngine {
             req,
             index_url: index.to_string(),

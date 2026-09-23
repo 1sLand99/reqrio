@@ -156,7 +156,7 @@ mod tests {
             .with_boundary(Arc::new("----WebKitFormBoundary1234567812345678".to_string()));
         let mut reader = file.as_reader().unwrap();
         let mut res = [0; 1024];
-        let mut writer = Writer::from_ptr(res.as_mut());
+        let mut writer = Writer::from_ptr(res.as_mut_ptr(), res.len());
         let len = reader.read(&mut writer).unwrap();
         let raw = vec![
             "------WebKitFormBoundary1234567812345678",

@@ -38,12 +38,12 @@ mod tests {
     use crate::pack::QPackEncode;
     use crate::packet::HeaderParam;
     use crate::reader::ReadExt;
-    use crate::{json, ContentType, Header};
+    use crate::{json, ContentType, Header, Method};
     use reqtls::Writer;
 
     #[test]
     fn test_h3_reader() {
-        let mut header = Header::new_req_h2();
+        let mut header = Header::new_req_h3();
         header.set_by_json(json::object! {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
             "Accept": "*/*",
@@ -59,10 +59,11 @@ mod tests {
             "Accept-Encoding": "gzip,deflate,br,zstd",
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-        }).unwrap();
+        });
         let url = "https://img-s-msn-com.akamaized.net".try_into().unwrap();
         let mut encoder = QPackEncode::new(4096);
         let mut reader = header.as_h3_reader(HeaderParam {
+            method: &Method::GET,
             url: &url,
             qpack_encoder: Some(&mut encoder),
             q_sid: &0,

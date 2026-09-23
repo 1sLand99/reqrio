@@ -78,7 +78,7 @@ impl DeflateStream {
     pub fn decompress_once<'a>(&mut self, reader: &mut Reader<'a>, out: &mut Vec<u8>, mut flush: bool) -> Result<usize, CodingError> {
         let mut wrote = 0;
         loop {
-            let mut writer = Writer::from_ptr(out);
+            let mut writer = Writer::from_ptr(out.as_mut_ptr(), out.len());
             writer.add_len(wrote);
             let res = if reader.unread_len() == 0 {
                 flush = true;
@@ -163,7 +163,7 @@ impl StreamEncode for DeflateStream {
     }
 
     fn finalize(&mut self, out: &mut [u8]) -> Result<usize, CodingError> {
-        let mut writer = Writer::from_ptr(out);
+        let mut writer = Writer::from_ptr(out.as_mut_ptr(), out.len());
         self.flush(&mut writer)?;
         Ok(writer.len())
     }
@@ -201,13 +201,13 @@ mod zlib_ng_tests {
         let compressed = [31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 109, 137, 177, 13, 0, 32, 12, 195, 206, 226, 161, 16, 85, 45, 19, 129, 129, 239, 169, 212, 181, 150, 23, 203, 2, 5, 198, 106, 112, 213, 51, 33, 104, 21, 233, 59, 227, 186, 246, 252, 93, 161, 13, 5, 58, 0, 0, 0];
         let mut decoder = DeflateStream::new_decompress(DeflateStream::GZIP).unwrap();
         let mut out = vec![0; 1];
-        let mut writer = Writer::from_ptr(out.as_mut());
+        let mut writer = Writer::from_ptr(out.as_mut_ptr(), out.len());
         let mut reader = Reader::from_slice(&compressed);
         let res = decoder.decompress(&mut reader, &mut writer);
         assert!(res.is_err());
         out.resize(1024, 0);
         let wrote = writer.filled().len();
-        let mut writer = Writer::from_ptr(out.as_mut());
+        let mut writer = Writer::from_ptr(out.as_mut_ptr(), out.len());
         writer.add_len(wrote);
         decoder.flush(&mut writer).unwrap();
         assert_eq!(writer.filled(), b"sdfsdfklllllllllllllllllllljsdfsdfkhsdkfhsdfsdfsdfyt7ujsre");

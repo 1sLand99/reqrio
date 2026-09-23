@@ -142,7 +142,7 @@ trait H2Handle {
             }
             FrameType::Headers => {
                 let resp = responses.get_mut(&sid).ok_or("resp not inited")?;
-                param.decoder.decode_into(frame.payload(), resp.header_mut())?;
+                param.decoder.decode_into(frame.payload(), resp)?;
                 if let Some(size) = resp.header().get("update-table-size") && let HeaderValue::Number(size) = size {
                     param.encoder.update_table_size(*size);
                     param.decoder.update_table_size(*size);

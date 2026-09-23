@@ -105,14 +105,14 @@ pub trait ReqExt: Sized {
         *header = headers;
     }
 
-    fn set_headers_json(&mut self, headers: JsonValue) -> HlsResult<()> {
+    fn set_headers_json(&mut self, headers: JsonValue) {
         let header = ReqExt::header_mut(self);
         header.set_by_json(headers)
     }
 
-    fn with_header_json(mut self, data: JsonValue) -> HlsResult<Self> {
-        self.set_headers_json(data)?;
-        Ok(self)
+    fn with_header_json(mut self, data: JsonValue) -> Self {
+        self.set_headers_json(data);
+        self
     }
 
     fn with_header(mut self, header: Header) -> Self {
@@ -120,7 +120,7 @@ pub trait ReqExt: Sized {
         self
     }
 
-    fn insert_header(&mut self, k: impl AsRef<str>, v: impl ToString) -> HlsResult<()> {
+    fn insert_header(&mut self, k: impl AsRef<str>, v: impl Into<HeaderValue>) {
         ReqExt::header_mut(self).insert(k, v)
     }
 
@@ -130,12 +130,12 @@ pub trait ReqExt: Sized {
 
 
     ///设置请求头，keep_sort为true时请求头内务必包含必要参数（如：Host, Content-Length等）
-    fn with_headers_keys(mut self, headers: Vec<HeaderKey>, keep_sort: bool) -> HlsResult<Self> {
+    fn with_headers_keys(mut self, headers: Vec<HeaderItem>, keep_sort: bool) -> HlsResult<Self> {
         self.set_header_keys(headers, keep_sort)?;
         Ok(self)
     }
 
-    fn set_header_keys(&mut self, headers: Vec<HeaderKey>, keep_sort: bool) -> HlsResult<()>;
+    fn set_header_keys(&mut self, headers: Vec<HeaderItem>, keep_sort: bool) -> HlsResult<()>;
 }
 
 pub(crate) trait ReqPriExt: ReqExt {
@@ -157,7 +157,7 @@ pub(crate) trait ReqPriExt: ReqExt {
     }
 
     fn check_status(&self, uri: &Url, response: &Response) -> HlsResult<()> {
-        let status = response.header().status();
+        let status = response.status();
         match status.code() {
             400..600 => Err(format!("网络请求错误-{}({})", status, uri).into()),
             _ => Ok(())
@@ -180,7 +180,7 @@ pub trait ReqStreamExt: ReqExt {
     fn http_stream_mut(&mut self) -> &mut HTTPStream;
     fn read_to_vec<T: ReadExt>(mut reader: T) -> HlsResult<Vec<u8>> {
         let mut res = vec![0; reader.len()];
-        let mut buffer = Writer::from_ptr(&mut res);
+        let mut buffer = Writer::from_ptr(res.as_mut_ptr(), res.len());
         loop {
             reader.read(&mut buffer)?;
             if reader.wrote() { break; }
@@ -194,6 +194,7 @@ pub trait ReqStreamExt: ReqExt {
     fn h1_raw_string(&mut self, url: &Url, body: &Body<'_>) -> HlsResult<String> {
         let body_raw = body.to_vec()?;
         let header_reader = self.header().as_reader(HeaderParam {
+            method: &Method::GET,
             url,
             h_sid: &0,
             hpack_encoder: None,

@@ -135,7 +135,7 @@ impl<'a> H3Frame<'a> {
 
     pub fn encode(&self, offset: usize) -> Result<Vec<u8>, BufferError> {
         let mut res = vec![0; 100];
-        let mut writer = Writer::from_ptr(res.as_mut_slice());
+        let mut writer = Writer::from_ptr(res.as_mut_ptr(), res.len());
         if offset == 0 { writer.write_u8(0)?; }
         self.write_to(&mut writer)?;
         res.truncate(writer.len());

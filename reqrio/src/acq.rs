@@ -102,9 +102,9 @@ impl AcReq {
 
     pub async fn send<'a>(&mut self, method: Method, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<u64> {
         let url = url.into().build()?;
-        self.header.set_method(method);
         self.set_url(url.as_ref()).await?;
         let sid = self.stream.send_async(&self.header, &body.into(), HeaderParam {
+            method: &method,
             url: url.as_ref(),
             hpack_encoder: None,
             h_sid: &0,
@@ -133,7 +133,7 @@ impl AcReq {
         let mut redirect_times = 0;
         while redirect_times < self.redirect_times {
             let resp = self.recv(sid).await?;
-            let code = resp.header().status().code();
+            let code = resp.status().code();
             if self.auto_redirect && (300..400).contains(&code) {
                 let location = resp.header().location().ok_or("missing location")?;
                 let location = match location.starts_with("http") {
@@ -359,7 +359,7 @@ impl ReqExt for AcReq {
         self.fingerprint = fingerprint;
     }
 
-    fn set_header_keys(&mut self, headers: Vec<HeaderKey>, keep_sort: bool) -> HlsResult<()> {
+    fn set_header_keys(&mut self, headers: Vec<HeaderItem>, keep_sort: bool) -> HlsResult<()> {
         self.header.set_by_keys(headers, keep_sort)?;
         self.ignore_order = keep_sort;
         Ok(())

@@ -201,7 +201,7 @@ impl Read for ProxyStream<std::net::TcpStream> {
                     }.wait()?;
                     if self.resp.extend_buffer(&mut self.buffer)? { break; }
                 }
-                let status = self.resp.header().status().code();
+                let status = self.resp.status().code();
                 if status != 200 { return Err(io::Error::other(format!("connect http proxy error-{}", status))); }
             } else {
                 BufReading {
@@ -259,7 +259,7 @@ impl AsyncRead for ProxyStream<tokio::net::TcpStream> {
                         Poll::Pending => return Poll::Pending,
                     }
                 }
-                let status = stream.resp.header().status();
+                let status = stream.resp.status();
                 if status.code() != 200 { return Poll::Ready(Err(io::Error::other(format!("connect http proxy fail-{:?}", status)))); }
             } else {
                 let mut reader = BufReading {

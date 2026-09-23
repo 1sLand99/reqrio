@@ -188,14 +188,14 @@ mod brotli_test {
     fn test_brotli_decoder() {
         let mut decode = BrotliDecoder::new().unwrap();
         let mut out = vec![0; 1];
-        let mut decompressed = Writer::from_ptr(out.as_mut());
+        let mut decompressed = Writer::from_ptr(out.as_mut_ptr(), out.len());
         let compressed = [27, 59, 0, 248, 197, 109, 108, 188, 35, 42, 217, 147, 70, 37, 10, 74, 145, 67, 2, 167, 136, 88, 56, 154, 148, 111, 44, 175, 176, 152, 63, 84, 220, 226, 158, 42, 46, 44, 40, 152, 60, 14];
         let mut reader = Reader::from_slice(&compressed);
         let res = decode.decompress(&mut reader, &mut decompressed);
         assert!(res.is_err());
         out.resize(1024, 0);
         let wrote = decompressed.filled().len();
-        let mut decompressed = Writer::from_ptr(out.as_mut());
+        let mut decompressed = Writer::from_ptr(out.as_mut_ptr(), out.len());
         decompressed.add_len(wrote);
         decode.flush(&mut decompressed).unwrap();
         // decode.decompress(&mut reader, &mut decompressed).unwrap();

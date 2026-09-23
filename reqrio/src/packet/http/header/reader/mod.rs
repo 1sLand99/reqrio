@@ -8,13 +8,15 @@ use crate::pack::HPackEncode;
 #[cfg(feature = "quic")]
 use crate::pack::QPackEncode;
 use crate::reader::ReadExt;
+use crate::Method;
 pub(super) use h1::H1HeaderReader;
 pub(super) use h2::H2HeaderReader;
 #[cfg(feature = "quic")]
 pub(super) use h3::H3HeaderReader;
-use reqtls::{Writer, Url};
+use reqtls::{Url, Writer};
 
 pub struct HeaderParam<'a> {
+    pub(crate) method: &'a Method,
     pub(crate) url: &'a Url,
     pub(crate) h_sid: &'a u32,
     pub(crate) hpack_encoder: Option<&'a mut HPackEncode>,

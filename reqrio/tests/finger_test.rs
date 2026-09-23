@@ -10,7 +10,7 @@ fn test_ja3() {
     let fingerprint = Fingerprint::from_ja3(JA3, TOKEN.as_str()).unwrap();
     let mut req = ScReq::new().with_fingerprint(fingerprint);
     let resp = req.get("https://m.so.com", None).unwrap();
-    assert_eq!(resp.header().status(), HttpStatus::OK)
+    assert_eq!(resp.status(), HttpStatus::OK)
 }
 
 #[cfg(feature = "aync")]
@@ -19,7 +19,7 @@ async fn test_ja3_async() {
     let fingerprint = Fingerprint::from_ja3(JA3, TOKEN.as_str()).unwrap();
     let mut req = AcReq::new().with_fingerprint(fingerprint);
     let resp = req.get("https://m.so.com", None).await.unwrap();
-    assert_eq!(resp.header().status(), HttpStatus::OK)
+    assert_eq!(resp.status(), HttpStatus::OK)
 }
 
 
@@ -28,7 +28,7 @@ fn test_ja4() {
     let fingerprint = Fingerprint::from_ja4(JA4, TOKEN.as_str()).unwrap();
     let mut req = ScReq::new().with_fingerprint(fingerprint);
     let resp = req.get("https://m.so.com", None).unwrap();
-    assert_eq!(resp.header().status(), HttpStatus::OK)
+    assert_eq!(resp.status(), HttpStatus::OK)
 }
 
 #[cfg(feature = "aync")]
@@ -37,7 +37,7 @@ async fn test_ja4_async() {
     let fingerprint = Fingerprint::from_ja4(JA4, TOKEN.as_str()).unwrap();
     let mut req = AcReq::new().with_fingerprint(fingerprint);
     let resp = req.get("https://m.so.com", None).await.unwrap();
-    assert_eq!(resp.header().status(), HttpStatus::OK)
+    assert_eq!(resp.status(), HttpStatus::OK)
 }
 
 fn build_min_finger() -> Fingerprint {
@@ -63,7 +63,7 @@ fn build_min_finger() -> Fingerprint {
 fn test_custom() {
     let mut req = ScReq::new().with_fingerprint(build_min_finger());
     let resp = req.get("https://m.so.com", None).unwrap();
-    assert_eq!(resp.header().status(), HttpStatus::OK)
+    assert_eq!(resp.status(), HttpStatus::OK)
 }
 
 #[cfg(feature = "aync")]
@@ -71,7 +71,7 @@ fn test_custom() {
 async fn test_custom_async() {
     let mut req = AcReq::new().with_fingerprint(build_min_finger());
     let resp = req.get("https://m.so.com", None).await.unwrap();
-    assert_eq!(resp.header().status(), HttpStatus::OK)
+    assert_eq!(resp.status(), HttpStatus::OK)
 }
 
 #[test]
@@ -79,7 +79,7 @@ fn test_random() {
     let fingerprint = Fingerprint::random(TOKEN.as_str());
     let mut req = ScReq::new().with_fingerprint(fingerprint);
     let resp = req.get("https://m.so.com", None).unwrap();
-    assert_eq!(resp.header().status(), HttpStatus::OK)
+    assert_eq!(resp.status(), HttpStatus::OK)
 }
 
 #[cfg(feature = "aync")]
@@ -88,5 +88,5 @@ async fn test_random_async() {
     let fingerprint = Fingerprint::random(TOKEN.as_str());
     let mut req = ScReq::new().with_fingerprint(fingerprint);
     let resp = req.get("https://m.so.com", None).unwrap();
-    assert_eq!(resp.header().status(), HttpStatus::OK)
+    assert_eq!(resp.status(), HttpStatus::OK)
 }

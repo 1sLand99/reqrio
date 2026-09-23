@@ -218,7 +218,7 @@ trait H3Handle {
                     H3Frame::PriorityUpdate { .. } => {}
                     H3Frame::Headers(hdr) => {
                         let Some(response) = recv.responses.get_mut(sid) else { continue };
-                        let read_size = match recv.decoder.decode_into(hdr.as_ref(), response.header_mut(), QPackType::Stream, sid) {
+                        let read_size = match recv.decoder.decode_into(hdr.as_ref(), response, QPackType::Stream, sid) {
                             Ok(size) => size,
                             Err(HlsError::HPack(PackError::BlockedStream(_))) => break,
                             Err(e) => return Err(e)

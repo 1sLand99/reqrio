@@ -9,7 +9,7 @@ pub extern "system" fn ws_open(url: *const c_char, hdr: *const c_char) -> *mut W
     || -> HlsResult<*mut WebSocket>{
         let header = json::from_bytes(unsafe { CStr::from_ptr(hdr).to_bytes() })?;
         let url = unsafe { CStr::from_ptr(url).to_str()? };
-        let mut req = ScReq::new().with_header_json(header)?;
+        let mut req = ScReq::new().with_header_json(header);
         let resp = req.get(url, None)?;
         let ws = WebSocket::new(resp, req.into_stream()?)?;
         Ok(Box::into_raw(Box::new(ws)))

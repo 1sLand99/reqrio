@@ -134,7 +134,7 @@ impl<'a> ReadExt for H2BodyReader<'a> {
             if buf.unfilled_len() < frame.pd_len as usize { return Ok(buf.offset().end - start); }
             let want = frame.pd_len as usize - self.frame_wrote;
             let end = if buf.unfilled().len() < want { buf.unfilled_len() } else { want };
-            let mut render = Writer::from_ptr(&mut buf.unfilled()[..end]);
+            let mut render = Writer::from_ptr(buf.unfilled_ptr(), end);
             let len = self.body.read(&mut render)?;
             buf.add_len(len);
             assert_eq!(len, want);
@@ -193,8 +193,7 @@ impl<'a> ReadExt for H3BodyReader<'a> {
                 self.wrote_hdr = true
             }
             let size = min(self.frame_size - self.pos, buf.unfilled_len());
-            let unfilled = &mut buf.unfilled()[..size];
-            let mut reader = Writer::from_ptr(unfilled);
+            let mut reader = Writer::from_ptr(buf.unfilled_ptr(), size);
             self.pos += self.body.read(&mut reader)?;
             buf.add_len(reader.len());
             if self.pos == self.frame_size || self.body.wrote() {
@@ -228,7 +227,7 @@ mod tests {
         let body = data.form();
         let mut body_reader = body.as_reader().unwrap();
         let mut res = vec![0; 1024];
-        let mut writer = Writer::from_ptr(res.as_mut());
+        let mut writer = Writer::from_ptr(res.as_mut_ptr(), res.len());
         let len = body_reader.read(&mut writer).unwrap();
         assert_eq!(&res[..len], b"a=1&b=%E6%94%B6%E5%88%B0%E5%8F%8D%E9%A6%88&v=%7B%22k%22%3A1%2C%22b%22%3Atrue%7D");
         let body = Body::from(data);

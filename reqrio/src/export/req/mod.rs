@@ -50,7 +50,7 @@ pub extern "system" fn ScReq_set_header_json(req: *mut ScReq, header: *const c_c
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let header = unsafe { CStr::from_ptr(header) }.to_bytes();
         let header = json::from_bytes(header)?;
-        req.set_headers_json(header)?;
+        req.set_headers_json(header);
         Ok(null_mut())
     }, handle_err2)
 }
@@ -62,8 +62,8 @@ pub extern "system" fn ScReq_add_header(req: *mut ScReq, key: *const c_char, val
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let name = unsafe { CStr::from_ptr(key) }.to_str()?;
         let value = unsafe { CStr::from_ptr(value) }.to_str()?;
-        let key = HeaderKey::new(name, value).with_reserved(reversed);
-        ReqExt::header_mut(req).add_key(key);
+        let key = HeaderItem::new(name, value).with_reserved(reversed);
+        ReqExt::header_mut(req).add_item(key);
         Ok(null_mut())
     }, handle_err2)
 }
@@ -164,7 +164,7 @@ pub extern "system" fn ScReq_set_cookie(req: *mut ScReq, cookie: *const c_char) 
     check_run(move || {
         let req = unsafe { req.as_mut().ok_or(HlsError::NullPointer) }?;
         let cookie = unsafe { CStr::from_ptr(cookie) }.to_str()?;
-        ReqExt::header_mut(req).set_cookie(cookie)?;
+        ReqExt::header_mut(req).set_cookie(cookie);
         Ok(null_mut())
     }, handle_err2)
 }

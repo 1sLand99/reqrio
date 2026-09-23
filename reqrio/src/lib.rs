@@ -148,7 +148,7 @@
 //!
 //! let mut session = ScReq::new()
 //!     .with_alpn(ALPN::HTTP20)                    // Use HTTP/2.0 for modern sites
-//!     .with_header_json(headers)?                 // Set browser-compatible headers
+//!     .with_header_json(headers)                 // Set browser-compatible headers
 //!     .with_timeout(Timeout::new_same(5000, 3)); // 5s timeout with 3 retries
 //!
 //! // Configure TLS fingerprint (if subscription available)
@@ -294,7 +294,7 @@ pub use ext::{ReqExt, ReqStreamExt, UrlExt};
 pub use fingerprint::{Fingerprint, H2Finger};
 pub use packet::{
     Application, ContentType, Cookie, Font, FrameFlag, FrameType, H2Frame, H2Setting, Header,
-    HeaderKey, HeaderValue, HttpStatus, Method, Response, Text, WsFrame, WsOpcode,
+    HeaderItem, HeaderValue, HttpStatus, Method, Response, Text, WsFrame, WsOpcode,
 };
 pub use reqrio_json as json;
 pub use reqtls::*;

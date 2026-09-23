@@ -10,7 +10,7 @@ fn test_quic() {
     Buffer::check_subscription(TOKEN.as_str()).unwrap();
     let mut req = ScReq::new().with_alpn(ALPN::HTTP30);
     let resp = req.get("https://www.bing.com", None).unwrap();
-    assert_eq!(resp.header().status(), HttpStatus::OK)
+    assert_eq!(resp.status(), HttpStatus::OK)
 }
 
 #[cfg(feature = "aync")]
@@ -19,5 +19,5 @@ async fn test_quic_async() {
     Buffer::check_subscription(TOKEN.as_str()).unwrap();
     let mut req = AcReq::new().with_alpn(ALPN::HTTP30);
     let resp = req.get("https://www.bing.com", None).await.unwrap();
-    assert_eq!(resp.header().status(), HttpStatus::OK)
+    assert_eq!(resp.status(), HttpStatus::OK)
 }

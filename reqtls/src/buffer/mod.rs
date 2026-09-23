@@ -106,8 +106,8 @@ impl Writer {
         unsafe { Writer_reset_offset(self, offset.start, offset.end) };
     }
 
-    pub fn from_ptr(buf: &mut [u8]) -> Self {
-        Writer::new(buf.as_mut_ptr(), buf.len())
+    pub fn from_ptr(buf: *mut u8, len: usize) -> Self {
+        Writer::new(buf, len)
     }
 
     pub fn filled_ptr(&self) -> *const u8 {
@@ -501,7 +501,7 @@ mod test_buffer {
 
 
         let mut data = vec![0u8; 1024];
-        let mut buffer = Writer::from_ptr(data.as_mut_slice());
+        let mut buffer = Writer::from_ptr(data.as_mut_ptr(), data.len());
         buffer.write_slice(&[1, 2, 3, 4, 5]).unwrap();
         assert_eq!(buffer.filled(), [1, 2, 3, 4, 5]);
     }

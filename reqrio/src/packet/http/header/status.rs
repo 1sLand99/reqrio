@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display};
 
-#[derive(Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct HttpStatus(u16);
 
 
@@ -37,11 +37,11 @@ impl HttpStatus {
 }
 
 impl HttpStatus {
-    pub fn new(code: u16) -> HttpStatus { HttpStatus(code) }
+    pub const fn new(code: u16) -> HttpStatus { HttpStatus(code) }
 
-    pub fn code(&self) -> u16 { self.0 }
+    pub const fn code(&self) -> u16 { self.0 }
 
-    pub fn spec(&self) -> &'static str {
+    pub const fn spec(&self) -> &'static str {
         match self.0 {
             0 => "None",
             100 => "Continue",
@@ -81,13 +81,19 @@ impl PartialEq<HttpStatus> for &HttpStatus {
     }
 }
 
+impl PartialEq<u16> for HttpStatus {
+    fn eq(&self, other: &u16) -> bool {
+        self.0 == *other
+    }
+}
+
 impl Display for HttpStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}({})", self.spec(), self.code())
     }
 }
 
-impl Debug for HttpStatus{
+impl Debug for HttpStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}({})", self.spec(), self.code())
     }

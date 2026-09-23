@@ -16,7 +16,7 @@ fn compare_reqrio_multiple_requests() {
         let res = req.get(url, None).expect("reqrio get");
         let elapsed = start.elapsed();
 
-        let status = res.header().status().code();
+        let status = res.status().code();
         let bytes = res.as_bytes();
         body_length = bytes.len();
 

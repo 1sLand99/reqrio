@@ -137,14 +137,14 @@ mod zstd_tests {
         let compressed = [40, 181, 47, 253, 32, 37, 41, 1, 0, 115, 100, 102, 104, 115, 100, 102, 115, 100, 103, 103, 106, 121, 117, 116, 101, 114, 100, 102, 116, 116, 104, 102, 103, 98, 104, 106, 104, 104, 103, 115, 100, 102, 103, 100, 103, 102];
         let mut decoder = ZstdDecoder::new().unwrap();
         let mut out = vec![0; 1];
-        let mut writer = Writer::from_ptr(out.as_mut());
+        let mut writer = Writer::from_ptr(out.as_mut_ptr(), out.len());
         let mut reader = Reader::from_slice(&compressed);
         let res = decoder.decompress(&mut reader, &mut writer);
         assert!(res.is_err());
 
         out.resize(1024, 0);
         let wrote = writer.filled().len();
-        let mut writer = Writer::from_ptr(out.as_mut());
+        let mut writer = Writer::from_ptr(out.as_mut_ptr(), out.len());
         writer.add_len(wrote);
         decoder.flush(&mut writer).unwrap();
         assert_eq!(writer.filled(), b"sdfhsdfsdggjyuterdftthfgbhjhhgsdfgdgf");
