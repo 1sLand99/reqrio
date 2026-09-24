@@ -105,7 +105,7 @@ jobs:
           sed -i -E 's/^version = "[^"]*"/version = "'"$NEW"'"/' reqtls/Cargo.toml
 
           # Rust: 工作区对 reqtls 的依赖引用
-          sed -i -E 's/(reqtls = \{ path = "reqtls", version = ")[^"]*(")/\1'"$NEW"'\2/' Cargo.toml
+          sed -i -E 's/(reqtls = \{ path = "reqtls", version = ")[^"]*(")/\1='"$NEW"'\2/' Cargo.toml
 
       - name: Commit to temp release branch
         env:
