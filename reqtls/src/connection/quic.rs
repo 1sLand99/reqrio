@@ -184,7 +184,7 @@ mod tests {
         let mut reader = Reader::from_slice(&rb.unfilled()[..len]);
         while reader.unread_len() > 0 {
             let frame = QUICFrame::from_reader(&mut reader).unwrap();
-            if let QUICFrame::Crypto { offset, value, buf_pos } = frame {
+            if let QUICFrame::Crypto { offset, buf_pos, .. } = frame {
                 // println!("write: offset={}; len={}; next_offset: {}", offset, value.len(), offset + value.len());
                 queues.push((offset, bid, buf_pos))
             }

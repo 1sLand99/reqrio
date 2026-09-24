@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 use crate::error::HlsError;
 
+#[repr(C)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum Method {
     GET = 0,
