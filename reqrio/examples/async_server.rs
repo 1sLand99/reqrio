@@ -1,5 +1,4 @@
-use reqrio::{set_logger, set_max_level, LevelFilter, Logger, TlsStream};
-use reqtls::{Certificate, RsaKey, ServerConfig, ALPN};
+use reqrio::*;
 use std::fs;
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -22,6 +21,7 @@ fn test_log() {
 
 #[tokio::main]
 async fn main() {
+    #[cfg(feature = "log")]
     test_log();
     let listen = TcpListener::bind("0.0.0.0:7878").unwrap();
     let cert = fs::read(r"C:\Users\XLX\Desktop\xnm\1\server.crt").unwrap();
@@ -32,7 +32,7 @@ async fn main() {
         let (stream, addr) = listen.accept().unwrap();
         println!("Accepted connection from {}", addr);
         let tls_stream = TlsStream::accept(stream, ServerConfig {
-            alpn: &ALPN::Http11,
+            alpn: &ALPN::HTTP11,
             ca: &mut Certificate::none(),
             server_cert: &mut certificates,
             cert_key: &pri_key,
@@ -40,19 +40,18 @@ async fn main() {
             ca_certs: &vec![],
             key_log: None,
         }).wait();
-        if let Ok(mut tls_stream) = tls_stream {
-            tokio::spawn(async move {
-                let mut buffer = [0; 1024];
-                loop {
-                    let len = tls_stream.read(&mut buffer).unwrap();
-                    if len == 0 { break; }
-                    println!("{}", String::from_utf8_lossy(&buffer[..len]));
-                    if buffer.starts_with(b"GET") || buffer.starts_with(b"POST") {
-                        tls_stream.write_all("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok".as_bytes()).unwrap();
+        tokio::spawn(async move {
+            let mut tls_stream = tls_stream.unwrap();
+            let mut buffer = [0; 1024];
+            loop {
+                let len = tls_stream.read(&mut buffer).unwrap();
+                if len == 0 { break; }
+                println!("{}", String::from_utf8_lossy(&buffer[..len]));
+                if buffer.starts_with(b"GET") || buffer.starts_with(b"POST") {
+                    tls_stream.write_all("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok".as_bytes()).unwrap();
 
-                    }
                 }
-            });
-        }
+            }
+        });
     }
 }

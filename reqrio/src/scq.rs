@@ -27,6 +27,7 @@ pub struct ScReq {
     pub(crate) ignore_order: bool,
     responses: HashMap<u64, Response>,
     recv_ids: HashSet<u64>,
+    version: Version,
 }
 
 impl Default for ScReq {
@@ -43,13 +44,14 @@ impl Default for ScReq {
             certs: vec![],
             key: RsaKey::none(),
             ca_certs: vec![],
-            alpn: ALPN::Http20,
+            alpn: ALPN::HTTP20,
             key_log: None,
             url: Url::default(),
             tls_session: None,
             ignore_order: false,
             responses: HashMap::with_capacity(100),
             recv_ids: HashSet::new(),
+            version: Version::TLS_1_3,
         }
     }
 }
@@ -99,9 +101,9 @@ impl ScReq {
     /// 发送一个请求
     pub fn send<'a>(&mut self, method: Method, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<u64> {
         let url = url.into().build()?;
-        self.header.set_method(method);
         self.set_url(url.as_ref())?;
         let sid = self.stream.send_sync(&self.header, &body.into(), HeaderParam {
+            method: &method,
             url: url.as_ref(),
             h_sid: &0,
             hpack_encoder: None,
@@ -165,7 +167,7 @@ impl ScReq {
         let mut redirect_times = 0;
         while redirect_times < self.redirect_times {
             let resp = self.recv(sid)?;
-            let code = resp.header().status().code();
+            let code = resp.status().code();
             if self.auto_redirect && (300..400).contains(&code) {
                 let location = resp.header().location().ok_or("missing location")?;
                 let location = match location.starts_with("http") {
@@ -220,6 +222,7 @@ impl ScReq {
                 key_log: &self.key_log,
                 ech: false,
                 session: &self.tls_session,
+                version: self.version,
             };
             match self.stream.conn_sync(param) {
                 Ok(alpn) => {
@@ -348,17 +351,21 @@ impl ReqExt for ScReq {
         self.tls_session = tls_session;
     }
 
-    fn tls_session(&self) -> &Option<TlsSession> {
-        &self.tls_session
+    fn tls_session(&self) -> Option<&TlsSession> {
+        self.stream.tls_session()
     }
 
     fn set_fingerprint(&mut self, fingerprint: Fingerprint) {
         self.fingerprint = fingerprint;
     }
-    fn set_header_keys(&mut self, headers: Vec<HeaderKey>, keep_sort: bool) -> HlsResult<()> {
+    fn set_header_keys(&mut self, headers: Vec<HeaderItem>, keep_sort: bool) -> HlsResult<()> {
         self.ignore_order = keep_sort;
         self.header.set_by_keys(headers, keep_sort)?;
         Ok(())
+    }
+
+    fn set_version(&mut self, version: Version) {
+        self.version = version;
     }
 }
 

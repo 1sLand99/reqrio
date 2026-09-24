@@ -11,36 +11,35 @@ use crate::packet::{Marker, WsFrameType};
 
 pub struct WebSocket {
     stream: Stream,
-    read_buffer: Buffer,
-    write_buffer: Buffer,
-    demask_buffer: Buffer,
+    read_buffer: Writer,
+    write_buffer: Writer,
+    demask_buffer: Writer,
     coder: Option<DeflateStream>,
     mask: bool,
 }
 
 impl WebSocket {
-    fn add_header(header: &mut Header) -> HlsResult<()> {
+    fn add_header(header: &mut Header) {
         if header.get_str("Sec-WebSocket-Key").unwrap_or("").is_empty() {
-            header.insert("Sec-WebSocket-Key", "3eGwJ19k4qUKxRPJZUNYLw==")?
+            header.insert("Sec-WebSocket-Key", "3eGwJ19k4qUKxRPJZUNYLw==")
         }
         if header.get_str("Connection").unwrap_or("").is_empty() {
-            header.set_connection("Upgrade")?;
+            header.set_connection("Upgrade");
         }
         if header.get_str("Sec-WebSocket-Version").unwrap_or("").is_empty() {
-            header.insert("Sec-WebSocket-Version", "13")?
+            header.insert("Sec-WebSocket-Version", "13")
         }
         if header.get_str("Sec-WebSocket-Extensions").unwrap_or("").is_empty() {
-            header.insert("Sec-WebSocket-Extensions", "permessage-deflate; client_max_window_bits")?
+            header.insert("Sec-WebSocket-Extensions", "permessage-deflate; client_max_window_bits")
         }
         if header.get_str("Upgrade").unwrap_or("").is_empty() {
-            header.insert("Upgrade", "websocket")?
+            header.insert("Upgrade", "websocket")
         }
-        Ok(())
     }
 
     pub fn open_sync(url: &str) -> HlsResult<WebSocket> {
         let mut header = Header::new_req_h1();
-        WebSocket::add_header(&mut header)?;
+        WebSocket::add_header(&mut header);
         let mut req = ScReq::new().with_header(header);
         WebSocket::new(req.get(url, None)?, req.into_stream()?)
     }
@@ -48,15 +47,15 @@ impl WebSocket {
     #[cfg(feature = "aync")]
     pub async fn open_async(url: &str) -> HlsResult<WebSocket> {
         let mut header = Header::new_req_h1();
-        WebSocket::add_header(&mut header)?;
+        WebSocket::add_header(&mut header);
         let mut req = AcReq::new().with_header(header);
         WebSocket::new(req.get(url, None).await?, req.into_stream()?)
     }
 }
 
 impl WebSocket {
-    pub fn new_with_buffer(resp: Response, stream: Stream, buffer: Buffer) -> HlsResult<WebSocket> {
-        if resp.header().status() != HttpStatus::SwitchingProtocols {
+    pub fn new_with_buffer(resp: Response, stream: Stream, buffer: Writer) -> HlsResult<WebSocket> {
+        if resp.status() != HttpStatus::SwitchingProtocols {
             return Err("Connect Failed".into());
         }
         let compressed = resp.header().get_str("Sec-WebSocket-Extensions").map(|x| x.contains("permessage-deflate")).unwrap_or(false);
@@ -66,24 +65,24 @@ impl WebSocket {
         Ok(Self {
             stream,
             read_buffer: buffer,
-            write_buffer: Buffer::with_capacity(8206),
-            demask_buffer: Buffer::with_capacity(2048),
+            write_buffer: Writer::with_capacity(8206),
+            demask_buffer: Writer::with_capacity(2048),
             coder,
             mask: true,
         })
     }
 
     pub fn new(resp: Response, stream: Stream) -> HlsResult<WebSocket> {
-        println!("{}", resp.raw_string());
-        WebSocket::new_with_buffer(resp, stream, Buffer::with_capacity(16384))
+        println!("{}", resp.to_string());
+        WebSocket::new_with_buffer(resp, stream, Writer::with_capacity(16384))
     }
 }
 
 pub struct WsRead<'a> {
     stream: &'a mut Stream,
     coder: &'a mut Option<DeflateStream>,
-    demask_buffer: &'a mut Buffer,
-    read_buffer: &'a mut Buffer,
+    demask_buffer: &'a mut Writer,
+    read_buffer: &'a mut Writer,
 }
 
 impl<'a> WsRead<'a> {
@@ -129,7 +128,7 @@ impl<'a> Future for WsRead<'a> {
 
 pub struct WsWrite<'a> {
     stream: &'a mut Stream,
-    write_buffer: &'a mut Buffer,
+    write_buffer: &'a mut Writer,
     buf: &'a [u8],
     typ: WsOpcode,
     mask: bool,

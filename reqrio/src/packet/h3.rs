@@ -1,9 +1,10 @@
+#[cfg(debug_assertions)]
 use std::fmt::{Debug, Formatter};
-use reqtls::{quic, Buf, Buffer, BufferError, ReadExt, Reader, WriteExt};
+use reqtls::{quic, Buf, Writer, BufferError, Reader};
 use crate::HlsError;
 use crate::pack::{QPackDecode, QPackType};
 
-#[derive(Debug)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct H3Setting {
     flag: u64,
     value: u64,
@@ -30,7 +31,7 @@ impl H3Setting {
         quic::variant_len(self.flag as usize) + quic::variant_len(self.value as usize)
     }
 
-    pub fn write_to<W: WriteExt>(&self, writer: &mut W) -> Result<(), BufferError> {
+    pub fn write_to(&self, writer: &mut Writer) -> Result<(), BufferError> {
         quic::write_variant(self.flag as usize, writer)?;
         quic::write_variant(self.value as usize, writer)
     }
@@ -97,7 +98,7 @@ impl<'a> H3Frame<'a> {
         }
     }
 
-    pub fn write_to<W: WriteExt>(&self, writer: &mut W) -> Result<(), BufferError> {
+    pub fn write_to(&self, writer: &mut Writer) -> Result<(), BufferError> {
         match self {
             H3Frame::Data(data) => {
                 quic::write_variant(H3Frame::DATA as usize, writer)?;
@@ -135,7 +136,7 @@ impl<'a> H3Frame<'a> {
 
     pub fn encode(&self, offset: usize) -> Result<Vec<u8>, BufferError> {
         let mut res = vec![0; 100];
-        let mut writer = Buffer::from_ptr(res.as_mut_slice());
+        let mut writer = Writer::from_ptr(res.as_mut_ptr(), res.len());
         if offset == 0 { writer.write_u8(0)?; }
         self.write_to(&mut writer)?;
         res.truncate(writer.len());
@@ -143,6 +144,7 @@ impl<'a> H3Frame<'a> {
     }
 }
 
+#[cfg(debug_assertions)]
 impl<'a> Debug for H3Frame<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -157,7 +159,8 @@ impl<'a> Debug for H3Frame<'a> {
 
 
 #[repr(u64)]
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub enum H3Stream {
     Control = 0x00,
     QPackEncoder = 0x02,
@@ -181,8 +184,8 @@ impl H3Stream {
     pub fn handle_stream<'a>(&self, reader: &mut Reader<'a>, decoder: &mut QPackDecode) -> Result<H3Frame<'a>, HlsError> {
         match self {
             H3Stream::QPackEncoder => {
-                let item = decoder.decode_next(QPackType::StreamEncoder, &0, reader)?;
-                println!("{:?}", item);
+                let _item = decoder.decode_next(QPackType::StreamEncoder, &0, reader)?;
+                // println!("{:?}", item);
                 Ok(H3Frame::Reserved { typ: 0, payload: Buf::Ref(&[]) })
             }
             H3Stream::QPackDecoder => {

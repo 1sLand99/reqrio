@@ -131,15 +131,15 @@ impl Url {
 impl Display for Url {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}://", self.scheme.spec())?;
-        write!(f, "{}", &self.username)?;
+        write!(f, "{}", self.username)?;
         if !self.password.is_empty() {
-            write!(f, "{}{}@", if self.username.is_empty() { "" } else { ":" }, &self.password)?;
+            write!(f, "{}{}@", if self.username.is_empty() { "" } else { ":" }, self.password)?;
         }
         write!(f, "{}", self.addr.host())?;
         if self.addr.port() != 443 && self.addr.port() != 80 {
             write!(f, ":{}", self.addr.port())?;
         }
-        write!(f, "{}", &self.uri)
+        write!(f, "{}", self.uri)
     }
 }
 
@@ -233,10 +233,10 @@ mod tests {
         assert_eq!(url.to_string(), url5);
         let url6 = "socks5://127.0.0.1:1023";
         let url = Url::try_from(url6).unwrap();
-        assert_eq!(url.to_string(), format!("{}", url6));
+        assert_eq!(url.to_string(), url6);
         let url7 = "http://127.0.0.1:8080";
         let url = Url::try_from(url7).unwrap();
-        assert_eq!(url.to_string(), format!("{}", url7));
+        assert_eq!(url.to_string(), url7);
         let url8 = "https://www.so.com/link?m=uJUHfEbfz+ZVSx90v4iLs4mlJ1cSfmojdrI1pYls/wftn5aL/ll53A6XAa1BSX2UtYWvcHBuUKSEURqhhVHtJNCWxeXYrgMOwkXoRLHGJ4yHLzOB1C61LDwQTgDd5OjTmAFlu3YJVdfU=";
         let url = Url::try_from(url8).unwrap();
         assert_eq!(url.to_string(), url8);

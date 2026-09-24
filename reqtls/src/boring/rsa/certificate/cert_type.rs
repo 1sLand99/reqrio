@@ -9,14 +9,14 @@ impl CertType {
     pub const ED25519: CertType = CertType(0);
 
 
-    pub fn spec(&self) -> &str {
+    pub const fn spec(&self) -> &str {
         match *self {
             CertType::RSA => "RSA",
             CertType::ECDSA => "ECDSA",
             _ => "Reserved"
         }
     }
-    pub fn new(v: u8) -> CertType {
+    pub const fn new(v: u8) -> CertType {
         CertType(v)
     }
 }

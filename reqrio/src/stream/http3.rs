@@ -13,7 +13,7 @@ pub struct StreamParam {
     typ: H3Stream,
     fin: bool,
     last_offset: usize,
-    buffer: Buffer,
+    buffer: Writer,
 }
 
 
@@ -22,7 +22,7 @@ pub struct HTTP3StreamS {
     stream_ids: HashMap<u64, StreamParam>,
     encoder: QPackEncode,
     decoder: QPackDecode,
-    write_buffer: Buffer,
+    write_buffer: Writer,
     max_stream: u64,
     sid: u64,
 }
@@ -32,7 +32,7 @@ impl HTTP3StreamS {
         let addr = conn.url.addr().socket_addr(false)?;
         let timeout = conn.timeout.clone();
         let mut quic = QUICStream::connect(socket, addr, ClientConfig::from(&mut conn), timeout).wait().unwrap();
-        let mut write_buffer = Buffer::with_capacity(4096);
+        let mut write_buffer = Writer::with_capacity(4096);
         write_buffer.write_u8(0)?;
         for frame in &conn.fingerprint.h3().frames {
             frame.write_to(&mut write_buffer)?;
@@ -110,7 +110,7 @@ impl HTTP3StreamS {
 impl H3Handle for HTTP3StreamS {}
 
 struct SendParam<'a> {
-    buffer: &'a mut Buffer,
+    buffer: &'a mut Writer,
     priority: Option<&'a str>,
     offset: usize,
     sid: u64,
@@ -155,12 +155,12 @@ trait H3Handle {
         Ok((chunk_size, streams))
     }
 
-    fn handle_stream(stream_ids: &mut HashMap<u64, StreamParam>, sid: &u64, queues: &mut Vec<Queue>, buffers: &HashMap<u64, (Buffer, usize)>) -> HlsResult<Option<u64>> {
+    fn handle_stream(stream_ids: &mut HashMap<u64, StreamParam>, sid: &u64, queues: &mut Vec<Queue>, buffers: &HashMap<u64, (Writer, usize)>) -> HlsResult<Option<u64>> {
         let param = stream_ids.entry(*sid).or_insert_with(|| StreamParam {
             typ: H3Stream::BidirectionalStream,
             fin: false,
             last_offset: 0,
-            buffer: Buffer::with_capacity(if sid & 0b10 == 0b10 { 1500 } else { 8192 }),
+            buffer: Writer::with_capacity(if sid & 0b10 == 0b10 { 1500 } else { 8192 }),
         });
         let pos = queues.iter().position(|x| x.offset == param.last_offset);
         let Some(pos) = pos else { return Ok(None) };
@@ -202,7 +202,7 @@ trait H3Handle {
                     Err(HlsError::Rls(RlsError::Buffer(BufferError::IndexOutBound { .. }))) => break,
                     Err(e) => return Err(e)
                 };
-                println!("{:#?}", frame);
+                // println!("{:#?}", frame);
                 match frame {
                     H3Frame::Settings(settings) => for setting in settings {
                         match setting.flag() {
@@ -218,7 +218,7 @@ trait H3Handle {
                     H3Frame::PriorityUpdate { .. } => {}
                     H3Frame::Headers(hdr) => {
                         let Some(response) = recv.responses.get_mut(sid) else { continue };
-                        let read_size = match recv.decoder.decode_into(hdr.as_ref(), response.header_mut(), QPackType::Stream, sid) {
+                        let read_size = match recv.decoder.decode_into(hdr.as_ref(), response, QPackType::Stream, sid) {
                             Ok(size) => size,
                             Err(HlsError::HPack(PackError::BlockedStream(_))) => break,
                             Err(e) => return Err(e)
@@ -252,7 +252,7 @@ pub struct HTTP3StreamA {
     stream_ids: HashMap<u64, StreamParam>,
     encoder: QPackEncode,
     decoder: QPackDecode,
-    write_buffer: Buffer,
+    write_buffer: Writer,
     max_stream: u64,
     sid: u64,
 }
@@ -263,7 +263,7 @@ impl HTTP3StreamA {
         let addr = conn.url.addr().socket_addr(false)?;
         let timeout = conn.timeout.clone();
         let mut quic = QUICStream::connect(socket, addr, ClientConfig::from(&mut conn), timeout).await.unwrap();
-        let mut write_buffer = Buffer::with_capacity(4096);
+        let mut write_buffer = Writer::with_capacity(4096);
         write_buffer.write_u8(0)?;
         for frame in &conn.fingerprint.h3().frames {
             frame.write_to(&mut write_buffer)?;

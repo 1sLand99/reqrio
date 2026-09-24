@@ -15,51 +15,51 @@ fn build_finger() -> Fingerprint {
             CipherSuite::TLS_CHACHA20_POLY1305_SHA256,
         ],
         extensions: vec![
-            Extension::StatusRequest(StatusRequest::new()),
-            Extension::SupportedGroups(SupportedGroups::new(vec![
-                NamedCurve::X25519.into(),
-                NamedCurve::SecP256r1.into(),
-                NamedCurve::SecP384r1.into(),
-                NamedCurve::SecP521r1.into(),
-            ])),
-            Extension::EcPointFormats(EcPointFormats::new(vec![EcPointFormat::UNCOMPRESSED])),
-            Extension::SignatureAlgorithms(SignatureAlgorithms::new(vec![
-                SignatureAlgorithm::RSA_PKCS1_SHA1.into(),
-                SignatureAlgorithm::RSA_PKCS1_SHA256.into(),
-                SignatureAlgorithm::RSA_PKCS1_SHA384.into(),
-                SignatureAlgorithm::RSA_PKCS1_SHA512.into(),
-                SignatureAlgorithm::ECDSA_SECP256R1_SHA256.into(),
-                SignatureAlgorithm::ECDSA_SECP384R1_SHA384.into(),
-                SignatureAlgorithm::ECDSA_SECP521R1_SHA512.into(),
-                SignatureAlgorithm::RSA_PSS_PSS_SHA256.into(),
-                SignatureAlgorithm::RSA_PSS_PSS_SHA384.into(),
-                SignatureAlgorithm::RSA_PSS_PSS_SHA512.into(),
-                SignatureAlgorithm::RSA_PSS_RSAE_SHA256.into(),
-                SignatureAlgorithm::RSA_PSS_RSAE_SHA384.into(),
-                SignatureAlgorithm::RSA_PSS_RSAE_SHA512.into(),
-            ])),
+            Extension::STATUS_REQUEST,
+            Extension::SupportedGroups(vec![
+                NamedCurve::X25519,
+                NamedCurve::SecP256r1,
+                NamedCurve::SecP384r1,
+                NamedCurve::SecP521r1,
+            ]),
+            Extension::EcPointFormats(vec![EcPointFormat::UNCOMPRESSED]),
+            Extension::SignatureAlgorithms(vec![
+                SignatureAlgorithm::RSA_PKCS1_SHA1,
+                SignatureAlgorithm::RSA_PKCS1_SHA256,
+                SignatureAlgorithm::RSA_PKCS1_SHA384,
+                SignatureAlgorithm::RSA_PKCS1_SHA512,
+                SignatureAlgorithm::ECDSA_SECP256R1_SHA256,
+                SignatureAlgorithm::ECDSA_SECP384R1_SHA384,
+                SignatureAlgorithm::ECDSA_SECP521R1_SHA512,
+                SignatureAlgorithm::RSA_PSS_PSS_SHA256,
+                SignatureAlgorithm::RSA_PSS_PSS_SHA384,
+                SignatureAlgorithm::RSA_PSS_PSS_SHA512,
+                SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
+                SignatureAlgorithm::RSA_PSS_RSAE_SHA384,
+                SignatureAlgorithm::RSA_PSS_RSAE_SHA512,
+            ]),
             Extension::SignedCertificateTimestamp,
-            Extension::ExtendMasterSecret,
-            Extension::CompressionCertificate(CompressCertificate::new(vec![CompressionMethod::BROTLI])),
+            Extension::ExtendedMasterSecret,
+            Extension::CompressionCertificate(vec![CompressionMethod::BROTLI]),
             Extension::SessionTicket(Buf::Ref(&[])),
-            Extension::SupportedVersions(SupportVersions::new(vec![
+            Extension::SupportedVersions(vec![
                 Version::TLS_1_3,
                 Version::TLS_1_2
-            ])),
-            Extension::PskKeyExchangeMode(vec![PskMode::new(PskMode::PSK_DHE_KE)]),
-            Extension::KeyShare(KeyShare::new(vec![
-                NamedCurve::X25519.into(),
-                NamedCurve::SecP256r1.into(),
-            ])),
-            Extension::ApplicationSetting(ALPS::new(vec![
-                ALPN::Http20,
-                ALPN::Http11
-            ])),
-            Extension::ServerName(vec![SNType::HostName("")]),
-            Extension::ApplicationLayerProtocolNegotiation(ALPS::new(vec![
-                ALPN::Http20,
-                ALPN::Http11
-            ]))
+            ]),
+            Extension::PskKeyExchangeModes(vec![PskMode::PSK_DHE_KE]),
+            Extension::KeyShare(vec![
+                KeyEntry::X25519,
+                KeyEntry::SecP256r1,
+            ]),
+            Extension::ApplicationSettings(vec![
+                ALPN::HTTP20,
+                ALPN::HTTP11
+            ]),
+            Extension::ServerName(vec![ServerName::new_sni("")]),
+            Extension::ApplicationLayerProtocolNegotiation(vec![
+                ALPN::HTTP20,
+                ALPN::HTTP11
+            ])
         ],
     };
     let h2 = H2Finger {

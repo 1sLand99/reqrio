@@ -1,39 +1,53 @@
-use crate::error::HlsResult;
+use std::fmt::{Debug, Display};
 
-#[derive(Clone, Debug, Copy, Eq, PartialEq)]
-pub enum FrameType {
-    Data = 0x00,
-    Headers = 0x01,
-    Priority = 0x02,
-    RstStream = 0x03,
-    Settings = 0x04,
-    PushPromise = 0x05,
-    Ping = 0x06,
-    Goaway = 0x07,
-    WindowUpdate = 0x08,
-    Continuation = 0x09,
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct H2FrameType(u8);
+
+#[allow(non_upper_case_globals)]
+impl H2FrameType {
+    pub const Data: H2FrameType = H2FrameType::new(0x00);
+    pub const Headers: H2FrameType = H2FrameType::new(0x01);
+    pub const Priority: H2FrameType = H2FrameType::new(0x02);
+    pub const RstStream: H2FrameType = H2FrameType::new(0x03);
+    pub const Settings: H2FrameType = H2FrameType::new(0x04);
+    pub const PushPromise: H2FrameType = H2FrameType::new(0x05);
+    pub const Ping: H2FrameType = H2FrameType::new(0x06);
+    pub const Goaway: H2FrameType = H2FrameType::new(0x07);
+    pub const WindowUpdate: H2FrameType = H2FrameType::new(0x08);
+    pub const Continuation: H2FrameType = H2FrameType::new(0x09);
 }
 
 
-impl FrameType {
-    pub fn from_u8(byte: u8) -> HlsResult<FrameType> {
-        match byte {
-            0x00 => Ok(FrameType::Data),
-            0x01 => Ok(FrameType::Headers),
-            0x02 => Ok(FrameType::Priority),
-            0x03 => Ok(FrameType::RstStream),
-            0x04 => Ok(FrameType::Settings),
-            0x05 => Ok(FrameType::PushPromise),
-            0x06 => Ok(FrameType::Ping),
-            0x07 => Ok(FrameType::Goaway),
-            0x08 => Ok(FrameType::WindowUpdate),
-            0x09 => Ok(FrameType::Continuation),
-            _ => Err(format!("Unknown frame type: {}", byte).into()),
+impl H2FrameType {
+    pub const fn new(val: u8) -> H2FrameType {
+        H2FrameType(val)
+    }
+    pub const fn into_inner(self) -> u8 { self.0 }
+
+    pub const fn inner(&self) -> u8 { self.0 }
+}
+
+impl Debug for H2FrameType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+
+impl Display for H2FrameType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            H2FrameType::Data => write!(f, "Data(0x({:02x}))", self.0),
+            H2FrameType::Headers => write!(f, "Headers(0x({:02x}))", self.0),
+            H2FrameType::Priority => write!(f, "Priority(0x({:02x}))", self.0),
+            H2FrameType::RstStream => write!(f, "RstStream(0x({:02x}))", self.0),
+            H2FrameType::Settings => write!(f, "Settings(0x({:02x}))", self.0),
+            H2FrameType::PushPromise => write!(f, "PushPromise(0x({:02x}))", self.0),
+            H2FrameType::Ping => write!(f, "Ping(0x({:02x}))", self.0),
+            H2FrameType::Goaway => write!(f, "Goaway(0x({:02x}))", self.0),
+            H2FrameType::WindowUpdate => write!(f, "WindowUpdate(0x({:02x}))", self.0),
+            H2FrameType::Continuation => write!(f, "Continuation(0x({:02x}))", self.0),
+            _ => write!(f, "FrameType::Unknown(0x({:02x}))", self.0),
         }
     }
-
-    pub fn to_u8(self) -> u8 {
-        self as u8
-    }
 }
-

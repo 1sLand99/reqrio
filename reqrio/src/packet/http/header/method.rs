@@ -1,8 +1,8 @@
 use std::fmt::{Display, Formatter};
 use crate::error::HlsError;
 
+#[repr(C)]
 #[derive(Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "export", repr(C))]
 pub enum Method {
     GET = 0,
     POST = 1,
@@ -17,7 +17,7 @@ pub enum Method {
 }
 
 impl Method {
-    pub fn spec(&self) -> &str {
+    pub const fn spec(&self) -> &str {
         match self {
             Method::GET => "GET",
             Method::POST => "POST",

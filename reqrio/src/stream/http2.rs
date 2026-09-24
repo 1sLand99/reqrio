@@ -3,10 +3,10 @@ use crate::pack::{HPackDecode, HPackEncode};
 use crate::packet::HeaderParam;
 use crate::reader::ReadExt;
 use crate::request::RequestBuffer;
-use crate::{Body, Fingerprint, FrameFlag, FrameType, H2Frame, H2Setting, Header, HeaderValue, Response};
+use crate::{Body, Fingerprint, H2FrameFlag, H2FrameType, H2Frame, H2Setting, Header, HeaderValue, Response};
 #[cfg(feature = "log")]
 use crate::{warn, trace};
-use reqtls::{u24, Buffer, Reader, WriteExt};
+use reqtls::{u24, Writer, Reader};
 use std::collections::HashMap;
 use crate::stream::Stream;
 
@@ -15,15 +15,15 @@ pub struct HTTP2StreamS {
     decoder: HPackDecode,
     sid: u32,
     stream: Stream,
-    read_buffer: Buffer,
-    write_buffer: Buffer,
+    read_buffer: Writer,
+    write_buffer: Writer,
     increment: u32,
 }
 
 
 impl HTTP2StreamS {
     pub fn new(mut stream: Stream, fingerprint: &Fingerprint) -> HlsResult<HTTP2StreamS> {
-        let mut buffer = Buffer::with_capacity(24657);
+        let mut buffer = Writer::with_capacity(24657);
         buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")?;
         fingerprint.h2().build_setting().write_to(&mut buffer)?;
         fingerprint.h2().build_window_update().write_to(&mut buffer)?;
@@ -34,12 +34,12 @@ impl HTTP2StreamS {
             sid: 1,
             stream,
             read_buffer: buffer,
-            write_buffer: Buffer::with_capacity(16438),
+            write_buffer: Writer::with_capacity(16438),
             increment: 0,
         })
     }
 
-    fn flush(stream: &mut Stream, buffer: &mut Buffer) -> HlsResult<()> {
+    fn flush(stream: &mut Stream, buffer: &mut Writer) -> HlsResult<()> {
         if buffer.is_empty() { return Ok(()); }
         stream.write(buffer).wait()?;
         buffer.reset();
@@ -117,8 +117,8 @@ impl H2Handle for HTTP2StreamS {
 }
 
 struct H2Param<'a> {
-    read_buffer: &'a Buffer,
-    write_buffer: &'a mut Buffer,
+    read_buffer: &'a Writer,
+    write_buffer: &'a mut Writer,
     encoder: &'a mut HPackEncode,
     decoder: &'a mut HPackDecode,
     increment: &'a mut u32,
@@ -134,15 +134,15 @@ trait H2Handle {
         let mut res = vec![];
         #[cfg(feature = "log")]
         trace!("[HTTP2] recv frame: sid: {}; typ={:?}; fin={}; keys={:?}", sid, frame.frame_type(), frame.flag().end_stream(), responses.keys());
-        match frame.frame_type() {
-            FrameType::Data => {
+        match *frame.frame_type() {
+            H2FrameType::Data => {
                 let resp = responses.get_mut(&sid).ok_or("resp not inited")?;
-                resp.push_raw_slice(frame.payload())?;
+                resp.push_raw_slice(frame.payload().as_ref())?;
                 if frame.flag().end_stream() { res.push(sid); }
             }
-            FrameType::Headers => {
+            H2FrameType::Headers => {
                 let resp = responses.get_mut(&sid).ok_or("resp not inited")?;
-                param.decoder.decode_into(frame.payload(), resp.header_mut())?;
+                param.decoder.decode_into(frame.payload().as_ref(), resp)?;
                 if let Some(size) = resp.header().get("update-table-size") && let HeaderValue::Number(size) = size {
                     param.encoder.update_table_size(*size);
                     param.decoder.update_table_size(*size);
@@ -150,23 +150,23 @@ trait H2Handle {
                 if frame.flag().end_header() { resp.make_coding()?; }
                 if frame.flag().end_stream() { res.push(sid); }
             }
-            FrameType::RstStream | FrameType::Goaway => return Err((*frame.frame_type()).into()),
-            FrameType::Settings => {
-                let mut reader = Reader::from_slice(frame.payload());
+            H2FrameType::RstStream | H2FrameType::Goaway => return Err((*frame.frame_type()).into()),
+            H2FrameType::Settings => {
+                let mut reader = Reader::from_slice(frame.payload().as_ref());
                 while let Ok(setting) = H2Setting::from_reader(&mut reader) {
                     if let H2Setting::HeaderTableSize(size) = setting {
                         param.encoder.update_table_size(size as usize);
                         param.decoder.update_table_size(size as usize);
                     }
                 }
-                if frame.frame_type() == &FrameType::Settings && frame.flag().end_stream() {
+                if frame.frame_type() == &H2FrameType::Settings && frame.flag().end_stream() {
                     let mut ack_frame = H2Frame::none_frame();
-                    ack_frame.set_frame_type(FrameType::Settings);
-                    ack_frame.set_flag(FrameFlag::EndStream);
+                    ack_frame.set_frame_type(H2FrameType::Settings);
+                    ack_frame.set_flag(H2FrameFlag::EndStream);
                     param.write_buffer.write_slice(&ack_frame.to_bytes())?;
                 }
             }
-            FrameType::WindowUpdate => *param.increment = u32::from_be_bytes(frame.payload().try_into()?),
+            H2FrameType::WindowUpdate => *param.increment = u32::from_be_bytes(frame.payload().as_ref().try_into()?),
             _ => {
                 #[cfg(feature = "log")]
                 warn!("ignore h2 frame-{:?}",frame.frame_type());
@@ -183,15 +183,15 @@ pub struct HTTP2StreamA {
     decoder: HPackDecode,
     sid: u32,
     stream: Stream,
-    read_buffer: Buffer,
-    write_buffer: Buffer,
+    read_buffer: Writer,
+    write_buffer: Writer,
     increment: u32,
 }
 
 
 #[cfg(feature = "aync")]
 impl HTTP2StreamA {
-    pub fn new(stream: Stream, mut buffer: Buffer) -> HTTP2StreamA {
+    pub fn new(stream: Stream, mut buffer: Writer) -> HTTP2StreamA {
         // let mut buffer = Buffer::with_capacity(24657);
         // buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")?;
         // fingerprint.h2().build_setting().write_to(&mut buffer)?;
@@ -204,11 +204,11 @@ impl HTTP2StreamA {
             sid: 1,
             stream,
             read_buffer: buffer,
-            write_buffer: Buffer::with_capacity(16438),
+            write_buffer: Writer::with_capacity(16438),
             increment: 0,
         }
     }
-    async fn flush(stream: &mut Stream, buffer: &mut Buffer) -> HlsResult<()> {
+    async fn flush(stream: &mut Stream, buffer: &mut Writer) -> HlsResult<()> {
         if buffer.is_empty() { return Ok(()); }
         stream.write(buffer).await?;
         Ok(())

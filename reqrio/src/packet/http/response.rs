@@ -1,30 +1,42 @@
-use std::mem;
 use crate::error::HlsResult;
 use crate::json::JsonValue;
+use crate::pack::PackItem;
 use crate::*;
 use reqtls::coder::{BrotliDecoder, ChunkDecoder, CodingError, DeflateStream, StreamDecode, ZstdDecoder};
+use std::borrow::Cow;
+use std::fmt::{Display, Formatter};
+use std::mem;
 use std::str::Utf8Error;
 
+#[repr(C)]
 pub struct Response {
     #[cfg(feature = "export")]
     pub(crate) sid: u64,
-    header: Header,
-    pub(crate) raw: Buffer,
-    coder: Option<Box<dyn StreamDecode<Buffer> + Send + Sync>>,
+    pub(crate) method: Method,
+    status: HttpStatus,
+    alpn: ALPN,
+    pub(crate) raw: Writer,
+    pub(crate) uri: Uri,
+    pub(crate) header: Header,
+    coder: Option<Box<dyn StreamDecode + Send + Sync>>,
     read_size: usize,
-    h2_buffer: Buffer,
+    h2_buffer: Writer,
 }
 
 impl Default for Response {
     fn default() -> Self {
         Response {
+            method: Method::GET,
+            alpn: Default::default(),
+            uri: Default::default(),
+            status: HttpStatus::None,
             #[cfg(feature = "export")]
             sid: 0,
             header: Header::default(),
-            raw: Buffer::with_capacity(8192),
+            raw: Writer::with_capacity(8192),
             coder: None,
             read_size: 0,
-            h2_buffer: Buffer::with_capacity(8192),
+            h2_buffer: Writer::with_capacity(8192),
         }
     }
 }
@@ -37,16 +49,12 @@ impl Response {
     #[cfg(feature = "export")]
     pub(crate) fn new_header(header: Header) -> Response {
         Response {
-            sid: 0,
             header,
-            raw: Buffer::with_capacity(0),
-            coder: None,
-            read_size: 0,
-            h2_buffer: Buffer::with_capacity(0),
+            ..Default::default()
         }
     }
 
-    fn write_buffer(buffer: &mut Buffer, buf: &[u8]) -> Result<usize, BufferError> {
+    fn write_buffer(buffer: &mut Writer, buf: &[u8]) -> Result<usize, BufferError> {
         loop {
             match buffer.write_slice(buf) {
                 Ok(_) => break,
@@ -128,12 +136,49 @@ impl Response {
         Ok(())
     }
 
-    pub fn extend_buffer(&mut self, buffer: &mut Buffer) -> HlsResult<bool> {
-        if self.header.is_empty() {
+    pub fn push_pack_item(&mut self, item: &PackItem) -> HlsResult<()> {
+        self.header.insert(item.name(), HeaderValue::String(Cow::Owned(item.value().to_string())));
+        match item.name() {
+            ":method" => self.method = Method::try_from(item.value())?,
+            ":path" => self.uri = Uri::try_from(item.value())?,
+            ":status" => self.status = HttpStatus::new(item.value().parse::<u16>()?),
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn parse_header(&mut self, hdr: &str) -> HlsResult<()> {
+        for (index, line) in hdr.lines().enumerate() {
+            if index == 0 {
+                match line.starts_with("HTTP/1") {
+                    true => {
+                        let mut items = line.split(" ");
+                        self.alpn = ALPN::from_slice(items.next().unwrap_or("").to_lowercase().as_bytes());
+                        let status = items.next().and_then(|x| x.parse().ok()).unwrap_or(0);
+                        self.status = HttpStatus::new(status);
+                    }
+                    false => {
+                        let mut items = line.split(" ");
+                        self.method = Method::try_from(items.next().unwrap_or("GET")).unwrap_or(Method::GET);
+                        self.uri = Uri::try_from(items.next().unwrap_or(""))?;
+                        self.alpn = ALPN::from_slice(items.next().unwrap_or("").to_lowercase().as_bytes());
+                    }
+                }
+                continue;
+            }
+            let pos = line.find(':').unwrap_or(line.len());
+            let name = &line[..pos];
+            let value = if pos == line.len() { "" } else { line[pos + 1..].trim() };
+            self.header.insert(name, value)
+        }
+        Ok(())
+    }
+
+    pub fn extend_buffer(&mut self, buffer: &mut Writer) -> HlsResult<bool> {
+        if self.alpn.is_empty() {
             let pos = buffer.filled().windows(HTTP_GAP.len()).position(|w| w == HTTP_GAP);
             let Some(pos) = pos else { return Ok(false) };
-            let hdr_str = std::str::from_utf8(&buffer.filled()[..pos])?;
-            self.header = Header::try_from(hdr_str)?;
+            self.parse_header(std::str::from_utf8(&buffer.filled()[..pos])?)?;
             buffer.used_empty(pos + HTTP_GAP.len());
             self.make_coding()?;
         }
@@ -147,7 +192,7 @@ impl Response {
             Response::write_buffer(&mut self.h2_buffer, raw)?;
             Ok(())
         } else {
-            let mut buffer = mem::replace(&mut self.h2_buffer, Buffer::with_capacity(0));
+            let mut buffer = mem::replace(&mut self.h2_buffer, Writer::with_capacity(0));
             let _ = buffer.check_move(raw.len());
             Response::write_buffer(&mut buffer, raw)?;
             let (size, _) = self.extend_body(buffer.filled())?;
@@ -156,6 +201,16 @@ impl Response {
             Ok(())
         }
     }
+
+    pub fn parse_raw(raw: impl AsRef<[u8]>) -> HlsResult<Response> {
+        let raw = raw.as_ref();
+        let mut resp = Response::default();
+        let mut buffer = Buffer::from_ptr(raw.as_ptr().cast_mut(), raw.len());
+        resp.extend_buffer(&mut buffer)?;
+        assert!(buffer.is_empty());
+        Ok(resp)
+    }
+
 
     pub fn header(&self) -> &Header {
         &self.header
@@ -168,31 +223,39 @@ impl Response {
         self.make_coding()
     }
 
-    pub fn raw_string(&self) -> String {
-        let mut header = self.header.to_string();
+    pub fn json(self) -> HlsResult<JsonValue> { Ok(json::from_bytes(self.raw.filled())?) }
+
+    pub fn as_text(&self) -> Result<&str, Utf8Error> { std::str::from_utf8(self.raw.filled()) }
+
+    pub fn text(self) -> Result<String, Utf8Error> { Ok(self.as_text()?.to_owned()) }
+
+    pub fn as_bytes(&self) -> &[u8] { self.raw.filled() }
+
+    pub fn bytes(self) -> Vec<u8> { self.raw.filled().to_vec() }
+
+    pub fn status(&self) -> HttpStatus { self.status }
+
+    pub fn method(&self) -> Method { self.method }
+}
+
+impl Display for Response {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if !self.alpn.is_empty() {
+            if self.uri.path().is_empty() {
+                write!(f, "{} {} {}", self.alpn, self.status.code(), self.status.spec())?;
+                write!(f, "\r\n")?;
+            } else {
+                write!(f, "{} {}  {}", self.method, self.uri, self.alpn)?;
+                write!(f, "\r\n")?;
+            }
+        }
+        write!(f, "{}", self.header)?;
         let body = self.as_text().unwrap_or("(二进制数据)");
-        header += "\r\n\r\n";
-        header + body
-    }
-
-
-    pub fn json(self) -> HlsResult<JsonValue> {
-        Ok(json::from_bytes(self.raw.filled())?)
-    }
-
-    pub fn as_text(&self) -> Result<&str, Utf8Error> {
-        std::str::from_utf8(self.raw.filled())
-    }
-
-    pub fn text(self) -> Result<String, Utf8Error> {
-        Ok(self.as_text()?.to_owned())
-    }
-
-    pub fn as_bytes(&self) -> &[u8] {
-        self.raw.filled()
-    }
-
-    pub fn bytes(self) -> Vec<u8> {
-        self.raw.filled().to_vec()
+        if !body.is_empty() {
+            write!(f, "\r\n")?;
+            write!(f, "{}", body)?;
+            write!(f, "\r\n")?;
+        }
+        Ok(())
     }
 }

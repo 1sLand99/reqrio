@@ -54,7 +54,7 @@ fn aync_server(ca: &[u8], cert: &[u8], key: &[u8]) {
         let listen = tokio::net::TcpListener::bind("0.0.0.0:7877").await.unwrap();
         let (stream, _) = listen.accept().await.unwrap();
         let mut tls_stream = TlsStream::accept(stream, ServerConfig {
-            alpn: &ALPN::Http11,
+            alpn: &ALPN::HTTP11,
             ca: &mut Certificate::none(),
             server_cert: &mut cert,
             cert_key: &key,
@@ -74,7 +74,7 @@ fn aync_server(ca: &[u8], cert: &[u8], key: &[u8]) {
         let mut req = AcReq::new().with_verify(false);
         req.set_mtls(vec![], RsaKey::none(), Some(vec![cas]));
         let resp = req.get("https://127.0.0.1:7877".sni("test.reqrio.org"), None).await.unwrap();
-        assert_eq!(resp.header().status(), &HttpStatus::OK);
+        assert_eq!(resp.status(), HttpStatus::OK);
     });
 }
 
@@ -86,7 +86,7 @@ fn sync_server(ca: &[u8], cert: &[u8], key: &[u8]) {
         let listen = TcpListener::bind("0.0.0.0:7878").unwrap();
         let (stream, _) = listen.accept().unwrap();
         let mut tls_stream = TlsStream::accept(stream, ServerConfig {
-            alpn: &ALPN::Http11,
+            alpn: &ALPN::HTTP11,
             ca: &mut Certificate::none(),
             server_cert: &mut cert,
             cert_key: &key,
@@ -105,7 +105,7 @@ fn sync_server(ca: &[u8], cert: &[u8], key: &[u8]) {
     let mut req = ScReq::new();
     req.set_mtls(vec![], RsaKey::none(), Some(vec![cas]));
     let resp = req.get("https://127.0.0.1:7878".sni("test.reqrio.org"), None).unwrap();
-    assert_eq!(resp.header().status(), &HttpStatus::OK);
+    assert_eq!(resp.status(), HttpStatus::OK);
 }
 
 #[test]

@@ -1,4 +1,4 @@
-use crate::{Certificate, RsaKey, TlsFinger, TlsSession, ALPN};
+use crate::{Certificate, RsaKey, TlsFinger, TlsSession, Version, ALPN};
 use std::path::PathBuf;
 
 pub enum Config<'a> {
@@ -41,6 +41,8 @@ pub struct ClientConfig<'a> {
     pub key_log: Option<PathBuf>,
     ///使用tls会话数据恢复会话
     pub session: &'a Option<TlsSession>,
+    ///TLS版本
+    pub version: Version,
 }
 
 

@@ -9,9 +9,8 @@ pub use hasher::Hasher;
 pub use hmac::Hmac;
 use std::ptr::null_mut;
 
-
+#[repr(C)]
 #[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "export", repr(C))]
 pub enum HashType {
     MD5 = 0,
     Sha1 = 1,
@@ -37,7 +36,7 @@ impl HashType {
         }
     }
 
-    pub(crate) fn hash_size(&self) -> usize {
+    pub(crate) const fn hash_size(&self) -> usize {
         match self {
             HashType::MD5 => 16,
             HashType::Sha1 => 20,
@@ -49,7 +48,7 @@ impl HashType {
         }
     }
 
-    pub(crate) fn tls13_secret(&self) -> Result<&[u8], HashError> {
+    pub(crate) const fn tls13_secret(&self) -> Result<&[u8], HashError> {
         match self {
             HashType::Sha256 => Ok(&HashType::SHA256_SECRET),
             HashType::Sha384 => Ok(&HashType::SHA384_SECRET),

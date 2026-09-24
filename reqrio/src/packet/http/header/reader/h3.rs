@@ -1,7 +1,7 @@
 use crate::error::HlsResult;
 use crate::pack::{QPackEncode, QPackType};
 use crate::reader::{ReadExt, StrCow};
-use reqtls::{Buffer, WriteExt};
+use reqtls::Writer;
 
 pub struct H3HeaderReader<'a> {
     pub(crate) keys: Vec<(StrCow<'a>, StrCow<'a>)>,
@@ -15,7 +15,7 @@ impl<'a> ReadExt for H3HeaderReader<'a> {
 
     fn len(&self) -> usize { unreachable!() }
 
-    fn read(&mut self, buf: &mut Buffer) -> HlsResult<usize> {
+    fn read(&mut self, buf: &mut Writer) -> HlsResult<usize> {
         let len: usize = self.keys.iter().map(|(k, v)| k.len() + v.len()).sum();
         if buf.unfilled_len() < 59 + len { return Ok(0); }
         let offset = buf.offset();
@@ -38,12 +38,12 @@ mod tests {
     use crate::pack::QPackEncode;
     use crate::packet::HeaderParam;
     use crate::reader::ReadExt;
-    use crate::{json, ContentType, Header};
-    use reqtls::Buffer;
+    use crate::{json, ContentType, Header, Method};
+    use reqtls::Writer;
 
     #[test]
     fn test_h3_reader() {
-        let mut header = Header::new_req_h2();
+        let mut header = Header::new_req_h3();
         header.set_by_json(json::object! {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
             "Accept": "*/*",
@@ -59,10 +59,11 @@ mod tests {
             "Accept-Encoding": "gzip,deflate,br,zstd",
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-        }).unwrap();
+        });
         let url = "https://img-s-msn-com.akamaized.net".try_into().unwrap();
         let mut encoder = QPackEncode::new(4096);
         let mut reader = header.as_h3_reader(HeaderParam {
+            method: &Method::GET,
             url: &url,
             qpack_encoder: Some(&mut encoder),
             q_sid: &0,
@@ -72,7 +73,7 @@ mod tests {
             weight: &0,
             priority: &false,
         }, &ContentType::Null).unwrap();
-        let mut buffer = Buffer::with_capacity(4096);
+        let mut buffer = Writer::with_capacity(4096);
         let len = reader.read(&mut buffer).unwrap();
         assert_eq!(len, 427);
         assert!(reader.wrote())

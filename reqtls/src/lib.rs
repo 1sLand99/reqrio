@@ -264,7 +264,6 @@ mod suite;
 mod connection;
 mod record;
 mod version;
-mod bytes;
 mod error;
 pub mod rand;
 mod boring;
@@ -286,34 +285,35 @@ pub mod quic;
 mod gm_sm;
 
 pub use alpn::ALPN;
+#[cfg(feature = "cert_signer")]
 pub use boring::{
-    base64, certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner,
-    certificate::CertStore, certificate::CertType, certificate::Certificate, certificate::DnType,
-    certificate::KeyIdentifier, certificate::KeyUsage, certificate::SubjectAltName, cipher, hash,
-    hmac, AlgorithmSigner, Cipher, CipherType, PKey, PKeyCtx, Padding, RsaCipher,
+    certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner, certificate::DnType,
+    certificate::KeyIdentifier, certificate::KeyUsage, certificate::SubjectAltName,
+};
+pub use boring::{
+    base64, certificate::CertStore, certificate::CertType, certificate::Certificate, cipher, hash,
+    hmac, AlgorithmSigner, Cipher, CipherType, Padding, RsaCipher, AeadCtx, AeadDir,
     RsaKey, RsaPadding, SignatureAlgorithm,
 };
-pub use buffer::{u24, Buf, Buffer, BufferError, ReadExt, Reader, WriteExt};
-pub use bytes::Bytes;
+pub use buffer::{u24, Buf, Writer, BufferError, Reader};
 pub use config::{ClientConfig, Config, ServerConfig};
 pub use connection::Connection;
 pub use error::{HandShakeError, RlsError};
 pub use ext::{StreamHandle, StreamParam};
 pub use extend::{
-    EcPointFormats, EcPointFormat, CompressionMethod, KeyShare, PskMode, SupportVersions, Extension,
-    StatusRequest, SupportedGroups, SignatureAlgorithms, CompressCertificate, ALPS, SNType, 
-    EncryptClientHello,
+    EcPointFormat, CompressionMethod, PskMode, StatusRequest, CompressCertificate, Aead,
+    EncryptClientHello, ServerName, KeyEntry, ExtensionType, Extension,
 };
-pub use finger::*;
+pub use finger::TlsFinger;
 pub use hash::{HashType, Hasher, Hmac};
 pub use hex;
 pub use hkdf::Hkdf;
-pub use key::{SecretKey, TlsSession, KeyType};
+pub use key::{TlsSession, KeyType};
 #[cfg(feature = "log")]
 pub use log::*;
 pub use message::{Alert, CertificateRequest, CertificateVerify, Certificates, ClientHello, Message,
                   ClientKeyExchange, MessageParsed, NamedCurve, ServerHello, ServerHelloDone,
-                  ServerKeyExchange, SessionTicket, TlsSessionTicket};
+                  ServerKeyExchange, SessionTicket, HandshakeType};
 #[cfg(feature = "quic")]
 pub use message::{PacketType, QUICPacket, QUICFlag};
 pub use record::{RecordLayer, RecordType};
@@ -321,6 +321,8 @@ pub use suite::{CipherSuite, KeyExchangeAlg};
 pub use url::{Addr, Param, Scheme, Uri, Url, UrlError};
 pub use version::Version;
 pub use gm_sm::*;
+
+pub type Buffer = Writer;
 
 
 pub const REVERSED: [u16; 16] = [0x0a0a, 0x1a1a, 0x2a2a, 0x3a3a, 0x4a4a, 0x5a5a, 0x6a6a, 0x7a7a, 0x8a8a, 0x9a9a, 0xaaaa, 0xbaba, 0xcaca, 0xdada, 0xeaea, 0xfafa];

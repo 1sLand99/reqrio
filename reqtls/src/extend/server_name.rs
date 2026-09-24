@@ -1,27 +1,43 @@
-use crate::{BufferError, WriteExt};
+#[cfg(debug_assertions)]
+use std::fmt::{Debug, Formatter};
+use std::ptr::null;
+use std::slice;
 
-#[derive(Debug, Clone)]
-pub enum SNType<'a> {
-    HostName(&'a str),
+#[repr(C)]
+#[derive(Default, Clone)]
+pub struct ServerName {
+    typ: u8,
+    len: u16,
+    ptr: *const u8,
 }
 
-impl<'a> SNType<'a> {
-    pub const HOST_NAME: u8 = 0x0;
+impl ServerName {
+    pub const HOSTNAME: ServerName = ServerName { typ: 0, len: 0, ptr: null() };
 
-    pub fn len(&self) -> usize {
-        match self {
-            SNType::HostName(name) => 3 + name.len()
+    pub fn new_sni(sni: &str) -> ServerName {
+        ServerName {
+            typ: 0,
+            len: sni.len() as u16,
+            ptr: sni.as_ptr(),
         }
-    }
-
-    pub fn write_to<W: WriteExt>(&self, writer: &mut W) -> Result<(), BufferError> {
-        match self {
-            SNType::HostName(name) => {
-                writer.write_u8(SNType::HOST_NAME)?;
-                writer.write_u16(name.len() as u16)?;
-                writer.write_slice(name.as_bytes())?;
-            }
-        }
-        Ok(())
     }
 }
+
+unsafe impl Sync for ServerName {}
+unsafe impl Send for ServerName {}
+
+#[cfg(debug_assertions)]
+impl Debug for ServerName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut debug_struct = f.debug_struct("ServerName");
+        if self.typ == 0x0 {
+            debug_struct.field("type", &"Hostname");
+            let hostname = unsafe { slice::from_raw_parts(self.ptr, self.len as usize) };
+            debug_struct.field("value", &std::str::from_utf8(hostname).unwrap());
+        }
+        debug_struct.finish()
+    }
+}
+
+
+

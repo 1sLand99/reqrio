@@ -14,7 +14,7 @@ pub enum CertExtend {
 
 
 impl CertExtend {
-    pub(crate) fn nid(&self) -> i32 {
+    pub(crate) const fn nid(&self) -> i32 {
         match self {
             CertExtend::KeyUsage(_) => NID_key_usage,
             CertExtend::ExtKeyUsage(_) => NID_ext_key_usage,

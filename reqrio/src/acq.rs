@@ -29,6 +29,7 @@ pub struct AcReq {
     ignore_order: bool,
     responses: HashMap<u64, Response>,
     recv_ids: HashSet<u64>,
+    version: Version,
 }
 
 impl Default for AcReq {
@@ -45,13 +46,14 @@ impl Default for AcReq {
             certs: vec![],
             key: RsaKey::none(),
             ca_certs: vec![],
-            alpn: ALPN::Http20,
+            alpn: ALPN::HTTP20,
             key_log: None,
             url: Default::default(),
             tls_session: None,
             ignore_order: false,
             responses: HashMap::with_capacity(100),
             recv_ids: HashSet::new(),
+            version: Version::TLS_1_3,
         }
     }
 }
@@ -89,7 +91,7 @@ impl AcReq {
         self.do_http(Method::TRACE, url, body).await
     }
 
-    pub async fn patch<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response>    {
+    pub async fn patch<'a>(&mut self, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {
         self.do_http(Method::PATCH, url, body).await
     }
 
@@ -100,9 +102,9 @@ impl AcReq {
 
     pub async fn send<'a>(&mut self, method: Method, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<u64> {
         let url = url.into().build()?;
-        self.header.set_method(method);
         self.set_url(url.as_ref()).await?;
         let sid = self.stream.send_async(&self.header, &body.into(), HeaderParam {
+            method: &method,
             url: url.as_ref(),
             hpack_encoder: None,
             h_sid: &0,
@@ -131,7 +133,7 @@ impl AcReq {
         let mut redirect_times = 0;
         while redirect_times < self.redirect_times {
             let resp = self.recv(sid).await?;
-            let code = resp.header().status().code();
+            let code = resp.status().code();
             if self.auto_redirect && (300..400).contains(&code) {
                 let location = resp.header().location().ok_or("missing location")?;
                 let location = match location.starts_with("http") {
@@ -222,6 +224,7 @@ impl AcReq {
                 key_log: &self.key_log,
                 ech: false,
                 session: &self.tls_session,
+                version: self.version,
             };
             let res = tokio::time::timeout(self.timeout.connect(), self.stream.conn_async(param)).await;
             match res {
@@ -334,6 +337,10 @@ impl ReqExt for AcReq {
         self.alpn = alpn;
     }
 
+    fn set_version(&mut self, version: Version) {
+        self.version = version;
+    }
+
     fn set_mtls(&mut self, certs: Vec<Certificate>, key: RsaKey, ca: Option<Vec<Certificate>>) {
         self.certs = certs;
         self.key = key;
@@ -344,15 +351,15 @@ impl ReqExt for AcReq {
         self.tls_session = tls_session;
     }
 
-    fn tls_session(&self) -> &Option<TlsSession> {
-        &self.tls_session
+    fn tls_session(&self) -> Option<&TlsSession> {
+        self.stream.tls_session()
     }
 
     fn set_fingerprint(&mut self, fingerprint: Fingerprint) {
         self.fingerprint = fingerprint;
     }
 
-    fn set_header_keys(&mut self, headers: Vec<HeaderKey>, keep_sort: bool) -> HlsResult<()> {
+    fn set_header_keys(&mut self, headers: Vec<HeaderItem>, keep_sort: bool) -> HlsResult<()> {
         self.header.set_by_keys(headers, keep_sort)?;
         self.ignore_order = keep_sort;
         Ok(())

@@ -13,7 +13,7 @@ struct M3u8DownEngine {
 
 impl M3u8DownEngine {
     fn new(index: impl ToString) -> M3u8DownEngine {
-        let mut req = ScReq::new().with_alpn(ALPN::Http20); //.with_proxy(Proxy::new_http_plain("127.0.0.1", 10809));
+        let mut req = ScReq::new().with_alpn(ALPN::HTTP20); //.with_proxy(Proxy::new_http_plain("127.0.0.1", 10809));
         req.set_headers_json(json::object! {
             "Host": "",
             "sec-ch-ua-platform": "Android",
@@ -30,7 +30,7 @@ impl M3u8DownEngine {
             "accept-encoding": "gzip, deflate, br, zstd",
             "accept-language": "en,zh-CN;q=0.9,zh;q=0.8,en-US;q=0.7",
             "priority": "u=1, i"
-        }).unwrap();
+        });
         M3u8DownEngine {
             req,
             index_url: index.to_string(),

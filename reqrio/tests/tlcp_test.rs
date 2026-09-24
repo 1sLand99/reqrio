@@ -12,9 +12,9 @@ fn build_finger() -> Result<Fingerprint, HlsError> {
             CipherSuite::ECC_SM4_CBC_SM3,
         ],
         extensions: vec![
-            Extension::Reserved { typ: 0xfafa, value: Buf::Ref(&[]) },
-            Extension::ServerName(vec![SNType::HostName("")]),
-            Extension::Reserved { typ: 0x8a8a, value: Buf::Ref(&[0]) },
+            Extension::Reserved { typ: ExtensionType::new(0xfafa), value: Buf::Ref(&[]) },
+            Extension::ServerName(vec![ServerName::new_sni("")]),
+            Extension::Reserved { typ: ExtensionType::new(0x8a8a), value: Buf::Ref(&[0]) },
         ],
     }, token)
 }
@@ -24,7 +24,7 @@ fn tlcp_sync() {
     let mut req = ScReq::new()
         .with_fingerprint(build_finger().unwrap());
     let resp = req.get("https://test.gmssl.cn", None).unwrap();
-    assert_eq!(resp.header().status(), HttpStatus::OK);
+    assert_eq!(resp.status(), HttpStatus::OK);
 }
 
 #[cfg(feature = "aync")]
@@ -33,5 +33,5 @@ async fn tlcp_async() {
     let mut req = AcReq::new()
         .with_fingerprint(build_finger().unwrap());
     let resp = req.get("https://test.gmssl.cn", None).await.unwrap();
-    assert_eq!(resp.header().status(), HttpStatus::OK);
+    assert_eq!(resp.status(), HttpStatus::OK);
 }

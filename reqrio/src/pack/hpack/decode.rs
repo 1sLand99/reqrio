@@ -3,7 +3,7 @@ use super::table::Table;
 use crate::error::HlsResult;
 use crate::pack::error::PackError;
 use crate::pack::{huffman, PackItem};
-use crate::Header;
+use crate::Response;
 use std::mem;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
@@ -149,7 +149,7 @@ impl HPackDecode {
         res
     }
 
-    pub fn decode_into(&mut self, buf: &[u8], header: &mut Header) -> HlsResult<()> {
+    pub fn decode_into(&mut self, buf: &[u8], header: &mut Response) -> HlsResult<()> {
         let mut buf = HPackDecodeBuf {
             remain: mem::take(&mut self.remain),
             buf,
@@ -202,9 +202,9 @@ impl HPackDecode {
 
 #[cfg(test)]
 mod tests {
-    use crate::pack::HPackDecode;
-    use crate::Header;
     use crate::pack::hpack::decode::HPackDecodeBuf;
+    use crate::pack::HPackDecode;
+    use crate::Response;
 
     #[test]
     fn test_index_integer_decode() {
@@ -268,12 +268,12 @@ mod tests {
     #[test]
     fn test_hpack_decode() {
         let mut decode = HPackDecode::new(1024);
-        let mut header = Header::default();
-        decode.decode_into(&[130, 64, 134, 168, 190, 20, 168, 116, 151, 136, 168, 190, 20, 66, 108, 53, 83, 127], &mut header).unwrap();
-        assert_eq!(header.to_string(), ":method: GET\r\nnew name: new string");
+        let mut resp = Response::new();
+        decode.decode_into(&[130, 64, 134, 168, 190, 20, 168, 116, 151, 136, 168, 190, 20, 66, 108, 53, 83, 127], &mut resp).unwrap();
+        assert_eq!(resp.to_string(), ":method: GET\r\nnew name: new string");
         let mut decode = HPackDecode::new(1024);
-        let mut header = Header::default();
-        decode.decode_into(&[66, 6, 68, 69, 76, 69, 84, 69], &mut header).unwrap();
-        assert_eq!(header.to_string(), ":method: DELETE")
+        let mut resp = Response::new();
+        decode.decode_into(&[66, 6, 68, 69, 76, 69, 84, 69], &mut resp).unwrap();
+        assert_eq!(resp.to_string(), ":method: DELETE")
     }
 }

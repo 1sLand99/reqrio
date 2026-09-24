@@ -9,7 +9,7 @@ use std::ptr::{null, null_mut};
 pub extern "C" fn Response_status_code(resp: *const Response, err: *mut *mut c_char) -> u16 {
     check_run(move || {
         let resp = unsafe { resp.as_ref() }.ok_or(HlsError::NullPointer)?;
-        Ok(resp.header().status().code())
+        Ok(resp.status().code())
     }, |e| handle_err1(e, err, 0))
 }
 

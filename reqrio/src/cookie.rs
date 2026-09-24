@@ -63,7 +63,7 @@ mod tests {
     #[test]
     fn test_cookie_manager() {
         let cookie = "GC=Q4sdCza0cnj5G7P5IvdIbE5FSUS6b4z5A0SujitITnpD8uTkDt_q4kntWQnMCm-fXZCaGxTessBv0CNz94OaTA; expires=Fri, 19 Dec 2025 03:53:27 GMT; domain=.bing.com; path=/; secure; samesite=none";
-        let cookie = Cookie::from_res(cookie).unwrap();
+        let cookie = Cookie::from_res(cookie);
         let manager = CookieManager(vec![cookie]);
         let res = manager.as_req("cn.bing.com", "/api/get");
         assert_eq!(res.len(), 1)

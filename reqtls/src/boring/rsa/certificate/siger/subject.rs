@@ -9,7 +9,7 @@ pub enum DnType {
 }
 
 impl DnType {
-    pub fn filed_value(&self) -> &'static str {
+    pub const fn filed_value(&self) -> &'static str {
         match self {
             DnType::Country => "C",
             DnType::StateOrProvince => "ST",

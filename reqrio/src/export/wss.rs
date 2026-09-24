@@ -9,7 +9,7 @@ pub extern "system" fn ws_open(url: *const c_char, hdr: *const c_char) -> *mut W
     || -> HlsResult<*mut WebSocket>{
         let header = json::from_bytes(unsafe { CStr::from_ptr(hdr).to_bytes() })?;
         let url = unsafe { CStr::from_ptr(url).to_str()? };
-        let mut req = ScReq::new().with_header_json(header)?;
+        let mut req = ScReq::new().with_header_json(header);
         let resp = req.get(url, None)?;
         let ws = WebSocket::new(resp, req.into_stream()?)?;
         Ok(Box::into_raw(Box::new(ws)))
@@ -24,7 +24,7 @@ pub extern "system" fn ws_open_raw(url: *const c_char, context: *const c_char) -
     || -> HlsResult<*mut WebSocket>{
         let url = unsafe { CStr::from_ptr(url) }.to_str()?;
         let context = unsafe { CStr::from_ptr(context) }.to_bytes();
-        let mut buffer = Buffer::with_capacity(16469);
+        let mut buffer = Writer::with_capacity(16469);
         let mut stream = ScReq::new().connect(url)?.into_stream()?;
         buffer.write_slice(context)?;
         stream.write(&mut buffer).wait()?;

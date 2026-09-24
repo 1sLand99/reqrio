@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fmt::Display;
 use crate::cookie::CookieManager;
 use crate::packet::http::content_type::ContentType;
@@ -5,13 +6,17 @@ use crate::packet::http::cookie::Cookie;
 
 #[derive(Clone)]
 pub enum HeaderValue {
-    String(String),
+    String(Cow<'static, str>),
     Number(usize),
     ContextType(ContentType),
     Cookies(CookieManager),
 }
 
 impl HeaderValue {
+    pub const fn new_str(value: &'static str) -> HeaderValue {
+        HeaderValue::String(Cow::Borrowed(value))
+    }
+
     pub fn add_cookie(&mut self, cookie: Cookie) {
         if let HeaderValue::Cookies(cookies) = self {
             cookies.push(cookie);
@@ -57,13 +62,13 @@ impl Display for HeaderValue {
 
 impl From<String> for HeaderValue {
     fn from(value: String) -> Self {
-        HeaderValue::String(value)
+        HeaderValue::String(Cow::Owned(value))
     }
 }
 
 impl From<&str> for HeaderValue {
     fn from(value: &str) -> Self {
-        HeaderValue::String(value.to_string())
+        HeaderValue::String(Cow::Owned(value.to_string()))
     }
 }
 

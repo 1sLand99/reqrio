@@ -3,40 +3,40 @@ use super::value::HeaderValue;
 use crate::packet::http::cookie::Cookie;
 
 #[derive(Clone)]
-pub struct HeaderKey {
+pub struct HeaderItem {
     name: Cow<'static, str>,
     value: HeaderValue,
     reserved: bool,
 }
 
-impl HeaderKey {
-    pub fn none() -> HeaderKey {
-        HeaderKey {
+impl HeaderItem {
+    pub const fn none() -> HeaderItem {
+        HeaderItem {
             name: Cow::Borrowed(""),
-            value: HeaderValue::String("".to_string()),
+            value: HeaderValue::String(Cow::Borrowed("")),
             reserved: false,
         }
     }
 
-    pub fn new(name: impl ToString, value: impl Into<HeaderValue>) -> HeaderKey {
-        HeaderKey {
-            name: Cow::Owned(name.to_string()),
+    pub fn new(name: impl Into<String>, value: impl Into<HeaderValue>) -> HeaderItem {
+        HeaderItem {
+            name: Cow::Owned(name.into()),
             value: value.into(),
             reserved: false,
         }
     }
 
     #[cfg(feature = "export")]
-    pub(crate) fn with_reserved(mut self, reserved: bool) -> HeaderKey {
+    pub(crate) fn with_reserved(mut self, reserved: bool) -> HeaderItem {
         self.reserved = reserved;
         self
     }
 
     ///保留的key，当key的值为空时，该值不会被发送; 若要发送请使用new
-    pub fn new_reserved(name: &'static str, value: impl Into<HeaderValue>) -> HeaderKey {
-        HeaderKey {
+    pub const fn new_reserved(name: &'static str, value: HeaderValue) -> HeaderItem {
+        HeaderItem {
             name: Cow::Borrowed(name),
-            value: value.into(),
+            value,
             reserved: true,
         }
     }
@@ -56,8 +56,6 @@ impl HeaderKey {
     }
 
     pub fn name(&self) -> &str { &self.name }
-
-    pub fn name_lower(&self) -> String { self.name.to_lowercase() }
 
     pub fn value(&self) -> &HeaderValue { &self.value }
 

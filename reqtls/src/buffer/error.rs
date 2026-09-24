@@ -16,7 +16,11 @@ pub enum BufferError {
         line: u32,
     },
     Overflow { capacity: usize, len: usize, need: usize },
-    IndexOutBound { size: usize, index: usize },
+    IndexOutBound {
+        index: usize,
+        want: usize,
+        size: usize,
+    },
     RangeEdgeError(Range<usize>),
     Nullptr,
     ResizeFail {
@@ -27,6 +31,7 @@ pub enum BufferError {
     SliceConvertError(TryFromSliceError),
     Utf8Error(Utf8Error),
     UdpMsgTooLarge,
+    InvalidCEncode,
 }
 
 impl Display for BufferError {
@@ -40,7 +45,7 @@ impl Display for BufferError {
                 line,
             } => write!(f, "The required capacity is {}, but the current capacity is {} at {}:{}.", needed, current, file, line),
             BufferError::Overflow { capacity, len, need } => write!(f, "The buffer capacity is {}, but write {} out of it.", capacity, len + need),
-            BufferError::IndexOutBound { size, index } => write!(f, "The index {} out of bounds {} ", index, size),
+            BufferError::IndexOutBound { size, index, want } => write!(f, "The index {} out of bounds {} ", index + want, size),
             BufferError::RangeEdgeError(range) => write!(f, "The range is {:?} of Buffer is fail", range),
             BufferError::Nullptr => write!(f, "Nullptr"),
             BufferError::ResizeFail { current, new, at_least } => write!(f, "resize to {} fail from {}, need: {}", new, current, at_least),
@@ -48,6 +53,7 @@ impl Display for BufferError {
             BufferError::SliceConvertError(er) => write!(f, "SliceConvertError({})", er),
             BufferError::Utf8Error(e) => write!(f, "Utf8Error({})", e),
             BufferError::UdpMsgTooLarge => write!(f, "udp msg must less then 1500"),
+            BufferError::InvalidCEncode => write!(f, "invalid C encode"),
         }
     }
 }
@@ -63,5 +69,11 @@ impl From<TryFromSliceError> for BufferError {
 impl From<Utf8Error> for BufferError {
     fn from(value: Utf8Error) -> Self {
         BufferError::Utf8Error(value)
+    }
+}
+
+impl From<BufferError> for std::fmt::Error {
+    fn from(_: BufferError) -> Self {
+        std::fmt::Error
     }
 }

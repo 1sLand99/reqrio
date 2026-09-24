@@ -84,18 +84,17 @@ mod tests {
     #[test]
     fn test_rsa() {
         let key = RsaKey::gen_new_key(2048).unwrap();
-        println!("{}", key.to_pri_pem().unwrap());
-        println!("{}", key.to_pub_pem().unwrap());
-        println!("{:?}", key.to_pri_der());
-        println!("{:?}", key.to_pub_der());
+        assert!(key.to_pri_pem().unwrap().starts_with("-----BEGIN PRIVATE KEY-----"));
+        assert!(key.to_pub_pem().unwrap().starts_with("-----BEGIN PUBLIC KEY-----"));
+        assert!(key.to_pri_der().is_ok());
+        assert!(key.to_pub_der().is_ok());
         let nkey = RsaKey::from_pub_der(key.to_pub_der().unwrap().as_slice()).unwrap();
         let rsa = RsaCipher::from_rsa_key(&nkey).unwrap();
         let encrypted = rsa.encrypt("adsdfds").unwrap();
-        println!("{} {:?}", encrypted.len(), encrypted);
 
         let nkey = RsaKey::from_pri_der(key.to_pri_der().unwrap().as_slice()).unwrap();
         let rsa = RsaCipher::from_rsa_key(&nkey).unwrap();
         let decrypted = rsa.decrypt(encrypted.as_slice()).unwrap();
-        println!("{} {:?}", decrypted.len(), decrypted);
+        assert_eq!(std::str::from_utf8(&decrypted).unwrap(), "adsdfds");
     }
 }

@@ -14,8 +14,10 @@ bytemuck = "1.25"
 urlencoding = "2.1"
 log = { version = "0.4", default-features = false, optional = true }
 
+
 [features]
 zstd = []
 static_link = []
 export = []
 quic = []
+cert_signer = []

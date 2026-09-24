@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
 
+#[repr(C)]
 #[derive(Copy, Clone, PartialEq)]
 pub struct Version(u16);
 
@@ -28,20 +29,6 @@ impl Version {
 
     pub(crate) fn as_u16(&self) -> u16 {
         self.0
-    }
-
-    pub(crate) fn as_ja4_str(&self) -> &'static str {
-        match self.0 {
-            0x301 => "10",
-            0x302 => "11",
-            0x303 => "12",
-            0x304 => "13",
-            _ => ""
-        }
-    }
-
-    pub(crate) fn is_reverse(&self) -> bool {
-        crate::REVERSED.contains(&self.0)
     }
 }
 

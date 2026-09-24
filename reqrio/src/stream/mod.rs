@@ -49,6 +49,7 @@ pub struct ConnParam<'a> {
     pub key_log: &'a Option<PathBuf>,
     pub ech: bool,
     pub session: &'a Option<TlsSession>,
+    pub version: Version,
 }
 
 impl<'a, 'b: 'a> From<&'a mut ConnParam<'b>> for ClientConfig<'a> {
@@ -66,6 +67,7 @@ impl<'a, 'b: 'a> From<&'a mut ConnParam<'b>> for ClientConfig<'a> {
                 Err(_) => None
             }),
             session: param.session,
+            version: param.version,
         }
     }
 }
@@ -133,6 +135,22 @@ impl HTTPStream {
             HTTPStream::AsyncH3(_) => Err("use `HTTPStreamA`".into()),
         }
     }
+
+    pub fn tls_session(&self) -> Option<&TlsSession> {
+        match self {
+            HTTPStream::NonConnection => None,
+            HTTPStream::SyncH1(h1) => h1.stream().tls_session(),
+            HTTPStream::SyncH2(h2) => h2.stream().tls_session(),
+            #[cfg(feature = "quic")]
+            HTTPStream::SyncH3(_) => None,
+            #[cfg(feature = "aync")]
+            HTTPStream::AsyncH1(h1) => h1.stream().tls_session(),
+            #[cfg(feature = "aync")]
+            HTTPStream::AsyncH2(h2) => h2.stream().tls_session(),
+            #[cfg(all(feature = "aync", feature = "quic"))]
+            HTTPStream::AsyncH3(_) => None,
+        }
+    }
 }
 
 
@@ -164,15 +182,17 @@ impl HTTPStream {
     pub(crate) fn conn_sync<'a, 'b: 'a>(&'a mut self, param: ConnParam<'b>) -> HlsResult<ALPN> {
         match param.alpn {
             #[cfg(feature = "quic")]
-            ALPN::Http30 => {
+            h3 if h3 == ALPN::HTTP30 => {
                 let socket = std::net::UdpSocket::bind("0.0.0.0:0")?;
                 *self = HTTPStream::SyncH3(HTTP3StreamS::connect(socket, param)?);
-                Ok(ALPN::Http30)
+                Ok(ALPN::HTTP30)
             }
             _ => {
                 let _ = self.stream_mut().and_then(|stream| stream.shutdown().wait());
                 let addr = param.proxy.socket_addr(param.url.addr(), false)?;
                 let stream = std::net::TcpStream::connect_timeout(&addr, param.timeout.connect())?;
+                stream.set_read_timeout(Some(param.timeout.read()))?;
+                stream.set_write_timeout(Some(param.timeout.write()))?;
                 let (alpn, stream) = Stream::connect(param, stream).wait()?;
                 *self = stream;
                 Ok(alpn)
@@ -208,10 +228,10 @@ impl HTTPStream {
     pub(crate) async fn conn_async<'a, 'b: 'a>(&'a mut self, param: ConnParam<'b>) -> HlsResult<ALPN> {
         match param.alpn {
             #[cfg(feature = "quic")]
-            ALPN::Http30 => {
+            h3 if h3 == ALPN::HTTP30 => {
                 let socket = tokio::net::UdpSocket::bind("0.0.0.0:0").await?;
                 *self = HTTPStream::AsyncH3(HTTP3StreamA::connect(socket, param).await?);
-                Ok(ALPN::Http30)
+                Ok(ALPN::HTTP30)
             }
             _ => {
                 if let Ok(stream) = self.stream_mut() { let _ = stream.shutdown().await; }
@@ -262,14 +282,14 @@ impl Stream {
         }
     }
 
-    pub fn read<'a>(&'a mut self, buffer: &'a mut Buffer) -> StreamRead<'a> {
+    pub fn read<'a>(&'a mut self, buffer: &'a mut Writer) -> StreamRead<'a> {
         StreamRead {
             stream: self,
             buf: buffer,
         }
     }
 
-    pub fn write<'a>(&'a mut self, buf: &'a mut Buffer) -> StreamWrite<'a> {
+    pub fn write<'a>(&'a mut self, buf: &'a mut Writer) -> StreamWrite<'a> {
         StreamWrite {
             stream: self,
             buf,
@@ -299,16 +319,17 @@ impl Stream {
                     ca_certs: param.ca_cert,
                     key_log: param.key_log.clone(),
                     session: param.session,
+                    version: param.version,
                 }),
                 state: ConnState::Connected,
-                app_buf: Default::default(),
+                app_buf: Writer::with_capacity(16384),
             },
             #[cfg(feature = "aync")]
             proxy_connected: false,
             #[cfg(feature = "aync")]
             stream: Stream::NonConnection,
             #[cfg(feature = "aync")]
-            buffer: Buffer::none(),
+            buffer: Writer::none(),
             #[cfg(feature = "aync")]
             tls_connected: false,
         }
