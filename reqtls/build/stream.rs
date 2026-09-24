@@ -160,12 +160,16 @@ impl TkStream {
             }
             String::from_utf8(res.stdout)?
         } else if cfg!(target_os = "linux") {
-            let res = Command::new("sha256sum").arg(path.display().to_string()).output()?.stdout;
-            String::from_utf8(res)?.split(" ").next().unwrap_or("").to_string()
+            let res = Command::new("sha256sum").arg(path.display().to_string()).output()?;
+            println!("{}", String::from_utf8_lossy(&res.stdout));
+            println!("{}", String::from_utf8_lossy(&res.stderr));
+            String::from_utf8(res.stdout)?.split(" ").next().unwrap_or("").to_string()
         } else {
             let res = Command::new("shasum").args(["-a", "256"])
-                .arg(path.display().to_string()).output()?.stdout;
-            String::from_utf8(res)?.split(" ").next().unwrap_or("").to_string()
+                .arg(path.display().to_string()).output()?;
+            println!("{}", String::from_utf8_lossy(&res.stdout));
+            println!("{}", String::from_utf8_lossy(&res.stderr));
+            String::from_utf8(res.stdout)?.split(" ").next().unwrap_or("").to_string()
         };
         // println!("{:?} {:?} {:?}", hash.dy_bcrypto, hash.bcrypto, file_hash);
         match filename.split('.').next().unwrap_or("") {
