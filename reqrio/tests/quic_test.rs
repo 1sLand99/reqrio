@@ -13,7 +13,7 @@ fn test_quic() {
     assert_eq!(resp.status(), HttpStatus::OK)
 }
 
-#[cfg(feature = "aync")]
+#[cfg(all(feature = "aync",not(feature = "staticlink")))]
 #[tokio::test]
 async fn test_quic_async() {
     Buffer::check_subscription(TOKEN.as_str()).unwrap();

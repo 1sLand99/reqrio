@@ -173,8 +173,8 @@ impl TkStream {
         };
         println!("{:?} {:?} {:?}", hash.dy_bcrypto, hash.bcrypto, file_hash);
         match filename.split('.').next().unwrap_or("") {
-            "bcrypto" => Ok(if dylib { hash.dy_bcrypto } else { hash.bcrypto } == file_hash.trim()),
-            "zap" => Ok(if dylib { hash.dy_zap } else { hash.zap } == file_hash.trim()),
+            "bcrypto"|"libbcrypto" => Ok(if dylib { hash.dy_bcrypto } else { hash.bcrypto } == file_hash.trim()),
+            "zap"|"libzap" => Ok(if dylib { hash.dy_zap } else { hash.zap } == file_hash.trim()),
             _ => Ok(false)
         }
     }
