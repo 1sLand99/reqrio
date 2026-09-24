@@ -153,16 +153,19 @@ impl TkStream {
         if dylib && (filename == "bcrypto.lib" || filename == "zap.lib") { return Ok(true); }
         let file_hash = if cfg!(target_os = "windows") {
             let res = Command::new("powershell").args(["-NoProfile", "-Command"])
-                .arg(format!("(Get-FileHash {} -Algorithm SHA256).Hash.ToLower()", path.display()))
+                .arg(format!("certutil -hashfile {} SHA256 | Select-Object -Index 1", path.display()))
                 .output()?;
             if !res.stderr.is_empty() {
                 panic!("{}", String::from_utf8_lossy(&res.stderr));
             }
             String::from_utf8(res.stdout)?
+        } else if cfg!(target_os = "linux") {
+            let res = Command::new("sha256sum").arg(path.display().to_string()).output()?.stdout;
+            String::from_utf8(res)?.split(" ").next().unwrap_or("").to_string()
         } else {
             let res = Command::new("shasum").args(["-a", "256"])
                 .arg(path.display().to_string()).output()?.stdout;
-            String::from_utf8(res)?
+            String::from_utf8(res)?.split(" ").next().unwrap_or("").to_string()
         };
         // println!("{:?} {:?} {:?}", hash.dy_bcrypto, hash.bcrypto, file_hash);
         match filename.split('.').next().unwrap_or("") {
