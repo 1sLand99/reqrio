@@ -43,7 +43,7 @@ impl H2Setting {
         writer.write_u32(*value)
     }
 
-    pub fn value(&self) -> &u32 {
+    pub const fn value(&self) -> &u32 {
         match self {
             H2Setting::HeaderTableSize(v) => v,
             H2Setting::EnablePush(v) => v,

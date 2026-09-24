@@ -12,31 +12,31 @@ impl H2FrameFlag {
 }
 
 impl H2FrameFlag {
-    pub fn from_u8(byte: u8) -> H2FrameFlag {
+    pub const fn new(byte: u8) -> H2FrameFlag {
         H2FrameFlag(byte)
     }
 
-    pub fn into_inner(self) -> u8 {
+    pub const fn into_inner(self) -> u8 {
         self.0
     }
 
-    pub fn priority(&self) -> bool {
+    pub const fn priority(&self) -> bool {
         self.0 & H2FrameFlag::Priority.0 == 0b0010_0000
     }
 
-    pub fn padding(&self) -> bool {
+    pub const fn padding(&self) -> bool {
         self.0 & H2FrameFlag::Padding.0 == 0b0000_1000
     }
 
-    pub fn end_header(&self) -> bool {
+    pub const fn end_header(&self) -> bool {
         self.0 & H2FrameFlag::EndHeader.0 == 0b0000_0100
     }
 
-    pub fn end_stream(&self) -> bool {
+    pub const fn end_stream(&self) -> bool {
         self.0 & H2FrameFlag::EndStream.0 == 0b0000_0001
     }
 
-    pub fn inner(&self) -> u8 { self.0 }
+    pub const fn inner(&self) -> u8 { self.0 }
 }
 
 impl BitOrAssign for H2FrameFlag {

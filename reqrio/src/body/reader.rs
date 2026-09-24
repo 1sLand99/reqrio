@@ -48,7 +48,7 @@ pub struct H2FrameHead<'a> {
 
 impl<'a> H2FrameHead<'a> {
     pub fn new(sid: &'a u32, pd_len: usize, end_stream: bool) -> H2FrameHead<'a> {
-        let mut frame_flag = H2FrameFlag::from_u8(0);
+        let mut frame_flag = H2FrameFlag::new(0);
         if end_stream {
             frame_flag |= H2FrameFlag::EndStream;
         }

@@ -24,11 +24,11 @@ pub struct Reader<'a> {
 }
 
 impl<'a> Reader<'a> {
-    pub fn from_slice(slice: &'a [u8]) -> Reader<'a> {
+    pub const fn from_slice(slice: &'a [u8]) -> Reader<'a> {
         Reader::from_ptr(slice.as_ptr(), slice.len())
     }
 
-    pub fn from_ptr(ptr: *const u8, size: usize) -> Reader<'a> {
+    pub const fn from_ptr(ptr: *const u8, size: usize) -> Reader<'a> {
         Reader {
             ptr,
             pos: 0,
@@ -100,7 +100,7 @@ impl<'a> Reader<'a> {
     }
 
     pub fn read_slice(&mut self, size: usize) -> Result<&'a [u8], BufferError> {
-        let ptr=self.read_ptr(size)?;
+        let ptr = self.read_ptr(size)?;
         Ok(unsafe { slice::from_raw_parts(ptr, size) })
     }
 
@@ -136,7 +136,6 @@ impl<'a> Reader<'a> {
             });
         }
         Ok(ptr)
-
     }
 
     pub fn add_len(&mut self, size: usize) {

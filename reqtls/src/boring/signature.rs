@@ -12,9 +12,9 @@ pub struct SignatureAlgorithm(u16);
 impl SignatureAlgorithm {
     pub const fn new(v: u16) -> SignatureAlgorithm { SignatureAlgorithm(v) }
 
-    pub fn into_inner(self) -> u16 { self.0 }
+    pub const fn into_inner(self) -> u16 { self.0 }
 
-    pub fn as_u16(&self) -> u16 { self.0 }
+    pub const fn as_u16(&self) -> u16 { self.0 }
 
     fn evp_md(&self) -> *const EVP_MD {
         match *self {
@@ -32,7 +32,7 @@ impl SignatureAlgorithm {
         }
     }
 
-    fn padding(&self) -> i32 {
+    const fn padding(&self) -> i32 {
         match *self {
             SignatureAlgorithm::RSA_PSS_RSAE_SHA256 => RSA_PKCS1_PSS_PADDING,
             SignatureAlgorithm::RSA_PSS_RSAE_SHA384 => RSA_PKCS1_PSS_PADDING,
@@ -49,7 +49,7 @@ impl SignatureAlgorithm {
     }
 
 
-    fn salt_len(&self) -> i32 {
+    const fn salt_len(&self) -> i32 {
         match *self {
             SignatureAlgorithm::RSA_PSS_RSAE_SHA256 => 32,
             SignatureAlgorithm::RSA_PSS_RSAE_SHA384 => 48,
@@ -109,7 +109,7 @@ impl SignatureAlgorithm {
         0x0502,
         0x0602
     ];
-    pub fn spec(&self) -> &'static str {
+    pub const fn spec(&self) -> &'static str {
         match *self {
             SignatureAlgorithm::RSA_PKCS1_SHA1 => "RSA_PKCS1_SHA1",
             SignatureAlgorithm::RSA_PKCS1_SHA256 => "RSA_PKCS1_SHA256",

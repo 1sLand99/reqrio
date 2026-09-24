@@ -133,7 +133,7 @@ impl<'a> H2Frame<'a> {
     pub fn from_reader(mut reader: Reader<'a>) -> HlsResult<H2Frame<'a>> {
         let len = reader.read_u24()?;
         let frame_type = H2FrameType::new(reader.read_u8()?);
-        let flag = H2FrameFlag::from_u8(reader.read_u8()?);
+        let flag = H2FrameFlag::new(reader.read_u8()?);
         let mut stream_identifier = reader.read_u32()?;
         stream_identifier &= !2147483648;
         if reader.unread_len() < len as usize { return Err("byte not enough".into()); }

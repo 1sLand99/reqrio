@@ -22,9 +22,9 @@ impl H2FrameType {
     pub const fn new(val: u8) -> H2FrameType {
         H2FrameType(val)
     }
-    pub fn into_inner(self) -> u8 { self.0 }
+    pub const fn into_inner(self) -> u8 { self.0 }
 
-    pub fn inner(&self) -> u8 { self.0 }
+    pub const fn inner(&self) -> u8 { self.0 }
 }
 
 impl Debug for H2FrameType {

@@ -98,17 +98,4 @@ impl WsFrame {
     pub fn frame_type(&self) -> &WsFrameType {
         &self.typ
     }
-
-    // pub fn to_bytes(self) -> Vec<u8> {
-    //     let payload_len = self.payload.len();
-    //     let payload = self.payload.to_bytes(&self.masker);
-    //     let mut res = vec![self.typ.encode(), self.masker.into_inner(payload_len)];
-    //     match payload.len() {
-    //         126..0xFFFF => res.extend((payload_len as u16).to_be_bytes()),
-    //         0xFFFF.. => res.extend((payload_len as u64).to_be_bytes()),
-    //         _ => {}
-    //     }
-    //     res.extend(payload);
-    //     res
-    // }
 }

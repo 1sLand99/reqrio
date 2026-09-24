@@ -60,7 +60,7 @@ pub struct Writer {
 }
 
 impl Writer {
-    fn new(ptr: *mut u8, capacity: usize) -> Writer {
+    const fn new(ptr: *mut u8, capacity: usize) -> Writer {
         Writer {
             capacity,
             start: 0,
@@ -71,7 +71,7 @@ impl Writer {
         }
     }
 
-    pub fn none() -> Writer {
+    pub const fn none() -> Writer {
         Writer::new(null_mut(), 0)
     }
 
@@ -106,7 +106,7 @@ impl Writer {
         unsafe { Writer_reset_offset(self, offset.start, offset.end) };
     }
 
-    pub fn from_ptr(buf: *mut u8, len: usize) -> Self {
+    pub const fn from_ptr(buf: *mut u8, len: usize) -> Self {
         Writer::new(buf, len)
     }
 

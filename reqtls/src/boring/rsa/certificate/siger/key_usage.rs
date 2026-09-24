@@ -10,7 +10,7 @@ pub enum KeyUsage {
 }
 
 impl KeyUsage {
-    pub(crate) fn value(&self) -> &str {
+    pub(crate) const fn value(&self) -> &str {
         match self {
             KeyUsage::Critical => "critical",
             KeyUsage::KeyCertSign => "keyCertSign",

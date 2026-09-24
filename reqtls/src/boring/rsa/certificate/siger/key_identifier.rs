@@ -3,7 +3,7 @@ pub enum KeyIdentifier {
 }
 
 impl KeyIdentifier {
-    pub(crate) fn value(&self) -> &str {
+    pub(crate) const fn value(&self) -> &str {
         match self { KeyIdentifier::Hash => "hash" }
     }
 }
