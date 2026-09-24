@@ -124,7 +124,7 @@ fn main() {
         println!("cargo:rustc-link-lib=dylib=stdc++");
     }
     if env.is_empty() {
-        println!("cargo:rustc-link-lib=dylib=c++");
+        println!("cargo:rustc-link-lib=c++");
     }
     if check_lib(target_dir, &typ, &version).unwrap_or(false) {
         return;
