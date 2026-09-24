@@ -171,7 +171,7 @@ impl TkStream {
             println!("{}", String::from_utf8_lossy(&res.stderr));
             String::from_utf8(res.stdout)?.split(" ").next().unwrap_or("").to_string()
         };
-        // println!("{:?} {:?} {:?}", hash.dy_bcrypto, hash.bcrypto, file_hash);
+        println!("{:?} {:?} {:?}", hash.dy_bcrypto, hash.bcrypto, file_hash);
         match filename.split('.').next().unwrap_or("") {
             "bcrypto" => Ok(if dylib { hash.dy_bcrypto } else { hash.bcrypto } == file_hash.trim()),
             "zap" => Ok(if dylib { hash.dy_zap } else { hash.zap } == file_hash.trim()),

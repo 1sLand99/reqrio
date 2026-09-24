@@ -50,7 +50,9 @@ fn build_min_finger() -> Fingerprint {
             CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
             CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
         ],
-        extensions: vec![Extension::SupportedGroups(vec![NamedCurve::X25519])],
+        extensions: vec![
+            Extension::SupportedGroups(vec![NamedCurve::X25519, NamedCurve::SecP256r1]),
+        ],
     }, H2Finger {
         setting: vec![],
         window_size: 0,
