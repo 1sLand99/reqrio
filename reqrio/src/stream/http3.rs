@@ -202,7 +202,7 @@ trait H3Handle {
                     Err(HlsError::Rls(RlsError::Buffer(BufferError::IndexOutBound { .. }))) => break,
                     Err(e) => return Err(e)
                 };
-                println!("{:#?}", frame);
+                // println!("{:#?}", frame);
                 match frame {
                     H3Frame::Settings(settings) => for setting in settings {
                         match setting.flag() {

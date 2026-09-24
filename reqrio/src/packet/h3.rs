@@ -183,8 +183,8 @@ impl H3Stream {
     pub fn handle_stream<'a>(&self, reader: &mut Reader<'a>, decoder: &mut QPackDecode) -> Result<H3Frame<'a>, HlsError> {
         match self {
             H3Stream::QPackEncoder => {
-                let item = decoder.decode_next(QPackType::StreamEncoder, &0, reader)?;
-                println!("{:?}", item);
+                let _item = decoder.decode_next(QPackType::StreamEncoder, &0, reader)?;
+                // println!("{:?}", item);
                 Ok(H3Frame::Reserved { typ: 0, payload: Buf::Ref(&[]) })
             }
             H3Stream::QPackDecoder => {

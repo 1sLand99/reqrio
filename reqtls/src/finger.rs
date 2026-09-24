@@ -432,7 +432,7 @@ mod tests {
             conn: &mut connection,
         }).unwrap();
         assert!(RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).is_ok());
-        println!("{:#?}", RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).unwrap());
+        // println!("{:#?}", RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).unwrap());
     }
 
     #[test]
@@ -525,7 +525,8 @@ mod tests {
             entries: null(),
             conn: &mut connection,
         }).unwrap();
-        println!("{} {:?}", writer.len(), writer.filled());
-        println!("{:#?}", RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).unwrap());
+        assert!(RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).is_ok());
+        // println!("{} {:?}", writer.len(), writer.filled());
+        // println!("{:#?}", RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).unwrap());
     }
 }

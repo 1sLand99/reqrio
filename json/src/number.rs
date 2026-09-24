@@ -333,8 +333,6 @@ mod tests {
     #[test]
     fn test_number() {
         let n = Number::I32(4);
-        println!("{}", serde_json::to_string_pretty(&n).unwrap());
-        // let k: Number = serde_json::from_value(serde_json::Value::Number(serde_json::Number::from(4))).unwrap();
-        // println!("{}", serde_json::to_string_pretty(&k).unwrap());
+        assert_eq!(serde_json::to_string_pretty(&n).unwrap(), "4")
     }
 }

@@ -526,11 +526,11 @@ mod tests {
                 "3":3,
             }
         };
+        let res = "{\n  \"b\": \"dffdf\",\n  \"c\": [\n    1,\n    2,\n    3,\n    4\n  ],\n  \"a\": null,\n  \"d\": 1,\n  \"fs\": false,\n  \"sf\": 1.23234,\n  \"dffdfdf\": {\n    \"1\": 1,\n    \"2\": 2,\n    \"3\": 3\n  }\n}";
         let strs = serde_json::to_string_pretty(&jd).unwrap();
-        println!("{}", strs);
+        assert_eq!(strs, res);
         let v: JsonValue = serde_json::from_str(&strs).unwrap();
-        println!("{}", v.pretty());
-        println!("{} {}", v["sdsd"], v["tf"].pretty())
+        assert_eq!(v.dump(), jd.dump());
     }
 
     #[test]
@@ -570,6 +570,7 @@ mod tests {
             }
         };
         jd.update_by(j2).unwrap();
-        println!("{}", jd.pretty());
+        let res = "{\n  \"b\": \"dffdf\",\n  \"c\": [\n    {\n      \"1\": \"k1\",\n      \"2\": \"989078\"\n    }\n  ],\n  \"a\": {\n    \"s\": 1,\n    \"k\": \"bs\"\n  },\n  \"d\": 1,\n  \"fs\": true,\n  \"sf\": 1.3,\n  \"dffdfdf\": {\n    \"1\": 1,\n    \"2\": 2,\n    \"3\": 3\n  }\n}";
+        assert_eq!(jd.pretty(), res);
     }
 }

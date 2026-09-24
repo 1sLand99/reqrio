@@ -263,7 +263,6 @@ mod tests {
 
         let pri_key = [19, 238, 7, 135, 31, 63, 80, 40, 250, 184, 86, 234, 236, 32, 132, 117, 46, 85, 104, 181, 74, 170, 152, 62, 92, 250, 163, 111, 118, 123, 50, 139];
         let key = Sm2Key::from_pri_key(pri_key).unwrap();
-        println!("{:?}", key.sign(None::<&str>, "123").unwrap());
         assert_eq!(key.pub_key(false).unwrap(), pub_key);
         assert!(key.encrypt(Sm2Model::C1C2C3, false, "123").is_ok());
         assert!(key.encrypt(Sm2Model::C1C2C3, true, "123").is_ok());
@@ -286,7 +285,7 @@ mod tests {
         pms[0] = 1;
         pms[1] = 1;
         rand::fill(&mut pms[2..]);
-        let pre_master = key.encrypt_premaster(pms).unwrap();
-        println!("pre_master: {:?}", pre_master);
+        let pre_master = key.encrypt_premaster(pms);
+        assert!(pre_master.is_ok())
     }
 }
