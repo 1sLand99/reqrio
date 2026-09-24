@@ -108,6 +108,7 @@ fn check_lib(tdr: &Path, typ: &LibType, ver: &str) -> Result<bool, Box<dyn Error
 
 
 fn main() {
+    if env::var("DOCS_RS").is_ok() { return; }
     let os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     let arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
     let env = env::var("CARGO_CFG_TARGET_ENV").unwrap();
