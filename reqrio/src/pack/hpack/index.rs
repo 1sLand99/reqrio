@@ -253,6 +253,20 @@ impl Index {
         }
     }
 
+    pub fn inner(&self) -> usize {
+        match self {
+            Index::Indexed(v) => *v,
+            Index::NoIndexAdd => 0,
+            Index::NoIndexOnce => 0,
+            Index::NoIndexNever => 0,
+            Index::NameIndexedAdd(v) => *v,
+            Index::NameIndexedOnce(v) => *v,
+            Index::NameIndexedNever(v) => *v,
+            Index::UpdateDynamicSize(v) => *v,
+            Index::ValueLen { value, .. } => *value,
+        }
+    }
+
     pub fn read_index(buf: &mut HPackDecodeBuf<'_>) -> Result<(Self, bool), PackError> {
         let byte = buf.read().ok_or(PackError::BufferTooSmall)?;
         if byte & 0b1000_0000 == 0b1000_0000 { //indexed
