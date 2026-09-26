@@ -109,6 +109,8 @@ pub trait StreamHandle {
     }
 
     fn handle_client_hello(param: &mut StreamParam<'_>, config: &mut ServerConfig, client_hello: ClientHello) -> Result<(), RlsError> {
+        let reader = Reader::from_ptr(client_hello.extensions as *const u8, client_hello.extend_len as usize);
+        param.conn.handle_extension(reader).unwrap();
         param.write_buffer.write_u8(RecordType::HandShake.as_u8())?;
         param.write_buffer.write_u16(Version::TLS_1_2.into_inner())?;
         let record_start = param.write_buffer.end();

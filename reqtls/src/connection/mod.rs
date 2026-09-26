@@ -53,6 +53,7 @@ pub struct Connection {
     secrets_count: usize,
     secrets: *mut c_void,
     alpn: ALPN,
+    server_name: ServerName,
     pub(crate) derived: DerivedKey,
     //--------------owner----------
     exchange_pub_key: Buf<'static>,
@@ -86,6 +87,7 @@ impl Connection {
             named_curve: NamedCurve::PRE_MASTER,
             exchange_pub_key: Buf::default(),
             alpn: ALPN::nullptr(),
+            server_name: ServerName::nullptr(),
             suite: &CipherSuite::UNKNOWN,
             session_bytes: Vec::with_capacity(4096),
             derived: DerivedKey::new(session, key_log, quic),
@@ -374,6 +376,8 @@ impl Connection {
     }
 
     pub fn gen_server_hello(&mut self, writer: &mut Writer, client_hello: ClientHello, pri_key: &RsaKey) -> RlsResult<()> {
+        println!("{:?}", self.server_name);
+        self.version = client_hello.version;
         self.suite = &CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256;
         self.hasher.init(self.suite.hash())?;
         self.derived.init(KeyType::Handshake, self.suite);

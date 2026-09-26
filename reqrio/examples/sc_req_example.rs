@@ -55,7 +55,7 @@ fn build_finger() -> Fingerprint {
                 ALPN::HTTP20,
                 ALPN::HTTP11
             ]),
-            Extension::ServerName(vec![ServerName::new_sni("")]),
+            Extension::ServerName(vec![ServerName::HOSTNAME]),
             Extension::ApplicationLayerProtocolNegotiation(vec![
                 ALPN::HTTP20,
                 ALPN::HTTP11

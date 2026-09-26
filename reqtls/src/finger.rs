@@ -246,7 +246,7 @@ impl TlsFinger {
                 Extension::CompressionCertificate(vec![CompressionMethod::NULL]),
                 Extension::SupportedVersions(versions),
                 Extension::ApplicationLayerProtocolNegotiation(vec![ALPN::HTTP20, ALPN::HTTP11]),
-                Extension::ServerName(vec![ServerName::new_sni("")]),
+                Extension::ServerName(vec![ServerName::HOSTNAME]),
                 Extension::EcPointFormats(TlsFinger::random_formats()),
                 Extension::RenegotiationInfo(Buf::new_ref(&[0])),
                 Extension::ExtendedMasterSecret,
