@@ -1,5 +1,6 @@
 use reqrio::*;
 use std::fs;
+use std::os::raw::{c_int, c_void};
 use std::string::ToString;
 
 #[cfg(feature = "log")]

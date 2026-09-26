@@ -149,7 +149,7 @@ impl TlsFinger {
     pub const DEFAULT: &'static TlsFinger = &TlsFinger::Default;
     pub(crate) fn build_client_hello(&self, mut param: RecordParam) -> Result<(), BufferError> {
         match self {
-            TlsFinger::Default => unsafe { Record_build(&mut param, 1) }
+            TlsFinger::Default => unsafe { Record_build(&param, 1) }
             TlsFinger::ClientHello { bytes, record_version } => unsafe {
                 param.finger_type = 1;
                 let mut reader = Reader::from_slice(bytes.as_ref());
@@ -248,7 +248,7 @@ impl TlsFinger {
                 Extension::ApplicationLayerProtocolNegotiation(vec![ALPN::HTTP20, ALPN::HTTP11]),
                 Extension::ServerName(vec![ServerName::new_sni("")]),
                 Extension::EcPointFormats(TlsFinger::random_formats()),
-                Extension::RenegotiationInfo(Buf::Ref(&[0])),
+                Extension::RenegotiationInfo(Buf::new_ref(&[0])),
                 Extension::ExtendedMasterSecret,
                 Extension::StatusRequest(StatusRequest::default()),
             ],
@@ -285,7 +285,7 @@ impl TlsFinger {
                 ExtensionType::EcPointFormats => Extension::EcPointFormats(ec_formats.clone()),
                 ExtensionType::SignatureAlgorithms => Extension::SignatureAlgorithms(TlsFinger::random_algorithms()),
                 ExtensionType::CompressionCertificate => Extension::CompressionCertificate(vec![CompressionMethod::NULL]),
-                _ => Extension::default_value(typ).unwrap_or_else(|| Extension::Reserved { typ, value: Buf::Ref(&[]) })
+                _ => Extension::default_value(typ).unwrap_or_else(|| Extension::Reserved { typ, value: Buf::default() })
             });
         }
         Ok(TlsFinger::Custom {
@@ -333,7 +333,7 @@ impl TlsFinger {
                 ExtensionType::SignatureAlgorithms => Extension::SignatureAlgorithms(algorithms.clone()),
                 ExtensionType::CompressionCertificate => Extension::CompressionCertificate(vec![CompressionMethod::BROTLI]),
                 ExtensionType::EcPointFormats => Extension::EcPointFormats(TlsFinger::random_formats()),
-                _ => Extension::default_value(typ).unwrap_or_else(|| Extension::Reserved { typ, value: Buf::Ref(&[]) })
+                _ => Extension::default_value(typ).unwrap_or_else(|| Extension::Reserved { typ, value: Buf::default() })
             });
         }
         extensions.push(Extension::ServerName(vec![ServerName::HOSTNAME]));
@@ -459,14 +459,14 @@ mod tests {
                 CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA,
             ],
             extensions: vec![
-                Extension::Reserved { typ: ExtensionType::new(0x2a2a), value: Buf::Ref(&[]) },
+                Extension::Reserved { typ: ExtensionType::new(0x2a2a), value: Buf::default() },
                 Extension::StatusRequest(StatusRequest::OCSP),
                 Extension::SupportedVersions(vec![
                     Version::new(0x0a0a),
                     Version::TLS_1_3,
                     Version::TLS_1_2
                 ]),
-                Extension::SessionTicket(Buf::Ref(&[])),
+                Extension::SessionTicket(Buf::default()),
                 Extension::ExtendedMasterSecret,
                 Extension::EncryptedClientHello(Buf::Vec(hex::decode("0000010001e9002003f4432d9d68a1633d044fef75411c0143075011d1b8f5a85f78c343d0edf11b0090462702887383eff94e911d28c1fbe8f4327bc28f6e1cb5a1eef835666fbea10dd8137a39b4d115f0307ff08e8716fc3b1eb358d71763758a947eb5aa152f728def3c5809ca720b0b48e7d9bc8cb3ec490da5bc9cb1abf56c0e173dd9cc50b36a512da940dc1a59f05804d37795bd7991495b19db7680aecfb881964949896c4d884d177a55377e3cfdb1d9e8fe0470be").unwrap())),
                 Extension::PskKeyExchangeModes(vec![PskMode::PSK_DHE_KE]),
@@ -495,7 +495,7 @@ mod tests {
                     EcPointFormat::UNCOMPRESSED
                 ]),
                 Extension::ServerName(vec![ServerName::HOSTNAME]),
-                Extension::RenegotiationInfo(Buf::Ref(&[0])),
+                Extension::RenegotiationInfo(Buf::new_ref(&[0])),
                 Extension::KeyShare(vec![
                     KeyEntry::new(NamedCurve::new(REVERSED[rand::random::<usize>() % 16])),
                     KeyEntry::X25519MLKEM768,
@@ -507,7 +507,7 @@ mod tests {
                     NamedCurve::SecP256r1,
                     NamedCurve::SecP384r1
                 ]),
-                Extension::Reserved { typ: ExtensionType::new(0xdada), value: Buf::Ref(&[0]) }
+                Extension::Reserved { typ: ExtensionType::new(0xdada), value: Buf::new_ref(&[0]) }
             ],
         };
         let mut writer = Writer::with_capacity(4096);

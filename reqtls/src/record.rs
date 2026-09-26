@@ -62,8 +62,8 @@ impl<'a> RecordLayer<'a> {
         while msg_readers.unread_len() > 0 {
             let message = match encrypted {
                 true => Message {
-                    encoded: Buf::Ref(msg_readers.read_slice(msg_readers.unread_len())?),
-                    parsed: MessageParsed::Payload(Buf::Ref(&[])),
+                    encoded: Buf::new_ref(msg_readers.read_slice(msg_readers.unread_len())?),
+                    parsed: MessageParsed::Payload(Buf::default()),
                 },
                 false => Message::from_reader(&mut msg_readers, &content_type, alg, &version)?
             };

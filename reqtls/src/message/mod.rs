@@ -50,7 +50,7 @@ impl<'a> Message<'a> {
     pub fn new_parsed(parsed: MessageParsed<'a>) -> Message<'a> {
         Message {
             parsed,
-            encoded: Buf::Ref(&[]),
+            encoded: Buf::default(),
         }
     }
 
@@ -60,7 +60,7 @@ impl<'a> Message<'a> {
         let encoded_size = reader.position() - pos;
         reader.set_position(pos);
         Ok(Message {
-            encoded: Buf::Ref(reader.read_slice(encoded_size)?),
+            encoded: Buf::new_ref(reader.read_slice(encoded_size)?),
             parsed,
         })
     }
@@ -120,7 +120,7 @@ impl<'a> MessageParsed<'a> {
             HandshakeType::CertificateVerify => Ok(MessageParsed::CertificateVerify(CertificateVerify::from_reader(handshake_type, reader)?)),
             HandshakeType::Finish => {
                 let len = reader.read_u24()? as usize;
-                Ok(MessageParsed::Finished(Buf::Ref(reader.read_slice(len)?)))
+                Ok(MessageParsed::Finished(Buf::new_ref(reader.read_slice(len)?)))
             }
             HandshakeType::EncryptedExtensions => Ok(MessageParsed::EncryptedExtension(EncryptedExtension::from_reader(reader)?)),
             HandshakeType::MessageHash => Err(HandShakeError::UnsupportedMessage(handshake_type).into()),
@@ -133,11 +133,11 @@ impl<'a> MessageParsed<'a> {
                 reader.read_u8()?;
                 Ok(MessageParsed::CipherSpec)
             }
-            RecordType::Alert => Ok(MessageParsed::Payload(Buf::Ref(reader.read_slice(2)?))),
+            RecordType::Alert => Ok(MessageParsed::Payload(Buf::new_ref(reader.read_slice(2)?))),
             RecordType::HandShake => MessageParsed::from_reader_handshake(reader, alg, version),
             RecordType::ApplicationData => {
                 let len = reader.unread_len();
-                Ok(MessageParsed::Payload(Buf::Ref(reader.read_slice(len)?)))
+                Ok(MessageParsed::Payload(Buf::new_ref(reader.read_slice(len)?)))
             }
         }
     }

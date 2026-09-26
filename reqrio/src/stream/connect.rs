@@ -235,7 +235,7 @@ impl<'a> StreamConnect<'a, std::net::TcpStream> {
                     .with_verify(config.verify).with_mtls(!config.client_cert.is_empty());
                 self.tls_connecting.state = ConnState::Connecting(Box::new(TlsStream::new(conn, proxy_stream)));
                 let tls_stream = self.tls_connecting.wait()?;
-                let alpn = tls_stream.alpn().cloned().unwrap_or(ALPN::HTTP11);
+                let alpn = tls_stream.alpn().clone();
                 let stream = match &alpn {
                     h2 if h2 == ALPN::HTTP20 => HTTPStream::SyncH2(HTTP2StreamS::new(Stream::SyncHttps(tls_stream), self.fingerprint)?),
                     _ => HTTPStream::SyncH1(HTTP1StreamS::new(Stream::SyncHttps(tls_stream)))
@@ -282,7 +282,7 @@ impl<'a> Future for StreamConnect<'a, tokio::net::TcpStream> {
         if !connector.tls_connected {
             match Pin::new(&mut connector.tls_connecting).poll(cx)? {
                 Poll::Ready(tls_stream) => {
-                    let alpn = tls_stream.alpn().cloned().unwrap_or(ALPN::HTTP11);
+                    let alpn = tls_stream.alpn().clone();
                     if alpn != ALPN::HTTP20 {
                         return Poll::Ready(Ok((ALPN::HTTP11, HTTPStream::AsyncH1(HTTP1StreamA::new(Stream::AsyncHttps(tls_stream))))));
                     }

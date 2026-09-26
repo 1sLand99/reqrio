@@ -72,8 +72,8 @@ impl<'a> H3Frame<'a> {
         if reader.unread_len() < len { return Err(BufferError::Insufficient); }
         let mut reader = reader.read_reader(len)?;
         match typ {
-            H3Frame::DATA => Ok(H3Frame::Data(Buf::Ref(reader.read_slice(len)?))),
-            H3Frame::HEADERS => Ok(H3Frame::Headers(Buf::Ref(reader.read_slice(len)?))),
+            H3Frame::DATA => Ok(H3Frame::Data(Buf::new_ref(reader.read_slice(len)?))),
+            H3Frame::HEADERS => Ok(H3Frame::Headers(Buf::new_ref(reader.read_slice(len)?))),
             H3Frame::SETTINGS => {
                 let mut settings = vec![];
                 while reader.unread_len() > 0 {
@@ -93,7 +93,7 @@ impl<'a> H3Frame<'a> {
             }
             _ => Ok(H3Frame::Reserved {
                 typ,
-                payload: Buf::Ref(reader.read_slice(len)?),
+                payload: Buf::new_ref(reader.read_slice(len)?),
             })
         }
     }
@@ -186,17 +186,17 @@ impl H3Stream {
             H3Stream::QPackEncoder => {
                 let _item = decoder.decode_next(QPackType::StreamEncoder, &0, reader)?;
                 // println!("{:?}", item);
-                Ok(H3Frame::Reserved { typ: 0, payload: Buf::Ref(&[]) })
+                Ok(H3Frame::Reserved { typ: 0, payload: Buf::default() })
             }
             H3Stream::QPackDecoder => {
                 decoder.decode_next(QPackType::StreamDecoder, &0, reader)?;
-                Ok(H3Frame::Reserved { typ: 0, payload: Buf::Ref(&[]) })
+                Ok(H3Frame::Reserved { typ: 0, payload: Buf::default() })
             }
             H3Stream::BidirectionalStream | H3Stream::Control => Ok(H3Frame::from_reader(reader)?),
             H3Stream::Reserved(val) => {
                 Ok(H3Frame::Reserved {
                     typ: *val,
-                    payload: Buf::Ref(reader.read_slice(reader.unread_len())?),
+                    payload: Buf::new_ref(reader.read_slice(reader.unread_len())?),
                 })
             }
         }

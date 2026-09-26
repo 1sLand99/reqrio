@@ -31,7 +31,7 @@ impl<'a> Certificates<'a> {
         let mut certificates = Vec::with_capacity(len as usize);
         while reader.unread_len() > 0 {
             let len = reader.read_u24()? as usize;
-            certificates.push(Buf::Ref(reader.read_slice(len)?));
+            certificates.push(Buf::new_ref(reader.read_slice(len)?));
             if let &Version::TLS_1_3 = version {
                 let ext_len = reader.read_u16()?; //ext len
                 if ext_len > 0 {
@@ -66,7 +66,7 @@ impl<'a> Certificates<'a> {
     }
 
     pub fn add_certificate(&mut self, cert: &'a [u8]) {
-        self.certificates.push(Buf::Ref(cert));
+        self.certificates.push(Buf::new_ref(cert));
     }
 
     pub fn certificates(&self) -> &Vec<Buf<'_>> {
@@ -85,7 +85,7 @@ impl<'a> CertificateStatus<'a> {
         let len = reader.read_u24()?;
         Ok(CertificateStatus {
             handshake_type: ht,
-            bytes: Buf::Ref(reader.read_slice(len as usize)?),
+            bytes: Buf::new_ref(reader.read_slice(len as usize)?),
         })
     }
 
@@ -113,7 +113,7 @@ impl<'a> Default for CertificateRequest<'a> {
             handshake_type: HandshakeType::CertificateRequest,
             cert_type: vec![],
             hashes: vec![],
-            distinguished_name: Buf::Ref(&[]),
+            distinguished_name: Buf::default(),
         }
     }
 }
@@ -151,7 +151,7 @@ impl<'a> CertificateRequest<'a> {
             res.hashes.push(SignatureAlgorithm::new(reader.read_u16()?));
         }
         let len = reader.read_u16()?;
-        res.distinguished_name = Buf::Ref(reader.read_slice(len as usize)?);
+        res.distinguished_name = Buf::new_ref(reader.read_slice(len as usize)?);
         Ok(res)
     }
 
@@ -196,7 +196,7 @@ impl<'a> Default for CertificateVerify<'a> {
         CertificateVerify {
             handshake_type: HandshakeType::CertificateVerify,
             sign_hash: SignatureAlgorithm::RSA_PSS_RSAE_SHA256,
-            sign: Buf::Ref(&[]),
+            sign: Buf::default(),
         }
     }
 }
@@ -209,7 +209,7 @@ impl<'a> CertificateVerify<'a> {
         Ok(CertificateVerify {
             handshake_type: ht,
             sign_hash,
-            sign: Buf::Ref(reader.read_slice(sign_len as usize)?),
+            sign: Buf::new_ref(reader.read_slice(sign_len as usize)?),
         })
     }
 
@@ -234,7 +234,7 @@ impl<'a> CertificateVerify<'a> {
     }
 
     pub fn set_sign(&mut self, sign: &'a [u8]) {
-        self.sign = Buf::Ref(sign);
+        self.sign = Buf::new_ref(sign);
     }
 
     pub fn hash(&self) -> SignatureAlgorithm {
@@ -269,7 +269,7 @@ impl<'a> CompressedCertificate<'a> {
             handshake_type: ht,
             algorithm,
             uncompressed_len,
-            data: Buf::Ref(reader.read_slice(len)?),
+            data: Buf::new_ref(reader.read_slice(len)?),
         })
     }
 

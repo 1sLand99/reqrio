@@ -382,22 +382,6 @@ impl Header {
         self.insert("authorization", authorization)
     }
 
-
-    // pub fn parse_h2(packs: Vec<PackItem>) -> HlsResult<Header> {
-    //     let mut header = Header {
-    //         alpn: ALPN::HTTP20,
-    //         ..Header::default()
-    //     };
-    //     for pack in packs {
-    //         header.push_pack_item(&pack)?
-    //     }
-    //     Ok(header)
-    // }
-
-    // pub fn status(&self) -> &HttpStatus {
-    //     &self.status
-    // }
-
     pub fn keys(&self) -> &Vec<HeaderItem> { &self.inner }
 
     pub(crate) fn init_by_alpn(&mut self, alpn: ALPN) {

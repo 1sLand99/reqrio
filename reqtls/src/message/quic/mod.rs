@@ -195,16 +195,16 @@ impl<'a> Default for QUICPacket<'a> {
         QUICPacket {
             flag: QUICFlag::default(),
             ver: 0,
-            dc_id: Buf::Ref(&[]),
-            sc_id: Buf::Ref(&[]),
-            token: Buf::Ref(&[]),
+            dc_id: Buf::default(),
+            sc_id: Buf::default(),
+            token: Buf::default(),
             len: 0,
             pn_offset: 0,
             num: 0,
-            payload: Buf::Ref(&[]),
+            payload: Buf::default(),
             hdr_raw: Writer::with_capacity(256),
             padding: 0,
-            tag: Buf::Ref(&[]),
+            tag: Buf::default(),
         }
     }
 }
@@ -230,8 +230,8 @@ impl<'a> QUICPacket<'a> {
             len,
             num,
             padding,
-            dc_id: Buf::Ref(dcid),
-            token: Buf::Ref(token.as_ref()),
+            dc_id: Buf::new_ref(dcid),
+            token: Buf::new_ref(token.as_ref()),
             ..Default::default()
         }
     }
@@ -253,7 +253,7 @@ impl<'a> QUICPacket<'a> {
             len: pd_len + num_len + 16,
             num,
             padding: 0,
-            dc_id: Buf::Ref(dcid),
+            dc_id: Buf::new_ref(dcid),
             ..Default::default()
         }
     }
@@ -275,7 +275,7 @@ impl<'a> QUICPacket<'a> {
             len,
             num,
             padding: 0,
-            dc_id: Buf::Ref(dc_id),
+            dc_id: Buf::new_ref(dc_id),
             ..Default::default()
         }
     }
@@ -349,14 +349,14 @@ impl<'a> QUICPacket<'a> {
             let mut packet = QUICPacket {
                 flag,
                 ver,
-                dc_id: Buf::Ref(dc_id),
-                sc_id: Buf::Ref(sc_id),
+                dc_id: Buf::new_ref(dc_id),
+                sc_id: Buf::new_ref(sc_id),
                 ..Default::default()
             };
             match flag.packet_type {
                 PacketType::Initial => {
                     let tk_len = crate::quic::read_variant(reader)?;
-                    packet.token = Buf::Ref(reader.read_slice(tk_len)?);
+                    packet.token = Buf::new_ref(reader.read_slice(tk_len)?);
                     packet.len = crate::quic::read_variant(reader)?;
                     packet.pn_offset = reader.position() - pos;
                 }
@@ -365,8 +365,8 @@ impl<'a> QUICPacket<'a> {
                     packet.pn_offset = reader.position() - pos;
                 }
                 PacketType::Retry => {
-                    packet.token = Buf::Ref(reader.read_slice(80)?);
-                    packet.tag = Buf::Ref(reader.read_slice(16)?)
+                    packet.token = Buf::new_ref(reader.read_slice(80)?);
+                    packet.tag = Buf::new_ref(reader.read_slice(16)?)
                 }
                 PacketType::ShortHeader => {
                     packet.len = crate::quic::read_variant(reader)?;
@@ -418,7 +418,7 @@ impl<'a> QUICPacket<'a> {
             }
             _ => unreachable!()
         };
-        self.payload = Buf::Ref(reader.read_slice(self.len - self.flag.num_len())?);
+        self.payload = Buf::new_ref(reader.read_slice(self.len - self.flag.num_len())?);
         Ok(())
     }
 

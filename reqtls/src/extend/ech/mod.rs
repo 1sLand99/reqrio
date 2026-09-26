@@ -25,7 +25,7 @@ impl EchConfig {
             content: EchContent {
                 config_id: 0,
                 kem_id: DHKem(0),
-                key: Buf::Ref(&[]),
+                key: Buf::default(),
                 ciphers: vec![],
                 max_name_len: 0,
                 name: "".to_string(),

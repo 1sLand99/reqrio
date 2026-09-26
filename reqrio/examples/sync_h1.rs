@@ -42,7 +42,7 @@ pub fn random_fingerprint(sni: &str) -> Result<Fingerprint, HlsError> {
             CipherSuite::TLS_RSA_WITH_AES_256_CBC_SHA,
         ],
         extensions: vec![
-            Extension::Reserved { typ: ExtensionType::new(REVERSED[rand::random::<usize>() % REVERSED.len()]), value: Buf::Ref(&[]) },
+            Extension::Reserved { typ: ExtensionType::new(REVERSED[rand::random::<usize>() % REVERSED.len()]), value: Buf::default() },
             Extension::ServerName(vec![ServerName::new_sni("")]),
             Extension::ExtendedMasterSecret,
             Extension::RENEGOTIATION_INFO,
@@ -55,7 +55,7 @@ pub fn random_fingerprint(sni: &str) -> Result<Fingerprint, HlsError> {
             Extension::EcPointFormats(vec![
                 EcPointFormat::UNCOMPRESSED
             ]),
-            Extension::SessionTicket(Buf::Ref(&[])),
+            Extension::SessionTicket(Buf::default()),
             Extension::ApplicationLayerProtocolNegotiation(vec![
                 ALPN::HTTP20,
                 ALPN::HTTP11
@@ -88,7 +88,7 @@ pub fn random_fingerprint(sni: &str) -> Result<Fingerprint, HlsError> {
             Extension::ApplicationSettingOld(vec![
                 ALPN::HTTP20
             ]),
-            Extension::Reserved { typ: ExtensionType::new(REVERSED[rand::random::<usize>() % REVERSED.len()]), value: Buf::Ref(&[0]) },
+            Extension::Reserved { typ: ExtensionType::new(REVERSED[rand::random::<usize>() % REVERSED.len()]), value: Buf::new_ref(&[0]) },
             Extension::Padding(padding as usize)
         ],
     };
@@ -105,7 +105,7 @@ fn main() {
     Writer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
     let fingerprint = random_fingerprint("www.baidu.com").unwrap();
     let mut req = ScReq::new()
-        .with_alpn(ALPN::HTTP11)
+        .with_alpn(ALPN::HTTP20)
         .with_verify(false)
         .with_timeout(Timeout::new_same(3000, 1))
         .with_key_log("2.log")
@@ -180,9 +180,9 @@ fn main() {
 
     // let res = req.get("https://www.baidu.com/", None).unwrap();
     // let res=req.get("https://h5.moutai519.com.cn",None).unwrap();
-    // let res = req.get("https://m.sogou.com", None).unwrap();
+    let res = req.get("https://m.sogou.com", None).unwrap();
     // let res = req.get("https://127.0.0.1:7878", None).unwrap();
-    let res = req.get("https://www.bing.com", None).unwrap();
+    // let res = req.get("https://www.bing.com", None).unwrap();
     // let session = req.tls_session().cloned();
     // println!("{:#?}", session);
     // req.set_tls_session(session);

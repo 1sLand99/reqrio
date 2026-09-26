@@ -1,7 +1,6 @@
 #[cfg(debug_assertions)]
 use std::fmt::{Debug, Formatter};
 use std::ptr::null;
-use std::slice;
 
 #[repr(C)]
 #[derive(Default, Clone)]
@@ -32,7 +31,7 @@ impl Debug for ServerName {
         let mut debug_struct = f.debug_struct("ServerName");
         if self.typ == 0x0 {
             debug_struct.field("type", &"Hostname");
-            let hostname = unsafe { slice::from_raw_parts(self.ptr, self.len as usize) };
+            let hostname = unsafe { std::slice::from_raw_parts(self.ptr, self.len as usize) };
             debug_struct.field("value", &std::str::from_utf8(hostname).unwrap());
         }
         debug_struct.finish()

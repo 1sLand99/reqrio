@@ -1,4 +1,4 @@
-use crate::{rand, CipherSuite, Version};
+use crate::{rand, Buf, CipherSuite, Version};
 use std::fmt::{Debug, Formatter};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -8,11 +8,11 @@ pub enum KeyType {
     Application,
 }
 
-#[derive(Debug, Clone)]
 #[repr(C)]
+#[derive(Debug, Clone)]
 pub struct TlsSession {
-    ticket: Vec<u8>,
-    session_id: Vec<u8>,
+    ticket: Buf<'static>,
+    session_id: Buf<'static>,
     master_secret: [u8; 48],
 }
 
@@ -26,32 +26,32 @@ impl Default for TlsSession {
 impl TlsSession {
     pub fn new(session_id: Vec<u8>) -> TlsSession {
         TlsSession {
-            ticket: vec![],
-            session_id,
+            ticket: Buf::default(),
+            session_id: Buf::Vec(session_id),
             master_secret: [0u8; 48],
         }
     }
 
 
-    pub fn ticket(&self) -> &[u8] {
-        &self.ticket
+    pub const fn ticket(&self) -> &[u8] {
+        self.ticket.as_slice()
     }
 
     pub fn set_ticket(&mut self, ticket: Vec<u8>) {
-        self.ticket = ticket;
+        self.ticket = Buf::Vec(ticket);
     }
 
-    pub fn session_id(&self) -> &[u8] {
-        &self.session_id
+    pub const fn session_id(&self) -> &[u8] {
+        self.session_id.as_slice()
     }
 
-    pub fn master_secret(&self) -> &[u8; 48] { &self.master_secret }
+    pub const fn master_secret(&self) -> &[u8; 48] { &self.master_secret }
 
     pub fn master_secret_mut(&mut self) -> &mut [u8; 48] { &mut self.master_secret }
 
     pub fn set_session_id(&mut self, session_id: &[u8]) {
         if session_id.is_empty() { return; }
-        self.session_id = session_id.to_vec();
+        self.session_id = Buf::Vec(session_id.to_vec());
     }
 }
 

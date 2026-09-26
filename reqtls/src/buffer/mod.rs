@@ -4,8 +4,8 @@ mod error;
 mod reader;
 
 use crate::error::RlsResult;
-use crate::ffi::CPointer;
 use crate::ffi;
+use crate::ffi::CPointer;
 pub use decode::TlsDecodeBuffer;
 pub use encode::CipherEncodeBuffer;
 pub use error::BufferError;
@@ -348,52 +348,65 @@ unsafe impl Send for Writer {}
 
 unsafe impl Sync for Writer {}
 
-
+#[repr(C)]
 #[derive(Clone)]
 pub enum Buf<'a> {
-    Ptr(BufPtr),
-    Ref(&'a [u8]),
+    Ref {
+        cap: usize,
+        inner: &'a [u8],
+    },
     Vec(Vec<u8>),
 }
 
+impl<'a> Default for Buf<'a> {
+    fn default() -> Self {
+        Buf::new_ref(&[])
+    }
+}
+
 impl<'a> Buf<'a> {
-    pub fn is_empty(&self) -> bool {
+    pub const fn new_ref(val: &'a [u8]) -> Buf<'a> {
+        Buf::Ref { cap: 0, inner: val }
+    }
+    pub const fn is_empty(&self) -> bool {
         match self {
-            Buf::Ptr(v) => v.is_null(),
-            Buf::Ref(v) => v.is_empty(),
+            Buf::Ref { inner, .. } => inner.is_empty(),
             Buf::Vec(v) => v.is_empty(),
         }
     }
 
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         match self {
-            Buf::Ptr(v) => v.len,
-            Buf::Ref(v) => v.len(),
+            Buf::Ref { inner, .. } => inner.len(),
             Buf::Vec(v) => v.len()
         }
     }
 
     pub fn to_vec(&self) -> Vec<u8> {
         match self {
-            Buf::Ptr(v) => v.as_slice().to_vec(),
-            Buf::Ref(v) => v.to_vec(),
+            Buf::Ref { inner, .. } => inner.to_vec(),
             Buf::Vec(v) => v.clone()
         }
     }
 
-    pub fn as_ptr(&self) -> *const u8 {
+    pub const fn as_ptr(&self) -> *const u8 {
         match self {
-            Buf::Ptr(buf) => buf.ptr.as_ptr(),
-            Buf::Ref(buf) => buf.as_ptr(),
+            Buf::Ref { inner, .. } => inner.as_ptr(),
             Buf::Vec(buf) => buf.as_ptr()
         }
     }
 
     pub fn into_vec(self) -> Vec<u8> {
         match self {
-            Buf::Ptr(v) => v.as_slice().to_vec(),
-            Buf::Ref(v) => v.to_vec(),
+            Buf::Ref { inner, .. } => inner.to_vec(),
             Buf::Vec(v) => v,
+        }
+    }
+
+    pub const fn as_slice(&self) -> &[u8] {
+        match self {
+            Buf::Ref { inner, .. } => inner,
+            Buf::Vec(inner) => inner.as_slice()
         }
     }
 }
@@ -401,8 +414,7 @@ impl<'a> Buf<'a> {
 impl<'a> AsRef<[u8]> for Buf<'a> {
     fn as_ref(&self) -> &[u8] {
         match self {
-            Buf::Ptr(v) => v.as_slice(),
-            Buf::Ref(v) => v,
+            Buf::Ref { inner, .. } => inner,
             Buf::Vec(v) => v.as_slice(),
         }
     }
@@ -411,8 +423,7 @@ impl<'a> AsRef<[u8]> for Buf<'a> {
 impl<'a> Debug for Buf<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Buf::Ptr(v) => write!(f, "{:?}", v),
-            Buf::Ref(v) => write!(f, "{:?}", hex::encode(v)),
+            Buf::Ref { inner, .. } => write!(f, "{:?}", hex::encode(inner)),
             Buf::Vec(v) => write!(f, "{:?}", hex::encode(v)),
         }
     }

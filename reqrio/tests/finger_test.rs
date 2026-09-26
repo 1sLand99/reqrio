@@ -63,7 +63,7 @@ fn build_min_finger() -> Fingerprint {
 
 #[test]
 fn test_custom() {
-    let mut req = ScReq::new().with_fingerprint(build_min_finger());
+    let mut req = ScReq::new().with_fingerprint(build_min_finger()).with_key_log("../2.log");
     let resp = req.get("https://m.so.com", None).unwrap();
     assert_eq!(resp.status(), HttpStatus::OK)
 }

@@ -126,7 +126,7 @@ impl<'a> H2Frame<'a> {
             stream_identifier: 0,
             stream_dependency: 0,
             weight: 0,
-            payload: Buf::Ref(&[]),
+            payload: Buf::default(),
         }
     }
 
@@ -144,7 +144,7 @@ impl<'a> H2Frame<'a> {
             stream_identifier,
             stream_dependency: 0,
             weight: 0,
-            payload: Buf::Ref(&[]),
+            payload: Buf::default(),
         };
         let mut pd_len = frame.len as usize;
         let padding_len = if frame.flag.padding() { reader.read_u8()? as usize } else { 0 };
@@ -157,7 +157,7 @@ impl<'a> H2Frame<'a> {
             frame.weight = reader.read_u8()?;
             pd_len -= 5;
         }
-        frame.payload = Buf::Ref(reader.read_slice(pd_len)?);
+        frame.payload = Buf::new_ref(reader.read_slice(pd_len)?);
         reader.read_slice(padding_len)?;
         Ok(frame)
     }
@@ -189,7 +189,7 @@ impl<'a> H2Frame<'a> {
 
     pub fn payload(&self) -> &Buf<'_> { &self.payload }
 
-    pub fn set_payload(&mut self, payload: &'a [u8]) { self.payload = Buf::Ref(payload); }
+    pub fn set_payload(&mut self, payload: &'a [u8]) { self.payload = Buf::new_ref(payload); }
 
     pub fn is_empty(&self) -> bool { self.len == 0 }
 

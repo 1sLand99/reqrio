@@ -79,7 +79,7 @@ impl<S> QUICStream<S> {
                 addr: remote_addr,
                 seq: 1,
                 dcid: Buf::Vec(rand::random::<[u8; 8]>().to_vec()),
-                token: Buf::Ref(&[]),
+                token: Buf::default(),
                 handshake_finish: false,
                 encrypted_channel: false,
                 hello_retrying: false,
@@ -149,7 +149,7 @@ impl<S> QUICStream<S> {
             if pd_len + chunk.len() > 1210 { break; }
             let frame = QUICFrame::Crypto {
                 offset: self.crypto_offset,
-                value: Buf::Ref(chunk),
+                value: Buf::new_ref(chunk),
                 buf_pos: 0..0,
             };
             pd_len += frame.len();

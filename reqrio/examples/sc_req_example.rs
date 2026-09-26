@@ -41,7 +41,7 @@ fn build_finger() -> Fingerprint {
             Extension::SignedCertificateTimestamp,
             Extension::ExtendedMasterSecret,
             Extension::CompressionCertificate(vec![CompressionMethod::BROTLI]),
-            Extension::SessionTicket(Buf::Ref(&[])),
+            Extension::SessionTicket(Buf::default()),
             Extension::SupportedVersions(vec![
                 Version::TLS_1_3,
                 Version::TLS_1_2

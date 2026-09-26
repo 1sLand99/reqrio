@@ -27,7 +27,7 @@ pub extern "system" fn Fingerprint_add_ext(fingerprint: *mut Fingerprint, ext_ty
     let fingerprint = unsafe { fingerprint.as_mut() };
     if let Some(fingerprint) = fingerprint {
         fingerprint.tls_mut().add_extension(match Extension::default_value(ext_typ) {
-            None => Extension::Reserved { typ: ext_typ, value: Buf::Ref(&[]) },
+            None => Extension::Reserved { typ: ext_typ, value: Buf::default() },
             Some(extend) => extend,
         });
     }

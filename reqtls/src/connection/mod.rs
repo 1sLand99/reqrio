@@ -33,7 +33,6 @@ unsafe extern "C" {
     fn Connection_handle_extension(
         conn: *mut Connection,
         reader: *mut Reader,
-        alpn: *mut ALPN,
         share_secret: *mut u8,
         share_secret_len: *mut usize,
     ) -> c_int;
@@ -53,10 +52,10 @@ pub struct Connection {
     mtls_hash: SignatureAlgorithm,
     secrets_count: usize,
     secrets: *mut c_void,
+    alpn: ALPN,
     pub(crate) derived: DerivedKey,
     //--------------owner----------
     exchange_pub_key: Buf<'static>,
-    alpn: Option<ALPN>,
     session_bytes: Vec<u8>,
     certificates: Vec<Certificate>,
     root_stores: &'static CertStore,
@@ -85,8 +84,8 @@ impl Connection {
             decryptor: AeadCtx::none(),
             encryptor: AeadCtx::none(),
             named_curve: NamedCurve::PRE_MASTER,
-            exchange_pub_key: Buf::Ref(&[]),
-            alpn: None,
+            exchange_pub_key: Buf::default(),
+            alpn: ALPN::from_buf(Buf::Vec("http/1.1".as_bytes().to_vec())),
             suite: &CipherSuite::UNKNOWN,
             session_bytes: Vec::with_capacity(4096),
             derived: DerivedKey::new(session, key_log, quic),
@@ -181,19 +180,16 @@ impl Connection {
     }
 
     pub fn handle_extension(&mut self, mut reader: Reader) -> RlsResult<Vec<u8>> {
-        let mut alpn = ALPN::default();
         let mut share_secret = vec![0; 66];
         let mut len = 0;
         unsafe {
             Connection_handle_extension(
                 self,
                 &mut reader,
-                &mut alpn,
                 share_secret.as_mut_ptr(),
                 &mut len,
             )
         }.ok("handshake failed server_hello")?;
-        self.alpn = if alpn.is_empty() { None } else { Some(alpn.clone()) };
         share_secret.truncate(len);
         Ok(share_secret)
     }
@@ -348,7 +344,7 @@ impl Connection {
                 let rsa = RsaCipher::new(self.certificates[0].pub_key()?)?;
                 Ok(Buf::Vec(rsa.encrypt(pubkey)?))
             }
-            (_, _) => Ok(Buf::Ref(pubkey))
+            (_, _) => Ok(Buf::new_ref(pubkey))
         }
     }
 
@@ -389,7 +385,7 @@ impl Connection {
         let mut pubkey_len = 0;
         let pubkey = unsafe { Connection_get_pubkey(self, &mut pubkey_len) };
         if pubkey.is_null() { return Err(HandShakeError::SecretPubKeyNull.into()); }
-        server_key_exchange.hellman_param_mut().set_pub_key(Buf::Ref(unsafe { slice::from_raw_parts(pubkey, pubkey_len) }));
+        server_key_exchange.hellman_param_mut().set_pub_key(Buf::new_ref(unsafe { slice::from_raw_parts(pubkey, pubkey_len) }));
         let sign_data = self.gen_key_sign_data(&server_key_exchange, &mut Sm2Key::none())?;
         let signer = AlgorithmSigner::new_sign(pri_key.pkey(), server_key_exchange.hellman_param().signature_algorithm())?;
         server_key_exchange.hellman_param_mut().set_signature(Buf::Vec(signer.sign(&sign_data)?));
@@ -453,8 +449,8 @@ impl Connection {
         Ok(buffer.record_len())
     }
 
-    pub fn alpn(&self) -> Option<&ALPN> {
-        self.alpn.as_ref()
+    pub fn alpn(&self) -> &ALPN {
+        &self.alpn
     }
 
     pub fn update_session(&mut self, data: impl AsRef<[u8]>) -> RlsResult<()> {

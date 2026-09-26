@@ -41,7 +41,7 @@ impl HTTP3StreamS {
             flag: QUICFrameFlag::new(0),
             sid: 2,
             offset: 0,
-            payload: Buf::Ref(write_buffer.filled()),
+            payload: Buf::new_ref(write_buffer.filled()),
             buf_pos: 0..0,
         };
         quic.write_stream(vec![setting_frame]).wait()?;
@@ -136,7 +136,7 @@ trait H3Handle {
             flag: QUICFrameFlag::new(param.offset).with_fin(request.wrote() && filled.len() == chunk_size),
             sid: param.sid,
             offset: param.offset,
-            payload: Buf::Ref(chunk),
+            payload: Buf::new_ref(chunk),
             buf_pos: 0..0,
         };
         let streams = if param.offset == 0 && let Some(priority) = param.priority {
@@ -272,7 +272,7 @@ impl HTTP3StreamA {
             flag: QUICFrameFlag::new(0),
             sid: 2,
             offset: 0,
-            payload: Buf::Ref(write_buffer.filled()),
+            payload: Buf::new_ref(write_buffer.filled()),
             buf_pos: 0..0,
         };
         quic.write_stream(vec![setting_frame]).await?;

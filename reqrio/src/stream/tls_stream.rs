@@ -94,7 +94,7 @@ impl<S> TlsStream<S> {
         }
     }
 
-    pub fn alpn(&self) -> Option<&ALPN> { self.conn.alpn() }
+    pub fn alpn(&self) -> &ALPN { self.conn.alpn() }
 
     pub fn connection(&self) -> &Connection { &self.conn }
 

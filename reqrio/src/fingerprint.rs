@@ -76,7 +76,7 @@ impl Default for H3Finger {
                 ]),
                 H3Frame::Reserved {
                     typ: 0x11d4c4c93c,
-                    payload: Buf::Ref(&[0x54]),
+                    payload: Buf::new_ref(&[0x54]),
                 }
             ]
         }

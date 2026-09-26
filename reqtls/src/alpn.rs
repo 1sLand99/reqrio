@@ -1,37 +1,31 @@
 use crate::error::RlsResult;
-use crate::{BufferError, Reader, Writer};
+use crate::{Buf, BufferError, Reader, Writer};
 use std::fmt::Display;
-use std::slice;
 
 #[repr(C)]
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct ALPN {
-    capacity: usize,
-    ptr: *mut u8,
-    len: usize,
+    inner: Buf<'static>,
 }
 
 impl ALPN {
-    pub const HTTP11: ALPN = ALPN { capacity: 0, ptr: "http/1.1".as_ptr().cast_mut(), len: 8 };
-    pub const HTTP20: ALPN = ALPN { capacity: 0, ptr: "h2".as_ptr().cast_mut(), len: 2 };
+    pub const HTTP11: ALPN = ALPN { inner: Buf::new_ref(b"http/1.1") };
+    pub const HTTP20: ALPN = ALPN { inner: Buf::new_ref(b"h2") };
     #[cfg(feature = "quic")]
-    pub const HTTP30: ALPN = ALPN { capacity: 0, ptr: "h3".as_ptr().cast_mut(), len: 2 };
+    pub const HTTP30: ALPN = ALPN { inner: Buf::new_ref(b"h3") };
+
+    pub fn from_buf(buf: Buf<'static>) -> ALPN {
+        ALPN { inner: buf }
+    }
 
     pub fn from_slice(opt: &[u8]) -> ALPN {
-        let (ptr, len, capacity) = opt.to_vec().into_raw_parts();
         ALPN {
-            ptr,
-            len,
-            capacity,
+            inner: Buf::Vec(opt.to_vec())
         }
     }
 
     pub const fn value(&self) -> &str {
-        if self.ptr.is_null() { return ""; }
-        unsafe {
-            let slice = slice::from_raw_parts(self.ptr, self.len as usize);
-            std::str::from_utf8_unchecked(slice)
-        }
+        unsafe { std::str::from_utf8_unchecked(self.inner.as_slice()) }
     }
 
     pub fn from_reader(reader: &mut Reader<'_>) -> RlsResult<Vec<ALPN>> {
@@ -43,12 +37,13 @@ impl ALPN {
         Ok(res)
     }
 
-    pub fn is_empty(&self) -> bool { self.len() == 0 || self.ptr.is_null() }
+    pub fn is_empty(&self) -> bool { self.inner.is_empty() }
 
-    pub fn len(&self) -> usize { 1 + self.len }
+    pub fn len(&self) -> usize { 1 + self.inner.len() }
 
+    #[deprecated]
     pub fn write_to(self, writer: &mut Writer) -> Result<(), BufferError> {
-        writer.write_u8(self.len as u8)?;
+        writer.write_u8(self.inner.len() as u8)?;
         writer.write_slice(self.value().as_bytes())
     }
 }
@@ -77,23 +72,6 @@ impl Display for ALPN {
     }
 }
 
-impl Drop for ALPN {
-    fn drop(&mut self) {
-        if self.capacity == 0 { return; }
-        unsafe {
-            drop(Vec::from_raw_parts(self.ptr, self.len as usize, self.len as usize))
-        }
-    }
-}
-
-impl Clone for ALPN {
-    fn clone(&self) -> Self {
-        ALPN::from_slice(self.value().as_bytes())
-    }
-}
-
-unsafe impl Send for ALPN {}
-unsafe impl Sync for ALPN {}
 
 impl std::fmt::Debug for ALPN {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

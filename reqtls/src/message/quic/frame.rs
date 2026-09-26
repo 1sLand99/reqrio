@@ -244,7 +244,7 @@ impl<'a> QUICFrame<'a> {
         match typ {
             QUICFrameType::Padding => {
                 let len = reader.find(|&x| x != 0).unwrap_or(reader.unread_len());
-                let value = Buf::Ref(reader.read_slice(len).unwrap());
+                let value = Buf::new_ref(reader.read_slice(len).unwrap());
                 Ok(QUICFrame::Padding(value.len()))
             }
             QUICFrameType::Ping => Ok(QUICFrame::Ping),
@@ -278,13 +278,13 @@ impl<'a> QUICFrame<'a> {
                 let pos = reader.position()..reader.position() + len;
                 Ok(QUICFrame::Crypto {
                     offset,
-                    value: Buf::Ref(reader.read_slice(len)?),
+                    value: Buf::new_ref(reader.read_slice(len)?),
                     buf_pos: pos,
                 })
             }
             QUICFrameType::NewToken => {
                 let len = quic::read_variant(reader)?;
-                Ok(QUICFrame::NewToken(Buf::Ref(reader.read_slice(len)?)))
+                Ok(QUICFrame::NewToken(Buf::new_ref(reader.read_slice(len)?)))
             }
             QUICFrameType::Stream(typ) => {
                 let flag: QUICFrameFlag = typ.into();
@@ -297,7 +297,7 @@ impl<'a> QUICFrame<'a> {
                     sid: sid as u64,
                     // len,
                     offset,
-                    payload: Buf::Ref(reader.read_slice(len)?),
+                    payload: Buf::new_ref(reader.read_slice(len)?),
                     buf_pos: pos,
                 })
             }
@@ -309,8 +309,8 @@ impl<'a> QUICFrame<'a> {
                 Ok(QUICFrame::NewConnectionId {
                     seq,
                     retire,
-                    cid: Buf::Ref(reader.read_slice(len)?),
-                    reset_token: Buf::Ref(reader.read_slice(16)?),
+                    cid: Buf::new_ref(reader.read_slice(len)?),
+                    reset_token: Buf::new_ref(reader.read_slice(16)?),
                 })
             }
             QUICFrameType::ConnectionCloseTrp => {

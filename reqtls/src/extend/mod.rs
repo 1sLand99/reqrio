@@ -142,7 +142,7 @@ impl PartialEq<ExtensionType> for Extension {
 }
 
 impl Extension {
-    pub const RENEGOTIATION_INFO: Extension = Extension::RenegotiationInfo(Buf::Ref(&[0]));
+    pub const RENEGOTIATION_INFO: Extension = Extension::RenegotiationInfo(Buf::new_ref(&[0]));
     pub const STATUS_REQUEST: Extension = Extension::StatusRequest(StatusRequest::OCSP);
 
     pub fn default_value(ty: ExtensionType) -> Option<Extension> {
@@ -161,7 +161,7 @@ impl Extension {
             ExtensionType::SignedCertificateTimestamp => Some(Extension::SignedCertificateTimestamp),
             ExtensionType::EncryptTheMac => Some(Extension::EncryptTheMac),
             ExtensionType::ExtendMasterSecret => Some(Extension::ExtendedMasterSecret),
-            ExtensionType::SessionTicket => Some(Extension::SessionTicket(Buf::Ref(&[]))),
+            ExtensionType::SessionTicket => Some(Extension::SessionTicket(Buf::default())),
             ExtensionType::CompressionCertificate => Some(Extension::CompressionCertificate(vec![CompressionMethod::NULL])),
             ExtensionType::SupportedVersions => Some(Extension::SupportedVersions(vec![
                 Version::TLS_1_3,

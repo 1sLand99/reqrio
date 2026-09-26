@@ -14,7 +14,7 @@ fn test_tls12() {
 #[test]
 fn test_tls13() {
     //h1
-    let mut req = ScReq::new().with_timeout(Timeout::longer());
+    let mut req = ScReq::new().with_timeout(Timeout::longer()).with_key_log("../2.log");
     req.get("https://m.sogou.com", None).unwrap();
     //h2
     let mut req = ScReq::new().with_timeout(Timeout::longer()).with_alpn(ALPN::HTTP20);
@@ -61,7 +61,7 @@ fn build_finger(suites: Vec<CipherSuite>, groups: Vec<NamedCurve>) -> Fingerprin
             Extension::SignedCertificateTimestamp,
             Extension::ExtendedMasterSecret,
             Extension::CompressionCertificate(vec![CompressionMethod::NULL]),
-            Extension::SessionTicket(Buf::Ref(&[])),
+            Extension::SessionTicket(Buf::default()),
             Extension::SupportedVersions(vec![
                 Version::TLS_1_3,
                 Version::TLS_1_2,

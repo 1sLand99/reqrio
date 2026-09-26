@@ -64,9 +64,9 @@ impl<'a> EncryptClientHello<'a> {
             },
             config_id: 0,
             enc_len: 0,
-            enc: Buf::Ref(&[]),
+            enc: Buf::default(),
             payload_len: 0,
-            payload: Buf::Ref(&[]),
+            payload: Buf::default(),
         }
     }
 
@@ -76,9 +76,9 @@ impl<'a> EncryptClientHello<'a> {
         res.cipher_suite = CipherSuite::from_reader(&mut reader)?;
         res.config_id = reader.read_u8()?;
         res.enc_len = reader.read_u16()?;
-        res.enc = Buf::Ref(reader.read_slice(res.enc_len as usize)?);
+        res.enc = Buf::new_ref(reader.read_slice(res.enc_len as usize)?);
         res.payload_len = reader.read_u16()?;
-        res.payload = Buf::Ref(reader.read_slice(res.payload_len as usize)?);
+        res.payload = Buf::new_ref(reader.read_slice(res.payload_len as usize)?);
         Ok(res)
     }
 

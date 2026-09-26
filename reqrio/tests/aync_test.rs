@@ -61,7 +61,7 @@ fn build_finger(suites: Vec<CipherSuite>, groups: Vec<NamedCurve>) -> Fingerprin
             Extension::SignedCertificateTimestamp,
             Extension::ExtendedMasterSecret,
             Extension::CompressionCertificate(vec![CompressionMethod::NULL]),
-            Extension::SessionTicket(Buf::Ref(&[])),
+            Extension::SessionTicket(Buf::default()),
             Extension::SupportedVersions(vec![
                 Version::TLS_1_3,
                 Version::TLS_1_2,
