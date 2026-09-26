@@ -250,7 +250,7 @@ impl TlsFinger {
                 Extension::EcPointFormats(TlsFinger::random_formats()),
                 Extension::RenegotiationInfo(Buf::new_ref(&[0])),
                 Extension::ExtendedMasterSecret,
-                Extension::StatusRequest(StatusRequest::default()),
+                Extension::STATUS_REQUEST,
             ],
         }
     }
