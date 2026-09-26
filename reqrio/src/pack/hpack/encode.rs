@@ -39,6 +39,22 @@ impl HPackEncode {
         writer.write_slice(value.as_ref())
     }
 
+    pub fn encode_non_table(&self, name: impl AsRef<str>, value: impl AsRef<str>, writer: &mut Writer) -> Result<(), BufferError> {
+        let name = name.as_ref();
+        let value = value.as_ref();
+        let index = self.table.get_by_name(name);
+        if let Some(index) = index && index.inner() < 62 {
+            let index = Index::NameIndexedNever(index.into_inner());
+            self.encode_index(index, writer)?;
+            self.encode_string(value, writer)?;
+        } else {
+            self.encode_index(Index::NoIndexNever, writer)?;
+            self.encode_string(name, writer)?;
+            self.encode_string(value, writer)?;
+        };
+        Ok(())
+    }
+
     pub fn encode_one(&mut self, name: impl AsRef<str>, value: impl AsRef<str>, writer: &mut Writer) -> Result<(), BufferError> {
         let name = name.as_ref();
         let value = value.as_ref();
