@@ -117,7 +117,7 @@ pub trait StreamHandle {
         param.write_buffer.write_u16(0)?;
         unsafe {
             ServerHello_from_client_hello(&RecordParam {
-                alpn: config.alpn.clone(),
+                alpn: config.alpn,
                 writer: param.write_buffer,
                 conn: param.conn,
                 ..Default::default()

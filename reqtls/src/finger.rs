@@ -101,7 +101,7 @@ pub enum TlsFinger {
 pub(crate) struct RecordParam {
     pub(crate) sni_len: u16,
     pub(crate) sni: *const u8,
-    pub(crate) alpn: ALPN,
+    pub(crate) alpn: *const ALPN,
     pub(crate) version: Version,
     pub(crate) writer: *mut Writer,
     pub(crate) finger_type: c_int,
@@ -133,7 +133,7 @@ impl<'a> From<&ClientConfig<'a>> for RecordParam {
         RecordParam {
             sni_len: config.sni.len() as u16,
             sni: config.sni.as_ptr(),
-            alpn: config.alpn.clone(),
+            alpn: config.alpn,
             version: config.version,
             writer: null_mut(),
             finger_type: 0,
@@ -398,7 +398,7 @@ mod tests {
         finger.build_client_hello(RecordParam {
             sni_len: sni.len() as u16,
             sni: sni.as_ptr(),
-            alpn: ALPN::HTTP20,
+            alpn: &ALPN::HTTP20,
             version: Version::TLS_1_2,
             writer: &mut writer,
             finger_type: 0,
@@ -422,7 +422,7 @@ mod tests {
         finger.build_client_hello(RecordParam {
             sni_len: sni.len() as u16,
             sni: sni.as_ptr(),
-            alpn: ALPN::HTTP11,
+            alpn: &ALPN::HTTP11,
             version: Version::TLS_1_3,
             writer: &mut writer,
             finger_type: 0,
@@ -516,7 +516,7 @@ mod tests {
         finger.build_client_hello(RecordParam {
             sni_len: sni.len() as u16,
             sni: sni.as_ptr(),
-            alpn: ALPN::HTTP20,
+            alpn: &ALPN::HTTP20,
             version: Version::TLS_1_2,
             writer: &mut writer,
             finger_type: 0,

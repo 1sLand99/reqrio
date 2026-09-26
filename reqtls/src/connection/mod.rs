@@ -376,7 +376,6 @@ impl Connection {
     }
 
     pub fn gen_server_hello(&mut self, writer: &mut Writer, client_hello: ClientHello, pri_key: &RsaKey) -> RlsResult<()> {
-        println!("{:?}", self.server_name);
         self.version = client_hello.version;
         self.suite = &CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256;
         self.hasher.init(self.suite.hash())?;
