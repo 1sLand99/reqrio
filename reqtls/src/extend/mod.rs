@@ -102,7 +102,7 @@ pub enum Extension {
     PskKeyExchangeModes(Vec<PskMode>),
     SignatureAlgorithms(Vec<SignatureAlgorithm>),
     #[cfg(feature = "quic")]
-    QuicTrpParameters(Vec<QUICParameter>),
+    QuicTrpParameters(Vec<QUICParameter<'static>>),
     SessionTicket(Buf<'static>),
     EncryptedClientHello(Buf<'static>),
     RenegotiationInfo(Buf<'static>),

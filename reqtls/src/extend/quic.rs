@@ -2,23 +2,12 @@ use crate::Buf;
 
 #[repr(C)]
 #[cfg_attr(debug_assertions, derive(Debug))]
-pub struct QUICParameter {
+pub struct QUICParameter<'a> {
     flag: u64,
-    len: usize,
-    ptr: *mut u8,
-    cap: usize,
-}
-unsafe impl Sync for QUICParameter {}
-unsafe impl Send for QUICParameter {}
-impl Drop for QUICParameter {
-    fn drop(&mut self) {
-        if self.cap != 0 {
-            drop(unsafe { Vec::from_raw_parts(self.ptr, self.len, self.cap) })
-        }
-    }
+    value: Buf<'a>,
 }
 
-impl QUICParameter {
+impl<'a> QUICParameter<'a> {
     pub fn spec(&self) -> &str {
         match self.flag {
             0x00 => "original_destination_connection_id",
@@ -43,13 +32,10 @@ impl QUICParameter {
         }
     }
 
-    pub fn new(flag: u64, value: Buf) -> QUICParameter {
-        let (ptr, len, cap) = value.into_vec().into_raw_parts();
+    pub const fn new(flag: u64, value: Buf<'a>) -> QUICParameter<'a> {
         QUICParameter {
             flag,
-            len,
-            ptr,
-            cap,
+            value,
         }
     }
 }
