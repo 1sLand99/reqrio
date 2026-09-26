@@ -98,17 +98,18 @@ pub enum TlsFinger {
 }
 
 #[repr(C)]
-pub(crate) struct RecordParam {
-    pub(crate) sni_len: u16,
-    pub(crate) sni: *const u8,
-    pub(crate) alpn: *const ALPN,
-    pub(crate) version: Version,
-    pub(crate) writer: *mut Writer,
-    pub(crate) finger_type: c_int,
-    pub(crate) hrr: bool,
-    pub(crate) entries_count: usize,
-    pub(crate) entries: *const KeyEntry,
-    pub(crate) conn: *mut Connection,
+pub struct RecordParam {
+    pub sni_len: u16,
+    pub sni: *const u8,
+    pub alpn: *const ALPN,
+    pub version: Version,
+    pub writer: *mut Writer,
+    pub finger_type: c_int,
+    pub hrr: bool,
+    pub entries_count: usize,
+    pub entries: *const KeyEntry,
+    pub _rsv: bool,
+    pub conn: *mut Connection,
 }
 
 impl Default for RecordParam {
@@ -123,6 +124,7 @@ impl Default for RecordParam {
             hrr: false,
             entries_count: 0,
             entries: null(),
+            _rsv: false,
             conn: null_mut(),
         }
     }
@@ -140,6 +142,7 @@ impl<'a> From<&ClientConfig<'a>> for RecordParam {
             hrr: false,
             entries_count: 0,
             entries: null(),
+            _rsv: false,
             conn: null_mut(),
         }
     }
@@ -406,7 +409,7 @@ mod tests {
             entries_count: 0,
             conn: &mut connection,
             entries: null(),
-
+            _rsv: false,
         }).unwrap();
         assert!(RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).is_ok());
     }
@@ -430,6 +433,7 @@ mod tests {
             entries: null(),
             entries_count: 0,
             conn: &mut connection,
+            _rsv: false,
         }).unwrap();
         assert!(RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).is_ok());
         // println!("{:#?}", RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).unwrap());
@@ -516,13 +520,14 @@ mod tests {
         finger.build_client_hello(RecordParam {
             sni_len: sni.len() as u16,
             sni: sni.as_ptr(),
-            alpn: &ALPN::HTTP20,
+            alpn: &ALPN::HTTP11,
             version: Version::TLS_1_2,
             writer: &mut writer,
             finger_type: 0,
             hrr: false,
             entries_count: 0,
             entries: null(),
+            _rsv: true,
             conn: &mut connection,
         }).unwrap();
         assert!(RecordLayer::from_bytes(writer.filled(), KeyExchangeAlg::NULL, false).is_ok());
