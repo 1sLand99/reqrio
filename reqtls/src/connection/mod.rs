@@ -85,7 +85,7 @@ impl Connection {
             encryptor: AeadCtx::none(),
             named_curve: NamedCurve::PRE_MASTER,
             exchange_pub_key: Buf::default(),
-            alpn: ALPN::from_buf(Buf::Vec("http/1.1".as_bytes().to_vec())),
+            alpn: ALPN::nullptr(),
             suite: &CipherSuite::UNKNOWN,
             session_bytes: Vec::with_capacity(4096),
             derived: DerivedKey::new(session, key_log, quic),

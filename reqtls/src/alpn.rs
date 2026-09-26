@@ -14,8 +14,10 @@ impl ALPN {
     #[cfg(feature = "quic")]
     pub const HTTP30: ALPN = ALPN { inner: Buf::new_ref(b"h3") };
 
-    pub fn from_buf(buf: Buf<'static>) -> ALPN {
-        ALPN { inner: buf }
+    pub fn nullptr() -> Self {
+        ALPN {
+            inner: Buf::new_c()
+        }
     }
 
     pub fn from_slice(opt: &[u8]) -> ALPN {

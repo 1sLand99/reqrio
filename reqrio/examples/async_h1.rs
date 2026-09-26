@@ -1,7 +1,8 @@
 use reqrio::*;
-use std::fs;
-use std::os::raw::{c_int, c_void};
+use std::os::raw::c_int;
+use std::ptr::null_mut;
 use std::string::ToString;
+use std::fs;
 
 #[cfg(feature = "log")]
 const LOGER: Logger = Logger {
@@ -19,8 +20,25 @@ fn test_log() {
     set_max_level(LevelFilter::Trace);
 }
 
+unsafe extern "C" {
+    fn Buf_test(buf: &mut Buf) -> c_int;
+}
+
 #[tokio::main]
 async fn main() {
+    let mut buf = Buf::Raw {
+        cap: 0,
+        ptr: null_mut(),
+        len: 0,
+    };
+    unsafe {
+        Buf_test(&mut buf);
+    }
+
+    println!("{:?}", 111);
+
+
+    return;
     #[cfg(feature = "log")]
     test_log();
     Buffer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();

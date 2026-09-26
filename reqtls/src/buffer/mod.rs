@@ -349,13 +349,18 @@ unsafe impl Send for Writer {}
 unsafe impl Sync for Writer {}
 
 #[repr(C)]
-#[derive(Clone)]
 pub enum Buf<'a> {
     Ref {
         cap: usize,
         inner: &'a [u8],
     },
     Vec(Vec<u8>),
+    ///outer maybe not used，only c use/free
+    Raw {
+        cap: usize,
+        ptr: *mut u8,
+        len: usize,
+    },
 }
 
 impl<'a> Default for Buf<'a> {
@@ -368,31 +373,47 @@ impl<'a> Buf<'a> {
     pub const fn new_ref(val: &'a [u8]) -> Buf<'a> {
         Buf::Ref { cap: 0, inner: val }
     }
+    pub const fn new_c() -> Buf<'static> { Buf::Raw { cap: 0, ptr: null_mut(), len: 0 } }
     pub const fn is_empty(&self) -> bool {
         match self {
             Buf::Ref { inner, .. } => inner.is_empty(),
             Buf::Vec(v) => v.is_empty(),
+            Buf::Raw { len, ptr, .. } => *len == 0 || ptr.is_null(),
         }
     }
-
     pub const fn len(&self) -> usize {
         match self {
             Buf::Ref { inner, .. } => inner.len(),
-            Buf::Vec(v) => v.len()
+            Buf::Vec(v) => v.len(),
+            Buf::Raw { len, .. } => *len,
+        }
+    }
+    pub const fn as_ptr(&self) -> *const u8 {
+        match self {
+            Buf::Ref { inner, .. } => inner.as_ptr(),
+            Buf::Vec(buf) => buf.as_ptr(),
+            Buf::Raw { ptr, .. } => *ptr,
+        }
+    }
+    pub const fn as_slice(&self) -> &[u8] {
+        match self {
+            Buf::Ref { inner, .. } => inner,
+            Buf::Vec(inner) => inner.as_slice(),
+            Buf::Raw { len, ptr, .. } => {
+                if ptr.is_null() { return &[]; }
+                unsafe { slice::from_raw_parts(*ptr, *len) }
+            }
         }
     }
 
     pub fn to_vec(&self) -> Vec<u8> {
         match self {
             Buf::Ref { inner, .. } => inner.to_vec(),
-            Buf::Vec(v) => v.clone()
-        }
-    }
-
-    pub const fn as_ptr(&self) -> *const u8 {
-        match self {
-            Buf::Ref { inner, .. } => inner.as_ptr(),
-            Buf::Vec(buf) => buf.as_ptr()
+            Buf::Vec(v) => v.clone(),
+            Buf::Raw { len, ptr, .. } => {
+                if ptr.is_null() { return vec![]; }
+                unsafe { slice::from_raw_parts(*ptr, *len) }.to_vec()
+            }
         }
     }
 
@@ -400,34 +421,35 @@ impl<'a> Buf<'a> {
         match self {
             Buf::Ref { inner, .. } => inner.to_vec(),
             Buf::Vec(v) => v,
-        }
-    }
-
-    pub const fn as_slice(&self) -> &[u8] {
-        match self {
-            Buf::Ref { inner, .. } => inner,
-            Buf::Vec(inner) => inner.as_slice()
+            Buf::Raw { .. } => panic!("please init by other"),
         }
     }
 }
 
 impl<'a> AsRef<[u8]> for Buf<'a> {
     fn as_ref(&self) -> &[u8] {
-        match self {
-            Buf::Ref { inner, .. } => inner,
-            Buf::Vec(v) => v.as_slice(),
-        }
+        self.as_slice()
     }
 }
 
 impl<'a> Debug for Buf<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", hex::encode(self.as_slice()))
+    }
+}
+
+impl<'a> Clone for Buf<'a> {
+    fn clone(&self) -> Self {
         match self {
-            Buf::Ref { inner, .. } => write!(f, "{:?}", hex::encode(inner)),
-            Buf::Vec(v) => write!(f, "{:?}", hex::encode(v)),
+            Buf::Ref { cap, inner } => Buf::Ref { cap: *cap, inner },
+            Buf::Vec(v) => Buf::Vec(v.clone()),
+            Buf::Raw { .. } => Buf::Vec(self.to_vec())
         }
     }
 }
+
+unsafe impl<'a> Send for Buf<'a> {}
+unsafe impl<'a> Sync for Buf<'a> {}
 
 pub struct BufPtr {
     ptr: CPointer<u8>,

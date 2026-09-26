@@ -33,7 +33,7 @@ pub struct ScReq {
 impl Default for ScReq {
     fn default() -> Self {
         ScReq {
-            header: Header::default(),
+            header: Header::new_req_h2(),
             stream: HTTPStream::NonConnection,
             timeout: Timeout::default(),
             proxy: Proxy::Null,
