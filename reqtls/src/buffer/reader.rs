@@ -23,6 +23,9 @@ pub struct Reader<'a> {
     _unused: &'a PhantomData<()>,
 }
 
+unsafe impl<'a> Send for Reader<'a> {}
+unsafe impl<'a> Sync for Reader<'a> {}
+
 impl<'a> Reader<'a> {
     pub const fn from_slice(slice: &'a [u8]) -> Reader<'a> {
         Reader::from_ptr(slice.as_ptr(), slice.len())
