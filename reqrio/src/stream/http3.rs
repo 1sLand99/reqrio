@@ -192,7 +192,7 @@ trait H3Handle {
                 continue;
             }
             let mut reader = Reader::from_slice(param.buffer.filled());
-            #[cfg(feature = "log")]
+            #[cfg(all(debug_assertions, feature = "log"))]
             debug!("[HTTP3] recv quic: typ={:?}; sid={}; fin={}; off={}",param.typ, sid,  param.fin, param.last_offset);
             let mut pos = reader.position();
             while reader.unread_len() > 0 {

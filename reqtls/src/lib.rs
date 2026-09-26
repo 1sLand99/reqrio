@@ -285,42 +285,42 @@ pub mod quic;
 mod gm_sm;
 
 pub use alpn::ALPN;
+pub use boring::{
+    base64, certificate::CertStore, certificate::CertType, certificate::Certificate, cipher, hash,
+    hmac, AeadCtx, AeadDir, AlgorithmSigner, Cipher, CipherType, Padding, RsaCipher,
+    RsaKey, RsaPadding, SignatureAlgorithm,
+};
 #[cfg(feature = "cert_signer")]
 pub use boring::{
     certificate::BasicConstraint, certificate::CertExtend, certificate::CertSigner, certificate::DnType,
     certificate::KeyIdentifier, certificate::KeyUsage, certificate::SubjectAltName,
 };
-pub use boring::{
-    base64, certificate::CertStore, certificate::CertType, certificate::Certificate, cipher, hash,
-    hmac, AlgorithmSigner, Cipher, CipherType, Padding, RsaCipher, AeadCtx, AeadDir,
-    RsaKey, RsaPadding, SignatureAlgorithm,
-};
-pub use buffer::{u24, Buf, Writer, BufferError, Reader};
+pub use buffer::{u24, Buf, BufferError, Reader, Writer};
 pub use config::{ClientConfig, Config, ServerConfig};
 pub use connection::Connection;
 pub use error::{HandShakeError, RlsError};
 pub use ext::{StreamHandle, StreamParam};
 pub use extend::{
-    EcPointFormat, CompressionMethod, PskMode, StatusRequest, CompressCertificate, Aead,
-    EncryptClientHello, ServerName, KeyEntry, ExtensionType, Extension,
+    Aead, CompressCertificate, CompressionMethod, EcPointFormat, EncryptClientHello, Extension,
+    ExtensionType, KeyEntry, PskMode, ServerName, StatusRequest,
 };
 pub use finger::TlsFinger;
+pub use gm_sm::*;
 pub use hash::{HashType, Hasher, Hmac};
 pub use hex;
 pub use hkdf::Hkdf;
-pub use key::{TlsSession, KeyType};
+pub use key::{KeyType, TlsSession};
 #[cfg(feature = "log")]
 pub use log::*;
-pub use message::{Alert, CertificateRequest, CertificateVerify, Certificates, ClientHello, Message,
-                  ClientKeyExchange, MessageParsed, NamedCurve, ServerHello, ServerHelloDone,
-                  ServerKeyExchange, SessionTicket, HandshakeType};
+pub use message::{Alert, CertificateRequest, CertificateVerify, Certificates, ClientHello, ClientKeyExchange,
+                  HandshakeType, Message, MessageParsed, NamedCurve, ServerHello,
+                  ServerHelloDone, ServerKeyExchange, SessionTicket};
 #[cfg(feature = "quic")]
-pub use message::{PacketType, QUICPacket, QUICFlag};
+pub use message::{PacketType, QUICFlag, QUICPacket};
 pub use record::{RecordLayer, RecordType};
 pub use suite::{CipherSuite, KeyExchangeAlg};
 pub use url::{Addr, Param, Scheme, Uri, Url, UrlError};
 pub use version::Version;
-pub use gm_sm::*;
 
 pub type Buffer = Writer;
 

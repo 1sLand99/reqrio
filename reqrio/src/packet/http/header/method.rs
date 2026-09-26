@@ -3,6 +3,7 @@ use crate::error::HlsError;
 
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Method {
     GET = 0,
     POST = 1,

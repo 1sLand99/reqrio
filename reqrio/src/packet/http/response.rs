@@ -102,7 +102,7 @@ impl Response {
         }
     }
 
-    pub(crate) fn make_coding(&mut self) -> HlsResult<()> {
+    pub fn make_coding(&mut self) -> HlsResult<()> {
         let chunked = self.header.get_str("transfer-encoding").unwrap_or("").trim();
         let encoding = self.header.content_encoding().unwrap_or("").trim();
         #[cfg(feature = "log")]
@@ -233,9 +233,14 @@ impl Response {
 
     pub fn bytes(self) -> Vec<u8> { self.raw.filled().to_vec() }
 
+    ///only for resp
     pub fn status(&self) -> HttpStatus { self.status }
 
+    ///only for req
     pub fn method(&self) -> Method { self.method }
+
+    ///only for req
+    pub fn uri(&self) -> &Uri { &self.uri }
 }
 
 impl Display for Response {

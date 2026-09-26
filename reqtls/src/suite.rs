@@ -552,7 +552,7 @@ impl CipherSuite {
         version: &Version::TLS_1_0,
     };
 
-    pub(crate) const UNKNOWN: CipherSuite = CipherSuite {
+    pub const UNKNOWN: CipherSuite = CipherSuite {
         value: 0,
         aead: Aead::AES_128_CBC_SHA,
         exchange: KeyExchangeAlg::NULL,
