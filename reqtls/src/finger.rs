@@ -98,9 +98,8 @@ pub enum TlsFinger {
 }
 
 #[repr(C)]
-pub struct RecordParam {
-    pub sni_len: u16,
-    pub sni: *const u8,
+pub struct RecordParam<'a> {
+    pub sni: Buf<'a>,
     pub alpn: *const ALPN,
     pub version: Version,
     pub writer: *mut Writer,
@@ -112,11 +111,10 @@ pub struct RecordParam {
     pub conn: *mut Connection,
 }
 
-impl Default for RecordParam {
+impl Default for RecordParam<'static> {
     fn default() -> Self {
         RecordParam {
-            sni_len: 0,
-            sni: null(),
+            sni: Buf::default(),
             alpn: Default::default(),
             version: Version::TLS_1_2,
             writer: null_mut(),
@@ -130,11 +128,10 @@ impl Default for RecordParam {
     }
 }
 
-impl<'a> From<&ClientConfig<'a>> for RecordParam {
+impl<'a> From<&ClientConfig<'a>> for RecordParam<'a> {
     fn from(config: &ClientConfig<'a>) -> Self {
         RecordParam {
-            sni_len: config.sni.len() as u16,
-            sni: config.sni.as_ptr(),
+            sni: Buf::new_ref(config.sni.as_bytes()),
             alpn: config.alpn,
             version: config.version,
             writer: null_mut(),
@@ -399,8 +396,7 @@ mod tests {
         let mut connection = Connection::new_client(TlsSession::default(), None, false);
         let sni = "www.baidu.com";
         finger.build_client_hello(RecordParam {
-            sni_len: sni.len() as u16,
-            sni: sni.as_ptr(),
+            sni: Buf::new_ref(sni.as_bytes()),
             alpn: &ALPN::HTTP20,
             version: Version::TLS_1_2,
             writer: &mut writer,
@@ -423,8 +419,7 @@ mod tests {
         let mut connection = Connection::new_client(session, None, false);
         let sni = "www.baidu.com";
         finger.build_client_hello(RecordParam {
-            sni_len: sni.len() as u16,
-            sni: sni.as_ptr(),
+            sni: Buf::new_ref(sni.as_bytes()),
             alpn: &ALPN::HTTP11,
             version: Version::TLS_1_3,
             writer: &mut writer,
@@ -518,8 +513,7 @@ mod tests {
         let mut connection = Connection::new_client(TlsSession::default(), None, false);
         let sni = "www.baidu.com";
         finger.build_client_hello(RecordParam {
-            sni_len: sni.len() as u16,
-            sni: sni.as_ptr(),
+            sni: Buf::new_ref(sni.as_bytes()),
             alpn: &ALPN::HTTP11,
             version: Version::TLS_1_2,
             writer: &mut writer,
