@@ -41,7 +41,13 @@ async fn main() {
             key_log: None,
         }).wait();
         tokio::spawn(async move {
-            let mut tls_stream = tls_stream.unwrap();
+            let mut tls_stream = match tls_stream {
+                Ok(stream) => stream,
+                Err(e) => {
+                    println!("{}", e);
+                    return;
+                }
+            };
             let mut buffer = [0; 1024];
             loop {
                 let len = tls_stream.read(&mut buffer).unwrap();
@@ -49,7 +55,6 @@ async fn main() {
                 println!("{}", String::from_utf8_lossy(&buffer[..len]));
                 if buffer.starts_with(b"GET") || buffer.starts_with(b"POST") {
                     tls_stream.write_all("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok".as_bytes()).unwrap();
-
                 }
             }
         });

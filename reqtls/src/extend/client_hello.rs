@@ -3,18 +3,16 @@ use crate::error::RlsResult;
 use crate::{Buf, BufferError, Reader, Writer};
 
 #[derive(Clone, Copy)]
-#[cfg_attr(debug_assertions, derive(Debug))]
-enum ClientHelloType {
-    OuterClientHello = 0,
-}
+struct HelloType(u8);
 
-impl ClientHelloType {
-    fn from_u8(v: u8) -> Option<ClientHelloType> {
-        match v {
-            0 => Some(ClientHelloType::OuterClientHello),
-            _ => None
-        }
-    }
+impl HelloType {
+    #[allow(non_upper_case_globals)]
+    pub const OuterClientHello: HelloType = HelloType::new(0);
+    pub const fn new(v: u8) -> HelloType { HelloType(v) }
+
+    // pub const fn inner(self) -> u8 { self.0 }
+
+    pub const fn into_inner(self) -> u8 { self.0 }
 }
 
 
@@ -43,9 +41,8 @@ impl CipherSuite {
 
 
 #[derive(Clone)]
-#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct EncryptClientHello<'a> {
-    type_: ClientHelloType,
+    typ: HelloType,
     cipher_suite: CipherSuite,
     config_id: u8,
     enc_len: u16,
@@ -57,7 +54,7 @@ pub struct EncryptClientHello<'a> {
 impl<'a> EncryptClientHello<'a> {
     pub fn new() -> EncryptClientHello<'a> {
         EncryptClientHello {
-            type_: ClientHelloType::OuterClientHello,
+            typ: HelloType::OuterClientHello,
             cipher_suite: CipherSuite {
                 kdf: KDF::HKDF_SHA256,
                 aead: Aead::AES_128_GCM,
@@ -72,7 +69,7 @@ impl<'a> EncryptClientHello<'a> {
 
     pub fn from_reader(mut reader: Reader<'a>) -> RlsResult<EncryptClientHello<'a>> {
         let mut res = EncryptClientHello::new();
-        res.type_ = ClientHelloType::from_u8(reader.read_u8()?).ok_or("ClientHelloType Unknown")?;
+        res.typ = HelloType::new(reader.read_u8()?);
         res.cipher_suite = CipherSuite::from_reader(&mut reader)?;
         res.config_id = reader.read_u8()?;
         res.enc_len = reader.read_u16()?;
@@ -87,7 +84,7 @@ impl<'a> EncryptClientHello<'a> {
     }
 
     pub fn write_to(self, writer: &mut Writer) -> Result<(), BufferError> {
-        writer.write_u8(self.type_ as u8)?;
+        writer.write_u8(self.typ.into_inner())?;
         self.cipher_suite.write_to(writer)?;
         writer.write_u8(self.config_id)?;
         writer.write_u16(self.enc.len() as u16)?;

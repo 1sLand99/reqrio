@@ -181,7 +181,7 @@ impl Connection {
         Ok(())
     }
 
-    pub fn handle_extension(&mut self, mut reader: Reader) -> RlsResult<Vec<u8>> {
+    pub fn handle_extension(&mut self, mut reader: Reader) -> Result<Vec<u8>, HandShakeError> {
         let mut share_secret = vec![0; 66];
         let mut len = 0;
         unsafe {
@@ -191,7 +191,7 @@ impl Connection {
                 share_secret.as_mut_ptr(),
                 &mut len,
             )
-        }.ok("handshake failed server_hello")?;
+        }.ok(HandShakeError::ExtendParseFailed)?;
         share_secret.truncate(len);
         Ok(share_secret)
     }

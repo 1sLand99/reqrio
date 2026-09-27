@@ -74,8 +74,8 @@ impl Param {
 impl Display for Param {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self.equal_sign {
-            true => write!(f, "{}={}", &self.name, &self.value),
-            false => write!(f, "{}{}", &self.name, &self.value)
+            true => write!(f, "{}={}", self.name, self.value),
+            false => write!(f, "{}{}", self.name, self.value)
         }
     }
 }

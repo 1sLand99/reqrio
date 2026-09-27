@@ -24,7 +24,8 @@ pub enum HandShakeError {
     MissingClientConfig,
     MissingServerConfig,
     InvalidShareSecret,
-    SecretPubKeyNull
+    SecretPubKeyNull,
+    ExtendParseFailed,
 }
 
 impl Display for HandShakeError {
