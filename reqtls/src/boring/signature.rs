@@ -2,7 +2,7 @@ use crate::boring::bindings::*;
 use crate::boring::BoringResExt;
 use crate::error::RlsResult;
 use crate::ffi::CPointer;
-use crate::RlsError;
+use crate::{RlsError, REVERSED};
 use std::fmt::{Debug, Formatter};
 use std::ptr::null_mut;
 
@@ -30,6 +30,10 @@ impl SignatureAlgorithm {
             SignatureAlgorithm::RSA_PKCS1_SHA512 => unsafe { EVP_sha512() }
             _ => panic!("unsupported signature algorithm"),
         }
+    }
+
+    pub fn is_reversed(&self) -> bool {
+        REVERSED.contains(&self.0)
     }
 
     const fn padding(&self) -> i32 {

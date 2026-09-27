@@ -10,7 +10,7 @@ mod ech;
 #[cfg(feature = "quic")]
 mod quic;
 
-use crate::{rand, Buf, NamedCurve, SignatureAlgorithm, Version, ALPN};
+use crate::{rand, Buf, NamedCurve, SignatureAlgorithm, Version, ALPN, REVERSED};
 pub use certificate::CompressCertificate;
 pub use certificate::CompressionMethod;
 pub use client_hello::EncryptClientHello;
@@ -40,7 +40,7 @@ impl ExtensionType {
     pub const SignedCertificateTimestamp: ExtensionType = ExtensionType(0x12);
     pub const Padding: ExtensionType = ExtensionType(0x15);
     pub const EncryptTheMac: ExtensionType = ExtensionType(0x16);
-    pub const ExtendMasterSecret: ExtensionType = ExtensionType(0x17);
+    pub const ExtendedMasterSecret: ExtensionType = ExtensionType(0x17);
     pub const SessionTicket: ExtensionType = ExtensionType(0x23);
     pub const CompressionCertificate: ExtensionType = ExtensionType(0x1b);
     pub const SupportedVersions: ExtensionType = ExtensionType(0x2b);
@@ -84,6 +84,14 @@ impl ExtensionType {
 
     pub const fn new(value: u16) -> ExtensionType {
         ExtensionType(value)
+    }
+
+    pub const fn inner(&self) -> u16 { self.0 }
+
+    pub const fn into_inner(self) -> u16 { self.0 }
+
+    pub fn is_reversed(&self) -> bool {
+        REVERSED.contains(&self.0)
     }
 }
 
@@ -132,7 +140,7 @@ impl PartialEq<ExtensionType> for Extension {
             (Extension::EncryptedClientHello(_), ExtensionType::EncryptedClientHello) => true,
             (Extension::RenegotiationInfo(_), ExtensionType::RenegotiationInfo) => true,
             (Extension::Padding(_), ExtensionType::Padding) => true,
-            (Extension::ExtendedMasterSecret, ExtensionType::EncryptedClientHello) => true,
+            (Extension::ExtendedMasterSecret, ExtensionType::ExtendedMasterSecret) => true,
             (Extension::SignedCertificateTimestamp, ExtensionType::SignedCertificateTimestamp) => true,
             (Extension::EncryptTheMac, ExtensionType::EncryptTheMac) => true,
             (Extension::Reserved { typ, .. }, typ2) => *typ == typ2,
@@ -160,7 +168,7 @@ impl Extension {
             ExtensionType::ApplicationLayerProtocolNegotiation => Some(Extension::ApplicationLayerProtocolNegotiation(vec![ALPN::HTTP20, ALPN::HTTP11])),
             ExtensionType::SignedCertificateTimestamp => Some(Extension::SignedCertificateTimestamp),
             ExtensionType::EncryptTheMac => Some(Extension::EncryptTheMac),
-            ExtensionType::ExtendMasterSecret => Some(Extension::ExtendedMasterSecret),
+            ExtensionType::ExtendedMasterSecret => Some(Extension::ExtendedMasterSecret),
             ExtensionType::SessionTicket => Some(Extension::SessionTicket(Buf::default())),
             ExtensionType::CompressionCertificate => Some(Extension::CompressionCertificate(vec![CompressionMethod::NULL])),
             ExtensionType::SupportedVersions => Some(Extension::SupportedVersions(vec![

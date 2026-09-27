@@ -1,6 +1,7 @@
 use crate::Buf;
 #[cfg(debug_assertions)]
 use std::fmt::{Debug, Formatter};
+use std::str::Utf8Error;
 
 #[repr(C)]
 #[derive(Default, Clone)]
@@ -17,6 +18,17 @@ impl ServerName {
             typ: 0,
             value: Buf::new_c(),
         }
+    }
+
+    pub fn from_slice(typ: u8, value: &[u8]) -> ServerName {
+        ServerName {
+            typ,
+            value: Buf::Vec(value.to_vec()),
+        }
+    }
+    
+    pub fn hostname(&self) -> Result<&str, Utf8Error> {
+        str::from_utf8(self.value.as_slice())
     }
 }
 

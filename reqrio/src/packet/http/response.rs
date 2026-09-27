@@ -10,12 +10,14 @@ use std::str::Utf8Error;
 
 #[repr(C)]
 pub struct Response {
+    //share c
     #[cfg(feature = "export")]
     pub(crate) sid: u64,
     pub(crate) method: Method,
     status: HttpStatus,
     alpn: ALPN,
     pub(crate) raw: Writer,
+    //rust owned
     pub(crate) uri: Uri,
     pub(crate) header: Header,
     coder: Option<Box<dyn StreamDecode + Send + Sync>>,
@@ -250,14 +252,14 @@ impl Display for Response {
                 write!(f, "{} {} {}", self.alpn, self.status.code(), self.status.spec())?;
                 write!(f, "\r\n")?;
             } else {
-                write!(f, "{} {}  {}", self.method, self.uri, self.alpn)?;
+                write!(f, "{} {} {}", self.method, self.uri, self.alpn)?;
                 write!(f, "\r\n")?;
             }
         }
         write!(f, "{}", self.header)?;
         let body = self.as_text().unwrap_or("(二进制数据)");
         if !body.is_empty() {
-            write!(f, "\r\n")?;
+            write!(f, "\r\n\r\n")?;
             write!(f, "{}", body)?;
             write!(f, "\r\n")?;
         }

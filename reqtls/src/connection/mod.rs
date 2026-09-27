@@ -162,7 +162,7 @@ impl Connection {
             if share_secret.is_empty() { return Err(HandShakeError::InvalidShareSecret.into()); }
             self.derived.make_handshake_traffic_secret(share_secret, self.hasher.current_hash()?)?;
             #[cfg(feature = "log")]
-            info!("[ParsedServerHello] KeyShare={}",self.named_curve);
+            info!("[ParsedServerHello] KeyShare={:?}",self.named_curve);
             self.derived_key_cipher(KeyType::Handshake)?;
         }
         Ok(false)
@@ -299,7 +299,7 @@ impl Connection {
         self.sig_alg = *server_key.hellman_param().signature_algorithm();
         self.named_curve = *server_key.hellman_param().named_curve();
         #[cfg(feature = "log")]
-        info!("[ExchangeKey] algorithm={}; curve={}; verify={}", self.sig_alg.spec(), self.named_curve, self.verify);
+        info!("[ExchangeKey] algorithm={}; curve={:?}; verify={}", self.sig_alg.spec(), self.named_curve, self.verify);
         match (self.verify, self.version) {
             (true, Version::TLCP) => {
                 let mut key = Sm2Key::none();
@@ -375,7 +375,7 @@ impl Connection {
         Ok(())
     }
 
-    pub fn gen_server_hello(&mut self, writer: &mut Writer, client_hello: ClientHello, pri_key: &RsaKey) -> RlsResult<()> {
+    pub fn gen_server_hello(&mut self, writer: &mut Writer, client_hello: &ClientHello, pri_key: &RsaKey) -> RlsResult<()> {
         self.version = client_hello.version;
         self.suite = &CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256;
         self.hasher.init(self.suite.hash())?;
@@ -491,6 +491,8 @@ impl Connection {
     pub fn certs(&self) -> &[Certificate] {
         &self.certificates
     }
+
+    pub fn server_name(&self) -> &ServerName { &self.server_name }
 }
 
 

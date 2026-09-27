@@ -85,7 +85,7 @@ impl Default for H3Finger {
 
 #[cfg_attr(debug_assertions, derive(Debug))]
 pub struct Fingerprint {
-    tls: TlsFinger,
+    tls: TlsFinger<'static>,
     h2: H2Finger,
     #[cfg(feature = "quic")]
     h3: H3Finger,
@@ -115,7 +115,7 @@ impl Fingerprint {
         }
     }
 
-    pub fn new_h2(tls: TlsFinger, h2: H2Finger, token: impl AsRef<str>) -> HlsResult<Self> {
+    pub fn new_h2(tls: TlsFinger<'static>, h2: H2Finger, token: impl AsRef<str>) -> HlsResult<Self> {
         Ok(Fingerprint {
             tls,
             h2,
@@ -126,7 +126,7 @@ impl Fingerprint {
     }
 
     #[cfg(feature = "quic")]
-    pub fn new_h3(tls: TlsFinger, h3: H3Finger, token: impl AsRef<str>) -> HlsResult<Self> {
+    pub fn new_h3(tls: TlsFinger<'static>, h3: H3Finger, token: impl AsRef<str>) -> HlsResult<Self> {
         Ok(Fingerprint {
             tls,
             h2: H2Finger::default(),
@@ -135,7 +135,7 @@ impl Fingerprint {
         })
     }
 
-    pub fn new_tls(tls: TlsFinger, token: impl AsRef<str>) -> HlsResult<Self> {
+    pub fn new_tls(tls: TlsFinger<'static>, token: impl AsRef<str>) -> HlsResult<Self> {
         Ok(Fingerprint {
             tls,
             legal_subscript: Writer::check_subscription(token)?,
@@ -155,9 +155,9 @@ impl Fingerprint {
         self.legal_subscript
     }
 
-    pub fn tls(&self) -> &TlsFinger { &self.tls }
+    pub fn tls(&self) -> &TlsFinger<'_> { &self.tls }
 
-    pub fn tls_mut(&mut self) -> &mut TlsFinger { &mut self.tls }
+    pub fn tls_mut(&mut self) -> &mut TlsFinger<'static> { &mut self.tls }
 
     #[cfg(feature = "quic")]
     pub fn h3(&self) -> &H3Finger {

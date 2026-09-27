@@ -1,6 +1,7 @@
 use crate::Buf;
 
 #[repr(C)]
+#[derive(Clone)]
 #[cfg_attr(debug_assertions, derive(Debug))]
 pub struct QUICParameter<'a> {
     flag: u64,

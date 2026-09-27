@@ -53,12 +53,7 @@ fn build_min_finger() -> Fingerprint {
         extensions: vec![
             Extension::SupportedGroups(vec![NamedCurve::X25519, NamedCurve::SecP256r1]),
         ],
-    }, H2Finger {
-        setting: vec![],
-        window_size: 0,
-        weight: 0,
-        priority: false,
-    }, TOKEN.as_str()).unwrap()
+    }, H2Finger::default(), TOKEN.as_str()).unwrap()
 }
 
 #[test]

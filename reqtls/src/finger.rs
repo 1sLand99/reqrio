@@ -61,7 +61,7 @@ impl Extend {
             Extension::EncryptedClientHello(encrypted_client_hello) => Extend::new_slice(ExtensionType::EncryptedClientHello, encrypted_client_hello.as_ref()),
             #[cfg(feature = "quic")]
             Extension::QuicTrpParameters(parameters) => Extend::new_slice(ExtensionType::QuicTrpParameters, parameters.as_slice()),
-            Extension::ExtendedMasterSecret => Extend::new_null(ExtensionType::ExtendMasterSecret),
+            Extension::ExtendedMasterSecret => Extend::new_null(ExtensionType::ExtendedMasterSecret),
             Extension::EncryptTheMac => Extend::new_null(ExtensionType::EncryptTheMac),
             Extension::Padding(size) => Extend { typ: ExtensionType::Padding, len: *size as u16, value: &StatusRequest::OCSP as *const StatusRequest as *const c_void },
             Extension::Reserved { typ, value } => Extend::new_slice(*typ, value.as_ref()),
@@ -77,13 +77,13 @@ unsafe extern "C" {
 }
 
 #[cfg_attr(debug_assertions, derive(Debug))]
-pub enum TlsFinger {
+pub enum TlsFinger<'a> {
     Default,
     ClientHello {
         ///record layer version
         record_version: Version,
         ///client hello bytes
-        bytes: Buf<'static>,
+        bytes: Buf<'a>,
     },
     Custom {
         ///record layer version
@@ -145,9 +145,9 @@ impl<'a> From<&ClientConfig<'a>> for RecordParam<'a> {
     }
 }
 
-impl TlsFinger {
-    pub const DEFAULT: &'static TlsFinger = &TlsFinger::Default;
-    pub(crate) fn build_client_hello(&self, mut param: RecordParam) -> Result<(), BufferError> {
+impl<'a> TlsFinger<'a> {
+    pub const DEFAULT: &'static TlsFinger<'static> = &TlsFinger::Default;
+    pub fn build_client_hello(&self, mut param: RecordParam) -> Result<(), BufferError> {
         match self {
             TlsFinger::Default => unsafe { Record_build(&param, 1) }
             TlsFinger::ClientHello { bytes, record_version } => unsafe {
@@ -211,7 +211,7 @@ impl TlsFinger {
         algorithms
     }
 
-    pub fn random() -> TlsFinger {
+    pub fn random() -> TlsFinger<'static> {
         let mut suites: Vec<CipherSuite> = vec![
             CipherSuite::TLS_AES_128_GCM_SHA256,
             CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA,
@@ -255,7 +255,7 @@ impl TlsFinger {
         }
     }
 
-    pub fn from_ja3(ja3: impl AsRef<str>) -> RlsResult<TlsFinger> {
+    pub fn from_ja3(ja3: impl AsRef<str>) -> RlsResult<TlsFinger<'static>> {
         let items = ja3.as_ref().split(",").collect::<Vec<_>>();
         let mut versions = vec![];
         let version = items.first().ok_or("version not found")?.parse::<u16>()?;
@@ -296,7 +296,7 @@ impl TlsFinger {
         })
     }
 
-    pub fn from_ja4(ja4: impl AsRef<str>) -> RlsResult<TlsFinger> {
+    pub fn from_ja4(ja4: impl AsRef<str>) -> RlsResult<TlsFinger<'static>> {
         let items = ja4.as_ref().split("_").collect::<Vec<_>>();
         if items.len() != 4 { return Err("ja4 is error".into()); }
         let mut algorithms: Vec<SignatureAlgorithm> = vec![];
@@ -347,7 +347,7 @@ impl TlsFinger {
     }
 
     ///record hex prefix: 220303
-    pub fn from_record_hex(record: impl AsRef<str>) -> RlsResult<TlsFinger> {
+    pub fn from_record_hex(record: impl AsRef<str>) -> RlsResult<TlsFinger<'static>> {
         let mut client_hello = hex::decode(record.as_ref())?;
         let ver = Version::new(u16::from_be_bytes([client_hello[1], client_hello[2]]));
         let len = u16::from_be_bytes([client_hello[3], client_hello[4]]) as usize + 5;

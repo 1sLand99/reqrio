@@ -4,9 +4,9 @@ use std::fmt::{Debug, Formatter};
 use std::ptr::null;
 
 #[repr(C)]
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct KeyEntry {
-    group: u16,
+    group: NamedCurve,
     key_len: u16,
     key: *const u8,
 }
@@ -22,10 +22,14 @@ impl KeyEntry {
     pub const SecP521r1: KeyEntry = KeyEntry::new(NamedCurve::SecP521r1);
     pub const fn new(group: NamedCurve) -> KeyEntry {
         KeyEntry {
-            group: group.into_inner(),
+            group,
             key_len: 0,
             key: null(),
         }
+    }
+
+    pub fn group(&self) -> NamedCurve {
+        self.group
     }
 }
 
@@ -33,7 +37,7 @@ impl KeyEntry {
 impl Debug for KeyEntry {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut struct_debug = f.debug_struct("KeyEntry");
-        struct_debug.field("group", &NamedCurve::new(self.group));
+        struct_debug.field("group", &self.group);
         struct_debug.field("key_len", &self.key_len);
         struct_debug.field("key", &self.key);
         struct_debug.finish()

@@ -1,4 +1,5 @@
 pub use super::message::{AckRange, QUICFrame, QUICFrameFlag, QUICPacket};
+pub use super::extend::QUICParameter;
 pub use crate::connection::QUICConnection;
 pub use crate::error::QUICError;
 use crate::{BufferError, Reader, Writer};

@@ -348,6 +348,13 @@ unsafe impl Send for Writer {}
 
 unsafe impl Sync for Writer {}
 
+
+///对应c的结构{
+/// uint8_t tag;
+/// size_t cap;
+/// uint8_t *ptr;
+/// size_t len;
+/// }
 #[repr(C)]
 pub enum Buf<'a> {
     Ref {

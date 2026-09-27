@@ -4,7 +4,7 @@ use crate::buffer::Buf;
 use crate::error::RlsResult;
 use crate::suite::KeyExchangeAlg;
 use crate::{u24, BufferError, Reader, Version, Writer};
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Formatter};
 
 #[derive(Copy, Clone)]
 #[cfg_attr(debug_assertions, derive(Debug))]
@@ -25,8 +25,8 @@ impl CurveType {
     }
 }
 
-#[derive(Copy, Clone, Hash, PartialEq, Eq)]
 #[repr(C)]
+#[derive(Copy, Clone, Hash, PartialEq, Eq)]
 pub struct NamedCurve(u16);
 
 #[allow(non_upper_case_globals)]
@@ -63,7 +63,7 @@ impl NamedCurve {
         NamedCurve::FFDHE8192
     ];
 
-    const fn spec(&self) -> &str {
+    pub const fn spec(&self) -> &str {
         match *self {
             NamedCurve::X25519 => "X25519",
             NamedCurve::X448 => "X448",
@@ -104,7 +104,7 @@ impl NamedCurve {
             NamedCurve::X25519MLKEM768 => 1216,
             NamedCurve::SecP256r1MLKEM768 => 1249,
             NamedCurve::PRE_MASTER => 48,
-            _ => unreachable!("{}", self)
+            _ => unreachable!("{:?}", self)
         }
     }
 }
@@ -116,12 +116,6 @@ impl PartialEq<NamedCurve> for &NamedCurve {
 }
 
 impl Debug for NamedCurve {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}(0x{:04x})", self.spec(), self.0)
-    }
-}
-
-impl Display for NamedCurve {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}(0x{:04x})", self.spec(), self.0)
     }

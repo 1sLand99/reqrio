@@ -11,8 +11,8 @@ impl PskMode {
     pub const fn new(value: u8) -> PskMode { PskMode(value) }
 
     pub fn into_inner(self) -> u8 { self.0 }
-
-    fn spec(&self) -> &str {
+    
+    pub fn spec(&self) -> &str {
         match *self {
             PskMode::PSK_DHE_KE => "PSK_DHE_KE",
             _ => "Reserved"

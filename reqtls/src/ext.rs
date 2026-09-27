@@ -33,8 +33,6 @@ pub trait StreamHandle {
         record_param.writer = param.write_buffer;
         record_param.conn = param.conn;
         config.fingerprint.build_client_hello(record_param)?;
-        // #[cfg(feature = "quic")]
-        // if config.alpn == &ALPN::HTTP30 { client_hello.build_quic()?; }
         param.conn.update_session(&param.write_buffer.filled()[5..])?;
         Ok(())
     }
@@ -98,7 +96,7 @@ pub trait StreamHandle {
         }
         //change_cipher_spec
         param.write_buffer.write_u8(20)?;
-        param.write_buffer.write_u16(param.conn.version().as_u16())?;
+        param.write_buffer.write_u16(param.conn.version().inner())?;
         param.write_buffer.write_u8(0)?;
         param.write_buffer.write_u8(1)?;
         param.write_buffer.write_u8(1)?;
@@ -108,12 +106,10 @@ pub trait StreamHandle {
         Ok(())
     }
 
-    fn handle_client_hello(param: &mut StreamParam<'_>, config: &mut ServerConfig, client_hello: ClientHello) -> Result<(), RlsError> {
-        let reader = Reader::from_ptr(client_hello.extensions as *const u8, client_hello.extend_len as usize);
-        param.conn.handle_extension(reader).unwrap();
+    fn handle_client_hello(param: &mut StreamParam<'_>, config: &mut ServerConfig, client_hello: &ClientHello) -> Result<(), RlsError> {
+        let start = param.write_buffer.offset().end;
         param.write_buffer.write_u8(RecordType::HandShake.as_u8())?;
         param.write_buffer.write_u16(Version::TLS_1_2.into_inner())?;
-        let record_start = param.write_buffer.end();
         param.write_buffer.write_u16(0)?;
         unsafe {
             ServerHello_from_client_hello(&RecordParam {
@@ -121,7 +117,7 @@ pub trait StreamHandle {
                 writer: param.write_buffer,
                 conn: param.conn,
                 ..Default::default()
-            }, &client_hello)
+            }, client_hello)
         }.ok(BufferError::InvalidCEncode)?;
         let mut certificates = Certificates::default();
         for certificate in config.server_cert.iter_mut() {
@@ -130,8 +126,8 @@ pub trait StreamHandle {
         certificates.write_to(param.write_buffer)?;
 
         param.conn.gen_server_hello(param.write_buffer, client_hello, config.cert_key)?;
-        param.write_buffer.write_u16_in(record_start, (param.write_buffer.end() - record_start - 2) as u16)?;
-        param.conn.update_session(param.write_buffer.slice_at(record_start + 2))?;
+        param.write_buffer.write_u16_in(start + 3, (param.write_buffer.end() - start - 5) as u16)?;
+        param.conn.update_session(param.write_buffer.slice_at(start + 5))?;
         Ok(())
     }
 
@@ -202,7 +198,9 @@ pub trait StreamHandle {
                 param.conn.update_session(message.encoded.as_ref())?;
                 let config = config.as_mut().and_then(|x| x.server_mut())
                     .ok_or(HandShakeError::MissingClientConfig)?;
-                Self::handle_client_hello(param, config, v)?;
+                let reader = Reader::from_ptr(v.extensions as *const u8, v.extend_len as usize);
+                param.conn.handle_extension(reader)?;
+                Self::handle_client_hello(param, config, &v)?;
                 return Ok(());
             }
             MessageParsed::ClientKeyExchange(v) => {

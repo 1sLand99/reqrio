@@ -29,20 +29,24 @@ impl CompressionMethod {
         }
     }
 
-    pub fn into_inner(self) -> u16 {
+    pub const fn into_inner(self) -> u16 {
         self.0
+    }
+
+    pub fn spec(&self) -> &str {
+        match self.0 {
+            0 => "Null",
+            1 => "Deflate",
+            2 => "Brotli",
+            _ => "Reserved",
+        }
     }
 }
 
 #[cfg(debug_assertions)]
 impl Debug for CompressionMethod {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self.0 {
-            0 => write!(f, "Null(0x{:04x})", self.0),
-            1 => write!(f, "Deflate(0x{:04x})", self.0),
-            2 => write!(f, "Brotli(0x{:04x})", self.0),
-            _ => write!(f, "Reserved(0x{:04x})", self.0),
-        }
+        write!(f, "{}(0x{:04x})", self.spec(), self.0)
     }
 }
 

@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
+use crate::REVERSED;
 
 #[repr(C)]
 #[derive(Copy, Clone, PartialEq)]
@@ -21,27 +22,35 @@ impl Version {
 }
 
 impl Version {
-    pub fn new(v: u16) -> Version {
+    pub const fn new(v: u16) -> Version {
         Version(v)
     }
 
-    pub fn into_inner(self) -> u16 { self.0 }
+    pub const fn into_inner(self) -> u16 { self.0 }
 
-    pub(crate) fn as_u16(&self) -> u16 {
+    pub const fn inner(&self) -> u16 {
         self.0
+    }
+
+    pub const fn spec(&self) -> &str {
+        match self.0 {
+            0x301 => "TLS_1_0",
+            0x302 => "TLS_1_1",
+            0x303 => "TLS_1_2",
+            0x304 => "TLS_1_3",
+            0x101 => "TLCP",
+            _ => "Reversed"
+        }
+    }
+
+    pub fn is_reversed(&self) -> bool {
+        REVERSED.contains(&self.0)
     }
 }
 
 impl Debug for Version {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self.0 {
-            0x301 => write!(f, "TLS_1_0(0x{:04x})", self.0),
-            0x302 => write!(f, "TLS_1_1(0x{:04x})", self.0),
-            0x303 => write!(f, "TLS_1_2(0x{:04x})", self.0),
-            0x304 => write!(f, "TLS_1_3(0x{:04x})", self.0),
-            0x101 => write!(f, "TLCP(0x{:04x})", self.0),
-            _ => write!(f, "Reserved(0x{:04x})", self.0)
-        }
+        write!(f, "{}(0x{:04x})", self.spec(), self.0)
     }
 }
 

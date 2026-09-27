@@ -8,16 +8,16 @@ use std::slice;
 #[cfg_attr(debug_assertions, derive(Debug))]
 pub struct ClientHello {
     pub(crate) len: u24,
-    pub(crate) version: Version,
+    pub version: Version,
     pub(crate) random: *const u8,
     pub(crate) session_id_len: u8,
     pub(crate) session_id: *const u8,
-    pub(crate) cipher_suites_len: u16,
-    pub(crate) cipher_suites: *const c_void,
+    pub cipher_suites_len: u16,
+    pub cipher_suites: *const c_void,
     pub(crate) compress_method_len: u8,
     pub(crate) compress_method: *const u8,
-    pub(crate) extend_len: u16,
-    pub(crate) extensions: *const c_void,
+    pub extend_len: u16,
+    pub extensions: *const c_void,
 }
 
 impl ClientHello {
@@ -49,3 +49,6 @@ impl ClientHello {
         unsafe { slice::from_raw_parts(self.random, 32) }
     }
 }
+
+unsafe impl Sync for ClientHello {}
+unsafe impl Send for ClientHello {}
