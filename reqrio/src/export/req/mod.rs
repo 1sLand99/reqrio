@@ -183,6 +183,7 @@ pub extern "system" fn ScReq_add_cookie(req: *mut ScReq, name: *const c_char, va
 }
 
 
+///注意: 流式请求返回的是引用
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn ScReq_do_http(
@@ -200,14 +201,12 @@ pub unsafe extern "C" fn ScReq_do_http(
             let body = unsafe { Box::from_raw(body) };
             let resp = match stream {
                 true => {
-                    let (sid, header) = req.send_stream(method, *url, *body)?;
-                    let mut resp = Response::new_header(header.clone());
-                    resp.sid = sid;
-                    resp
+                    let resp = req.send_stream(method, *url, *body)?;
+                    resp as *const Response as *mut Response
                 }
-                false => req.do_http(method, *url, body.deref())?
+                false => Box::into_raw(Box::new(req.do_http(method, *url, body.deref())?))
             };
-            Ok(Box::into_raw(Box::new(resp)))
+            Ok(resp)
         }, |e| handle_err1(e, err, null_mut()))
     })).unwrap_or_else(|_| handle_err1("程序panic", err, null_mut()))
 }

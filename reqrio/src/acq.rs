@@ -149,7 +149,7 @@ impl AcReq {
         Err("redirection exceeds the maximum".into())
     }
 
-    async fn recv_stream(&mut self, sid: u64) -> HlsResult<&Header> {
+    async fn recv_stream(&mut self, sid: u64) -> HlsResult<&Response> {
         loop {
             let resp = self.responses.get(&sid).ok_or("response not inited or finished")?;
             if !resp.header().is_empty() { break; }
@@ -157,7 +157,7 @@ impl AcReq {
             ids.into_iter().for_each(|id| { self.recv_ids.insert(id); });
         }
         let resp = self.responses.get(&sid).ok_or("response not inited or finished")?;
-        Ok(resp.header())
+        Ok(resp)
     }
 
     pub async fn next_chunk(&mut self, sid: u64) -> HlsResult<Option<&[u8]>> {
@@ -178,10 +178,9 @@ impl AcReq {
     }
 
     /// 流式请求，仅返回请求头，请求体需调next_chunk
-    pub async fn send_stream<'a>(&mut self, method: Method, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<(u64, &Header)> {
+    pub async fn send_stream<'a>(&mut self, method: Method, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<&Response> {
         let sid = self.send(method, url, body).await?;
-        let header = self.recv_stream(sid).await?;
-        Ok((sid, header))
+        self.recv_stream(sid).await
     }
 
     pub async fn do_http<'a>(&mut self, method: Method, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<Response> {

@@ -128,7 +128,7 @@ impl ScReq {
         }
     }
 
-    fn recv_stream(&mut self, sid: u64) -> HlsResult<&Header> {
+    fn recv_stream(&mut self, sid: u64) -> HlsResult<&Response> {
         loop {
             let resp = self.responses.get(&sid).ok_or("response not inited or finished")?;
             if !resp.header().is_empty() { break; }
@@ -136,7 +136,7 @@ impl ScReq {
             ids.into_iter().for_each(|id| { self.recv_ids.insert(id); });
         }
         let resp = self.responses.get(&sid).ok_or("response not inited or finished")?;
-        Ok(resp.header())
+        Ok(resp)
     }
 
     pub fn next_chunk(&mut self, sid: u64) -> HlsResult<Option<&[u8]>> {
@@ -157,10 +157,9 @@ impl ScReq {
     }
 
     /// 流式请求，仅返回请求头，请求体需调next_chunk
-    pub fn send_stream<'a>(&mut self, method: Method, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<(u64, &Header)> {
+    pub fn send_stream<'a>(&mut self, method: Method, url: impl Into<ReqUrl<'a>>, body: impl Into<Body<'a>>) -> HlsResult<&Response> {
         let sid = self.send(method, url, body)?;
-        let header = self.recv_stream(sid)?;
-        Ok((sid, header))
+        self.recv_stream(sid)
     }
 
     fn handle_recv(&mut self, mut sid: u64) -> HlsResult<Response> {

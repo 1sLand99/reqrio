@@ -1,8 +1,6 @@
 use reqrio::*;
-use std::os::raw::c_int;
-use std::ptr::null_mut;
-use std::string::ToString;
 use std::fs;
+use std::string::ToString;
 
 #[cfg(feature = "log")]
 const LOGER: Logger = Logger {
