@@ -15,6 +15,8 @@ pub struct QUICPacketRead<'a, S> {
     pub(crate) current: PacketType,
     #[cfg(feature = "aync")]
     pub(crate) timeout: &'a mut Timeout,
+    #[cfg(feature = "aync")]
+    pub(crate) timeout_reset: bool,
 }
 
 impl<'a> QUICPacketRead<'a, std::net::UdpSocket> {
@@ -47,6 +49,10 @@ impl<'a> Future for QUICPacketRead<'a, tokio::net::UdpSocket> {
     type Output = HlsResult<Range<usize>>;
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let reader = self.get_mut();
+        if !reader.timeout_reset {
+            reader.timeout.reset_read();
+            reader.timeout_reset = true;
+        }
         if reader.packet_offsets.is_empty() { reader.buffer.reset(); }
         let pos = reader.packet_offsets.iter().position(|&(typ, _)| typ <= reader.current);
         match pos {
@@ -56,7 +62,7 @@ impl<'a> Future for QUICPacketRead<'a, tokio::net::UdpSocket> {
                 let mut buf = ReadBuf::new(reader.buffer.unfilled());
                 match Pin::new(&mut reader.socket).poll_recv(cx, &mut buf)? {
                     Poll::Pending => {
-                        reader.timeout.read_timeout()?;
+                        if reader.timeout.read_timeout(cx)?.is_pending() { return Poll::Pending; };
                         return Poll::Pending;
                     }
                     Poll::Ready(_) => {

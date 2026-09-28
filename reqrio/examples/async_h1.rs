@@ -20,8 +20,6 @@ fn test_log() {
 
 #[tokio::main]
 async fn main() {
-    #[cfg(feature = "log")]
-    test_log();
     Buffer::check_subscription(fs::read_to_string("TOKEN").unwrap()).unwrap();
 
     let t = Time::now();
@@ -57,7 +55,7 @@ async fn main() {
         // .with_alpn(ALPN::Http20)
         .with_header_json(headers)
         // .with_mtls(vec![], RsaKey::none(), Some(vec![cert]))
-        .with_proxy(Proxy::try_from("http://180.117.50.133:3828").unwrap())
+        // .with_proxy(Proxy::try_from("http://180.117.50.133:3828").unwrap())
         // .with_mtls(certs, key)
         // .with_proxy(Proxy::new_socks5("127.0.0.1",10279))
         // .with_proxy(Proxy::new_http_plain("127.0.0.1", 8080))

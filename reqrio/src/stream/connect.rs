@@ -56,6 +56,8 @@ pub struct TlsConnecting<'a, S> {
     pub(super) config: Config<'a>,
     pub(crate) state: ConnState<S>,
     pub(super) app_buf: Writer,
+    #[cfg(feature = "aync")]
+    pub(super) timeout_reset: bool,
 }
 
 impl<'a, S: Read + Write> TlsConnecting<'a, S> {
@@ -83,6 +85,10 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> Future for TlsConnecting<'a, S> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let connector = self.get_mut();
+        if !connector.timeout_reset {
+            connector.timeout_reset = true;
+            connector.state.timeout.reset_connect();
+        }
         if !connector.sent_client_hello {
             if connector.state.write_buffer.is_empty() {
                 connector.state.build_client_hello(connector.config.client_mut().ok_or("missing config")?)?;
@@ -92,8 +98,7 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> Future for TlsConnecting<'a, S> {
         let mut stream = loop {
             if !connector.state.write_buffer.is_empty() {
                 let mut writer = connector.state.write_buffer();
-                if Pin::new(&mut writer).poll(cx)?.is_pending() {
-                    connector.state.timeout.connect_timeout()?;
+                if Pin::new(&mut writer).poll(cx)?.is_pending() && connector.state.timeout.connect_timeout(cx)?.is_pending() {
                     return Poll::Pending;
                 }
             }
@@ -104,7 +109,9 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> Future for TlsConnecting<'a, S> {
             let record_len = match Pin::new(&mut reader).poll(cx)? {
                 Poll::Ready(len) => len,
                 Poll::Pending => {
-                    connector.state.timeout.connect_timeout()?;
+                    if connector.state.timeout.connect_timeout(cx)?.is_pending() {
+                        return Poll::Pending;
+                    }
                     return Poll::Pending;
                 }
             };
@@ -133,15 +140,17 @@ pub struct ProxyConnecting<'a, S> {
     pub(crate) index: usize,
     #[cfg(feature = "aync")]
     pub(crate) finish: bool,
+    #[cfg(feature = "aync")]
+    pub(crate) timeout_reset: bool,
 }
 
 impl<'a, S: Write> ProxyConnecting<'a, S> {
     pub fn wait(mut self) -> HlsResult<ProxyStream<S>> {
+        #[allow(unused)]
         let (mut stream, mut buffer, mut timeout) = match mem::replace(&mut self.state, ProxyState::Finish) {
             ProxyState::Connecting { stream, buffer, timeout } => (stream, buffer, timeout),
             ProxyState::Finish => unreachable!(),
         };
-        timeout.reset_connect();
         for i in 0..4 {
             let finish = self.proxy.write_context(self.dst_addr, &mut buffer, i)?;
             BufWriting {
@@ -149,6 +158,8 @@ impl<'a, S: Write> ProxyConnecting<'a, S> {
                 buf: &mut buffer,
                 #[cfg(feature = "aync")]
                 timeout: &mut timeout,
+                #[cfg(feature = "aync")]
+                timeout_reset: false,
             }.wait()?;
             if finish { break; }
         }
@@ -173,6 +184,10 @@ impl<'a, S: AsyncWrite + Unpin> Future for ProxyConnecting<'a, S> {
             ProxyState::Connecting { stream, buffer, timeout } => (stream, buffer, timeout),
             ProxyState::Finish => unreachable!(),
         };
+        if !connector.timeout_reset {
+            timeout.reset_connect();
+            connector.timeout_reset = true;
+        }
         for i in 0..4 {
             if i < connector.index { continue; }
             let finish = if buffer.is_empty() {
@@ -182,10 +197,11 @@ impl<'a, S: AsyncWrite + Unpin> Future for ProxyConnecting<'a, S> {
                 stream,
                 buf: buffer,
                 timeout,
+                timeout_reset: false,
             };
             match Pin::new(&mut writing).poll(cx)? {
                 Poll::Ready(_) => if finish { break; },
-                Poll::Pending => return Poll::Pending,
+                Poll::Pending => if timeout.connect_timeout(cx)?.is_pending() { return Poll::Pending; },
             }
         }
         let (stream, buffer, timeout) = match mem::replace(&mut connector.state, ProxyState::Finish) {
@@ -233,7 +249,7 @@ impl<'a> StreamConnect<'a, std::net::TcpStream> {
                 let session = config.session.as_ref().cloned().unwrap_or_default();
                 let conn = Connection::new_client(session, mem::take(&mut config.key_log), false)
                     .with_verify(config.verify).with_mtls(!config.client_cert.is_empty());
-                self.tls_connecting.state = ConnState::Connecting(Box::new(TlsStream::new(conn, proxy_stream)));
+                self.tls_connecting.state = ConnState::Connecting(Box::new(TlsStream::new(conn, proxy_stream, Timeout::longer())));
                 let tls_stream = self.tls_connecting.wait()?;
                 let alpn = tls_stream.alpn().clone();
                 let stream = match &alpn {
@@ -268,7 +284,8 @@ impl<'a> Future for StreamConnect<'a, tokio::net::TcpStream> {
                     let session = config.session.as_ref().cloned().unwrap_or_default();
                     let conn = Connection::new_client(session, mem::take(&mut config.key_log), false)
                         .with_verify(config.verify).with_mtls(!config.client_cert.is_empty());
-                    connector.tls_connecting.state = ConnState::Connecting(Box::new(TlsStream::new(conn, proxy_stream)));
+                    let timeout = proxy_stream.timeout.clone();
+                    connector.tls_connecting.state = ConnState::Connecting(Box::new(TlsStream::new(conn, proxy_stream, timeout)));
                     connector.proxy_connected = true;
                     let mut buffer = Writer::with_capacity(24657);
                     buffer.write_slice(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")?;

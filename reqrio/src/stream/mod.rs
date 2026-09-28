@@ -323,6 +323,8 @@ impl Stream {
                 }),
                 state: ConnState::Connected,
                 app_buf: Writer::with_capacity(16384),
+                #[cfg(feature = "aync")]
+                timeout_reset: false,
             },
             #[cfg(feature = "aync")]
             proxy_connected: false,

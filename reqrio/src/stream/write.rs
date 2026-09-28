@@ -15,6 +15,8 @@ pub struct BufWriting<'a, S> {
     pub(crate) buf: &'a mut Writer,
     #[cfg(feature = "aync")]
     pub(crate) timeout: &'a mut Timeout,
+    #[cfg(feature = "aync")]
+    pub(crate) timeout_reset: bool,
 }
 
 impl<'a, S: Write> BufWriting<'a, S> {
@@ -32,6 +34,10 @@ impl<'a, S: AsyncWrite + Unpin> Future for BufWriting<'a, S> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let writer = self.get_mut();
+        if !writer.timeout_reset {
+            writer.timeout.reset_write();
+            writer.timeout_reset = true;
+        }
         while !writer.buf.is_empty() {
             match Pin::new(&mut writer.stream).poll_write(cx, writer.buf.filled())? {
                 Poll::Ready(wrote) => {
@@ -39,8 +45,7 @@ impl<'a, S: AsyncWrite + Unpin> Future for BufWriting<'a, S> {
                     if wrote == 0 { return Poll::Ready(Err(HlsError::PeerClosedConnection)); }
                     if writer.buf.used_empty(wrote) { break; }
                 }
-                Poll::Pending => {
-                    writer.timeout.write_timeout()?;
+                Poll::Pending => if writer.timeout.write_timeout(cx)?.is_pending() {
                     return Poll::Pending;
                 }
             }

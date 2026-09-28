@@ -159,8 +159,7 @@ pub struct ProxyStream<S> {
 }
 
 impl<S> ProxyStream<S> {
-    pub fn connect<'a>(stream: S, addr: &'a Addr, proxy: &'a Proxy, mut timeout: Timeout) -> ProxyConnecting<'a, S> {
-        timeout.reset_connect();
+    pub fn connect<'a>(stream: S, addr: &'a Addr, proxy: &'a Proxy, timeout: Timeout) -> ProxyConnecting<'a, S> {
         ProxyConnecting {
             state: ProxyState::Connecting {
                 stream,
@@ -173,6 +172,8 @@ impl<S> ProxyStream<S> {
             index: 0,
             #[cfg(feature = "aync")]
             finish: false,
+            #[cfg(feature = "aync")]
+            timeout_reset: false,
         }
     }
 }
@@ -198,6 +199,8 @@ impl Read for ProxyStream<std::net::TcpStream> {
                         buf: &mut self.buffer,
                         #[cfg(feature = "aync")]
                         timeout: &mut self.timeout,
+                        #[cfg(feature = "aync")]
+                        timeout_reset: false,
                     }.wait()?;
                     if self.resp.extend_buffer(&mut self.buffer)? { break; }
                 }
@@ -210,6 +213,8 @@ impl Read for ProxyStream<std::net::TcpStream> {
                     want_size: 12,
                     #[cfg(feature = "aync")]
                     timeout: &mut self.timeout,
+                    #[cfg(feature = "aync")]
+                    timeout_reset: false,
                 }.wait()?;
                 if self.buffer.filled().starts_with(&[5, 2]) {
                     if self.buffer.filled()[3] != 0 { return Err(io::Error::other("socks5 auth fail")); }
@@ -253,6 +258,7 @@ impl AsyncRead for ProxyStream<tokio::net::TcpStream> {
                         want_size: stream.buffer.len() + 1,
                         buf: &mut stream.buffer,
                         timeout: &mut stream.timeout,
+                        timeout_reset: false,
                     };
                     match Pin::new(&mut reader).poll(cx)? {
                         Poll::Ready(_) => if stream.resp.extend_buffer(&mut stream.buffer)? { break; },
@@ -267,6 +273,7 @@ impl AsyncRead for ProxyStream<tokio::net::TcpStream> {
                     want_size: 12,
                     buf: &mut stream.buffer,
                     timeout: &mut stream.timeout,
+                    timeout_reset: false,
                 };
                 match Pin::new(&mut reader).poll(cx)? {
                     Poll::Ready(_) => {

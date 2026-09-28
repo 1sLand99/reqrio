@@ -56,16 +56,15 @@ pub struct QUICStream<S> {
     buffer_size: u64,
     task_buffer: HashMap<u64, (Writer, usize)>,
     buffer_queues: HashMap<QId, Vec<Queue>>,
-
+    #[allow(unused)]
     timeout: Timeout,
 }
 
 
 impl<S> QUICStream<S> {
-    pub fn connect(socket: S, remote_addr: SocketAddr, config: ClientConfig<'_>, mut timeout: Timeout) -> QUICConnect<'_, S> {
+    pub fn connect(socket: S, remote_addr: SocketAddr, config: ClientConfig<'_>, timeout: Timeout) -> QUICConnect<'_, S> {
         let session = config.session.clone().unwrap_or_default();
         let key_log = config.key_log.clone();
-        timeout.reset_connect();
         QUICConnect {
             state: QUICConnState::Connecting(Box::new(QUICStream {
                 socket,
@@ -94,6 +93,8 @@ impl<S> QUICStream<S> {
             })),
             config: Config::Client(config),
             sent_hello: false,
+            #[cfg(feature = "aync")]
+            timeout_reset: false,
         }
     }
 
@@ -110,6 +111,8 @@ impl<S> QUICStream<S> {
             addr: &self.addr,
             #[cfg(feature = "aync")]
             timeout: &mut self.timeout,
+            #[cfg(feature = "aync")]
+            timeout_reset: false,
         };
         if writer.conn.recv_nums().is_empty() || !writer.conn.recv_nums().need_ack() { return writer; }
         writer.conn.recv_nums_mut().sort();
@@ -160,7 +163,6 @@ impl<S> QUICStream<S> {
             }
             self.crypto_offset += chunk.len();
         }
-        self.timeout.reset_write();
         QUICPacketWrite {
             packet: QUICPacket::new_long(typ, self.seq, pd_len, self.dcid.as_ref(), &self.token),
             frames,
@@ -173,11 +175,12 @@ impl<S> QUICStream<S> {
             addr: &self.addr,
             #[cfg(feature = "aync")]
             timeout: &mut self.timeout,
+            #[cfg(feature = "aync")]
+            timeout_reset: false,
         }
     }
 
     pub fn read_next_packet(&mut self) -> QUICPacketRead<'_, S> {
-        self.timeout.reset_read();
         QUICPacketRead {
             socket: &mut self.socket,
             buffer: &mut self.ur_buffer,
@@ -185,6 +188,8 @@ impl<S> QUICStream<S> {
             current: self.current,
             #[cfg(feature = "aync")]
             timeout: &mut self.timeout,
+            #[cfg(feature = "aync")]
+            timeout_reset: false,
         }
     }
 
@@ -336,6 +341,8 @@ impl<S> QUICStream<S> {
             addr: &self.addr,
             #[cfg(feature = "aync")]
             timeout: &mut self.timeout,
+            #[cfg(feature = "aync")]
+            timeout_reset: false,
         }
     }
 }

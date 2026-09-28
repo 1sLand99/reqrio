@@ -3,12 +3,9 @@ use crate::stream::Stream;
 use crate::*;
 use std::io::{ErrorKind, Read};
 #[cfg(feature = "aync")]
-use std::pin::Pin;
-#[cfg(feature = "aync")]
-use std::task::{Context, Poll};
+use std::{pin::Pin, task::{Context, Poll}};
 #[cfg(feature = "aync")]
 use tokio::io::{AsyncRead, ReadBuf};
-
 
 #[must_use = "streams do nothing unless `.wait()/.await`"]
 pub struct BufReading<'a, S> {
@@ -17,6 +14,8 @@ pub struct BufReading<'a, S> {
     pub(crate) want_size: usize,
     #[cfg(feature = "aync")]
     pub(crate) timeout: &'a mut Timeout,
+    #[cfg(feature = "aync")]
+    pub(crate) timeout_reset: bool,
 }
 
 impl<'a, S: Read> BufReading<'a, S> {
@@ -44,14 +43,17 @@ impl<'a, S: AsyncRead + Unpin> Future for BufReading<'a, S> {
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         if self.buf.len() >= self.want_size { return Poll::Ready(Ok(self.buf.len())); }
         let reading = self.get_mut();
+        if !reading.timeout_reset {
+            reading.timeout.reset_read();
+            reading.timeout_reset = true;
+        }
         debug_assert!(reading.want_size > 0 && reading.buf.len() < reading.want_size);
         reading.buf.check_move(reading.want_size)?;
         while reading.buf.len() < reading.want_size {
             let stream = Pin::new(&mut reading.stream);
             let mut buf = ReadBuf::new(reading.buf.unfilled());
             match stream.poll_read(cx, &mut buf)? {
-                Poll::Pending => {
-                    reading.timeout.read_timeout()?;
+                Poll::Pending => if reading.timeout.read_timeout(cx)?.is_pending() {
                     return Poll::Pending;
                 }
                 Poll::Ready(_) => {
@@ -83,6 +85,8 @@ impl<'a, S: Read> RecordReading<'a, S> {
                 want_size: 5,
                 #[cfg(feature = "aync")]
                 timeout: self.timeout,
+                #[cfg(feature = "aync")]
+                timeout_reset: false,
             }.wait()?;
         }
         let record_len = u16::from_be_bytes([self.buf.filled()[3], self.buf.filled()[4]]) as usize + 5;
@@ -92,6 +96,8 @@ impl<'a, S: Read> RecordReading<'a, S> {
             want_size: record_len,
             #[cfg(feature = "aync")]
             timeout: self.timeout,
+            #[cfg(feature = "aync")]
+            timeout_reset: false,
         }.wait()?;
         Ok(record_len)
     }
@@ -109,6 +115,7 @@ impl<'a, S: AsyncRead + Unpin> Future for RecordReading<'a, S> {
                 buf: record_reading.buf,
                 want_size: 5,
                 timeout: record_reading.timeout,
+                timeout_reset: false,
             };
             if Pin::new(&mut reading).poll(cx)?.is_pending() { return Poll::Pending; }
         }
@@ -119,6 +126,7 @@ impl<'a, S: AsyncRead + Unpin> Future for RecordReading<'a, S> {
             buf: record_reading.buf,
             want_size: record_len,
             timeout: record_reading.timeout,
+            timeout_reset: false,
         };
         if Pin::new(&mut reading).poll(cx)?.is_pending() { return Poll::Pending; }
         Poll::Ready(Ok(record_len))

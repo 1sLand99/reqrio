@@ -22,7 +22,8 @@ pub struct QUICPacketWrite<'a, S> {
     pub(crate) addr: &'a SocketAddr,
     #[cfg(feature = "aync")]
     pub(crate) timeout: &'a mut Timeout,
-
+    #[cfg(feature = "aync")]
+    pub(crate) timeout_reset: bool,
 }
 
 impl<'a> QUICPacketWrite<'a, std::net::UdpSocket> {
@@ -53,6 +54,10 @@ impl<'a> Future for QUICPacketWrite<'a, tokio::net::UdpSocket> {
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         if self.frames.is_empty() { return Poll::Ready(Ok(0)); }
         let writer = self.get_mut();
+        if !writer.timeout_reset {
+            writer.timeout.reset_write();
+            writer.timeout_reset = true;
+        }
         if writer.uw_buffer.is_empty() { writer.build_message()?; }
         while !writer.uw_buffer.is_empty() {
             match Pin::new(&mut writer.socket).poll_send_to(cx, writer.uw_buffer.filled(), *writer.addr)? {
@@ -61,7 +66,7 @@ impl<'a> Future for QUICPacketWrite<'a, tokio::net::UdpSocket> {
                     writer.timeout.reset_write();
                 }
                 Poll::Pending => {
-                    writer.timeout.write_timeout()?;
+                    if writer.timeout.write_timeout(cx)?.is_pending() { return Poll::Pending; }
                     return Poll::Pending;
                 }
             };

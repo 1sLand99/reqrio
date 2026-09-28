@@ -1,5 +1,4 @@
 use crate::error::HlsResult;
-#[cfg(feature = "aync")]
 use crate::Timeout;
 use super::connect::{ConnState, TlsConnecting};
 use reqtls::*;
@@ -28,12 +27,12 @@ pub struct TlsStream<S> {
     shutdown_wrote: bool,
     #[cfg(feature = "aync")]
     write_offset: usize,
-    #[cfg(feature = "aync")]
+    #[allow(unused)]
     pub(super) timeout: Timeout,
 }
 
 impl<S> TlsStream<S> {
-    pub(crate) fn new(conn: Connection, stream: S) -> TlsStream<S> {
+    pub(crate) fn new(conn: Connection, stream: S, timeout: Timeout) -> TlsStream<S> {
         TlsStream {
             conn,
             stream,
@@ -46,46 +45,47 @@ impl<S> TlsStream<S> {
             shutdown_wrote: false,
             #[cfg(feature = "aync")]
             write_offset: 0,
-            #[cfg(feature = "aync")]
-            timeout: Timeout::longer(),
+            timeout,
         }
     }
 
-    pub fn connect(mut config: ClientConfig<'_>, stream: S) -> TlsConnecting<'_, S> {
+    pub fn connect(mut config: ClientConfig<'_>, stream: S, timeout: Timeout) -> TlsConnecting<'_, S> {
         let session = config.session.as_ref().cloned().unwrap_or_default();
         let conn = Connection::new_client(session, mem::take(&mut config.key_log), false)
             .with_verify(config.verify).with_mtls(!config.client_cert.is_empty());
         TlsConnecting {
             sent_client_hello: false,
-            state: ConnState::Connecting(Box::new(TlsStream::new(conn, stream))),
+            state: ConnState::Connecting(Box::new(TlsStream::new(conn, stream, timeout))),
             config: Config::Client(config),
             app_buf: Writer::with_capacity(16384),
+            #[cfg(feature = "aync")]
+            timeout_reset: false,
         }
     }
 
     pub fn accept(stream: S, config: ServerConfig<'_>) -> TlsConnecting<'_, S> {
         TlsConnecting {
             sent_client_hello: true,
-            state: ConnState::Connecting(Box::new(TlsStream::new(Connection::default().with_verify(config.verify), stream))),
+            state: ConnState::Connecting(Box::new(TlsStream::new(Connection::default().with_verify(config.verify), stream, Timeout::longer()))),
             config: Config::Server(config),
             app_buf: Writer::with_capacity(16384),
+            #[cfg(feature = "aync")]
+            timeout_reset: false,
         }
     }
 
     pub(super) fn write_buffer(&mut self) -> BufWriting<'_, S> {
-        #[cfg(feature = "aync")]
-        self.timeout.reset_write();
         BufWriting {
             stream: &mut self.stream,
             buf: &mut self.write_buffer,
             #[cfg(feature = "aync")]
             timeout: &mut self.timeout,
+            #[cfg(feature = "aync")]
+            timeout_reset: false,
         }
     }
 
     pub(super) fn read_next_record(&mut self) -> RecordReading<'_, S> {
-        #[cfg(feature = "aync")]
-        self.timeout.reset_read();
         RecordReading {
             stream: &mut self.stream,
             buf: &mut self.read_buffer,

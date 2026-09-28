@@ -1,18 +1,27 @@
-use std::time::{Duration, Instant};
-use crate::json::JsonValue;
 use crate::error::HlsError;
+use crate::json::JsonValue;
+#[cfg(feature = "aync")]
+use std::pin::Pin;
+#[cfg(feature = "aync")]
+use std::task::{Context, Poll};
+use std::time::Duration;
+#[cfg(feature = "aync")]
+use tokio::time::Sleep;
+#[cfg(feature = "aync")]
 use crate::TimeError;
 
-#[derive(Clone)]
 pub struct Timeout {
     //连接超时
-    connect_time: Instant,
+    #[cfg(feature = "aync")]
+    connect_time: Option<Pin<Box<Sleep>>>,
     connect_timeout: Duration,
     //读取超时，单次
-    read_time: Instant,
+    #[cfg(feature = "aync")]
+    read_time: Option<Pin<Box<Sleep>>>,
     read_timeout: Duration,
     //写出超时，单次
-    write_time: Instant,
+    #[cfg(feature = "aync")]
+    write_time: Option<Pin<Box<Sleep>>>,
     write_timeout: Duration,
     //处理超时，总超时
     handle: Duration,
@@ -31,11 +40,14 @@ impl Default for Timeout {
 impl Timeout {
     pub fn new_same(timeout: u64, handles: i32) -> Timeout {
         Timeout {
-            connect_time: Instant::now(),
+            #[cfg(feature = "aync")]
+            connect_time: None,
             connect_timeout: Duration::from_millis(timeout),
-            read_time: Instant::now(),
+            #[cfg(feature = "aync")]
+            read_time: None,
             read_timeout: Duration::from_millis(timeout),
-            write_time: Instant::now(),
+            #[cfg(feature = "aync")]
+            write_time: None,
             write_timeout: Duration::from_millis(timeout),
             handle: Duration::from_millis(timeout),
             connect_times: handles,
@@ -102,53 +114,87 @@ impl Timeout {
         self.connect_times = handle_times;
     }
 
-    pub fn read_timeout(&self) -> Result<(), TimeError> {
-        match self.read_time.elapsed() > self.read_timeout {
-            true => Err(TimeError::ReadTimeout),
-            false => Ok(())
+    #[cfg(feature = "aync")]
+    pub fn read_timeout(&mut self, cx: &mut Context) -> Poll<Result<(), TimeError>> {
+        let Some(read_time) = self.read_time.as_mut() else { return Poll::Pending };
+        match read_time.as_mut().poll(cx) {
+            Poll::Ready(_) => Poll::Ready(Err(TimeError::ReadTimeout)),
+            Poll::Pending => Poll::Pending
         }
     }
 
-    pub fn write_timeout(&self) -> Result<(), TimeError> {
-        match self.write_time.elapsed() > self.write_timeout {
-            true => Err(TimeError::ReadTimeout),
-            false => Ok(())
+    #[cfg(feature = "aync")]
+    pub fn write_timeout(&mut self, cx: &mut Context) -> Poll<Result<(), TimeError>> {
+        let Some(write_time) = self.write_time.as_mut() else { return Poll::Pending };
+        match write_time.as_mut().poll(cx) {
+            Poll::Ready(_) => Poll::Ready(Err(TimeError::WriteTimeout)),
+            Poll::Pending => Poll::Pending
         }
     }
 
-    pub fn connect_timeout(&self) -> Result<(), TimeError> {
-        match self.connect_time.elapsed() > self.connect_timeout {
-            true => Err(TimeError::ConnectTimeout),
-            false => Ok(())
+    #[cfg(feature = "aync")]
+    pub fn connect_timeout(&mut self, cx: &mut Context) -> Poll<Result<(), TimeError>> {
+        let Some(connect_time) = self.connect_time.as_mut() else { return Poll::Pending };
+        match connect_time.as_mut().poll(cx) {
+            Poll::Ready(_) => Poll::Ready(Err(TimeError::ConnectTimeout)),
+            Poll::Pending => Poll::Pending
         }
     }
 
+    #[cfg(feature = "aync")]
     pub fn reset_read(&mut self) {
-        self.read_time = Instant::now();
+        self.read_time = Some(Box::pin(tokio::time::sleep(self.read_timeout)));
     }
 
+    #[cfg(feature = "aync")]
     pub fn reset_write(&mut self) {
-        self.write_time = Instant::now();
+        self.write_time = Some(Box::pin(tokio::time::sleep(self.write_timeout)));
     }
 
+    #[cfg(feature = "aync")]
     pub fn reset_connect(&mut self) {
-        self.connect_time = Instant::now();
+        self.connect_time = Some(Box::pin(tokio::time::sleep(self.connect_timeout)));
     }
 }
 
 impl TryFrom<JsonValue> for Timeout {
     type Error = HlsError;
     fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
+        let connect = Duration::from_millis(value["connect"].as_u64()?);
+        let read = Duration::from_millis(value["read"].as_u64()?);
+        let write = Duration::from_millis(value["write"].as_u64()?);
         Ok(Timeout {
-            connect_time: Instant::now(),
-            connect_timeout: Duration::from_millis(value["connect"].as_u64()?),
-            read_time: Instant::now(),
-            read_timeout: Duration::from_millis(value["read"].as_u64()?),
-            write_time: Instant::now(),
-            write_timeout: Duration::from_millis(value["write"].as_u64()?),
+            #[cfg(feature = "aync")]
+            connect_time: None,
+            connect_timeout: connect,
+            #[cfg(feature = "aync")]
+            read_time: None,
+            read_timeout: read,
+            #[cfg(feature = "aync")]
+            write_time: None,
+            write_timeout: write,
             handle: Duration::from_millis(value["handle"].as_u64()?),
             connect_times: value["connect_times"].as_i32()?,
             handle_times: value["handle_times"].as_i32()?,
         })
+    }
+}
+
+impl Clone for Timeout {
+    fn clone(&self) -> Self {
+        Timeout {
+            #[cfg(feature = "aync")]
+            connect_time: None,
+            connect_timeout: self.connect_timeout,
+            #[cfg(feature = "aync")]
+            read_time: None,
+            read_timeout: self.read_timeout,
+            #[cfg(feature = "aync")]
+            write_time: None,
+            write_timeout: self.write_timeout,
+            handle: self.handle,
+            connect_times: self.connect_times,
+            handle_times: self.handle_times,
+        }
     }
 }
